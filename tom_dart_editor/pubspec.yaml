@@ -1,0 +1,27 @@
+name: tom_dart_editor
+description: A Flutter widget for editing and analyzing Dart code with syntax highlighting, code completion, error display, and comprehensive theming support.
+version: 0.1.0
+repository: https://github.com/dart-lang/sdk/tree/main/tom_editors/tom_dart_editor
+
+environment:
+  sdk: ^3.0.0
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # Dart analyzer for code analysis and syntax highlighting
+  # Note: Uses some internal APIs for summary-based analysis (mobile/web support).
+  # For desktop-only usage, consider using AnalysisContextCollection (public API).
+  analyzer: ^10.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  # This package does not include any assets by default.
+  # Host applications should provide their own SDK/package summary files
+  # if using the SummaryBasedAnalyzer.

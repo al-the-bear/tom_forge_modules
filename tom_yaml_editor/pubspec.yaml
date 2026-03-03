@@ -1,0 +1,31 @@
+name: tom_yaml_editor
+description: >-
+  A non-destructive, schema-aware YAML editor Flutter widget with convention-based
+  embedded editors. Detects key suffixes like -dart, -markdown, -regex to embed
+  specialized editors inline. Fully customizable theming and features.
+version: 0.1.0
+repository: https://github.com/dart-lang/sdk/tree/main/tom_editors/tom_yaml_editor
+
+environment:
+  sdk: ^3.0.0
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Shared editor foundation (undo, validation, tree, text editor)
+  tom_editors_shared:
+    path: ../tom_editors_shared
+
+  # YAML parsing — preserves comments and formatting for non-destructive editing
+  yaml: ^3.1.0
+  yaml_edit: ^2.2.4
+
+  # JSON Schema validation for schema-aware editing
+  # (We implement our own lightweight schema walker; no heavy dependency needed)
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0

@@ -1,0 +1,267 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Workflow Configuration",
+  "description": "A complex schema demonstrating nested maps, lists of objects, and mixed editors.",
+  "type": "object",
+  "properties": {
+    "workflow": {
+      "type": "object",
+      "description": "Top-level workflow definition.",
+      "properties": {
+        "meta-data": {
+          "type": "object",
+          "description": "Metadata about this workflow.",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Human-readable workflow name."
+            },
+            "id": {
+              "type": "string",
+              "description": "Unique identifier.",
+              "pattern": "^[a-z][a-z0-9_-]*$"
+            },
+            "version": {
+              "type": "integer",
+              "description": "Version number.",
+              "minimum": 1
+            },
+            "description-markdown": {
+              "type": "string",
+              "description": "Markdown-formatted description.",
+              "x-editor-type": "markdown"
+            },
+            "author": {
+              "type": "string",
+              "description": "Author name."
+            },
+            "tags": {
+              "type": "array",
+              "description": "Categorization tags.",
+              "items": { "type": "string" }
+            },
+            "enabled": {
+              "type": "boolean",
+              "description": "Whether this workflow is active.",
+              "default": true
+            },
+            "priority": {
+              "type": "integer",
+              "description": "Execution priority (1=highest).",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            },
+            "accent-color": {
+              "type": "string",
+              "description": "UI accent color for this workflow.",
+              "x-editor-type": "color",
+              "pattern": "^[0-9A-Fa-f]{3,8}$"
+            }
+          },
+          "required": ["name", "id"],
+          "additionalProperties": false
+        },
+        "environment": {
+          "type": "object",
+          "description": "Runtime environment configuration.",
+          "properties": {
+            "runtime": {
+              "type": "string",
+              "description": "Target runtime.",
+              "enum": ["dart", "node", "python", "shell"]
+            },
+            "timeout-seconds": {
+              "type": "integer",
+              "description": "Execution timeout in seconds.",
+              "minimum": 1,
+              "default": 60
+            },
+            "retries": {
+              "type": "integer",
+              "description": "Number of retry attempts.",
+              "minimum": 0,
+              "default": 0
+            },
+            "verbose": {
+              "type": "boolean",
+              "description": "Enable verbose logging.",
+              "default": false
+            },
+            "working-directory": {
+              "type": "string",
+              "description": "Working directory path."
+            },
+            "env-vars": {
+              "type": "object",
+              "description": "Environment variables.",
+              "additionalProperties": { "type": "string" }
+            }
+          },
+          "additionalProperties": false
+        },
+        "steps": {
+          "type": "array",
+          "description": "Ordered list of workflow steps.",
+          "items": {
+            "type": "object",
+            "description": "A single workflow step.",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Step display name."
+              },
+              "id": {
+                "type": "string",
+                "description": "Unique step ID."
+              },
+              "type": {
+                "type": "string",
+                "description": "Step type.",
+                "enum": ["script", "transform", "validate", "notify", "branch"]
+              },
+              "enabled": {
+                "type": "boolean",
+                "description": "Whether this step is active.",
+                "default": true
+              },
+              "script-dart": {
+                "type": "string",
+                "description": "Dart code to execute.",
+                "x-editor-type": "dart"
+              },
+              "config-json": {
+                "type": "string",
+                "description": "Step configuration as JSON.",
+                "x-editor-type": "json"
+              },
+              "filter-regex": {
+                "type": "string",
+                "description": "Input filter pattern.",
+                "x-editor-type": "regex"
+              },
+              "template-markdown": {
+                "type": "string",
+                "description": "Output template.",
+                "x-editor-type": "markdown"
+              },
+              "depends-on": {
+                "type": "array",
+                "description": "Step IDs this step depends on.",
+                "items": { "type": "string" }
+              },
+              "on-error": {
+                "type": "string",
+                "description": "Error handling strategy.",
+                "enum": ["stop", "continue", "retry", "skip"]
+              },
+              "max-duration": {
+                "type": "integer",
+                "description": "Max duration in seconds for this step.",
+                "minimum": 1
+              }
+            },
+            "required": ["name", "id", "type"],
+            "additionalProperties": false
+          }
+        },
+        "notifications": {
+          "type": "array",
+          "description": "Notification rules triggered by workflow events.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "event": {
+                "type": "string",
+                "description": "Triggering event.",
+                "enum": ["on-start", "on-success", "on-failure", "on-complete"]
+              },
+              "channel": {
+                "type": "string",
+                "description": "Notification channel.",
+                "enum": ["email", "slack", "telegram", "webhook"]
+              },
+              "recipient": {
+                "type": "string",
+                "description": "Recipient address or endpoint."
+              },
+              "template-markdown": {
+                "type": "string",
+                "description": "Notification message template.",
+                "x-editor-type": "markdown"
+              },
+              "enabled": {
+                "type": "boolean",
+                "default": true
+              }
+            },
+            "required": ["event", "channel", "recipient"],
+            "additionalProperties": false
+          }
+        },
+        "output": {
+          "type": "object",
+          "description": "Output configuration.",
+          "properties": {
+            "format": {
+              "type": "string",
+              "description": "Output format.",
+              "enum": ["json", "yaml", "csv", "markdown", "html"]
+            },
+            "destination": {
+              "type": "string",
+              "description": "Output file or endpoint path."
+            },
+            "template-markdown": {
+              "type": "string",
+              "description": "Output template.",
+              "x-editor-type": "markdown"
+            },
+            "include-metadata": {
+              "type": "boolean",
+              "description": "Include execution metadata in output.",
+              "default": true
+            },
+            "compression": {
+              "type": "boolean",
+              "description": "Compress output.",
+              "default": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "schedule": {
+          "type": "object",
+          "description": "Scheduling configuration.",
+          "properties": {
+            "cron": {
+              "type": "string",
+              "description": "Cron expression for recurring execution."
+            },
+            "timezone": {
+              "type": "string",
+              "description": "IANA timezone string.",
+              "default": "UTC"
+            },
+            "enabled": {
+              "type": "boolean",
+              "description": "Whether scheduling is active.",
+              "default": false
+            },
+            "max-concurrent": {
+              "type": "integer",
+              "description": "Max concurrent executions.",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": ["meta-data", "steps"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["workflow"],
+  "additionalProperties": false
+}

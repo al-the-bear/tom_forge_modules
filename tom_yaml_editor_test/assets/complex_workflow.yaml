@@ -1,0 +1,254 @@
+# Complex Workflow Configuration
+workflow:
+  meta-data:
+    name: Data Processing Pipeline
+    id: data-pipeline-v2
+    version: 3
+    description-markdown: |
+      # Data Processing Pipeline v2
+
+      This workflow **processes** raw data through multiple transformation
+      steps, applies validation rules, and generates formatted output.
+
+      ## Features
+      - Multi-step processing with dependency ordering
+      - Configurable error handling per step
+      - Scheduled execution via cron
+      - Notifications on success/failure
+    author: Tom AI Team
+    tags:
+      - data-processing
+      - pipeline
+      - production
+      - etl
+    enabled: true
+    priority: 10
+    accent-color: "2196F3"
+
+  environment:
+    runtime: dart
+    timeout-seconds: 300
+    retries: 2
+    verbose: false
+    working-directory: /workspace/pipelines
+    env-vars:
+      API_KEY: sk-secret-key-placeholder
+      DB_HOST: prod-db.example.com
+      LOG_LEVEL: info
+
+  steps:
+    - name: Fetch Input Data
+      id: fetch-data
+      type: script
+      enabled: true
+      script-dart: |
+        import 'dart:io';
+        import 'dart:convert';
+
+        Future<void> main() async {
+          var client = HttpClient();
+          try {
+            var request = await client.getUrl(
+              Uri.parse(Platform.environment['API_ENDPOINT']!),
+            );
+            var response = await request.close();
+            var body = await response.transform(utf8.decoder).join();
+            var data = jsonDecode(body) as Map<String, dynamic>;
+            print('Fetched ${data.length} records');
+          } finally {
+            client.close();
+          }
+        }
+      config-json: |
+        {
+          "endpoint": "https://api.example.com/data",
+          "headers": {
+            "Authorization": "Bearer {{API_KEY}}",
+            "Accept": "application/json"
+          },
+          "pagination": {
+            "enabled": true,
+            "pageSize": 100,
+            "maxPages": 50
+          }
+        }
+      on-error: retry
+      max-duration: 120
+
+    - name: Validate Schema
+      id: validate-schema
+      type: validate
+      enabled: true
+      depends-on:
+        - fetch-data
+      filter-regex: "^\\{.*\\}$"
+      config-json: |
+        {
+          "strict": true,
+          "allowExtraFields": false,
+          "requiredFields": ["id", "name", "timestamp", "payload"]
+        }
+      on-error: stop
+      max-duration: 30
+
+    - name: Transform Records
+      id: transform
+      type: transform
+      enabled: true
+      depends-on:
+        - validate-schema
+      script-dart: |
+        void main() {
+          // Transform each record:
+          // 1. Normalize field names
+          // 2. Convert timestamps to UTC
+          // 3. Flatten nested structures
+          // 4. Apply business rules
+          print('Transforming records...');
+        }
+      template-markdown: |
+        ## Transformation Report
+
+        | Field | Before | After |
+        |-------|--------|-------|
+        {{#each transformations}}
+        | {{field}} | {{before}} | {{after}} |
+        {{/each}}
+      on-error: continue
+
+    - name: Enrich Data
+      id: enrich
+      type: script
+      enabled: true
+      depends-on:
+        - transform
+      script-dart: |
+        void main() {
+          // Enrich records with external data
+          // - Geocoding for addresses
+          // - Currency conversion
+          // - Sentiment analysis on text fields
+          print('Enriching data...');
+        }
+      config-json: |
+        {
+          "enrichments": [
+            {"type": "geocode", "field": "address"},
+            {"type": "currency", "field": "amount", "target": "USD"},
+            {"type": "sentiment", "field": "description"}
+          ]
+        }
+      on-error: continue
+      max-duration: 180
+
+    - name: Quality Check
+      id: quality-check
+      type: validate
+      enabled: true
+      depends-on:
+        - enrich
+      filter-regex: "completeness|accuracy|consistency"
+      config-json: |
+        {
+          "rules": {
+            "completeness": {"threshold": 0.95},
+            "accuracy": {"threshold": 0.99},
+            "consistency": {"checkDuplicates": true}
+          }
+        }
+      on-error: stop
+
+    - name: Generate Report
+      id: report
+      type: transform
+      enabled: true
+      depends-on:
+        - quality-check
+      template-markdown: |
+        # Pipeline Execution Report
+
+        **Run Date:** {{date}}
+        **Status:** {{status}}
+
+        ## Summary
+        - Records processed: {{totalRecords}}
+        - Records passed: {{passedRecords}}
+        - Records failed: {{failedRecords}}
+
+        ## Details
+        {{#if errors}}
+        ### Errors
+        {{#each errors}}
+        - **{{path}}**: {{message}}
+        {{/each}}
+        {{/if}}
+      on-error: skip
+
+    - name: Route Output
+      id: route
+      type: branch
+      enabled: true
+      depends-on:
+        - report
+      config-json: |
+        {
+          "conditions": [
+            {"if": "status == 'success'", "then": "publish"},
+            {"if": "status == 'partial'", "then": "review-queue"},
+            {"default": "error-handler"}
+          ]
+        }
+      on-error: stop
+
+  notifications:
+    - event: on-start
+      channel: slack
+      recipient: "#data-pipeline"
+      template-markdown: |
+        :rocket: **Pipeline Started**
+        Workflow: {{workflow.name}} v{{workflow.version}}
+      enabled: true
+
+    - event: on-success
+      channel: email
+      recipient: team@example.com
+      template-markdown: |
+        ## Pipeline Completed Successfully
+
+        **Records Processed:** {{stats.total}}
+        **Duration:** {{stats.duration}}s
+      enabled: true
+
+    - event: on-failure
+      channel: telegram
+      recipient: "@oncall-engineer"
+      template-markdown: |
+        :warning: **Pipeline Failed**
+
+        **Step:** {{error.step}}
+        **Error:** {{error.message}}
+
+        [View Logs]({{logUrl}})
+      enabled: true
+
+    - event: on-complete
+      channel: webhook
+      recipient: https://hooks.example.com/pipeline-status
+      enabled: false
+
+  output:
+    format: json
+    destination: /output/pipeline-results.json
+    template-markdown: |
+      # Output Summary
+
+      The pipeline produced **{{recordCount}}** records
+      in {{format}} format at `{{destination}}`.
+    include-metadata: true
+    compression: false
+
+  schedule:
+    cron: "0 2 * * *"
+    timezone: America/New_York
+    enabled: true
+    max-concurrent: 1

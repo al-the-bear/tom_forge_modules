@@ -1,0 +1,89 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Prompt Configuration",
+  "description": "A schema for prompt configuration YAML files.",
+  "type": "object",
+  "properties": {
+    "prompt": {
+      "type": "object",
+      "description": "Top-level prompt definition.",
+      "properties": {
+        "meta-data": {
+          "type": "object",
+          "description": "Metadata about this prompt.",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Human-readable name for this prompt."
+            },
+            "id": {
+              "type": "string",
+              "description": "Unique identifier for this prompt.",
+              "pattern": "^[a-z][a-z0-9_-]*$"
+            },
+            "version": {
+              "type": "integer",
+              "description": "Version number.",
+              "minimum": 1
+            },
+            "description-markdown": {
+              "type": "string",
+              "description": "Markdown-formatted description.",
+              "x-editor-type": "markdown"
+            }
+          },
+          "required": ["name", "id"],
+          "additionalProperties": false
+        },
+        "script-dart": {
+          "type": "string",
+          "description": "Dart script to execute.",
+          "x-editor-type": "dart"
+        },
+        "template-markdown": {
+          "type": "string",
+          "description": "Markdown template for output.",
+          "x-editor-type": "markdown"
+        },
+        "filter-regex": {
+          "type": "string",
+          "description": "A regex pattern for filtering.",
+          "x-editor-type": "regex"
+        },
+        "config-json": {
+          "type": "string",
+          "description": "JSON configuration payload.",
+          "x-editor-type": "json"
+        },
+        "highlight-color": {
+          "type": "string",
+          "description": "Hex color for syntax highlighting.",
+          "x-editor-type": "color",
+          "pattern": "^[0-9A-Fa-f]{3,8}$"
+        },
+        "execution-count": {
+          "type": "integer",
+          "description": "How many times to execute this prompt.",
+          "minimum": 0,
+          "default": 1
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "Whether this prompt is active.",
+          "default": true
+        },
+        "tags": {
+          "type": "array",
+          "description": "Tags for categorization.",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": ["meta-data", "script-dart"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["prompt"],
+  "additionalProperties": false
+}

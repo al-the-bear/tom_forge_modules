@@ -1,0 +1,254 @@
+import 'package:flutter/material.dart';
+import 'package:tom_editors_shared/tom_editors_shared.dart';
+
+import '../editors/built_in/built_in_editor_factory.dart';
+import '../editors/editor_registry.dart';
+import '../schema/schema_walker.dart';
+import '../schema/yaml_schema.dart';
+import '../yaml_editor_controller.dart';
+import '../yaml_editor_theme.dart';
+import 'key_label.dart';
+import 'node_actions.dart';
+import 'node_context_menu.dart';
+import 'yaml_tree_node_builder.dart';
+
+/// Renders one map entry in the YAML tree.
+///
+/// Layout: `KeyLabel : ValueEditor | NodeActions`
+///
+/// For container children (nested maps/lists), shows only the key + collapse
+/// toggle (the children are rendered by the tree view). For scalar values,
+/// shows the key and an inline value editor.
+///
+/// ```dart
+/// MapNodeRow(
+///   node: treeNode,
+///   controller: yamlController,
+///   editorRegistry: registry,
+///   theme: YamlEditorTheme.dark(),
+/// )
+/// ```
+class MapNodeRow extends StatefulWidget {
+  /// The tree node to render.
+  final TreeNode<YamlTreeData> node;
+
+  /// Controller for YAML document operations.
+  final YamlEditorController controller;
+
+  /// Editor registry for convention-based editors.
+  final EditorRegistry editorRegistry;
+
+  /// Schema walker for schema context.
+  final SchemaWalker? schemaWalker;
+
+  /// Theme for styling.
+  final YamlEditorTheme theme;
+
+  /// Whether the editor is read-only.
+  final bool readOnly;
+
+  /// Callback to open the subtree inspector for this node.
+  final VoidCallback? onInspect;
+
+  /// Computed key label width for alignment.
+  ///
+  /// When non-null, overrides [YamlEditorTheme.keyLabelWidth].
+  /// Typically set by the parent editor after measuring the longest key in
+  /// this node's sibling group.
+  final double? computedKeyWidth;
+
+  const MapNodeRow({
+    super.key,
+    required this.node,
+    required this.controller,
+    required this.editorRegistry,
+    this.schemaWalker,
+    this.theme = const YamlEditorTheme(),
+    this.readOnly = false,
+    this.onInspect,
+    this.computedKeyWidth,
+  });
+
+  @override
+  State<MapNodeRow> createState() => _MapNodeRowState();
+}
+
+class _MapNodeRowState extends State<MapNodeRow> {
+  bool _isHovered = false;
+
+  YamlTreeData get _data => widget.node.data;
+
+  @override
+  Widget build(BuildContext context) {
+    var counts = widget.controller.errorCountsAt(_data.path.cast<Object>());
+    var effectiveKeyWidth =
+        widget.theme.keyLabelWidth ?? widget.computedKeyWidth ?? 120.0;
+
+    return GestureDetector(
+      onSecondaryTapUp: widget.readOnly
+          ? null
+          : (details) => _showContextMenu(context, details.globalPosition),
+      child: MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 1),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Key label — width adapts to longest key in sibling group
+            SizedBox(
+              width: effectiveKeyWidth,
+              child: KeyLabel(
+                keyName: _data.key,
+                isRequired: _data.isRequired,
+                errorCount: counts.errors,
+                warningCount: counts.warnings,
+                isPropagated: _data.isContainer,
+                theme: widget.theme,
+              ),
+            ),
+
+            const SizedBox(width: 4),
+
+            // Value editor (only for scalar values)
+            if (_data.isScalar)
+              Expanded(child: _buildValueEditor())
+            else
+              Expanded(
+                child: Text(
+                  _containerSummary,
+                  style: TextStyle(
+                    fontSize: widget.theme.fonts.valueFontSize,
+                    color: widget.theme.colors.hintColor,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ),
+
+            // Node actions (on hover)
+            YamlNodeActions(
+              visible: _isHovered,
+              readOnly: widget.readOnly,
+              suggestedKeys: _data.isContainer
+                  ? widget.controller.suggestedKeys(_data.path)
+                  : [],
+              canRemove: !_data.isRequired,
+              canInspect: _data.isContainer,
+              onAdd: (key) => widget.controller.insertKey(
+                _data.path,
+                key,
+                _defaultValueFor(key),
+              ),
+              onRemove: () => widget.controller.removeKey(_data.path),
+              onInspect: widget.onInspect,
+              theme: widget.theme,
+            ),
+          ],
+        ),
+      ),
+      ),
+    );
+  }
+
+  Future<void> _showContextMenu(
+      BuildContext context, Offset globalPosition) async {
+    var suggested = widget.controller.suggestedKeys(
+      _data.path.length > 1
+          ? _data.path.sublist(0, _data.path.length - 1)
+          : _data.path,
+    );
+
+    var action = await showMapContextMenu(
+      context: context,
+      position: globalPosition,
+      theme: widget.theme,
+      suggestedKeys: suggested,
+      canRemove: !_data.isRequired,
+      canInspect: _data.isContainer,
+    );
+    if (action == null || !context.mounted) return;
+
+    switch (action) {
+      case MapContextAction.insertKeyAbove:
+      case MapContextAction.insertKeyBelow:
+        var key = await showKeySelectionMenu(
+          context: context,
+          position: globalPosition,
+          keys: suggested,
+        );
+        if (key == null) return;
+        widget.controller.insertKeyAdjacent(
+          _data.path,
+          key,
+          _defaultValueFor(key),
+          above: action == MapContextAction.insertKeyAbove,
+        );
+      case MapContextAction.removeKey:
+        widget.controller.removeKey(_data.path);
+      case MapContextAction.inspectAsYaml:
+        widget.onInspect?.call();
+    }
+  }
+
+  Widget _buildValueEditor() {
+    // 1. Check EditorRegistry for custom/suffix-based editor
+    var schemaEditorType = widget.schemaWalker?.editorTypeForKey(_data.path);
+    var resolved = widget.editorRegistry.resolve(
+      _data.key,
+      _data.path,
+      schemaEditorType: schemaEditorType,
+    );
+
+    if (resolved != null) {
+      return resolved.factory(
+        key: _data.key,
+        value: _data.value,
+        onChanged: widget.readOnly
+            ? (_) {}
+            : (v) => widget.controller.setValue(_data.path, v),
+        theme: widget.theme,
+        readOnly: widget.readOnly,
+      );
+    }
+
+    // 2. Fall back to built-in editor
+    return BuiltInEditorFactory.build(
+      value: _data.value,
+      schemaNode: _data.schemaNode,
+      onChanged: widget.readOnly
+          ? null
+          : (v) => widget.controller.setValue(_data.path, v),
+      theme: widget.theme,
+      readOnly: widget.readOnly,
+    );
+  }
+
+  String get _containerSummary {
+    var value = _data.yamlNode?.value;
+    if (value is Map) return '{${value.length} keys}';
+    if (value is List) return '[${value.length} items]';
+    return '';
+  }
+
+  Object? _defaultValueFor(String key) {
+    var childSchema = _data.schemaNode?.properties[key];
+    if (childSchema?.defaultValue != null) return childSchema!.defaultValue;
+    switch (childSchema?.type) {
+      case null:
+        return '';
+      case SchemaType.string:
+        return '';
+      case SchemaType.integer:
+        return 0;
+      case SchemaType.number:
+        return 0.0;
+      case SchemaType.boolean:
+        return false;
+      case SchemaType.object:
+        return <String, Object>{};
+      case SchemaType.array:
+        return <Object>[];
+    }
+  }
+}

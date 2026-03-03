@@ -1,0 +1,8 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  errors:
+    # Allow importing from analyzer/src/* (internal APIs required for summary-based analysis)
+    implementation_imports: ignore
+    # isSynthetic is deprecated but has no direct replacement for our use case
+    deprecated_member_use: ignore

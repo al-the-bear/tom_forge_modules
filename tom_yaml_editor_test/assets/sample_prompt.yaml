@@ -1,0 +1,31 @@
+# Sample prompt configuration
+prompt:
+  meta-data:
+    name: Hello World Prompt
+    id: hello-world
+    version: 1
+    description-markdown: |
+      # Hello World
+      This is a **sample** prompt that demonstrates
+      the YAML schema editor capabilities.
+  script-dart: |
+    void main() {
+      print('Hello, World!');
+    }
+  template-markdown: |
+    ## Output
+    The result is: {{result}}
+  filter-regex: "^hello.*"
+  config-json: |
+    {
+      "timeout": 30,
+      "retries": 3,
+      "verbose": true
+    }
+  highlight-color: "FF5733"
+  execution-count: 3
+  enabled: true
+  tags:
+    - sample
+    - demo
+    - hello-world
