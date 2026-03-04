@@ -12,12 +12,14 @@ class MarkdownEditorStub extends StatefulWidget {
   final String text;
   final ValueChanged<Object?>? onChanged;
   final YamlEditorTheme theme;
+  final bool fullUi;
 
   const MarkdownEditorStub({
     super.key,
     required this.text,
     required this.onChanged,
     required this.theme,
+    this.fullUi = false,
   });
 
   @override
@@ -51,7 +53,9 @@ class _MarkdownEditorStubState extends State<MarkdownEditorStub> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: const BoxConstraints(minHeight: 80, maxHeight: 300),
+      constraints: widget.fullUi
+          ? const BoxConstraints(minHeight: 200)
+          : const BoxConstraints(minHeight: 80, maxHeight: 300),
       decoration: BoxDecoration(
         color: const Color(0xFF1E1E1E),
         border: Border.all(color: Colors.amber.withAlpha(60)),
@@ -336,6 +340,22 @@ EditorSuffix markdownEditorSuffix() {
         text: value as String? ?? '',
         onChanged: readOnly ? null : onChanged,
         theme: theme,
+      );
+    },
+    supportsPopout: true,
+    popoutTitle: 'Markdown Editor',
+    popoutFactory: ({
+      required String key,
+      required Object? value,
+      required ValueChanged<Object?> onChanged,
+      required YamlEditorTheme theme,
+      required bool readOnly,
+    }) {
+      return MarkdownEditorStub(
+        text: value as String? ?? '',
+        onChanged: readOnly ? null : onChanged,
+        theme: theme,
+        fullUi: true,
       );
     },
   );

@@ -9,3 +9,4 @@ export 'markdown_editor_stub.dart';
 export 'regex_editor_stub.dart';
 export 'json_editor_stub.dart';
 export 'color_picker_stub.dart';
+export 'java_editor_stub.dart';

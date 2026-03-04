@@ -100,6 +100,112 @@
           },
           "additionalProperties": false
         },
+        "data-sources": {
+          "type": "array",
+          "description": "Input sources with per-source extraction and mapping rules.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "Unique source ID."
+              },
+              "name": {
+                "type": "string",
+                "description": "Human-readable source name."
+              },
+              "type": {
+                "type": "string",
+                "description": "Source type.",
+                "enum": ["api", "database", "file", "queue"]
+              },
+              "enabled": {
+                "type": "boolean",
+                "default": true
+              },
+              "connection-json": {
+                "type": "string",
+                "description": "Connection details and query parameters.",
+                "x-editor-type": "json"
+              },
+              "extraction-script-dart": {
+                "type": "string",
+                "description": "Source extraction logic in Dart.",
+                "x-editor-type": "dart"
+              },
+              "transform-script-java": {
+                "type": "string",
+                "description": "Optional source-side transform logic in Java.",
+                "x-editor-type": "java"
+              },
+              "include-regex": {
+                "type": "string",
+                "description": "Record include filter pattern.",
+                "x-editor-type": "regex"
+              },
+              "mapping-markdown": {
+                "type": "string",
+                "description": "Mapping notes and transformation contracts.",
+                "x-editor-type": "markdown"
+              },
+              "tags": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            },
+            "required": ["id", "name", "type"],
+            "additionalProperties": false
+          }
+        },
+        "quality-rules": {
+          "type": "array",
+          "description": "Quality checks evaluated on transformed records.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "severity": {
+                "type": "string",
+                "enum": ["info", "warning", "error"]
+              },
+              "enabled": {
+                "type": "boolean",
+                "default": true
+              },
+              "expression-regex": {
+                "type": "string",
+                "x-editor-type": "regex"
+              },
+              "remediation-markdown": {
+                "type": "string",
+                "x-editor-type": "markdown"
+              },
+              "checker-dart": {
+                "type": "string",
+                "x-editor-type": "dart"
+              },
+              "checker-java": {
+                "type": "string",
+                "x-editor-type": "java"
+              },
+              "config-json": {
+                "type": "string",
+                "x-editor-type": "json"
+              },
+              "applies-to": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            },
+            "required": ["id", "name", "severity"],
+            "additionalProperties": false
+          }
+        },
         "steps": {
           "type": "array",
           "description": "Ordered list of workflow steps.",
@@ -196,6 +302,64 @@
               }
             },
             "required": ["event", "channel", "recipient"],
+            "additionalProperties": false
+          }
+        },
+        "deployment-targets": {
+          "type": "array",
+          "description": "Output destinations with channel-specific post-processing.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "channel": {
+                "type": "string",
+                "enum": ["s3", "webhook", "dashboard", "archive"]
+              },
+              "endpoint": {
+                "type": "string"
+              },
+              "enabled": {
+                "type": "boolean",
+                "default": true
+              },
+              "auth-json": {
+                "type": "string",
+                "x-editor-type": "json"
+              },
+              "payload-template-markdown": {
+                "type": "string",
+                "x-editor-type": "markdown"
+              },
+              "routing-regex": {
+                "type": "string",
+                "x-editor-type": "regex"
+              },
+              "post-process-dart": {
+                "type": "string",
+                "x-editor-type": "dart"
+              },
+              "post-process-java": {
+                "type": "string",
+                "x-editor-type": "java"
+              },
+              "retries": {
+                "type": "integer",
+                "minimum": 0,
+                "default": 0
+              },
+              "timeout-seconds": {
+                "type": "integer",
+                "minimum": 1,
+                "default": 30
+              }
+            },
+            "required": ["id", "name", "channel", "endpoint"],
             "additionalProperties": false
           }
         },

@@ -1,14 +1,12 @@
 #!/bin/sh
 # This is a generated file; do not edit or check into version control.
-export "FLUTTER_ROOT=/Users/alexiskyaw/Desktop/development/flutter"
-export "FLUTTER_APPLICATION_PATH=/Users/alexiskyaw/Desktop/Code/opensource/tom_dart_sdk/tom_editors/tom_dart_editor_test"
+export "FLUTTER_ROOT=/srv/flutter/flutter"
+export "FLUTTER_APPLICATION_PATH=/srv/repos/al_the_bear/inhouse/second_wind/enterprise_flutter/tom_agent_container/tom_forge/tom_dart_editor_test"
 export "COCOAPODS_PARALLEL_CODE_SIGN=true"
-export "FLUTTER_TARGET=/Users/alexiskyaw/Desktop/Code/opensource/tom_dart_sdk/tom_editors/tom_dart_editor_test/lib/main.dart"
 export "FLUTTER_BUILD_DIR=build"
 export "FLUTTER_BUILD_NAME=0.1.0"
 export "FLUTTER_BUILD_NUMBER=0.1.0"
-export "DART_DEFINES=RkxVVFRFUl9WRVJTSU9OPTMuMzguOQ==,RkxVVFRFUl9DSEFOTkVMPXN0YWJsZQ==,RkxVVFRFUl9HSVRfVVJMPWh0dHBzOi8vZ2l0aHViLmNvbS9mbHV0dGVyL2ZsdXR0ZXIuZ2l0,RkxVVFRFUl9GUkFNRVdPUktfUkVWSVNJT049NjczMjNkZTI4NQ==,RkxVVFRFUl9FTkdJTkVfUkVWSVNJT049NTg3YzE4Zjg3Mw==,RkxVVFRFUl9EQVJUX1ZFUlNJT049My4xMC44"
 export "DART_OBFUSCATION=false"
 export "TRACK_WIDGET_CREATION=true"
 export "TREE_SHAKE_ICONS=false"
-export "PACKAGE_CONFIG=/Users/alexiskyaw/Desktop/Code/opensource/tom_dart_sdk/tom_editors/tom_dart_editor_test/.dart_tool/package_config.json"
+export "PACKAGE_CONFIG=.dart_tool/package_config.json"

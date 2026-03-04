@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart';
 
 import '../editors/built_in/built_in_editor_factory.dart';
+import '../editors/editor_popout_shell.dart';
 import '../editors/editor_registry.dart';
 import '../schema/schema_walker.dart';
 import '../schema/yaml_schema.dart';
@@ -89,70 +90,72 @@ class _MapNodeRowState extends State<MapNodeRow> {
           ? null
           : (details) => _showContextMenu(context, details.globalPosition),
       child: MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 1),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // Key label — width adapts to longest key in sibling group
-            SizedBox(
-              width: effectiveKeyWidth,
-              child: KeyLabel(
-                keyName: _data.key,
-                isRequired: _data.isRequired,
-                errorCount: counts.errors,
-                warningCount: counts.warnings,
-                isPropagated: _data.isContainer,
-                theme: widget.theme,
-              ),
-            ),
-
-            const SizedBox(width: 4),
-
-            // Value editor (only for scalar values)
-            if (_data.isScalar)
-              Expanded(child: _buildValueEditor())
-            else
-              Expanded(
-                child: Text(
-                  _containerSummary,
-                  style: TextStyle(
-                    fontSize: widget.theme.fonts.valueFontSize,
-                    color: widget.theme.colors.hintColor,
-                    fontStyle: FontStyle.italic,
-                  ),
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 1),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Key label — width adapts to longest key in sibling group
+              SizedBox(
+                width: effectiveKeyWidth,
+                child: KeyLabel(
+                  keyName: _data.key,
+                  isRequired: _data.isRequired,
+                  errorCount: counts.errors,
+                  warningCount: counts.warnings,
+                  isPropagated: _data.isContainer,
+                  theme: widget.theme,
                 ),
               ),
 
-            // Node actions (on hover)
-            YamlNodeActions(
-              visible: _isHovered,
-              readOnly: widget.readOnly,
-              suggestedKeys: _data.isContainer
-                  ? widget.controller.suggestedKeys(_data.path)
-                  : [],
-              canRemove: !_data.isRequired,
-              canInspect: _data.isContainer,
-              onAdd: (key) => widget.controller.insertKey(
-                _data.path,
-                key,
-                _defaultValueFor(key),
+              const SizedBox(width: 4),
+
+              // Value editor (only for scalar values)
+              if (_data.isScalar)
+                Expanded(child: _buildValueEditor())
+              else
+                Expanded(
+                  child: Text(
+                    _containerSummary,
+                    style: TextStyle(
+                      fontSize: widget.theme.fonts.valueFontSize,
+                      color: widget.theme.colors.hintColor,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+
+              // Node actions (on hover)
+              YamlNodeActions(
+                visible: _isHovered,
+                readOnly: widget.readOnly,
+                suggestedKeys: _data.isContainer
+                    ? widget.controller.suggestedKeys(_data.path)
+                    : [],
+                canRemove: !_data.isRequired,
+                canInspect: _data.isContainer,
+                onAdd: (key) => widget.controller.insertKey(
+                  _data.path,
+                  key,
+                  _defaultValueFor(key),
+                ),
+                onRemove: () => widget.controller.removeKey(_data.path),
+                onInspect: widget.onInspect,
+                theme: widget.theme,
               ),
-              onRemove: () => widget.controller.removeKey(_data.path),
-              onInspect: widget.onInspect,
-              theme: widget.theme,
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
 
   Future<void> _showContextMenu(
-      BuildContext context, Offset globalPosition) async {
+    BuildContext context,
+    Offset globalPosition,
+  ) async {
     var suggested = widget.controller.suggestedKeys(
       _data.path.length > 1
           ? _data.path.sublist(0, _data.path.length - 1)
@@ -201,7 +204,7 @@ class _MapNodeRowState extends State<MapNodeRow> {
     );
 
     if (resolved != null) {
-      return resolved.factory(
+      var editor = resolved.factory(
         key: _data.key,
         value: _data.value,
         onChanged: widget.readOnly
@@ -210,6 +213,28 @@ class _MapNodeRowState extends State<MapNodeRow> {
         theme: widget.theme,
         readOnly: widget.readOnly,
       );
+
+      if (resolved.supportsPopout) {
+        return EditorPopoutShell(
+          theme: widget.theme,
+          title: resolved.popoutTitle ?? resolved.label,
+          embeddedEditor: editor,
+          popoutBuilder: (_) => Padding(
+            padding: const EdgeInsets.all(8),
+            child: (resolved.popoutFactory ?? resolved.factory)(
+              key: _data.key,
+              value: _data.value,
+              onChanged: widget.readOnly
+                  ? (_) {}
+                  : (v) => widget.controller.setValue(_data.path, v),
+              theme: widget.theme,
+              readOnly: widget.readOnly,
+            ),
+          ),
+        );
+      }
+
+      return editor;
     }
 
     // 2. Fall back to built-in editor

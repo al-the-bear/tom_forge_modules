@@ -64,3 +64,11 @@ export 'src/syntax_highlighter.dart'
 // Analyzer integration (uses internal analyzer APIs)
 export 'src/analyzer_with_packages.dart'
     show AnalysisDriverWithPackages, createAnalysisDriverWithPackages;
+
+// Reusable summary-backed analyzer/completion adapter
+export 'src/summary_analysis_adapter.dart'
+    show SummaryBackedDartAnalysisAdapter;
+
+// High-level editor wrapper with built-in summary-backed analysis
+export 'src/summary_backed_dart_editor.dart'
+    show SummaryBackedDartCodeEditor;

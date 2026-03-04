@@ -36,6 +36,285 @@ workflow:
       DB_HOST: prod-db.example.com
       LOG_LEVEL: info
 
+  data-sources:
+    - id: source-api-orders
+      name: Orders REST API
+      type: api
+      enabled: true
+      connection-json: |
+        {
+          "baseUrl": "https://api.example.com/v2/orders",
+          "method": "GET",
+          "headers": {
+            "Authorization": "Bearer {{API_KEY}}",
+            "Accept": "application/json"
+          },
+          "pagination": {
+            "type": "cursor",
+            "cursorField": "nextCursor",
+            "limit": 250
+          }
+        }
+      extraction-script-dart: |
+        Future<List<Map<String, dynamic>>> fetchOrders() async {
+          // Pull paginated orders from upstream API.
+          return <Map<String, dynamic>>[];
+        }
+      transform-script-java: |
+        public class OrderNormalization {
+          public String normalizeStatus(String value) {
+            return value == null ? "UNKNOWN" : value.trim().toUpperCase();
+          }
+        }
+      include-regex: "^(NEW|PROCESSING|COMPLETE)$"
+      mapping-markdown: |
+        ## Mapping Contract
+        - `orderId` -> `id`
+        - `customer.fullName` -> `customer_name`
+        - `createdAt` -> `created_at_utc`
+      tags:
+        - orders
+        - api
+        - high-volume
+
+    - id: source-db-customers
+      name: Customer PostgreSQL
+      type: database
+      enabled: true
+      connection-json: |
+        {
+          "driver": "postgres",
+          "host": "{{DB_HOST}}",
+          "port": 5432,
+          "database": "customers",
+          "query": "SELECT * FROM customers WHERE updated_at > NOW() - INTERVAL '24 HOURS'"
+        }
+      extraction-script-dart: |
+        Stream<Map<String, Object?>> streamCustomers() async* {
+          // Query changed customers since last run.
+        }
+      transform-script-java: |
+        public class CustomerCleanups {
+          public String normalizeEmail(String email) {
+            return email == null ? "" : email.trim().toLowerCase();
+          }
+        }
+      include-regex: "^[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$"
+      mapping-markdown: |
+        ### Customer Mapping
+        - Keep PII fields encrypted-at-rest.
+        - Convert nullable booleans to explicit defaults.
+        - Add `source_system: crm`.
+      tags:
+        - customers
+        - postgres
+        - pii
+
+    - id: source-s3-invoices
+      name: S3 Invoice Files
+      type: file
+      enabled: true
+      connection-json: |
+        {
+          "bucket": "finance-raw-invoices",
+          "prefix": "{{date:yyyy/MM/dd}}/",
+          "format": "csv",
+          "delimiter": ";"
+        }
+      extraction-script-dart: |
+        Future<int> importInvoiceCsvFiles() async {
+          // Read and parse invoice files from cloud storage.
+          return 0;
+        }
+      transform-script-java: |
+        public class InvoiceSanitizer {
+          public String sanitizeCurrency(String input) {
+            return input == null ? "0.00" : input.replace(",", ".");
+          }
+        }
+      include-regex: "^[A-Z]{2,4}-[0-9]{6,}$"
+      mapping-markdown: |
+        ### Invoice Parsing Notes
+        - Reject malformed invoice ids.
+        - Parse `gross_amount` as decimal(14,2).
+        - Preserve original row index in `source_row`.
+      tags:
+        - invoices
+        - files
+        - finance
+
+    - id: source-queue-events
+      name: Event Queue
+      type: queue
+      enabled: true
+      connection-json: |
+        {
+          "provider": "kafka",
+          "brokers": ["broker-1:9092", "broker-2:9092"],
+          "topic": "domain.events",
+          "groupId": "workflow-data-pipeline"
+        }
+      extraction-script-dart: |
+        Future<void> consumeEvents() async {
+          // Consume event stream and hydrate records.
+        }
+      transform-script-java: |
+        public class EventProjection {
+          public String computePartitionKey(String tenantId, String eventType) {
+            return tenantId + ":" + eventType;
+          }
+        }
+      include-regex: "^(order|customer|invoice)\\.(created|updated|deleted)$"
+      mapping-markdown: |
+        ### Event Projection
+        - Flatten payload into `event_data` object.
+        - Track source offset per partition.
+        - Keep event ordering by timestamp + offset.
+      tags:
+        - events
+        - queue
+        - near-real-time
+
+    - id: source-api-products
+      name: Product Catalog API
+      type: api
+      enabled: true
+      connection-json: |
+        {
+          "baseUrl": "https://catalog.example.com/products",
+          "method": "GET",
+          "query": {
+            "status": "active",
+            "pageSize": 500
+          }
+        }
+      extraction-script-dart: |
+        Future<List<Map<String, dynamic>>> fetchProducts() async {
+          // Pull active products for enrichment joins.
+          return <Map<String, dynamic>>[];
+        }
+      transform-script-java: |
+        public class ProductRules {
+          public boolean isPremium(String tier) {
+            return "gold".equalsIgnoreCase(tier) || "platinum".equalsIgnoreCase(tier);
+          }
+        }
+      include-regex: "^[A-Z0-9_-]{4,40}$"
+      mapping-markdown: |
+        ### Product Mapping
+        - `sku` stays primary key.
+        - Materialize `category_path` as array.
+        - Convert `price_cents` to decimal dollars.
+      tags:
+        - products
+        - api
+        - enrichment
+
+  quality-rules:
+    - id: qr-required-fields
+      name: Required Fields Present
+      severity: error
+      enabled: true
+      expression-regex: "^(id|timestamp|payload)$"
+      remediation-markdown: |
+        Missing mandatory field. Reject record and route to quarantine.
+      checker-dart: |
+        bool hasRequired(Map<String, Object?> record) {
+          return record.containsKey('id') &&
+              record.containsKey('timestamp') &&
+              record.containsKey('payload');
+        }
+      checker-java: |
+        public class RequiredFieldsRule {
+          public boolean check(java.util.Map<String, Object> row) {
+            return row.containsKey("id") && row.containsKey("timestamp") && row.containsKey("payload");
+          }
+        }
+      config-json: |
+        {
+          "strict": true,
+          "missingFieldPolicy": "reject"
+        }
+      applies-to:
+        - orders
+        - customers
+        - invoices
+
+    - id: qr-email-format
+      name: Email Format Validation
+      severity: warning
+      enabled: true
+      expression-regex: "^[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$"
+      remediation-markdown: |
+        If invalid, set `email_valid=false` and route to remediation queue.
+      checker-dart: |
+        bool isValidEmail(String value) {
+          return RegExp(r'^[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$').hasMatch(value);
+        }
+      checker-java: |
+        public class EmailRule {
+          public boolean check(String value) {
+            return value != null && value.matches("^[a-z0-9._%+-]+@[a-z0-9.-]+\\\\.[a-z]{2,}$");
+          }
+        }
+      config-json: |
+        {
+          "normalizeBeforeCheck": true,
+          "allowCorporateAliases": true
+        }
+      applies-to:
+        - customers
+
+    - id: qr-non-negative-amount
+      name: Amount Must Be Non-Negative
+      severity: error
+      enabled: true
+      expression-regex: "^[0-9]+(\\.[0-9]{1,2})?$"
+      remediation-markdown: |
+        Negative amounts are blocked. Create incident ticket automatically.
+      checker-dart: |
+        bool nonNegative(num value) => value >= 0;
+      checker-java: |
+        public class AmountRule {
+          public boolean check(java.math.BigDecimal value) {
+            return value.compareTo(java.math.BigDecimal.ZERO) >= 0;
+          }
+        }
+      config-json: |
+        {
+          "field": "amount",
+          "currencyField": "currency",
+          "enforceScale": 2
+        }
+      applies-to:
+        - invoices
+        - orders
+
+    - id: qr-unique-composite
+      name: Composite Key Uniqueness
+      severity: warning
+      enabled: true
+      expression-regex: "^[a-z0-9_-]+:[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+      remediation-markdown: |
+        Duplicate keys should be deduplicated using latest timestamp.
+      checker-dart: |
+        String makeComposite(String tenant, DateTime day) =>
+            '$tenant:${day.toIso8601String().substring(0, 10)}';
+      checker-java: |
+        public class CompositeKeyRule {
+          public String key(String tenant, java.time.LocalDate day) {
+            return tenant + ":" + day.toString();
+          }
+        }
+      config-json: |
+        {
+          "keyFields": ["tenant_id", "business_date"],
+          "resolution": "keep-latest"
+        }
+      applies-to:
+        - orders
+        - events
+
   steps:
     - name: Fetch Input Data
       id: fetch-data
@@ -235,6 +514,113 @@ workflow:
       channel: webhook
       recipient: https://hooks.example.com/pipeline-status
       enabled: false
+
+  deployment-targets:
+    - id: deploy-s3-curated
+      name: Curated S3 Bucket
+      channel: s3
+      endpoint: s3://curated-data/pipeline/v2
+      enabled: true
+      auth-json: |
+        {
+          "authType": "iam-role",
+          "role": "arn:aws:iam::123456789012:role/pipeline-writer"
+        }
+      payload-template-markdown: |
+        ## Curated Data Drop
+        - path: `{{destination}}`
+        - records: {{stats.total}}
+      routing-regex: "^(success|partial)$"
+      post-process-dart: |
+        Future<void> finalizeS3() async {
+          // Write success marker and compact partitions.
+        }
+      post-process-java: |
+        public class S3PostProcess {
+          public String markerName(String runId) { return "_SUCCESS_" + runId; }
+        }
+      retries: 3
+      timeout-seconds: 120
+
+    - id: deploy-webhook-observability
+      name: Observability Webhook
+      channel: webhook
+      endpoint: https://ops.example.com/hooks/workflow
+      enabled: true
+      auth-json: |
+        {
+          "authType": "bearer",
+          "tokenRef": "secret://ops/webhook-token"
+        }
+      payload-template-markdown: |
+        ### Workflow Status
+        - id: {{workflow.id}}
+        - status: {{status}}
+        - duration: {{stats.duration}}
+      routing-regex: "^(success|failure|partial)$"
+      post-process-dart: |
+        Map<String, Object?> decoratePayload(Map<String, Object?> payload) {
+          payload['sentAt'] = DateTime.now().toIso8601String();
+          return payload;
+        }
+      post-process-java: |
+        public class WebhookSigner {
+          public String sign(String body) { return "dummy-signature"; }
+        }
+      retries: 5
+      timeout-seconds: 30
+
+    - id: deploy-dashboard
+      name: Live Dashboard Feed
+      channel: dashboard
+      endpoint: dashboard://pipelines/data-pipeline-v2
+      enabled: true
+      auth-json: |
+        {
+          "authType": "service-account",
+          "clientId": "pipeline-dashboard-agent"
+        }
+      payload-template-markdown: |
+        # Dashboard Payload
+        - total: {{stats.total}}
+        - passed: {{stats.passed}}
+        - failed: {{stats.failed}}
+      routing-regex: "^(success|partial)$"
+      post-process-dart: |
+        Future<void> broadcastMetrics() async {
+          // Push aggregated metrics to websocket channel.
+        }
+      post-process-java: |
+        public class DashboardFormatter {
+          public String asKeyValue(String key, Object value) {
+            return key + "=" + value;
+          }
+        }
+      retries: 1
+      timeout-seconds: 20
+
+    - id: deploy-archive
+      name: Long-Term Archive
+      channel: archive
+      endpoint: archive:///mnt/archive/pipeline-v2
+      enabled: true
+      auth-json: |
+        {
+          "authType": "none"
+        }
+      payload-template-markdown: |
+        Archive package with run metadata and checksums.
+      routing-regex: "^(success|partial|failure)$"
+      post-process-dart: |
+        Future<void> createArchiveManifest() async {
+          // Build manifest.json and checksum.txt.
+        }
+      post-process-java: |
+        public class ArchiveWriter {
+          public String manifestPath(String runId) { return runId + "/manifest.json"; }
+        }
+      retries: 2
+      timeout-seconds: 180
 
   output:
     format: json

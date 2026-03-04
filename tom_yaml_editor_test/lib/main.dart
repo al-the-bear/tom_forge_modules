@@ -61,7 +61,7 @@ class _YamlEditorTestPageState extends State<YamlEditorTestPage> {
   bool _highlightErrorRows = true;
 
   // Dataset selection
-  String _activeDataset = 'prompt'; // 'prompt' or 'workflow'
+  String _activeDataset = 'workflow'; // 'prompt' or 'workflow'
 
   final List<String> _log = [];
   final ScrollController _logScrollController = ScrollController();
@@ -83,18 +83,20 @@ class _YamlEditorTestPageState extends State<YamlEditorTestPage> {
       var schemaFile = _activeDataset == 'workflow'
           ? 'assets/complex_schema.json'
           : 'assets/prompt_schema.json';
+      var yamlFile = _activeDataset == 'workflow'
+          ? 'assets/complex_workflow.yaml'
+          : 'assets/sample_prompt.yaml';
       var jsonStr = await rootBundle.loadString(schemaFile);
       var json = jsonDecode(jsonStr) as Map<String, dynamic>;
+      var yaml = await rootBundle.loadString(yamlFile);
       setState(() {
         _schema = YamlSchema.fromJson(json);
-        // Recreate controller with schema
-        var currentYaml = _controller.yamlText;
         _controller.dispose();
         _controller = YamlEditorController(
-          initialYaml: currentYaml,
+          initialYaml: yaml,
           schema: _schema,
         );
-        _addLog('Schema loaded: ${json['title'] ?? 'untitled'}');
+        _addLog('Loaded dataset "$_activeDataset"');
       });
     } catch (e) {
       _addLog('Schema load error: $e');
@@ -135,10 +137,11 @@ class _YamlEditorTestPageState extends State<YamlEditorTestPage> {
   }
 
   void _registerEditors() {
-    // Register all 5 custom editors
+    // Register all custom editors
     var colorSuffix = colorEditorSuffix();
     _registry = EditorRegistry.defaults()
         .register(dartEditorSuffix())
+        .register(javaEditorSuffix())
         .register(markdownEditorSuffix())
         .register(regexEditorSuffix())
         .register(jsonEditorSuffix())
@@ -283,10 +286,7 @@ class _YamlEditorTestPageState extends State<YamlEditorTestPage> {
         IconButton(
           icon: const Icon(Icons.restore),
           tooltip: 'Reset to default YAML',
-          onPressed: () {
-            _controller.setYaml(_defaultYaml);
-            _addLog('Reset to default');
-          },
+          onPressed: _loadSampleYaml,
         ),
         IconButton(
           icon: const Icon(Icons.speed),

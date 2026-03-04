@@ -10,13 +10,27 @@ import '../yaml_editor_theme.dart';
 /// - [onChanged]: callback when the value changes
 /// - [theme]: the parent editor's theme
 /// - [readOnly]: whether the editor is read-only
-typedef EditorFactory = Widget Function({
-  required String key,
-  required Object? value,
-  required ValueChanged<Object?> onChanged,
-  required YamlEditorTheme theme,
-  required bool readOnly,
-});
+typedef EditorFactory =
+    Widget Function({
+      required String key,
+      required Object? value,
+      required ValueChanged<Object?> onChanged,
+      required YamlEditorTheme theme,
+      required bool readOnly,
+    });
+
+/// Factory function for a full-size pop-out editor widget.
+///
+/// Uses the same contract as [EditorFactory], but is intended for larger,
+/// focused editing surfaces opened from an inline embedded editor.
+typedef PopoutEditorFactory =
+    Widget Function({
+      required String key,
+      required Object? value,
+      required ValueChanged<Object?> onChanged,
+      required YamlEditorTheme theme,
+      required bool readOnly,
+    });
 
 /// Callback to override editor resolution for specific keys.
 ///
@@ -29,11 +43,12 @@ typedef EditorFactory = Widget Function({
 ///   return null; // fall back to default
 /// };
 /// ```
-typedef EditorResolver = EditorSuffix? Function(
-  String key,
-  List<String> path,
-  String? schemaEditorType,
-);
+typedef EditorResolver =
+    EditorSuffix? Function(
+      String key,
+      List<String> path,
+      String? schemaEditorType,
+    );
 
 /// A registered editor suffix (e.g. "dart", "markdown", "regex").
 class EditorSuffix {
@@ -49,11 +64,25 @@ class EditorSuffix {
   /// Optional icon to display in the UI.
   final IconData? icon;
 
+  /// Whether this editor supports opening a full-size pop-out editor.
+  final bool supportsPopout;
+
+  /// Optional factory for the full-size pop-out editor UI.
+  ///
+  /// If omitted and [supportsPopout] is true, [factory] is reused.
+  final PopoutEditorFactory? popoutFactory;
+
+  /// Optional title shown in the pop-out header.
+  final String? popoutTitle;
+
   const EditorSuffix({
     required this.suffix,
     required this.label,
     required this.factory,
     this.icon,
+    this.supportsPopout = false,
+    this.popoutFactory,
+    this.popoutTitle,
   });
 }
 
@@ -112,10 +141,10 @@ class EditorRegistry {
   /// Returns a new registry with the editor added (immutable pattern).
   /// Use assignment: `registry = registry.register(editor);`
   EditorRegistry register(EditorSuffix editor) {
-    return EditorRegistry._withEditors(
-      {..._editors, editor.suffix: editor},
-      resolver: resolver,
-    );
+    return EditorRegistry._withEditors({
+      ..._editors,
+      editor.suffix: editor,
+    }, resolver: resolver);
   }
 
   /// Remove a registered editor suffix.
@@ -142,8 +171,11 @@ class EditorRegistry {
   /// 2. Suffix extracted from [key] looked up in the registry
   /// 3. [schemaEditorType] from JSON Schema `x-editor-type` looked up
   /// 4. Returns `null` → host uses a default scalar widget
-  EditorSuffix? resolve(String key, List<String> path,
-      {String? schemaEditorType}) {
+  EditorSuffix? resolve(
+    String key,
+    List<String> path, {
+    String? schemaEditorType,
+  }) {
     // 1. Custom resolver
     if (resolver != null) {
       var result = resolver!(key, path, schemaEditorType);

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart';
 
 import '../editors/built_in/built_in_editor_factory.dart';
+import '../editors/editor_popout_shell.dart';
 import '../editors/editor_registry.dart';
 import '../schema/schema_walker.dart';
 import '../schema/yaml_schema.dart';
@@ -77,71 +78,71 @@ class _ListNodeRowState extends State<ListNodeRow> {
           ? null
           : (details) => _showContextMenu(context, details.globalPosition),
       child: MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 1),
-        child: Row(
-          children: [
-            // Index badge
-            Container(
-              constraints: const BoxConstraints(minWidth: 24),
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-              margin: const EdgeInsets.only(right: 8),
-              decoration: BoxDecoration(
-                color: widget.theme.colors.hintColor.withAlpha(25),
-                borderRadius: BorderRadius.circular(3),
-              ),
-              child: Text(
-                _data.key,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontFamily: widget.theme.fonts.keyFontFamily,
-                  fontSize: widget.theme.fonts.keyFontSize - 1,
-                  color: widget.theme.colors.hintColor,
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 1),
+          child: Row(
+            children: [
+              // Index badge
+              Container(
+                constraints: const BoxConstraints(minWidth: 24),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                margin: const EdgeInsets.only(right: 8),
+                decoration: BoxDecoration(
+                  color: widget.theme.colors.hintColor.withAlpha(25),
+                  borderRadius: BorderRadius.circular(3),
                 ),
-              ),
-            ),
-
-            // Validation badge
-            if (widget.theme.showInlineValidation &&
-                (counts.errors > 0 || counts.warnings > 0)) ...[
-              ValidationBadge(
-                errorCount: counts.errors,
-                warningCount: counts.warnings,
-                isPropagated: _data.isContainer,
-              ),
-              const SizedBox(width: 6),
-            ],
-
-            // Value editor (only for scalar items)
-            if (_data.isScalar)
-              Expanded(child: _buildValueEditor())
-            else
-              Expanded(
                 child: Text(
-                  _containerSummary,
+                  _data.key,
+                  textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: widget.theme.fonts.valueFontSize,
+                    fontFamily: widget.theme.fonts.keyFontFamily,
+                    fontSize: widget.theme.fonts.keyFontSize - 1,
                     color: widget.theme.colors.hintColor,
-                    fontStyle: FontStyle.italic,
                   ),
                 ),
               ),
 
-            // Node actions (on hover)
-            YamlNodeActions(
-              visible: _isHovered,
-              readOnly: widget.readOnly,
-              canRemove: true,
-              canInspect: _data.isContainer,
-              onRemove: () => widget.controller.removeKey(_data.path),
-              onInspect: widget.onInspect,
-              theme: widget.theme,
-            ),
-          ],
+              // Validation badge
+              if (widget.theme.showInlineValidation &&
+                  (counts.errors > 0 || counts.warnings > 0)) ...[
+                ValidationBadge(
+                  errorCount: counts.errors,
+                  warningCount: counts.warnings,
+                  isPropagated: _data.isContainer,
+                ),
+                const SizedBox(width: 6),
+              ],
+
+              // Value editor (only for scalar items)
+              if (_data.isScalar)
+                Expanded(child: _buildValueEditor())
+              else
+                Expanded(
+                  child: Text(
+                    _containerSummary,
+                    style: TextStyle(
+                      fontSize: widget.theme.fonts.valueFontSize,
+                      color: widget.theme.colors.hintColor,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+
+              // Node actions (on hover)
+              YamlNodeActions(
+                visible: _isHovered,
+                readOnly: widget.readOnly,
+                canRemove: true,
+                canInspect: _data.isContainer,
+                onRemove: () => widget.controller.removeKey(_data.path),
+                onInspect: widget.onInspect,
+                theme: widget.theme,
+              ),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -154,7 +155,9 @@ class _ListNodeRowState extends State<ListNodeRow> {
   int get _currentIndex => int.tryParse(_data.key) ?? 0;
 
   Future<void> _showContextMenu(
-      BuildContext context, Offset globalPosition) async {
+    BuildContext context,
+    Offset globalPosition,
+  ) async {
     var parentPath = _parentListPath;
     var currentIndex = _currentIndex;
     var length = widget.controller.listLength(parentPath);
@@ -170,25 +173,36 @@ class _ListNodeRowState extends State<ListNodeRow> {
 
     switch (action) {
       case ListContextAction.moveUp:
-        widget.controller.moveListItem(parentPath, currentIndex,
-            currentIndex - 1);
+        widget.controller.moveListItem(
+          parentPath,
+          currentIndex,
+          currentIndex - 1,
+        );
       case ListContextAction.moveDown:
-        widget.controller.moveListItem(parentPath, currentIndex,
-            currentIndex + 1);
+        widget.controller.moveListItem(
+          parentPath,
+          currentIndex,
+          currentIndex + 1,
+        );
       case ListContextAction.moveToTop:
         widget.controller.moveListItem(parentPath, currentIndex, 0);
       case ListContextAction.moveToBottom:
         widget.controller.moveListItem(parentPath, currentIndex, length - 1);
       case ListContextAction.insertAbove:
         widget.controller.insertListItem(
-            parentPath, currentIndex, _defaultListItemValue());
+          parentPath,
+          currentIndex,
+          _defaultListItemValue(),
+        );
       case ListContextAction.insertBelow:
         widget.controller.insertListItem(
-            parentPath, currentIndex + 1, _defaultListItemValue());
+          parentPath,
+          currentIndex + 1,
+          _defaultListItemValue(),
+        );
       case ListContextAction.duplicate:
         var value = _data.value;
-        widget.controller.insertListItem(
-            parentPath, currentIndex + 1, value);
+        widget.controller.insertListItem(parentPath, currentIndex + 1, value);
       case ListContextAction.remove:
         widget.controller.removeKey(_data.path);
     }
@@ -234,7 +248,7 @@ class _ListNodeRowState extends State<ListNodeRow> {
     );
 
     if (resolved != null) {
-      return resolved.factory(
+      var editor = resolved.factory(
         key: parentKey,
         value: _data.value,
         onChanged: widget.readOnly
@@ -243,6 +257,28 @@ class _ListNodeRowState extends State<ListNodeRow> {
         theme: widget.theme,
         readOnly: widget.readOnly,
       );
+
+      if (resolved.supportsPopout) {
+        return EditorPopoutShell(
+          theme: widget.theme,
+          title: resolved.popoutTitle ?? resolved.label,
+          embeddedEditor: editor,
+          popoutBuilder: (_) => Padding(
+            padding: const EdgeInsets.all(8),
+            child: (resolved.popoutFactory ?? resolved.factory)(
+              key: parentKey,
+              value: _data.value,
+              onChanged: widget.readOnly
+                  ? (_) {}
+                  : (v) => widget.controller.setValue(_data.path, v),
+              theme: widget.theme,
+              readOnly: widget.readOnly,
+            ),
+          ),
+        );
+      }
+
+      return editor;
     }
 
     // Fall back to built-in editor

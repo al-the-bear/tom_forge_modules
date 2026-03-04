@@ -15,6 +15,13 @@ dependencies:
   tom_yaml_editor:
     path: ../tom_yaml_editor
 
+  # Real Dart editor used by the -dart embedded editor
+  tom_dart_editor:
+    path: ../tom_dart_editor
+
+  analyzer: ^10.0.0
+  path: ^1.9.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
