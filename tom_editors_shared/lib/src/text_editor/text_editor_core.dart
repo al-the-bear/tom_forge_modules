@@ -134,24 +134,28 @@ class _TextEditorCoreState extends State<TextEditorCore> {
 
     return Container(
       color: widget.theme.background,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Gutter (line numbers)
-          if (widget.theme.showLineNumbers) _buildGutter(lineCount),
+      child: SingleChildScrollView(
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Gutter (line numbers)
+              if (widget.theme.showLineNumbers) _buildGutter(lineCount),
 
-          // Separator
-          if (widget.theme.showLineNumbers)
-            Container(
-              width: 1,
-              color: widget.theme.gutterBorderColor,
-            ),
+              // Separator
+              if (widget.theme.showLineNumbers)
+                Container(
+                  width: 1,
+                  color: widget.theme.gutterBorderColor,
+                ),
 
-          // Main text area
-          Expanded(
-            child: _buildTextArea(),
+              // Main text area
+              Expanded(
+                child: _buildTextArea(),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -185,7 +189,7 @@ class _TextEditorCoreState extends State<TextEditorCore> {
   }
 
   Widget _buildTextArea() {
-    return SingleChildScrollView(
+    return Padding(
       padding: widget.theme.contentPadding,
       child: EditableText(
         controller: _textController,
