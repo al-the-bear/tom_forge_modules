@@ -369,10 +369,9 @@ class _ListNodeRowState extends State<ListNodeRow> {
     final maxLines = widget.theme.collapsedPreviewLines;
     if (maxLines <= 0) return _countSummary(value);
 
-    final lines = <String>[];
-    _collectPreviewLines(value, lines, maxLines);
-    if (lines.isEmpty) return _countSummary(value);
-    return lines.join('\n');
+    final tokens = _collectPreviewTokens(value);
+    if (tokens.isEmpty) return _countSummary(value);
+    return tokens.join(', ');
   }
 
   String _countSummary(Object? value) {
@@ -381,16 +380,13 @@ class _ListNodeRowState extends State<ListNodeRow> {
     return '';
   }
 
-  void _collectPreviewLines(Object? value, List<String> out, int maxLines) {
-    if (out.length >= maxLines) return;
-
+  List<String> _collectPreviewTokens(Object? value) {
+    final out = <String>[];
     if (value is Map) {
       if (value.isEmpty) {
-        out.add('{}');
-        return;
+        return ['{}'];
       }
       for (final entry in value.entries) {
-        if (out.length >= maxLines) break;
         final key = entry.key.toString();
         final child = entry.value;
         if (child is Map) {
@@ -401,15 +397,14 @@ class _ListNodeRowState extends State<ListNodeRow> {
           out.add('$key: ${_scalarPreview(child)}');
         }
       }
-      return;
+      return out;
     }
 
     if (value is List) {
       if (value.isEmpty) {
-        out.add('[]');
-        return;
+        return ['[]'];
       }
-      for (var index = 0; index < value.length && out.length < maxLines; index++) {
+      for (var index = 0; index < value.length; index++) {
         final child = value[index];
         if (child is Map) {
           out.add('- {${child.length} keys}');
@@ -419,10 +414,10 @@ class _ListNodeRowState extends State<ListNodeRow> {
           out.add('- ${_scalarPreview(child)}');
         }
       }
-      return;
+      return out;
     }
 
-    out.add(_scalarPreview(value));
+    return [_scalarPreview(value)];
   }
 
   String _scalarPreview(Object? value) {
