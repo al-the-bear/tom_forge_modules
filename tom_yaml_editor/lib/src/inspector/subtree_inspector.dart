@@ -115,6 +115,10 @@ class SubtreeInspectorState extends State<SubtreeInspector> {
         boolean: widget.theme.colors.boolColor,
         nullValue: widget.theme.colors.nullColor,
         comment: widget.theme.colors.commentColor,
+        punctuation: widget.theme.structureColors.collapseIcon,
+        colon: widget.theme.colors.warningColor,
+        dash: widget.theme.colors.boolColor,
+        bracket: widget.theme.colors.numberColor,
       ),
     );
     _initializeText();
@@ -381,13 +385,25 @@ class SubtreeInspectorState extends State<SubtreeInspector> {
     var textEditorTheme = TextEditorTheme(
       background: widget.theme.colors.background,
       textStyle: TextStyle(
-        fontFamily: widget.theme.fonts.valueFontFamily,
+        fontFamily: 'monospace',
+        fontFamilyFallback: const [
+          'JetBrains Mono',
+          'Menlo',
+          'Monaco',
+          'Courier New',
+        ],
         fontSize: widget.theme.fonts.valueFontSize,
         color: widget.theme.colors.valueColor,
         height: 1.4,
       ),
       lineNumberStyle: TextStyle(
-        fontFamily: widget.theme.fonts.valueFontFamily,
+        fontFamily: 'monospace',
+        fontFamilyFallback: const [
+          'JetBrains Mono',
+          'Menlo',
+          'Monaco',
+          'Courier New',
+        ],
         fontSize: widget.theme.fonts.valueFontSize,
         color: widget.theme.colors.hintColor,
         height: 1.4,

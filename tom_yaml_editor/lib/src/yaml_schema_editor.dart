@@ -114,12 +114,6 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
   String? _textParseError;
   List<TextMarker> _textMarkers = const [];
 
-  /// Path of the currently selected node for the YAML preview panel.
-  List<String>? _selectedPreviewPath;
-
-  /// Cached YAML text for the selected node preview.
-  String _selectedPreviewYaml = '';
-
   @override
   void initState() {
     super.initState();
@@ -130,7 +124,6 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
     _treeController = TreeController<YamlTreeData>(roots: []);
     _rebuildTree();
     widget.controller.addListener(_onControllerChanged);
-    _treeController.addListener(_onTreeSelectionChanged);
     FocusManager.instance.addListener(_onPrimaryFocusChanged);
   }
 
@@ -148,8 +141,6 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
       _persistedExpanded.clear();
       _initialExpansionCaptured = false;
       _initialTopLevelExpansionApplied = false;
-      _selectedPreviewPath = null;
-      _selectedPreviewYaml = '';
       if (!_textMode) {
         _textDraft = widget.controller.yamlText;
       }
@@ -161,99 +152,10 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
   @override
   void dispose() {
     widget.controller.removeListener(_onControllerChanged);
-    _treeController.removeListener(_onTreeSelectionChanged);
     _treeController.dispose();
     _focusNode.dispose();
     FocusManager.instance.removeListener(_onPrimaryFocusChanged);
     super.dispose();
-  }
-
-  void _onTreeSelectionChanged() {
-    final selectedId = _treeController.selectedId;
-    if (selectedId == null) {
-      if (_selectedPreviewPath != null) {
-        setState(() {
-          _selectedPreviewPath = null;
-          _selectedPreviewYaml = '';
-        });
-      }
-      return;
-    }
-
-    // The node ID is the path joined by '/'
-    final path = selectedId.split('/');
-    _updatePreviewForPath(path);
-  }
-
-  void _updatePreviewForPath(List<String> path) {
-    final yaml = _computeSubtreeYaml(path);
-    setState(() {
-      _selectedPreviewPath = path;
-      _selectedPreviewYaml = yaml;
-    });
-  }
-
-  /// Generate YAML text for a subtree at the given path.
-  ///
-  /// For the root node, returns the full document. For container nodes,
-  /// wraps the key and its subtree. For scalars, shows `key: value`.
-  String _computeSubtreeYaml(List<String> path) {
-    try {
-      final doc = widget.controller.document;
-
-      // Root node — return full document
-      if (path.isEmpty || (path.length == 1 && path.first == '(document)')) {
-        return widget.controller.yamlText;
-      }
-
-      // Get the subtree YAML
-      final objectPath = path.map<Object>((p) => int.tryParse(p) ?? p).toList();
-      final node = doc.nodeAt(objectPath);
-      if (node == null) return '# (no data at path)';
-
-      final subtreeYaml = doc.subtreeYamlAt(objectPath);
-      if (subtreeYaml == null) return '# (no data at path)';
-
-      // Build a key: value representation
-      final key = path.last;
-      final isIndex = int.tryParse(key) != null;
-
-      final value = node.value;
-      if (value is! Map && value is! List) {
-        // Scalar
-        if (isIndex) return '- $subtreeYaml';
-        return '$key: $subtreeYaml';
-      }
-
-      // For containers, show the key with its full subtree
-      if (isIndex) {
-        // List item — indent the subtree under a dash
-        final lines = subtreeYaml.split('\n');
-        final buf = StringBuffer();
-        for (var i = 0; i < lines.length; i++) {
-          if (i == 0) {
-            buf.writeln('- ${lines[i]}');
-          } else if (lines[i].isNotEmpty) {
-            buf.writeln('  ${lines[i]}');
-          } else {
-            buf.writeln('');
-          }
-        }
-        return buf.toString().trimRight();
-      }
-
-      return '$key:\n${_indentYaml(subtreeYaml, 2)}';
-    } catch (_) {
-      return '# (unable to render subtree)';
-    }
-  }
-
-  String _indentYaml(String yaml, int spaces) {
-    final prefix = ' ' * spaces;
-    return yaml
-        .split('\n')
-        .map((line) => line.isEmpty ? '' : '$prefix$line')
-        .join('\n');
   }
 
   void _onPrimaryFocusChanged() {
@@ -273,10 +175,6 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
       final preview = _computeTextDiagnostics(_textDraft);
       _textParseError = preview.parseError;
       _textMarkers = preview.markers;
-    }
-    // Refresh the preview panel if a node is selected
-    if (_selectedPreviewPath != null) {
-      _selectedPreviewYaml = _computeSubtreeYaml(_selectedPreviewPath!);
     }
     setState(() {});
     widget.onChanged?.call(widget.controller.yamlText);
@@ -545,18 +443,7 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
       ),
     );
 
-    // Combine tree + preview panel when a node is selected
-    Widget treeView;
-    if (_selectedPreviewPath != null && _selectedPreviewYaml.isNotEmpty && !_textMode) {
-      treeView = Column(
-        children: [
-          Expanded(flex: 3, child: treeWidget),
-          _buildPreviewPanel(theme),
-        ],
-      );
-    } else {
-      treeView = treeWidget;
-    }
+    var treeView = treeWidget;
 
     Widget editorContent;
     if (_textMode) {
@@ -643,114 +530,6 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
         ],
       );
     }
-  }
-
-  Widget _buildPreviewPanel(YamlEditorTheme theme) {
-    final previewTheme = TextEditorTheme(
-      background: theme.colors.surface,
-      textStyle: TextStyle(
-        fontFamily: 'monospace',
-        fontFamilyFallback: const [
-          'JetBrains Mono',
-          'Menlo',
-          'Monaco',
-          'Courier New',
-        ],
-        fontSize: (theme.fonts.valueFontSize - 1).clamp(10, 14),
-        color: theme.colors.valueColor,
-        height: 1.4,
-      ),
-      lineNumberStyle: TextStyle(
-        fontFamily: 'monospace',
-        fontFamilyFallback: const [
-          'JetBrains Mono',
-          'Menlo',
-          'Monaco',
-          'Courier New',
-        ],
-        fontSize: (theme.fonts.valueFontSize - 1).clamp(10, 14),
-        color: theme.colors.hintColor,
-        height: 1.4,
-      ),
-      gutterBackground: theme.colors.surface,
-      gutterBorderColor: theme.colors.separatorColor.withAlpha(60),
-      showLineNumbers: true,
-    );
-
-    final pathLabel = _selectedPreviewPath?.join(' > ') ?? '';
-
-    return Expanded(
-      flex: 2,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Header bar with path breadcrumb and close button
-          Container(
-            height: 28,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            decoration: BoxDecoration(
-              color: theme.colors.surface,
-              border: Border(
-                top: BorderSide(
-                  color: theme.colors.separatorColor.withAlpha(120),
-                ),
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.code, size: 13, color: theme.colors.hintColor),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    pathLabel,
-                    style: TextStyle(
-                      color: theme.colors.hintColor,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                InkWell(
-                  onTap: () => setState(() {
-                    _selectedPreviewPath = null;
-                    _selectedPreviewYaml = '';
-                    _treeController.select(null);
-                  }),
-                  child: Icon(
-                    Icons.close,
-                    size: 14,
-                    color: theme.colors.hintColor,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Syntax-highlighted YAML preview
-          Expanded(
-            child: TextEditorCore(
-              text: _selectedPreviewYaml,
-              highlighter: YamlSyntaxHighlighter(
-                colors: YamlHighlightColors(
-                  key: theme.colors.keyColor,
-                  string: theme.colors.valueColor,
-                  number: theme.colors.numberColor,
-                  boolean: theme.colors.boolColor,
-                  nullValue: theme.colors.nullColor,
-                  comment: theme.colors.commentColor,
-                  punctuation: theme.structureColors.collapseIcon,
-                  colon: theme.colors.warningColor,
-                  dash: theme.colors.boolColor,
-                  bracket: theme.colors.numberColor,
-                ),
-              ),
-              readOnly: true,
-              theme: previewTheme,
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _buildModeToolbar(YamlEditorTheme theme) {
