@@ -171,6 +171,14 @@ class _MapNodeRowState extends State<MapNodeRow> {
                 suggestedKeys: _data.isContainer
                     ? widget.controller.suggestedKeys(_data.path)
                     : [],
+                onAddItem:
+                    _data.isContainer && (_data.yamlNode?.value is List)
+                        ? () => widget.controller.appendListItem(
+                              _data.path,
+                              _defaultListItemValue(),
+                            )
+                        : null,
+                addItemTooltip: 'Add list item',
                 canRemove: !_data.isRequired,
                 canInspect: _data.isContainer,
                 onAdd: (key) => widget.controller.insertKey(
@@ -315,6 +323,27 @@ class _MapNodeRowState extends State<MapNodeRow> {
     var childSchema = _data.schemaNode?.properties[key];
     if (childSchema?.defaultValue != null) return childSchema!.defaultValue;
     switch (childSchema?.type) {
+      case null:
+        return '';
+      case SchemaType.string:
+        return '';
+      case SchemaType.integer:
+        return 0;
+      case SchemaType.number:
+        return 0.0;
+      case SchemaType.boolean:
+        return false;
+      case SchemaType.object:
+        return <String, Object>{};
+      case SchemaType.array:
+        return <Object>[];
+    }
+  }
+
+  Object? _defaultListItemValue() {
+    final itemSchema = _data.schemaNode?.items;
+    if (itemSchema?.defaultValue != null) return itemSchema!.defaultValue;
+    switch (itemSchema?.type) {
       case null:
         return '';
       case SchemaType.string:

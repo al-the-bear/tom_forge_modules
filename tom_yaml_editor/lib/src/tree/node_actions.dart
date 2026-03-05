@@ -35,6 +35,12 @@ class YamlNodeActions extends StatelessWidget {
   /// Callback when a new key is added.
   final ValueChanged<String>? onAdd;
 
+  /// Callback for direct add actions (e.g. append list item).
+  final VoidCallback? onAddItem;
+
+  /// Tooltip used for [onAddItem] action.
+  final String addItemTooltip;
+
   /// Callback when this node is removed.
   final VoidCallback? onRemove;
 
@@ -56,6 +62,8 @@ class YamlNodeActions extends StatelessWidget {
     this.canRemove = false,
     this.canInspect = false,
     this.onAdd,
+    this.onAddItem,
+    this.addItemTooltip = 'Add item',
     this.onRemove,
     this.onInspect,
     this.visible = true,
@@ -76,6 +84,16 @@ class YamlNodeActions extends StatelessWidget {
         tooltip: 'Add key',
         color: theme.structureColors.addButton,
         onPressed: () => _showAddMenu(context),
+      ));
+    }
+
+    // Add list-item button
+    if (theme.showAddButtons && onAddItem != null) {
+      actions.add(NodeAction(
+        icon: Icons.add,
+        tooltip: addItemTooltip,
+        color: theme.structureColors.addButton,
+        onPressed: onAddItem,
       ));
     }
 

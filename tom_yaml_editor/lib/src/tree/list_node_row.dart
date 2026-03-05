@@ -163,6 +163,12 @@ class _ListNodeRowState extends State<ListNodeRow> {
               YamlNodeActions(
                 visible: _isHovered,
                 readOnly: widget.readOnly,
+                onAddItem: () => widget.controller.insertListItem(
+                  _parentListPath,
+                  _currentIndex + 1,
+                  _defaultListItemValue(),
+                ),
+                addItemTooltip: 'Insert item below',
                 canRemove: true,
                 canInspect: _data.isContainer,
                 onRemove: () => widget.controller.removeKey(_data.path),
