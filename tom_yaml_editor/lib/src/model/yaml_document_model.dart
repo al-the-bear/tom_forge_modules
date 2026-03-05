@@ -202,7 +202,7 @@ class YamlDocumentModel {
     // Use yaml_edit to serialize the subtree preserving structure
     var tempEditor = YamlEditor('');
     tempEditor.update([], value);
-    return tempEditor.toString();
+    return _normalizeMultilineScalars(tempEditor.toString());
   }
 
   /// Replace the subtree at [path] with a new [yamlFragment].
