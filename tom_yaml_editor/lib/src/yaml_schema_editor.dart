@@ -127,6 +127,12 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
       _schemaWalker = widget.controller.schema != null
           ? SchemaWalker(widget.controller.schema!)
           : null;
+
+      // New controller = new document source; reset expansion bootstrap state.
+      _persistedExpanded.clear();
+      _initialExpansionCaptured = false;
+      _initialTopLevelExpansionApplied = false;
+
       _rebuildTree();
     }
   }
