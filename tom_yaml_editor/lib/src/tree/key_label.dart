@@ -41,6 +41,9 @@ class KeyLabel extends StatelessWidget {
   /// Whether to show the inline validation badge.
   final bool showValidation;
 
+  /// Whether to ellipsize long key labels.
+  final bool ellipsize;
+
   const KeyLabel({
     super.key,
     required this.keyName,
@@ -50,6 +53,7 @@ class KeyLabel extends StatelessWidget {
     this.isPropagated = false,
     this.theme = const YamlEditorTheme(),
     this.showValidation = true,
+    this.ellipsize = true,
   });
 
   @override
@@ -99,9 +103,9 @@ class KeyLabel extends StatelessWidget {
                 ),
               ],
             ),
-            maxLines: 1,
-            softWrap: false,
-            overflow: TextOverflow.ellipsis,
+            maxLines: ellipsize ? 1 : null,
+            softWrap: !ellipsize,
+            overflow: ellipsize ? TextOverflow.ellipsis : TextOverflow.visible,
           ),
         ),
 

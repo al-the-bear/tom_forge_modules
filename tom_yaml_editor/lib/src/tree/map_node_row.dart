@@ -85,6 +85,9 @@ class MapNodeRow extends StatefulWidget {
   /// this node's sibling group.
   final double? computedKeyWidth;
 
+  /// Whether this row represents the synthetic/root node.
+  final bool isRoot;
+
   const MapNodeRow({
     super.key,
     required this.node,
@@ -104,6 +107,7 @@ class MapNodeRow extends StatefulWidget {
     this.onCollapseListItems,
     this.onDoubleTapToggle,
     this.computedKeyWidth,
+    this.isRoot = false,
   });
 
   @override
@@ -119,7 +123,7 @@ class _MapNodeRowState extends State<MapNodeRow> {
   Widget build(BuildContext context) {
     var counts = widget.controller.errorCountsAt(_data.path.cast<Object>());
     var effectiveKeyWidth =
-        widget.theme.keyLabelWidth ?? widget.computedKeyWidth ?? 120.0;
+      widget.theme.keyLabelWidth ?? widget.computedKeyWidth ?? 120.0;
 
     return GestureDetector(
       onDoubleTap: widget.canExpand ? widget.onDoubleTapToggle : null,
@@ -135,17 +139,31 @@ class _MapNodeRowState extends State<MapNodeRow> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               // Key label — width adapts to longest key in sibling group
-              SizedBox(
-                width: effectiveKeyWidth,
-                child: KeyLabel(
-                  keyName: _data.key,
-                  isRequired: _data.isRequired,
-                  errorCount: counts.errors,
-                  warningCount: counts.warnings,
-                  isPropagated: _data.isContainer,
-                  theme: widget.theme,
+              if (widget.isRoot)
+                Flexible(
+                  fit: FlexFit.loose,
+                  child: KeyLabel(
+                    keyName: _data.key,
+                    isRequired: _data.isRequired,
+                    errorCount: counts.errors,
+                    warningCount: counts.warnings,
+                    isPropagated: _data.isContainer,
+                    theme: widget.theme,
+                    ellipsize: false,
+                  ),
+                )
+              else
+                SizedBox(
+                  width: effectiveKeyWidth,
+                  child: KeyLabel(
+                    keyName: _data.key,
+                    isRequired: _data.isRequired,
+                    errorCount: counts.errors,
+                    warningCount: counts.warnings,
+                    isPropagated: _data.isContainer,
+                    theme: widget.theme,
+                  ),
                 ),
-              ),
 
               const SizedBox(width: 4),
 
@@ -180,6 +198,7 @@ class _MapNodeRowState extends State<MapNodeRow> {
                         : null,
                 addItemTooltip: 'Add list item',
                 canRemove: !_data.isRequired,
+                alwaysShowRemove: true,
                 canInspect: _data.isContainer,
                 onAdd: (key) => widget.controller.insertKey(
                   _data.path,
@@ -238,22 +257,31 @@ class _MapNodeRowState extends State<MapNodeRow> {
           _defaultValueFor(key),
           above: action == MapContextAction.insertKeyAbove,
         );
+        return;
       case MapContextAction.removeKey:
         widget.controller.removeKey(_data.path);
+        return;
       case MapContextAction.inspectAsYaml:
         widget.onInspect?.call();
+        return;
       case MapContextAction.expand:
         widget.onExpand?.call();
+        return;
       case MapContextAction.collapse:
         widget.onCollapse?.call();
+        return;
       case MapContextAction.expandAll:
         widget.onExpandAll?.call();
+        return;
       case MapContextAction.collapseAll:
         widget.onCollapseAll?.call();
+        return;
       case MapContextAction.expandListItems:
         widget.onExpandListItems?.call();
+        return;
       case MapContextAction.collapseListItems:
         widget.onCollapseListItems?.call();
+        return;
     }
   }
 

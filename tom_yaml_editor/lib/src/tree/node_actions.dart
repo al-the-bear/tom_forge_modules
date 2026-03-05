@@ -29,6 +29,9 @@ class YamlNodeActions extends StatelessWidget {
   /// Whether this node can be removed.
   final bool canRemove;
 
+  /// Whether remove should stay visible even when [visible] is false.
+  final bool alwaysShowRemove;
+
   /// Whether this node can be inspected as raw YAML.
   final bool canInspect;
 
@@ -60,6 +63,7 @@ class YamlNodeActions extends StatelessWidget {
     super.key,
     this.suggestedKeys = const [],
     this.canRemove = false,
+    this.alwaysShowRemove = false,
     this.canInspect = false,
     this.onAdd,
     this.onAddItem,
@@ -76,6 +80,7 @@ class YamlNodeActions extends StatelessWidget {
     if (readOnly) return const SizedBox.shrink();
 
     var actions = <NodeAction>[];
+    NodeAction? pinnedRemoveAction;
 
     // Add button
     if (theme.showAddButtons && suggestedKeys.isNotEmpty && onAdd != null) {
@@ -99,12 +104,17 @@ class YamlNodeActions extends StatelessWidget {
 
     // Remove button
     if (theme.showRemoveButtons && canRemove && onRemove != null) {
-      actions.add(NodeAction(
+      final removeAction = NodeAction(
         icon: Icons.close,
         tooltip: 'Remove',
         color: theme.structureColors.removeButton,
         onPressed: onRemove,
-      ));
+      );
+      if (alwaysShowRemove) {
+        pinnedRemoveAction = removeAction;
+      } else {
+        actions.add(removeAction);
+      }
     }
 
     // Inspect button
@@ -117,11 +127,29 @@ class YamlNodeActions extends StatelessWidget {
       ));
     }
 
-    if (actions.isEmpty) return const SizedBox.shrink();
+    if (actions.isEmpty && pinnedRemoveAction == null) {
+      return const SizedBox.shrink();
+    }
 
-    return NodeActionRow(
-      visible: visible,
-      actions: actions,
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (pinnedRemoveAction != null)
+          ActionButton(
+            icon: pinnedRemoveAction.icon,
+            tooltip: pinnedRemoveAction.tooltip,
+            onPressed: pinnedRemoveAction.onPressed,
+            size: pinnedRemoveAction.size,
+            color: pinnedRemoveAction.color,
+          ),
+        if (pinnedRemoveAction != null && actions.isNotEmpty)
+          const SizedBox(width: 2),
+        if (actions.isNotEmpty)
+          NodeActionRow(
+            visible: visible,
+            actions: actions,
+          ),
+      ],
     );
   }
 

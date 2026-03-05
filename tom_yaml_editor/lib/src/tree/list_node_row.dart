@@ -170,6 +170,7 @@ class _ListNodeRowState extends State<ListNodeRow> {
                 ),
                 addItemTooltip: 'Insert item below',
                 canRemove: true,
+                alwaysShowRemove: true,
                 canInspect: _data.isContainer,
                 onRemove: () => widget.controller.removeKey(_data.path),
                 onInspect: widget.onInspect,
@@ -217,41 +218,53 @@ class _ListNodeRowState extends State<ListNodeRow> {
           currentIndex,
           currentIndex - 1,
         );
+        return;
       case ListContextAction.moveDown:
         widget.controller.moveListItem(
           parentPath,
           currentIndex,
           currentIndex + 1,
         );
+        return;
       case ListContextAction.moveToTop:
         widget.controller.moveListItem(parentPath, currentIndex, 0);
+        return;
       case ListContextAction.moveToBottom:
         widget.controller.moveListItem(parentPath, currentIndex, length - 1);
+        return;
       case ListContextAction.insertAbove:
         widget.controller.insertListItem(
           parentPath,
           currentIndex,
           _defaultListItemValue(),
         );
+        return;
       case ListContextAction.insertBelow:
         widget.controller.insertListItem(
           parentPath,
           currentIndex + 1,
           _defaultListItemValue(),
         );
+        return;
       case ListContextAction.duplicate:
         var value = _data.value;
         widget.controller.insertListItem(parentPath, currentIndex + 1, value);
+        return;
       case ListContextAction.remove:
         widget.controller.removeKey(_data.path);
+        return;
       case ListContextAction.expand:
         widget.onExpand?.call();
+        return;
       case ListContextAction.collapse:
         widget.onCollapse?.call();
+        return;
       case ListContextAction.expandAll:
         widget.onExpandAll?.call();
+        return;
       case ListContextAction.collapseAll:
         widget.onCollapseAll?.call();
+        return;
     }
   }
 
