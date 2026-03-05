@@ -570,13 +570,25 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
     final textEditorTheme = TextEditorTheme(
       background: theme.colors.background,
       textStyle: TextStyle(
-        fontFamily: theme.fonts.valueFontFamily,
+        fontFamily: 'monospace',
+        fontFamilyFallback: const [
+          'JetBrains Mono',
+          'Menlo',
+          'Monaco',
+          'Courier New',
+        ],
         fontSize: theme.fonts.valueFontSize,
         color: theme.colors.valueColor,
         height: 1.4,
       ),
       lineNumberStyle: TextStyle(
-        fontFamily: theme.fonts.valueFontFamily,
+        fontFamily: 'monospace',
+        fontFamilyFallback: const [
+          'JetBrains Mono',
+          'Menlo',
+          'Monaco',
+          'Courier New',
+        ],
         fontSize: theme.fonts.valueFontSize,
         color: theme.colors.hintColor,
         height: 1.4,
@@ -599,7 +611,7 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
                 boolean: theme.colors.boolColor,
                 nullValue: theme.colors.nullColor,
                 comment: theme.colors.commentColor,
-                punctuation: theme.colors.separatorColor,
+                punctuation: theme.structureColors.collapseIcon,
               ),
             ),
             markers: _textMarkers,

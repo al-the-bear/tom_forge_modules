@@ -88,7 +88,10 @@ class YamlSyntaxHighlighter extends SyntaxHighlighter {
       spans.add(HighlightSpan(
         start: keyStart,
         end: keyStart + key.length,
-        style: TextStyle(color: colors.key),
+        style: TextStyle(
+          color: colors.key,
+          fontWeight: FontWeight.w600,
+        ),
         type: 'key',
       ));
 
@@ -96,7 +99,10 @@ class YamlSyntaxHighlighter extends SyntaxHighlighter {
       spans.add(HighlightSpan(
         start: contentStart + colonIndex,
         end: contentStart + colonIndex + 1,
-        style: TextStyle(color: colors.punctuation),
+        style: TextStyle(
+          color: colors.punctuation,
+          fontWeight: FontWeight.w600,
+        ),
         type: 'colon',
       ));
 
