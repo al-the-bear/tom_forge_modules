@@ -88,6 +88,9 @@ class MapNodeRow extends StatefulWidget {
   /// Whether this row represents the synthetic/root node.
   final bool isRoot;
 
+  /// Whether this row is a direct top-level map entry.
+  final bool isTopLevel;
+
   const MapNodeRow({
     super.key,
     required this.node,
@@ -108,6 +111,7 @@ class MapNodeRow extends StatefulWidget {
     this.onDoubleTapToggle,
     this.computedKeyWidth,
     this.isRoot = false,
+    this.isTopLevel = false,
   });
 
   @override
@@ -124,6 +128,7 @@ class _MapNodeRowState extends State<MapNodeRow> {
     var counts = widget.controller.errorCountsAt(_data.path.cast<Object>());
     var effectiveKeyWidth =
       widget.theme.keyLabelWidth ?? widget.computedKeyWidth ?? 120.0;
+    var useFlexibleKeyLabel = widget.isRoot || widget.isTopLevel;
 
     return GestureDetector(
       onDoubleTap: widget.canExpand ? widget.onDoubleTapToggle : null,
@@ -139,7 +144,7 @@ class _MapNodeRowState extends State<MapNodeRow> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               // Key label — width adapts to longest key in sibling group
-              if (widget.isRoot)
+              if (useFlexibleKeyLabel)
                 Flexible(
                   fit: FlexFit.loose,
                   child: KeyLabel(

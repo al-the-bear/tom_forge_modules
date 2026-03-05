@@ -475,6 +475,7 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
           theme: widget.theme,
           readOnly: widget.readOnly,
           isRoot: data.kind == YamlNodeKind.root,
+          isTopLevel: data.kind == YamlNodeKind.mapEntry && data.path.length == 1,
           onInspect: data.isContainer ? () => _openInspector(data.path) : null,
             canExpand: node.children.isNotEmpty,
             isExpanded: node.isExpanded,

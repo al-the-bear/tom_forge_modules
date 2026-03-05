@@ -82,8 +82,8 @@ class YamlNodeActions extends StatelessWidget {
     var actions = <NodeAction>[];
     NodeAction? pinnedRemoveAction;
 
-    // Add button
-    if (theme.showAddButtons && suggestedKeys.isNotEmpty && onAdd != null) {
+    // Add key button (schema suggestions and/or manual key entry fallback)
+    if (theme.showAddButtons && onAdd != null) {
       actions.add(NodeAction(
         icon: Icons.add,
         tooltip: 'Add key',
@@ -95,7 +95,7 @@ class YamlNodeActions extends StatelessWidget {
     // Add list-item button
     if (theme.showAddButtons && onAddItem != null) {
       actions.add(NodeAction(
-        icon: Icons.add,
+        icon: Icons.playlist_add,
         tooltip: addItemTooltip,
         color: theme.structureColors.addButton,
         onPressed: onAddItem,
@@ -134,6 +134,13 @@ class YamlNodeActions extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (actions.isNotEmpty)
+          NodeActionRow(
+            visible: visible,
+            actions: actions,
+          ),
+        if (pinnedRemoveAction != null && actions.isNotEmpty)
+          const SizedBox(width: 2),
         if (pinnedRemoveAction != null)
           ActionButton(
             icon: pinnedRemoveAction.icon,
@@ -142,18 +149,16 @@ class YamlNodeActions extends StatelessWidget {
             size: pinnedRemoveAction.size,
             color: pinnedRemoveAction.color,
           ),
-        if (pinnedRemoveAction != null && actions.isNotEmpty)
-          const SizedBox(width: 2),
-        if (actions.isNotEmpty)
-          NodeActionRow(
-            visible: visible,
-            actions: actions,
-          ),
       ],
     );
   }
 
   void _showAddMenu(BuildContext context) {
+    if (suggestedKeys.isEmpty) {
+      _showManualAddDialog(context);
+      return;
+    }
+
     if (suggestedKeys.length == 1) {
       onAdd?.call(suggestedKeys.first);
       return;
@@ -182,5 +187,43 @@ class YamlNodeActions extends StatelessWidget {
     ).then((selected) {
       if (selected != null) onAdd?.call(selected);
     });
+  }
+
+  Future<void> _showManualAddDialog(BuildContext context) async {
+    final keyController = TextEditingController();
+    final entered = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Add key'),
+          content: TextField(
+            controller: keyController,
+            autofocus: true,
+            decoration: const InputDecoration(
+              labelText: 'Key name',
+              hintText: 'new-key',
+            ),
+            onSubmitted: (value) {
+              Navigator.of(dialogContext).pop(value);
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext)
+                  .pop(keyController.text.trim()),
+              child: const Text('Add'),
+            ),
+          ],
+        );
+      },
+    );
+
+    final key = entered?.trim() ?? '';
+    if (key.isEmpty) return;
+    onAdd?.call(key);
   }
 }
