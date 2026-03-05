@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:tom_dart_editor/tom_dart_editor.dart';
 import 'package:tom_yaml_editor/tom_yaml_editor.dart';
@@ -51,6 +53,8 @@ class _DartEditorStubState extends State<DartEditorStub> {
   List<CodeError> _lastErrors = const [];
   bool _hasEditorFocus = false;
   String? _lastLocallyEmittedCode;
+  Timer? _commitDebounce;
+  String? _pendingCommitCode;
 
   @override
   void initState() {
@@ -75,8 +79,30 @@ class _DartEditorStubState extends State<DartEditorStub> {
 
   @override
   void dispose() {
+    _flushPendingCommit();
+    _commitDebounce?.cancel();
     _controller.dispose();
     super.dispose();
+  }
+
+  void _scheduleCommit(String code) {
+    if (widget.onChanged == null) return;
+    _pendingCommitCode = code;
+    if (_hasEditorFocus) {
+      return;
+    }
+    _commitDebounce?.cancel();
+    _commitDebounce = Timer(const Duration(milliseconds: 250), () {
+      _flushPendingCommit();
+    });
+  }
+
+  void _flushPendingCommit() {
+    if (widget.onChanged == null) return;
+    final code = _pendingCommitCode;
+    if (code == null) return;
+    _pendingCommitCode = null;
+    widget.onChanged!(code);
   }
 
   DartEditorTheme _dartThemeFromYaml(YamlEditorTheme theme) {
@@ -109,6 +135,9 @@ class _DartEditorStubState extends State<DartEditorStub> {
     return Focus(
       onFocusChange: (hasFocus) {
         if (!mounted) return;
+        if (!hasFocus) {
+          _flushPendingCommit();
+        }
         setState(() {
           _hasEditorFocus = hasFocus;
         });
@@ -149,7 +178,7 @@ class _DartEditorStubState extends State<DartEditorStub> {
                     ? null
                     : (code) {
                         _lastLocallyEmittedCode = code;
-                        widget.onChanged!(code);
+                        _scheduleCommit(code);
                       },
               ),
             ),

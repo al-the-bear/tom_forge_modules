@@ -373,6 +373,41 @@ class SummaryBackedDartAnalysisAdapter {
         );
       }
     }
+
+    for (final exportedLibrary in library.exportedLibraries) {
+      for (final classElement in exportedLibrary.classes) {
+        final name = classElement.name;
+        if (name != null && !classElement.isPrivate && !seenNames.contains(name)) {
+          seenNames.add(name);
+          completions.add(_buildClassCompletion(classElement, packageName));
+        }
+      }
+
+      for (final enumElement in exportedLibrary.enums) {
+        final name = enumElement.name;
+        if (name != null && !enumElement.isPrivate && !seenNames.contains(name)) {
+          seenNames.add(name);
+          completions.add(_buildEnumCompletion(enumElement, packageName));
+        }
+      }
+
+      for (final funcElement in exportedLibrary.topLevelFunctions) {
+        final name = funcElement.name;
+        if (name != null && !funcElement.isPrivate && !seenNames.contains(name)) {
+          seenNames.add(name);
+          completions.add(
+            CompletionItem(
+              label: name,
+              kind: CompletionKind.function,
+              detail: packageName,
+              signature:
+                  '${funcElement.returnType.getDisplayString()} $name(${_formatParameterList(funcElement.formalParameters)})',
+              documentation: funcElement.documentationComment,
+            ),
+          );
+        }
+      }
+    }
   }
 
   CompletionItem _buildClassCompletion(
@@ -661,10 +696,20 @@ class SummaryBackedDartAnalysisAdapter {
       }
     }
 
+    var members = <MemberInfo>[];
     if (typeCompletion != null &&
         typeCompletion.label.isNotEmpty &&
         typeCompletion.members != null) {
-      for (final member in typeCompletion.members!) {
+      members = List<MemberInfo>.from(typeCompletion.members!);
+    } else {
+      final inferredTypeName = _inferTypeFromCode(code, identifier, cursorOffset);
+      if (inferredTypeName != null) {
+        members = _extractLocalClassMembers(code, inferredTypeName);
+      }
+    }
+
+    if (members.isNotEmpty) {
+      for (final member in members) {
         if (prefix.isEmpty || member.name.startsWith(prefix)) {
           completions.add(
             CompletionItem(
@@ -682,6 +727,80 @@ class SummaryBackedDartAnalysisAdapter {
     }
 
     return completions;
+  }
+
+  List<MemberInfo> _extractLocalClassMembers(String code, String className) {
+    final classRegex = RegExp(
+      'class\\s+${RegExp.escape(className)}(?:\\s+extends\\s+[^\\{]+)?\\s*\\{([\\s\\S]*?)\\n\\}',
+      multiLine: true,
+    );
+    final classMatch = classRegex.firstMatch(code);
+    if (classMatch == null) return const [];
+
+    final body = classMatch.group(1) ?? '';
+    final members = <MemberInfo>[];
+    final seen = <String>{};
+
+    void addMember(String name, CompletionKind kind, {String? signature}) {
+      if (name.isEmpty || _isDartKeyword(name) || seen.contains(name)) return;
+      seen.add(name);
+      members.add(
+        MemberInfo(
+          name: name,
+          signature: signature ?? name,
+          kind: kind,
+        ),
+      );
+    }
+
+    final getterRegex = RegExp(
+      r'(?:[A-Za-z_][A-Za-z0-9_<>,\?\s\.]*)?\s+get\s+([a-zA-Z_][a-zA-Z0-9_]*)\b',
+      multiLine: true,
+    );
+    for (final match in getterRegex.allMatches(body)) {
+      final name = match.group(1) ?? '';
+      addMember(name, CompletionKind.getter, signature: name);
+    }
+
+    final setterRegex = RegExp(
+      r'\bset\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(',
+      multiLine: true,
+    );
+    for (final match in setterRegex.allMatches(body)) {
+      final name = match.group(1) ?? '';
+      addMember(name, CompletionKind.setter, signature: '$name(...)');
+    }
+
+    final methodRegex = RegExp(
+      r'(?:[A-Za-z_][A-Za-z0-9_<>,\?\s\.]*)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(([^\)]*)\)\s*\{',
+      multiLine: true,
+    );
+    const excludedMethodNames = {
+      'if',
+      'for',
+      'while',
+      'switch',
+      'catch',
+      'return',
+      'assert',
+    };
+    for (final match in methodRegex.allMatches(body)) {
+      final name = match.group(1) ?? '';
+      if (excludedMethodNames.contains(name)) continue;
+      final params = (match.group(2) ?? '').trim();
+      addMember(name, CompletionKind.method, signature: '$name($params)');
+    }
+
+    final fieldRegex = RegExp(
+      r'(?:final|var|late|const|[A-Za-z_][A-Za-z0-9_<>,\?\.]*)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:=|;)',
+      multiLine: true,
+    );
+    for (final match in fieldRegex.allMatches(body)) {
+      final name = match.group(1) ?? '';
+      addMember(name, CompletionKind.property, signature: name);
+    }
+
+    return members;
   }
 
   String? _inferTypeFromCode(String code, String identifier, int cursorOffset) {
@@ -731,6 +850,37 @@ class SummaryBackedDartAnalysisAdapter {
     final inferredCtorMatches = inferredCtorPattern.allMatches(searchCode);
     if (inferredCtorMatches.isNotEmpty) {
       return inferredCtorMatches.last.group(1);
+    }
+
+    final inferredFunctionCallPattern = RegExp(
+      r'\b(?:var|final|const|late)\s+' +
+          RegExp.escape(identifier) +
+          r'\s*=\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\(',
+    );
+    final inferredFunctionCallMatches =
+        inferredFunctionCallPattern.allMatches(searchCode);
+    if (inferredFunctionCallMatches.isNotEmpty) {
+      final functionName = inferredFunctionCallMatches.last.group(1);
+      if (functionName != null && functionName.isNotEmpty) {
+        final functionCompletion = _packageTypeCompletions?.firstWhere(
+          (item) =>
+              item.kind == CompletionKind.function && item.label == functionName,
+          orElse: () => const CompletionItem(
+            label: '',
+            kind: CompletionKind.function,
+          ),
+        );
+        final signature = functionCompletion?.signature;
+        if (signature != null && signature.isNotEmpty) {
+          final firstSpace = signature.indexOf(' ');
+          if (firstSpace > 0) {
+            final returnType = signature.substring(0, firstSpace).trim();
+            if (returnType.isNotEmpty && returnType != 'void') {
+              return returnType.replaceAll('?', '');
+            }
+          }
+        }
+      }
     }
 
     final inferredStringPattern = RegExp(
