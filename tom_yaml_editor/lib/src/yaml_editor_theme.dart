@@ -61,6 +61,11 @@ class YamlEditorTheme {
   /// Whether to show validation indicators inline.
   final bool showInlineValidation;
 
+  /// Maximum preview lines for collapsed container/list-item summaries.
+  ///
+  /// Set to `0` to disable multi-line previews and show compact counts only.
+  final int collapsedPreviewLines;
+
   const YamlEditorTheme({
     this.colors = const YamlEditorColors(),
     this.structureColors = const YamlStructureColors(),
@@ -75,6 +80,7 @@ class YamlEditorTheme {
     this.showAddButtons = true,
     this.showRemoveButtons = true,
     this.showInlineValidation = true,
+    this.collapsedPreviewLines = 2,
   });
 
   /// Dark theme preset.
@@ -158,6 +164,7 @@ class YamlEditorTheme {
     bool? showAddButtons,
     bool? showRemoveButtons,
     bool? showInlineValidation,
+    int? collapsedPreviewLines,
   }) {
     return YamlEditorTheme(
       colors: colors ?? this.colors,
@@ -173,6 +180,8 @@ class YamlEditorTheme {
       showAddButtons: showAddButtons ?? this.showAddButtons,
       showRemoveButtons: showRemoveButtons ?? this.showRemoveButtons,
       showInlineValidation: showInlineValidation ?? this.showInlineValidation,
+      collapsedPreviewLines:
+          collapsedPreviewLines ?? this.collapsedPreviewLines,
     );
   }
 }

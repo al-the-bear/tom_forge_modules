@@ -166,6 +166,12 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
     // Capture initial expansion from the freshly built nodes
     if (!_initialExpansionCaptured) {
       _initialExpansionCaptured = true;
+      for (var root in roots) {
+        if (!root.isLeaf) {
+          root.isExpanded = true;
+          _persistedExpanded.add(root.id);
+        }
+      }
       for (var node in _allNodes(roots)) {
         if (node.isExpanded) _persistedExpanded.add(node.id);
       }
@@ -199,10 +205,11 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
     bool expanded, {
     bool includeRoot = true,
   }) {
-    final nodes = node.allDescendants.where((n) => !n.isLeaf);
-    for (var n in nodes) {
-      if (!includeRoot && n.id == node.id) continue;
-      _setNodeExpanded(n, expanded);
+    if (includeRoot && !node.isLeaf) {
+      _setNodeExpanded(node, expanded);
+    }
+    for (var descendant in node.allDescendants.where((n) => !n.isLeaf)) {
+      _setNodeExpanded(descendant, expanded);
     }
   }
 

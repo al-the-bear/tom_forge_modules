@@ -150,23 +150,21 @@ Future<MapContextAction?> showMapContextMenu({
     items.add(const PopupMenuDivider(height: 4));
   }
 
-  if (suggestedKeys.isNotEmpty) {
-    items.addAll([
-      _menuItem(
-        value: MapContextAction.insertKeyAbove,
-        icon: Icons.arrow_upward,
-        label: 'Insert key above',
-        color: theme.structureColors.addButton,
-      ),
-      _menuItem(
-        value: MapContextAction.insertKeyBelow,
-        icon: Icons.arrow_downward,
-        label: 'Insert key below',
-        color: theme.structureColors.addButton,
-      ),
-      const PopupMenuDivider(height: 4),
-    ]);
-  }
+  items.addAll([
+    _menuItem(
+      value: MapContextAction.insertKeyAbove,
+      icon: Icons.arrow_upward,
+      label: 'Insert key above',
+      color: theme.structureColors.addButton,
+    ),
+    _menuItem(
+      value: MapContextAction.insertKeyBelow,
+      icon: Icons.arrow_downward,
+      label: 'Insert key below',
+      color: theme.structureColors.addButton,
+    ),
+    const PopupMenuDivider(height: 4),
+  ]);
 
   if (canRemove) {
     items.add(_menuItem(

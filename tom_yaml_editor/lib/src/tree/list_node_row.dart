@@ -151,6 +151,9 @@ class _ListNodeRowState extends State<ListNodeRow> {
                 Expanded(
                   child: Text(
                     _containerSummary,
+                    maxLines: _previewLineCount,
+                    overflow: TextOverflow.ellipsis,
+                    softWrap: true,
                     style: TextStyle(
                       fontSize: widget.theme.fonts.valueFontSize,
                       color: widget.theme.colors.hintColor,
@@ -189,6 +192,11 @@ class _ListNodeRowState extends State<ListNodeRow> {
 
   /// The index of this item in its parent list.
   int get _currentIndex => int.tryParse(_data.key) ?? 0;
+
+  int get _previewLineCount {
+    final lines = widget.theme.collapsedPreviewLines;
+    return lines < 1 ? 1 : lines;
+  }
 
   Future<void> _showContextMenu(
     BuildContext context,
@@ -354,9 +362,72 @@ class _ListNodeRowState extends State<ListNodeRow> {
   }
 
   String get _containerSummary {
-    var value = _data.yamlNode?.value;
+    final value = _data.yamlNode?.value;
+    final isCollapsed = widget.canExpand && !widget.isExpanded;
+    if (!isCollapsed) return _countSummary(value);
+
+    final maxLines = widget.theme.collapsedPreviewLines;
+    if (maxLines <= 0) return _countSummary(value);
+
+    final lines = <String>[];
+    _collectPreviewLines(value, lines, maxLines);
+    if (lines.isEmpty) return _countSummary(value);
+    return lines.join('\n');
+  }
+
+  String _countSummary(Object? value) {
     if (value is Map) return '{${value.length} keys}';
     if (value is List) return '[${value.length} items]';
     return '';
+  }
+
+  void _collectPreviewLines(Object? value, List<String> out, int maxLines) {
+    if (out.length >= maxLines) return;
+
+    if (value is Map) {
+      if (value.isEmpty) {
+        out.add('{}');
+        return;
+      }
+      for (final entry in value.entries) {
+        if (out.length >= maxLines) break;
+        final key = entry.key.toString();
+        final child = entry.value;
+        if (child is Map) {
+          out.add('$key: {${child.length} keys}');
+        } else if (child is List) {
+          out.add('$key: [${child.length} items]');
+        } else {
+          out.add('$key: ${_scalarPreview(child)}');
+        }
+      }
+      return;
+    }
+
+    if (value is List) {
+      if (value.isEmpty) {
+        out.add('[]');
+        return;
+      }
+      for (var index = 0; index < value.length && out.length < maxLines; index++) {
+        final child = value[index];
+        if (child is Map) {
+          out.add('- {${child.length} keys}');
+        } else if (child is List) {
+          out.add('- [${child.length} items]');
+        } else {
+          out.add('- ${_scalarPreview(child)}');
+        }
+      }
+      return;
+    }
+
+    out.add(_scalarPreview(value));
+  }
+
+  String _scalarPreview(Object? value) {
+    if (value == null) return 'null';
+    if (value is String) return value;
+    return value.toString();
   }
 }

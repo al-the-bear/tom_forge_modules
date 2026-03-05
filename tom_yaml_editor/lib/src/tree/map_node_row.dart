@@ -250,10 +250,10 @@ class _MapNodeRowState extends State<MapNodeRow> {
     switch (action) {
       case MapContextAction.insertKeyAbove:
       case MapContextAction.insertKeyBelow:
-        var key = await showKeySelectionMenu(
+        var key = await _pickOrEnterKey(
           context: context,
           position: globalPosition,
-          keys: suggested,
+          suggestedKeys: suggested,
         );
         if (key == null) return;
         widget.controller.insertKeyAdjacent(
@@ -288,6 +288,59 @@ class _MapNodeRowState extends State<MapNodeRow> {
         widget.onCollapseListItems?.call();
         return;
     }
+  }
+
+  Future<String?> _pickOrEnterKey({
+    required BuildContext context,
+    required Offset position,
+    required List<String> suggestedKeys,
+  }) async {
+    final selected = await showKeySelectionMenu(
+      context: context,
+      position: position,
+      keys: suggestedKeys,
+    );
+    if (selected != null) return selected;
+    if (!context.mounted) return null;
+    return _showManualKeyDialog(context);
+  }
+
+  Future<String?> _showManualKeyDialog(BuildContext context) async {
+    final keyController = TextEditingController();
+    final entered = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Insert key'),
+          content: TextField(
+            controller: keyController,
+            autofocus: true,
+            decoration: const InputDecoration(
+              labelText: 'Key name',
+              hintText: 'new-key',
+            ),
+            onSubmitted: (value) {
+              Navigator.of(dialogContext).pop(value.trim());
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext)
+                  .pop(keyController.text.trim()),
+              child: const Text('Insert'),
+            ),
+          ],
+        );
+      },
+    );
+
+    final key = entered?.trim() ?? '';
+    if (key.isEmpty) return null;
+    return key;
   }
 
   Widget _buildValueEditor() {
