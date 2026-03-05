@@ -341,73 +341,54 @@ class SummaryBackedDartAnalysisAdapter {
     Set<String> seenNames,
     List<CompletionItem> completions,
   ) {
-    for (final classElement in library.classes) {
-      final name = classElement.name!;
-      if (!classElement.isPrivate && !seenNames.contains(name)) {
-        seenNames.add(name);
-        completions.add(_buildClassCompletion(classElement, packageName));
-      }
-    }
+    final visitedLibraries = <LibraryElement>{};
 
-    for (final enumElement in library.enums) {
-      final name = enumElement.name!;
-      if (!enumElement.isPrivate && !seenNames.contains(name)) {
-        seenNames.add(name);
-        completions.add(_buildEnumCompletion(enumElement, packageName));
-      }
-    }
+    void addFromLibrary(LibraryElement current, {int depth = 0}) {
+      if (visitedLibraries.contains(current) || depth > 8) return;
+      visitedLibraries.add(current);
 
-    for (final funcElement in library.topLevelFunctions) {
-      final name = funcElement.name!;
-      if (!funcElement.isPrivate && !seenNames.contains(name)) {
-        seenNames.add(name);
-        completions.add(
-          CompletionItem(
-            label: name,
-            kind: CompletionKind.function,
-            detail: packageName,
-            signature:
-                '${funcElement.returnType.getDisplayString()} $name(${_formatParameterList(funcElement.formalParameters)})',
-            documentation: funcElement.documentationComment,
-          ),
-        );
-      }
-    }
-
-    for (final exportedLibrary in library.exportedLibraries) {
-      for (final classElement in exportedLibrary.classes) {
-        final name = classElement.name;
-        if (name != null && !classElement.isPrivate && !seenNames.contains(name)) {
-          seenNames.add(name);
-          completions.add(_buildClassCompletion(classElement, packageName));
+      try {
+        for (final classElement in current.classes) {
+          final name = classElement.name;
+          if (name != null && !classElement.isPrivate && !seenNames.contains(name)) {
+            seenNames.add(name);
+            completions.add(_buildClassCompletion(classElement, packageName));
+          }
         }
-      }
 
-      for (final enumElement in exportedLibrary.enums) {
-        final name = enumElement.name;
-        if (name != null && !enumElement.isPrivate && !seenNames.contains(name)) {
-          seenNames.add(name);
-          completions.add(_buildEnumCompletion(enumElement, packageName));
+        for (final enumElement in current.enums) {
+          final name = enumElement.name;
+          if (name != null && !enumElement.isPrivate && !seenNames.contains(name)) {
+            seenNames.add(name);
+            completions.add(_buildEnumCompletion(enumElement, packageName));
+          }
         }
-      }
 
-      for (final funcElement in exportedLibrary.topLevelFunctions) {
-        final name = funcElement.name;
-        if (name != null && !funcElement.isPrivate && !seenNames.contains(name)) {
-          seenNames.add(name);
-          completions.add(
-            CompletionItem(
-              label: name,
-              kind: CompletionKind.function,
-              detail: packageName,
-              signature:
-                  '${funcElement.returnType.getDisplayString()} $name(${_formatParameterList(funcElement.formalParameters)})',
-              documentation: funcElement.documentationComment,
-            ),
-          );
+        for (final funcElement in current.topLevelFunctions) {
+          final name = funcElement.name;
+          if (name != null && !funcElement.isPrivate && !seenNames.contains(name)) {
+            seenNames.add(name);
+            completions.add(
+              CompletionItem(
+                label: name,
+                kind: CompletionKind.function,
+                detail: packageName,
+                signature:
+                    '${funcElement.returnType.getDisplayString()} $name(${_formatParameterList(funcElement.formalParameters)})',
+                documentation: funcElement.documentationComment,
+              ),
+            );
+          }
         }
+
+        for (final exportedLibrary in current.exportedLibraries) {
+          addFromLibrary(exportedLibrary, depth: depth + 1);
+        }
+      } catch (_) {
       }
     }
+
+    addFromLibrary(library);
   }
 
   CompletionItem _buildClassCompletion(
@@ -663,67 +644,71 @@ class SummaryBackedDartAnalysisAdapter {
     String prefix,
   ) async {
     final completions = <CompletionItem>[];
-    final textBeforeCursor = code.substring(0, cursorOffset);
-    final trimmed = textBeforeCursor.trimRight();
-    if (!trimmed.endsWith('.')) return completions;
+    try {
+      final textBeforeCursor = code.substring(0, cursorOffset);
+      final trimmed = textBeforeCursor.trimRight();
+      if (!trimmed.endsWith('.')) return completions;
 
-    final beforeDot = trimmed.substring(0, trimmed.length - 1).trimRight();
-    final identifierMatch =
-        RegExp(r'([a-zA-Z_][a-zA-Z0-9_]*)$').firstMatch(beforeDot);
-    if (identifierMatch == null) return completions;
+      final beforeDot = trimmed.substring(0, trimmed.length - 1).trimRight();
+      final identifierMatch =
+          RegExp(r'([a-zA-Z_][a-zA-Z0-9_]*)$').firstMatch(beforeDot);
+      if (identifierMatch == null) return completions;
 
-    final identifier = identifierMatch.group(1)!;
+      final identifier = identifierMatch.group(1)!;
 
-    CompletionItem? typeCompletion = _packageTypeCompletions?.firstWhere(
-      (item) => item.label == identifier,
-      orElse: () => const CompletionItem(
-        label: '',
-        kind: CompletionKind.className,
-      ),
-    );
+      CompletionItem? typeCompletion = _packageTypeCompletions?.firstWhere(
+        (item) => item.label == identifier,
+        orElse: () => const CompletionItem(
+          label: '',
+          kind: CompletionKind.className,
+        ),
+      );
 
-    if (typeCompletion == null || typeCompletion.label.isEmpty) {
-      final inferredTypeName =
-          _inferTypeFromCode(code, identifier, cursorOffset);
-      if (inferredTypeName != null) {
-        typeCompletion = _packageTypeCompletions?.firstWhere(
-          (item) => item.label == inferredTypeName,
-          orElse: () => const CompletionItem(
-            label: '',
-            kind: CompletionKind.className,
-          ),
-        );
-      }
-    }
-
-    var members = <MemberInfo>[];
-    if (typeCompletion != null &&
-        typeCompletion.label.isNotEmpty &&
-        typeCompletion.members != null) {
-      members = List<MemberInfo>.from(typeCompletion.members!);
-    } else {
-      final inferredTypeName = _inferTypeFromCode(code, identifier, cursorOffset);
-      if (inferredTypeName != null) {
-        members = _extractLocalClassMembers(code, inferredTypeName);
-      }
-    }
-
-    if (members.isNotEmpty) {
-      for (final member in members) {
-        if (prefix.isEmpty || member.name.startsWith(prefix)) {
-          completions.add(
-            CompletionItem(
-              label: member.name,
-              insertText: member.name,
-              kind: member.kind,
-              signature: member.signature,
-              documentation: member.documentation,
-              detail: '$identifier.${member.name}',
-              sortOrder: _getSortOrderForKind(member.kind),
+      if (typeCompletion == null || typeCompletion.label.isEmpty) {
+        final inferredTypeName = _inferTypeFromCode(code, identifier, cursorOffset);
+        if (inferredTypeName != null) {
+          typeCompletion = _packageTypeCompletions?.firstWhere(
+            (item) => item.label == inferredTypeName,
+            orElse: () => const CompletionItem(
+              label: '',
+              kind: CompletionKind.className,
             ),
           );
         }
       }
+
+      var members = <MemberInfo>[];
+      if (typeCompletion != null &&
+          typeCompletion.label.isNotEmpty &&
+          typeCompletion.members != null) {
+        members = List<MemberInfo>.from(typeCompletion.members!);
+      } else {
+        final inferredTypeName =
+            _inferTypeFromCode(code, identifier, cursorOffset);
+        if (inferredTypeName != null) {
+          members = _extractLocalClassMembers(code, inferredTypeName);
+        }
+      }
+
+      if (members.isNotEmpty) {
+        for (final member in members) {
+          if (prefix.isEmpty || member.name.startsWith(prefix)) {
+            completions.add(
+              CompletionItem(
+                label: member.name,
+                insertText: member.name,
+                kind: member.kind,
+                signature: member.signature,
+                documentation: member.documentation,
+                detail: '$identifier.${member.name}',
+                sortOrder: _getSortOrderForKind(member.kind),
+              ),
+            );
+          }
+        }
+      }
+    } catch (_) {
+      return const [];
     }
 
     return completions;
@@ -872,11 +857,15 @@ class SummaryBackedDartAnalysisAdapter {
         );
         final signature = functionCompletion?.signature;
         if (signature != null && signature.isNotEmpty) {
-          final firstSpace = signature.indexOf(' ');
-          if (firstSpace > 0) {
-            final returnType = signature.substring(0, firstSpace).trim();
-            if (returnType.isNotEmpty && returnType != 'void') {
-              return returnType.replaceAll('?', '');
+          final signatureMatch = RegExp(
+            r'^(.+?)\s+[a-zA-Z_][a-zA-Z0-9_]*\s*\(',
+            dotAll: true,
+          ).firstMatch(signature);
+          if (signatureMatch != null) {
+            final rawReturnType = (signatureMatch.group(1) ?? '').trim();
+            final normalized = _normalizeReturnTypeForLookup(rawReturnType);
+            if (normalized.isNotEmpty && normalized != 'void') {
+              return normalized;
             }
           }
         }
@@ -924,6 +913,28 @@ class SummaryBackedDartAnalysisAdapter {
     if (inferredMapPattern.hasMatch(searchCode)) return 'Map';
 
     return null;
+  }
+
+  String _normalizeReturnTypeForLookup(String raw) {
+    if (raw.isEmpty) return raw;
+
+    var value = raw.replaceAll('?', '').trim();
+
+    final functionGenericIndex = value.indexOf(' Function');
+    if (functionGenericIndex > 0) {
+      value = value.substring(0, functionGenericIndex).trim();
+    }
+
+    final genericStart = value.indexOf('<');
+    if (genericStart > 0) {
+      value = value.substring(0, genericStart).trim();
+    }
+
+    if (value.contains('.')) {
+      value = value.split('.').last.trim();
+    }
+
+    return value;
   }
 
   int _getSortOrderForKind(CompletionKind kind) {
