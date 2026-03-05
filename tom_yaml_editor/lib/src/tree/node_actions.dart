@@ -65,7 +65,7 @@ class YamlNodeActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!visible || readOnly) return const SizedBox.shrink();
+    if (readOnly) return const SizedBox.shrink();
 
     var actions = <NodeAction>[];
 

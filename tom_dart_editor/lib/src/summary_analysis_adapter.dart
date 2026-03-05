@@ -22,12 +22,15 @@ class SummaryBackedDartAnalysisAdapter {
   final String sdkSummaryAsset;
   final String packageSummaryAsset;
   final List<String> implicitImports;
+  final bool includeAllPackageCompletions;
+  final List<String>? allowedPackagePrefixes;
 
   Uint8List? _sdkSummaryBytes;
   Uint8List? _packageSummaryBytes;
   AnalysisDriverWithPackages? _cachedDriver;
   bool _packageUrisRegistered = false;
   bool _implicitImportsValidated = false;
+  List<String>? _resolvedImplicitImports;
   List<CompletionItem>? _packageTypeCompletions;
 
   SummaryBackedDartAnalysisAdapter({
@@ -39,6 +42,8 @@ class SummaryBackedDartAnalysisAdapter {
       'dart:math',
       'package:path/path.dart',
     ],
+    this.includeAllPackageCompletions = false,
+    this.allowedPackagePrefixes,
   });
 
   Future<void> ensureInitialized() async {
@@ -50,10 +55,18 @@ class SummaryBackedDartAnalysisAdapter {
     _cachedDriver = null;
     _packageUrisRegistered = false;
     _implicitImportsValidated = false;
+    _resolvedImplicitImports = null;
     _packageTypeCompletions = null;
   }
 
-  Future<List<CodeError>> analyzeCode(String code) async {
+  Future<List<CodeError>> analyzeCode(String code) {
+    return _analyzeCodeInternal(code, retryOnFailure: true);
+  }
+
+  Future<List<CodeError>> _analyzeCodeInternal(
+    String code, {
+    required bool retryOnFailure,
+  }) async {
     await ensureInitialized();
     if (_sdkSummaryBytes == null) return const [];
 
@@ -68,6 +81,7 @@ class SummaryBackedDartAnalysisAdapter {
 
       final fullCode = _buildFullCode(code);
       final lineOffset = _lineOffset;
+      final codeOffset = fullCode.length - code.length;
 
       await tempFile.writeAsString(fullCode);
 
@@ -86,14 +100,17 @@ class SummaryBackedDartAnalysisAdapter {
             final adjustedLine = location.lineNumber - lineOffset;
             if (adjustedLine < 1) return null;
 
+            final adjustedOffset = error.offset - codeOffset;
+            if (adjustedOffset < 0) return null;
+
             final codeName = error.diagnosticCode.lowerCaseName;
 
             if (codeName.contains('unused_import')) {
               return null;
             }
             if (codeName == 'uri_does_not_exist') {
-              final isImplicitImport =
-                  implicitImports.any((imp) => error.message.contains(imp));
+              final isImplicitImport = _effectiveImplicitImports
+                  .any((imp) => error.message.contains(imp));
               if (isImplicitImport) return null;
             }
 
@@ -101,7 +118,7 @@ class SummaryBackedDartAnalysisAdapter {
               message: error.message,
               line: adjustedLine,
               column: location.columnNumber,
-              offset: error.offset,
+              offset: adjustedOffset,
               length: error.length,
               severity: error.severity.name,
               code: codeName,
@@ -110,7 +127,15 @@ class SummaryBackedDartAnalysisAdapter {
           .whereType<CodeError>()
           .toList(growable: false);
     } catch (_) {
-      return const [];
+      if (!retryOnFailure) return const [];
+
+      _cachedDriver = null;
+      _packageUrisRegistered = false;
+      _implicitImportsValidated = false;
+      _resolvedImplicitImports = null;
+      _packageTypeCompletions = null;
+
+      return _analyzeCodeInternal(code, retryOnFailure: false);
     } finally {
       if (tempDir != null) {
         try {
@@ -124,44 +149,76 @@ class SummaryBackedDartAnalysisAdapter {
     String code,
     int cursorOffset,
     String prefix,
-  ) async {
+  ) {
+    return _completionsInternal(
+      code,
+      cursorOffset,
+      prefix,
+      retryOnFailure: true,
+    );
+  }
+
+  Future<List<CompletionItem>> _completionsInternal(
+    String code,
+    int cursorOffset,
+    String prefix, {
+    required bool retryOnFailure,
+  }) async {
     await ensureInitialized();
     if (_sdkSummaryBytes == null) return const [];
 
-    _cachedDriver ??= _createAnalysisDriver();
-    await _ensurePackageUrisRegistered(_cachedDriver!);
-    await _ensureImplicitImportsResolvable(_cachedDriver!);
+    try {
+      _cachedDriver ??= _createAnalysisDriver();
+      await _ensurePackageUrisRegistered(_cachedDriver!);
+      await _ensureImplicitImportsResolvable(_cachedDriver!);
 
-    _packageTypeCompletions ??=
-        await _extractPackageTypes(_cachedDriver!, implicitImports);
+      _packageTypeCompletions ??=
+          await _extractPackageTypes(_cachedDriver!, _effectiveImplicitImports);
 
-    final textBeforeCursor = code.substring(0, cursorOffset);
-    final dotAccessMatch =
-        RegExp(r'[a-zA-Z_][a-zA-Z0-9_]*\.([a-zA-Z_][a-zA-Z0-9_]*)?$')
-            .firstMatch(textBeforeCursor);
-    final isDotCompletion = dotAccessMatch != null;
-    final dotOffset = isDotCompletion
-        ? cursorOffset - (dotAccessMatch.group(1)?.length ?? 0)
-        : cursorOffset;
+      final textBeforeCursor = code.substring(0, cursorOffset);
+      final dotAccessMatch =
+          RegExp(r'[a-zA-Z_][a-zA-Z0-9_]*\.([a-zA-Z_][a-zA-Z0-9_]*)?$')
+              .firstMatch(textBeforeCursor);
+      final isDotCompletion = dotAccessMatch != null;
+      final dotOffset = isDotCompletion
+          ? cursorOffset - (dotAccessMatch.group(1)?.length ?? 0)
+          : cursorOffset;
 
-    final out = <CompletionItem>[];
-    if (isDotCompletion) {
-      out.addAll(await _getMemberCompletions(code, dotOffset, prefix));
-    } else {
-      final localVars = _extractLocalCompletions(code, cursorOffset);
-      for (final item in localVars) {
-        if (prefix.isEmpty || item.label.startsWith(prefix)) {
-          out.add(item);
+      final out = <CompletionItem>[];
+      if (isDotCompletion) {
+        out.addAll(await _getMemberCompletions(code, dotOffset, prefix));
+      } else {
+        final localVars = _extractLocalCompletions(code, cursorOffset);
+        for (final item in localVars) {
+          if (prefix.isEmpty || item.label.startsWith(prefix)) {
+            out.add(item);
+          }
+        }
+        for (final item
+            in _packageTypeCompletions ?? const <CompletionItem>[]) {
+          if (prefix.isEmpty || item.label.startsWith(prefix)) {
+            out.add(item);
+          }
         }
       }
-      for (final item in _packageTypeCompletions ?? const <CompletionItem>[]) {
-        if (prefix.isEmpty || item.label.startsWith(prefix)) {
-          out.add(item);
-        }
-      }
+
+      return out;
+    } catch (_) {
+      if (!retryOnFailure) return const [];
+
+      _cachedDriver = null;
+      _packageUrisRegistered = false;
+      _implicitImportsValidated = false;
+      _resolvedImplicitImports = null;
+      _packageTypeCompletions = null;
+
+      return _completionsInternal(
+        code,
+        cursorOffset,
+        prefix,
+        retryOnFailure: false,
+      );
     }
-
-    return out;
   }
 
   AnalysisDriverWithPackages _createAnalysisDriver() {
@@ -200,16 +257,20 @@ class SummaryBackedDartAnalysisAdapter {
     if (_implicitImportsValidated) return;
 
     final session = driver.currentSession;
+    final resolvedImports = <String>[];
     for (final importUri in implicitImports) {
       if (!importUri.startsWith('package:')) {
+        resolvedImports.add(importUri);
         continue;
       }
 
       try {
         await session.getLibraryByUri(importUri);
+        resolvedImports.add(importUri);
       } catch (_) {}
     }
 
+    _resolvedImplicitImports = resolvedImports;
     _implicitImportsValidated = true;
   }
 
@@ -239,9 +300,13 @@ class SummaryBackedDartAnalysisAdapter {
         packageImports.add(uri);
       }
     }
-    for (final uri in driver.packageLibraryUris) {
-      if (uri.startsWith('package:') && seenPackageUris.add(uri)) {
-        packageImports.add(uri);
+    if (includeAllPackageCompletions) {
+      for (final uri in driver.packageLibraryUris) {
+        if (uri.startsWith('package:') &&
+            _matchesAllowedPackagePrefixes(uri) &&
+            seenPackageUris.add(uri)) {
+          packageImports.add(uri);
+        }
       }
     }
 
@@ -260,6 +325,14 @@ class SummaryBackedDartAnalysisAdapter {
     }
 
     return completions;
+  }
+
+  bool _matchesAllowedPackagePrefixes(String packageUri) {
+    final prefixes = allowedPackagePrefixes;
+    if (prefixes == null || prefixes.isEmpty) {
+      return true;
+    }
+    return prefixes.any(packageUri.startsWith);
   }
 
   void _extractLibraryElements(
@@ -613,14 +686,94 @@ class SummaryBackedDartAnalysisAdapter {
 
   String? _inferTypeFromCode(String code, String identifier, int cursorOffset) {
     final searchCode = code.substring(0, cursorOffset);
-    final pattern = RegExp(
-      r'\b([A-Z][a-zA-Z0-9_]*)(?:<[^>]*>)?\??\s+' +
+
+    if (identifier == 'this' || identifier == 'super') {
+      final classMatches = RegExp(
+        r'class\s+([A-Z][a-zA-Z0-9_]*)(?:\s+extends\s+([A-Z][a-zA-Z0-9_]*))?',
+      ).allMatches(searchCode);
+      if (classMatches.isNotEmpty) {
+        final last = classMatches.last;
+        if (identifier == 'this') {
+          return last.group(1);
+        }
+        final superType = last.group(2);
+        if (superType != null && superType.isNotEmpty) {
+          return superType;
+        }
+      }
+    }
+
+    final typedDeclPattern = RegExp(
+      r'\b([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)?)(?:<[^>]*>)?\??\s+' +
           RegExp.escape(identifier) +
           r'\b',
     );
-    final matches = pattern.allMatches(searchCode);
-    if (matches.isEmpty) return null;
-    return matches.last.group(1);
+    final typedDeclMatches = typedDeclPattern.allMatches(searchCode);
+    if (typedDeclMatches.isNotEmpty) {
+      final rawType = typedDeclMatches.last.group(1);
+      if (rawType != null &&
+          rawType != 'var' &&
+          rawType != 'final' &&
+          rawType != 'const' &&
+          rawType != 'late') {
+        final unprefixed = rawType.contains('.')
+            ? rawType.split('.').last
+            : rawType;
+        return unprefixed;
+      }
+    }
+
+    final inferredCtorPattern = RegExp(
+      r'\b(?:var|final|const|late)\s+' +
+          RegExp.escape(identifier) +
+          r'\s*=\s*([A-Z][a-zA-Z0-9_]*)(?:<[^>]*>)?(?:\.[a-zA-Z_][a-zA-Z0-9_]*)?\s*\(',
+    );
+    final inferredCtorMatches = inferredCtorPattern.allMatches(searchCode);
+    if (inferredCtorMatches.isNotEmpty) {
+      return inferredCtorMatches.last.group(1);
+    }
+
+    final inferredStringPattern = RegExp(
+      r'\b(?:var|final|const|late)\s+' +
+          RegExp.escape(identifier) +
+          r'''\s*=\s*(['"]).*\1\s*;?''',
+      dotAll: true,
+    );
+    if (inferredStringPattern.hasMatch(searchCode)) return 'String';
+
+    final inferredBoolPattern = RegExp(
+      r'\b(?:var|final|const|late)\s+' +
+          RegExp.escape(identifier) +
+          r'\s*=\s*(true|false)\b',
+    );
+    if (inferredBoolPattern.hasMatch(searchCode)) return 'bool';
+
+    final inferredNumPattern = RegExp(
+      r'\b(?:var|final|const|late)\s+' +
+          RegExp.escape(identifier) +
+          r'\s*=\s*([0-9]+(?:\.[0-9]+)?)\b',
+    );
+    final numMatches = inferredNumPattern.allMatches(searchCode);
+    if (numMatches.isNotEmpty) {
+      final value = numMatches.last.group(1) ?? '';
+      return value.contains('.') ? 'double' : 'int';
+    }
+
+    final inferredListPattern = RegExp(
+      r'\b(?:var|final|const|late)\s+' +
+          RegExp.escape(identifier) +
+          r'\s*=\s*\[',
+    );
+    if (inferredListPattern.hasMatch(searchCode)) return 'List';
+
+    final inferredMapPattern = RegExp(
+      r'\b(?:var|final|const|late)\s+' +
+          RegExp.escape(identifier) +
+          r'\s*=\s*\{',
+    );
+    if (inferredMapPattern.hasMatch(searchCode)) return 'Map';
+
+    return null;
   }
 
   int _getSortOrderForKind(CompletionKind kind) {
@@ -636,10 +789,15 @@ class SummaryBackedDartAnalysisAdapter {
   }
 
   String _buildFullCode(String userCode) {
-    final importLines = implicitImports.map((i) => "import '$i';").join('\n');
+    final importLines =
+        _effectiveImplicitImports.map((i) => "import '$i';").join('\n');
     return '$importLines\n\n$userCode';
   }
 
-  int get _lineOffset =>
-      implicitImports.isEmpty ? 0 : implicitImports.length + 1;
+  List<String> get _effectiveImplicitImports =>
+      _resolvedImplicitImports ?? implicitImports;
+
+  int get _lineOffset => _effectiveImplicitImports.isEmpty
+      ? 0
+      : _effectiveImplicitImports.length + 1;
 }

@@ -101,6 +101,8 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
   /// Key: parent path joined by '/', Value: pixel width for key labels.
   Map<String, double> _computedKeyWidths = {};
 
+  bool _textInputFocused = false;
+
   @override
   void initState() {
     super.initState();
@@ -110,6 +112,7 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
     _treeController = TreeController<YamlTreeData>(roots: []);
     _rebuildTree();
     widget.controller.addListener(_onControllerChanged);
+    FocusManager.instance.addListener(_onPrimaryFocusChanged);
   }
 
   @override
@@ -130,7 +133,18 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
     widget.controller.removeListener(_onControllerChanged);
     _treeController.dispose();
     _focusNode.dispose();
+    FocusManager.instance.removeListener(_onPrimaryFocusChanged);
     super.dispose();
+  }
+
+  void _onPrimaryFocusChanged() {
+    var focusContext = FocusManager.instance.primaryFocus?.context;
+    var isTextFocused = focusContext?.widget is EditableText;
+    if (isTextFocused != _textInputFocused && mounted) {
+      setState(() {
+        _textInputFocused = isTextFocused;
+      });
+    }
   }
 
   void _onControllerChanged() {
@@ -166,14 +180,36 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
     _computeKeyWidths();
   }
 
-  /// Toggle expand/collapse and persist the decision.
-  void _toggleNode(String id) {
-    if (_persistedExpanded.contains(id)) {
-      _persistedExpanded.remove(id);
+  void _setNodeExpanded(TreeNode<YamlTreeData> node, bool expanded) {
+    if (node.children.isEmpty) return;
+    final isCurrentlyExpanded = _treeController.isExpanded(node.id);
+    if (expanded == isCurrentlyExpanded) return;
+
+    if (expanded) {
+      _persistedExpanded.add(node.id);
+      _treeController.expand(node.id);
     } else {
-      _persistedExpanded.add(id);
+      _persistedExpanded.remove(node.id);
+      _treeController.collapse(node.id);
     }
-    _treeController.toggle(id);
+  }
+
+  void _setSubtreeExpanded(
+    TreeNode<YamlTreeData> node,
+    bool expanded, {
+    bool includeRoot = true,
+  }) {
+    final nodes = node.allDescendants.where((n) => !n.isLeaf);
+    for (var n in nodes) {
+      if (!includeRoot && n.id == node.id) continue;
+      _setNodeExpanded(n, expanded);
+    }
+  }
+
+  void _setListChildrenExpanded(TreeNode<YamlTreeData> node, bool expanded) {
+    for (var child in node.children) {
+      _setSubtreeExpanded(child, expanded, includeRoot: true);
+    }
   }
 
   /// Auto-expand a node's parents when a new key is inserted.
@@ -273,16 +309,10 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
         child: TreeView<YamlTreeData>(
           controller: _treeController,
           theme: treeTheme,
-          enableKeyboardNavigation: true,
-          onNodeTap: (node) {
-            if (!node.isLeaf) _toggleNode(node.id);
-          },
-          onNodeDoubleTap: (node) {
-            if (!node.isLeaf) _toggleNode(node.id);
-          },
           nodeBuilder: (context, node, isSelected) {
             return _buildNodeContent(node);
           },
+          enableKeyboardNavigation: !_textInputFocused,
         ),
       ),
     );
@@ -417,6 +447,23 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
           theme: widget.theme,
           readOnly: widget.readOnly,
           onInspect: data.isContainer ? () => _openInspector(data.path) : null,
+          canExpand: node.children.isNotEmpty,
+          isExpanded: node.isExpanded,
+          onExpand: node.children.isNotEmpty
+            ? () => setState(() => _setNodeExpanded(node, true))
+            : null,
+          onCollapse: node.children.isNotEmpty
+            ? () => setState(() => _setNodeExpanded(node, false))
+            : null,
+          onExpandAll: node.children.isNotEmpty
+            ? () => setState(() => _setSubtreeExpanded(node, true))
+            : null,
+          onCollapseAll: node.children.isNotEmpty
+            ? () => setState(() => _setSubtreeExpanded(node, false))
+            : null,
+          onDoubleTapToggle: node.children.isNotEmpty
+            ? () => setState(() => _setNodeExpanded(node, !node.isExpanded))
+            : null,
         );
       case YamlNodeKind.mapEntry:
       case YamlNodeKind.root:
@@ -428,6 +475,31 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
           theme: widget.theme,
           readOnly: widget.readOnly,
           onInspect: data.isContainer ? () => _openInspector(data.path) : null,
+            canExpand: node.children.isNotEmpty,
+            isExpanded: node.isExpanded,
+            onExpand: node.children.isNotEmpty
+              ? () => setState(() => _setNodeExpanded(node, true))
+              : null,
+            onCollapse: node.children.isNotEmpty
+              ? () => setState(() => _setNodeExpanded(node, false))
+              : null,
+            onExpandAll: node.children.isNotEmpty
+              ? () => setState(() => _setSubtreeExpanded(node, true))
+              : null,
+            onCollapseAll: node.children.isNotEmpty
+              ? () => setState(() => _setSubtreeExpanded(node, false))
+              : null,
+            onExpandListItems:
+              data.isContainer && (data.yamlNode?.value is List)
+                ? () => setState(() => _setListChildrenExpanded(node, true))
+                : null,
+            onCollapseListItems:
+              data.isContainer && (data.yamlNode?.value is List)
+                ? () => setState(() => _setListChildrenExpanded(node, false))
+                : null,
+              onDoubleTapToggle: node.children.isNotEmpty
+                ? () => setState(() => _setNodeExpanded(node, !node.isExpanded))
+                : null,
           computedKeyWidth: keyWidth,
         );
     }

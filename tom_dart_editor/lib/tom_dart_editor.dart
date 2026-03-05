@@ -70,5 +70,8 @@ export 'src/summary_analysis_adapter.dart'
     show SummaryBackedDartAnalysisAdapter;
 
 // High-level editor wrapper with built-in summary-backed analysis
-export 'src/summary_backed_dart_editor.dart'
-    show SummaryBackedDartCodeEditor;
+export 'src/summary_backed_dart_editor.dart' show SummaryBackedDartCodeEditor;
+
+// Easy one-liner embed widget (internal controller)
+export 'src/simple_summary_backed_dart_editor.dart'
+    show SimpleSummaryBackedDartCodeEditor;

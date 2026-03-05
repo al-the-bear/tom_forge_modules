@@ -49,6 +49,27 @@ class ListNodeRow extends StatefulWidget {
   /// Callback to open the subtree inspector for this node.
   final VoidCallback? onInspect;
 
+  /// Whether this node can be expanded/collapsed.
+  final bool canExpand;
+
+  /// Current expanded state for this node.
+  final bool isExpanded;
+
+  /// Expand this node.
+  final VoidCallback? onExpand;
+
+  /// Collapse this node.
+  final VoidCallback? onCollapse;
+
+  /// Expand this node recursively.
+  final VoidCallback? onExpandAll;
+
+  /// Collapse this node recursively.
+  final VoidCallback? onCollapseAll;
+
+  /// Toggle this node on double-click.
+  final VoidCallback? onDoubleTapToggle;
+
   const ListNodeRow({
     super.key,
     required this.node,
@@ -58,6 +79,13 @@ class ListNodeRow extends StatefulWidget {
     this.theme = const YamlEditorTheme(),
     this.readOnly = false,
     this.onInspect,
+    this.canExpand = false,
+    this.isExpanded = false,
+    this.onExpand,
+    this.onCollapse,
+    this.onExpandAll,
+    this.onCollapseAll,
+    this.onDoubleTapToggle,
   });
 
   @override
@@ -74,6 +102,7 @@ class _ListNodeRowState extends State<ListNodeRow> {
     var counts = widget.controller.errorCountsAt(_data.path.cast<Object>());
 
     return GestureDetector(
+      onDoubleTap: widget.canExpand ? widget.onDoubleTapToggle : null,
       onSecondaryTapUp: widget.readOnly
           ? null
           : (details) => _showContextMenu(context, details.globalPosition),
@@ -168,6 +197,10 @@ class _ListNodeRowState extends State<ListNodeRow> {
       theme: widget.theme,
       currentIndex: currentIndex,
       listLength: length,
+      canExpand: widget.canExpand,
+      isExpanded: widget.isExpanded,
+      canExpandAll: widget.canExpand,
+      canCollapseAll: widget.canExpand,
     );
     if (action == null || !context.mounted) return;
 
@@ -205,6 +238,14 @@ class _ListNodeRowState extends State<ListNodeRow> {
         widget.controller.insertListItem(parentPath, currentIndex + 1, value);
       case ListContextAction.remove:
         widget.controller.removeKey(_data.path);
+      case ListContextAction.expand:
+        widget.onExpand?.call();
+      case ListContextAction.collapse:
+        widget.onCollapse?.call();
+      case ListContextAction.expandAll:
+        widget.onExpandAll?.call();
+      case ListContextAction.collapseAll:
+        widget.onCollapseAll?.call();
     }
   }
 

@@ -4,6 +4,24 @@ import '../yaml_editor_theme.dart';
 
 /// Context menu actions available for map entry nodes.
 enum MapContextAction {
+  /// Expand this node.
+  expand,
+
+  /// Collapse this node.
+  collapse,
+
+  /// Expand this subtree recursively.
+  expandAll,
+
+  /// Collapse this subtree recursively.
+  collapseAll,
+
+  /// Expand all objects/items under this list node.
+  expandListItems,
+
+  /// Collapse all objects/items under this list node.
+  collapseListItems,
+
   /// Insert a new key above the current key.
   insertKeyAbove,
 
@@ -19,6 +37,18 @@ enum MapContextAction {
 
 /// Context menu actions available for list item nodes.
 enum ListContextAction {
+  /// Expand this node.
+  expand,
+
+  /// Collapse this node.
+  collapse,
+
+  /// Expand this subtree recursively.
+  expandAll,
+
+  /// Collapse this subtree recursively.
+  collapseAll,
+
   /// Move item up one position.
   moveUp,
 
@@ -54,11 +84,71 @@ Future<MapContextAction?> showMapContextMenu({
   required List<String> suggestedKeys,
   bool canRemove = true,
   bool canInspect = false,
+  bool canExpand = false,
+  bool isExpanded = false,
+  bool canExpandAll = false,
+  bool canCollapseAll = false,
+  bool canListItemExpandCollapse = false,
   bool isReadOnly = false,
 }) async {
   if (isReadOnly) return null;
 
   var items = <PopupMenuEntry<MapContextAction>>[];
+
+  if (canExpand) {
+    items.add(
+      _menuItem(
+        value: isExpanded ? MapContextAction.collapse : MapContextAction.expand,
+        icon: isExpanded ? Icons.unfold_less : Icons.unfold_more,
+        label: isExpanded ? 'Collapse' : 'Expand',
+        color: theme.colors.keyColor,
+      ),
+    );
+  }
+
+  if (canExpandAll || canCollapseAll) {
+    items.add(
+      _menuItem(
+        value: MapContextAction.expandAll,
+        icon: Icons.unfold_more,
+        label: 'Expand all',
+        color: theme.colors.keyColor,
+        enabled: canExpandAll,
+      ),
+    );
+    items.add(
+      _menuItem(
+        value: MapContextAction.collapseAll,
+        icon: Icons.unfold_less,
+        label: 'Collapse all',
+        color: theme.colors.keyColor,
+        enabled: canCollapseAll,
+      ),
+    );
+  }
+
+  if (canListItemExpandCollapse) {
+    items.add(
+      _menuItem(
+        value: MapContextAction.expandListItems,
+        icon: Icons.playlist_add_check,
+        label: 'Expand all items',
+        color: theme.colors.keyColor,
+      ),
+    );
+    items.add(
+      _menuItem(
+        value: MapContextAction.collapseListItems,
+        icon: Icons.playlist_remove,
+        label: 'Collapse all items',
+        color: theme.colors.keyColor,
+      ),
+    );
+  }
+
+  if (items.isNotEmpty) {
+    items.add(const PopupMenuDivider(height: 4));
+  }
 
   if (suggestedKeys.isNotEmpty) {
     items.addAll([
@@ -119,6 +209,10 @@ Future<ListContextAction?> showListContextMenu({
   required YamlEditorTheme theme,
   required int currentIndex,
   required int listLength,
+  bool canExpand = false,
+  bool isExpanded = false,
+  bool canExpandAll = false,
+  bool canCollapseAll = false,
   bool isReadOnly = false,
 }) async {
   if (isReadOnly) return null;
@@ -127,6 +221,32 @@ Future<ListContextAction?> showListContextMenu({
   var isLast = currentIndex == listLength - 1;
 
   var items = <PopupMenuEntry<ListContextAction>>[
+    if (canExpand)
+      _menuItem(
+        value: isExpanded ? ListContextAction.collapse : ListContextAction.expand,
+        icon: isExpanded ? Icons.unfold_less : Icons.unfold_more,
+        label: isExpanded ? 'Collapse' : 'Expand',
+        color: theme.colors.keyColor,
+      ),
+    if (canExpandAll || canCollapseAll)
+      _menuItem(
+        value: ListContextAction.expandAll,
+        icon: Icons.unfold_more,
+        label: 'Expand all',
+        color: theme.colors.keyColor,
+        enabled: canExpandAll,
+      ),
+    if (canExpandAll || canCollapseAll)
+      _menuItem(
+        value: ListContextAction.collapseAll,
+        icon: Icons.unfold_less,
+        label: 'Collapse all',
+        color: theme.colors.keyColor,
+        enabled: canCollapseAll,
+      ),
+    if (canExpand || canExpandAll || canCollapseAll)
+      const PopupMenuDivider(height: 4),
+
     // Reorder actions
     _menuItem(
       value: ListContextAction.moveUp,

@@ -51,6 +51,33 @@ class MapNodeRow extends StatefulWidget {
   /// Callback to open the subtree inspector for this node.
   final VoidCallback? onInspect;
 
+  /// Whether this node can be expanded/collapsed.
+  final bool canExpand;
+
+  /// Current expanded state for this node.
+  final bool isExpanded;
+
+  /// Expand this node.
+  final VoidCallback? onExpand;
+
+  /// Collapse this node.
+  final VoidCallback? onCollapse;
+
+  /// Expand this node recursively.
+  final VoidCallback? onExpandAll;
+
+  /// Collapse this node recursively.
+  final VoidCallback? onCollapseAll;
+
+  /// Expand all list items under this node (for list container nodes).
+  final VoidCallback? onExpandListItems;
+
+  /// Collapse all list items under this node (for list container nodes).
+  final VoidCallback? onCollapseListItems;
+
+  /// Toggle this node on double-click.
+  final VoidCallback? onDoubleTapToggle;
+
   /// Computed key label width for alignment.
   ///
   /// When non-null, overrides [YamlEditorTheme.keyLabelWidth].
@@ -67,6 +94,15 @@ class MapNodeRow extends StatefulWidget {
     this.theme = const YamlEditorTheme(),
     this.readOnly = false,
     this.onInspect,
+    this.canExpand = false,
+    this.isExpanded = false,
+    this.onExpand,
+    this.onCollapse,
+    this.onExpandAll,
+    this.onCollapseAll,
+    this.onExpandListItems,
+    this.onCollapseListItems,
+    this.onDoubleTapToggle,
     this.computedKeyWidth,
   });
 
@@ -86,6 +122,7 @@ class _MapNodeRowState extends State<MapNodeRow> {
         widget.theme.keyLabelWidth ?? widget.computedKeyWidth ?? 120.0;
 
     return GestureDetector(
+      onDoubleTap: widget.canExpand ? widget.onDoubleTapToggle : null,
       onSecondaryTapUp: widget.readOnly
           ? null
           : (details) => _showContextMenu(context, details.globalPosition),
@@ -169,6 +206,12 @@ class _MapNodeRowState extends State<MapNodeRow> {
       suggestedKeys: suggested,
       canRemove: !_data.isRequired,
       canInspect: _data.isContainer,
+      canExpand: widget.canExpand,
+      isExpanded: widget.isExpanded,
+      canExpandAll: widget.canExpand,
+      canCollapseAll: widget.canExpand,
+      canListItemExpandCollapse:
+          _data.isContainer && (_data.yamlNode?.value is List),
     );
     if (action == null || !context.mounted) return;
 
@@ -191,6 +234,18 @@ class _MapNodeRowState extends State<MapNodeRow> {
         widget.controller.removeKey(_data.path);
       case MapContextAction.inspectAsYaml:
         widget.onInspect?.call();
+      case MapContextAction.expand:
+        widget.onExpand?.call();
+      case MapContextAction.collapse:
+        widget.onCollapse?.call();
+      case MapContextAction.expandAll:
+        widget.onExpandAll?.call();
+      case MapContextAction.collapseAll:
+        widget.onCollapseAll?.call();
+      case MapContextAction.expandListItems:
+        widget.onExpandListItems?.call();
+      case MapContextAction.collapseListItems:
+        widget.onCollapseListItems?.call();
     }
   }
 

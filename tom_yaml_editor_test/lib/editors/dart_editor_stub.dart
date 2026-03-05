@@ -26,7 +26,31 @@ class DartEditorStub extends StatefulWidget {
 }
 
 class _DartEditorStubState extends State<DartEditorStub> {
+  static const List<String> _d4rtDcliBridgedPackagePrefixes = [
+    'package:dcli/',
+    'package:path/',
+    'package:tom_chattools/',
+    'package:tom_vscode_scripting_api/',
+    'package:tom_d4rt_dcli/',
+  ];
+
+  static const List<String> _d4rtDcliImplicitImports = [
+    'dart:async',
+    'dart:collection',
+    'dart:convert',
+    'dart:io',
+    'dart:math',
+    'package:dcli/dcli.dart',
+    'package:path/path.dart',
+    'package:tom_chattools/tom_chattools.dart',
+    'package:tom_vscode_scripting_api/script_globals.dart',
+    'package:tom_d4rt_dcli/tom_d4rt_cli_api.dart',
+  ];
+
   late DartCodeController _controller;
+  List<CodeError> _lastErrors = const [];
+  bool _hasEditorFocus = false;
+  String? _lastLocallyEmittedCode;
 
   @override
   void initState() {
@@ -37,7 +61,14 @@ class _DartEditorStubState extends State<DartEditorStub> {
   @override
   void didUpdateWidget(DartEditorStub oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.code != widget.code && widget.code != _controller.userCode) {
+    if (oldWidget.code == widget.code) return;
+
+    if (_lastLocallyEmittedCode != null &&
+        widget.code == _lastLocallyEmittedCode) {
+      return;
+    }
+
+    if (!_hasEditorFocus && widget.code != _controller.userCode) {
       _controller.userCode = widget.code;
     }
   }
@@ -56,6 +87,12 @@ class _DartEditorStubState extends State<DartEditorStub> {
   DartEditorSettings get _embeddedSettings => const DartEditorSettings(
         showToolbar: false,
         showLineNumbers: false,
+        showErrorMarkers: true,
+        showWarningMarkers: true,
+        showInfoMarkers: true,
+        showErrorTooltips: true,
+        showWarningTooltips: true,
+        showInfoTooltips: true,
         showAutoCompleteToggle: false,
         showErrorToggles: false,
         showWarningToggles: false,
@@ -64,30 +101,71 @@ class _DartEditorStubState extends State<DartEditorStub> {
         showOpenReferenceButton: false,
       );
 
+  int get _errorCount => _lastErrors.where((e) => e.isError).length;
+  int get _warningCount => _lastErrors.where((e) => e.isWarning).length;
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: widget.fullUi
-          ? const BoxConstraints(minHeight: 200)
-          : const BoxConstraints(minHeight: 80, maxHeight: 240),
-      decoration: BoxDecoration(
-        color: widget.theme.colors.background,
-        border: Border.all(color: widget.theme.colors.hintColor.withAlpha(60)),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: SummaryBackedDartCodeEditor(
-        controller: _controller,
-        sdkSummaryAsset: 'assets/sdk_summary.sum',
-        packageSummaryAsset: 'assets/packages.sum',
-        readOnly: widget.onChanged == null,
-        theme: _dartThemeFromYaml(widget.theme),
-        settings:
-            widget.fullUi ? const DartEditorSettings() : _embeddedSettings,
-        onChanged: widget.onChanged == null
-            ? null
-            : (code) {
-                widget.onChanged!(code);
-              },
+    return Focus(
+      onFocusChange: (hasFocus) {
+        if (!mounted) return;
+        setState(() {
+          _hasEditorFocus = hasFocus;
+        });
+      },
+      child: Container(
+        constraints: widget.fullUi
+            ? const BoxConstraints(minHeight: 200)
+            : const BoxConstraints(minHeight: 80, maxHeight: 240),
+        decoration: BoxDecoration(
+          color: widget.theme.colors.background,
+          border:
+              Border.all(color: widget.theme.colors.hintColor.withAlpha(60)),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: SummaryBackedDartCodeEditor(
+                controller: _controller,
+                sdkSummaryAsset: 'assets/sdk_summary.sum',
+                packageSummaryAsset: 'assets/packages.sum',
+                implicitImports: _d4rtDcliImplicitImports,
+                includeAllPackageCompletions: true,
+                allowedPackagePrefixes: _d4rtDcliBridgedPackagePrefixes,
+                readOnly: widget.onChanged == null,
+                theme: _dartThemeFromYaml(widget.theme),
+                settings: widget.fullUi
+                    ? const DartEditorSettings()
+                    : _embeddedSettings,
+                onErrorsChanged: (errors) {
+                  if (!mounted) return;
+                  setState(() {
+                    _lastErrors = errors;
+                  });
+                },
+                onChanged: widget.onChanged == null
+                    ? null
+                    : (code) {
+                        _lastLocallyEmittedCode = code;
+                        widget.onChanged!(code);
+                      },
+              ),
+            ),
+            if (!widget.fullUi)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 0, 8, 6),
+                child: Text(
+                  'Diagnostics: $_errorCount error(s), $_warningCount warning(s)',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: widget.theme.colors.hintColor,
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

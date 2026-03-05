@@ -11,6 +11,8 @@ import 'package:flutter/services.dart';
 import 'editor_theme.dart';
 import 'syntax_highlighter.dart';
 import 'completion_provider.dart';
+import 'completion_shortcuts.dart';
+import 'editor_diagnostics_utils.dart';
 
 export 'editor_theme.dart';
 
@@ -238,20 +240,12 @@ class _HighlightingTextController extends TextEditingController {
       final spanLength = spanText.length;
       final spanEnd = currentOffset + spanLength;
 
-      bool needsHighlight = false;
+      final isMatchingBracket =
+          _matchingBracketOffset != null &&
+              currentOffset <= _matchingBracketOffset! &&
+              _matchingBracketOffset! < spanEnd;
 
-      if (_cursorBracketOffset != null &&
-          currentOffset <= _cursorBracketOffset! &&
-          _cursorBracketOffset! < spanEnd) {
-        needsHighlight = true;
-      }
-      if (_matchingBracketOffset != null &&
-          currentOffset <= _matchingBracketOffset! &&
-          _matchingBracketOffset! < spanEnd) {
-        needsHighlight = true;
-      }
-
-      if (needsHighlight && spanLength == 1) {
+      if (isMatchingBracket && spanLength == 1) {
         result.add(
           TextSpan(
             text: spanText,
@@ -953,6 +947,35 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
     Overlay.of(context).insert(_tooltipOverlay!);
   }
 
+  void _showLineTooltip(
+      List<CodeError> lineDiagnostics, Offset globalPosition) {
+    _hideTooltip();
+    if (lineDiagnostics.isEmpty) return;
+
+    final first = lineDiagnostics.first;
+    final merged = CodeError(
+      message: lineDiagnostics
+          .map((d) => '[${d.severity.toUpperCase()}] ${d.code}: ${d.message}')
+          .join('\n'),
+      line: first.line,
+      column: first.column,
+      offset: first.offset,
+      length: first.length,
+      severity: first.severity,
+      code: first.code,
+    );
+
+    _tooltipOverlay = OverlayEntry(
+      builder: (context) => _ErrorTooltip(
+        error: merged,
+        position: globalPosition,
+        theme: widget.theme,
+      ),
+    );
+
+    Overlay.of(context).insert(_tooltipOverlay!);
+  }
+
   void _hideTooltip() {
     _tooltipOverlay?.remove();
     _tooltipOverlay = null;
@@ -1386,60 +1409,34 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
       return KeyEventResult.ignored;
     }
 
-    // Ctrl+Space to trigger completion (NOTE: may conflict with macOS input switcher)
-    if (_settings.autoCompleteEnabled &&
-        event.logicalKey == LogicalKeyboardKey.space &&
-        HardwareKeyboard.instance.isControlPressed &&
-        !HardwareKeyboard.instance.isMetaPressed) {
-      _triggerCompletion();
-      return KeyEventResult.handled;
-    }
+    final shortcutAction = CompletionShortcutResolver.resolve(
+      autoCompleteEnabled: _settings.autoCompleteEnabled,
+      isControlPressed: HardwareKeyboard.instance.isControlPressed,
+      isMetaPressed: HardwareKeyboard.instance.isMetaPressed,
+      isAltPressed: HardwareKeyboard.instance.isAltPressed,
+      isShiftPressed: HardwareKeyboard.instance.isShiftPressed,
+      isSpace: event.logicalKey == LogicalKeyboardKey.space,
+      isKeyI: event.logicalKey == LogicalKeyboardKey.keyI,
+      isKeyR: event.logicalKey == LogicalKeyboardKey.keyR,
+      isKeyZ: event.logicalKey == LogicalKeyboardKey.keyZ,
+      isKeyY: event.logicalKey == LogicalKeyboardKey.keyY,
+    );
 
-    // Option/Alt+Space — macOS-safe completion shortcut
-    if (_settings.autoCompleteEnabled &&
-        event.logicalKey == LogicalKeyboardKey.space &&
-        HardwareKeyboard.instance.isAltPressed &&
-        !HardwareKeyboard.instance.isMetaPressed &&
-        !HardwareKeyboard.instance.isControlPressed) {
-      _triggerCompletion();
-      return KeyEventResult.handled;
-    }
-
-    // Ctrl+I for completion (alternative)
-    if (_settings.autoCompleteEnabled &&
-        event.logicalKey == LogicalKeyboardKey.keyI &&
-        HardwareKeyboard.instance.isControlPressed &&
-        !HardwareKeyboard.instance.isMetaPressed) {
-      _triggerCompletion();
-      return KeyEventResult.handled;
-    }
-
-    // Ctrl+R to open API Reference popup
-    if (event.logicalKey == LogicalKeyboardKey.keyR &&
-        HardwareKeyboard.instance.isControlPressed &&
-        !HardwareKeyboard.instance.isMetaPressed) {
-      _showApiReference();
-      return KeyEventResult.handled;
-    }
-
-    // Undo: Cmd+Z (macOS) or Ctrl+Z (other)
-    if (event.logicalKey == LogicalKeyboardKey.keyZ &&
-        (HardwareKeyboard.instance.isMetaPressed ||
-            HardwareKeyboard.instance.isControlPressed) &&
-        !HardwareKeyboard.instance.isShiftPressed) {
-      _undo();
-      return KeyEventResult.handled;
-    }
-
-    // Redo: Cmd+Shift+Z (macOS) or Ctrl+Y or Ctrl+Shift+Z (other)
-    if ((event.logicalKey == LogicalKeyboardKey.keyZ &&
-            (HardwareKeyboard.instance.isMetaPressed ||
-                HardwareKeyboard.instance.isControlPressed) &&
-            HardwareKeyboard.instance.isShiftPressed) ||
-        (event.logicalKey == LogicalKeyboardKey.keyY &&
-            HardwareKeyboard.instance.isControlPressed)) {
-      _redo();
-      return KeyEventResult.handled;
+    switch (shortcutAction) {
+      case CompletionShortcutAction.triggerCompletion:
+        _triggerCompletion();
+        return KeyEventResult.handled;
+      case CompletionShortcutAction.openReference:
+        _showApiReference();
+        return KeyEventResult.handled;
+      case CompletionShortcutAction.undo:
+        _undo();
+        return KeyEventResult.handled;
+      case CompletionShortcutAction.redo:
+        _redo();
+        return KeyEventResult.handled;
+      case CompletionShortcutAction.none:
+        break;
     }
 
     // Handle completion navigation when popup is open
@@ -1744,55 +1741,65 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
                       : theme.editor.gutter,
               child: InkWell(
                 onTap: () {
-                  final error = _filteredErrors.firstWhere(
-                    (e) => e.line == lineNum,
-                    orElse: () => const CodeError(
-                      message: '',
-                      line: 0,
-                      column: 0,
-                      offset: 0,
-                      length: 0,
-                      severity: '',
-                      code: '',
-                    ),
-                  );
-                  if (error.line > 0) {
-                    widget.onErrorTap?.call(error);
+                  final lineErrors = EditorDiagnosticsUtils.diagnosticsForLine(
+                      _filteredErrors, lineNum);
+                  if (lineErrors.isNotEmpty) {
+                    widget.onErrorTap?.call(lineErrors.first);
                   }
                 },
-                child: Container(
-                  height: lineHeight,
-                  alignment: Alignment.centerRight,
-                  padding: const EdgeInsets.only(right: 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      if (hasError)
-                        Icon(
-                          Icons.error,
-                          size: 12,
-                          color: theme.diagnostics.error,
-                        )
-                      else if (hasWarning)
-                        Icon(
-                          Icons.warning,
-                          size: 12,
-                          color: theme.diagnostics.warning,
+                child: MouseRegion(
+                  onEnter: (event) {
+                    final lineErrors =
+                        EditorDiagnosticsUtils.diagnosticsForLine(
+                      _filteredErrors,
+                      lineNum,
+                    );
+                    if (lineErrors.isEmpty) return;
+
+                    final tooltipEnabled = lineErrors.any(
+                      (d) =>
+                          (d.isError && _settings.showErrorTooltips) ||
+                          (d.isWarning && _settings.showWarningTooltips) ||
+                          (d.isInfo && _settings.showInfoTooltips),
+                    );
+                    if (!tooltipEnabled) return;
+                    _showLineTooltip(lineErrors, event.position);
+                  },
+                  onExit: (_) => _hideTooltip(),
+                  child: Container(
+                    height: lineHeight,
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        if (hasError)
+                          Icon(
+                            Icons.error,
+                            size: 12,
+                            color: theme.diagnostics.error,
+                          )
+                        else if (hasWarning)
+                          Icon(
+                            Icons.warning,
+                            size: 12,
+                            color: theme.diagnostics.warning,
+                          ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '$lineNum',
+                          style: TextStyle(
+                            fontFamily: theme.font.fontFamily,
+                            fontSize: fontSize - 2,
+                            color: hasError
+                                ? theme.diagnostics.error
+                                : hasWarning
+                                    ? theme.diagnostics.warning
+                                    : theme.editor.lineNumber,
+                          ),
                         ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '$lineNum',
-                        style: TextStyle(
-                          fontFamily: theme.font.fontFamily,
-                          fontSize: fontSize - 2,
-                          color: hasError
-                              ? theme.diagnostics.error
-                              : hasWarning
-                                  ? theme.diagnostics.warning
-                                  : theme.editor.lineNumber,
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -1851,6 +1858,7 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
                       errors: _filteredErrors,
                       code: widget.controller.userCode,
                       fontSize: fontSize,
+                      fontFamily: theme.font.fontFamily,
                       lineHeight: lineHeight,
                       errorColor: theme.diagnostics.error,
                       warningColor: theme.diagnostics.warning,
@@ -2215,6 +2223,7 @@ class _ErrorUnderlinePainter extends CustomPainter {
   final List<CodeError> errors;
   final String code;
   final double fontSize;
+  final String fontFamily;
   final double lineHeight;
   final Color errorColor;
   final Color warningColor;
@@ -2227,6 +2236,7 @@ class _ErrorUnderlinePainter extends CustomPainter {
     required this.errors,
     required this.code,
     required this.fontSize,
+    required this.fontFamily,
     required this.lineHeight,
     required this.errorColor,
     required this.warningColor,
@@ -2240,7 +2250,13 @@ class _ErrorUnderlinePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (errors.isEmpty || code.isEmpty) return;
 
-    final charWidth = fontSize * charWidthRatio;
+    final lines = code.split('\n');
+    final lineStartOffsets = <int>[];
+    var runningOffset = 0;
+    for (final line in lines) {
+      lineStartOffsets.add(runningOffset);
+      runningOffset += line.length + 1;
+    }
 
     for (final error in errors) {
       if (error.line < 1) continue;
@@ -2259,11 +2275,72 @@ class _ErrorUnderlinePainter extends CustomPainter {
 
       if (y < -10 || y > size.height + 10) continue;
 
-      final startX = padding.left + (error.column - 1) * charWidth;
-      final endX = startX + math.max(error.length, 1) * charWidth;
+        final lineIndex = error.line - 1;
+        final lineText = lineIndex < lines.length ? lines[lineIndex] : '';
+        final lineStartOffset =
+          lineIndex >= 0 && lineIndex < lineStartOffsets.length
+          ? lineStartOffsets[lineIndex]
+          : 0;
+      final offsetInLine = error.offset - lineStartOffset;
+      final baseOffset = offsetInLine >= 0 ? offsetInLine : error.column;
+      final targetOffset = math.max(0, baseOffset + _diagnosticColumnBias(error));
+
+      final clampedPrefixOffset = math.min(targetOffset, lineText.length);
+      final startPrefix = lineText.substring(0, clampedPrefixOffset);
+      final trailingOffsetColumns = math.max(0, targetOffset - lineText.length);
+
+      final startX =
+          padding.left +
+          _measureTextWidth(startPrefix) +
+          trailingOffsetColumns * _characterAdvance;
+
+      final availableLength =
+          math.max(0, math.min(error.length, lineText.length - clampedPrefixOffset));
+      final endX = availableLength > 0
+          ? startX + math.max(
+              _measureTextWidth(
+                lineText.substring(
+                  clampedPrefixOffset,
+                  clampedPrefixOffset + availableLength,
+                ),
+              ),
+              4.0,
+            )
+          : startX + math.max(_characterAdvance, 4.0);
 
       _drawSquigglyLine(canvas, startX, endX, y, color);
     }
+  }
+
+  int _diagnosticColumnBias(CodeError error) {
+    final code = error.code.toLowerCase();
+    if (code.contains('expected') || code.contains('missing')) {
+      return 1;
+    }
+    return 0;
+  }
+
+  double _measureTextWidth(String text) {
+    if (text.isEmpty) return 0;
+    final painter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          fontSize: fontSize,
+          fontFamily: fontFamily,
+          height: 1.0,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout();
+    return painter.width;
+  }
+
+  double get _characterAdvance {
+    final measured = _measureTextWidth('m');
+    if (measured > 0) return measured;
+    return fontSize * charWidthRatio;
   }
 
   void _drawSquigglyLine(

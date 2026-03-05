@@ -35,25 +35,28 @@ class NodeActionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!visible || actions.isEmpty) return const SizedBox.shrink();
+    if (actions.isEmpty) return const SizedBox.shrink();
 
-    return AnimatedOpacity(
-      opacity: visible ? 1.0 : 0.0,
-      duration: const Duration(milliseconds: 150),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (var i = 0; i < actions.length; i++) ...[
-            if (i > 0) SizedBox(width: spacing),
-            ActionButton(
-              icon: actions[i].icon,
-              tooltip: actions[i].tooltip,
-              onPressed: actions[i].onPressed,
-              size: actions[i].size,
-              color: actions[i].color,
-            ),
+    return IgnorePointer(
+      ignoring: !visible,
+      child: AnimatedOpacity(
+        opacity: visible ? 1.0 : 0.0,
+        duration: const Duration(milliseconds: 150),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var i = 0; i < actions.length; i++) ...[
+              if (i > 0) SizedBox(width: spacing),
+              ActionButton(
+                icon: actions[i].icon,
+                tooltip: actions[i].tooltip,
+                onPressed: actions[i].onPressed,
+                size: actions[i].size,
+                color: actions[i].color,
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

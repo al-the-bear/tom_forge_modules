@@ -59,7 +59,7 @@ class KeyLabel extends StatelessWidget {
     var structureColors = theme.structureColors;
 
     return Row(
-      mainAxisSize: MainAxisSize.min,
+      mainAxisSize: MainAxisSize.max,
       children: [
         // Required badge
         if (isRequired)
@@ -75,24 +75,33 @@ class KeyLabel extends StatelessWidget {
             ),
           ),
 
-        // Key text
-        Text(
-          keyName,
-          style: TextStyle(
-            fontFamily: fonts.keyFontFamily,
-            fontSize: fonts.keyFontSize,
-            fontWeight: fonts.keyFontWeight,
-            color: colors.keyColor,
-          ),
-        ),
-
-        // Colon separator
-        Text(
-          ':',
-          style: TextStyle(
-            fontFamily: fonts.keyFontFamily,
-            fontSize: fonts.keyFontSize,
-            color: colors.separatorColor,
+        // Key text + colon
+        Expanded(
+          child: Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: keyName,
+                  style: TextStyle(
+                    fontFamily: fonts.keyFontFamily,
+                    fontSize: fonts.keyFontSize,
+                    fontWeight: fonts.keyFontWeight,
+                    color: colors.keyColor,
+                  ),
+                ),
+                TextSpan(
+                  text: ':',
+                  style: TextStyle(
+                    fontFamily: fonts.keyFontFamily,
+                    fontSize: fonts.keyFontSize,
+                    color: colors.separatorColor,
+                  ),
+                ),
+              ],
+            ),
+            maxLines: 1,
+            softWrap: false,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
 

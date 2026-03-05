@@ -561,7 +561,7 @@ class FontSettings {
   final double charWidthRatio;
 
   const FontSettings({
-    this.fontFamily = 'JetBrains Mono, Menlo, Monaco, Consolas, monospace',
+    this.fontFamily = 'monospace',
     this.fontSize = 14.0,
     this.lineHeight = 1.5,
     this.keywordWeight = FontWeight.w500,

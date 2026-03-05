@@ -51,6 +51,13 @@ YamlSchemaEditor(
 )
 ```
 
+## Embedding Guides
+
+- [doc/how_to_embed.md](doc/how_to_embed.md) — easiest embedding patterns for
+  `SimpleYamlSchemaEditor` and advanced controller-based usage.
+- [doc/how_to_embed_with_dart_editor.md](doc/how_to_embed_with_dart_editor.md)
+  — register and embed `tom_dart_editor` for `-dart` YAML fields.
+
 ## Convention-Based Editors
 
 Keys with a recognised type suffix trigger embedded editors automatically:

@@ -69,6 +69,11 @@ class _MyCodeEditorState extends State<MyCodeEditor> {
 }
 ```
 
+## Embedding Guides
+
+- [doc/how_to_embed.md](doc/how_to_embed.md) — one-liner embedding with
+  `SimpleSummaryBackedDartCodeEditor` and advanced controller-based options.
+
 ## Theming
 
 The editor supports full theme customization:

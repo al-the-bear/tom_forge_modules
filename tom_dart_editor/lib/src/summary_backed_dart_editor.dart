@@ -14,6 +14,8 @@ class SummaryBackedDartCodeEditor extends StatefulWidget {
   final String sdkSummaryAsset;
   final String packageSummaryAsset;
   final List<String>? implicitImports;
+  final bool includeAllPackageCompletions;
+  final List<String>? allowedPackagePrefixes;
 
   final bool readOnly;
   final String? placeholder;
@@ -32,6 +34,8 @@ class SummaryBackedDartCodeEditor extends StatefulWidget {
     this.sdkSummaryAsset = 'assets/sdk_summary.sum',
     this.packageSummaryAsset = 'assets/packages.sum',
     this.implicitImports,
+    this.includeAllPackageCompletions = false,
+    this.allowedPackagePrefixes,
     this.readOnly = false,
     this.placeholder,
     this.onChanged,
@@ -49,7 +53,7 @@ class SummaryBackedDartCodeEditor extends StatefulWidget {
 }
 
 class _SummaryBackedDartCodeEditorState
-  extends State<SummaryBackedDartCodeEditor> {
+    extends State<SummaryBackedDartCodeEditor> {
   late SummaryBackedDartAnalysisAdapter _adapter;
   List<CodeError> _errors = const [];
   Timer? _debounceTimer;
@@ -69,8 +73,14 @@ class _SummaryBackedDartCodeEditorState
         widget.implicitImports ?? widget.controller.implicitImports);
     final assetsChanged = oldWidget.sdkSummaryAsset != widget.sdkSummaryAsset ||
         oldWidget.packageSummaryAsset != widget.packageSummaryAsset;
+    final completionScopeChanged = oldWidget.includeAllPackageCompletions !=
+            widget.includeAllPackageCompletions ||
+        !_listEquals(
+          oldWidget.allowedPackagePrefixes,
+          widget.allowedPackagePrefixes,
+        );
 
-    if (importsChanged || assetsChanged) {
+    if (importsChanged || assetsChanged || completionScopeChanged) {
       _adapter = _createAdapter();
       _scheduleAnalysis(immediate: true);
     }
@@ -86,7 +96,10 @@ class _SummaryBackedDartCodeEditorState
     return SummaryBackedDartAnalysisAdapter(
       sdkSummaryAsset: widget.sdkSummaryAsset,
       packageSummaryAsset: widget.packageSummaryAsset,
-      implicitImports: widget.implicitImports ?? widget.controller.implicitImports,
+      implicitImports:
+          widget.implicitImports ?? widget.controller.implicitImports,
+      includeAllPackageCompletions: widget.includeAllPackageCompletions,
+      allowedPackagePrefixes: widget.allowedPackagePrefixes,
     );
   }
 

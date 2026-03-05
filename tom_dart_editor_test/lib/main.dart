@@ -33,34 +33,7 @@ class AnalyzerScreen extends StatefulWidget {
 }
 
 class _AnalyzerScreenState extends State<AnalyzerScreen> {
-  late final DartCodeController _controller;
   List<CodeError> _errors = const [];
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = DartCodeController(
-      initialCode: '''void main() {
-  String name = 42;
-  print(name)
-  undefinedFunction();
-}
-''',
-      implicitImports: const [
-        'dart:async',
-        'dart:collection',
-        'dart:math',
-        'package:dcli/dcli.dart',
-        'package:path/path.dart',
-      ],
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -74,14 +47,23 @@ class _AnalyzerScreenState extends State<AnalyzerScreen> {
             flex: 3,
             child: Padding(
               padding: const EdgeInsets.all(12),
-              child: SummaryBackedDartCodeEditor(
-                controller: _controller,
+              child: SimpleSummaryBackedDartCodeEditor(
+                initialCode: '''void main() {
+  String name = 42;
+  print(name)
+  undefinedFunction();
+}
+''',
+                implicitImports: const [
+                  'dart:async',
+                  'dart:collection',
+                  'dart:math',
+                  'package:dcli/dcli.dart',
+                  'package:path/path.dart',
+                ],
                 sdkSummaryAsset: 'assets/sdk_summary.sum',
                 packageSummaryAsset: 'assets/packages.sum',
                 theme: DartEditorTheme.dark(),
-                onChanged: (code) {
-                  _controller.userCode = code;
-                },
                 onErrorsChanged: (errors) {
                   if (!mounted) return;
                   setState(() {

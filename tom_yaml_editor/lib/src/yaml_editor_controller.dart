@@ -137,7 +137,7 @@ class YamlEditorController extends ChangeNotifier {
   ///
   /// Path is a list of keys, e.g. `['prompt', 'meta-data', 'name']`.
   void setValue(List<String> path, Object? value) {
-    var newDoc = _document.withValueAt(path.cast<Object>(), value);
+    var newDoc = _document.withValueAt(_toDocumentPath(path), value);
     var operation = YamlEditOperation(
       kind: YamlEditKind.setValue,
       path: path,
@@ -149,8 +149,11 @@ class YamlEditorController extends ChangeNotifier {
 
   /// Insert a new key at a specific path based on schema suggestions.
   void insertKey(List<String> parentPath, String key, Object? defaultValue) {
-    var newDoc =
-        _document.withInsertedKey(parentPath.cast<Object>(), key, defaultValue);
+    var newDoc = _document.withInsertedKey(
+      _toDocumentPath(parentPath),
+      key,
+      defaultValue,
+    );
     var operation = YamlEditOperation(
       kind: YamlEditKind.insertKey,
       path: [...parentPath, key],
@@ -162,7 +165,7 @@ class YamlEditorController extends ChangeNotifier {
 
   /// Remove a key at a specific path.
   void removeKey(List<String> path) {
-    var newDoc = _document.withRemovedKey(path.cast<Object>());
+    var newDoc = _document.withRemovedKey(_toDocumentPath(path));
     var operation = YamlEditOperation(
       kind: YamlEditKind.removeKey,
       path: path,
@@ -181,7 +184,7 @@ class YamlEditorController extends ChangeNotifier {
   /// [listPath] is the path to the parent list node.
   void insertListItem(List<String> listPath, int index, Object? value) {
     var newDoc =
-        _document.withInsertedIntoList(listPath.cast<Object>(), index, value);
+        _document.withInsertedIntoList(_toDocumentPath(listPath), index, value);
     var operation = YamlEditOperation(
       kind: YamlEditKind.insertListItem,
       path: [...listPath, index.toString()],
@@ -193,7 +196,7 @@ class YamlEditorController extends ChangeNotifier {
 
   /// Append an item to the end of a list.
   void appendListItem(List<String> listPath, Object? value) {
-    var newDoc = _document.withAppendedToList(listPath.cast<Object>(), value);
+    var newDoc = _document.withAppendedToList(_toDocumentPath(listPath), value);
     var operation = YamlEditOperation(
       kind: YamlEditKind.insertListItem,
       path: listPath,
@@ -208,13 +211,12 @@ class YamlEditorController extends ChangeNotifier {
   /// [listPath] is the path to the parent list node.
   void moveListItem(List<String> listPath, int oldIndex, int newIndex) {
     if (oldIndex == newIndex) return;
-    var value = _document.valueOf([...listPath.cast<Object>(), oldIndex]);
+    final docPath = _toDocumentPath(listPath);
+    var value = _document.valueOf([...docPath, oldIndex]);
     // Remove then insert — build a single operation from before/after
-    var removed = _document.withRemovedFromList(
-        [...listPath.cast<Object>(), oldIndex]);
+    var removed = _document.withRemovedFromList([...docPath, oldIndex]);
     var adjustedIndex = newIndex > oldIndex ? newIndex - 1 : newIndex;
-    var newDoc = removed.withInsertedIntoList(
-        listPath.cast<Object>(), adjustedIndex, value);
+    var newDoc = removed.withInsertedIntoList(docPath, adjustedIndex, value);
     var operation = YamlEditOperation(
       kind: YamlEditKind.reorderKeys,
       path: listPath,
@@ -228,7 +230,7 @@ class YamlEditorController extends ChangeNotifier {
   ///
   /// Returns 0 if the path doesn't exist or isn't a list.
   int listLength(List<String> listPath) {
-    var node = _document.nodeAt(listPath.cast<Object>());
+    var node = _document.nodeAt(_toDocumentPath(listPath));
     if (node == null) return 0;
     var value = node.value;
     if (value is List) return value.length;
@@ -254,7 +256,7 @@ class YamlEditorController extends ChangeNotifier {
     // for maps, so we re-serialize with the desired key order.
     var parentPath = siblingPath.sublist(0, siblingPath.length - 1);
     var newDoc =
-        _document.withInsertedKey(parentPath.cast<Object>(), newKey, value);
+        _document.withInsertedKey(_toDocumentPath(parentPath), newKey, value);
     var operation = YamlEditOperation(
       kind: YamlEditKind.insertKey,
       path: [...parentPath, newKey],
@@ -301,5 +303,11 @@ class YamlEditorController extends ChangeNotifier {
   void dispose() {
     _history.clear();
     super.dispose();
+  }
+
+  List<Object> _toDocumentPath(List<String> path) {
+    return path
+        .map<Object>((segment) => int.tryParse(segment) ?? segment)
+        .toList(growable: false);
   }
 }
