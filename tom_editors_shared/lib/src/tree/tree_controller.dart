@@ -83,7 +83,10 @@ class TreeController<T> extends ChangeNotifier {
   /// All nodes in the tree, regardless of expand state.
   Iterable<TreeNode<T>> get _allNodes sync* {
     for (var root in _roots) {
-      yield* root.allDescendants;
+      yield root;
+      for (var child in root.children) {
+        yield* child.allDescendants;
+      }
     }
   }
 
