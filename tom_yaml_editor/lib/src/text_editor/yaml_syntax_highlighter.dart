@@ -1,18 +1,7 @@
 import 'package:flutter/painting.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart';
 
-/// Syntax highlighter for YAML source text.
-///
-/// Implements [SyntaxHighlighter] from `tom_editors_shared` to tokenize
-/// YAML and produce styled spans for keys, string values, numbers, booleans,
-/// comments, and block scalars.
-///
-/// ```dart
-/// final highlighter = YamlSyntaxHighlighter();
-/// var spans = highlighter.highlight(yamlSource);
-/// ```
 class YamlSyntaxHighlighter extends SyntaxHighlighter {
-  /// Colors for different YAML token types.
   final YamlHighlightColors colors;
 
   YamlSyntaxHighlighter({
@@ -21,13 +10,13 @@ class YamlSyntaxHighlighter extends SyntaxHighlighter {
 
   @override
   List<HighlightSpan> highlight(String source) {
-    var spans = <HighlightSpan>[];
-    var lines = source.split('\n');
+    final spans = <HighlightSpan>[];
+    final lines = source.split('\n');
     var offset = 0;
 
-    for (var line in lines) {
+    for (final line in lines) {
       _highlightLine(line, offset, spans);
-      offset += line.length + 1; // +1 for newline
+      offset += line.length + 1;
     }
 
     return spans;
@@ -35,13 +24,10 @@ class YamlSyntaxHighlighter extends SyntaxHighlighter {
 
   void _highlightLine(String line, int lineOffset, List<HighlightSpan> spans) {
     var trimmed = line.trimLeft();
-
-    // Empty line
     if (trimmed.isEmpty) return;
 
-    // Full-line comment
     if (trimmed.startsWith('#')) {
-      var commentStart = lineOffset + line.indexOf('#');
+      final commentStart = lineOffset + line.indexOf('#');
       spans.add(HighlightSpan(
         start: commentStart,
         end: lineOffset + line.length,
@@ -51,79 +37,64 @@ class YamlSyntaxHighlighter extends SyntaxHighlighter {
       return;
     }
 
-    // Document markers
     if (trimmed == '---' || trimmed == '...') {
+      final markerStart = lineOffset + line.indexOf(trimmed);
       spans.add(HighlightSpan(
-        start: lineOffset + line.indexOf(trimmed),
-        end: lineOffset + line.indexOf(trimmed) + 3,
+        start: markerStart,
+        end: markerStart + trimmed.length,
         style: TextStyle(color: colors.punctuation),
         type: 'document_marker',
       ));
       return;
     }
 
-    // List item prefix "- "
-    var contentStart = lineOffset;
+    // Account for leading whitespace so spans align with actual characters.
+    final indent = line.length - trimmed.length;
+    var contentStart = lineOffset + indent;
     if (trimmed.startsWith('- ')) {
-      var dashPos = lineOffset + (line.length - trimmed.length);
       spans.add(HighlightSpan(
-        start: dashPos,
-        end: dashPos + 1,
-        style: TextStyle(color: colors.punctuation),
+        start: contentStart,
+        end: contentStart + 1,
+        style: TextStyle(color: colors.dash),
         type: 'list_dash',
       ));
-      // Continue to parse the rest after "- "
-      contentStart = dashPos + 2;
+      contentStart += 2;
       trimmed = trimmed.substring(2);
     }
 
-    // Key: value pair
-    var colonIndex = _findKeyColonIndex(trimmed);
+    final colonIndex = _findKeyColonIndex(trimmed);
     if (colonIndex > 0) {
-      var keyStart =
-          contentStart + (trimmed.length - trimmed.trimLeft().length);
-      var key = trimmed.substring(0, colonIndex).trimLeft();
+      final key = trimmed.substring(0, colonIndex);
 
-      // Key span
       spans.add(HighlightSpan(
-        start: keyStart,
-        end: keyStart + key.length,
-        style: TextStyle(
-          color: colors.key,
-          fontWeight: FontWeight.w600,
-        ),
+        start: contentStart,
+        end: contentStart + key.length,
+        style: TextStyle(color: colors.key),
         type: 'key',
       ));
 
-      // Colon
       spans.add(HighlightSpan(
         start: contentStart + colonIndex,
         end: contentStart + colonIndex + 1,
-        style: TextStyle(
-          color: colors.punctuation,
-          fontWeight: FontWeight.w600,
-        ),
+        style: TextStyle(color: colors.colon),
         type: 'colon',
       ));
 
-      // Value (after colon + space)
-      var afterColon = trimmed.substring(colonIndex + 1).trimLeft();
+      final afterColon = trimmed.substring(colonIndex + 1).trimLeft();
       if (afterColon.isNotEmpty) {
-        var valueStart = contentStart + trimmed.indexOf(afterColon, colonIndex);
-
-        // Check for inline comment
-        var commentIdx = _findCommentIndex(afterColon);
-        var valueText = commentIdx >= 0
+        final valueStart = contentStart + trimmed.indexOf(afterColon, colonIndex);
+        final commentIdx = _findCommentIndex(afterColon);
+        final valueText = commentIdx >= 0
             ? afterColon.substring(0, commentIdx).trimRight()
             : afterColon;
 
         if (valueText.isNotEmpty) {
           _highlightValue(valueText, valueStart, spans);
+          _highlightBrackets(valueText, valueStart, spans);
         }
 
-        // Inline comment
         if (commentIdx >= 0) {
-          var commentStart = valueStart + commentIdx;
+          final commentStart = valueStart + commentIdx;
           spans.add(HighlightSpan(
             start: commentStart,
             end: contentStart + trimmed.length,
@@ -132,18 +103,14 @@ class YamlSyntaxHighlighter extends SyntaxHighlighter {
           ));
         }
       }
-    } else {
-      // Bare value (in a list or flow context)
-      _highlightValue(trimmed, contentStart, spans);
+      return;
     }
+
+    _highlightValue(trimmed, contentStart, spans);
+    _highlightBrackets(trimmed, contentStart, spans);
   }
 
-  void _highlightValue(
-    String value,
-    int offset,
-    List<HighlightSpan> spans,
-  ) {
-    // Quoted string
+  void _highlightValue(String value, int offset, List<HighlightSpan> spans) {
     if ((value.startsWith('"') && value.endsWith('"')) ||
         (value.startsWith("'") && value.endsWith("'"))) {
       spans.add(HighlightSpan(
@@ -155,7 +122,6 @@ class YamlSyntaxHighlighter extends SyntaxHighlighter {
       return;
     }
 
-    // Block scalar indicators
     if (value == '|' || value == '>' || value == '|-' || value == '>-') {
       spans.add(HighlightSpan(
         start: offset,
@@ -166,8 +132,7 @@ class YamlSyntaxHighlighter extends SyntaxHighlighter {
       return;
     }
 
-    // Boolean
-    var lower = value.toLowerCase();
+    final lower = value.toLowerCase();
     if (lower == 'true' ||
         lower == 'false' ||
         lower == 'yes' ||
@@ -183,7 +148,6 @@ class YamlSyntaxHighlighter extends SyntaxHighlighter {
       return;
     }
 
-    // Null
     if (lower == 'null' || lower == '~') {
       spans.add(HighlightSpan(
         start: offset,
@@ -194,7 +158,6 @@ class YamlSyntaxHighlighter extends SyntaxHighlighter {
       return;
     }
 
-    // Number
     if (_isNumber(value)) {
       spans.add(HighlightSpan(
         start: offset,
@@ -205,7 +168,6 @@ class YamlSyntaxHighlighter extends SyntaxHighlighter {
       return;
     }
 
-    // Unquoted string value
     spans.add(HighlightSpan(
       start: offset,
       end: offset + value.length,
@@ -214,19 +176,43 @@ class YamlSyntaxHighlighter extends SyntaxHighlighter {
     ));
   }
 
-  /// Find the colon that separates key from value.
-  /// Ignores colons inside quoted strings.
+  void _highlightBrackets(String text, int offset, List<HighlightSpan> spans) {
+    var inSingleQuote = false;
+    var inDoubleQuote = false;
+
+    for (var index = 0; index < text.length; index++) {
+      final ch = text[index];
+      if (ch == "'" && !inDoubleQuote) {
+        inSingleQuote = !inSingleQuote;
+        continue;
+      }
+      if (ch == '"' && !inSingleQuote) {
+        inDoubleQuote = !inDoubleQuote;
+        continue;
+      }
+      if (inSingleQuote || inDoubleQuote) continue;
+
+      if (ch == '[' || ch == ']' || ch == '{' || ch == '}') {
+        spans.add(HighlightSpan(
+          start: offset + index,
+          end: offset + index + 1,
+          style: TextStyle(color: colors.bracket),
+          type: 'bracket',
+        ));
+      }
+    }
+  }
+
   int _findKeyColonIndex(String line) {
     var inSingleQuote = false;
     var inDoubleQuote = false;
 
     for (var i = 0; i < line.length; i++) {
-      var ch = line[i];
+      final ch = line[i];
       if (ch == "'" && !inDoubleQuote) inSingleQuote = !inSingleQuote;
       if (ch == '"' && !inSingleQuote) inDoubleQuote = !inDoubleQuote;
 
       if (ch == ':' && !inSingleQuote && !inDoubleQuote) {
-        // Must be followed by space, end-of-line, or newline
         if (i + 1 >= line.length || line[i + 1] == ' ' || line[i + 1] == '\t') {
           return i;
         }
@@ -235,13 +221,12 @@ class YamlSyntaxHighlighter extends SyntaxHighlighter {
     return -1;
   }
 
-  /// Find the start of an inline comment (# preceded by space).
   int _findCommentIndex(String value) {
     var inSingleQuote = false;
     var inDoubleQuote = false;
 
     for (var i = 0; i < value.length; i++) {
-      var ch = value[i];
+      final ch = value[i];
       if (ch == "'" && !inDoubleQuote) inSingleQuote = !inSingleQuote;
       if (ch == '"' && !inSingleQuote) inDoubleQuote = !inDoubleQuote;
 
@@ -253,6 +238,7 @@ class YamlSyntaxHighlighter extends SyntaxHighlighter {
         return i;
       }
     }
+
     return -1;
   }
 
@@ -262,28 +248,17 @@ class YamlSyntaxHighlighter extends SyntaxHighlighter {
   }
 }
 
-/// Colors used by [YamlSyntaxHighlighter].
 class YamlHighlightColors {
-  /// Color for mapping keys.
   final Color key;
-
-  /// Color for string values.
   final Color string;
-
-  /// Color for numeric values.
   final Color number;
-
-  /// Color for boolean values.
   final Color boolean;
-
-  /// Color for null/~ values.
   final Color nullValue;
-
-  /// Color for comments.
   final Color comment;
-
-  /// Color for structural punctuation (colons, dashes, block indicators).
   final Color punctuation;
+  final Color colon;
+  final Color dash;
+  final Color bracket;
 
   const YamlHighlightColors({
     this.key = const Color(0xFF9CDCFE),
@@ -293,5 +268,8 @@ class YamlHighlightColors {
     this.nullValue = const Color(0xFF569CD6),
     this.comment = const Color(0xFF6A9955),
     this.punctuation = const Color(0xFF808080),
+    this.colon = const Color(0xFFDCDCAA),
+    this.dash = const Color(0xFF4EC9B0),
+    this.bracket = const Color(0xFFC586C0),
   });
 }
