@@ -113,6 +113,17 @@ class _ListNodeRowState extends State<ListNodeRow> {
           padding: const EdgeInsets.symmetric(vertical: 1),
           child: Row(
             children: [
+              if (_data.isContainer) ...[
+                Icon(
+                  (_data.yamlNode?.value is List)
+                      ? Icons.data_array
+                      : Icons.data_object,
+                  size: 14,
+                  color: widget.theme.colors.hintColor,
+                ),
+                const SizedBox(width: 6),
+              ],
+
               // Index badge
               Container(
                 constraints: const BoxConstraints(minWidth: 24),

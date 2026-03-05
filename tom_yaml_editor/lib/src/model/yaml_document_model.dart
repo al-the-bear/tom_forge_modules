@@ -25,7 +25,65 @@ class YamlDocumentModel {
   }
 
   /// Serialize back to YAML string, preserving original formatting.
-  String toYamlString() => _editor.toString();
+  String toYamlString() => _normalizeMultilineScalars(_editor.toString());
+
+  String _normalizeMultilineScalars(String yaml) {
+    if (!yaml.contains(r'\n')) return yaml;
+
+    final lines = yaml.split('\n');
+    final normalized = <String>[];
+
+    final keyValuePattern = RegExp(
+      r'''^(\s*)([^:#\n][^:\n]*):(\s*)(["'])(.*)\4\s*$''',
+    );
+    final listValuePattern = RegExp(
+      r'''^(\s*)-(\s*)(["'])(.*)\3\s*$''',
+    );
+
+    for (final line in lines) {
+      final keyMatch = keyValuePattern.firstMatch(line);
+      if (keyMatch != null) {
+        final indent = keyMatch.group(1)!;
+        final key = keyMatch.group(2)!;
+        final spacing = keyMatch.group(3)!;
+        final rawValue = keyMatch.group(5)!;
+        final unescaped = _decodeEscapedNewlines(rawValue);
+        if (unescaped.contains('\n')) {
+          normalized.add('$indent$key:$spacing|');
+          for (final blockLine in unescaped.split('\n')) {
+            normalized.add('$indent  $blockLine');
+          }
+          continue;
+        }
+      }
+
+      final listMatch = listValuePattern.firstMatch(line);
+      if (listMatch != null) {
+        final indent = listMatch.group(1)!;
+        final spacing = listMatch.group(2)!;
+        final rawValue = listMatch.group(4)!;
+        final unescaped = _decodeEscapedNewlines(rawValue);
+        if (unescaped.contains('\n')) {
+          normalized.add('$indent-$spacing|');
+          for (final blockLine in unescaped.split('\n')) {
+            normalized.add('$indent  $blockLine');
+          }
+          continue;
+        }
+      }
+
+      normalized.add(line);
+    }
+
+    return normalized.join('\n');
+  }
+
+  String _decodeEscapedNewlines(String value) {
+    return value
+      .replaceAll('\\r\\n', '\n')
+      .replaceAll('\\n', '\n')
+      .replaceAll('\\\\', '\\');
+  }
 
   /// The parsed YAML root node (from `package:yaml`).
   ///

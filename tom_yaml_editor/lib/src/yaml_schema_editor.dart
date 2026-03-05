@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart';
+import 'package:yaml/yaml.dart';
 
 import 'dart:ui' as ui;
 
@@ -8,7 +9,10 @@ import 'editors/editor_registry.dart';
 import 'inspector/inspector_dialog.dart';
 import 'inspector/inspector_layouts.dart';
 import 'inspector/subtree_inspector.dart';
+import 'model/yaml_document_model.dart';
+import 'schema/schema_marker_generator.dart';
 import 'schema/schema_walker.dart';
+import 'text_editor/yaml_syntax_highlighter.dart';
 import 'tree/list_node_row.dart';
 import 'tree/map_node_row.dart';
 import 'tree/yaml_tree_node_builder.dart';
@@ -105,6 +109,10 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
   Map<String, double> _computedKeyWidths = {};
 
   bool _textInputFocused = false;
+  bool _textMode = false;
+  String _textDraft = '';
+  String? _textParseError;
+  List<TextMarker> _textMarkers = const [];
 
   @override
   void initState() {
@@ -112,6 +120,7 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
     _schemaWalker = widget.controller.schema != null
         ? SchemaWalker(widget.controller.schema!)
         : null;
+    _textDraft = widget.controller.yamlText;
     _treeController = TreeController<YamlTreeData>(roots: []);
     _rebuildTree();
     widget.controller.addListener(_onControllerChanged);
@@ -132,6 +141,9 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
       _persistedExpanded.clear();
       _initialExpansionCaptured = false;
       _initialTopLevelExpansionApplied = false;
+      if (!_textMode) {
+        _textDraft = widget.controller.yamlText;
+      }
 
       _rebuildTree();
     }
@@ -158,9 +170,95 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
 
   void _onControllerChanged() {
     _rebuildTree();
+    if (!_textMode) {
+      _textDraft = widget.controller.yamlText;
+      final preview = _computeTextDiagnostics(_textDraft);
+      _textParseError = preview.parseError;
+      _textMarkers = preview.markers;
+    }
     setState(() {});
     widget.onChanged?.call(widget.controller.yamlText);
     widget.onValidationChanged?.call(widget.controller.errors);
+  }
+
+  void _toggleTextMode() {
+    if (_textMode) {
+      if (_textParseError != null) return;
+      if (_textParseError == null && _textDraft != widget.controller.yamlText) {
+        widget.controller.setYaml(_textDraft);
+      }
+      setState(() {
+        _textMode = false;
+      });
+      return;
+    }
+
+    final draft = widget.controller.yamlText;
+    final diagnostics = _computeTextDiagnostics(draft);
+    setState(() {
+      _inspectedPath = null;
+      _textMode = true;
+      _textDraft = draft;
+      _textParseError = diagnostics.parseError;
+      _textMarkers = diagnostics.markers;
+    });
+  }
+
+  void _onTextDraftChanged(String text) {
+    final diagnostics = _computeTextDiagnostics(text);
+    setState(() {
+      _textDraft = text;
+      _textParseError = diagnostics.parseError;
+      _textMarkers = diagnostics.markers;
+    });
+
+    if (_textParseError == null && text != widget.controller.yamlText) {
+      widget.controller.setYaml(text);
+    }
+  }
+
+  ({String? parseError, List<TextMarker> markers}) _computeTextDiagnostics(
+    String text,
+  ) {
+    if (text.isEmpty) return (parseError: null, markers: const []);
+
+    try {
+      loadYamlNode(text);
+    } catch (error) {
+      int start = 0;
+      int end = 1;
+      int line = 1;
+      int column = 1;
+      if (error is YamlException && error.span != null) {
+        start = error.span!.start.offset;
+        end = error.span!.end.offset > start ? error.span!.end.offset : start + 1;
+        line = error.span!.start.line + 1;
+        column = error.span!.start.column + 1;
+      }
+      return (
+        parseError: error.toString(),
+        markers: [
+          TextMarker(
+            start: start,
+            end: end,
+            message: error.toString(),
+            type: TextMarkerType.error,
+            line: line,
+            column: column,
+          ),
+        ],
+      );
+    }
+
+    final schema = widget.controller.schema;
+    if (schema == null) return (parseError: null, markers: const []);
+
+    final doc = YamlDocumentModel.parse(text);
+    final errors = schema.validate(doc);
+    return (
+      parseError: null,
+      markers: SchemaMarkerGenerator.generate(yamlText: text, errors: errors),
+    );
   }
 
   /// Rebuild the tree from the current document, preserving expand state.
@@ -345,14 +443,15 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
       ),
     );
 
-    // Build the main content (tree + optional inspector)
-    Widget mainContent;
-    if (_inspectedPath == null) {
-      mainContent = treeView;
+    Widget editorContent;
+    if (_textMode) {
+      editorContent = _buildTextModeEditor(theme);
+    } else if (_inspectedPath == null) {
+      editorContent = treeView;
     } else {
       switch (widget.inspectorMode) {
         case SubtreeInspectorMode.sidePanel:
-          mainContent = InspectorSidePanel(
+          editorContent = InspectorSidePanel(
             controller: widget.controller,
             path: _inspectedPath!,
             theme: theme,
@@ -361,7 +460,7 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
             onClose: _closeInspector,
           );
         case SubtreeInspectorMode.bottomSheet:
-          mainContent = InspectorBottomSheet(
+          editorContent = InspectorBottomSheet(
             controller: widget.controller,
             path: _inspectedPath!,
             theme: theme,
@@ -371,9 +470,17 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
           );
         case SubtreeInspectorMode.dialog:
           // Dialog is opened via _openInspector → showInspectorDialog
-          mainContent = treeView;
+          editorContent = treeView;
       }
     }
+
+    var mainContent = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildModeToolbar(theme),
+        Expanded(child: editorContent),
+      ],
+    );
 
     // Wrap with optional error list
     var errorListPos = widget.errorListPosition;
@@ -421,6 +528,118 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
         ],
       );
     }
+  }
+
+  Widget _buildModeToolbar(YamlEditorTheme theme) {
+    final icon = _textMode ? Icons.account_tree : Icons.code;
+    final tooltip = _textMode ? 'Switch to tree mode' : 'Switch to text mode';
+    final label = _textMode ? 'Text mode' : 'Tree mode';
+    return Container(
+      height: 34,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: theme.colors.surface,
+        border: Border(
+          bottom: BorderSide(color: theme.colors.separatorColor.withAlpha(90)),
+        ),
+      ),
+      child: Row(
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: theme.colors.hintColor,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const Spacer(),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            iconSize: 16,
+            tooltip: tooltip,
+            onPressed: _toggleTextMode,
+            icon: Icon(icon, color: theme.colors.keyColor),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTextModeEditor(YamlEditorTheme theme) {
+    final textEditorTheme = TextEditorTheme(
+      background: theme.colors.background,
+      textStyle: TextStyle(
+        fontFamily: theme.fonts.valueFontFamily,
+        fontSize: theme.fonts.valueFontSize,
+        color: theme.colors.valueColor,
+        height: 1.4,
+      ),
+      lineNumberStyle: TextStyle(
+        fontFamily: theme.fonts.valueFontFamily,
+        fontSize: theme.fonts.valueFontSize,
+        color: theme.colors.hintColor,
+        height: 1.4,
+      ),
+      gutterBackground: theme.colors.surface,
+      gutterBorderColor: theme.colors.separatorColor.withAlpha(80),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(
+          child: TextEditorCore(
+            text: _textDraft,
+            highlighter: YamlSyntaxHighlighter(
+              colors: YamlHighlightColors(
+                key: theme.colors.keyColor,
+                string: theme.colors.valueColor,
+                number: theme.colors.numberColor,
+                boolean: theme.colors.boolColor,
+                nullValue: theme.colors.nullColor,
+                comment: theme.colors.commentColor,
+                punctuation: theme.colors.separatorColor,
+              ),
+            ),
+            markers: _textMarkers,
+            onTextChanged: widget.readOnly ? null : _onTextDraftChanged,
+            readOnly: widget.readOnly,
+            theme: textEditorTheme,
+          ),
+        ),
+        if (_textParseError != null)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: theme.colors.errorColor.withAlpha(30),
+              border: Border(
+                top: BorderSide(color: theme.colors.errorColor.withAlpha(120)),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.error_outline,
+                  size: 14,
+                  color: theme.colors.errorColor,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'YAML parse error — fix before switching back to tree mode',
+                    style: TextStyle(
+                      color: theme.colors.errorColor,
+                      fontSize: 11,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
   }
 
   /// Open the subtree inspector for the given [path].
