@@ -93,6 +93,9 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
   /// Whether we've captured the initial expansion state.
   bool _initialExpansionCaptured = false;
 
+  /// Whether first-load top-level expansion has been applied to controller.
+  bool _initialTopLevelExpansionApplied = false;
+
   /// The path currently being inspected, or null if no inspector is open.
   List<String>? _inspectedPath;
 
@@ -183,6 +186,18 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
     }
 
     _treeController.roots = roots;
+
+    // Hard guarantee for first render: top-level container nodes start open.
+    if (!_initialTopLevelExpansionApplied) {
+      _initialTopLevelExpansionApplied = true;
+      for (var root in roots) {
+        if (!root.isLeaf) {
+          _persistedExpanded.add(root.id);
+          _treeController.expand(root.id);
+        }
+      }
+    }
+
     _computeKeyWidths();
   }
 
