@@ -44,7 +44,13 @@ class TreeController<T> extends ChangeNotifier {
 
   /// Update the root nodes (e.g. when the document model changes).
   set roots(List<TreeNode<T>> newRoots) {
+    var initialAssignment = _roots.isEmpty && _expandedIds.isEmpty;
     _roots = newRoots;
+    if (initialAssignment) {
+      for (var node in _allNodes) {
+        if (node.isExpanded) _expandedIds.add(node.id);
+      }
+    }
     // Re-apply expanded state without losing user's collapse decisions
     for (var node in _allNodes) {
       node.isExpanded = _expandedIds.contains(node.id);
