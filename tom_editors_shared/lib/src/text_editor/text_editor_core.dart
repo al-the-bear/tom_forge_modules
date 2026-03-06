@@ -191,15 +191,27 @@ class _TextEditorCoreState extends State<TextEditorCore> {
   Widget _buildTextArea() {
     return Padding(
       padding: widget.theme.contentPadding,
-      child: EditableText(
+      child: TextField(
         controller: _textController,
         focusNode: _focusNode,
         style: widget.theme.textStyle,
         cursorColor: Colors.white,
-        backgroundCursorColor: Colors.grey,
         maxLines: null,
         readOnly: widget.readOnly,
+        decoration: const InputDecoration(
+          border: InputBorder.none,
+          contentPadding: EdgeInsets.zero,
+          isDense: true,
+        ),
         strutStyle: StrutStyle.fromTextStyle(widget.theme.textStyle),
+        // TextField provides mouse selection, context menu, and Ctrl+C/V/A
+        // automatically — unlike EditableText which is lower-level.
+        enableInteractiveSelection: true,
+        contextMenuBuilder: (context, editableTextState) {
+          return AdaptiveTextSelectionToolbar.editableText(
+            editableTextState: editableTextState,
+          );
+        },
       ),
     );
   }

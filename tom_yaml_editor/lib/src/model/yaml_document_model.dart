@@ -193,16 +193,53 @@ class YamlDocumentModel {
   String? subtreeYamlAt(List<Object> path) {
     var node = nodeAt(path);
     if (node == null) return null;
-    // For scalar values, return the string representation.
-    // For maps/lists, serialize through a temporary YamlEditor.
+
+    // Try to extract the original source text via span — this preserves
+    // the exact formatting and quoting from the document.
+    var span = node.span;
+    var source = _editor.toString();
+    var start = span.start.offset;
+    var end = span.end.offset;
+    if (start >= 0 && end <= source.length && end > start) {
+      var extracted = source.substring(start, end);
+      // Dedent: strip the common leading whitespace from all lines
+      // so the subtree is left-aligned in the editor.
+      return _dedent(extracted);
+    }
+
+    // Fallback: re-serialize for scalar values or if span extraction failed.
     var value = node.value;
     if (value is String || value is num || value is bool || value == null) {
       return value?.toString();
     }
-    // Use yaml_edit to serialize the subtree preserving structure
     var tempEditor = YamlEditor('');
     tempEditor.update([], value);
     return _normalizeMultilineScalars(tempEditor.toString());
+  }
+
+  /// Remove common leading indentation from a multiline YAML fragment.
+  String _dedent(String text) {
+    var lines = text.split('\n');
+    if (lines.length <= 1) return text;
+
+    // Find the minimum indentation across non-empty lines (skip first line
+    // which may have zero indent if the node starts at column 0).
+    int? minIndent;
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i];
+      if (line.trimLeft().isEmpty) continue;
+      var indent = line.length - line.trimLeft().length;
+      if (minIndent == null || indent < minIndent) {
+        minIndent = indent;
+      }
+    }
+
+    if (minIndent == null || minIndent == 0) return text;
+
+    return lines.map((line) {
+      if (line.trimLeft().isEmpty) return '';
+      return line.length >= minIndent! ? line.substring(minIndent) : line;
+    }).join('\n');
   }
 
   /// Replace the subtree at [path] with a new [yamlFragment].
