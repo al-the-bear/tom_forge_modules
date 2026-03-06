@@ -25,64 +25,82 @@ class YamlDocumentModel {
   }
 
   /// Serialize back to YAML string, preserving original formatting.
-  String toYamlString() => _normalizeMultilineScalars(_editor.toString());
+  ///
+  /// Multiline string scalars that `yaml_edit` serializes as escaped quoted
+  /// strings (e.g. `"line1\nline2"`) are converted to block scalar (`|`)
+  /// format using proper YAML library APIs.
+  String toYamlString() => _formatBlockScalars(_editor.toString());
 
-  String _normalizeMultilineScalars(String yaml) {
-    if (!yaml.contains(r'\n')) return yaml;
-
-    final lines = yaml.split('\n');
-    final normalized = <String>[];
-
-    final keyValuePattern = RegExp(
-      r'''^(\s*)([^:#\n][^:\n]*):(\s*)(["'])(.*)\4\s*$''',
-    );
-    final listValuePattern = RegExp(
-      r'''^(\s*)-(\s*)(["'])(.*)\3\s*$''',
-    );
-
-    for (final line in lines) {
-      final keyMatch = keyValuePattern.firstMatch(line);
-      if (keyMatch != null) {
-        final indent = keyMatch.group(1)!;
-        final key = keyMatch.group(2)!;
-        final spacing = keyMatch.group(3)!;
-        final rawValue = keyMatch.group(5)!;
-        final unescaped = _decodeEscapedNewlines(rawValue);
-        if (unescaped.contains('\n')) {
-          normalized.add('$indent$key:$spacing|');
-          for (final blockLine in unescaped.split('\n')) {
-            normalized.add('$indent  $blockLine');
-          }
-          continue;
-        }
-      }
-
-      final listMatch = listValuePattern.firstMatch(line);
-      if (listMatch != null) {
-        final indent = listMatch.group(1)!;
-        final spacing = listMatch.group(2)!;
-        final rawValue = listMatch.group(4)!;
-        final unescaped = _decodeEscapedNewlines(rawValue);
-        if (unescaped.contains('\n')) {
-          normalized.add('$indent-$spacing|');
-          for (final blockLine in unescaped.split('\n')) {
-            normalized.add('$indent  $blockLine');
-          }
-          continue;
-        }
-      }
-
-      normalized.add(line);
+  /// Convert multiline string scalars from quoted/escaped format to
+  /// block scalar (literal `|`) format using proper YAML library APIs.
+  ///
+  /// Walks the parsed YAML tree to find string scalars containing newlines
+  /// that are not already in block scalar style, and converts them using
+  /// [yaml_edit]'s [wrapAsYamlNode] with [ScalarStyle.LITERAL].
+  String _formatBlockScalars(String yaml) {
+    YamlNode root;
+    try {
+      root = loadYamlNode(yaml);
+    } catch (_) {
+      return yaml;
     }
 
-    return normalized.join('\n');
+    // Collect paths of multiline scalars that need converting.
+    var paths = <List<Object>>[];
+    var values = <String>[];
+    _findMultilineScalars(root, [], paths, values);
+
+    if (paths.isEmpty) return yaml;
+
+    // Apply conversions using yaml_edit — each update properly adjusts
+    // internal offsets so subsequent edits remain valid.
+    var editor = YamlEditor(yaml);
+    for (var i = 0; i < paths.length; i++) {
+      editor.update(
+        paths[i],
+        wrapAsYamlNode(values[i], scalarStyle: ScalarStyle.LITERAL),
+      );
+    }
+    return editor.toString();
   }
 
-  String _decodeEscapedNewlines(String value) {
-    return value
-      .replaceAll('\\r\\n', '\n')
-      .replaceAll('\\n', '\n')
-      .replaceAll('\\\\', '\\');
+  /// Recursively walk the YAML tree collecting paths and values of string
+  /// scalars that contain newlines but are not already in block style.
+  void _findMultilineScalars(
+    YamlNode node,
+    List<Object> currentPath,
+    List<List<Object>> paths,
+    List<String> values,
+  ) {
+    if (node is YamlMap) {
+      for (var entry in node.nodes.entries) {
+        var key = (entry.key as YamlScalar).value;
+        _findMultilineScalars(
+          entry.value,
+          [...currentPath, key],
+          paths,
+          values,
+        );
+      }
+    } else if (node is YamlList) {
+      for (var i = 0; i < node.nodes.length; i++) {
+        _findMultilineScalars(
+          node.nodes[i],
+          [...currentPath, i],
+          paths,
+          values,
+        );
+      }
+    } else if (node is YamlScalar) {
+      var value = node.value;
+      if (value is String &&
+          value.contains('\n') &&
+          node.style != ScalarStyle.LITERAL &&
+          node.style != ScalarStyle.FOLDED) {
+        paths.add(currentPath);
+        values.add(value);
+      }
+    }
   }
 
   /// The parsed YAML root node (from `package:yaml`).
@@ -226,7 +244,7 @@ class YamlDocumentModel {
     }
     var tempEditor = YamlEditor('');
     tempEditor.update([], value);
-    return _normalizeMultilineScalars(tempEditor.toString());
+    return _formatBlockScalars(tempEditor.toString());
   }
 
   /// Remove common leading indentation from a multiline YAML fragment.
