@@ -202,8 +202,20 @@ class YamlDocumentModel {
     var end = span.end.offset;
     if (start >= 0 && end <= source.length && end > start) {
       var extracted = source.substring(start, end);
-      // Dedent: strip the common leading whitespace from all lines
-      // so the subtree is left-aligned in the editor.
+
+      // The span starts mid-line (at the first content character), so the
+      // first line is missing its leading indentation while subsequent lines
+      // retain their full absolute indent. Re-add the first-line indent so
+      // _dedent can strip uniformly across all lines.
+      var firstLineIndent = ' ' * span.start.column;
+      extracted = firstLineIndent + extracted;
+
+      // Ensure trailing newline — block scalars at the end of the extracted
+      // region need it for proper termination when parsed standalone.
+      if (!extracted.endsWith('\n')) {
+        extracted += '\n';
+      }
+
       return _dedent(extracted);
     }
 
