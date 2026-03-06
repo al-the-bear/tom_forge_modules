@@ -127,7 +127,7 @@ class YamlDocumentModel {
   ///
   /// The surrounding YAML is preserved; only the target value is replaced.
   YamlDocumentModel withValueAt(List<Object> path, Object? value) {
-    var copy = YamlEditor(toYamlString());
+    var copy = YamlEditor(_editor.toString());
     copy.update(path, value);
     return YamlDocumentModel._(copy);
   }
@@ -140,7 +140,7 @@ class YamlDocumentModel {
     String key,
     Object? defaultValue,
   ) {
-    var copy = YamlEditor(toYamlString());
+    var copy = YamlEditor(_editor.toString());
     copy.update([...parentPath, key], defaultValue);
     return YamlDocumentModel._(copy);
   }
@@ -149,14 +149,14 @@ class YamlDocumentModel {
   ///
   /// The last element in [path] is the key to remove.
   YamlDocumentModel withRemovedKey(List<Object> path) {
-    var copy = YamlEditor(toYamlString());
+    var copy = YamlEditor(_editor.toString());
     copy.remove(path);
     return YamlDocumentModel._(copy);
   }
 
   /// Create a new document with a value appended to the list at [listPath].
   YamlDocumentModel withAppendedToList(List<Object> listPath, Object? value) {
-    var copy = YamlEditor(toYamlString());
+    var copy = YamlEditor(_editor.toString());
     copy.appendToList(listPath, value);
     return YamlDocumentModel._(copy);
   }
@@ -168,7 +168,7 @@ class YamlDocumentModel {
     int index,
     Object? value,
   ) {
-    var copy = YamlEditor(toYamlString());
+    var copy = YamlEditor(_editor.toString());
     copy.insertIntoList(listPath, index, value);
     return YamlDocumentModel._(copy);
   }
@@ -177,7 +177,7 @@ class YamlDocumentModel {
   ///
   /// The last element in [path] should be the integer index.
   YamlDocumentModel withRemovedFromList(List<Object> path) {
-    var copy = YamlEditor(toYamlString());
+    var copy = YamlEditor(_editor.toString());
     copy.remove(path);
     return YamlDocumentModel._(copy);
   }

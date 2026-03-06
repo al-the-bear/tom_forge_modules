@@ -189,20 +189,26 @@ class SubtreeInspectorState extends State<SubtreeInspector> {
     var schema = widget.controller.schema;
     if (schema != null) {
       // Create a temporary document with the subtree replaced
-      var tempDoc = widget.controller.document.replaceSubtreeAt(
-        widget.path.cast<Object>(),
-        _currentText,
-      );
-      // Validate the full document
-      var allErrors = schema.validate(tempDoc);
-      // Filter errors to only those at or below our path
-      _previewErrors = allErrors.where((e) {
-        if (e.path.length < widget.path.length) return false;
-        for (var i = 0; i < widget.path.length; i++) {
-          if (e.path[i].toString() != widget.path[i]) return false;
-        }
-        return true;
-      }).toList();
+      try {
+        var tempDoc = widget.controller.document.replaceSubtreeAt(
+          widget.path.cast<Object>(),
+          _currentText,
+        );
+        // Validate the full document
+        var allErrors = schema.validate(tempDoc);
+        // Filter errors to only those at or below our path
+        _previewErrors = allErrors.where((e) {
+          if (e.path.length < widget.path.length) return false;
+          for (var i = 0; i < widget.path.length; i++) {
+            if (e.path[i].toString() != widget.path[i]) return false;
+          }
+          return true;
+        }).toList();
+      } catch (_) {
+        // yaml_edit path traversal can fail for complex documents with
+        // multiline scalars — skip schema validation rather than crash.
+        _previewErrors = [];
+      }
     } else {
       _previewErrors = [];
     }
