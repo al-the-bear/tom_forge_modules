@@ -127,7 +127,7 @@ class _MapNodeRowState extends State<MapNodeRow> {
   Widget build(BuildContext context) {
     var counts = widget.controller.errorCountsAt(_data.path.cast<Object>());
     var effectiveKeyWidth =
-      widget.theme.keyLabelWidth ?? widget.computedKeyWidth ?? 120.0;
+        widget.theme.keyLabelWidth ?? widget.computedKeyWidth ?? 120.0;
     var useFlexibleKeyLabel = widget.isRoot || widget.isTopLevel;
 
     return GestureDetector(
@@ -205,13 +205,12 @@ class _MapNodeRowState extends State<MapNodeRow> {
                 suggestedKeys: _data.isContainer
                     ? widget.controller.suggestedKeys(_data.path)
                     : [],
-                onAddItem:
-                    _data.isContainer && (_data.yamlNode?.value is List)
-                        ? () => widget.controller.appendListItem(
-                              _data.path,
-                              _defaultListItemValue(),
-                            )
-                        : null,
+                onAddItem: _data.isContainer && (_data.yamlNode?.value is List)
+                    ? () => widget.controller.appendListItem(
+                          _data.path,
+                          _defaultListItemValue(),
+                        )
+                    : null,
                 addItemTooltip: 'Add list item',
                 canRemove: !_data.isRequired,
                 alwaysShowRemove: true,
@@ -340,8 +339,8 @@ class _MapNodeRowState extends State<MapNodeRow> {
               child: const Text('Cancel'),
             ),
             TextButton(
-              onPressed: () => Navigator.of(dialogContext)
-                  .pop(keyController.text.trim()),
+              onPressed: () =>
+                  Navigator.of(dialogContext).pop(keyController.text.trim()),
               child: const Text('Insert'),
             ),
           ],

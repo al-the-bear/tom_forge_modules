@@ -240,10 +240,9 @@ class _HighlightingTextController extends TextEditingController {
       final spanLength = spanText.length;
       final spanEnd = currentOffset + spanLength;
 
-      final isMatchingBracket =
-          _matchingBracketOffset != null &&
-              currentOffset <= _matchingBracketOffset! &&
-              _matchingBracketOffset! < spanEnd;
+      final isMatchingBracket = _matchingBracketOffset != null &&
+          currentOffset <= _matchingBracketOffset! &&
+          _matchingBracketOffset! < spanEnd;
 
       if (isMatchingBracket && spanLength == 1) {
         result.add(
@@ -2275,37 +2274,38 @@ class _ErrorUnderlinePainter extends CustomPainter {
 
       if (y < -10 || y > size.height + 10) continue;
 
-        final lineIndex = error.line - 1;
-        final lineText = lineIndex < lines.length ? lines[lineIndex] : '';
-        final lineStartOffset =
+      final lineIndex = error.line - 1;
+      final lineText = lineIndex < lines.length ? lines[lineIndex] : '';
+      final lineStartOffset =
           lineIndex >= 0 && lineIndex < lineStartOffsets.length
-          ? lineStartOffsets[lineIndex]
-          : 0;
+              ? lineStartOffsets[lineIndex]
+              : 0;
       final offsetInLine = error.offset - lineStartOffset;
       final baseOffset = offsetInLine >= 0 ? offsetInLine : error.column;
-      final targetOffset = math.max(0, baseOffset + _diagnosticColumnBias(error));
+      final targetOffset =
+          math.max(0, baseOffset + _diagnosticColumnBias(error));
 
       final clampedPrefixOffset = math.min(targetOffset, lineText.length);
       final startPrefix = lineText.substring(0, clampedPrefixOffset);
       final trailingOffsetColumns = math.max(0, targetOffset - lineText.length);
 
-      final startX =
-          padding.left +
+      final startX = padding.left +
           _measureTextWidth(startPrefix) +
           trailingOffsetColumns * _characterAdvance;
 
-      final availableLength =
-          math.max(0, math.min(error.length, lineText.length - clampedPrefixOffset));
+      final availableLength = math.max(
+          0, math.min(error.length, lineText.length - clampedPrefixOffset));
       final endX = availableLength > 0
-          ? startX + math.max(
-              _measureTextWidth(
-                lineText.substring(
-                  clampedPrefixOffset,
-                  clampedPrefixOffset + availableLength,
+          ? startX +
+              math.max(
+                _measureTextWidth(
+                  lineText.substring(
+                    clampedPrefixOffset,
+                    clampedPrefixOffset + availableLength,
+                  ),
                 ),
-              ),
-              4.0,
-            )
+                4.0,
+              )
           : startX + math.max(_characterAdvance, 4.0);
 
       _drawSquigglyLine(canvas, startX, endX, y, color);

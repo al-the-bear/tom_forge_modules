@@ -350,7 +350,9 @@ class SummaryBackedDartAnalysisAdapter {
       try {
         for (final classElement in current.classes) {
           final name = classElement.name;
-          if (name != null && !classElement.isPrivate && !seenNames.contains(name)) {
+          if (name != null &&
+              !classElement.isPrivate &&
+              !seenNames.contains(name)) {
             seenNames.add(name);
             completions.add(_buildClassCompletion(classElement, packageName));
           }
@@ -358,7 +360,9 @@ class SummaryBackedDartAnalysisAdapter {
 
         for (final enumElement in current.enums) {
           final name = enumElement.name;
-          if (name != null && !enumElement.isPrivate && !seenNames.contains(name)) {
+          if (name != null &&
+              !enumElement.isPrivate &&
+              !seenNames.contains(name)) {
             seenNames.add(name);
             completions.add(_buildEnumCompletion(enumElement, packageName));
           }
@@ -366,7 +370,9 @@ class SummaryBackedDartAnalysisAdapter {
 
         for (final funcElement in current.topLevelFunctions) {
           final name = funcElement.name;
-          if (name != null && !funcElement.isPrivate && !seenNames.contains(name)) {
+          if (name != null &&
+              !funcElement.isPrivate &&
+              !seenNames.contains(name)) {
             seenNames.add(name);
             completions.add(
               CompletionItem(
@@ -384,8 +390,7 @@ class SummaryBackedDartAnalysisAdapter {
         for (final exportedLibrary in current.exportedLibraries) {
           addFromLibrary(exportedLibrary, depth: depth + 1);
         }
-      } catch (_) {
-      }
+      } catch (_) {}
     }
 
     addFromLibrary(library);
@@ -665,7 +670,8 @@ class SummaryBackedDartAnalysisAdapter {
       );
 
       if (typeCompletion == null || typeCompletion.label.isEmpty) {
-        final inferredTypeName = _inferTypeFromCode(code, identifier, cursorOffset);
+        final inferredTypeName =
+            _inferTypeFromCode(code, identifier, cursorOffset);
         if (inferredTypeName != null) {
           typeCompletion = _packageTypeCompletions?.firstWhere(
             (item) => item.label == inferredTypeName,
@@ -820,9 +826,8 @@ class SummaryBackedDartAnalysisAdapter {
           rawType != 'final' &&
           rawType != 'const' &&
           rawType != 'late') {
-        final unprefixed = rawType.contains('.')
-            ? rawType.split('.').last
-            : rawType;
+        final unprefixed =
+            rawType.contains('.') ? rawType.split('.').last : rawType;
         return unprefixed;
       }
     }
@@ -849,7 +854,8 @@ class SummaryBackedDartAnalysisAdapter {
       if (functionName != null && functionName.isNotEmpty) {
         final functionCompletion = _packageTypeCompletions?.firstWhere(
           (item) =>
-              item.kind == CompletionKind.function && item.label == functionName,
+              item.kind == CompletionKind.function &&
+              item.label == functionName,
           orElse: () => const CompletionItem(
             label: '',
             kind: CompletionKind.function,

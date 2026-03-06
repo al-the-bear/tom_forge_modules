@@ -82,7 +82,8 @@ class YamlSyntaxHighlighter extends SyntaxHighlighter {
 
       final afterColon = trimmed.substring(colonIndex + 1).trimLeft();
       if (afterColon.isNotEmpty) {
-        final valueStart = contentStart + trimmed.indexOf(afterColon, colonIndex);
+        final valueStart =
+            contentStart + trimmed.indexOf(afterColon, colonIndex);
         final commentIdx = _findCommentIndex(afterColon);
         final valueText = commentIdx >= 0
             ? afterColon.substring(0, commentIdx).trimRight()

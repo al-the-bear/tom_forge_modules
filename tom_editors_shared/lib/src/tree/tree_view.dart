@@ -105,9 +105,7 @@ class _TreeViewState<T> extends State<TreeView<T>> {
   @override
   Widget build(BuildContext context) {
     var visible = widget.controller.visibleNodes;
-    var guides = widget.theme.showTreeLines
-        ? _computeGuides(visible)
-        : null;
+    var guides = widget.theme.showTreeLines ? _computeGuides(visible) : null;
 
     Widget list = ListView.builder(
       controller: _scrollController,
@@ -343,8 +341,7 @@ class _IndentGuidePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_IndentGuidePainter oldDelegate) {
-    if (oldDelegate.indentWidth != indentWidth ||
-        oldDelegate.color != color) {
+    if (oldDelegate.indentWidth != indentWidth || oldDelegate.color != color) {
       return true;
     }
     if (oldDelegate.guides.length != guides.length) return true;

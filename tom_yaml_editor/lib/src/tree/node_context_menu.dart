@@ -221,7 +221,8 @@ Future<ListContextAction?> showListContextMenu({
   var items = <PopupMenuEntry<ListContextAction>>[
     if (canExpand)
       _menuItem(
-        value: isExpanded ? ListContextAction.collapse : ListContextAction.expand,
+        value:
+            isExpanded ? ListContextAction.collapse : ListContextAction.expand,
         icon: isExpanded ? Icons.unfold_less : Icons.unfold_more,
         label: isExpanded ? 'Collapse' : 'Expand',
         color: theme.colors.keyColor,

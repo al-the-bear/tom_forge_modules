@@ -231,7 +231,8 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
       int column = 1;
       if (error is YamlException && error.span != null) {
         start = error.span!.start.offset;
-        end = error.span!.end.offset > start ? error.span!.end.offset : start + 1;
+        end =
+            error.span!.end.offset > start ? error.span!.end.offset : start + 1;
         line = error.span!.start.line + 1;
         column = error.span!.start.column + 1;
       }
@@ -714,20 +715,20 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
           canExpand: node.children.isNotEmpty,
           isExpanded: node.isExpanded,
           onExpand: node.children.isNotEmpty
-            ? () => setState(() => _setNodeExpanded(node, true))
-            : null,
+              ? () => setState(() => _setNodeExpanded(node, true))
+              : null,
           onCollapse: node.children.isNotEmpty
-            ? () => setState(() => _setNodeExpanded(node, false))
-            : null,
+              ? () => setState(() => _setNodeExpanded(node, false))
+              : null,
           onExpandAll: node.children.isNotEmpty
-            ? () => setState(() => _setSubtreeExpanded(node, true))
-            : null,
+              ? () => setState(() => _setSubtreeExpanded(node, true))
+              : null,
           onCollapseAll: node.children.isNotEmpty
-            ? () => setState(() => _setSubtreeExpanded(node, false))
-            : null,
+              ? () => setState(() => _setSubtreeExpanded(node, false))
+              : null,
           onDoubleTapToggle: node.children.isNotEmpty
-            ? () => setState(() => _setNodeExpanded(node, !node.isExpanded))
-            : null,
+              ? () => setState(() => _setNodeExpanded(node, !node.isExpanded))
+              : null,
         );
       case YamlNodeKind.mapEntry:
       case YamlNodeKind.root:
@@ -739,33 +740,33 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
           theme: widget.theme,
           readOnly: widget.readOnly,
           isRoot: data.kind == YamlNodeKind.root,
-          isTopLevel: data.kind == YamlNodeKind.mapEntry && data.path.length == 1,
+          isTopLevel:
+              data.kind == YamlNodeKind.mapEntry && data.path.length == 1,
           onInspect: data.isContainer ? () => _openInspector(data.path) : null,
-            canExpand: node.children.isNotEmpty,
-            isExpanded: node.isExpanded,
-            onExpand: node.children.isNotEmpty
+          canExpand: node.children.isNotEmpty,
+          isExpanded: node.isExpanded,
+          onExpand: node.children.isNotEmpty
               ? () => setState(() => _setNodeExpanded(node, true))
               : null,
-            onCollapse: node.children.isNotEmpty
+          onCollapse: node.children.isNotEmpty
               ? () => setState(() => _setNodeExpanded(node, false))
               : null,
-            onExpandAll: node.children.isNotEmpty
+          onExpandAll: node.children.isNotEmpty
               ? () => setState(() => _setSubtreeExpanded(node, true))
               : null,
-            onCollapseAll: node.children.isNotEmpty
+          onCollapseAll: node.children.isNotEmpty
               ? () => setState(() => _setSubtreeExpanded(node, false))
               : null,
-            onExpandListItems:
+          onExpandListItems: data.isContainer && (data.yamlNode?.value is List)
+              ? () => setState(() => _setListChildrenExpanded(node, true))
+              : null,
+          onCollapseListItems:
               data.isContainer && (data.yamlNode?.value is List)
-                ? () => setState(() => _setListChildrenExpanded(node, true))
-                : null,
-            onCollapseListItems:
-              data.isContainer && (data.yamlNode?.value is List)
-                ? () => setState(() => _setListChildrenExpanded(node, false))
-                : null,
-              onDoubleTapToggle: node.children.isNotEmpty
-                ? () => setState(() => _setNodeExpanded(node, !node.isExpanded))
-                : null,
+                  ? () => setState(() => _setListChildrenExpanded(node, false))
+                  : null,
+          onDoubleTapToggle: node.children.isNotEmpty
+              ? () => setState(() => _setNodeExpanded(node, !node.isExpanded))
+              : null,
           computedKeyWidth: keyWidth,
         );
     }
@@ -782,8 +783,8 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
 
     // Error row highlighting — tint background for nodes with errors
     if (widget.highlightErrorRows && directErrors.isNotEmpty) {
-      var hasError = directErrors
-          .any((e) => e.severity == ValidationSeverity.error);
+      var hasError =
+          directErrors.any((e) => e.severity == ValidationSeverity.error);
       var tintColor = hasError
           ? widget.theme.colors.errorColor.withAlpha(15)
           : widget.theme.colors.warningColor.withAlpha(15);

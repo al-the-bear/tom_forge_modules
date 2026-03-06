@@ -258,7 +258,8 @@ class _HighlightedTextController extends TextEditingController {
     }
 
     final length = source.length;
-    final styles = List<TextStyle>.filled(length, effectiveBase, growable: false);
+    final styles =
+        List<TextStyle>.filled(length, effectiveBase, growable: false);
 
     final spans = highlighter?.highlight(source) ?? const <HighlightSpan>[];
     for (final span in spans) {
@@ -286,7 +287,8 @@ class _HighlightedTextController extends TextEditingController {
     }
 
     if (withComposing && value.composing.isValid) {
-      final composingStyle = const TextStyle(decoration: TextDecoration.underline);
+      final composingStyle =
+          const TextStyle(decoration: TextDecoration.underline);
       final start = value.composing.start.clamp(0, length);
       final end = value.composing.end.clamp(0, length);
       for (var i = start; i < end; i++) {

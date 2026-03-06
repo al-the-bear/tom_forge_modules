@@ -213,8 +213,8 @@ class YamlNodeActions extends StatelessWidget {
               child: const Text('Cancel'),
             ),
             TextButton(
-              onPressed: () => Navigator.of(dialogContext)
-                  .pop(keyController.text.trim()),
+              onPressed: () =>
+                  Navigator.of(dialogContext).pop(keyController.text.trim()),
               child: const Text('Add'),
             ),
           ],
