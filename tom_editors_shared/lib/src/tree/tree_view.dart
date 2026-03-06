@@ -94,7 +94,12 @@ class _TreeViewState<T> extends State<TreeView<T>> {
   }
 
   void _onControllerChanged() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    // Defer setState to avoid calling it while the widget tree is locked
+    // (e.g. during element unmount when a gesture recognizer fires select).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
