@@ -118,13 +118,30 @@ class YamlDocumentModel {
   /// Get the parsed YAML node at a specific [path].
   ///
   /// Path is a list of keys (for maps) or indices (for lists).
+  /// String segments that represent valid integers are automatically coerced
+  /// to [int] so that list items accessed via string indices (as stored in
+  /// [YamlTreeData.path]) are resolved correctly by `yaml_edit`.
   /// Returns `null` if the path does not exist.
   YamlNode? nodeAt(List<Object> path) {
     try {
-      return _editor.parseAt(path);
+      return _editor.parseAt(_normalizePath(path));
     } catch (_) {
       return null;
     }
+  }
+
+  /// Convert any string segments in [path] that are valid non-negative
+  /// integers to [int].  This allows callers to pass `List<String>` paths
+  /// (as produced by [YamlTreeNodeBuilder]) and still reach list items whose
+  /// `yaml_edit` path segments must be [int].
+  List<Object> _normalizePath(List<Object> path) {
+    return path.map<Object>((segment) {
+      if (segment is String) {
+        final index = int.tryParse(segment);
+        if (index != null && index >= 0) return index;
+      }
+      return segment;
+    }).toList();
   }
 
   /// Get the Dart value at a specific [path].
@@ -146,7 +163,7 @@ class YamlDocumentModel {
   /// The surrounding YAML is preserved; only the target value is replaced.
   YamlDocumentModel withValueAt(List<Object> path, Object? value) {
     var copy = YamlEditor(_editor.toString());
-    copy.update(path, value);
+    copy.update(_normalizePath(path), value);
     return YamlDocumentModel._(copy);
   }
 
@@ -159,7 +176,7 @@ class YamlDocumentModel {
     Object? defaultValue,
   ) {
     var copy = YamlEditor(_editor.toString());
-    copy.update([...parentPath, key], defaultValue);
+    copy.update([..._normalizePath(parentPath), key], defaultValue);
     return YamlDocumentModel._(copy);
   }
 
@@ -168,14 +185,14 @@ class YamlDocumentModel {
   /// The last element in [path] is the key to remove.
   YamlDocumentModel withRemovedKey(List<Object> path) {
     var copy = YamlEditor(_editor.toString());
-    copy.remove(path);
+    copy.remove(_normalizePath(path));
     return YamlDocumentModel._(copy);
   }
 
   /// Create a new document with a value appended to the list at [listPath].
   YamlDocumentModel withAppendedToList(List<Object> listPath, Object? value) {
     var copy = YamlEditor(_editor.toString());
-    copy.appendToList(listPath, value);
+    copy.appendToList(_normalizePath(listPath), value);
     return YamlDocumentModel._(copy);
   }
 
@@ -187,7 +204,7 @@ class YamlDocumentModel {
     Object? value,
   ) {
     var copy = YamlEditor(_editor.toString());
-    copy.insertIntoList(listPath, index, value);
+    copy.insertIntoList(_normalizePath(listPath), index, value);
     return YamlDocumentModel._(copy);
   }
 
@@ -196,7 +213,7 @@ class YamlDocumentModel {
   /// The last element in [path] should be the integer index.
   YamlDocumentModel withRemovedFromList(List<Object> path) {
     var copy = YamlEditor(_editor.toString());
-    copy.remove(path);
+    copy.remove(_normalizePath(path));
     return YamlDocumentModel._(copy);
   }
 
