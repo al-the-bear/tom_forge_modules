@@ -298,13 +298,15 @@ class _TreeRowState<T> extends State<_TreeRow<T>> {
                 SizedBox(width: indentPx),
 
                 // Expand/collapse toggle.
-                // HitTestBehavior.opaque: this widget exclusively owns its hit
-                // region so no outer recognizer can compete in the arena.
-                // The tap fires immediately without any 300ms deferral.
+                // Uses Listener.onPointerUp instead of GestureDetector so the
+                // toggle fires immediately on pointer release without entering
+                // the gesture arena at all. GestureDetector.onTap must wait
+                // for the Scrollable's DragGestureRecognizer to lose the arena
+                // before the tap is declared, causing a noticeable delay.
                 if (!node.isLeaf)
-                  GestureDetector(
+                  Listener(
                     behavior: HitTestBehavior.opaque,
-                    onTap: () => widget.controller.toggle(node.id),
+                    onPointerUp: (_) => widget.controller.toggle(node.id),
                     child: Icon(
                       node.isExpanded
                           ? theme.expandedIcon

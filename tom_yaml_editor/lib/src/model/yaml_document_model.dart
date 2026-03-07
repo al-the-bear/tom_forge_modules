@@ -301,14 +301,31 @@ class YamlDocumentModel {
     var source = _editor.toString();
     var span = node.span;
     var startOffset = span.start.offset;
-    var endOffset = span.end.offset;
     var indent = span.start.column;
+
+    // span.end.offset lands at the last character of the final value, which
+    // is typically before the trailing '\n'. Advance past the rest of the
+    // line (and the '\n') so the splice always replaces whole lines and never
+    // leaves a partial line in the document (which would cause parse errors at
+    // unexpected column positions on subsequent edits).
+    var endOffset = span.end.offset;
+    while (endOffset < source.length && source[endOffset] != '\n') {
+      endOffset++;
+    }
+    if (endOffset < source.length) {
+      endOffset++; // consume the '\n' itself
+    }
+
+    // Normalise the fragment to column-0 before re-indenting, in case the
+    // caller passes text that still carries leading whitespace (safety net;
+    // SubtreeInspector already dedents via subtreeYamlAt).
+    var dedented = _dedent(yamlFragment);
 
     // Re-indent: the document already contains `indent` spaces before
     // startOffset on the same line, so the first line needs no prefix.
     // Every subsequent non-empty line gets `indent` spaces prepended so
     // it aligns with the node's original column.
-    var reindented = _reindentFragment(yamlFragment, indent);
+    var reindented = _reindentFragment(dedented, indent);
 
     var newSource =
         source.substring(0, startOffset) + reindented + source.substring(endOffset);
