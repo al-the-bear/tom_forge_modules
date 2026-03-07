@@ -268,6 +268,50 @@ class YamlEditorController extends ChangeNotifier {
   }
 
   // ---------------------------------------------------------------------------
+  // Map key reordering
+  // ---------------------------------------------------------------------------
+
+  /// Move the map key at [fromIndex] to [toIndex] within the map at
+  /// [parentPath].
+  void moveMapKey(List<String> parentPath, int fromIndex, int toIndex) {
+    if (fromIndex == toIndex) return;
+    var newDoc = _document.withReorderedMapKey(
+      _toDocumentPath(parentPath),
+      fromIndex,
+      toIndex,
+    );
+    var operation = YamlEditOperation(
+      kind: YamlEditKind.reorderKeys,
+      path: parentPath,
+      oldDocument: _document,
+      newDocument: newDoc,
+    );
+    applyEdit(operation);
+  }
+
+  /// Return the 0-based index of [keyPath.last] within its sibling map, or
+  /// -1 if not found.
+  int mapKeyIndex(List<String> keyPath) {
+    if (keyPath.isEmpty) return -1;
+    var parentPath = keyPath.sublist(0, keyPath.length - 1);
+    var key = keyPath.last;
+    var node = _document.nodeAt(_toDocumentPath(parentPath));
+    if (node == null || node.value is! Map) return -1;
+    var keys =
+        (node.value as Map).keys.map((k) => k.toString()).toList();
+    return keys.indexOf(key);
+  }
+
+  /// Return the number of keys in the map that is the parent of [keyPath].
+  int mapKeyCount(List<String> keyPath) {
+    if (keyPath.isEmpty) return 0;
+    var parentPath = keyPath.sublist(0, keyPath.length - 1);
+    var node = _document.nodeAt(_toDocumentPath(parentPath));
+    if (node == null || node.value is! Map) return 0;
+    return (node.value as Map).length;
+  }
+
+  // ---------------------------------------------------------------------------
   // Map key insertion at position
   // ---------------------------------------------------------------------------
 

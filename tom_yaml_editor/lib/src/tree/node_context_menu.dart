@@ -22,6 +22,12 @@ enum MapContextAction {
   /// Collapse all objects/items under this list node.
   collapseListItems,
 
+  /// Move this key one position up within its parent map.
+  moveUp,
+
+  /// Move this key one position down within its parent map.
+  moveDown,
+
   /// Insert a new key above the current key.
   insertKeyAbove,
 
@@ -89,6 +95,8 @@ Future<MapContextAction?> showMapContextMenu({
   bool canExpandAll = false,
   bool canCollapseAll = false,
   bool canListItemExpandCollapse = false,
+  bool canMoveUp = false,
+  bool canMoveDown = false,
   bool isReadOnly = false,
 }) async {
   if (isReadOnly) return null;
@@ -148,6 +156,27 @@ Future<MapContextAction?> showMapContextMenu({
 
   if (items.isNotEmpty) {
     items.add(const PopupMenuDivider(height: 4));
+  }
+
+  // Reorder actions (only when the parent map has more than one key)
+  if (canMoveUp || canMoveDown) {
+    items.addAll([
+      _menuItem(
+        value: MapContextAction.moveUp,
+        icon: Icons.arrow_upward,
+        label: 'Move up',
+        color: theme.colors.keyColor,
+        enabled: canMoveUp,
+      ),
+      _menuItem(
+        value: MapContextAction.moveDown,
+        icon: Icons.arrow_downward,
+        label: 'Move down',
+        color: theme.colors.keyColor,
+        enabled: canMoveDown,
+      ),
+      const PopupMenuDivider(height: 4),
+    ]);
   }
 
   items.addAll([

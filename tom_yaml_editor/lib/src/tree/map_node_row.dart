@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart';
 
@@ -12,6 +13,19 @@ import 'key_label.dart';
 import 'node_actions.dart';
 import 'node_context_menu.dart';
 import 'yaml_tree_node_builder.dart';
+
+/// Payload carried by a map-key drag operation.
+class _MapDragPayload {
+  final List<String> parentMapPath;
+  final int fromIndex;
+  final String key;
+
+  const _MapDragPayload({
+    required this.parentMapPath,
+    required this.fromIndex,
+    required this.key,
+  });
+}
 
 /// Renders one map entry in the YAML tree.
 ///
@@ -121,7 +135,14 @@ class MapNodeRow extends StatefulWidget {
 class _MapNodeRowState extends State<MapNodeRow> {
   bool _isHovered = false;
 
+  /// True  = drop indicator above the row (insert before this key's index).
+  bool _dropIsAbove = true;
+
   YamlTreeData get _data => widget.node.data;
+
+  /// Parent path (strips the key from the full path).
+  List<String> get _parentPath =>
+      _data.path.length > 1 ? _data.path.sublist(0, _data.path.length - 1) : [];
 
   @override
   Widget build(BuildContext context) {
@@ -130,11 +151,70 @@ class _MapNodeRowState extends State<MapNodeRow> {
         widget.theme.keyLabelWidth ?? widget.computedKeyWidth ?? 120.0;
     var useFlexibleKeyLabel = widget.isRoot || widget.isTopLevel;
 
-    return GestureDetector(
+    // Map key reorder support (skip for root / top-level).
+    final canReorder = !widget.readOnly && !widget.isRoot && _parentPath.isNotEmpty;
+    final keyIndex = canReorder ? widget.controller.mapKeyIndex(_data.path) : -1;
+    final keyCount = canReorder ? widget.controller.mapKeyCount(_data.path) : 0;
+    final canMoveUp = canReorder && keyIndex > 0;
+    final canMoveDown = canReorder && keyIndex >= 0 && keyIndex < keyCount - 1;
+
+    // Drag handle (only the icon is Draggable — keeps row taps instant)
+    Widget? dragHandle;
+    if (canReorder && keyIndex >= 0) {
+      final payload = _MapDragPayload(
+        parentMapPath: _parentPath,
+        fromIndex: keyIndex,
+        key: _data.key,
+      );
+      final feedback = Material(
+        elevation: 4,
+        borderRadius: BorderRadius.circular(4),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: widget.theme.colors.surface,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            _data.key,
+            style: TextStyle(
+              fontFamily: widget.theme.fonts.keyFontFamily,
+              fontSize: widget.theme.fonts.keyFontSize,
+              color: widget.theme.colors.keyColor,
+            ),
+          ),
+        ),
+      );
+      dragHandle = Draggable<_MapDragPayload>(
+        data: payload,
+        feedback: feedback,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.grab,
+          child: Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: Icon(
+              Icons.drag_indicator,
+              size: 14,
+              color: _isHovered
+                  ? widget.theme.colors.hintColor
+                  : Colors.transparent,
+            ),
+          ),
+        ),
+      );
+    }
+
+    final rowContent = GestureDetector(
       onDoubleTap: widget.canExpand ? widget.onDoubleTapToggle : null,
       onSecondaryTapUp: widget.readOnly
           ? null
-          : (details) => _showContextMenu(context, details.globalPosition),
+          : (details) => _showContextMenu(
+                context,
+                details.globalPosition,
+                canMoveUp: canMoveUp,
+                canMoveDown: canMoveDown,
+                keyIndex: keyIndex,
+              ),
       child: MouseRegion(
         onEnter: (_) => setState(() => _isHovered = true),
         onExit: (_) => setState(() => _isHovered = false),
@@ -143,6 +223,9 @@ class _MapNodeRowState extends State<MapNodeRow> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              // Drag handle (Draggable only wraps the icon)
+              if (dragHandle != null) dragHandle,
+
               if (_data.isContainer) ...[
                 Icon(
                   (_data.yamlNode?.value is List)
@@ -205,24 +288,22 @@ class _MapNodeRowState extends State<MapNodeRow> {
                 suggestedKeys: _data.isContainer
                     ? widget.controller.suggestedKeys(_data.path)
                     : [],
-                onAddItem: _data.isContainer && (_data.yamlNode?.value is List)
-                    ? () => widget.controller.appendListItem(
-                          _data.path,
-                          _defaultListItemValue(),
-                        )
-                    : null,
+                onAddItem:
+                    _data.isContainer && (_data.yamlNode?.value is List)
+                        ? () => widget.controller.appendListItem(
+                              _data.path,
+                              _defaultListItemValue(),
+                            )
+                        : null,
                 addItemTooltip: 'Add list item',
                 canRemove: !_data.isRequired,
                 alwaysShowRemove: true,
                 canInspect: _data.isContainer,
-                // onAdd: schema-suggested keys use _defaultValueFor
                 onAdd: (key) => widget.controller.insertKey(
                   _data.path,
                   key,
                   _defaultValueFor(key),
                 ),
-                // onAddWithType: manually typed key with explicit type from
-                // the dialog; used only when no schema suggestions are shown
                 onAddWithType: (key, value) => widget.controller.insertKey(
                   _data.path,
                   key,
@@ -237,12 +318,52 @@ class _MapNodeRowState extends State<MapNodeRow> {
         ),
       ),
     );
+
+    // No DnD wrapper needed for read-only or root/top-level rows.
+    if (!canReorder || keyIndex < 0) return rowContent;
+
+    return DragTarget<_MapDragPayload>(
+      onWillAcceptWithDetails: (details) {
+        final d = details.data;
+        return listEquals(d.parentMapPath, _parentPath) &&
+            d.fromIndex != keyIndex;
+      },
+      onMove: (details) {
+        final box = context.findRenderObject() as RenderBox?;
+        if (box == null) return;
+        final local = box.globalToLocal(details.offset);
+        final isAbove = local.dy < box.size.height / 2;
+        if (_dropIsAbove != isAbove) setState(() => _dropIsAbove = isAbove);
+      },
+      onLeave: (_) {},
+      onAcceptWithDetails: (details) {
+        final d = details.data;
+        final targetIndex = _dropIsAbove ? keyIndex : keyIndex + 1;
+        widget.controller.moveMapKey(_parentPath, d.fromIndex, targetIndex);
+      },
+      builder: (context, candidateData, rejectedData) {
+        final isCandidate = candidateData.isNotEmpty;
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isCandidate && _dropIsAbove)
+              _MapDropIndicatorLine(theme: widget.theme),
+            rowContent,
+            if (isCandidate && !_dropIsAbove)
+              _MapDropIndicatorLine(theme: widget.theme),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _showContextMenu(
     BuildContext context,
-    Offset globalPosition,
-  ) async {
+    Offset globalPosition, {
+    bool canMoveUp = false,
+    bool canMoveDown = false,
+    int keyIndex = -1,
+  }) async {
     var suggested = widget.controller.suggestedKeys(
       _data.path.length > 1
           ? _data.path.sublist(0, _data.path.length - 1)
@@ -262,10 +383,20 @@ class _MapNodeRowState extends State<MapNodeRow> {
       canCollapseAll: widget.canExpand,
       canListItemExpandCollapse:
           _data.isContainer && (_data.yamlNode?.value is List),
+      canMoveUp: canMoveUp,
+      canMoveDown: canMoveDown,
     );
     if (action == null || !context.mounted) return;
 
     switch (action) {
+      case MapContextAction.moveUp:
+        if (keyIndex > 0) {
+          widget.controller.moveMapKey(_parentPath, keyIndex, keyIndex - 1);
+        }
+        return;
+      case MapContextAction.moveDown:
+        widget.controller.moveMapKey(_parentPath, keyIndex, keyIndex + 1);
+        return;
       case MapContextAction.insertKeyAbove:
       case MapContextAction.insertKeyBelow:
         var key = await _pickOrEnterKey(
@@ -463,5 +594,27 @@ class _MapNodeRowState extends State<MapNodeRow> {
       case SchemaType.array:
         return <Object>[];
     }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/// Drop indicator line shown during drag-and-drop reordering of map keys.
+class _MapDropIndicatorLine extends StatelessWidget {
+  final YamlEditorTheme theme;
+  const _MapDropIndicatorLine({required this.theme});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 2,
+      margin: const EdgeInsets.symmetric(vertical: 1),
+      decoration: BoxDecoration(
+        color: theme.colors.selectionColor,
+        borderRadius: BorderRadius.circular(1),
+      ),
+    );
   }
 }

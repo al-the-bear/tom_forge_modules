@@ -189,6 +189,34 @@ class YamlDocumentModel {
     return YamlDocumentModel._(copy);
   }
 
+  /// Create a new document with the map key at [fromIndex] moved to [toIndex]
+  /// within the map at [mapPath].
+  ///
+  /// The surrounding YAML formatting is not preserved for the map's values
+  /// (they are re-serialized) but the overall document structure is intact.
+  YamlDocumentModel withReorderedMapKey(
+    List<Object> mapPath,
+    int fromIndex,
+    int toIndex,
+  ) {
+    var node = nodeAt(mapPath);
+    if (node == null || node.value is! Map) return this;
+    var entries = (node.value as Map).entries.toList();
+    if (fromIndex == toIndex) return this;
+    if (fromIndex < 0 ||
+        fromIndex >= entries.length ||
+        toIndex < 0 ||
+        toIndex >= entries.length) {
+      return this;
+    }
+    var moved = entries.removeAt(fromIndex);
+    entries.insert(toIndex, moved);
+    final newMap = {
+      for (var e in entries) e.key.toString(): e.value,
+    };
+    return withValueAt(mapPath, newMap);
+  }
+
   /// Create a new document with a value appended to the list at [listPath].
   YamlDocumentModel withAppendedToList(List<Object> listPath, Object? value) {
     var copy = YamlEditor(_editor.toString());
