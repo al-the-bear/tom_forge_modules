@@ -79,7 +79,11 @@ class _DartEditorStubState extends State<DartEditorStub> {
 
   @override
   void dispose() {
-    _flushPendingCommit();
+    // Do NOT call _flushPendingCommit() here. Calling onChanged (which
+    // ultimately calls controller.setValue → notifyListeners → setState on
+    // the parent YamlSchemaEditor) during dispose is unsafe because dispose
+    // is invoked from _InactiveElements._unmountAll while the framework tree
+    // is locked. Any still-pending commit is intentionally discarded.
     _commitDebounce?.cancel();
     _controller.dispose();
     super.dispose();

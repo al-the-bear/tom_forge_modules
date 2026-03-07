@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart';
 import 'package:yaml/yaml.dart';
@@ -176,7 +177,24 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
       _textParseError = preview.parseError;
       _textMarkers = preview.markers;
     }
-    setState(() {});
+    if (mounted) {
+      // Guard against being called while the framework tree is locked
+      // (e.g. when a descendent value-editor flushes uncommitted edits
+      // from its dispose — which happens during _InactiveElements._unmountAll
+      // inside BuildOwner.lockState). In that phase setState() would throw.
+      // Detect this by checking the scheduler phase and deffer to the next
+      // frame when the tree is locked.
+      final phase = SchedulerBinding.instance.schedulerPhase;
+      final locked = phase == SchedulerPhase.persistentCallbacks ||
+          phase == SchedulerPhase.postFrameCallbacks;
+      if (locked) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) setState(() {});
+        });
+      } else {
+        setState(() {});
+      }
+    }
     widget.onChanged?.call(widget.controller.yamlText);
     widget.onValidationChanged?.call(widget.controller.errors);
   }
