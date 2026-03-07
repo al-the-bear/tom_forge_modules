@@ -252,73 +252,95 @@ class _TreeRowState<T> extends State<_TreeRow<T>> {
 
     final indentPx = node.depth * theme.indentWidth;
 
+    // Gesture design:
+    // - Arrow icon uses HitTestBehavior.opaque so it exclusively owns its tap
+    //   zone. No gesture-arena competition — toggle fires immediately.
+    // - Content area (Expanded) handles select/focus via onTap. onDoubleTap
+    //   is registered on the content area for non-leaf nodes so Flutter defers
+    //   the tap recognizer and allows double-click to also toggle. When null
+    //   (leaf nodes), the tap fires immediately too.
+    // - There is NO outer row-level GestureDetector. An outer tap-only
+    //   GestureDetector would win the arena eagerly (added first) and block
+    //   both the arrow tap and the inner double-tap recognizers.
+    void selectAndFocus() {
+      widget.controller.select(node.id);
+      widget.controller.focus(node.id);
+      widget.onNodeTap?.call(node);
+    }
+
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
-      child: GestureDetector(
-        onTap: () {
-          widget.controller.select(node.id);
-          widget.controller.focus(node.id);
-          widget.onNodeTap?.call(node);
-        },
-        // Only register onDoubleTap when a callback exists. An always-present
-        // closure (even one that calls null?.call()) causes Flutter to register
-        // a DoubleTapGestureRecognizer, which delays ALL onTap events in the
-        // arena by kDoubleTapTimeout (~300ms) — including the arrow icon tap.
-        onDoubleTap: widget.onNodeDoubleTap != null
-            ? () => widget.onNodeDoubleTap!.call(node)
-            : null,
-        child: Container(
-          height: theme.rowHeight,
-          color: bgColor,
-          child: Stack(
-            children: [
-              // Indent guide lines (painted behind row content)
-              if (guides.isNotEmpty)
-                Positioned(
-                  left: 0,
-                  top: 0,
-                  bottom: 0,
-                  width: indentPx,
-                  child: CustomPaint(
-                    painter: _IndentGuidePainter(
-                      guides: guides,
-                      indentWidth: theme.indentWidth,
-                      color: theme.treeLineColor,
-                    ),
+      child: Container(
+        height: theme.rowHeight,
+        color: bgColor,
+        child: Stack(
+          children: [
+            // Indent guide lines (painted behind row content)
+            if (guides.isNotEmpty)
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: indentPx,
+                child: CustomPaint(
+                  painter: _IndentGuidePainter(
+                    guides: guides,
+                    indentWidth: theme.indentWidth,
+                    color: theme.treeLineColor,
                   ),
                 ),
+              ),
 
-              // Row content
-              Row(
-                children: [
-                  SizedBox(width: indentPx),
+            // Row content
+            Row(
+              children: [
+                SizedBox(width: indentPx),
 
-                  // Expand/collapse toggle
-                  if (!node.isLeaf)
-                    GestureDetector(
-                      onTap: () => widget.controller.toggle(node.id),
-                      child: Icon(
-                        node.isExpanded
-                            ? theme.expandedIcon
-                            : theme.collapsedIcon,
-                        size: theme.toggleIconSize,
-                        color: theme.treeLineColor,
-                      ),
-                    )
-                  else
-                    SizedBox(width: theme.toggleIconSize),
+                // Expand/collapse toggle.
+                // HitTestBehavior.opaque: this widget exclusively owns its hit
+                // region so no outer recognizer can compete in the arena.
+                // The tap fires immediately without any 300ms deferral.
+                if (!node.isLeaf)
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => widget.controller.toggle(node.id),
+                    child: Icon(
+                      node.isExpanded
+                          ? theme.expandedIcon
+                          : theme.collapsedIcon,
+                      size: theme.toggleIconSize,
+                      color: theme.treeLineColor,
+                    ),
+                  )
+                else
+                  SizedBox(width: theme.toggleIconSize),
 
-                  const SizedBox(width: 4),
+                const SizedBox(width: 4),
 
-                  // Node content
-                  Expanded(
+                // Content area: select + focus on tap.
+                // onDoubleTap is wired for non-leaf nodes so Flutter registers
+                // a DoubleTapGestureRecognizer here, causing the TapRecognizer
+                // to defer. This allows double-click expand/collapse (inside
+                // nodeBuilder via MapNodeRow/ListNodeRow) to work properly.
+                // For leaf nodes (no double-tap) the tap fires immediately.
+                Expanded(
+                  child: GestureDetector(
+                    onTap: selectAndFocus,
+                    onDoubleTap: !node.isLeaf
+                        ? () {
+                            widget.controller.toggle(node.id);
+                            widget.onNodeDoubleTap?.call(node);
+                          }
+                        : (widget.onNodeDoubleTap != null
+                            ? () => widget.onNodeDoubleTap!.call(node)
+                            : null),
                     child: widget.nodeBuilder(context, node, isSelected),
                   ),
-                ],
-              ),
-            ],
-          ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
