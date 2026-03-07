@@ -215,10 +215,18 @@ class _MapNodeRowState extends State<MapNodeRow> {
                 canRemove: !_data.isRequired,
                 alwaysShowRemove: true,
                 canInspect: _data.isContainer,
+                // onAdd: schema-suggested keys use _defaultValueFor
                 onAdd: (key) => widget.controller.insertKey(
                   _data.path,
                   key,
                   _defaultValueFor(key),
+                ),
+                // onAddWithType: manually typed key with explicit type from
+                // the dialog; used only when no schema suggestions are shown
+                onAddWithType: (key, value) => widget.controller.insertKey(
+                  _data.path,
+                  key,
+                  value,
                 ),
                 onRemove: () => widget.controller.removeKey(_data.path),
                 onInspect: widget.onInspect,

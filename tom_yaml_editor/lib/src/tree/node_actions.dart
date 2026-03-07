@@ -3,6 +3,28 @@ import 'package:tom_editors_shared/tom_editors_shared.dart';
 
 import '../yaml_editor_theme.dart';
 
+/// Initial value type selected in the manual add-key dialog.
+enum _AddKeyType {
+  string,
+  map,
+  list,
+  nullValue;
+
+  Object? toValue() => switch (this) {
+        _AddKeyType.string => '',
+        _AddKeyType.map => <String, Object>{},
+        _AddKeyType.list => <Object>[],
+        _AddKeyType.nullValue => null,
+      };
+
+  String get label => switch (this) {
+        _AddKeyType.string => 'String  ""',
+        _AddKeyType.map => 'Map  {}',
+        _AddKeyType.list => 'List  []',
+        _AddKeyType.nullValue => 'Null',
+      };
+}
+
 /// Row of action buttons for a YAML tree node.
 ///
 /// Shows add/remove/inspect buttons based on:
@@ -35,8 +57,12 @@ class YamlNodeActions extends StatelessWidget {
   /// Whether this node can be inspected as raw YAML.
   final bool canInspect;
 
-  /// Callback when a new key is added.
+  /// Callback when a schema-suggested key is added (key name only).
   final ValueChanged<String>? onAdd;
+
+  /// Callback when a key is manually added with an explicit initial value
+  /// type chosen by the user in the add-key dialog.
+  final void Function(String key, Object? value)? onAddWithType;
 
   /// Callback for direct add actions (e.g. append list item).
   final VoidCallback? onAddItem;
@@ -66,6 +92,7 @@ class YamlNodeActions extends StatelessWidget {
     this.alwaysShowRemove = false,
     this.canInspect = false,
     this.onAdd,
+    this.onAddWithType,
     this.onAddItem,
     this.addItemTooltip = 'Add item',
     this.onRemove,
@@ -83,7 +110,7 @@ class YamlNodeActions extends StatelessWidget {
     NodeAction? pinnedRemoveAction;
 
     // Add key button (schema suggestions and/or manual key entry fallback)
-    if (theme.showAddButtons && onAdd != null) {
+    if (theme.showAddButtons && (onAdd != null || onAddWithType != null)) {
       actions.add(NodeAction(
         icon: Icons.add,
         tooltip: 'Add key',
@@ -191,39 +218,77 @@ class YamlNodeActions extends StatelessWidget {
 
   Future<void> _showManualAddDialog(BuildContext context) async {
     final keyController = TextEditingController();
-    final entered = await showDialog<String>(
+    var selectedType = _AddKeyType.string;
+
+    final result = await showDialog<({String key, _AddKeyType type})>(
       context: context,
       builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Add key'),
-          content: TextField(
-            controller: keyController,
-            autofocus: true,
-            decoration: const InputDecoration(
-              labelText: 'Key name',
-              hintText: 'new-key',
-            ),
-            onSubmitted: (value) {
-              Navigator.of(dialogContext).pop(value);
-            },
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () =>
-                  Navigator.of(dialogContext).pop(keyController.text.trim()),
-              child: const Text('Add'),
-            ),
-          ],
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Add key'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: keyController,
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Key name',
+                      hintText: 'new-key',
+                    ),
+                    onSubmitted: (value) => Navigator.of(dialogContext)
+                        .pop((key: value.trim(), type: selectedType)),
+                  ),
+                  const SizedBox(height: 16),
+                  InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Initial value type',
+                      isDense: true,
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<_AddKeyType>(
+                        value: selectedType,
+                        isDense: true,
+                        items: _AddKeyType.values
+                            .map((t) => DropdownMenuItem(
+                                  value: t,
+                                  child: Text(t.label),
+                                ))
+                            .toList(),
+                        onChanged: (t) =>
+                            setDialogState(() => selectedType = t!),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext)
+                      .pop((key: keyController.text.trim(), type: selectedType)),
+                  child: const Text('Add'),
+                ),
+              ],
+            );
+          },
         );
       },
     );
 
-    final key = entered?.trim() ?? '';
+    final key = result?.key.trim() ?? '';
     if (key.isEmpty) return;
-    onAdd?.call(key);
+
+    if (onAddWithType != null) {
+      onAddWithType!(key, result!.type.toValue());
+    } else {
+      onAdd?.call(key);
+    }
   }
 }

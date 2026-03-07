@@ -166,8 +166,21 @@ class YamlEditorController extends ChangeNotifier {
 
   /// Insert a new key at a specific path based on schema suggestions.
   void insertKey(List<String> parentPath, String key, Object? defaultValue) {
-    var newDoc = _document.withInsertedKey(
-      _toDocumentPath(parentPath),
+    var docPath = _toDocumentPath(parentPath);
+    var doc = _document;
+
+    // If the parent node is not a map (e.g. it is a scalar or null), upgrade
+    // it to an empty map first so yaml_edit can set a sub-key on it.
+    // This lets the user turn any scalar value into a map by adding a key.
+    if (parentPath.isNotEmpty) {
+      var parentNode = doc.nodeAt(docPath);
+      if (parentNode != null && parentNode.value is! Map) {
+        doc = doc.withValueAt(docPath, <String, Object?>{});
+      }
+    }
+
+    var newDoc = doc.withInsertedKey(
+      docPath,
       key,
       defaultValue,
     );
