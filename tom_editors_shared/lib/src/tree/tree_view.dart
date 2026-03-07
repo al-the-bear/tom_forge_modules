@@ -68,7 +68,6 @@ class TreeView<T> extends StatefulWidget {
 class _TreeViewState<T> extends State<TreeView<T>> {
   final FocusNode _focusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
-  String? _hoveredId;
 
   @override
   void initState() {
@@ -111,7 +110,6 @@ class _TreeViewState<T> extends State<TreeView<T>> {
       controller: _scrollController,
       itemCount: visible.length,
       itemExtent: widget.theme.rowHeight,
-      shrinkWrap: widget.theme.rowHeight == null,
       itemBuilder: (context, index) {
         return _buildRow(visible[index], guides?[index] ?? const []);
       },
@@ -129,86 +127,14 @@ class _TreeViewState<T> extends State<TreeView<T>> {
   }
 
   Widget _buildRow(TreeNode<T> node, List<_GuideType> guides) {
-    var isSelected = node.id == widget.controller.selectedId;
-    var isFocused = node.id == widget.controller.focusedId;
-    var isHovered = node.id == _hoveredId;
-
-    Color? bgColor;
-    if (isSelected) {
-      bgColor = widget.theme.selectionColor;
-    } else if (isFocused) {
-      bgColor = widget.theme.focusColor;
-    } else if (isHovered) {
-      bgColor = widget.theme.hoverColor;
-    }
-
-    var indentPx = node.depth * widget.theme.indentWidth;
-
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hoveredId = node.id),
-      onExit: (_) => setState(() => _hoveredId = null),
-      child: GestureDetector(
-        onTap: () {
-          widget.controller.select(node.id);
-          widget.controller.focus(node.id);
-          widget.onNodeTap?.call(node);
-        },
-        onDoubleTap: () {
-          widget.onNodeDoubleTap?.call(node);
-        },
-        child: Container(
-          height: widget.theme.rowHeight,
-          color: bgColor,
-          child: Stack(
-            children: [
-              // Indent guide lines (painted behind row content)
-              if (guides.isNotEmpty)
-                Positioned(
-                  left: 0,
-                  top: 0,
-                  bottom: 0,
-                  width: indentPx,
-                  child: CustomPaint(
-                    painter: _IndentGuidePainter(
-                      guides: guides,
-                      indentWidth: widget.theme.indentWidth,
-                      color: widget.theme.treeLineColor,
-                    ),
-                  ),
-                ),
-
-              // Row content
-              Row(
-                children: [
-                  SizedBox(width: indentPx),
-
-                  // Expand/collapse toggle
-                  if (!node.isLeaf)
-                    GestureDetector(
-                      onTap: () => widget.controller.toggle(node.id),
-                      child: Icon(
-                        node.isExpanded
-                            ? widget.theme.expandedIcon
-                            : widget.theme.collapsedIcon,
-                        size: widget.theme.toggleIconSize,
-                        color: widget.theme.treeLineColor,
-                      ),
-                    )
-                  else
-                    SizedBox(width: widget.theme.toggleIconSize),
-
-                  const SizedBox(width: 4),
-
-                  // Node content
-                  Expanded(
-                    child: widget.nodeBuilder(context, node, isSelected),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
+    return _TreeRow<T>(
+      node: node,
+      guides: guides,
+      controller: widget.controller,
+      theme: widget.theme,
+      nodeBuilder: widget.nodeBuilder,
+      onNodeTap: widget.onNodeTap,
+      onNodeDoubleTap: widget.onNodeDoubleTap,
     );
   }
 
@@ -268,6 +194,130 @@ class _TreeViewState<T> extends State<TreeView<T>> {
     }
 
     return result;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Per-row widget (isolates hover state so mouse events don't rebuild the tree)
+// ---------------------------------------------------------------------------
+
+/// A single tree row that manages its own hover state.
+///
+/// Keeping hover state local prevents [MouseRegion] enter/exit events from
+/// triggering a full `setState` rebuild on the parent [TreeView], which would
+/// re-layout every visible row on every mouse movement.
+class _TreeRow<T> extends StatefulWidget {
+  final TreeNode<T> node;
+  final List<_GuideType> guides;
+  final TreeController<T> controller;
+  final TreeTheme theme;
+  final TreeNodeBuilder<T> nodeBuilder;
+  final ValueChanged<TreeNode<T>>? onNodeTap;
+  final ValueChanged<TreeNode<T>>? onNodeDoubleTap;
+
+  const _TreeRow({
+    required this.node,
+    required this.guides,
+    required this.controller,
+    required this.theme,
+    required this.nodeBuilder,
+    this.onNodeTap,
+    this.onNodeDoubleTap,
+  });
+
+  @override
+  State<_TreeRow<T>> createState() => _TreeRowState<T>();
+}
+
+class _TreeRowState<T> extends State<_TreeRow<T>> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final node = widget.node;
+    final theme = widget.theme;
+    final guides = widget.guides;
+
+    final isSelected = node.id == widget.controller.selectedId;
+    final isFocused = node.id == widget.controller.focusedId;
+
+    Color? bgColor;
+    if (isSelected) {
+      bgColor = theme.selectionColor;
+    } else if (isFocused) {
+      bgColor = theme.focusColor;
+    } else if (_isHovered) {
+      bgColor = theme.hoverColor;
+    }
+
+    final indentPx = node.depth * theme.indentWidth;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: () {
+          widget.controller.select(node.id);
+          widget.controller.focus(node.id);
+          widget.onNodeTap?.call(node);
+        },
+        onDoubleTap: () {
+          widget.onNodeDoubleTap?.call(node);
+        },
+        child: Container(
+          height: theme.rowHeight,
+          color: bgColor,
+          child: Stack(
+            children: [
+              // Indent guide lines (painted behind row content)
+              if (guides.isNotEmpty)
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: indentPx,
+                  child: CustomPaint(
+                    painter: _IndentGuidePainter(
+                      guides: guides,
+                      indentWidth: theme.indentWidth,
+                      color: theme.treeLineColor,
+                    ),
+                  ),
+                ),
+
+              // Row content
+              Row(
+                children: [
+                  SizedBox(width: indentPx),
+
+                  // Expand/collapse toggle
+                  if (!node.isLeaf)
+                    GestureDetector(
+                      onTap: () => widget.controller.toggle(node.id),
+                      child: Icon(
+                        node.isExpanded
+                            ? theme.expandedIcon
+                            : theme.collapsedIcon,
+                        size: theme.toggleIconSize,
+                        color: theme.treeLineColor,
+                      ),
+                    )
+                  else
+                    SizedBox(width: theme.toggleIconSize),
+
+                  const SizedBox(width: 4),
+
+                  // Node content
+                  Expanded(
+                    child: widget.nodeBuilder(context, node, isSelected),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
