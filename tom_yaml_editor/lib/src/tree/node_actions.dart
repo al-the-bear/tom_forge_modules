@@ -3,26 +3,115 @@ import 'package:tom_editors_shared/tom_editors_shared.dart';
 
 import '../yaml_editor_theme.dart';
 
-/// Initial value type selected in the manual add-key dialog.
-enum _AddKeyType {
+/// Initial value type selected in the add-key / add-item dialog.
+///
+/// Exposed publicly so the dialog can be reused from context menus and
+/// action buttons without duplicating code.
+enum AddKeyType {
   string,
+  boolean,
+  integer,
+  float,
   map,
   list,
   nullValue;
 
   Object? toValue() => switch (this) {
-        _AddKeyType.string => '',
-        _AddKeyType.map => <String, Object>{},
-        _AddKeyType.list => <Object>[],
-        _AddKeyType.nullValue => null,
+        AddKeyType.string => '',
+        AddKeyType.boolean => false,
+        AddKeyType.integer => 0,
+        AddKeyType.float => 0.0,
+        AddKeyType.map => <String, Object>{},
+        AddKeyType.list => <Object>[],
+        AddKeyType.nullValue => null,
       };
 
   String get label => switch (this) {
-        _AddKeyType.string => 'String  ""',
-        _AddKeyType.map => 'Map  {}',
-        _AddKeyType.list => 'List  []',
-        _AddKeyType.nullValue => 'Null',
+        AddKeyType.string => 'String  ""',
+        AddKeyType.boolean => 'Bool  false',
+        AddKeyType.integer => 'Int  0',
+        AddKeyType.float => 'Float  0.0',
+        AddKeyType.map => 'Map  {}',
+        AddKeyType.list => 'List  []',
+        AddKeyType.nullValue => 'Null',
       };
+}
+
+/// Shows the shared add-key dialog: asks for a key name and initial value type.
+///
+/// Returns `null` if the user cancels or enters an empty key name.
+/// Used by both the inline action button and the right-click context menu so
+/// that all "insert key" paths always go through the same dialog.
+Future<({String key, AddKeyType type})?> showAddKeyDialog(
+    BuildContext context) async {
+  final keyController = TextEditingController();
+  var selectedType = AddKeyType.string;
+
+  final result = await showDialog<({String key, AddKeyType type})>(
+    context: context,
+    builder: (dialogContext) {
+      return StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: const Text('Add key'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: keyController,
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Key name',
+                    hintText: 'new-key',
+                  ),
+                  onSubmitted: (value) => Navigator.of(dialogContext)
+                      .pop((key: value.trim(), type: selectedType)),
+                ),
+                const SizedBox(height: 16),
+                InputDecorator(
+                  decoration: const InputDecoration(
+                    labelText: 'Initial value type',
+                    isDense: true,
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<AddKeyType>(
+                      value: selectedType,
+                      isDense: true,
+                      items: AddKeyType.values
+                          .map((t) => DropdownMenuItem(
+                                value: t,
+                                child: Text(t.label),
+                              ))
+                          .toList(),
+                      onChanged: (t) =>
+                          setDialogState(() => selectedType = t!),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(
+                    (key: keyController.text.trim(), type: selectedType)),
+                child: const Text('Add'),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+
+  final key = result?.key.trim() ?? '';
+  if (key.isEmpty) return null;
+  return (key: key, type: result!.type);
 }
 
 /// Row of action buttons for a YAML tree node.
@@ -266,7 +355,7 @@ class YamlNodeActions extends StatelessWidget {
     final renderBox = context.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
     final offset = renderBox.localToGlobal(Offset.zero);
-    showMenu<_AddKeyType>(
+    showMenu<AddKeyType>(
       context: context,
       position: RelativeRect.fromLTRB(
         offset.dx,
@@ -274,8 +363,8 @@ class YamlNodeActions extends StatelessWidget {
         offset.dx + renderBox.size.width,
         offset.dy + renderBox.size.height,
       ),
-      items: _AddKeyType.values
-          .map((t) => PopupMenuItem<_AddKeyType>(
+      items: AddKeyType.values
+          .map((t) => PopupMenuItem<AddKeyType>(
                 value: t,
                 height: 32,
                 child: Text(t.label, style: const TextStyle(fontSize: 12)),
@@ -287,78 +376,12 @@ class YamlNodeActions extends StatelessWidget {
   }
 
   Future<void> _showManualAddDialog(BuildContext context) async {
-    final keyController = TextEditingController();
-    var selectedType = _AddKeyType.string;
-
-    final result = await showDialog<({String key, _AddKeyType type})>(
-      context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text('Add key'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: keyController,
-                    autofocus: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Key name',
-                      hintText: 'new-key',
-                    ),
-                    onSubmitted: (value) => Navigator.of(dialogContext)
-                        .pop((key: value.trim(), type: selectedType)),
-                  ),
-                  const SizedBox(height: 16),
-                  InputDecorator(
-                    decoration: const InputDecoration(
-                      labelText: 'Initial value type',
-                      isDense: true,
-                      contentPadding:
-                          EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<_AddKeyType>(
-                        value: selectedType,
-                        isDense: true,
-                        items: _AddKeyType.values
-                            .map((t) => DropdownMenuItem(
-                                  value: t,
-                                  child: Text(t.label),
-                                ))
-                            .toList(),
-                        onChanged: (t) =>
-                            setDialogState(() => selectedType = t!),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text('Cancel'),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext)
-                      .pop((key: keyController.text.trim(), type: selectedType)),
-                  child: const Text('Add'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-
-    final key = result?.key.trim() ?? '';
-    if (key.isEmpty) return;
-
+    final result = await showAddKeyDialog(context);
+    if (result == null) return;
     if (onAddWithType != null) {
-      onAddWithType!(key, result!.type.toValue());
+      onAddWithType!(result.key, result.type.toValue());
     } else {
-      onAdd?.call(key);
+      onAdd?.call(result.key);
     }
   }
 }
