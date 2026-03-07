@@ -120,6 +120,56 @@ class _ListNodeRowState extends State<ListNodeRow> {
     final canMoveUp = _currentIndex > 0;
     final canMoveDown = _currentIndex < listLen - 1;
 
+    // ---------------------------------------------------------------------------
+    // Drag handle — the ONLY widget wrapped in Draggable.
+    // Keeping the Draggable off the row's tap/click area prevents the gesture
+    // arena from delaying all interactions with a long-press timeout.
+    // ---------------------------------------------------------------------------
+    Widget? dragHandle;
+    if (!widget.readOnly) {
+      final payload = _ListDragPayload(
+        parentListPath: _parentListPath,
+        fromIndex: _currentIndex,
+      );
+      final feedback = Material(
+        elevation: 4,
+        borderRadius: BorderRadius.circular(4),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: widget.theme.colors.surface,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            '[${_data.key}]',
+            style: TextStyle(
+              fontFamily: widget.theme.fonts.keyFontFamily,
+              fontSize: widget.theme.fonts.keyFontSize,
+              color: widget.theme.colors.hintColor,
+            ),
+          ),
+        ),
+      );
+
+      dragHandle = Draggable<_ListDragPayload>(
+        data: payload,
+        feedback: feedback,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.grab,
+          child: Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: Icon(
+              Icons.drag_indicator,
+              size: 14,
+              color: _isHovered
+                  ? widget.theme.colors.hintColor
+                  : Colors.transparent,
+            ),
+          ),
+        ),
+      );
+    }
+
     final rowContent = GestureDetector(
       onDoubleTap: widget.canExpand ? widget.onDoubleTapToggle : null,
       onSecondaryTapUp: widget.readOnly
@@ -132,18 +182,8 @@ class _ListNodeRowState extends State<ListNodeRow> {
           padding: const EdgeInsets.symmetric(vertical: 1),
           child: Row(
             children: [
-              // Drag handle (visible on hover when editable)
-              if (!widget.readOnly)
-                Padding(
-                  padding: const EdgeInsets.only(right: 4),
-                  child: Icon(
-                    Icons.drag_indicator,
-                    size: 14,
-                    color: _isHovered
-                        ? widget.theme.colors.hintColor
-                        : Colors.transparent,
-                  ),
-                ),
+              // Drag handle (only the icon is draggable — keeps row taps instant)
+              if (dragHandle != null) dragHandle,
 
               if (_data.isContainer) ...[
                 Icon(
@@ -256,11 +296,9 @@ class _ListNodeRowState extends State<ListNodeRow> {
       onLeave: (_) {},
       onAcceptWithDetails: (details) {
         final data = details.data;
-        // Drop above = insert before _currentIndex.
-        // Drop below = insert after _currentIndex (i.e. at _currentIndex + 1).
         final targetIndex = _dropIsAbove ? _currentIndex : _currentIndex + 1;
-        widget.controller.moveListItem(
-            _parentListPath, data.fromIndex, targetIndex);
+        widget.controller
+            .moveListItem(_parentListPath, data.fromIndex, targetIndex);
       },
       builder: (context, candidateData, rejectedData) {
         final isCandidate = candidateData.isNotEmpty;
@@ -269,34 +307,7 @@ class _ListNodeRowState extends State<ListNodeRow> {
           children: [
             if (isCandidate && _dropIsAbove)
               _DropIndicatorLine(theme: widget.theme),
-            LongPressDraggable<_ListDragPayload>(
-              data: _ListDragPayload(
-                parentListPath: _parentListPath,
-                fromIndex: _currentIndex,
-              ),
-              feedback: Material(
-                elevation: 4,
-                borderRadius: BorderRadius.circular(4),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: widget.theme.colors.surface,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    '[${_data.key}]',
-                    style: TextStyle(
-                      fontFamily: widget.theme.fonts.keyFontFamily,
-                      fontSize: widget.theme.fonts.keyFontSize,
-                      color: widget.theme.colors.hintColor,
-                    ),
-                  ),
-                ),
-              ),
-              childWhenDragging: Opacity(opacity: 0.3, child: rowContent),
-              child: rowContent,
-            ),
+            rowContent,
             if (isCandidate && !_dropIsAbove)
               _DropIndicatorLine(theme: widget.theme),
           ],
