@@ -282,6 +282,68 @@ class YamlDocumentModel {
     return withValueAt(path, parsed);
   }
 
+  /// Replace the subtree at [path] with [yamlFragment], **preserving its
+  /// exact YAML formatting** (block scalars, quoting, etc.).
+  ///
+  /// Unlike [replaceSubtreeAt], this method splices the raw fragment text
+  /// directly into the document at the node's source span, so multiline
+  /// block scalars (`|`, `>`) and other formatting are kept intact.
+  ///
+  /// The fragment is expected to be de-dented (base indent at column 0).
+  /// It is automatically re-indented to match the original node's column
+  /// before splicing.
+  YamlDocumentModel replaceSubtreeRaw(List<Object> path, String yamlFragment) {
+    if (path.isEmpty) return YamlDocumentModel.parse(yamlFragment);
+
+    var node = nodeAt(path);
+    if (node == null) return this;
+
+    var source = _editor.toString();
+    var span = node.span;
+    var startOffset = span.start.offset;
+    var endOffset = span.end.offset;
+    var indent = span.start.column;
+
+    // Re-indent: the document already contains `indent` spaces before
+    // startOffset on the same line, so the first line needs no prefix.
+    // Every subsequent non-empty line gets `indent` spaces prepended so
+    // it aligns with the node's original column.
+    var reindented = _reindentFragment(yamlFragment, indent);
+
+    var newSource =
+        source.substring(0, startOffset) + reindented + source.substring(endOffset);
+    return YamlDocumentModel.parse(newSource);
+  }
+
+  /// Re-indent a de-dented YAML fragment for splicing back into a document.
+  ///
+  /// [indent] is the column of the target node (span.start.column).
+  /// The first line is left unchanged (it will be placed at [indent] by the
+  /// existing document text before the splice point). Every subsequent
+  /// non-empty line gets [indent] spaces prepended.
+  String _reindentFragment(String fragment, int indent) {
+    var lines = fragment.split('\n');
+    // Remove trailing empty element produced by a final '\n'
+    if (lines.isNotEmpty && lines.last.isEmpty) {
+      lines = lines.sublist(0, lines.length - 1);
+    }
+    if (lines.isEmpty) return '\n';
+    if (indent == 0) {
+      return '${lines.join('\n')}\n';
+    }
+    var prefix = ' ' * indent;
+    var buf = StringBuffer();
+    for (var i = 0; i < lines.length; i++) {
+      if (i == 0) {
+        buf.write(lines[i]);
+      } else {
+        buf.write(lines[i].isEmpty ? '' : '$prefix${lines[i]}');
+      }
+      buf.write('\n');
+    }
+    return buf.toString();
+  }
+
   // ---------------------------------------------------------------------------
   // Convenience accessors
   // ---------------------------------------------------------------------------

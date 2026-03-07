@@ -261,9 +261,13 @@ class _TreeRowState<T> extends State<_TreeRow<T>> {
           widget.controller.focus(node.id);
           widget.onNodeTap?.call(node);
         },
-        onDoubleTap: () {
-          widget.onNodeDoubleTap?.call(node);
-        },
+        // Only register onDoubleTap when a callback exists. An always-present
+        // closure (even one that calls null?.call()) causes Flutter to register
+        // a DoubleTapGestureRecognizer, which delays ALL onTap events in the
+        // arena by kDoubleTapTimeout (~300ms) — including the arrow icon tap.
+        onDoubleTap: widget.onNodeDoubleTap != null
+            ? () => widget.onNodeDoubleTap!.call(node)
+            : null,
         child: Container(
           height: theme.rowHeight,
           color: bgColor,

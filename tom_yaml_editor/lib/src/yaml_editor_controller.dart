@@ -147,6 +147,23 @@ class YamlEditorController extends ChangeNotifier {
     applyEdit(operation);
   }
 
+  /// Replace a subtree at [path] with a raw YAML [fragment], preserving
+  /// the fragment's exact formatting (block scalars, quoting, indentation).
+  ///
+  /// Unlike [setValue], this does not parse the fragment to a Dart value first.
+  /// Multiline block scalars (`|`, `>`) and other YAML formatting survive
+  /// round-trips through the editor without being collapsed to quoted strings.
+  void replaceSubtree(List<String> path, String fragment) {
+    var newDoc = _document.replaceSubtreeRaw(_toDocumentPath(path), fragment);
+    var operation = YamlEditOperation(
+      kind: YamlEditKind.setValue,
+      path: path,
+      oldDocument: _document,
+      newDocument: newDoc,
+    );
+    applyEdit(operation);
+  }
+
   /// Insert a new key at a specific path based on schema suggestions.
   void insertKey(List<String> parentPath, String key, Object? defaultValue) {
     var newDoc = _document.withInsertedKey(

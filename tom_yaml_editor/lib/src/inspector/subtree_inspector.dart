@@ -229,16 +229,19 @@ class SubtreeInspectorState extends State<SubtreeInspector> {
   bool apply() {
     if (!canApply) return false;
 
-    // Parse the fragment
-    Object? parsed;
+    // Validate YAML is parseable before applying.
     try {
-      parsed = loadYaml(_currentText);
+      loadYaml(_currentText);
     } catch (_) {
       return false;
     }
 
-    // Apply to the controller
-    widget.controller.setValue(widget.path, parsed);
+    // Use raw-text replacement so multiline block scalars (|, >) and other
+    // YAML formatting are preserved exactly as the user typed them.
+    // setValue(path, loadYaml(text)) would collapse block scalars to
+    // quoted single-line strings because yaml_edit serializes plain Dart
+    // Strings without block-scalar style.
+    widget.controller.replaceSubtree(widget.path, _currentText);
     _originalText = _currentText;
     widget.onApply?.call();
     return true;
