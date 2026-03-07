@@ -70,6 +70,25 @@ class YamlNodeActions extends StatelessWidget {
   /// Tooltip used for [onAddItem] action.
   final String addItemTooltip;
 
+  /// Callback when a list item is added via the type-picker popup.
+  ///
+  /// When provided, the add-item button shows a type-selection popup instead
+  /// of calling [onAddItem] directly. The selected value (of the corresponding
+  /// type) is passed as the argument.
+  final ValueChanged<Object?>? onAddItemWithType;
+
+  /// Whether this node can be moved up within its parent container.
+  final bool canMoveUp;
+
+  /// Whether this node can be moved down within its parent container.
+  final bool canMoveDown;
+
+  /// Callback to move this node one position up.
+  final VoidCallback? onMoveUp;
+
+  /// Callback to move this node one position down.
+  final VoidCallback? onMoveDown;
+
   /// Callback when this node is removed.
   final VoidCallback? onRemove;
 
@@ -95,6 +114,11 @@ class YamlNodeActions extends StatelessWidget {
     this.onAddWithType,
     this.onAddItem,
     this.addItemTooltip = 'Add item',
+    this.onAddItemWithType,
+    this.canMoveUp = false,
+    this.canMoveDown = false,
+    this.onMoveUp,
+    this.onMoveDown,
     this.onRemove,
     this.onInspect,
     this.visible = true,
@@ -119,13 +143,35 @@ class YamlNodeActions extends StatelessWidget {
       ));
     }
 
-    // Add list-item button
-    if (theme.showAddButtons && onAddItem != null) {
+    // Add list-item button (direct or type-picker)
+    if (theme.showAddButtons && (onAddItem != null || onAddItemWithType != null)) {
       actions.add(NodeAction(
         icon: Icons.playlist_add,
         tooltip: addItemTooltip,
         color: theme.structureColors.addButton,
-        onPressed: onAddItem,
+        onPressed: onAddItemWithType != null
+            ? () => _showAddItemTypeMenu(context)
+            : onAddItem,
+      ));
+    }
+
+    // Move-up button
+    if (canMoveUp && onMoveUp != null) {
+      actions.add(NodeAction(
+        icon: Icons.arrow_upward,
+        tooltip: 'Move up',
+        color: theme.colors.hintColor,
+        onPressed: onMoveUp,
+      ));
+    }
+
+    // Move-down button
+    if (canMoveDown && onMoveDown != null) {
+      actions.add(NodeAction(
+        icon: Icons.arrow_downward,
+        tooltip: 'Move down',
+        color: theme.colors.hintColor,
+        onPressed: onMoveDown,
       ));
     }
 
@@ -213,6 +259,30 @@ class YamlNodeActions extends StatelessWidget {
       }).toList(),
     ).then((selected) {
       if (selected != null) onAdd?.call(selected);
+    });
+  }
+
+  void _showAddItemTypeMenu(BuildContext context) {
+    final renderBox = context.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+    final offset = renderBox.localToGlobal(Offset.zero);
+    showMenu<_AddKeyType>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        offset.dx,
+        offset.dy + renderBox.size.height,
+        offset.dx + renderBox.size.width,
+        offset.dy + renderBox.size.height,
+      ),
+      items: _AddKeyType.values
+          .map((t) => PopupMenuItem<_AddKeyType>(
+                value: t,
+                height: 32,
+                child: Text(t.label, style: const TextStyle(fontSize: 12)),
+              ))
+          .toList(),
+    ).then((selected) {
+      if (selected != null) onAddItemWithType?.call(selected.toValue());
     });
   }
 

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart';
 
@@ -11,6 +12,17 @@ import '../yaml_editor_theme.dart';
 import 'node_actions.dart';
 import 'node_context_menu.dart';
 import 'yaml_tree_node_builder.dart';
+
+/// Payload carried by a list-item drag operation.
+class _ListDragPayload {
+  final List<String> parentListPath;
+  final int fromIndex;
+
+  const _ListDragPayload({
+    required this.parentListPath,
+    required this.fromIndex,
+  });
+}
 
 /// Renders one list item in the YAML tree.
 ///
@@ -95,13 +107,20 @@ class ListNodeRow extends StatefulWidget {
 class _ListNodeRowState extends State<ListNodeRow> {
   bool _isHovered = false;
 
+  /// True  = drop-indicator shows above the row (insert before this index).
+  /// False = drop-indicator shows below the row (insert after this index).
+  bool _dropIsAbove = true;
+
   YamlTreeData get _data => widget.node.data;
 
   @override
   Widget build(BuildContext context) {
     var counts = widget.controller.errorCountsAt(_data.path.cast<Object>());
+    final listLen = widget.controller.listLength(_parentListPath);
+    final canMoveUp = _currentIndex > 0;
+    final canMoveDown = _currentIndex < listLen - 1;
 
-    return GestureDetector(
+    final rowContent = GestureDetector(
       onDoubleTap: widget.canExpand ? widget.onDoubleTapToggle : null,
       onSecondaryTapUp: widget.readOnly
           ? null
@@ -113,6 +132,19 @@ class _ListNodeRowState extends State<ListNodeRow> {
           padding: const EdgeInsets.symmetric(vertical: 1),
           child: Row(
             children: [
+              // Drag handle (visible on hover when editable)
+              if (!widget.readOnly)
+                Padding(
+                  padding: const EdgeInsets.only(right: 4),
+                  child: Icon(
+                    Icons.drag_indicator,
+                    size: 14,
+                    color: _isHovered
+                        ? widget.theme.colors.hintColor
+                        : Colors.transparent,
+                  ),
+                ),
+
               if (_data.isContainer) ...[
                 Icon(
                   (_data.yamlNode?.value is List)
@@ -173,16 +205,26 @@ class _ListNodeRowState extends State<ListNodeRow> {
                   ),
                 ),
 
-              // Node actions (on hover)
+              // Node actions (visible on hover)
               YamlNodeActions(
                 visible: _isHovered,
                 readOnly: widget.readOnly,
-                onAddItem: () => widget.controller.insertListItem(
+                onAddItemWithType: (value) => widget.controller.insertListItem(
                   _parentListPath,
                   _currentIndex + 1,
-                  _defaultListItemValue(),
+                  value,
                 ),
                 addItemTooltip: 'Insert item below',
+                canMoveUp: canMoveUp,
+                canMoveDown: canMoveDown,
+                onMoveUp: canMoveUp
+                    ? () => widget.controller.moveListItem(
+                          _parentListPath, _currentIndex, _currentIndex - 1)
+                    : null,
+                onMoveDown: canMoveDown
+                    ? () => widget.controller.moveListItem(
+                          _parentListPath, _currentIndex, _currentIndex + 2)
+                    : null,
                 canRemove: true,
                 alwaysShowRemove: true,
                 canInspect: _data.isContainer,
@@ -194,6 +236,72 @@ class _ListNodeRowState extends State<ListNodeRow> {
           ),
         ),
       ),
+    );
+
+    if (widget.readOnly) return rowContent;
+
+    return DragTarget<_ListDragPayload>(
+      onWillAcceptWithDetails: (details) {
+        final data = details.data;
+        return listEquals(data.parentListPath, _parentListPath) &&
+            data.fromIndex != _currentIndex;
+      },
+      onMove: (details) {
+        final box = context.findRenderObject() as RenderBox?;
+        if (box == null) return;
+        final local = box.globalToLocal(details.offset);
+        final isAbove = local.dy < box.size.height / 2;
+        if (_dropIsAbove != isAbove) setState(() => _dropIsAbove = isAbove);
+      },
+      onLeave: (_) {},
+      onAcceptWithDetails: (details) {
+        final data = details.data;
+        // Drop above = insert before _currentIndex.
+        // Drop below = insert after _currentIndex (i.e. at _currentIndex + 1).
+        final targetIndex = _dropIsAbove ? _currentIndex : _currentIndex + 1;
+        widget.controller.moveListItem(
+            _parentListPath, data.fromIndex, targetIndex);
+      },
+      builder: (context, candidateData, rejectedData) {
+        final isCandidate = candidateData.isNotEmpty;
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isCandidate && _dropIsAbove)
+              _DropIndicatorLine(theme: widget.theme),
+            LongPressDraggable<_ListDragPayload>(
+              data: _ListDragPayload(
+                parentListPath: _parentListPath,
+                fromIndex: _currentIndex,
+              ),
+              feedback: Material(
+                elevation: 4,
+                borderRadius: BorderRadius.circular(4),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: widget.theme.colors.surface,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '[${_data.key}]',
+                    style: TextStyle(
+                      fontFamily: widget.theme.fonts.keyFontFamily,
+                      fontSize: widget.theme.fonts.keyFontSize,
+                      color: widget.theme.colors.hintColor,
+                    ),
+                  ),
+                ),
+              ),
+              childWhenDragging: Opacity(opacity: 0.3, child: rowContent),
+              child: rowContent,
+            ),
+            if (isCandidate && !_dropIsAbove)
+              _DropIndicatorLine(theme: widget.theme),
+          ],
+        );
+      },
     );
   }
 
@@ -239,17 +347,22 @@ class _ListNodeRowState extends State<ListNodeRow> {
         );
         return;
       case ListContextAction.moveDown:
+        // moveListItem(from, to) puts the item at final index (to - 1) when
+        // moving forward (to > from). To move down by one we therefore pass
+        // currentIndex + 2 so the adjusted insert index becomes currentIndex + 1.
         widget.controller.moveListItem(
           parentPath,
           currentIndex,
-          currentIndex + 1,
+          currentIndex + 2,
         );
         return;
       case ListContextAction.moveToTop:
         widget.controller.moveListItem(parentPath, currentIndex, 0);
         return;
       case ListContextAction.moveToBottom:
-        widget.controller.moveListItem(parentPath, currentIndex, length - 1);
+        // Pass `length` (not length - 1): the adjusted insert index becomes
+        // length - 1, which appends to the end of the shortened list.
+        widget.controller.moveListItem(parentPath, currentIndex, length);
         return;
       case ListContextAction.insertAbove:
         widget.controller.insertListItem(
@@ -435,5 +548,29 @@ class _ListNodeRowState extends State<ListNodeRow> {
     if (value == null) return 'null';
     if (value is String) return value;
     return value.toString();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/// A thin colored horizontal line shown above or below a list item during
+/// a drag-and-drop operation to indicate the drop position.
+class _DropIndicatorLine extends StatelessWidget {
+  final YamlEditorTheme theme;
+
+  const _DropIndicatorLine({required this.theme});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 2,
+      margin: const EdgeInsets.symmetric(vertical: 1),
+      decoration: BoxDecoration(
+        color: theme.colors.selectionColor,
+        borderRadius: BorderRadius.circular(1),
+      ),
+    );
   }
 }
