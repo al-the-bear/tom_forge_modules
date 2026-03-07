@@ -320,18 +320,37 @@ class YamlDocumentModel {
     var startOffset = span.start.offset;
     var indent = span.start.column;
 
-    // span.end.offset lands at the last character of the final value, which
-    // is typically before the trailing '\n'. Advance past the rest of the
-    // line (and the '\n') so the splice always replaces whole lines and never
-    // leaves a partial line in the document (which would cause parse errors at
-    // unexpected column positions on subsequent edits).
-    var endOffset = span.end.offset;
-    while (endOffset < source.length && source[endOffset] != '\n') {
-      endOffset++;
+    // Determine the end of this node's block by scanning source lines forward
+    // from span.start.line.
+    //
+    // We cannot rely on span.end.offset for multi-key block mappings because
+    // the yaml package's span may only cover the last *value* in the map, not
+    // all the preceding sibling keys. Using span.end would leave the original
+    // keys in the document and then the fragment re-adds them → duplicate key.
+    //
+    // Rule: collect every line after startLine that is either blank or has
+    // indentation >= indent. The block ends just before the first non-blank
+    // line with indentation < indent.
+    var sourceLines = source.split('\n');
+    var startLine = span.start.line; // 0-based
+    var lastBlockLine = startLine;
+    for (var i = startLine + 1; i < sourceLines.length; i++) {
+      var line = sourceLines[i];
+      if (line.trim().isEmpty) continue; // blank line — tentatively skip
+      var lineIndent = line.length - line.trimLeft().length;
+      if (lineIndent >= indent) {
+        lastBlockLine = i;
+      } else {
+        break;
+      }
     }
-    if (endOffset < source.length) {
-      endOffset++; // consume the '\n' itself
+
+    // Character offset of the start of the line AFTER lastBlockLine.
+    var endOffset = 0;
+    for (var i = 0; i <= lastBlockLine; i++) {
+      endOffset += sourceLines[i].length + 1; // +1 for the '\n'
     }
+    if (endOffset > source.length) endOffset = source.length;
 
     // Normalise the fragment to column-0 before re-indenting, in case the
     // caller passes text that still carries leading whitespace (safety net;
