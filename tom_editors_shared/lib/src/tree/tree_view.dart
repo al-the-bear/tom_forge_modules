@@ -120,9 +120,9 @@ class _TreeViewState<T> extends State<TreeView<T>> {
         controller: _scrollController,
         itemCount: visible.length,
         itemExtent: widget.theme.rowHeight,
-        // Minimal right padding so the overlay scrollbar thumb doesn't
-        // obscure the last pixel of row buttons.  Keep this small (1-2 px).
-        padding: const EdgeInsets.only(right: 2),
+        // Right padding wide enough that the macOS/Windows overlay scrollbar
+        // thumb (~10 px) does not obscure the action buttons at the row edge.
+        padding: const EdgeInsets.only(right: 12),
         itemBuilder: (context, index) {
           return _buildRow(visible[index], guides?[index] ?? const []);
         },

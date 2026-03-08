@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart';
+import 'package:yaml/yaml.dart' show YamlList;
 
 import '../editors/built_in/built_in_editor_factory.dart';
 import '../editors/editor_popout_shell.dart';
@@ -289,6 +290,10 @@ class _MapNodeRowState extends State<MapNodeRow> {
                 suggestedKeys: _data.isContainer
                     ? widget.controller.suggestedKeys(_data.path)
                     : [],
+                // Pass the container's own schema so the + button dialog
+                // can show schema-based key suggestions.
+                parentSchemaNode:
+                    _data.isContainer ? _data.schemaNode : null,
                 onAddItem:
                     _data.isContainer && (_data.yamlNode?.value is List)
                         ? () => widget.controller.appendListItem(
@@ -385,7 +390,8 @@ class _MapNodeRowState extends State<MapNodeRow> {
       canCollapseAll: widget.canExpand,
       canListItemExpandCollapse:
           _data.isContainer && (_data.yamlNode?.value is List),
-      canAddKey: _data.isContainer && _data.yamlNode?.value is Map,
+      // Show 'Add key' only for map container rows (not list containers).
+      canAddKey: _data.isContainer && _data.yamlNode is! YamlList,
       canMoveUp: canMoveUp,
       canMoveDown: canMoveDown,
     );
@@ -406,8 +412,12 @@ class _MapNodeRowState extends State<MapNodeRow> {
         case MapContextAction.insertKeyBelow:
           // Dialog needs a live context — guard before opening.
           if (!mounted) return;
-          final addResult =
-              await showAddKeyDialog(context, parentSchema: _data.schemaNode);
+          // Use the PARENT map's schema so sibling-key suggestions are shown,
+          // not the schema of this key's own value.
+          final addResult = await showAddKeyDialog(
+            context,
+            parentSchema: widget.controller.schemaNodeAt(_parentPath),
+          );
           if (addResult == null) return;
           widget.controller.insertKeyAdjacent(
             _data.path,
@@ -442,9 +452,14 @@ class _MapNodeRowState extends State<MapNodeRow> {
           return;
         case MapContextAction.addKey:
           if (!mounted) return;
+          trailEvent(
+            'mapRow: addKey opening dialog path=${_data.path} '
+            'schemaProps=${_data.schemaNode?.properties.keys.toList()}',
+          );
           final addResult =
               await showAddKeyDialog(context, parentSchema: _data.schemaNode);
           if (addResult == null) return;
+          trailEvent('mapRow: addKey inserting key=${addResult.key}');
           widget.controller
               .insertKey(_data.path, addResult.key, addResult.value);
           return;
