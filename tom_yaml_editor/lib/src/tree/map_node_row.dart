@@ -386,7 +386,7 @@ class _MapNodeRowState extends State<MapNodeRow> {
       canMoveUp: canMoveUp,
       canMoveDown: canMoveDown,
     );
-    if (action == null || !context.mounted) return;
+    if (action == null || !mounted) return;
 
     switch (action) {
       case MapContextAction.moveUp:
@@ -399,8 +399,9 @@ class _MapNodeRowState extends State<MapNodeRow> {
         return;
       case MapContextAction.insertKeyAbove:
       case MapContextAction.insertKeyBelow:
+        if (!context.mounted) return;
         final addResult = await showAddKeyDialog(context);
-        if (addResult == null || !context.mounted) return;
+        if (addResult == null || !mounted) return;
         widget.controller.insertKeyAdjacent(
           _data.path,
           addResult.key,

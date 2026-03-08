@@ -97,14 +97,6 @@ class _StringEditorState extends State<StringEditor> {
     widget.onChanged?.call(text);
   }
 
-  bool get _isMultiLine {
-    var value = widget.value ?? '';
-    if (value.contains('\n')) return true;
-    // Heuristic: if description suggests long text, allow multi-line
-    var desc = widget.schemaNode?.description?.toLowerCase() ?? '';
-    return desc.contains('multi') || desc.contains('paragraph');
-  }
-
   @override
   Widget build(BuildContext context) {
     var colors = widget.theme.colors;
@@ -116,8 +108,8 @@ class _StringEditorState extends State<StringEditor> {
       controller: _textController,
       onChanged: widget.readOnly ? null : _onChanged,
       readOnly: widget.readOnly,
-      maxLines: _isMultiLine ? null : 1,
-      minLines: _isMultiLine ? 2 : 1,
+      maxLines: null,
+      minLines: 1,
       style: TextStyle(
         fontFamily: fonts.valueFontFamily,
         fontSize: fonts.valueFontSize,

@@ -347,8 +347,9 @@ class _ListNodeRowState extends State<ListNodeRow> {
       canExpandAll: widget.canExpand,
       canCollapseAll: widget.canExpand,
     );
-    if (action == null || !context.mounted) return;
+    if (action == null || !mounted) return;
 
+    try {
     switch (action) {
       case ListContextAction.moveUp:
         widget.controller.moveListItem(
@@ -376,17 +377,23 @@ class _ListNodeRowState extends State<ListNodeRow> {
         widget.controller.moveListItem(parentPath, currentIndex, length);
         return;
       case ListContextAction.insertAbove:
+        if (!context.mounted) return;
+        final pickedAbove = await _pickInsertValue(context, globalPosition);
+        if (pickedAbove == null || !mounted) return;
         widget.controller.insertListItem(
           parentPath,
           currentIndex,
-          _defaultListItemValue(),
+          pickedAbove.value,
         );
         return;
       case ListContextAction.insertBelow:
+        if (!context.mounted) return;
+        final pickedBelow = await _pickInsertValue(context, globalPosition);
+        if (pickedBelow == null || !mounted) return;
         widget.controller.insertListItem(
           parentPath,
           currentIndex + 1,
-          _defaultListItemValue(),
+          pickedBelow.value,
         );
         return;
       case ListContextAction.duplicate:
@@ -409,6 +416,51 @@ class _ListNodeRowState extends State<ListNodeRow> {
         widget.onCollapseAll?.call();
         return;
     }
+    } catch (e, st) {
+      debugPrint('ListNodeRow context menu error: $e\n$st');
+    }
+  }
+
+  /// Choose the value for a new list item.
+  ///
+  /// If the schema mandates a specific type for items in this list, that
+  /// default is returned immediately without showing a dialog.  Otherwise a
+  /// type-picker popup is shown at [menuOffset] so the user can choose.
+  ///
+  /// Returns `null` when the user dismisses the picker without selecting.
+  Future<({Object? value})?> _pickInsertValue(
+    BuildContext context,
+    Offset menuOffset,
+  ) async {
+    // Schema-mandated type → use default directly, no dialog needed.
+    final parentSchema = widget.schemaWalker?.nodeAt(_parentListPath);
+    final itemSchema = parentSchema?.items;
+    if (itemSchema != null) {
+      return (value: _defaultListItemValue());
+    }
+
+    // No schema constraint → ask the user what type to insert.
+    if (!context.mounted) return null;
+    final type = await showMenu<AddKeyType>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        menuOffset.dx,
+        menuOffset.dy,
+        menuOffset.dx + 1,
+        menuOffset.dy + 1,
+      ),
+      items: AddKeyType.values
+          .map(
+            (t) => PopupMenuItem<AddKeyType>(
+              value: t,
+              height: 32,
+              child: Text(t.label, style: const TextStyle(fontSize: 12)),
+            ),
+          )
+          .toList(),
+    );
+    if (type == null) return null; // user dismissed
+    return (value: type.toValue());
   }
 
   /// Produce a reasonable default for a new list item based on schema.

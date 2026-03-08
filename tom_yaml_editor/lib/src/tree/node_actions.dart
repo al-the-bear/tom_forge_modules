@@ -71,9 +71,6 @@ Future<({String key, AddKeyType type})?> showAddKeyDialog(
                 InputDecorator(
                   decoration: const InputDecoration(
                     labelText: 'Initial value type',
-                    isDense: true,
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<AddKeyType>(
