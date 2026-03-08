@@ -94,35 +94,65 @@ class YamlEditorController extends ChangeNotifier {
   /// Apply an edit operation to the document.
   void applyEdit(YamlEditOperation operation) {
     trailEvent('controller: applyEdit ${operation.kind.name} path=${operation.path}');
-    _history.push(UndoEntry(
-      oldState: operation,
-      newState: operation,
-    ));
-    _document = operation.apply(_document);
-    _revalidate();
-    notifyListeners();
+    try {
+      _history.push(UndoEntry(
+        oldState: operation,
+        newState: operation,
+      ));
+      _document = operation.apply(_document);
+      trailEvent('controller: applyEdit applied, revalidating');
+      _revalidate();
+      trailEvent('controller: applyEdit revalidated, notifying');
+      notifyListeners();
+      trailEvent('controller: applyEdit notifyListeners done');
+    } catch (e, st) {
+      trailEvent('controller: applyEdit THREW $e');
+      FlutterError.reportError(FlutterErrorDetails(
+        exception: e, stack: st,
+        library: 'yaml_editor_controller',
+        context: ErrorDescription('applyEdit ${operation.kind.name} path=${operation.path}'),
+      ));
+    }
   }
 
   /// Undo the last edit.
   void undo() {
     if (!canUndo) return;
     trailEvent('controller: undo');
-    var entry = _history.undo();
-    if (entry == null) return;
-    _document = entry.oldState.revert(_document);
-    _revalidate();
-    notifyListeners();
+    try {
+      var entry = _history.undo();
+      if (entry == null) return;
+      _document = entry.oldState.revert(_document);
+      _revalidate();
+      notifyListeners();
+    } catch (e, st) {
+      trailEvent('controller: undo THREW $e');
+      FlutterError.reportError(FlutterErrorDetails(
+        exception: e, stack: st,
+        library: 'yaml_editor_controller',
+        context: ErrorDescription('undo'),
+      ));
+    }
   }
 
   /// Redo the last undone edit.
   void redo() {
     if (!canRedo) return;
     trailEvent('controller: redo');
-    var entry = _history.redo();
-    if (entry == null) return;
-    _document = entry.newState.apply(_document);
-    _revalidate();
-    notifyListeners();
+    try {
+      var entry = _history.redo();
+      if (entry == null) return;
+      _document = entry.newState.apply(_document);
+      _revalidate();
+      notifyListeners();
+    } catch (e, st) {
+      trailEvent('controller: redo THREW $e');
+      FlutterError.reportError(FlutterErrorDetails(
+        exception: e, stack: st,
+        library: 'yaml_editor_controller',
+        context: ErrorDescription('redo'),
+      ));
+    }
   }
 
   /// Replace the entire YAML content.
@@ -373,8 +403,19 @@ class YamlEditorController extends ChangeNotifier {
       _propagatedErrors = {};
       return;
     }
-    _cachedErrors = schema.validate(_document);
-    _propagatedErrors = ErrorPropagator.propagate(_cachedErrors);
+    try {
+      _cachedErrors = schema.validate(_document);
+      _propagatedErrors = ErrorPropagator.propagate(_cachedErrors);
+    } catch (e, st) {
+      trailEvent('controller: _revalidate THREW $e');
+      FlutterError.reportError(FlutterErrorDetails(
+        exception: e, stack: st,
+        library: 'yaml_editor_controller',
+        context: ErrorDescription('_revalidate'),
+      ));
+      _cachedErrors = [];
+      _propagatedErrors = {};
+    }
   }
 
   @override

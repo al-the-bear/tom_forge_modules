@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart';
 import 'package:yaml/yaml.dart';
 
+import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'editors/editor_registry.dart';
@@ -117,9 +118,27 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
   String? _textParseError;
   List<TextMarker> _textMarkers = const [];
 
+  /// Heartbeat timer: fires every second to show the main isolate is still
+  /// alive. If [YE] heartbeats stop appearing after a trail event, that event's
+  /// code path is blocking the isolate (infinite loop or blocking IO).
+  Timer? _heartbeat;
+
+  /// Saved FlutterError handler so we can restore it on dispose.
+  void Function(FlutterErrorDetails)? _prevFlutterErrorHandler;
+
   @override
   void initState() {
     super.initState();
+    // Intercept all Flutter framework errors and print them to the trail.
+    _prevFlutterErrorHandler = FlutterError.onError;
+    FlutterError.onError = (details) {
+      trailEvent('FlutterError: ${details.exceptionAsString()}');
+      _prevFlutterErrorHandler?.call(details);
+    };
+    // Heartbeat: confirms the main isolate is alive every second.
+    _heartbeat = Timer.periodic(const Duration(seconds: 1), (_) {
+      trailEvent('heartbeat');
+    });
     _schemaWalker = widget.controller.schema != null
         ? SchemaWalker(widget.controller.schema!)
         : null;
@@ -157,6 +176,8 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
 
   @override
   void dispose() {
+    _heartbeat?.cancel();
+    FlutterError.onError = _prevFlutterErrorHandler;
     widget.controller.removeListener(_onControllerChanged);
     _treeController.dispose();
     _focusNode.dispose();
@@ -176,12 +197,32 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
   }
 
   void _onControllerChanged() {
-    _rebuildTree();
+    trailEvent('onControllerChanged: start');
+    try {
+      _rebuildTree();
+      trailEvent('onControllerChanged: rebuildTree done');
+    } catch (e, st) {
+      trailEvent('onControllerChanged: rebuildTree THREW $e');
+      FlutterError.reportError(FlutterErrorDetails(
+        exception: e, stack: st,
+        library: 'yaml_schema_editor',
+        context: ErrorDescription('_rebuildTree in _onControllerChanged'),
+      ));
+    }
     if (!_textMode) {
       _textDraft = widget.controller.yamlText;
-      final preview = _computeTextDiagnostics(_textDraft);
-      _textParseError = preview.parseError;
-      _textMarkers = preview.markers;
+      try {
+        final preview = _computeTextDiagnostics(_textDraft);
+        _textParseError = preview.parseError;
+        _textMarkers = preview.markers;
+      } catch (e, st) {
+        trailEvent('onControllerChanged: _computeTextDiagnostics THREW $e');
+        FlutterError.reportError(FlutterErrorDetails(
+          exception: e, stack: st,
+          library: 'yaml_schema_editor',
+          context: ErrorDescription('_computeTextDiagnostics in _onControllerChanged'),
+        ));
+      }
     }
     if (mounted) {
       // Guard against being called while the framework tree is locked
@@ -193,6 +234,7 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
       final phase = SchedulerBinding.instance.schedulerPhase;
       final locked = phase == SchedulerPhase.persistentCallbacks ||
           phase == SchedulerPhase.postFrameCallbacks;
+      trailEvent('onControllerChanged: setState phase=$phase locked=$locked');
       if (locked) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) setState(() {});
@@ -200,9 +242,20 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
       } else {
         setState(() {});
       }
+      trailEvent('onControllerChanged: setState done');
     }
-    widget.onChanged?.call(widget.controller.yamlText);
-    widget.onValidationChanged?.call(widget.controller.errors);
+    try {
+      widget.onChanged?.call(widget.controller.yamlText);
+      widget.onValidationChanged?.call(widget.controller.errors);
+    } catch (e, st) {
+      trailEvent('onControllerChanged: onChanged callback THREW $e');
+      FlutterError.reportError(FlutterErrorDetails(
+        exception: e, stack: st,
+        library: 'yaml_schema_editor',
+        context: ErrorDescription('onChanged/onValidationChanged callback'),
+      ));
+    }
+    trailEvent('onControllerChanged: done');
   }
 
   void _toggleTextMode() {
@@ -293,30 +346,44 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
   /// choices (tracked in [_persistedCollapsed]) are respected, and newly
   /// inserted containers auto-open.
   void _rebuildTree() {
-    var builder = YamlTreeNodeBuilder(
-      document: widget.controller.document,
-      schemaWalker: _schemaWalker,
-      errors: widget.controller.errors,
-    );
-    var roots = builder.build();
+    trailEvent('rebuildTree: start');
+    try {
+      var builder = YamlTreeNodeBuilder(
+        document: widget.controller.document,
+        schemaWalker: _schemaWalker,
+        errors: widget.controller.errors,
+      );
+      trailEvent('rebuildTree: calling builder.build()');
+      var roots = builder.build();
+      trailEvent('rebuildTree: build() done, roots=${roots.length}');
 
-    if (!_initialExpansionApplied) {
-      // First load: expand only the top level (depth == 0).
-      for (var node in _allIncludingRoots(roots)) {
-        node.isExpanded = !node.isLeaf && node.depth == 0;
+      if (!_initialExpansionApplied) {
+        // First load: expand only the top level (depth == 0).
+        for (var node in _allIncludingRoots(roots)) {
+          node.isExpanded = !node.isLeaf && node.depth == 0;
+        }
+        _initialExpansionApplied = true;
+      } else {
+        // Subsequent rebuilds: containers expanded by default; only nodes
+        // explicitly collapsed by the user stay closed.
+        for (var node in _allIncludingRoots(roots)) {
+          node.isExpanded =
+              !node.isLeaf && !_persistedCollapsed.contains(node.id);
+        }
       }
-      _initialExpansionApplied = true;
-    } else {
-      // Subsequent rebuilds: containers expanded by default; only nodes
-      // explicitly collapsed by the user stay closed.
-      for (var node in _allIncludingRoots(roots)) {
-        node.isExpanded =
-            !node.isLeaf && !_persistedCollapsed.contains(node.id);
-      }
+      trailEvent('rebuildTree: expansion applied, setting treeController.roots');
+      _treeController.roots = roots;
+      trailEvent('rebuildTree: calling _computeKeyWidths');
+      _computeKeyWidths();
+      trailEvent('rebuildTree: done');
+    } catch (e, st) {
+      trailEvent('rebuildTree: THREW $e');
+      FlutterError.reportError(FlutterErrorDetails(
+        exception: e, stack: st,
+        library: 'yaml_schema_editor',
+        context: ErrorDescription('_rebuildTree'),
+      ));
     }
-
-    _treeController.roots = roots;
-    _computeKeyWidths();
   }
 
   void _setNodeExpanded(TreeNode<YamlTreeData> node, bool expanded) {
@@ -396,29 +463,40 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
       _computedKeyWidths = {};
       return;
     }
+    try {
+      var fonts = widget.theme.fonts;
+      var groups = <String, double>{};
+      var nodeCount = 0;
 
-    var fonts = widget.theme.fonts;
-    var groups = <String, double>{};
+      for (var node in _allNodes(_treeController.roots)) {
+        var data = node.data;
+        // Only map entries have key labels that need alignment.
+        if (data.kind == YamlNodeKind.listItem) continue;
 
-    for (var node in _allNodes(_treeController.roots)) {
-      var data = node.data;
-      // Only map entries have key labels that need alignment.
-      if (data.kind == YamlNodeKind.listItem) continue;
+        var parentPath = data.path.length > 1
+            ? data.path.sublist(0, data.path.length - 1).join('/')
+            : '';
+        var keyWidth = _measureKeyText('${data.key}:', fonts);
+        var current = groups[parentPath] ?? 0;
+        if (keyWidth > current) groups[parentPath] = keyWidth;
+        nodeCount++;
+      }
+      trailEvent('_computeKeyWidths: measured $nodeCount nodes');
 
-      var parentPath = data.path.length > 1
-          ? data.path.sublist(0, data.path.length - 1).join('/')
-          : '';
-      var keyWidth = _measureKeyText('${data.key}:', fonts);
-      var current = groups[parentPath] ?? 0;
-      if (keyWidth > current) groups[parentPath] = keyWidth;
+      // Small buffer for required dot (6+4px) + breathing room.
+      const badgePadding = 12.0;
+      var minWidth = widget.theme.keyLabelMinWidth;
+      _computedKeyWidths = groups.map(
+        (k, v) => MapEntry(k, (v + badgePadding).clamp(minWidth, 400.0)),
+      );
+    } catch (e, st) {
+      trailEvent('_computeKeyWidths: THREW $e');
+      FlutterError.reportError(FlutterErrorDetails(
+        exception: e, stack: st,
+        library: 'yaml_schema_editor',
+        context: ErrorDescription('_computeKeyWidths'),
+      ));
     }
-
-    // Small buffer for required dot (6+4px) + breathing room.
-    const badgePadding = 12.0;
-    var minWidth = widget.theme.keyLabelMinWidth;
-    _computedKeyWidths = groups.map(
-      (k, v) => MapEntry(k, (v + badgePadding).clamp(minWidth, 400.0)),
-    );
   }
 
   /// Measure the pixel width of [text] using the theme's key font.
