@@ -518,53 +518,11 @@ class YamlNodeActions extends StatelessWidget {
     );
   }
 
+  // Always open the full add-key dialog (which shows schema-suggested keys as
+  // chips alongside the free-text key field). The intermediate showMenu picker
+  // has been removed — the dialog itself handles schema suggestions.
   Future<void> _showAddMenu(BuildContext context) async {
-    if (suggestedKeys.isEmpty) {
-      _showManualAddDialog(context);
-      return;
-    }
-
-    // Always show a picker, even when there is only one suggested key.
-    // The sentinel value '__other__' represents the "Other..." option.
-    const otherSentinel = '__other__';
-
-    final renderBox = context.findRenderObject() as RenderBox?;
-    if (renderBox == null) return;
-
-    final offset = renderBox.localToGlobal(Offset.zero);
-
-    final selected = await showMenu<String>(
-      context: context,
-      position: RelativeRect.fromLTRB(
-        offset.dx,
-        offset.dy + renderBox.size.height,
-        offset.dx + renderBox.size.width,
-        offset.dy + renderBox.size.height,
-      ),
-      items: [
-        ...suggestedKeys.map((key) => PopupMenuItem<String>(
-              value: key,
-              height: 32,
-              child: Text(key, style: const TextStyle(fontSize: 12)),
-            )),
-        const PopupMenuDivider(),
-        const PopupMenuItem<String>(
-          value: otherSentinel,
-          height: 32,
-          child: Text('Other\u2026', style: TextStyle(fontSize: 12)),
-        ),
-      ],
-    );
-
-    if (selected == null) return; // dismissed
-    if (selected == otherSentinel) {
-      // StatelessWidget has no `mounted` — the element stays live while its
-      // popup is showing, so context is guaranteed valid here.
-      // ignore: use_build_context_synchronously
-      _showManualAddDialog(context);
-    } else {
-      onAdd?.call(selected);
-    }
+    _showManualAddDialog(context);
   }
 
   void _showAddItemTypeMenu(BuildContext context) {
