@@ -249,11 +249,32 @@ class _ListNodeRowState extends State<ListNodeRow> {
               YamlNodeActions(
                 visible: _isHovered,
                 readOnly: widget.readOnly,
+                // (d) "Add Key" button when this list item IS a map.
+                onAdd: _data.isContainer && _data.yamlNode?.value is Map
+                    ? (key) => widget.controller.insertKey(
+                          _data.path, key, _defaultValueForKey(key))
+                    : null,
+                onAddWithType:
+                    _data.isContainer && _data.yamlNode?.value is Map
+                        ? (key, value) =>
+                            widget.controller.insertKey(_data.path, key, value)
+                        : null,
+                suggestedKeys:
+                    _data.isContainer && _data.yamlNode?.value is Map
+                        ? widget.controller.suggestedKeys(_data.path)
+                        : [],
+                parentSchemaNode:
+                    _data.isContainer && _data.yamlNode?.value is Map
+                        ? _data.schemaNode
+                        : null,
+                // Insert-below button for the parent list.
                 onAddItemWithType: (value) => widget.controller.insertListItem(
                   _parentListPath,
                   _currentIndex + 1,
                   value,
                 ),
+                itemsSchemaNode:
+                    widget.schemaWalker?.nodeAt(_parentListPath)?.items,
                 addItemTooltip: 'Insert item below',
                 canMoveUp: canMoveUp,
                 canMoveDown: canMoveDown,
@@ -332,11 +353,13 @@ class _ListNodeRowState extends State<ListNodeRow> {
     BuildContext context,
     Offset globalPosition,
   ) async {
-    var parentPath = _parentListPath;
-    var currentIndex = _currentIndex;
-    var length = widget.controller.listLength(parentPath);
+    final parentPath = _parentListPath;
+    final currentIndex = _currentIndex;
+    final length = widget.controller.listLength(parentPath);
+    final isMapContainer =
+        _data.isContainer && _data.yamlNode?.value is Map;
 
-    var action = await showListContextMenu(
+    final action = await showListContextMenu(
       context: context,
       position: globalPosition,
       theme: widget.theme,
@@ -346,59 +369,31 @@ class _ListNodeRowState extends State<ListNodeRow> {
       isExpanded: widget.isExpanded,
       canExpandAll: widget.canExpand,
       canCollapseAll: widget.canExpand,
+      isContainer: isMapContainer,
     );
-    if (action == null || !mounted) return;
+    if (action == null) return;
 
-    try {
+    // -------------------------------------------------------------------------
+    // Synchronous operations — no mounted/context guard needed.
+    // -------------------------------------------------------------------------
     switch (action) {
       case ListContextAction.moveUp:
         widget.controller.moveListItem(
-          parentPath,
-          currentIndex,
-          currentIndex - 1,
-        );
+            parentPath, currentIndex, currentIndex - 1);
         return;
       case ListContextAction.moveDown:
-        // moveListItem(from, to) puts the item at final index (to - 1) when
-        // moving forward (to > from). To move down by one we therefore pass
-        // currentIndex + 2 so the adjusted insert index becomes currentIndex + 1.
         widget.controller.moveListItem(
-          parentPath,
-          currentIndex,
-          currentIndex + 2,
-        );
+            parentPath, currentIndex, currentIndex + 2);
         return;
       case ListContextAction.moveToTop:
         widget.controller.moveListItem(parentPath, currentIndex, 0);
         return;
       case ListContextAction.moveToBottom:
-        // Pass `length` (not length - 1): the adjusted insert index becomes
-        // length - 1, which appends to the end of the shortened list.
         widget.controller.moveListItem(parentPath, currentIndex, length);
         return;
-      case ListContextAction.insertAbove:
-        if (!context.mounted) return;
-        final pickedAbove = await _pickInsertValue(context, globalPosition);
-        if (pickedAbove == null || !mounted) return;
-        widget.controller.insertListItem(
-          parentPath,
-          currentIndex,
-          pickedAbove.value,
-        );
-        return;
-      case ListContextAction.insertBelow:
-        if (!context.mounted) return;
-        final pickedBelow = await _pickInsertValue(context, globalPosition);
-        if (pickedBelow == null || !mounted) return;
-        widget.controller.insertListItem(
-          parentPath,
-          currentIndex + 1,
-          pickedBelow.value,
-        );
-        return;
       case ListContextAction.duplicate:
-        var value = _data.value;
-        widget.controller.insertListItem(parentPath, currentIndex + 1, value);
+        widget.controller.insertListItem(
+            parentPath, currentIndex + 1, _data.value);
         return;
       case ListContextAction.remove:
         widget.controller.removeKey(_data.path);
@@ -415,10 +410,49 @@ class _ListNodeRowState extends State<ListNodeRow> {
       case ListContextAction.collapseAll:
         widget.onCollapseAll?.call();
         return;
+      // -----------------------------------------------------------------------
+      // Async operations — guard context before each use.
+      // -----------------------------------------------------------------------
+      case ListContextAction.insertAbove:
+        if (!context.mounted) return;
+        final pickedAbove = await _pickInsertValue(context, globalPosition);
+        if (pickedAbove == null) return;
+        widget.controller
+            .insertListItem(parentPath, currentIndex, pickedAbove.value);
+        return;
+      case ListContextAction.insertBelow:
+        if (!context.mounted) return;
+        final pickedBelow = await _pickInsertValue(context, globalPosition);
+        if (pickedBelow == null) return;
+        widget.controller
+            .insertListItem(parentPath, currentIndex + 1, pickedBelow.value);
+        return;
+      case ListContextAction.addKey:
+        if (!context.mounted) return;
+        final addResult = await showAddKeyDialog(context,
+            parentSchema: _data.schemaNode);
+        if (addResult == null) return;
+        widget.controller.insertKey(
+            _data.path, addResult.key, addResult.value);
+        return;
     }
-    } catch (e, st) {
-      debugPrint('ListNodeRow context menu error: $e\n$st');
-    }
+  }
+
+  /// Default value for a new key added to a map-typed list item.
+  Object? _defaultValueForKey(String key) {
+    final mapSchema = _data.schemaNode;
+    if (mapSchema == null) return '';
+    final childSchema = mapSchema.properties[key];
+    if (childSchema?.defaultValue != null) return childSchema!.defaultValue;
+    return switch (childSchema?.type) {
+      SchemaType.string => '',
+      SchemaType.integer => 0,
+      SchemaType.number => 0.0,
+      SchemaType.boolean => false,
+      SchemaType.object => <String, Object>{},
+      SchemaType.array => <Object>[],
+      null => '',
+    };
   }
 
   /// Choose the value for a new list item.

@@ -78,6 +78,9 @@ enum ListContextAction {
 
   /// Remove this item.
   remove,
+
+  /// Add a key to this container item (when the item is a map).
+  addKey,
 }
 
 /// Shows a context menu for a map entry node.
@@ -241,6 +244,7 @@ Future<ListContextAction?> showListContextMenu({
   bool canExpandAll = false,
   bool canCollapseAll = false,
   bool isReadOnly = false,
+  bool isContainer = false,
 }) async {
   if (isReadOnly) return null;
 
@@ -336,6 +340,18 @@ Future<ListContextAction?> showListContextMenu({
       label: 'Remove',
       color: theme.structureColors.removeButton,
     ),
+
+    // Add key (only for container map items)
+    if (isContainer) ...
+      [
+        const PopupMenuDivider(height: 4),
+        _menuItem(
+          value: ListContextAction.addKey,
+          icon: Icons.add,
+          label: 'Add key',
+          color: theme.structureColors.addButton,
+        ),
+      ],
   ];
 
   return showMenu<ListContextAction>(

@@ -400,12 +400,13 @@ class _MapNodeRowState extends State<MapNodeRow> {
       case MapContextAction.insertKeyAbove:
       case MapContextAction.insertKeyBelow:
         if (!context.mounted) return;
-        final addResult = await showAddKeyDialog(context);
+        final addResult =
+            await showAddKeyDialog(context, parentSchema: _data.schemaNode);
         if (addResult == null || !mounted) return;
         widget.controller.insertKeyAdjacent(
           _data.path,
           addResult.key,
-          addResult.type.toValue(),
+          addResult.value,
           above: action == MapContextAction.insertKeyAbove,
         );
         return;

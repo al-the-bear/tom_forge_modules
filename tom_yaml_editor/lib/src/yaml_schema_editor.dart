@@ -91,15 +91,12 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
   late SchemaWalker? _schemaWalker;
   final FocusNode _focusNode = FocusNode();
 
-  /// Persisted expand/collapse state keyed by node path hash.
-  /// Survives document rebuilds so user's expand state is preserved.
-  final Set<String> _persistedExpanded = {};
-
-  /// Whether we've captured the initial expansion state.
-  bool _initialExpansionCaptured = false;
-
-  /// Whether first-load top-level expansion has been applied to controller.
-  bool _initialTopLevelExpansionApplied = false;
+  /// Set of node IDs that the user has explicitly collapsed.
+  ///
+  /// All container nodes are EXPANDED by default. Only nodes present in this
+  /// set are kept collapsed across document rebuilds. Newly inserted map/list
+  /// nodes therefore auto-open without any special handling.
+  final Set<String> _persistedCollapsed = {};
 
   /// The path currently being inspected, or null if no inspector is open.
   List<String>? _inspectedPath;
@@ -138,10 +135,8 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
           ? SchemaWalker(widget.controller.schema!)
           : null;
 
-      // New controller = new document source; reset expansion bootstrap state.
-      _persistedExpanded.clear();
-      _initialExpansionCaptured = false;
-      _initialTopLevelExpansionApplied = false;
+      // New controller = new document source; reset expansion state.
+      _persistedCollapsed.clear();
       if (!_textMode) {
         _textDraft = widget.controller.yamlText;
       }
@@ -281,6 +276,10 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
   }
 
   /// Rebuild the tree from the current document, preserving expand state.
+  ///
+  /// Containers default to **expanded** unless the user has explicitly
+  /// collapsed them (tracked in [_persistedCollapsed]).  Newly inserted
+  /// map/list nodes are therefore automatically opened.
   void _rebuildTree() {
     var builder = YamlTreeNodeBuilder(
       document: widget.controller.document,
@@ -289,38 +288,13 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
     );
     var roots = builder.build();
 
-    // Capture initial expansion from the freshly built nodes
-    if (!_initialExpansionCaptured) {
-      _initialExpansionCaptured = true;
-      for (var root in roots) {
-        if (!root.isLeaf) {
-          root.isExpanded = true;
-          _persistedExpanded.add(root.id);
-        }
-      }
-      for (var node in _allNodes(roots)) {
-        if (node.isExpanded) _persistedExpanded.add(node.id);
-      }
-    }
-
-    // Re-apply persisted expand state
-    for (var node in _allNodes(roots)) {
-      node.isExpanded = _persistedExpanded.contains(node.id);
+    // Apply expand state: expanded by default, collapsed only when explicitly
+    // collapsed by the user.
+    for (var node in _allIncludingRoots(roots)) {
+      node.isExpanded = !node.isLeaf && !_persistedCollapsed.contains(node.id);
     }
 
     _treeController.roots = roots;
-
-    // Hard guarantee for first render: top-level container nodes start open.
-    if (!_initialTopLevelExpansionApplied) {
-      _initialTopLevelExpansionApplied = true;
-      for (var root in roots) {
-        if (!root.isLeaf) {
-          _persistedExpanded.add(root.id);
-          _treeController.expand(root.id);
-        }
-      }
-    }
-
     _computeKeyWidths();
   }
 
@@ -330,10 +304,12 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
     if (expanded == isCurrentlyExpanded) return;
 
     if (expanded) {
-      _persistedExpanded.add(node.id);
+      // Remove from collapsed set → node stays open on next rebuild.
+      _persistedCollapsed.remove(node.id);
       _treeController.expand(node.id);
     } else {
-      _persistedExpanded.remove(node.id);
+      // Add to collapsed set → node stays closed on next rebuild.
+      _persistedCollapsed.add(node.id);
       _treeController.collapse(node.id);
     }
   }
@@ -358,17 +334,27 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
   }
 
   /// Auto-expand a node's parents when a new key is inserted.
-  ///
-  /// Will be wired to the add-key flow in Phase 5 subtree inspector.
   // ignore: unused_element
   void _revealNode(String id) {
     _treeController.revealNode(id);
-    // Persist the revealed path
-    for (var node in _allNodes(_treeController.roots)) {
-      if (node.isExpanded) _persistedExpanded.add(node.id);
+    // Remove any ancestor that was in the collapsed set so it stays open.
+    for (var node in _allIncludingRoots(_treeController.roots)) {
+      if (_treeController.isExpanded(node.id)) {
+        _persistedCollapsed.remove(node.id);
+      }
     }
   }
 
+  /// All nodes — both roots and their descendants.
+  Iterable<TreeNode<YamlTreeData>> _allIncludingRoots(
+      List<TreeNode<YamlTreeData>> roots) sync* {
+    for (var root in roots) {
+      yield root;
+      yield* root.allDescendants;
+    }
+  }
+
+  /// Descendants only (does NOT include the roots themselves).
   Iterable<TreeNode<YamlTreeData>> _allNodes(
       List<TreeNode<YamlTreeData>> roots) sync* {
     for (var root in roots) {

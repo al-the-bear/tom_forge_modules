@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart';
 
+import '../schema/yaml_schema.dart';
 import '../yaml_editor_theme.dart';
 
 /// Initial value type selected in the add-key / add-item dialog.
@@ -37,41 +38,119 @@ enum AddKeyType {
       };
 }
 
-/// Shows the shared add-key dialog: asks for a key name and initial value type.
+/// Shows the shared add-key dialog: asks for a key name, initial value type,
+/// and (for scalar types) an initial value.
+///
+/// When [parentSchema] is provided:
+/// * Suggested keys from the schema are shown as chips for quick selection.
+/// * Selecting a chip auto-populates the key field and pre-selects its type.
+/// * Typing a key that matches a schema property auto-switches the type.
 ///
 /// Returns `null` if the user cancels or enters an empty key name.
-/// Used by both the inline action button and the right-click context menu so
-/// that all "insert key" paths always go through the same dialog.
-Future<({String key, AddKeyType type})?> showAddKeyDialog(
-    BuildContext context) async {
-  final keyController = TextEditingController();
+Future<({String key, Object? value})?> showAddKeyDialog(
+  BuildContext context, {
+  SchemaNode? parentSchema,
+}) async {
+  final keyCtrl = TextEditingController();
+  final valCtrl = TextEditingController();
   var selectedType = AddKeyType.string;
+  var boolValue = false;
 
-  final result = await showDialog<({String key, AddKeyType type})>(
+  // Suggested keys from schema (caller passes the schema for the parent map).
+  final suggestedKeys = parentSchema?.properties.entries.toList() ?? [];
+
+  final result = await showDialog<({String key, Object? value})>(
     context: context,
-    builder: (dialogContext) {
-      return StatefulBuilder(
-        builder: (context, setDialogState) {
-          return AlertDialog(
-            title: const Text('Add key'),
-            content: Column(
+    builder: (dialogCtx) {
+      return StatefulBuilder(builder: (ctx, setDs) {
+        // Compute the actual initial value to return.
+        Object? computeValue() => switch (selectedType) {
+              AddKeyType.string => valCtrl.text,
+              AddKeyType.integer => int.tryParse(valCtrl.text) ?? 0,
+              AddKeyType.float =>
+                double.tryParse(valCtrl.text) ?? 0.0,
+              AddKeyType.boolean => boolValue,
+              AddKeyType.map => <String, Object>{},
+              AddKeyType.list => <Object>[],
+              AddKeyType.nullValue => null,
+            };
+
+        // Auto-select type when key matches a schema property.
+        void onKeyChanged(String key) {
+          if (parentSchema == null) return;
+          final prop = parentSchema.properties[key];
+          if (prop == null) return;
+          final auto = _schemaTypeToAddKeyType(prop.type);
+          if (auto != selectedType) {
+            setDs(() {
+              selectedType = auto;
+              valCtrl.text = '';
+              boolValue = false;
+            });
+          }
+        }
+
+        return AlertDialog(
+          title: const Text('Add key'),
+          content: SizedBox(
+            width: 320,
+            child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // Schema suggestion chips
+                if (suggestedKeys.isNotEmpty) ...[
+                  Text(
+                    'Schema suggestions:',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey.shade500,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: suggestedKeys.map((e) {
+                      final chipType =
+                          _schemaTypeToAddKeyType(e.value.type);
+                      return ActionChip(
+                        label: Text(
+                          e.key,
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                        onPressed: () => setDs(() {
+                          keyCtrl.text = e.key;
+                          selectedType = chipType;
+                          valCtrl.text = '';
+                          boolValue = false;
+                        }),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+                // Key name field
                 TextField(
-                  controller: keyController,
+                  controller: keyCtrl,
                   autofocus: true,
                   decoration: const InputDecoration(
                     labelText: 'Key name',
                     hintText: 'new-key',
                   ),
-                  onSubmitted: (value) => Navigator.of(dialogContext)
-                      .pop((key: value.trim(), type: selectedType)),
+                  onChanged: onKeyChanged,
+                  onSubmitted: (v) {
+                    final k = v.trim();
+                    if (k.isEmpty) return;
+                    Navigator.of(dialogCtx)
+                        .pop((key: k, value: computeValue()));
+                  },
                 ),
                 const SizedBox(height: 16),
+                // Type dropdown
                 InputDecorator(
-                  decoration: const InputDecoration(
-                    labelText: 'Initial value type',
-                  ),
+                  decoration:
+                      const InputDecoration(labelText: 'Initial value type'),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<AddKeyType>(
                       value: selectedType,
@@ -82,34 +161,90 @@ Future<({String key, AddKeyType type})?> showAddKeyDialog(
                                 child: Text(t.label),
                               ))
                           .toList(),
-                      onChanged: (t) =>
-                          setDialogState(() => selectedType = t!),
+                      onChanged: (t) => setDs(() {
+                        selectedType = t!;
+                        valCtrl.text = '';
+                        boolValue = false;
+                      }),
                     ),
                   ),
                 ),
+                // Initial value input for scalars
+                if (selectedType == AddKeyType.string ||
+                    selectedType == AddKeyType.integer ||
+                    selectedType == AddKeyType.float) ...[
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: valCtrl,
+                    decoration: InputDecoration(
+                      labelText: 'Initial value',
+                      hintText: switch (selectedType) {
+                        AddKeyType.integer => '0',
+                        AddKeyType.float => '0.0',
+                        _ => '',
+                      },
+                    ),
+                    keyboardType: selectedType == AddKeyType.string
+                        ? TextInputType.multiline
+                        : const TextInputType.numberWithOptions(
+                            decimal: true,
+                            signed: true,
+                          ),
+                    maxLines: selectedType == AddKeyType.string ? null : 1,
+                    minLines: 1,
+                  ),
+                ],
+                if (selectedType == AddKeyType.boolean) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Text('Initial value',
+                          style: TextStyle(fontSize: 13)),
+                      const Spacer(),
+                      Switch(
+                        value: boolValue,
+                        onChanged: (v) => setDs(() => boolValue = v),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(
-                    (key: keyController.text.trim(), type: selectedType)),
-                child: const Text('Add'),
-              ),
-            ],
-          );
-        },
-      );
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogCtx).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                final k = keyCtrl.text.trim();
+                if (k.isEmpty) return;
+                Navigator.of(dialogCtx).pop((key: k, value: computeValue()));
+              },
+              child: const Text('Add'),
+            ),
+          ],
+        );
+      });
     },
   );
 
   final key = result?.key.trim() ?? '';
   if (key.isEmpty) return null;
-  return (key: key, type: result!.type);
+  return (key: key, value: result!.value);
 }
+
+/// Map a [SchemaType] to the closest [AddKeyType].
+AddKeyType _schemaTypeToAddKeyType(SchemaType schemaType) =>
+    switch (schemaType) {
+      SchemaType.string => AddKeyType.string,
+      SchemaType.integer => AddKeyType.integer,
+      SchemaType.number => AddKeyType.float,
+      SchemaType.boolean => AddKeyType.boolean,
+      SchemaType.object => AddKeyType.map,
+      SchemaType.array => AddKeyType.list,
+    };
 
 /// Row of action buttons for a YAML tree node.
 ///
@@ -163,6 +298,18 @@ class YamlNodeActions extends StatelessWidget {
   /// type) is passed as the argument.
   final ValueChanged<Object?>? onAddItemWithType;
 
+  /// Schema node for the map that owns this node (for the add-key dialog).
+  ///
+  /// When provided, the dialog shows schema-suggested keys as chips and
+  /// auto-selects the matching type when the user types or picks a key.
+  final SchemaNode? parentSchemaNode;
+
+  /// Schema node for the items of this list (for the add-item type picker).
+  ///
+  /// When provided and the schema mandates a type, the add-item button uses
+  /// that type directly instead of showing the picker popup.
+  final SchemaNode? itemsSchemaNode;
+
   /// Whether this node can be moved up within its parent container.
   final bool canMoveUp;
 
@@ -201,6 +348,8 @@ class YamlNodeActions extends StatelessWidget {
     this.onAddItem,
     this.addItemTooltip = 'Add item',
     this.onAddItemWithType,
+    this.parentSchemaNode,
+    this.itemsSchemaNode,
     this.canMoveUp = false,
     this.canMoveDown = false,
     this.onMoveUp,
@@ -349,6 +498,15 @@ class YamlNodeActions extends StatelessWidget {
   }
 
   void _showAddItemTypeMenu(BuildContext context) {
+    // If the schema mandates a specific item type, use it directly without
+    // showing the picker popup.
+    final schema = itemsSchemaNode;
+    if (schema != null) {
+      final type = _schemaTypeToAddKeyType(schema.type);
+      onAddItemWithType?.call(type.toValue());
+      return;
+    }
+
     final renderBox = context.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
     final offset = renderBox.localToGlobal(Offset.zero);
@@ -373,10 +531,10 @@ class YamlNodeActions extends StatelessWidget {
   }
 
   Future<void> _showManualAddDialog(BuildContext context) async {
-    final result = await showAddKeyDialog(context);
+    final result = await showAddKeyDialog(context, parentSchema: parentSchemaNode);
     if (result == null) return;
     if (onAddWithType != null) {
-      onAddWithType!(result.key, result.type.toValue());
+      onAddWithType!(result.key, result.value);
     } else {
       onAdd?.call(result.key);
     }
