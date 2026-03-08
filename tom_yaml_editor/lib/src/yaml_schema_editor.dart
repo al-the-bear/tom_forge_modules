@@ -129,16 +129,18 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
   @override
   void initState() {
     super.initState();
-    // Intercept all Flutter framework errors and print them to the trail.
-    _prevFlutterErrorHandler = FlutterError.onError;
-    FlutterError.onError = (details) {
-      trailEvent('FlutterError: ${details.exceptionAsString()}');
-      _prevFlutterErrorHandler?.call(details);
-    };
-    // Heartbeat: confirms the main isolate is alive every second.
-    _heartbeat = Timer.periodic(const Duration(seconds: 1), (_) {
-      trailEvent('heartbeat');
-    });
+    if (kYamlEditorDebug) {
+      // Intercept all Flutter framework errors and print them to the trail.
+      _prevFlutterErrorHandler = FlutterError.onError;
+      FlutterError.onError = (details) {
+        trailEvent('FlutterError: ${details.exceptionAsString()}');
+        _prevFlutterErrorHandler?.call(details);
+      };
+      // Heartbeat: confirms the main isolate is alive every second.
+      _heartbeat = Timer.periodic(const Duration(seconds: 1), (_) {
+        trailEvent('heartbeat');
+      });
+    }
     _schemaWalker = widget.controller.schema != null
         ? SchemaWalker(widget.controller.schema!)
         : null;
@@ -177,7 +179,9 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
   @override
   void dispose() {
     _heartbeat?.cancel();
-    FlutterError.onError = _prevFlutterErrorHandler;
+    if (kYamlEditorDebug) {
+      FlutterError.onError = _prevFlutterErrorHandler;
+    }
     widget.controller.removeListener(_onControllerChanged);
     _treeController.dispose();
     _focusNode.dispose();
