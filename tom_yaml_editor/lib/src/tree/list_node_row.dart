@@ -9,6 +9,7 @@ import '../schema/schema_walker.dart';
 import '../schema/yaml_schema.dart';
 import '../yaml_editor_controller.dart';
 import '../yaml_editor_theme.dart';
+import 'editor_trail.dart';
 import 'node_actions.dart';
 import 'node_context_menu.dart';
 import 'yaml_tree_node_builder.dart';
@@ -353,6 +354,7 @@ class _ListNodeRowState extends State<ListNodeRow> {
     BuildContext menuContext,
     Offset globalPosition,
   ) async {
+    trailEvent('listRow: rightClick path=${_data.path}');
     final parentPath = _parentListPath;
     final currentIndex = _currentIndex;
     final length = widget.controller.listLength(parentPath);
@@ -372,6 +374,7 @@ class _ListNodeRowState extends State<ListNodeRow> {
       isContainer: isMapContainer,
     );
     if (action == null) return;
+    trailEvent('listRow: action=$action path=${_data.path}');
 
     try {
       // -----------------------------------------------------------------------

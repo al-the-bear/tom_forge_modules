@@ -4,6 +4,7 @@ import 'package:tom_editors_shared/tom_editors_shared.dart';
 import 'model/yaml_document_model.dart';
 import 'model/yaml_edit_operation.dart';
 import 'schema/yaml_schema.dart';
+import 'tree/editor_trail.dart';
 
 /// Controller for the YAML schema editor.
 ///
@@ -92,6 +93,7 @@ class YamlEditorController extends ChangeNotifier {
 
   /// Apply an edit operation to the document.
   void applyEdit(YamlEditOperation operation) {
+    trailEvent('controller: applyEdit ${operation.kind.name} path=${operation.path}');
     _history.push(UndoEntry(
       oldState: operation,
       newState: operation,
@@ -104,6 +106,7 @@ class YamlEditorController extends ChangeNotifier {
   /// Undo the last edit.
   void undo() {
     if (!canUndo) return;
+    trailEvent('controller: undo');
     var entry = _history.undo();
     if (entry == null) return;
     _document = entry.oldState.revert(_document);
@@ -114,6 +117,7 @@ class YamlEditorController extends ChangeNotifier {
   /// Redo the last undone edit.
   void redo() {
     if (!canRedo) return;
+    trailEvent('controller: redo');
     var entry = _history.redo();
     if (entry == null) return;
     _document = entry.newState.apply(_document);

@@ -14,6 +14,7 @@ import 'model/yaml_document_model.dart';
 import 'schema/schema_marker_generator.dart';
 import 'schema/schema_walker.dart';
 import 'text_editor/yaml_syntax_highlighter.dart';
+import 'tree/editor_trail.dart';
 import 'tree/list_node_row.dart';
 import 'tree/map_node_row.dart';
 import 'tree/yaml_tree_node_builder.dart';
@@ -167,6 +168,7 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
     var focusContext = FocusManager.instance.primaryFocus?.context;
     var isTextFocused = focusContext?.widget is EditableText;
     if (isTextFocused != _textInputFocused && mounted) {
+      trailEvent('focusChange: textFocused $isTextFocused (was $_textInputFocused)');
       setState(() {
         _textInputFocused = isTextFocused;
       });

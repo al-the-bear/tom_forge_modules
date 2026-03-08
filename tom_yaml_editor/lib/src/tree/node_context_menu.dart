@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../yaml_editor_theme.dart';
+import 'editor_trail.dart';
 
 /// Context menu actions available for map entry nodes.
 enum MapContextAction {
@@ -39,6 +40,9 @@ enum MapContextAction {
 
   /// Edit value as raw YAML.
   inspectAsYaml,
+
+  /// Add a new key to this map value (the value at this entry is itself a map).
+  addKey,
 }
 
 /// Context menu actions available for list item nodes.
@@ -100,9 +104,11 @@ Future<MapContextAction?> showMapContextMenu({
   bool canListItemExpandCollapse = false,
   bool canMoveUp = false,
   bool canMoveDown = false,
+  bool canAddKey = false,
   bool isReadOnly = false,
 }) async {
   if (isReadOnly) return null;
+  trailEvent('mapContextMenu: open canAddKey=$canAddKey');
 
   var items = <PopupMenuEntry<MapContextAction>>[];
 
@@ -197,6 +203,18 @@ Future<MapContextAction?> showMapContextMenu({
     ),
     const PopupMenuDivider(height: 4),
   ]);
+
+  if (canAddKey) {
+    items.addAll([
+      _menuItem(
+        value: MapContextAction.addKey,
+        icon: Icons.add,
+        label: 'Add key',
+        color: theme.structureColors.addButton,
+      ),
+      const PopupMenuDivider(height: 4),
+    ]);
+  }
 
   if (canRemove) {
     items.add(_menuItem(

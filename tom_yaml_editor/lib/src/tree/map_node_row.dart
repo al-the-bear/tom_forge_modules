@@ -9,6 +9,7 @@ import '../schema/schema_walker.dart';
 import '../schema/yaml_schema.dart';
 import '../yaml_editor_controller.dart';
 import '../yaml_editor_theme.dart';
+import 'editor_trail.dart';
 import 'key_label.dart';
 import 'node_actions.dart';
 import 'node_context_menu.dart';
@@ -364,6 +365,7 @@ class _MapNodeRowState extends State<MapNodeRow> {
     bool canMoveDown = false,
     int keyIndex = -1,
   }) async {
+    trailEvent('mapRow: rightClick path=${_data.path}');
     var suggested = widget.controller.suggestedKeys(
       _data.path.length > 1
           ? _data.path.sublist(0, _data.path.length - 1)
@@ -383,10 +385,12 @@ class _MapNodeRowState extends State<MapNodeRow> {
       canCollapseAll: widget.canExpand,
       canListItemExpandCollapse:
           _data.isContainer && (_data.yamlNode?.value is List),
+      canAddKey: _data.isContainer && _data.yamlNode?.value is Map,
       canMoveUp: canMoveUp,
       canMoveDown: canMoveDown,
     );
     if (action == null) return;
+    trailEvent('mapRow: action=$action path=${_data.path}');
 
     try {
       switch (action) {
@@ -435,6 +439,14 @@ class _MapNodeRowState extends State<MapNodeRow> {
           return;
         case MapContextAction.collapseListItems:
           widget.onCollapseListItems?.call();
+          return;
+        case MapContextAction.addKey:
+          if (!mounted) return;
+          final addResult =
+              await showAddKeyDialog(context, parentSchema: _data.schemaNode);
+          if (addResult == null) return;
+          widget.controller
+              .insertKey(_data.path, addResult.key, addResult.value);
           return;
       }
     } catch (e, st) {
