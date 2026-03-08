@@ -135,8 +135,12 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
           ? SchemaWalker(widget.controller.schema!)
           : null;
 
-      // New controller = new document source; reset expansion state.
+      // New controller = new document source; reset ALL expansion state so the
+      // new document opens fully expanded by default.
       _persistedCollapsed.clear();
+      _treeController.dispose();
+      _treeController = TreeController<YamlTreeData>(roots: []);
+
       if (!_textMode) {
         _textDraft = widget.controller.yamlText;
       }

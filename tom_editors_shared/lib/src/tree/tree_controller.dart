@@ -43,16 +43,31 @@ class TreeController<T> extends ChangeNotifier {
   List<TreeNode<T>> get roots => _roots;
 
   /// Update the root nodes (e.g. when the document model changes).
+  ///
+  /// Expansion rules:
+  /// * **Existing nodes** — their expansion state is preserved (controlled by
+  ///   [_expandedIds] which reflects the user's explicit expand/collapse actions).
+  /// * **New nodes** — expansion state is seeded from [TreeNode.isExpanded] set
+  ///   by the caller before assigning roots (so newly inserted containers open
+  ///   automatically without requiring a separate expand call).
+  /// * Stale IDs (nodes that no longer exist) are pruned from [_expandedIds].
   set roots(List<TreeNode<T>> newRoots) {
-    var initialAssignment = _roots.isEmpty && _expandedIds.isEmpty;
+    // Snapshot IDs of currently known nodes *before* replacing roots.
+    final knownIds = <String>{for (final n in _allNodes) n.id};
     _roots = newRoots;
-    if (initialAssignment) {
-      for (var node in _allNodes) {
-        if (node.isExpanded) _expandedIds.add(node.id);
+
+    // Seed _expandedIds for genuinely-new nodes; prune stale ones.
+    final currentIds = <String>{};
+    for (final node in _allNodes) {
+      currentIds.add(node.id);
+      if (!knownIds.contains(node.id) && node.isExpanded) {
+        _expandedIds.add(node.id);
       }
     }
-    // Re-apply expanded state without losing user's collapse decisions
-    for (var node in _allNodes) {
+    _expandedIds.retainAll(currentIds);
+
+    // Re-apply to keep node.isExpanded in sync with _expandedIds.
+    for (final node in _allNodes) {
       node.isExpanded = _expandedIds.contains(node.id);
     }
     notifyListeners();

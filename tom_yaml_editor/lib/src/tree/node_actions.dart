@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart';
 
 import '../schema/yaml_schema.dart';
@@ -28,12 +29,12 @@ enum AddKeyType {
       };
 
   String get label => switch (this) {
-        AddKeyType.string => 'String  ""',
-        AddKeyType.boolean => 'Bool  false',
-        AddKeyType.integer => 'Int  0',
-        AddKeyType.float => 'Float  0.0',
-        AddKeyType.map => 'Map  {}',
-        AddKeyType.list => 'List  []',
+        AddKeyType.string => 'String',
+        AddKeyType.boolean => 'Bool',
+        AddKeyType.integer => 'Int',
+        AddKeyType.float => 'Float',
+        AddKeyType.map => 'Map',
+        AddKeyType.list => 'List',
         AddKeyType.nullValue => 'Null',
       };
 }
@@ -55,6 +56,7 @@ Future<({String key, Object? value})?> showAddKeyDialog(
   final valCtrl = TextEditingController();
   var selectedType = AddKeyType.string;
   var boolValue = false;
+  String? valueError;
 
   // Suggested keys from schema (caller passes the schema for the parent map).
   final suggestedKeys = parentSchema?.properties.entries.toList() ?? [];
@@ -63,6 +65,13 @@ Future<({String key, Object? value})?> showAddKeyDialog(
     context: context,
     builder: (dialogCtx) {
       return StatefulBuilder(builder: (ctx, setDs) {
+        // Default text for the value field based on type.
+        String defaultValText(AddKeyType t) => switch (t) {
+              AddKeyType.integer => '0',
+              AddKeyType.float => '0.0',
+              _ => '',
+            };
+
         // Compute the actual initial value to return.
         Object? computeValue() => switch (selectedType) {
               AddKeyType.string => valCtrl.text,
@@ -75,6 +84,25 @@ Future<({String key, Object? value})?> showAddKeyDialog(
               AddKeyType.nullValue => null,
             };
 
+        // Validate value field; returns error string or null.
+        String? validateValue() {
+          switch (selectedType) {
+            case AddKeyType.integer:
+              if (int.tryParse(valCtrl.text) == null) {
+                return 'Must be a whole number (e.g. 0, 42, \u221242). '
+                    'Decimals and other characters are not allowed.';
+              }
+            case AddKeyType.float:
+              if (double.tryParse(valCtrl.text) == null) {
+                return 'Must be a number (e.g. 0.0, 3.14, \u22120.5, 1e10). '
+                    'Only digits, a dot and a leading minus are allowed.';
+              }
+            default:
+              break;
+          }
+          return null;
+        }
+
         // Auto-select type when key matches a schema property.
         void onKeyChanged(String key) {
           if (parentSchema == null) return;
@@ -84,8 +112,9 @@ Future<({String key, Object? value})?> showAddKeyDialog(
           if (auto != selectedType) {
             setDs(() {
               selectedType = auto;
-              valCtrl.text = '';
+              valCtrl.text = defaultValText(auto);
               boolValue = false;
+              valueError = null;
             });
           }
         }
@@ -122,8 +151,9 @@ Future<({String key, Object? value})?> showAddKeyDialog(
                         onPressed: () => setDs(() {
                           keyCtrl.text = e.key;
                           selectedType = chipType;
-                          valCtrl.text = '';
+                          valCtrl.text = defaultValText(chipType);
                           boolValue = false;
+                          valueError = null;
                         }),
                       );
                     }).toList(),
@@ -142,6 +172,11 @@ Future<({String key, Object? value})?> showAddKeyDialog(
                   onSubmitted: (v) {
                     final k = v.trim();
                     if (k.isEmpty) return;
+                    final err = validateValue();
+                    if (err != null) {
+                      setDs(() => valueError = err);
+                      return;
+                    }
                     Navigator.of(dialogCtx)
                         .pop((key: k, value: computeValue()));
                   },
@@ -163,8 +198,9 @@ Future<({String key, Object? value})?> showAddKeyDialog(
                           .toList(),
                       onChanged: (t) => setDs(() {
                         selectedType = t!;
-                        valCtrl.text = '';
+                        valCtrl.text = defaultValText(t);
                         boolValue = false;
+                        valueError = null;
                       }),
                     ),
                   ),
@@ -183,6 +219,8 @@ Future<({String key, Object? value})?> showAddKeyDialog(
                         AddKeyType.float => '0.0',
                         _ => '',
                       },
+                      errorText: valueError,
+                      errorMaxLines: 3,
                     ),
                     keyboardType: selectedType == AddKeyType.string
                         ? TextInputType.multiline
@@ -190,8 +228,22 @@ Future<({String key, Object? value})?> showAddKeyDialog(
                             decimal: true,
                             signed: true,
                           ),
+                    inputFormatters: switch (selectedType) {
+                      AddKeyType.integer => [
+                          FilteringTextInputFormatter.allow(
+                              RegExp(r'[0-9\-]'))
+                        ],
+                      AddKeyType.float => [
+                          FilteringTextInputFormatter.allow(
+                              RegExp(r'[0-9\.\-eE]'))
+                        ],
+                      _ => [],
+                    },
                     maxLines: selectedType == AddKeyType.string ? null : 1,
                     minLines: 1,
+                    onChanged: (_) {
+                      if (valueError != null) setDs(() => valueError = null);
+                    },
                   ),
                 ],
                 if (selectedType == AddKeyType.boolean) ...[
@@ -220,6 +272,11 @@ Future<({String key, Object? value})?> showAddKeyDialog(
               onPressed: () {
                 final k = keyCtrl.text.trim();
                 if (k.isEmpty) return;
+                final err = validateValue();
+                if (err != null) {
+                  setDs(() => valueError = err);
+                  return;
+                }
                 Navigator.of(dialogCtx).pop((key: k, value: computeValue()));
               },
               child: const Text('Add'),
@@ -498,15 +555,6 @@ class YamlNodeActions extends StatelessWidget {
   }
 
   void _showAddItemTypeMenu(BuildContext context) {
-    // If the schema mandates a specific item type, use it directly without
-    // showing the picker popup.
-    final schema = itemsSchemaNode;
-    if (schema != null) {
-      final type = _schemaTypeToAddKeyType(schema.type);
-      onAddItemWithType?.call(type.toValue());
-      return;
-    }
-
     final renderBox = context.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
     final offset = renderBox.localToGlobal(Offset.zero);
