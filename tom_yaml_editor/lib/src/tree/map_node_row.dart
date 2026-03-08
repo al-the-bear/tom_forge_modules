@@ -386,7 +386,7 @@ class _MapNodeRowState extends State<MapNodeRow> {
       canMoveUp: canMoveUp,
       canMoveDown: canMoveDown,
     );
-    if (action == null || !mounted) return;
+    if (action == null) return;
 
     try {
       switch (action) {
@@ -400,10 +400,11 @@ class _MapNodeRowState extends State<MapNodeRow> {
           return;
         case MapContextAction.insertKeyAbove:
         case MapContextAction.insertKeyBelow:
+          // Dialog needs a live context — guard before opening.
           if (!mounted) return;
           final addResult =
               await showAddKeyDialog(context, parentSchema: _data.schemaNode);
-          if (addResult == null || !mounted) return;
+          if (addResult == null) return;
           widget.controller.insertKeyAdjacent(
             _data.path,
             addResult.key,
