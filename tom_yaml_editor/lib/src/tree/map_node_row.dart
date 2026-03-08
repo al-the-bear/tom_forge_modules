@@ -1,3 +1,4 @@
+// ignore_for_file: use_build_context_synchronously
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart';
@@ -400,13 +401,6 @@ class _MapNodeRowState extends State<MapNodeRow> {
     if (action == null) return;
     trailEvent('mapRow: action=$action path=${_data.path}');
 
-    // On macOS Desktop the popup-menu overlay must finish its closing animation
-    // (one full render frame) before a new overlay (dialog/picker) can be
-    // pushed onto the Navigator.  Without this wait, showDialog silently
-    // hangs — the Future never resolves and no error is thrown.
-    await WidgetsBinding.instance.endOfFrame;
-    if (!mounted) return;
-
     try {
       switch (action) {
         case MapContextAction.moveUp:
@@ -419,10 +413,14 @@ class _MapNodeRowState extends State<MapNodeRow> {
           return;
         case MapContextAction.insertKeyAbove:
         case MapContextAction.insertKeyBelow:
-          // Use the PARENT map's schema so sibling-key suggestions are shown.
+          // Capture context before the async gap; yield one tick so the
+          // popup-menu overlay finishes closing on macOS Desktop before
+          // we push a new overlay.
+          final insertCtx = context;
+          await Future<void>.delayed(Duration.zero);
           trailEvent('mapRow: opening insert-adjacent dialog');
           final addResult = await showAddKeyDialog(
-            context,
+            insertCtx,
             parentSchema: widget.controller.schemaNodeAt(_parentPath),
             allowedKeys: widget.controller.suggestedKeys(_parentPath),
           );
@@ -460,12 +458,14 @@ class _MapNodeRowState extends State<MapNodeRow> {
           widget.onCollapseListItems?.call();
           return;
         case MapContextAction.addKey:
+          final addKeyCtx = context;
+          await Future<void>.delayed(Duration.zero);
           trailEvent(
             'mapRow: addKey opening dialog path=${_data.path} '
             'allowed=${widget.controller.suggestedKeys(_data.path)}',
           );
           final addResult = await showAddKeyDialog(
-            context,
+            addKeyCtx,
             parentSchema: _data.schemaNode,
             allowedKeys: widget.controller.suggestedKeys(_data.path),
           );

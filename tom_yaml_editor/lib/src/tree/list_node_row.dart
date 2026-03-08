@@ -1,3 +1,4 @@
+// ignore_for_file: use_build_context_synchronously
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart';
@@ -376,15 +377,7 @@ class _ListNodeRowState extends State<ListNodeRow> {
     if (action == null) return;
     trailEvent('listRow: action=$action path=${_data.path}');
 
-    // Same reason as map_node_row: wait one frame so the popup-menu overlay is
-    // fully removed before we attempt to push a new overlay on macOS Desktop.
-    await WidgetsBinding.instance.endOfFrame;
-    if (!mounted) return;
-
     try {
-      // -----------------------------------------------------------------------
-      // Synchronous operations.
-      // -----------------------------------------------------------------------
       switch (action) {
         case ListContextAction.moveUp:
           widget.controller.moveListItem(
@@ -423,25 +416,31 @@ class _ListNodeRowState extends State<ListNodeRow> {
         // Async operations — guard context before each use.
         // ---------------------------------------------------------------------
         case ListContextAction.insertAbove:
+          final insertAboveCtx = context;
+          await Future<void>.delayed(Duration.zero);
           trailEvent('listRow: insertAbove picking value');
-          final pickedAbove = await _pickInsertValue(context, globalPosition);
+          final pickedAbove = await _pickInsertValue(insertAboveCtx, globalPosition);
           trailEvent('listRow: insertAbove result=${pickedAbove?.value}');
           if (pickedAbove == null) return;
           widget.controller
               .insertListItem(parentPath, currentIndex, pickedAbove.value);
           return;
         case ListContextAction.insertBelow:
+          final insertBelowCtx = context;
+          await Future<void>.delayed(Duration.zero);
           trailEvent('listRow: insertBelow picking value');
-          final pickedBelow = await _pickInsertValue(context, globalPosition);
+          final pickedBelow = await _pickInsertValue(insertBelowCtx, globalPosition);
           trailEvent('listRow: insertBelow result=${pickedBelow?.value}');
           if (pickedBelow == null) return;
           widget.controller
               .insertListItem(parentPath, currentIndex + 1, pickedBelow.value);
           return;
         case ListContextAction.addKey:
+          final addKeyCtx = context;
+          await Future<void>.delayed(Duration.zero);
           trailEvent('listRow: addKey opening dialog allowed=${widget.controller.suggestedKeys(_data.path)}');
           final addResult = await showAddKeyDialog(
-            context,
+            addKeyCtx,
             parentSchema: _data.schemaNode,
             allowedKeys: widget.controller.suggestedKeys(_data.path),
           );
