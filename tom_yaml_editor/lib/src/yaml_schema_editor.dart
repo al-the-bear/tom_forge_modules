@@ -98,6 +98,10 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
   /// nodes therefore auto-open without any special handling.
   final Set<String> _persistedCollapsed = {};
 
+  /// Whether the first-level-only expansion has been applied for the current
+  /// document.  Reset when a new document is loaded (controller swap).
+  bool _initialExpansionApplied = false;
+
   /// The path currently being inspected, or null if no inspector is open.
   List<String>? _inspectedPath;
 
@@ -136,8 +140,9 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
           : null;
 
       // New controller = new document source; reset ALL expansion state so the
-      // new document opens fully expanded by default.
+      // new document opens with only first-level expanded.
       _persistedCollapsed.clear();
+      _initialExpansionApplied = false;
       _treeController.dispose();
       _treeController = TreeController<YamlTreeData>(roots: []);
 
@@ -281,9 +286,10 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
 
   /// Rebuild the tree from the current document, preserving expand state.
   ///
-  /// Containers default to **expanded** unless the user has explicitly
-  /// collapsed them (tracked in [_persistedCollapsed]).  Newly inserted
-  /// map/list nodes are therefore automatically opened.
+  /// On the FIRST build after a document load, only depth-0 (top-level)
+  /// containers are opened.  After that, the user's explicit expand/collapse
+  /// choices (tracked in [_persistedCollapsed]) are respected, and newly
+  /// inserted containers auto-open.
   void _rebuildTree() {
     var builder = YamlTreeNodeBuilder(
       document: widget.controller.document,
@@ -292,10 +298,19 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
     );
     var roots = builder.build();
 
-    // Apply expand state: expanded by default, collapsed only when explicitly
-    // collapsed by the user.
-    for (var node in _allIncludingRoots(roots)) {
-      node.isExpanded = !node.isLeaf && !_persistedCollapsed.contains(node.id);
+    if (!_initialExpansionApplied) {
+      // First load: expand only the top level (depth == 0).
+      for (var node in _allIncludingRoots(roots)) {
+        node.isExpanded = !node.isLeaf && node.depth == 0;
+      }
+      _initialExpansionApplied = true;
+    } else {
+      // Subsequent rebuilds: containers expanded by default; only nodes
+      // explicitly collapsed by the user stay closed.
+      for (var node in _allIncludingRoots(roots)) {
+        node.isExpanded =
+            !node.isLeaf && !_persistedCollapsed.contains(node.id);
+      }
     }
 
     _treeController.roots = roots;

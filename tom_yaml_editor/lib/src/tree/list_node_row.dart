@@ -373,68 +373,77 @@ class _ListNodeRowState extends State<ListNodeRow> {
     );
     if (action == null) return;
 
-    // -------------------------------------------------------------------------
-    // Synchronous operations — no mounted/context guard needed.
-    // -------------------------------------------------------------------------
-    switch (action) {
-      case ListContextAction.moveUp:
-        widget.controller.moveListItem(
-            parentPath, currentIndex, currentIndex - 1);
-        return;
-      case ListContextAction.moveDown:
-        widget.controller.moveListItem(
-            parentPath, currentIndex, currentIndex + 2);
-        return;
-      case ListContextAction.moveToTop:
-        widget.controller.moveListItem(parentPath, currentIndex, 0);
-        return;
-      case ListContextAction.moveToBottom:
-        widget.controller.moveListItem(parentPath, currentIndex, length);
-        return;
-      case ListContextAction.duplicate:
-        widget.controller.insertListItem(
-            parentPath, currentIndex + 1, _data.value);
-        return;
-      case ListContextAction.remove:
-        widget.controller.removeKey(_data.path);
-        return;
-      case ListContextAction.expand:
-        widget.onExpand?.call();
-        return;
-      case ListContextAction.collapse:
-        widget.onCollapse?.call();
-        return;
-      case ListContextAction.expandAll:
-        widget.onExpandAll?.call();
-        return;
-      case ListContextAction.collapseAll:
-        widget.onCollapseAll?.call();
-        return;
+    try {
       // -----------------------------------------------------------------------
-      // Async operations — guard context before each use.
+      // Synchronous operations — no mounted/context guard needed.
       // -----------------------------------------------------------------------
-      case ListContextAction.insertAbove:
-        if (!context.mounted) return;
-        final pickedAbove = await _pickInsertValue(context, globalPosition);
-        if (pickedAbove == null) return;
-        widget.controller
-            .insertListItem(parentPath, currentIndex, pickedAbove.value);
-        return;
-      case ListContextAction.insertBelow:
-        if (!context.mounted) return;
-        final pickedBelow = await _pickInsertValue(context, globalPosition);
-        if (pickedBelow == null) return;
-        widget.controller
-            .insertListItem(parentPath, currentIndex + 1, pickedBelow.value);
-        return;
-      case ListContextAction.addKey:
-        if (!context.mounted) return;
-        final addResult = await showAddKeyDialog(context,
-            parentSchema: _data.schemaNode);
-        if (addResult == null) return;
-        widget.controller.insertKey(
-            _data.path, addResult.key, addResult.value);
-        return;
+      switch (action) {
+        case ListContextAction.moveUp:
+          widget.controller.moveListItem(
+              parentPath, currentIndex, currentIndex - 1);
+          return;
+        case ListContextAction.moveDown:
+          widget.controller.moveListItem(
+              parentPath, currentIndex, currentIndex + 2);
+          return;
+        case ListContextAction.moveToTop:
+          widget.controller.moveListItem(parentPath, currentIndex, 0);
+          return;
+        case ListContextAction.moveToBottom:
+          widget.controller.moveListItem(parentPath, currentIndex, length);
+          return;
+        case ListContextAction.duplicate:
+          widget.controller.insertListItem(
+              parentPath, currentIndex + 1, _data.value);
+          return;
+        case ListContextAction.remove:
+          widget.controller.removeKey(_data.path);
+          return;
+        case ListContextAction.expand:
+          widget.onExpand?.call();
+          return;
+        case ListContextAction.collapse:
+          widget.onCollapse?.call();
+          return;
+        case ListContextAction.expandAll:
+          widget.onExpandAll?.call();
+          return;
+        case ListContextAction.collapseAll:
+          widget.onCollapseAll?.call();
+          return;
+        // ---------------------------------------------------------------------
+        // Async operations — guard context before each use.
+        // ---------------------------------------------------------------------
+        case ListContextAction.insertAbove:
+          if (!context.mounted) return;
+          final pickedAbove = await _pickInsertValue(context, globalPosition);
+          if (pickedAbove == null) return;
+          widget.controller
+              .insertListItem(parentPath, currentIndex, pickedAbove.value);
+          return;
+        case ListContextAction.insertBelow:
+          if (!context.mounted) return;
+          final pickedBelow = await _pickInsertValue(context, globalPosition);
+          if (pickedBelow == null) return;
+          widget.controller
+              .insertListItem(parentPath, currentIndex + 1, pickedBelow.value);
+          return;
+        case ListContextAction.addKey:
+          if (!context.mounted) return;
+          final addResult = await showAddKeyDialog(context,
+              parentSchema: _data.schemaNode);
+          if (addResult == null) return;
+          widget.controller.insertKey(
+              _data.path, addResult.key, addResult.value);
+          return;
+      }
+    } catch (e, st) {
+      FlutterError.reportError(FlutterErrorDetails(
+        exception: e,
+        stack: st,
+        library: 'yaml_schema_editor',
+        context: ErrorDescription('list context menu action: $action'),
+      ));
     }
   }
 

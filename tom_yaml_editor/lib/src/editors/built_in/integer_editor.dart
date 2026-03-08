@@ -112,10 +112,10 @@ class _IntegerEditorState extends State<IntegerEditor> {
   void _step(int delta) {
     var current = _currentInt ?? 0;
     var next = current + delta;
-    var min = widget.schemaNode?.minimum;
-    var max = widget.schemaNode?.maximum;
-    if (min != null && next < min.toInt()) next = min.toInt();
-    if (max != null && next > max.toInt()) next = max.toInt();
+    // Do NOT clamp to schema min/max here. The schema minimum is for
+    // validation (shown via border colour), not for restricting the stepper.
+    // This allows the user to step to 0 or negative values; the field will
+    // show an error highlight if the value falls outside the schema range.
     _textController.text = next.toString();
     _validateRange(next);
     setState(() {});

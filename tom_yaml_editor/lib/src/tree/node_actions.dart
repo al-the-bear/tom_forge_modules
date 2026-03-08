@@ -518,23 +518,22 @@ class YamlNodeActions extends StatelessWidget {
     );
   }
 
-  void _showAddMenu(BuildContext context) {
+  Future<void> _showAddMenu(BuildContext context) async {
     if (suggestedKeys.isEmpty) {
       _showManualAddDialog(context);
       return;
     }
 
-    if (suggestedKeys.length == 1) {
-      onAdd?.call(suggestedKeys.first);
-      return;
-    }
+    // Always show a picker, even when there is only one suggested key.
+    // The sentinel value '__other__' represents the "Other..." option.
+    const otherSentinel = '__other__';
 
     final renderBox = context.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
 
     final offset = renderBox.localToGlobal(Offset.zero);
 
-    showMenu<String>(
+    final selected = await showMenu<String>(
       context: context,
       position: RelativeRect.fromLTRB(
         offset.dx,
@@ -542,16 +541,28 @@ class YamlNodeActions extends StatelessWidget {
         offset.dx + renderBox.size.width,
         offset.dy + renderBox.size.height,
       ),
-      items: suggestedKeys.map((key) {
-        return PopupMenuItem<String>(
-          value: key,
+      items: [
+        ...suggestedKeys.map((key) => PopupMenuItem<String>(
+              value: key,
+              height: 32,
+              child: Text(key, style: const TextStyle(fontSize: 12)),
+            )),
+        const PopupMenuDivider(),
+        const PopupMenuItem<String>(
+          value: otherSentinel,
           height: 32,
-          child: Text(key, style: const TextStyle(fontSize: 12)),
-        );
-      }).toList(),
-    ).then((selected) {
-      if (selected != null) onAdd?.call(selected);
-    });
+          child: Text('Other\u2026', style: TextStyle(fontSize: 12)),
+        ),
+      ],
+    );
+
+    if (selected == null) return; // dismissed
+    if (selected == otherSentinel) {
+      if (!context.mounted) return;
+      _showManualAddDialog(context);
+    } else {
+      onAdd?.call(selected);
+    }
   }
 
   void _showAddItemTypeMenu(BuildContext context) {

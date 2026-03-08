@@ -388,52 +388,61 @@ class _MapNodeRowState extends State<MapNodeRow> {
     );
     if (action == null || !mounted) return;
 
-    switch (action) {
-      case MapContextAction.moveUp:
-        if (keyIndex > 0) {
-          widget.controller.moveMapKey(_parentPath, keyIndex, keyIndex - 1);
-        }
-        return;
-      case MapContextAction.moveDown:
-        widget.controller.moveMapKey(_parentPath, keyIndex, keyIndex + 1);
-        return;
-      case MapContextAction.insertKeyAbove:
-      case MapContextAction.insertKeyBelow:
-        if (!context.mounted) return;
-        final addResult =
-            await showAddKeyDialog(context, parentSchema: _data.schemaNode);
-        if (addResult == null || !mounted) return;
-        widget.controller.insertKeyAdjacent(
-          _data.path,
-          addResult.key,
-          addResult.value,
-          above: action == MapContextAction.insertKeyAbove,
-        );
-        return;
-      case MapContextAction.removeKey:
-        widget.controller.removeKey(_data.path);
-        return;
-      case MapContextAction.inspectAsYaml:
-        widget.onInspect?.call();
-        return;
-      case MapContextAction.expand:
-        widget.onExpand?.call();
-        return;
-      case MapContextAction.collapse:
-        widget.onCollapse?.call();
-        return;
-      case MapContextAction.expandAll:
-        widget.onExpandAll?.call();
-        return;
-      case MapContextAction.collapseAll:
-        widget.onCollapseAll?.call();
-        return;
-      case MapContextAction.expandListItems:
-        widget.onExpandListItems?.call();
-        return;
-      case MapContextAction.collapseListItems:
-        widget.onCollapseListItems?.call();
-        return;
+    try {
+      switch (action) {
+        case MapContextAction.moveUp:
+          if (keyIndex > 0) {
+            widget.controller.moveMapKey(_parentPath, keyIndex, keyIndex - 1);
+          }
+          return;
+        case MapContextAction.moveDown:
+          widget.controller.moveMapKey(_parentPath, keyIndex, keyIndex + 1);
+          return;
+        case MapContextAction.insertKeyAbove:
+        case MapContextAction.insertKeyBelow:
+          if (!context.mounted) return;
+          final addResult =
+              await showAddKeyDialog(context, parentSchema: _data.schemaNode);
+          if (addResult == null || !mounted) return;
+          widget.controller.insertKeyAdjacent(
+            _data.path,
+            addResult.key,
+            addResult.value,
+            above: action == MapContextAction.insertKeyAbove,
+          );
+          return;
+        case MapContextAction.removeKey:
+          widget.controller.removeKey(_data.path);
+          return;
+        case MapContextAction.inspectAsYaml:
+          widget.onInspect?.call();
+          return;
+        case MapContextAction.expand:
+          widget.onExpand?.call();
+          return;
+        case MapContextAction.collapse:
+          widget.onCollapse?.call();
+          return;
+        case MapContextAction.expandAll:
+          widget.onExpandAll?.call();
+          return;
+        case MapContextAction.collapseAll:
+          widget.onCollapseAll?.call();
+          return;
+        case MapContextAction.expandListItems:
+          widget.onExpandListItems?.call();
+          return;
+        case MapContextAction.collapseListItems:
+          widget.onCollapseListItems?.call();
+          return;
+      }
+    } catch (e, st) {
+      FlutterError.reportError(FlutterErrorDetails(
+        exception: e,
+        stack: st,
+        library: 'yaml_schema_editor',
+        context: ErrorDescription('map context menu action: $action'),
+      ));
     }
   }
 
