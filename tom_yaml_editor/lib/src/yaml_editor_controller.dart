@@ -247,6 +247,7 @@ class YamlEditorController extends ChangeNotifier {
   ///
   /// [listPath] is the path to the parent list node.
   void insertListItem(List<String> listPath, int index, Object? value) {
+    trailEvent('ctrl: insertListItem path=$listPath index=$index value=$value');
     var newDoc =
         _document.withInsertedIntoList(_toDocumentPath(listPath), index, value);
     var operation = YamlEditOperation(
@@ -274,12 +275,17 @@ class YamlEditorController extends ChangeNotifier {
   ///
   /// [listPath] is the path to the parent list node.
   void moveListItem(List<String> listPath, int oldIndex, int newIndex) {
+    trailEvent(
+      'ctrl: moveListItem path=$listPath old=$oldIndex new=$newIndex',
+    );
     if (oldIndex == newIndex) return;
     final docPath = _toDocumentPath(listPath);
     var value = _document.valueOf([...docPath, oldIndex]);
+    trailEvent('ctrl: moveListItem value=$value');
     // Remove then insert — build a single operation from before/after
     var removed = _document.withRemovedFromList([...docPath, oldIndex]);
     var adjustedIndex = newIndex > oldIndex ? newIndex - 1 : newIndex;
+    trailEvent('ctrl: moveListItem adjustedIndex=$adjustedIndex');
     var newDoc = removed.withInsertedIntoList(docPath, adjustedIndex, value);
     var operation = YamlEditOperation(
       kind: YamlEditKind.reorderKeys,

@@ -86,12 +86,6 @@ class MapNodeRow extends StatefulWidget {
   /// Collapse this node recursively.
   final VoidCallback? onCollapseAll;
 
-  /// Expand all list items under this node (for list container nodes).
-  final VoidCallback? onExpandListItems;
-
-  /// Collapse all list items under this node (for list container nodes).
-  final VoidCallback? onCollapseListItems;
-
   /// Toggle this node on double-click.
   final VoidCallback? onDoubleTapToggle;
 
@@ -123,8 +117,6 @@ class MapNodeRow extends StatefulWidget {
     this.onCollapse,
     this.onExpandAll,
     this.onCollapseAll,
-    this.onExpandListItems,
-    this.onCollapseListItems,
     this.onDoubleTapToggle,
     this.computedKeyWidth,
     this.isRoot = false,
@@ -306,16 +298,21 @@ class _MapNodeRowState extends State<MapNodeRow> {
                 canRemove: !_data.isRequired,
                 alwaysShowRemove: true,
                 canInspect: _data.isContainer,
-                onAdd: (key) => widget.controller.insertKey(
-                  _data.path,
-                  key,
-                  _defaultValueFor(key),
-                ),
-                onAddWithType: (key, value) => widget.controller.insertKey(
-                  _data.path,
-                  key,
-                  value,
-                ),
+                // Only show Add Key button if NOT a list (lists use Add Item).
+                onAdd: _data.yamlNode?.value is! List
+                    ? (key) => widget.controller.insertKey(
+                          _data.path,
+                          key,
+                          _defaultValueFor(key),
+                        )
+                    : null,
+                onAddWithType: _data.yamlNode?.value is! List
+                    ? (key, value) => widget.controller.insertKey(
+                          _data.path,
+                          key,
+                          value,
+                        )
+                    : null,
                 onRemove: () => widget.controller.removeKey(_data.path),
                 onInspect: widget.onInspect,
                 theme: widget.theme,
@@ -389,8 +386,6 @@ class _MapNodeRowState extends State<MapNodeRow> {
       isExpanded: widget.isExpanded,
       canExpandAll: widget.canExpand,
       canCollapseAll: widget.canExpand,
-      canListItemExpandCollapse:
-          _data.isContainer && (_data.yamlNode?.value is List),
       // Show 'Add key' for any row that is NOT a list value.  Scalar values
       // are transparently upgraded to maps by the controller's insertKey.
       // List values must not be clobbered, so we exclude them.
@@ -450,12 +445,6 @@ class _MapNodeRowState extends State<MapNodeRow> {
           return;
         case MapContextAction.collapseAll:
           widget.onCollapseAll?.call();
-          return;
-        case MapContextAction.expandListItems:
-          widget.onExpandListItems?.call();
-          return;
-        case MapContextAction.collapseListItems:
-          widget.onCollapseListItems?.call();
           return;
         case MapContextAction.addKey:
           final addKeyCtx = context;

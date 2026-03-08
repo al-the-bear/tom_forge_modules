@@ -419,12 +419,6 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
     }
   }
 
-  void _setListChildrenExpanded(TreeNode<YamlTreeData> node, bool expanded) {
-    for (var child in node.children) {
-      _setSubtreeExpanded(child, expanded, includeRoot: true);
-    }
-  }
-
   /// Auto-expand a node's parents when a new key is inserted.
   // ignore: unused_element
   void _revealNode(String id) {
@@ -868,13 +862,6 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
           onCollapseAll: node.children.isNotEmpty
               ? () => setState(() => _setSubtreeExpanded(node, false))
               : null,
-          onExpandListItems: data.isContainer && (data.yamlNode?.value is List)
-              ? () => setState(() => _setListChildrenExpanded(node, true))
-              : null,
-          onCollapseListItems:
-              data.isContainer && (data.yamlNode?.value is List)
-                  ? () => setState(() => _setListChildrenExpanded(node, false))
-                  : null,
           onDoubleTapToggle: node.children.isNotEmpty
               ? () => setState(() => _setNodeExpanded(node, !node.isExpanded))
               : null,

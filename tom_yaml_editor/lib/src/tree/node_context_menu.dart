@@ -17,12 +17,6 @@ enum MapContextAction {
   /// Collapse this subtree recursively.
   collapseAll,
 
-  /// Expand all objects/items under this list node.
-  expandListItems,
-
-  /// Collapse all objects/items under this list node.
-  collapseListItems,
-
   /// Move this key one position up within its parent map.
   moveUp,
 
@@ -101,7 +95,6 @@ Future<MapContextAction?> showMapContextMenu({
   bool isExpanded = false,
   bool canExpandAll = false,
   bool canCollapseAll = false,
-  bool canListItemExpandCollapse = false,
   bool canMoveUp = false,
   bool canMoveDown = false,
   bool canAddKey = false,
@@ -140,25 +133,6 @@ Future<MapContextAction?> showMapContextMenu({
         label: 'Collapse all',
         color: theme.colors.keyColor,
         enabled: canCollapseAll,
-      ),
-    );
-  }
-
-  if (canListItemExpandCollapse) {
-    items.add(
-      _menuItem(
-        value: MapContextAction.expandListItems,
-        icon: Icons.playlist_add_check,
-        label: 'Expand all items',
-        color: theme.colors.keyColor,
-      ),
-    );
-    items.add(
-      _menuItem(
-        value: MapContextAction.collapseListItems,
-        icon: Icons.playlist_remove,
-        label: 'Collapse all items',
-        color: theme.colors.keyColor,
       ),
     );
   }
