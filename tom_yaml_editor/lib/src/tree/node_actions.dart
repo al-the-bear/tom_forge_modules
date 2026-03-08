@@ -51,6 +51,11 @@ enum AddKeyType {
 Future<({String key, Object? value})?> showAddKeyDialog(
   BuildContext context, {
   SchemaNode? parentSchema,
+  // When provided, only schema properties whose key appears in this list are
+  // shown as chips.  Pass controller.suggestedKeys(path) to filter out keys
+  // already present in the document.  Pass [] to show no chips.
+  // Pass null (default) to show all schema properties (no filtering).
+  List<String>? allowedKeys,
 }) async {
   final keyCtrl = TextEditingController();
   final valCtrl = TextEditingController();
@@ -58,8 +63,11 @@ Future<({String key, Object? value})?> showAddKeyDialog(
   var boolValue = false;
   String? valueError;
 
-  // Suggested keys from schema (caller passes the schema for the parent map).
-  final suggestedKeys = parentSchema?.properties.entries.toList() ?? [];
+  // Suggested keys: all schema properties, optionally filtered to allowedKeys.
+  final suggestedKeys = parentSchema?.properties.entries
+      .where((e) => allowedKeys == null || allowedKeys.contains(e.key))
+      .toList() ??
+      [];
 
   final result = await showDialog<({String key, Object? value})>(
     context: context,
@@ -550,7 +558,13 @@ class YamlNodeActions extends StatelessWidget {
   }
 
   Future<void> _showManualAddDialog(BuildContext context) async {
-    final result = await showAddKeyDialog(context, parentSchema: parentSchemaNode);
+    final result = await showAddKeyDialog(
+      context,
+      parentSchema: parentSchemaNode,
+      // suggestedKeys is already filtered by the controller (keys not yet
+      // present in the document), so use it as the chip allowlist.
+      allowedKeys: suggestedKeys,
+    );
     if (result == null) return;
     if (onAddWithType != null) {
       onAddWithType!(result.key, result.value);

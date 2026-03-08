@@ -390,13 +390,22 @@ class _MapNodeRowState extends State<MapNodeRow> {
       canCollapseAll: widget.canExpand,
       canListItemExpandCollapse:
           _data.isContainer && (_data.yamlNode?.value is List),
-      // Show 'Add key' only for map container rows (not list containers).
-      canAddKey: _data.isContainer && _data.yamlNode is! YamlList,
+      // Show 'Add key' for any row that is NOT a list value.  Scalar values
+      // are transparently upgraded to maps by the controller's insertKey.
+      // List values must not be clobbered, so we exclude them.
+      canAddKey: _data.yamlNode is! YamlList,
       canMoveUp: canMoveUp,
       canMoveDown: canMoveDown,
     );
     if (action == null) return;
     trailEvent('mapRow: action=$action path=${_data.path}');
+
+    // On macOS Desktop the popup-menu overlay must finish its closing animation
+    // (one full render frame) before a new overlay (dialog/picker) can be
+    // pushed onto the Navigator.  Without this wait, showDialog silently
+    // hangs — the Future never resolves and no error is thrown.
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
 
     try {
       switch (action) {
@@ -410,14 +419,14 @@ class _MapNodeRowState extends State<MapNodeRow> {
           return;
         case MapContextAction.insertKeyAbove:
         case MapContextAction.insertKeyBelow:
-          // Dialog needs a live context — guard before opening.
-          if (!mounted) return;
-          // Use the PARENT map's schema so sibling-key suggestions are shown,
-          // not the schema of this key's own value.
+          // Use the PARENT map's schema so sibling-key suggestions are shown.
+          trailEvent('mapRow: opening insert-adjacent dialog');
           final addResult = await showAddKeyDialog(
             context,
             parentSchema: widget.controller.schemaNodeAt(_parentPath),
+            allowedKeys: widget.controller.suggestedKeys(_parentPath),
           );
+          trailEvent('mapRow: insert-adjacent result=${addResult?.key}');
           if (addResult == null) return;
           widget.controller.insertKeyAdjacent(
             _data.path,
@@ -451,20 +460,23 @@ class _MapNodeRowState extends State<MapNodeRow> {
           widget.onCollapseListItems?.call();
           return;
         case MapContextAction.addKey:
-          if (!mounted) return;
           trailEvent(
             'mapRow: addKey opening dialog path=${_data.path} '
-            'schemaProps=${_data.schemaNode?.properties.keys.toList()}',
+            'allowed=${widget.controller.suggestedKeys(_data.path)}',
           );
-          final addResult =
-              await showAddKeyDialog(context, parentSchema: _data.schemaNode);
+          final addResult = await showAddKeyDialog(
+            context,
+            parentSchema: _data.schemaNode,
+            allowedKeys: widget.controller.suggestedKeys(_data.path),
+          );
+          trailEvent('mapRow: addKey result=${addResult?.key}');
           if (addResult == null) return;
-          trailEvent('mapRow: addKey inserting key=${addResult.key}');
           widget.controller
               .insertKey(_data.path, addResult.key, addResult.value);
           return;
       }
     } catch (e, st) {
+      trailEvent('mapRow: ERROR in $action – $e');
       FlutterError.reportError(FlutterErrorDetails(
         exception: e,
         stack: st,

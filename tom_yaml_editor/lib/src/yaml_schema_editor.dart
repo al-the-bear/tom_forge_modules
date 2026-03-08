@@ -536,7 +536,11 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
 
     var treeWidget = Container(
       color: theme.colors.background,
-      padding: theme.editorPadding,
+      // Right padding is provided by the ListView inside TreeView (12 px) so
+      // the overlay scrollbar thumb never hides action buttons.  Adding it
+      // here too would create a visible gap between the scrollbar and the
+      // editor content.
+      padding: theme.editorPadding.copyWith(right: 0),
       child: KeyboardListener(
         focusNode: _focusNode,
         onKeyEvent: _handleKeyEvent,

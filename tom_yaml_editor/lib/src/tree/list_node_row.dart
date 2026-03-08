@@ -376,9 +376,14 @@ class _ListNodeRowState extends State<ListNodeRow> {
     if (action == null) return;
     trailEvent('listRow: action=$action path=${_data.path}');
 
+    // Same reason as map_node_row: wait one frame so the popup-menu overlay is
+    // fully removed before we attempt to push a new overlay on macOS Desktop.
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
+
     try {
       // -----------------------------------------------------------------------
-      // Synchronous operations — no mounted/context guard needed.
+      // Synchronous operations.
       // -----------------------------------------------------------------------
       switch (action) {
         case ListContextAction.moveUp:
@@ -418,29 +423,36 @@ class _ListNodeRowState extends State<ListNodeRow> {
         // Async operations — guard context before each use.
         // ---------------------------------------------------------------------
         case ListContextAction.insertAbove:
-          if (!mounted) return;
+          trailEvent('listRow: insertAbove picking value');
           final pickedAbove = await _pickInsertValue(context, globalPosition);
+          trailEvent('listRow: insertAbove result=${pickedAbove?.value}');
           if (pickedAbove == null) return;
           widget.controller
               .insertListItem(parentPath, currentIndex, pickedAbove.value);
           return;
         case ListContextAction.insertBelow:
-          if (!mounted) return;
+          trailEvent('listRow: insertBelow picking value');
           final pickedBelow = await _pickInsertValue(context, globalPosition);
+          trailEvent('listRow: insertBelow result=${pickedBelow?.value}');
           if (pickedBelow == null) return;
           widget.controller
               .insertListItem(parentPath, currentIndex + 1, pickedBelow.value);
           return;
         case ListContextAction.addKey:
-          if (!mounted) return;
-          final addResult = await showAddKeyDialog(context,
-              parentSchema: _data.schemaNode);
+          trailEvent('listRow: addKey opening dialog allowed=${widget.controller.suggestedKeys(_data.path)}');
+          final addResult = await showAddKeyDialog(
+            context,
+            parentSchema: _data.schemaNode,
+            allowedKeys: widget.controller.suggestedKeys(_data.path),
+          );
+          trailEvent('listRow: addKey result=${addResult?.key}');
           if (addResult == null) return;
           widget.controller.insertKey(
               _data.path, addResult.key, addResult.value);
           return;
       }
     } catch (e, st) {
+      trailEvent('listRow: ERROR in $action – $e');
       FlutterError.reportError(FlutterErrorDetails(
         exception: e,
         stack: st,
