@@ -92,7 +92,6 @@ class YamlEditorController extends ChangeNotifier {
 
   /// Apply an edit operation to the document.
   void applyEdit(YamlEditOperation operation) {
-    debugPrint('[YamlEditorController] applyEdit kind=${operation.kind} path=${operation.path}');
     _history.push(UndoEntry(
       oldState: operation,
       newState: operation,
@@ -100,7 +99,6 @@ class YamlEditorController extends ChangeNotifier {
     _document = operation.apply(_document);
     _revalidate();
     notifyListeners();
-    debugPrint('[YamlEditorController] applyEdit done, notified listeners');
   }
 
   /// Undo the last edit.

@@ -372,7 +372,6 @@ class _ListNodeRowState extends State<ListNodeRow> {
       isContainer: isMapContainer,
     );
     if (action == null) return;
-    debugPrint('[ListNodeRow] action=$action, path=${_data.path}, parentPath=$parentPath, currentIndex=$currentIndex');
 
     try {
       // -----------------------------------------------------------------------

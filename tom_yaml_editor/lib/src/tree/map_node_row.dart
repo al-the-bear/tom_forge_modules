@@ -364,7 +364,6 @@ class _MapNodeRowState extends State<MapNodeRow> {
     bool canMoveDown = false,
     int keyIndex = -1,
   }) async {
-    debugPrint('[MapNodeRow] _showContextMenu: path=${_data.path}, mounted=$mounted');
     var suggested = widget.controller.suggestedKeys(
       _data.path.length > 1
           ? _data.path.sublist(0, _data.path.length - 1)
@@ -387,11 +386,9 @@ class _MapNodeRowState extends State<MapNodeRow> {
       canMoveUp: canMoveUp,
       canMoveDown: canMoveDown,
     );
-    debugPrint('[MapNodeRow] action=$action, mounted=$mounted');
     if (action == null || !mounted) return;
 
     try {
-      debugPrint('[MapNodeRow] dispatching action=$action, path=${_data.path}, parentPath=$_parentPath, keyIndex=$keyIndex');
       switch (action) {
         case MapContextAction.moveUp:
           if (keyIndex > 0) {
