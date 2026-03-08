@@ -106,27 +106,28 @@ class _TreeViewState<T> extends State<TreeView<T>> {
     var visible = widget.controller.visibleNodes;
     var guides = widget.theme.showTreeLines ? _computeGuides(visible) : null;
 
-    Widget list = ListView.builder(
-      controller: _scrollController,
-      itemCount: visible.length,
-      itemExtent: widget.theme.rowHeight,
-      // Minimal right padding so the overlay scrollbar thumb doesn't
-      // obscure the last pixel of row buttons.  Keep this small (1-2 px).
-      padding: const EdgeInsets.only(right: 2),
-      itemBuilder: (context, index) {
-        return _buildRow(visible[index], guides?[index] ?? const []);
-      },
+    // Always keep KeyboardListener in the widget tree so that toggling
+    // enableKeyboardNavigation never changes the root widget type returned
+    // from build().  A type change (KeyboardListener ↔ bare ListView) would
+    // deactivate the ListView's element and unmount every row State inside it,
+    // which breaks any async operation (e.g. context menus) that is waiting
+    // across a frame boundary while the subtree gets rebuilt.
+    // Instead, simply pass null for onKeyEvent when navigation is disabled.
+    return KeyboardListener(
+      focusNode: _focusNode,
+      onKeyEvent: widget.enableKeyboardNavigation ? _handleKeyEvent : null,
+      child: ListView.builder(
+        controller: _scrollController,
+        itemCount: visible.length,
+        itemExtent: widget.theme.rowHeight,
+        // Minimal right padding so the overlay scrollbar thumb doesn't
+        // obscure the last pixel of row buttons.  Keep this small (1-2 px).
+        padding: const EdgeInsets.only(right: 2),
+        itemBuilder: (context, index) {
+          return _buildRow(visible[index], guides?[index] ?? const []);
+        },
+      ),
     );
-
-    if (widget.enableKeyboardNavigation) {
-      list = KeyboardListener(
-        focusNode: _focusNode,
-        onKeyEvent: _handleKeyEvent,
-        child: list,
-      );
-    }
-
-    return list;
   }
 
   Widget _buildRow(TreeNode<T> node, List<_GuideType> guides) {
