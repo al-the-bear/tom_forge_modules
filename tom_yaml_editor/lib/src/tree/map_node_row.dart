@@ -358,12 +358,13 @@ class _MapNodeRowState extends State<MapNodeRow> {
   }
 
   Future<void> _showContextMenu(
-    BuildContext context,
+    BuildContext menuContext,
     Offset globalPosition, {
     bool canMoveUp = false,
     bool canMoveDown = false,
     int keyIndex = -1,
   }) async {
+    debugPrint('[MapNodeRow] _showContextMenu: path=${_data.path}, mounted=$mounted');
     var suggested = widget.controller.suggestedKeys(
       _data.path.length > 1
           ? _data.path.sublist(0, _data.path.length - 1)
@@ -371,7 +372,7 @@ class _MapNodeRowState extends State<MapNodeRow> {
     );
 
     var action = await showMapContextMenu(
-      context: context,
+      context: menuContext,
       position: globalPosition,
       theme: widget.theme,
       suggestedKeys: suggested,
@@ -386,9 +387,11 @@ class _MapNodeRowState extends State<MapNodeRow> {
       canMoveUp: canMoveUp,
       canMoveDown: canMoveDown,
     );
+    debugPrint('[MapNodeRow] action=$action, mounted=$mounted');
     if (action == null || !mounted) return;
 
     try {
+      debugPrint('[MapNodeRow] dispatching action=$action, path=${_data.path}, parentPath=$_parentPath, keyIndex=$keyIndex');
       switch (action) {
         case MapContextAction.moveUp:
           if (keyIndex > 0) {
@@ -400,7 +403,7 @@ class _MapNodeRowState extends State<MapNodeRow> {
           return;
         case MapContextAction.insertKeyAbove:
         case MapContextAction.insertKeyBelow:
-          if (!context.mounted) return;
+          if (!mounted) return;
           final addResult =
               await showAddKeyDialog(context, parentSchema: _data.schemaNode);
           if (addResult == null || !mounted) return;

@@ -174,6 +174,7 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
   }
 
   void _onControllerChanged() {
+    debugPrint('[YamlSchemaEditor] _onControllerChanged: rebuilding tree');
     _rebuildTree();
     if (!_textMode) {
       _textDraft = widget.controller.yamlText;

@@ -350,7 +350,7 @@ class _ListNodeRowState extends State<ListNodeRow> {
   }
 
   Future<void> _showContextMenu(
-    BuildContext context,
+    BuildContext menuContext,
     Offset globalPosition,
   ) async {
     final parentPath = _parentListPath;
@@ -360,7 +360,7 @@ class _ListNodeRowState extends State<ListNodeRow> {
         _data.isContainer && _data.yamlNode?.value is Map;
 
     final action = await showListContextMenu(
-      context: context,
+      context: menuContext,
       position: globalPosition,
       theme: widget.theme,
       currentIndex: currentIndex,
@@ -372,6 +372,7 @@ class _ListNodeRowState extends State<ListNodeRow> {
       isContainer: isMapContainer,
     );
     if (action == null) return;
+    debugPrint('[ListNodeRow] action=$action, path=${_data.path}, parentPath=$parentPath, currentIndex=$currentIndex');
 
     try {
       // -----------------------------------------------------------------------
@@ -415,21 +416,21 @@ class _ListNodeRowState extends State<ListNodeRow> {
         // Async operations — guard context before each use.
         // ---------------------------------------------------------------------
         case ListContextAction.insertAbove:
-          if (!context.mounted) return;
+          if (!mounted) return;
           final pickedAbove = await _pickInsertValue(context, globalPosition);
           if (pickedAbove == null) return;
           widget.controller
               .insertListItem(parentPath, currentIndex, pickedAbove.value);
           return;
         case ListContextAction.insertBelow:
-          if (!context.mounted) return;
+          if (!mounted) return;
           final pickedBelow = await _pickInsertValue(context, globalPosition);
           if (pickedBelow == null) return;
           widget.controller
               .insertListItem(parentPath, currentIndex + 1, pickedBelow.value);
           return;
         case ListContextAction.addKey:
-          if (!context.mounted) return;
+          if (!mounted) return;
           final addResult = await showAddKeyDialog(context,
               parentSchema: _data.schemaNode);
           if (addResult == null) return;

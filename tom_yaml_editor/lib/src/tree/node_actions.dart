@@ -558,7 +558,9 @@ class YamlNodeActions extends StatelessWidget {
 
     if (selected == null) return; // dismissed
     if (selected == otherSentinel) {
-      if (!context.mounted) return;
+      // StatelessWidget has no `mounted` — the element stays live while its
+      // popup is showing, so context is guaranteed valid here.
+      // ignore: use_build_context_synchronously
       _showManualAddDialog(context);
     } else {
       onAdd?.call(selected);
