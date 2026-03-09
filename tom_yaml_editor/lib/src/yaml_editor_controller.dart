@@ -45,6 +45,9 @@ class YamlEditorController extends ChangeNotifier {
   /// Propagated error map for tree decoration.
   Map<String, List<ValidationError>> _propagatedErrors = {};
 
+  /// The most recently applied edit operation (for UI to adjust state).
+  YamlEditOperation? _lastOperation;
+
   /// Creates a controller with optional initial YAML and schema.
   YamlEditorController({
     String initialYaml = '',
@@ -91,6 +94,15 @@ class YamlEditorController extends ChangeNotifier {
   /// Whether redo is available.
   bool get canRedo => _history.canRedo;
 
+  /// The most recent edit operation (cleared after rebuild).
+  ///
+  /// Used by the UI to adjust expansion state for index shifts.
+  /// Returns null if no operation is pending or was cleared.
+  YamlEditOperation? get lastOperation => _lastOperation;
+
+  /// Clear the last operation marker.
+  void clearLastOperation() => _lastOperation = null;
+
   /// Apply an edit operation to the document.
   void applyEdit(YamlEditOperation operation) {
     trailEvent('controller: applyEdit ${operation.kind.name} path=${operation.path}');
@@ -100,6 +112,7 @@ class YamlEditorController extends ChangeNotifier {
         newState: operation,
       ));
       _document = operation.apply(_document);
+      _lastOperation = operation; // Store for UI to adjust expansion state
       trailEvent('controller: applyEdit applied, revalidating');
       _revalidate();
       trailEvent('controller: applyEdit revalidated, notifying');

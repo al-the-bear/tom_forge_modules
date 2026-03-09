@@ -12,6 +12,7 @@ import 'inspector/inspector_dialog.dart';
 import 'inspector/inspector_layouts.dart';
 import 'inspector/subtree_inspector.dart';
 import 'model/yaml_document_model.dart';
+import 'model/yaml_edit_operation.dart';
 import 'schema/schema_marker_generator.dart';
 import 'schema/schema_walker.dart';
 import 'text_editor/yaml_syntax_highlighter.dart';
@@ -214,6 +215,8 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
 
   void _onControllerChanged() {
     trailEvent('onControllerChanged: start');
+    // Adjust expansion state for list index shifts BEFORE rebuilding tree
+    _adjustExpansionForLastOperation();
     try {
       _rebuildTree();
       trailEvent('onControllerChanged: rebuildTree done');
@@ -400,6 +403,70 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
         context: ErrorDescription('_rebuildTree'),
       ));
     }
+  }
+
+  /// Adjust [_persistedCollapsed] when list indices shift due to insert/remove.
+  ///
+  /// When a list item is inserted at index N, all items at indices >= N shift
+  /// up by 1. Their path-based IDs change, so we need to update the collapsed
+  /// set to preserve expansion state for each item.
+  void _adjustExpansionForLastOperation() {
+    final op = widget.controller.lastOperation;
+    if (op == null) return;
+    widget.controller.clearLastOperation();
+
+    // Only adjust for list insert/remove operations
+    if (op.kind != YamlEditKind.insertListItem &&
+        op.kind != YamlEditKind.removeListItem) {
+      return;
+    }
+
+    // Path like ['workflow', 'steps', '1'] - last element is the index
+    if (op.path.isEmpty) return;
+    final indexStr = op.path.last;
+    final insertedIndex = int.tryParse(indexStr);
+    if (insertedIndex == null) return;
+
+    // Parent path prefix (e.g., 'workflow.steps.')
+    final parentPath = op.path.sublist(0, op.path.length - 1);
+    final prefix = '${parentPath.join('.')}.';
+
+    // Collect IDs that need to be shifted
+    final toRemove = <String>[];
+    final toAdd = <String>[];
+
+    for (var id in _persistedCollapsed) {
+      if (!id.startsWith(prefix)) continue;
+
+      // Extract the index from the ID (e.g., 'workflow.steps.2' → 2)
+      final suffix = id.substring(prefix.length);
+      final dotPos = suffix.indexOf('.');
+      final indexPart = dotPos >= 0 ? suffix.substring(0, dotPos) : suffix;
+      final restPart = dotPos >= 0 ? suffix.substring(dotPos) : '';
+      final oldIndex = int.tryParse(indexPart);
+      if (oldIndex == null) continue;
+
+      if (op.kind == YamlEditKind.insertListItem) {
+        // Shift up: indices >= insertedIndex move to index+1
+        if (oldIndex >= insertedIndex) {
+          toRemove.add(id);
+          toAdd.add('$prefix${oldIndex + 1}$restPart');
+        }
+      } else if (op.kind == YamlEditKind.removeListItem) {
+        // Shift down: indices > removedIndex move to index-1
+        if (oldIndex > insertedIndex) {
+          toRemove.add(id);
+          toAdd.add('$prefix${oldIndex - 1}$restPart');
+        } else if (oldIndex == insertedIndex) {
+          // Remove the deleted item's collapsed state
+          toRemove.add(id);
+        }
+      }
+    }
+
+    _persistedCollapsed.removeAll(toRemove);
+    _persistedCollapsed.addAll(toAdd);
+    trailEvent('adjustExpansion: shifted ${toRemove.length} IDs');
   }
 
   void _setNodeExpanded(TreeNode<YamlTreeData> node, bool expanded) {

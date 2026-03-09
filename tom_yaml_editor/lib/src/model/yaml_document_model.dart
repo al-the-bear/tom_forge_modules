@@ -3,6 +3,32 @@ import 'package:yaml_edit/yaml_edit.dart';
 
 import '../tree/editor_trail.dart';
 
+/// Convert a value to plain Dart objects (Map<String, ...>, List, scalars).
+///
+/// yaml_edit sometimes has issues when updating with values that contain
+/// YamlNode references or non-String map keys. This helper ensures values
+/// are fully "plain" before passing to yaml_edit.
+Object? _toPlainDart(Object? value) {
+  if (value is YamlMap) {
+    return {
+      for (var e in value.entries) e.key.toString(): _toPlainDart(e.value),
+    };
+  }
+  if (value is YamlList) {
+    return [for (var item in value) _toPlainDart(item)];
+  }
+  if (value is Map) {
+    return {
+      for (var e in value.entries) e.key.toString(): _toPlainDart(e.value),
+    };
+  }
+  if (value is List) {
+    return [for (var item in value) _toPlainDart(item)];
+  }
+  // Scalars (String, int, double, bool, null) pass through
+  return value;
+}
+
 /// Wrap a value as a YamlNode with block collection style for maps/lists.
 /// Used by [_normalizeYamlStyles] when converting flow-style to block-style.
 YamlNode _wrapWithBlockStyle(Object? value) {
@@ -331,21 +357,20 @@ class YamlDocumentModel {
       trailEvent('model: withInsertedIntoList safeIndex=$safeIndex');
       
       // Work around yaml_edit bug: appendToList/insertIntoList at end fails.
-      // Instead: insert at last valid position, then swap to final position.
+      // Rebuild entire list with new item at correct position.
       if (safeIndex == currentLength && currentLength > 0) {
-        trailEvent('model: using insert-then-swap workaround');
-        // Insert at position before last item
-        var insertPos = currentLength - 1;
-        copy.insertIntoList(normalizedPath, insertPos, value);
-        // Now list is [... X, NEW, lastItem] where X was at insertPos-1
-        // We need to swap NEW (at insertPos) with lastItem (at insertPos+1)
-        copy = YamlEditor(copy.toString()); // fresh editor
-        var newVal = copy.parseAt([...normalizedPath, insertPos]).value;
-        var lastVal = copy.parseAt([...normalizedPath, insertPos + 1]).value;
-        copy.update([...normalizedPath, insertPos], lastVal);
-        copy = YamlEditor(copy.toString());
-        copy.update([...normalizedPath, insertPos + 1], newVal);
-        trailEvent('model: withInsertedIntoList insert-swap done');
+        trailEvent('model: using list-rebuild workaround for end insert');
+        // Extract all existing items as plain Dart values
+        var items = <Object?>[];
+        for (var i = 0; i < currentLength; i++) {
+          var itemNode = copy.parseAt([...normalizedPath, i]);
+          items.add(_toPlainDart(itemNode.value));
+        }
+        // Append the new value
+        items.add(_toPlainDart(value));
+        // Replace entire list
+        copy.update(normalizedPath, items);
+        trailEvent('model: withInsertedIntoList rebuild done');
       } else if (currentLength == 0) {
         // Empty list - appendToList should work for empty lists
         trailEvent('model: using appendToList for empty list');
@@ -378,10 +403,10 @@ class YamlDocumentModel {
     }
   }
 
-  /// Move a list item from [oldIndex] to [newIndex] using sequential swaps.
+  /// Move a list item from [oldIndex] to [newIndex] by rebuilding the list.
   ///
-  /// This avoids yaml_edit's buggy appendToList/insertIntoList at list end
-  /// by doing a series of adjacent swaps instead.
+  /// This avoids yaml_edit's buggy update/swap operations by extracting all
+  /// items, reordering them in Dart, and replacing the entire list.
   YamlDocumentModel withMovedListItem(
     List<Object> listPath,
     int oldIndex,
@@ -406,7 +431,7 @@ class YamlDocumentModel {
         return this;
       }
       
-      // Clamp newIndex to valid target range (0..length for "move to end")
+      // Clamp newIndex to valid target range (0..length-1 for existing positions)
       var targetIndex = newIndex.clamp(0, length - 1);
       if (newIndex >= length) {
         targetIndex = length - 1; // Move to last position
@@ -418,31 +443,20 @@ class YamlDocumentModel {
         return this;
       }
       
-      // Do sequential swaps
-      var editor = YamlEditor(_editor.toString());
-      
-      if (oldIndex < targetIndex) {
-        // Moving down: swap with next neighbor repeatedly
-        for (var i = oldIndex; i < targetIndex; i++) {
-          var val1 = editor.parseAt([...normalizedPath, i]).value;
-          var val2 = editor.parseAt([...normalizedPath, i + 1]).value;
-          editor.update([...normalizedPath, i], val2);
-          // Create fresh editor after each update to avoid offset issues
-          editor = YamlEditor(editor.toString());
-          editor.update([...normalizedPath, i + 1], val1);
-          editor = YamlEditor(editor.toString());
-        }
-      } else {
-        // Moving up: swap with previous neighbor repeatedly
-        for (var i = oldIndex; i > targetIndex; i--) {
-          var val1 = editor.parseAt([...normalizedPath, i]).value;
-          var val2 = editor.parseAt([...normalizedPath, i - 1]).value;
-          editor.update([...normalizedPath, i], val2);
-          editor = YamlEditor(editor.toString());
-          editor.update([...normalizedPath, i - 1], val1);
-          editor = YamlEditor(editor.toString());
-        }
+      // Extract all items as plain Dart values
+      var items = <Object?>[];
+      for (var i = 0; i < length; i++) {
+        var itemNode = _editor.parseAt([...normalizedPath, i]);
+        items.add(_toPlainDart(itemNode.value));
       }
+      
+      // Reorder: remove from old position, insert at new position
+      var movedItem = items.removeAt(oldIndex);
+      items.insert(targetIndex, movedItem);
+      
+      // Replace entire list with reordered items
+      var editor = YamlEditor(_editor.toString());
+      editor.update(normalizedPath, items);
       
       trailEvent('model: withMovedListItem done');
       return YamlDocumentModel._(editor);
