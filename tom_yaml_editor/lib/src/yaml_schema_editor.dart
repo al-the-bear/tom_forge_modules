@@ -405,25 +405,93 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
     }
   }
 
-  /// Ensure newly inserted items start collapsed.
+  /// Adjust expansion state when list items shift due to insert.
   ///
-  /// When a list item is inserted, add its ID to [_persistedCollapsed] so it
-  /// doesn't auto-expand. We don't try to shift other items' IDs - the tree
-  /// rebuilds with fresh IDs anyway.
+  /// When a list item is inserted at index N:
+  /// 1. All items at indices >= N shift to index+1
+  /// 2. IDs in _persistedCollapsed must shift accordingly
+  /// 3. TreeController's internal _expandedIds must also shift
+  /// 4. The new item at N should start collapsed
   void _adjustExpansionForLastOperation() {
     final op = widget.controller.lastOperation;
     if (op == null) return;
     widget.controller.clearLastOperation();
 
-    // Only care about list inserts - make them start collapsed
+    // Only care about list inserts
     if (op.kind != YamlEditKind.insertListItem) {
       return;
     }
 
-    // Add the newly inserted item to collapsed set so it doesn't auto-expand
+    // Path like ['workflow', 'steps', '1'] - last element is the index
+    if (op.path.isEmpty) return;
+    final indexStr = op.path.last;
+    final insertedIndex = int.tryParse(indexStr);
+    if (insertedIndex == null) return;
+
+    // Parent path prefix (e.g., 'workflow.steps.')
+    final parentPath = op.path.sublist(0, op.path.length - 1);
+    final prefix = '${parentPath.join('.')}.';
+
+    // Find IDs that need to shift and track their expansion state
+    final collapsedToShift = <String, String>{}; // oldId -> newId
+    final expandedToShift = <String, String>{}; // oldId -> newId
+
+    // Process _persistedCollapsed
+    for (var id in _persistedCollapsed.toList()) {
+      if (!id.startsWith(prefix)) continue;
+
+      final suffix = id.substring(prefix.length);
+      final dotPos = suffix.indexOf('.');
+      final indexPart = dotPos >= 0 ? suffix.substring(0, dotPos) : suffix;
+      final restPart = dotPos >= 0 ? suffix.substring(dotPos) : '';
+      final oldIndex = int.tryParse(indexPart);
+      if (oldIndex == null) continue;
+
+      if (oldIndex >= insertedIndex) {
+        final newId = '$prefix${oldIndex + 1}$restPart';
+        collapsedToShift[id] = newId;
+      }
+    }
+
+    // Find expanded IDs that need to shift (check TreeController)
+    for (var node in _allIncludingRoots(_treeController.roots)) {
+      final id = node.id;
+      if (!id.startsWith(prefix)) continue;
+      if (_persistedCollapsed.contains(id)) continue; // Already handled
+
+      final suffix = id.substring(prefix.length);
+      final dotPos = suffix.indexOf('.');
+      final indexPart = dotPos >= 0 ? suffix.substring(0, dotPos) : suffix;
+      final restPart = dotPos >= 0 ? suffix.substring(dotPos) : '';
+      final oldIndex = int.tryParse(indexPart);
+      if (oldIndex == null) continue;
+
+      if (oldIndex >= insertedIndex && _treeController.isExpanded(id)) {
+        final newId = '$prefix${oldIndex + 1}$restPart';
+        expandedToShift[id] = newId;
+      }
+    }
+
+    // Update _persistedCollapsed
+    for (var entry in collapsedToShift.entries) {
+      _persistedCollapsed.remove(entry.key);
+      _persistedCollapsed.add(entry.value);
+    }
+
+    // Update TreeController's internal state:
+    // Collapse old IDs so they don't transfer to new items at same position
+    for (var oldId in expandedToShift.keys) {
+      _treeController.collapse(oldId);
+    }
+
+    // Add newly inserted item to collapsed set so it stays closed
     final newItemId = op.path.join('.');
     _persistedCollapsed.add(newItemId);
-    trailEvent('adjustExpansion: collapsed new item $newItemId');
+    // Also collapse in TreeController in case it somehow got the ID
+    _treeController.collapse(newItemId);
+
+    trailEvent('adjustExpansion: shifted ${collapsedToShift.length} collapsed, '
+        '${expandedToShift.length} expanded, collapsed $newItemId');
   }
 
   void _setNodeExpanded(TreeNode<YamlTreeData> node, bool expanded) {
