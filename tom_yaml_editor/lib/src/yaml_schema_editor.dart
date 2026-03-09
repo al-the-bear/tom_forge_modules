@@ -410,6 +410,8 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
   /// When a list item is inserted at index N, all items at indices >= N shift
   /// up by 1. Their path-based IDs change, so we need to update the collapsed
   /// set to preserve expansion state for each item.
+  ///
+  /// Also updates TreeController's internal expansion state to match.
   void _adjustExpansionForLastOperation() {
     final op = widget.controller.lastOperation;
     if (op == null) return;
@@ -431,14 +433,19 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
     final parentPath = op.path.sublist(0, op.path.length - 1);
     final prefix = '${parentPath.join('.')}.';
 
-    // Collect IDs that need to be shifted
-    final toRemove = <String>[];
-    final toAdd = <String>[];
+    // Collect IDs that need to be shifted (both collapsed and expanded)
+    final toRemoveFromCollapsed = <String>[];
+    final toAddToCollapsed = <String>[];
+    
+    // Track TreeController expansion shifts: oldId -> newId
+    final expansionShifts = <String, String>{};
 
-    for (var id in _persistedCollapsed) {
+    // First, find all IDs that match the prefix (regardless of collapsed state)
+    // We need to shift TreeController's expansion state for ALL items, not just collapsed ones
+    for (var node in _allIncludingRoots(_treeController.roots)) {
+      final id = node.id;
       if (!id.startsWith(prefix)) continue;
 
-      // Extract the index from the ID (e.g., 'workflow.steps.2' → 2)
       final suffix = id.substring(prefix.length);
       final dotPos = suffix.indexOf('.');
       final indexPart = dotPos >= 0 ? suffix.substring(0, dotPos) : suffix;
@@ -449,24 +456,71 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
       if (op.kind == YamlEditKind.insertListItem) {
         // Shift up: indices >= insertedIndex move to index+1
         if (oldIndex >= insertedIndex) {
-          toRemove.add(id);
-          toAdd.add('$prefix${oldIndex + 1}$restPart');
+          final newId = '$prefix${oldIndex + 1}$restPart';
+          expansionShifts[id] = newId;
         }
       } else if (op.kind == YamlEditKind.removeListItem) {
         // Shift down: indices > removedIndex move to index-1
         if (oldIndex > insertedIndex) {
-          toRemove.add(id);
-          toAdd.add('$prefix${oldIndex - 1}$restPart');
-        } else if (oldIndex == insertedIndex) {
-          // Remove the deleted item's collapsed state
-          toRemove.add(id);
+          final newId = '$prefix${oldIndex - 1}$restPart';
+          expansionShifts[id] = newId;
         }
       }
     }
 
-    _persistedCollapsed.removeAll(toRemove);
-    _persistedCollapsed.addAll(toAdd);
-    trailEvent('adjustExpansion: shifted ${toRemove.length} IDs');
+    // Update _persistedCollapsed
+    for (var id in _persistedCollapsed.toList()) {
+      if (!id.startsWith(prefix)) continue;
+
+      final suffix = id.substring(prefix.length);
+      final dotPos = suffix.indexOf('.');
+      final indexPart = dotPos >= 0 ? suffix.substring(0, dotPos) : suffix;
+      final restPart = dotPos >= 0 ? suffix.substring(dotPos) : '';
+      final oldIndex = int.tryParse(indexPart);
+      if (oldIndex == null) continue;
+
+      if (op.kind == YamlEditKind.insertListItem) {
+        if (oldIndex >= insertedIndex) {
+          toRemoveFromCollapsed.add(id);
+          toAddToCollapsed.add('$prefix${oldIndex + 1}$restPart');
+        }
+      } else if (op.kind == YamlEditKind.removeListItem) {
+        if (oldIndex > insertedIndex) {
+          toRemoveFromCollapsed.add(id);
+          toAddToCollapsed.add('$prefix${oldIndex - 1}$restPart');
+        } else if (oldIndex == insertedIndex) {
+          toRemoveFromCollapsed.add(id);
+        }
+      }
+    }
+
+    _persistedCollapsed.removeAll(toRemoveFromCollapsed);
+    _persistedCollapsed.addAll(toAddToCollapsed);
+
+    // Update TreeController's internal expansion state
+    // This ensures old IDs don't incorrectly transfer their state to new items
+    for (var entry in expansionShifts.entries) {
+      final oldId = entry.key;
+      final newId = entry.value;
+      final wasExpanded = _treeController.isExpanded(oldId);
+      // Collapse old ID so the new item at that position doesn't inherit state
+      _treeController.collapse(oldId);
+      // If the old node was expanded, mark its new ID for expansion later
+      if (wasExpanded) {
+        _persistedCollapsed.remove(newId); // Ensure it opens
+      }
+    }
+
+    // For inserts, the newly inserted item should start collapsed (default)
+    if (op.kind == YamlEditKind.insertListItem) {
+      final newItemId = op.path.join('.');
+      // Collapse in TreeController if it somehow got expanded
+      _treeController.collapse(newItemId);
+      // Add to persistedCollapsed so it stays collapsed
+      _persistedCollapsed.add(newItemId);
+    }
+
+    trailEvent('adjustExpansion: shifted ${expansionShifts.length} IDs');
   }
 
   void _setNodeExpanded(TreeNode<YamlTreeData> node, bool expanded) {

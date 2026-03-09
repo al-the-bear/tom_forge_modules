@@ -501,7 +501,9 @@ class YamlDocumentModel {
         extracted += '\n';
       }
 
-      return _dedent(extracted);
+      // Normalize YAML styles (multiline strings → literal block, flow → block)
+      // then dedent to remove leading whitespace.
+      return _dedent(_normalizeYamlStyles(extracted));
     }
 
     // Fallback: re-serialize for scalar values or if span extraction failed.
