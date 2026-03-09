@@ -1,6 +1,27 @@
 import 'package:yaml/yaml.dart';
 import 'package:yaml_edit/yaml_edit.dart';
 
+import '../tree/editor_trail.dart';
+
+/// Wrap a value as a YamlNode with block collection style for maps/lists.
+/// Used by [_normalizeYamlStyles] when converting flow-style to block-style.
+YamlNode _wrapWithBlockStyle(Object? value) {
+  if (value is Map) {
+    // Recursively wrap map values
+    final wrappedMap = <dynamic, YamlNode>{};
+    for (var entry in value.entries) {
+      wrappedMap[entry.key] = _wrapWithBlockStyle(entry.value);
+    }
+    return wrapAsYamlNode(wrappedMap, collectionStyle: CollectionStyle.BLOCK);
+  } else if (value is List) {
+    // Recursively wrap list items
+    final wrappedList = value.map((e) => _wrapWithBlockStyle(e)).toList();
+    return wrapAsYamlNode(wrappedList, collectionStyle: CollectionStyle.BLOCK);
+  } else {
+    return wrapAsYamlNode(value);
+  }
+}
+
 /// Non-destructive YAML document model.
 ///
 /// Wraps `package:yaml_edit` to provide comment-and-whitespace-preserving
@@ -26,18 +47,17 @@ class YamlDocumentModel {
 
   /// Serialize back to YAML string, preserving original formatting.
   ///
-  /// Multiline string scalars that `yaml_edit` serializes as escaped quoted
-  /// strings (e.g. `"line1\nline2"`) are converted to block scalar (`|`)
-  /// format using proper YAML library APIs.
-  String toYamlString() => _formatBlockScalars(_editor.toString());
+  /// Normalize YAML output: multiline strings use literal block style (`|`),
+  /// maps and lists use block style (key-per-line, item-per-line).
+  String toYamlString() => _normalizeYamlStyles(_editor.toString());
 
-  /// Convert multiline string scalars from quoted/escaped format to
-  /// block scalar (literal `|`) format using proper YAML library APIs.
+  /// Normalize YAML styles for human readability:
+  /// - Multiline strings → literal block scalar (`|`)
+  /// - Flow-style maps `{key: value}` → block style
+  /// - Flow-style lists `[a, b]` → block style
   ///
-  /// Walks the parsed YAML tree to find string scalars containing newlines
-  /// that are not already in block scalar style, and converts them using
-  /// [yaml_edit]'s [wrapAsYamlNode] with [ScalarStyle.LITERAL].
-  String _formatBlockScalars(String yaml) {
+  /// Walks the parsed YAML tree to find nodes that need converting.
+  String _normalizeYamlStyles(String yaml) {
     YamlNode root;
     try {
       root = loadYamlNode(yaml);
@@ -45,10 +65,10 @@ class YamlDocumentModel {
       return yaml;
     }
 
-    // Collect paths of multiline scalars that need converting.
+    // Collect paths and wrapped values for nodes that need converting.
     var paths = <List<Object>>[];
-    var values = <String>[];
-    _findMultilineScalars(root, [], paths, values);
+    var wrappedValues = <YamlNode>[];
+    _findNodesToNormalize(root, [], paths, wrappedValues);
 
     if (paths.isEmpty) return yaml;
 
@@ -56,39 +76,50 @@ class YamlDocumentModel {
     // internal offsets so subsequent edits remain valid.
     var editor = YamlEditor(yaml);
     for (var i = 0; i < paths.length; i++) {
-      editor.update(
-        paths[i],
-        wrapAsYamlNode(values[i], scalarStyle: ScalarStyle.LITERAL),
-      );
+      editor.update(paths[i], wrappedValues[i]);
     }
     return editor.toString();
   }
 
-  /// Recursively walk the YAML tree collecting paths and values of string
-  /// scalars that contain newlines but are not already in block style.
-  void _findMultilineScalars(
+  /// Recursively walk the YAML tree collecting paths and wrapped values
+  /// for nodes that need style normalization.
+  void _findNodesToNormalize(
     YamlNode node,
     List<Object> currentPath,
     List<List<Object>> paths,
-    List<String> values,
+    List<YamlNode> wrappedValues,
   ) {
     if (node is YamlMap) {
+      // Check if this map is flow style and needs converting
+      if (node.style == CollectionStyle.FLOW) {
+        paths.add(currentPath);
+        wrappedValues.add(_wrapWithBlockStyle(node.value));
+        return; // Children are included in the wrapped value
+      }
+      // Recurse into children
       for (var entry in node.nodes.entries) {
         var key = (entry.key as YamlScalar).value;
-        _findMultilineScalars(
+        _findNodesToNormalize(
           entry.value,
           [...currentPath, key],
           paths,
-          values,
+          wrappedValues,
         );
       }
     } else if (node is YamlList) {
+      // Check if this list is flow style and needs converting
+      if (node.style == CollectionStyle.FLOW) {
+        paths.add(currentPath);
+        wrappedValues.add(_wrapWithBlockStyle(node.value));
+        return; // Children are included in the wrapped value
+      }
+      // Recurse into children
       for (var i = 0; i < node.nodes.length; i++) {
-        _findMultilineScalars(
+        _findNodesToNormalize(
           node.nodes[i],
           [...currentPath, i],
           paths,
-          values,
+          wrappedValues,
         );
       }
     } else if (node is YamlScalar) {
@@ -98,7 +129,7 @@ class YamlDocumentModel {
           node.style != ScalarStyle.LITERAL &&
           node.style != ScalarStyle.FOLDED) {
         paths.add(currentPath);
-        values.add(value);
+        wrappedValues.add(wrapAsYamlNode(value, scalarStyle: ScalarStyle.LITERAL));
       }
     }
   }
@@ -180,6 +211,53 @@ class YamlDocumentModel {
     return YamlDocumentModel._(copy);
   }
 
+  /// Create a new document with a key inserted adjacent to [siblingKey] in the
+  /// map at [parentPath].
+  ///
+  /// If [above] is true, the new key is inserted before [siblingKey];
+  /// otherwise it is inserted after.
+  YamlDocumentModel withInsertedKeyAdjacent(
+    List<Object> parentPath,
+    String siblingKey,
+    String newKey,
+    Object? value, {
+    required bool above,
+  }) {
+    trailEvent(
+        'model: withInsertedKeyAdjacent parent=$parentPath sibling=$siblingKey '
+        'newKey=$newKey above=$above');
+    var node = nodeAt(parentPath);
+    if (node == null || node.value is! Map) {
+      // Parent doesn't exist or isn't a map - fall back to normal insert
+      return withInsertedKey(parentPath, newKey, value);
+    }
+    var map = node.value as Map;
+    var entries = map.entries.toList();
+    var siblingIndex = entries.indexWhere((e) => e.key.toString() == siblingKey);
+    if (siblingIndex < 0) {
+      // Sibling not found - fall back to normal insert
+      return withInsertedKey(parentPath, newKey, value);
+    }
+
+    // Build new map with key at desired position
+    var insertIndex = above ? siblingIndex : siblingIndex + 1;
+    var newEntries = <MapEntry<String, Object?>>[];
+    for (var i = 0; i < entries.length; i++) {
+      if (i == insertIndex) {
+        newEntries.add(MapEntry(newKey, value));
+      }
+      newEntries.add(MapEntry(entries[i].key.toString(), entries[i].value));
+    }
+    // Handle insert at end
+    if (insertIndex >= entries.length) {
+      newEntries.add(MapEntry(newKey, value));
+    }
+
+    final newMap = {for (var e in newEntries) e.key: e.value};
+    trailEvent('model: withInsertedKeyAdjacent newMap keys=${newMap.keys.toList()}');
+    return withValueAt(parentPath, newMap);
+  }
+
   /// Create a new document with a key removed at the given [path].
   ///
   /// The last element in [path] is the key to remove.
@@ -219,9 +297,16 @@ class YamlDocumentModel {
 
   /// Create a new document with a value appended to the list at [listPath].
   YamlDocumentModel withAppendedToList(List<Object> listPath, Object? value) {
-    var copy = YamlEditor(_editor.toString());
-    copy.appendToList(_normalizePath(listPath), value);
-    return YamlDocumentModel._(copy);
+    trailEvent('model: withAppendedToList path=$listPath');
+    try {
+      var copy = YamlEditor(_editor.toString());
+      copy.appendToList(_normalizePath(listPath), value);
+      return YamlDocumentModel._(copy);
+    } catch (e, st) {
+      trailEvent('model: withAppendedToList EXCEPTION: $e');
+      trailEvent('model: stack: ${st.toString().split('\n').take(5).join(' | ')}');
+      rethrow;
+    }
   }
 
   /// Create a new document with a value inserted into the list at [listPath]
@@ -231,18 +316,141 @@ class YamlDocumentModel {
     int index,
     Object? value,
   ) {
-    var copy = YamlEditor(_editor.toString());
-    copy.insertIntoList(_normalizePath(listPath), index, value);
-    return YamlDocumentModel._(copy);
+    trailEvent('model: withInsertedIntoList path=$listPath index=$index');
+    try {
+      var copy = YamlEditor(_editor.toString());
+      var normalizedPath = _normalizePath(listPath);
+      
+      // Get current list length for validation
+      var listNode = copy.parseAt(normalizedPath);
+      var currentLength = listNode.value is List ? (listNode.value as List).length : 0;
+      trailEvent('model: withInsertedIntoList listLength=$currentLength');
+      
+      // Clamp index to valid range: 0..currentLength (inclusive for append)
+      var safeIndex = index.clamp(0, currentLength);
+      trailEvent('model: withInsertedIntoList safeIndex=$safeIndex');
+      
+      // Work around yaml_edit bug: appendToList/insertIntoList at end fails.
+      // Instead: insert at last valid position, then swap to final position.
+      if (safeIndex == currentLength && currentLength > 0) {
+        trailEvent('model: using insert-then-swap workaround');
+        // Insert at position before last item
+        var insertPos = currentLength - 1;
+        copy.insertIntoList(normalizedPath, insertPos, value);
+        // Now list is [... X, NEW, lastItem] where X was at insertPos-1
+        // We need to swap NEW (at insertPos) with lastItem (at insertPos+1)
+        copy = YamlEditor(copy.toString()); // fresh editor
+        var newVal = copy.parseAt([...normalizedPath, insertPos]).value;
+        var lastVal = copy.parseAt([...normalizedPath, insertPos + 1]).value;
+        copy.update([...normalizedPath, insertPos], lastVal);
+        copy = YamlEditor(copy.toString());
+        copy.update([...normalizedPath, insertPos + 1], newVal);
+        trailEvent('model: withInsertedIntoList insert-swap done');
+      } else if (currentLength == 0) {
+        // Empty list - appendToList should work for empty lists
+        trailEvent('model: using appendToList for empty list');
+        copy.appendToList(normalizedPath, value);
+      } else {
+        trailEvent('model: using insertIntoList at $safeIndex');
+        copy.insertIntoList(normalizedPath, safeIndex, value);
+      }
+      return YamlDocumentModel._(copy);
+    } catch (e, st) {
+      trailEvent('model: withInsertedIntoList EXCEPTION: $e');
+      trailEvent('model: stack: ${st.toString().split('\n').take(5).join(' | ')}');
+      rethrow;
+    }
   }
 
   /// Create a new document with an item removed from the list at [path].
   ///
   /// The last element in [path] should be the integer index.
   YamlDocumentModel withRemovedFromList(List<Object> path) {
-    var copy = YamlEditor(_editor.toString());
-    copy.remove(_normalizePath(path));
-    return YamlDocumentModel._(copy);
+    trailEvent('model: withRemovedFromList path=$path');
+    try {
+      var copy = YamlEditor(_editor.toString());
+      copy.remove(_normalizePath(path));
+      return YamlDocumentModel._(copy);
+    } catch (e, st) {
+      trailEvent('model: withRemovedFromList EXCEPTION: $e');
+      trailEvent('model: stack: ${st.toString().split('\n').take(5).join(' | ')}');
+      rethrow;
+    }
+  }
+
+  /// Move a list item from [oldIndex] to [newIndex] using sequential swaps.
+  ///
+  /// This avoids yaml_edit's buggy appendToList/insertIntoList at list end
+  /// by doing a series of adjacent swaps instead.
+  YamlDocumentModel withMovedListItem(
+    List<Object> listPath,
+    int oldIndex,
+    int newIndex,
+  ) {
+    trailEvent('model: withMovedListItem path=$listPath old=$oldIndex new=$newIndex');
+    try {
+      var normalizedPath = _normalizePath(listPath);
+      
+      // Get current list
+      var listNode = _editor.parseAt(normalizedPath);
+      if (listNode.value is! List) {
+        trailEvent('model: withMovedListItem ERROR not a list');
+        return this;
+      }
+      var list = listNode.value as List;
+      var length = list.length;
+      
+      // Validate indices
+      if (oldIndex < 0 || oldIndex >= length) {
+        trailEvent('model: withMovedListItem ERROR invalid oldIndex');
+        return this;
+      }
+      
+      // Clamp newIndex to valid target range (0..length for "move to end")
+      var targetIndex = newIndex.clamp(0, length - 1);
+      if (newIndex >= length) {
+        targetIndex = length - 1; // Move to last position
+      }
+      trailEvent('model: withMovedListItem targetIndex=$targetIndex');
+      
+      if (oldIndex == targetIndex) {
+        trailEvent('model: withMovedListItem no-op same index');
+        return this;
+      }
+      
+      // Do sequential swaps
+      var editor = YamlEditor(_editor.toString());
+      
+      if (oldIndex < targetIndex) {
+        // Moving down: swap with next neighbor repeatedly
+        for (var i = oldIndex; i < targetIndex; i++) {
+          var val1 = editor.parseAt([...normalizedPath, i]).value;
+          var val2 = editor.parseAt([...normalizedPath, i + 1]).value;
+          editor.update([...normalizedPath, i], val2);
+          // Create fresh editor after each update to avoid offset issues
+          editor = YamlEditor(editor.toString());
+          editor.update([...normalizedPath, i + 1], val1);
+          editor = YamlEditor(editor.toString());
+        }
+      } else {
+        // Moving up: swap with previous neighbor repeatedly
+        for (var i = oldIndex; i > targetIndex; i--) {
+          var val1 = editor.parseAt([...normalizedPath, i]).value;
+          var val2 = editor.parseAt([...normalizedPath, i - 1]).value;
+          editor.update([...normalizedPath, i], val2);
+          editor = YamlEditor(editor.toString());
+          editor.update([...normalizedPath, i - 1], val1);
+          editor = YamlEditor(editor.toString());
+        }
+      }
+      
+      trailEvent('model: withMovedListItem done');
+      return YamlDocumentModel._(editor);
+    } catch (e, st) {
+      trailEvent('model: withMovedListItem EXCEPTION: $e');
+      trailEvent('model: stack: ${st.toString().split('\n').take(5).join(' | ')}');
+      rethrow;
+    }
   }
 
   /// Extract the YAML subtree at [path] as a standalone YAML string.
@@ -289,7 +497,7 @@ class YamlDocumentModel {
     }
     var tempEditor = YamlEditor('');
     tempEditor.update([], value);
-    return _formatBlockScalars(tempEditor.toString());
+    return _normalizeYamlStyles(tempEditor.toString());
   }
 
   /// Remove common leading indentation from a multiline YAML fragment.

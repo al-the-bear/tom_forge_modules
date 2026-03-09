@@ -133,13 +133,25 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
       // Intercept all Flutter framework errors and print them to the trail.
       _prevFlutterErrorHandler = FlutterError.onError;
       FlutterError.onError = (details) {
-        trailEvent('FlutterError: ${details.exceptionAsString()}');
-        _prevFlutterErrorHandler?.call(details);
+        // Truncate error to avoid flooding console with YAML content
+        var errorStr = details.exceptionAsString();
+        if (errorStr.length > 200) {
+          errorStr = '${errorStr.substring(0, 200)}...';
+        }
+        trailEvent('FlutterError: $errorStr');
+        // Print simplified stack trace
+        var stack = details.stack?.toString().split('\n').take(10).join('\n');
+        if (stack != null) {
+          trailEvent('Stack (first 10 frames):\n$stack');
+        }
+        // Don't call previous handler - it prints the full verbose error
       };
       // Heartbeat: confirms the main isolate is alive every second.
-      _heartbeat = Timer.periodic(const Duration(seconds: 1), (_) {
-        trailEvent('heartbeat');
-      });
+      if (kYamlEditorHeartbeat) {
+        _heartbeat = Timer.periodic(const Duration(seconds: 1), (_) {
+          trailEvent('heartbeat');
+        });
+      }
     }
     _schemaWalker = widget.controller.schema != null
         ? SchemaWalker(widget.controller.schema!)

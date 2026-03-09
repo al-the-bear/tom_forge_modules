@@ -356,6 +356,8 @@ class _ListNodeRowState extends State<ListNodeRow> {
     Offset globalPosition,
   ) async {
     trailEvent('listRow: rightClick path=${_data.path}');
+    // Capture navigator context BEFORE any async - it survives widget unmount
+    final navigator = Navigator.of(menuContext);
     final parentPath = _parentListPath;
     final currentIndex = _currentIndex;
     final length = widget.controller.listLength(parentPath);
@@ -388,12 +390,15 @@ class _ListNodeRowState extends State<ListNodeRow> {
               parentPath, currentIndex, currentIndex + 2);
           return;
         case ListContextAction.moveToTop:
+          trailEvent('listRow: moveToTop idx=$currentIndex -> 0');
           widget.controller.moveListItem(parentPath, currentIndex, 0);
           return;
         case ListContextAction.moveToBottom:
+          trailEvent('listRow: moveToBottom idx=$currentIndex -> $length');
           widget.controller.moveListItem(parentPath, currentIndex, length);
           return;
         case ListContextAction.duplicate:
+          trailEvent('listRow: duplicate idx=$currentIndex val=${trailTruncate(_data.value)}');
           widget.controller.insertListItem(
               parentPath, currentIndex + 1, _data.value);
           return;
@@ -413,41 +418,48 @@ class _ListNodeRowState extends State<ListNodeRow> {
           widget.onCollapseAll?.call();
           return;
         // ---------------------------------------------------------------------
-        // Async operations — guard context before each use.
+        // Async operations — capture references before any await
         // ---------------------------------------------------------------------
         case ListContextAction.insertAbove:
-          final insertAboveCtx = context;
-          await Future<void>.delayed(Duration.zero);
+          trailEvent('listRow: insertAbove ENTERED');
+          // Capture BEFORE any async call - widget may unmount when tree rebuilds
+          final controllerAbove = widget.controller;
+          final pathAbove = parentPath;
+          final indexAbove = currentIndex;
           trailEvent('listRow: insertAbove picking value');
-          final pickedAbove = await _pickInsertValue(insertAboveCtx, globalPosition);
-          trailEvent('listRow: insertAbove result=${pickedAbove?.value}');
+          final pickedAbove = await _pickInsertValue(
+              navigator.context, globalPosition);
+          trailEvent('listRow: insertAbove result=${trailTruncate(pickedAbove?.value)}');
           if (pickedAbove == null) return;
-          widget.controller
-              .insertListItem(parentPath, currentIndex, pickedAbove.value);
+          controllerAbove.insertListItem(pathAbove, indexAbove, pickedAbove.value);
           return;
         case ListContextAction.insertBelow:
-          final insertBelowCtx = context;
-          await Future<void>.delayed(Duration.zero);
+          trailEvent('listRow: insertBelow ENTERED');
+          // Capture BEFORE any async call - widget may unmount when tree rebuilds
+          final controllerBelow = widget.controller;
+          final pathBelow = parentPath;
+          final indexBelow = currentIndex + 1;
           trailEvent('listRow: insertBelow picking value');
-          final pickedBelow = await _pickInsertValue(insertBelowCtx, globalPosition);
-          trailEvent('listRow: insertBelow result=${pickedBelow?.value}');
+          final pickedBelow = await _pickInsertValue(
+              navigator.context, globalPosition);
+          trailEvent('listRow: insertBelow result=${trailTruncate(pickedBelow?.value)}');
           if (pickedBelow == null) return;
-          widget.controller
-              .insertListItem(parentPath, currentIndex + 1, pickedBelow.value);
+          controllerBelow.insertListItem(pathBelow, indexBelow, pickedBelow.value);
           return;
         case ListContextAction.addKey:
-          final addKeyCtx = context;
-          await Future<void>.delayed(Duration.zero);
-          trailEvent('listRow: addKey opening dialog allowed=${widget.controller.suggestedKeys(_data.path)}');
+          // Capture references before any async operation - widget may unmount
+          final addKeyController = widget.controller;
+          final addKeyPath = _data.path;
+          final addKeySchemaNode = _data.schemaNode;
+          trailEvent('listRow: addKey opening dialog allowed=${addKeyController.suggestedKeys(addKeyPath)}');
           final addResult = await showAddKeyDialog(
-            addKeyCtx,
-            parentSchema: _data.schemaNode,
-            allowedKeys: widget.controller.suggestedKeys(_data.path),
+            navigator.context,
+            parentSchema: addKeySchemaNode,
+            allowedKeys: addKeyController.suggestedKeys(addKeyPath),
           );
           trailEvent('listRow: addKey result=${addResult?.key}');
           if (addResult == null) return;
-          widget.controller.insertKey(
-              _data.path, addResult.key, addResult.value);
+          addKeyController.insertKey(addKeyPath, addResult.key, addResult.value);
           return;
       }
     } catch (e, st) {
@@ -489,14 +501,19 @@ class _ListNodeRowState extends State<ListNodeRow> {
     BuildContext context,
     Offset menuOffset,
   ) async {
+    trailEvent('_pickInsertValue: ENTER');
     // Schema-mandated type → use default directly, no dialog needed.
     final parentSchema = widget.schemaWalker?.nodeAt(_parentListPath);
     final itemSchema = parentSchema?.items;
+    trailEvent('_pickInsertValue: itemSchema=${itemSchema?.type}');
     if (itemSchema != null) {
-      return (value: _defaultListItemValue());
+      final val = _defaultListItemValue();
+      trailEvent('_pickInsertValue: using default val=$val');
+      return (value: val);
     }
 
     // No schema constraint → ask the user what type to insert.
+    trailEvent('_pickInsertValue: checking mounted=${context.mounted}');
     if (!context.mounted) return null;
     final type = await showMenu<AddKeyType>(
       context: context,

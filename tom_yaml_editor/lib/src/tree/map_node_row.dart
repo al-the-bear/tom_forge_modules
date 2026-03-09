@@ -369,6 +369,8 @@ class _MapNodeRowState extends State<MapNodeRow> {
     int keyIndex = -1,
   }) async {
     trailEvent('mapRow: rightClick path=${_data.path}');
+    // Capture navigator context BEFORE any async - it survives widget unmount
+    final navigator = Navigator.of(menuContext);
     var suggested = widget.controller.suggestedKeys(
       _data.path.length > 1
           ? _data.path.sublist(0, _data.path.length - 1)
@@ -408,24 +410,24 @@ class _MapNodeRowState extends State<MapNodeRow> {
           return;
         case MapContextAction.insertKeyAbove:
         case MapContextAction.insertKeyBelow:
-          // Capture context before the async gap; yield one tick so the
-          // popup-menu overlay finishes closing on macOS Desktop before
-          // we push a new overlay.
-          final insertCtx = context;
-          await Future<void>.delayed(Duration.zero);
+          // Capture references before any async operation - widget may unmount
+          final insertController = widget.controller;
+          final insertPath = _data.path;
+          final insertParentPath = _parentPath;
+          final insertAbove = action == MapContextAction.insertKeyAbove;
           trailEvent('mapRow: opening insert-adjacent dialog');
           final addResult = await showAddKeyDialog(
-            insertCtx,
-            parentSchema: widget.controller.schemaNodeAt(_parentPath),
-            allowedKeys: widget.controller.suggestedKeys(_parentPath),
+            navigator.context,
+            parentSchema: insertController.schemaNodeAt(insertParentPath),
+            allowedKeys: insertController.suggestedKeys(insertParentPath),
           );
           trailEvent('mapRow: insert-adjacent result=${addResult?.key}');
           if (addResult == null) return;
-          widget.controller.insertKeyAdjacent(
-            _data.path,
+          insertController.insertKeyAdjacent(
+            insertPath,
             addResult.key,
             addResult.value,
-            above: action == MapContextAction.insertKeyAbove,
+            above: insertAbove,
           );
           return;
         case MapContextAction.removeKey:
@@ -447,21 +449,22 @@ class _MapNodeRowState extends State<MapNodeRow> {
           widget.onCollapseAll?.call();
           return;
         case MapContextAction.addKey:
-          final addKeyCtx = context;
-          await Future<void>.delayed(Duration.zero);
+          // Capture references before any async operation - widget may unmount
+          final addKeyController = widget.controller;
+          final addKeyPath = _data.path;
+          final addKeySchemaNode = _data.schemaNode;
           trailEvent(
-            'mapRow: addKey opening dialog path=${_data.path} '
-            'allowed=${widget.controller.suggestedKeys(_data.path)}',
+            'mapRow: addKey opening dialog path=$addKeyPath '
+            'allowed=${addKeyController.suggestedKeys(addKeyPath)}',
           );
           final addResult = await showAddKeyDialog(
-            addKeyCtx,
-            parentSchema: _data.schemaNode,
-            allowedKeys: widget.controller.suggestedKeys(_data.path),
+            navigator.context,
+            parentSchema: addKeySchemaNode,
+            allowedKeys: addKeyController.suggestedKeys(addKeyPath),
           );
           trailEvent('mapRow: addKey result=${addResult?.key}');
           if (addResult == null) return;
-          widget.controller
-              .insertKey(_data.path, addResult.key, addResult.value);
+          addKeyController.insertKey(addKeyPath, addResult.key, addResult.value);
           return;
       }
     } catch (e, st) {

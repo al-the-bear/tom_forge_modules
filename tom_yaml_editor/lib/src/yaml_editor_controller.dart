@@ -247,7 +247,15 @@ class YamlEditorController extends ChangeNotifier {
   ///
   /// [listPath] is the path to the parent list node.
   void insertListItem(List<String> listPath, int index, Object? value) {
-    trailEvent('ctrl: insertListItem path=$listPath index=$index value=$value');
+    trailEvent('ctrl: insertListItem path=$listPath index=$index value=${trailTruncate(value)}');
+    
+    // Validate index - valid insertion indices are 0..length (inclusive)
+    final currentLength = listLength(listPath);
+    if (index < 0 || index > currentLength) {
+      trailEvent('ctrl: insertListItem ABORT invalid index (len=$currentLength)');
+      return;
+    }
+    
     var newDoc =
         _document.withInsertedIntoList(_toDocumentPath(listPath), index, value);
     var operation = YamlEditOperation(
@@ -261,14 +269,10 @@ class YamlEditorController extends ChangeNotifier {
 
   /// Append an item to the end of a list.
   void appendListItem(List<String> listPath, Object? value) {
-    var newDoc = _document.withAppendedToList(_toDocumentPath(listPath), value);
-    var operation = YamlEditOperation(
-      kind: YamlEditKind.insertListItem,
-      path: listPath,
-      oldDocument: _document,
-      newDocument: newDoc,
-    );
-    applyEdit(operation);
+    // Use insertListItem at current length instead of appendToList
+    // to work around yaml_edit's buggy appendToList implementation
+    final currentLength = listLength(listPath);
+    insertListItem(listPath, currentLength, value);
   }
 
   /// Move a list item from [oldIndex] to [newIndex].
@@ -279,21 +283,36 @@ class YamlEditorController extends ChangeNotifier {
       'ctrl: moveListItem path=$listPath old=$oldIndex new=$newIndex',
     );
     if (oldIndex == newIndex) return;
-    final docPath = _toDocumentPath(listPath);
-    var value = _document.valueOf([...docPath, oldIndex]);
-    trailEvent('ctrl: moveListItem value=$value');
-    // Remove then insert — build a single operation from before/after
-    var removed = _document.withRemovedFromList([...docPath, oldIndex]);
-    var adjustedIndex = newIndex > oldIndex ? newIndex - 1 : newIndex;
-    trailEvent('ctrl: moveListItem adjustedIndex=$adjustedIndex');
-    var newDoc = removed.withInsertedIntoList(docPath, adjustedIndex, value);
-    var operation = YamlEditOperation(
-      kind: YamlEditKind.reorderKeys,
-      path: listPath,
-      oldDocument: _document,
-      newDocument: newDoc,
-    );
-    applyEdit(operation);
+    
+    try {
+      // Validate indices
+      final currentLength = listLength(listPath);
+      trailEvent('ctrl: moveListItem currentLength=$currentLength');
+      if (oldIndex < 0 || oldIndex >= currentLength) {
+        trailEvent('ctrl: moveListItem ABORT invalid oldIndex');
+        return;
+      }
+      
+      final docPath = _toDocumentPath(listPath);
+      
+      // Use atomic move operation to avoid intermediate state issues
+      trailEvent('ctrl: moveListItem calling withMovedListItem');
+      var newDoc = _document.withMovedListItem(docPath, oldIndex, newIndex);
+      trailEvent('ctrl: moveListItem move done');
+      
+      var operation = YamlEditOperation(
+        kind: YamlEditKind.reorderKeys,
+        path: listPath,
+        oldDocument: _document,
+        newDocument: newDoc,
+      );
+      applyEdit(operation);
+      trailEvent('ctrl: moveListItem completed successfully');
+    } catch (e, st) {
+      trailEvent('ctrl: moveListItem EXCEPTION: $e');
+      trailEvent('ctrl: moveListItem stack: ${st.toString().split('\n').take(5).join(' | ')}');
+      rethrow;
+    }
   }
 
   /// Get the number of items in a list at [listPath].
@@ -366,11 +385,16 @@ class YamlEditorController extends ChangeNotifier {
     Object? value, {
     bool above = false,
   }) {
-    // Fall back to normal insert — yaml_edit doesn't expose positional insert
-    // for maps, so we re-serialize with the desired key order.
+    if (siblingPath.isEmpty) return;
     var parentPath = siblingPath.sublist(0, siblingPath.length - 1);
-    var newDoc =
-        _document.withInsertedKey(_toDocumentPath(parentPath), newKey, value);
+    var siblingKey = siblingPath.last;
+    var newDoc = _document.withInsertedKeyAdjacent(
+      _toDocumentPath(parentPath),
+      siblingKey,
+      newKey,
+      value,
+      above: above,
+    );
     var operation = YamlEditOperation(
       kind: YamlEditKind.insertKey,
       path: [...parentPath, newKey],

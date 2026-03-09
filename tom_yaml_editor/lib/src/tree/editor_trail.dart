@@ -11,6 +11,9 @@ import 'package:flutter/foundation.dart';
 // ============================================================
 const bool kYamlEditorDebug = true;
 
+/// Set to false to disable heartbeat output while keeping other debug logs.
+const bool kYamlEditorHeartbeat = false;
+
 /// Lightweight event trail for freeze / hang diagnosis.
 ///
 /// Every meaningful user action, controller operation, and focus change is
@@ -27,4 +30,11 @@ void trailEvent(String event) {
       ':${now.second.toString().padLeft(2, '0')}'
       '.${now.millisecond.toString().padLeft(3, '0')}';
   debugPrint('[YE $ts] $event');
+}
+
+/// Truncate a value for logging to avoid flooding console.
+String trailTruncate(Object? value, [int maxLen = 60]) {
+  var s = value.toString();
+  if (s.length <= maxLen) return s;
+  return '${s.substring(0, maxLen)}...';
 }
