@@ -16,11 +16,19 @@ class YamlEditOperation {
   /// Document state after the edit.
   final YamlDocumentModel newDocument;
 
+  /// For [YamlEditKind.moveListItem]: the original index of the moved item.
+  final int? moveOldIndex;
+
+  /// For [YamlEditKind.moveListItem]: the new index of the moved item.
+  final int? moveNewIndex;
+
   const YamlEditOperation({
     required this.kind,
     required this.path,
     required this.oldDocument,
     required this.newDocument,
+    this.moveOldIndex,
+    this.moveNewIndex,
   });
 
   /// Apply this operation (transition to newDocument).
@@ -52,4 +60,7 @@ enum YamlEditKind {
 
   /// Remove a list item.
   removeListItem,
+
+  /// Move a list item from one index to another.
+  moveListItem,
 }

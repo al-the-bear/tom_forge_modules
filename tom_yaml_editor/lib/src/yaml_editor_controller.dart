@@ -313,11 +313,16 @@ class YamlEditorController extends ChangeNotifier {
       var newDoc = _document.withMovedListItem(docPath, oldIndex, newIndex);
       trailEvent('ctrl: moveListItem move done');
       
+      // Calculate actual target index (clamped to valid range)
+      final targetIndex = newIndex.clamp(0, currentLength - 1);
+
       var operation = YamlEditOperation(
-        kind: YamlEditKind.reorderKeys,
+        kind: YamlEditKind.moveListItem,
         path: listPath,
         oldDocument: _document,
         newDocument: newDoc,
+        moveOldIndex: oldIndex,
+        moveNewIndex: targetIndex,
       );
       applyEdit(operation);
       trailEvent('ctrl: moveListItem completed successfully');

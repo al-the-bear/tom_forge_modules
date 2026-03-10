@@ -405,19 +405,29 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
     }
   }
 
-  /// Adjust expansion state when list items shift due to insert.
+  /// Adjust expansion state when list items shift due to insert or move.
   ///
   /// When a list item is inserted at index N:
   /// 1. All items at indices >= N shift to index+1
   /// 2. IDs in _persistedCollapsed must shift accordingly
   /// 3. TreeController's internal _expandedIds must also shift
   /// 4. The new item at N should start collapsed
+  ///
+  /// When a list is reordered (move):
+  /// - We don't have exact old/new indices in the operation
+  /// - Collapse all expanded items in that list to prevent state transfer
   void _adjustExpansionForLastOperation() {
     final op = widget.controller.lastOperation;
     if (op == null) return;
     widget.controller.clearLastOperation();
 
-    // Only care about list inserts
+    if (op.kind == YamlEditKind.moveListItem) {
+      // For moves, swap expansion states between old/new indices
+      _adjustExpansionForMove(op);
+      return;
+    }
+
+    // Only care about list inserts beyond this point
     if (op.kind != YamlEditKind.insertListItem) {
       return;
     }
@@ -492,6 +502,97 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
 
     trailEvent('adjustExpansion: shifted ${collapsedToShift.length} collapsed, '
         '${expandedToShift.length} expanded, collapsed $newItemId');
+  }
+
+  /// Handle expansion state for list move operations.
+  ///
+  /// When item moves from oldIndex to newIndex, expansion states shift:
+  /// - The moved item keeps its state at the new position
+  /// - Items in between shift by one position
+  void _adjustExpansionForMove(YamlEditOperation op) {
+    final oldIndex = op.moveOldIndex;
+    final newIndex = op.moveNewIndex;
+    if (oldIndex == null || newIndex == null || oldIndex == newIndex) return;
+
+    final prefix = '${op.path.join('.')}.';
+
+    // Build map of old index -> isCollapsed for list items
+    final collapsedByOldIndex = <int, bool>{};
+    final expandedByOldIndex = <int, bool>{};
+
+    // Check _persistedCollapsed for collapsed state
+    for (var id in _persistedCollapsed.toList()) {
+      if (!id.startsWith(prefix)) continue;
+      final suffix = id.substring(prefix.length);
+      final dotPos = suffix.indexOf('.');
+      final indexPart = dotPos >= 0 ? suffix.substring(0, dotPos) : suffix;
+      final idx = int.tryParse(indexPart);
+      if (idx != null) {
+        collapsedByOldIndex[idx] = true;
+      }
+    }
+
+    // Check TreeController for expanded state (items not in _persistedCollapsed)
+    for (var node in _allIncludingRoots(_treeController.roots)) {
+      final id = node.id;
+      if (!id.startsWith(prefix)) continue;
+      final suffix = id.substring(prefix.length);
+      final dotPos = suffix.indexOf('.');
+      final indexPart = dotPos >= 0 ? suffix.substring(0, dotPos) : suffix;
+      final idx = int.tryParse(indexPart);
+      if (idx != null && !collapsedByOldIndex.containsKey(idx)) {
+        expandedByOldIndex[idx] = _treeController.isExpanded(id);
+      }
+    }
+
+    // Calculate new indices after move
+    // Moving from oldIndex to newIndex means:
+    // - item at oldIndex -> newIndex
+    // - items between shift by 1
+    int oldToNew(int i) {
+      if (i == oldIndex) return newIndex;
+      if (oldIndex < newIndex) {
+        // Moving down: items in (oldIndex, newIndex] shift left by 1
+        if (i > oldIndex && i <= newIndex) return i - 1;
+      } else {
+        // Moving up: items in [newIndex, oldIndex) shift right by 1
+        if (i >= newIndex && i < oldIndex) return i + 1;
+      }
+      return i;
+    }
+
+    // Collapse all current IDs in TreeController first (clear state)
+    for (var node in _allIncludingRoots(_treeController.roots)) {
+      final id = node.id;
+      if (id.startsWith(prefix) && _treeController.isExpanded(id)) {
+        _treeController.collapse(id);
+      }
+    }
+
+    // Update _persistedCollapsed with new indices
+    final newCollapsed = <String>{};
+    for (var id in _persistedCollapsed.toList()) {
+      if (!id.startsWith(prefix)) {
+        newCollapsed.add(id);
+        continue;
+      }
+      final suffix = id.substring(prefix.length);
+      final dotPos = suffix.indexOf('.');
+      final indexPart = dotPos >= 0 ? suffix.substring(0, dotPos) : suffix;
+      final restPart = dotPos >= 0 ? suffix.substring(dotPos) : '';
+      final oldIdx = int.tryParse(indexPart);
+      if (oldIdx == null) {
+        newCollapsed.add(id);
+        continue;
+      }
+      final newIdx = oldToNew(oldIdx);
+      newCollapsed.add('$prefix$newIdx$restPart');
+    }
+    _persistedCollapsed
+      ..clear()
+      ..addAll(newCollapsed);
+
+    trailEvent('adjustExpansionForMove: $oldIndex->$newIndex');
   }
 
   void _setNodeExpanded(TreeNode<YamlTreeData> node, bool expanded) {

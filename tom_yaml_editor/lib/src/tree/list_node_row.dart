@@ -387,7 +387,7 @@ class _ListNodeRowState extends State<ListNodeRow> {
           return;
         case ListContextAction.moveDown:
           widget.controller.moveListItem(
-              parentPath, currentIndex, currentIndex + 2);
+              parentPath, currentIndex, currentIndex + 1);
           return;
         case ListContextAction.moveToTop:
           trailEvent('listRow: moveToTop idx=$currentIndex -> 0');
