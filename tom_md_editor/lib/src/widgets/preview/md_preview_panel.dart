@@ -45,9 +45,13 @@ class MdPreviewPanel extends StatefulWidget {
 
 class _MdPreviewPanelState extends State<MdPreviewPanel> {
   final ScrollController _scrollController = ScrollController();
-  MdSection? _lastSelectedSection;
+  /// Track last selected section by value (level + headline) to avoid
+  /// false-positive change detection after re-parsing.
+  (int, String)? _lastSelectedKey;
   bool _suppressScroll = false;
   late MdPluginRegistry _registry;
+  /// GlobalKeys for heading widgets, keyed by "level:headline".
+  final Map<String, GlobalKey> _headingKeys = {};
 
   @override
   void initState() {
@@ -79,12 +83,15 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
 
   void _onChanged() {
     final selected = widget.controller.selectedSection;
-    if (selected != null && selected != _lastSelectedSection) {
-      _lastSelectedSection = selected;
+    final key = selected != null
+        ? (selected.level, selected.headline)
+        : null;
+    if (key != null && key != _lastSelectedKey) {
+      _lastSelectedKey = key;
       if (!_suppressScroll) {
-        // Schedule scroll after the rebuild.
+        // Schedule scroll after the rebuild so the heading widget exists.
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          _scrollToOffset(widget.controller.cursorOffset);
+          _scrollToSection(selected!);
         });
       }
     }
@@ -92,25 +99,29 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
     setState(() {});
   }
 
-  /// Scroll the preview to the approximate position for a source offset.
-  void _scrollToOffset(int offset) {
+  /// Scroll the heading for [section] to the top of the preview viewport.
+  void _scrollToSection(MdSection section) {
     try {
-      if (!_scrollController.hasClients) return;
-      final markdown = widget.controller.markdown;
-      if (markdown.isEmpty) return;
-
-      final fraction = offset / markdown.length;
-      final maxScroll = _scrollController.position.maxScrollExtent;
-      final target = (fraction * maxScroll).clamp(0.0, maxScroll);
-
-      _scrollController.animateTo(
-        target,
+      final hKey = _headingKeyFor(section.level, section.headline);
+      final gk = _headingKeys[hKey];
+      if (gk == null || gk.currentContext == null) return;
+      Scrollable.ensureVisible(
+        gk.currentContext!,
+        alignment: 0.0,
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
       );
     } catch (e, st) {
-      MdEditorDebug.logger.error('Error scrolling to offset', e, st);
+      MdEditorDebug.logger.error('Error scrolling to section', e, st);
     }
+  }
+
+  String _headingKeyFor(int level, String headline) =>
+      '$level:${headline.trim()}';
+
+  GlobalKey _getOrCreateHeadingKey(int level, String headline) {
+    final hKey = _headingKeyFor(level, headline);
+    return _headingKeys.putIfAbsent(hKey, GlobalKey.new);
   }
 
   @override
@@ -221,6 +232,7 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
                     readOnly: widget.settings.readOnly,
                     onTap: _onHeadingTapped,
                     onEdit: _onHeadingEdit,
+                    getKey: _getOrCreateHeadingKey,
                   ),
               },
             ),
@@ -423,8 +435,8 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
 
         // Set cursor offset to the heading's position in the source markdown.
         final markdown = widget.controller.markdown;
-        final headingPrefix = '${'#' * level} ${text.trim()}';
-        final offset = markdown.indexOf(headingPrefix);
+        final headingMd = section.toHeadlineMarkdown();
+        final offset = markdown.indexOf(headingMd);
         if (offset >= 0) {
           widget.controller.setCursorOffset(offset);
         }
@@ -804,6 +816,7 @@ class _HeadingBuilder extends MarkdownElementBuilder {
     required this.readOnly,
     required this.onTap,
     required this.onEdit,
+    required this.getKey,
   });
 
   final int level;
@@ -812,6 +825,10 @@ class _HeadingBuilder extends MarkdownElementBuilder {
   final bool readOnly;
   final void Function(int level, String text) onTap;
   final void Function(int level, String text) onEdit;
+  final GlobalKey Function(int level, String headline) getKey;
+
+  /// Regex to strip HTML-comment IDs from rendered text.
+  static final _commentIdRegex = RegExp(r'<!--\s*\[[^\]]*\]\s*-->');
 
   @override
   Widget? visitElementAfterWithContext(
@@ -820,7 +837,10 @@ class _HeadingBuilder extends MarkdownElementBuilder {
     TextStyle? preferredStyle,
     TextStyle? parentStyle,
   ) {
-    final text = element.textContent.trim();
+    // Strip any leftover HTML comment IDs from the rendered text.
+    final rawText = element.textContent.trim();
+    final text = rawText.replaceAll(_commentIdRegex, '').trim();
+
     // Find the matching section to display numbering and ID.
     final sections = controller.document.allSections;
     final match = sections.where(
@@ -831,8 +851,12 @@ class _HeadingBuilder extends MarkdownElementBuilder {
         section != null ? controller.computeSectionNumber(section) : '';
     final idLabel = section?.id != null ? ' [${section!.id}]' : '';
 
+    final headingStyle = preferredStyle ?? theme.headingStyle(level);
+    final gk = getKey(level, text);
+
     return SelectionContainer.disabled(
       child: GestureDetector(
+        key: gk,
         onTap: () => onTap(level, text),
         child: MouseRegion(
           cursor: SystemMouseCursors.click,
@@ -840,36 +864,23 @@ class _HeadingBuilder extends MarkdownElementBuilder {
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
             children: [
-              if (number.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: Text(
-                    number,
-                    style: TextStyle(
-                      color: theme.textMuted,
-                      fontSize: (preferredStyle?.fontSize ?? 16) * 0.75,
-                      fontFamily: theme.monoFontFamily,
-                    ),
-                  ),
-                ),
               Expanded(
                 child: Text.rich(
                   TextSpan(
                     children: [
+                      if (number.isNotEmpty)
+                        TextSpan(
+                          text: '$number ',
+                          style: headingStyle,
+                        ),
                       TextSpan(
                         text: text,
-                        style: preferredStyle ?? theme.headingStyle(level),
+                        style: headingStyle,
                       ),
                       if (idLabel.isNotEmpty)
                         TextSpan(
                           text: idLabel,
-                          style: TextStyle(
-                            color: theme.textMuted,
-                            fontSize:
-                                (preferredStyle?.fontSize ?? 16) * 0.65,
-                            fontFamily: theme.monoFontFamily,
-                            fontWeight: FontWeight.normal,
-                          ),
+                          style: headingStyle,
                         ),
                     ],
                   ),

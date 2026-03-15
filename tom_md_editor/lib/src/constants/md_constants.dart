@@ -5,7 +5,7 @@ class MdConstants {
   // ── Layout defaults ──
 
   static const double defaultTreePanelRatio = 0.25;
-  static const double defaultRawEditorHeightRatio = 0.35;
+  static const double defaultRawEditorHeightRatio = 0.80;
   static const double defaultRawEditorWidthRatio = 0.4;
   static const double defaultSearchResultsHeightRatio = 0.5;
 
