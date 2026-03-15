@@ -8,6 +8,8 @@ import '../controller/md_editor_controller.dart';
 import '../debug/md_editor_debug.dart';
 import '../events/md_events.dart';
 import '../models/md_section.dart';
+import '../plugins/md_content_plugin.dart';
+import '../plugins/md_default_plugins.dart';
 import '../providers/md_document_provider.dart';
 import '../registries/md_code_editor_registry.dart';
 import '../registries/md_content_renderer.dart';
@@ -60,6 +62,7 @@ class MdEditor extends StatefulWidget {
     this.codeEditorRegistry,
     this.languageRenderers,
     this.contentRenderers,
+    this.pluginRegistry,
   }) : assert(
          markdown == null || controller == null,
          'Provide either markdown or controller, not both.',
@@ -122,6 +125,12 @@ class MdEditor extends StatefulWidget {
   /// Custom content renderers for special block types.
   final List<MdContentRenderer>? contentRenderers;
 
+  /// Registry of content editor plugins for the preview panel.
+  ///
+  /// If null, a default registry with built-in plugins (table, math,
+  /// mermaid, code) is created based on [settings].
+  final MdPluginRegistry? pluginRegistry;
+
   @override
   State<MdEditor> createState() => _MdEditorState();
 }
@@ -131,6 +140,7 @@ class _MdEditorState extends State<MdEditor> {
   late MdEditorSettings _settings;
   bool _showSearch = false;
   late RawEditorPosition _rawPosition;
+  late MdPluginRegistry _pluginRegistry;
 
   MdEditorController? _internalController;
   Timer? _autoSaveTimer;
@@ -144,6 +154,8 @@ class _MdEditorState extends State<MdEditor> {
     _theme = widget.theme ?? MdEditorTheme.dark();
     _settings = _resolveSettings();
     _rawPosition = _settings.rawEditorPosition;
+    _pluginRegistry = widget.pluginRegistry ??
+        createDefaultPluginRegistry(settings: _settings);
     _initController();
     _controller.addListener(_onControllerChanged);
     _loadDocument();
@@ -157,6 +169,13 @@ class _MdEditorState extends State<MdEditor> {
     }
     if (widget.settings != oldWidget.settings || widget.readOnly != oldWidget.readOnly) {
       _settings = _resolveSettings();
+      if (widget.pluginRegistry == null) {
+        _pluginRegistry = createDefaultPluginRegistry(settings: _settings);
+      }
+    }
+    if (widget.pluginRegistry != oldWidget.pluginRegistry &&
+        widget.pluginRegistry != null) {
+      _pluginRegistry = widget.pluginRegistry!;
     }
     if (widget.eventHandlers != null &&
         widget.eventHandlers != oldWidget.eventHandlers) {
@@ -377,6 +396,7 @@ class _MdEditorState extends State<MdEditor> {
       controller: _controller,
       theme: _theme,
       settings: _settings,
+      pluginRegistry: _pluginRegistry,
       onSectionTap: (section) {
         _controller.selectSection(section);
         widget.onSectionSelected?.call(section);

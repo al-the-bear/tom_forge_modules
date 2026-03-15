@@ -2,15 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
-import 'package:flutter_mermaid/flutter_mermaid.dart';
 import 'package:markdown/markdown.dart' as md;
 
 import '../../controller/md_editor_controller.dart';
 import '../../debug/md_editor_debug.dart';
 import '../../models/md_section.dart';
+import '../../plugins/md_content_plugin.dart';
+import '../../plugins/md_default_plugins.dart';
 import '../../settings/md_editor_settings.dart';
 import '../../theme/md_editor_theme.dart';
-import '../overlays/md_table_overlay.dart';
 
 /// Preview panel that renders markdown as formatted content.
 ///
@@ -21,6 +21,7 @@ class MdPreviewPanel extends StatefulWidget {
     required this.controller,
     required this.theme,
     required this.settings,
+    this.pluginRegistry,
     this.onSectionTap,
     this.onEditSection,
     this.onLinkTap,
@@ -29,6 +30,11 @@ class MdPreviewPanel extends StatefulWidget {
   final MdEditorController controller;
   final MdEditorTheme theme;
   final MdEditorSettings settings;
+
+  /// Registry of content editor plugins. If null, a default registry with
+  /// built-in plugins is created based on [settings].
+  final MdPluginRegistry? pluginRegistry;
+
   final ValueChanged<MdSection>? onSectionTap;
   final ValueChanged<MdSection>? onEditSection;
   final ValueChanged<String>? onLinkTap;
@@ -40,10 +46,13 @@ class MdPreviewPanel extends StatefulWidget {
 class _MdPreviewPanelState extends State<MdPreviewPanel> {
   final ScrollController _scrollController = ScrollController();
   MdSection? _lastSelectedSection;
+  late MdPluginRegistry _registry;
 
   @override
   void initState() {
     super.initState();
+    _registry = widget.pluginRegistry ??
+        createDefaultPluginRegistry(settings: widget.settings);
     widget.controller.addListener(_onChanged);
   }
 
@@ -53,6 +62,10 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
     if (oldWidget.controller != widget.controller) {
       oldWidget.controller.removeListener(_onChanged);
       widget.controller.addListener(_onChanged);
+    }
+    if (widget.pluginRegistry != oldWidget.pluginRegistry) {
+      _registry = widget.pluginRegistry ??
+          createDefaultPluginRegistry(settings: widget.settings);
     }
   }
 
@@ -140,59 +153,79 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
 
   Widget _buildMarkdownView(MdBasicTheme basic, String markdown) {
     try {
-      // Pre-process: replace $$...$$ blocks with fenced math-display blocks
-      // so the code block builder can render them with flutter_math_fork.
-      var processed = _preprocessMath(markdown);
-      // Pre-process: replace markdown tables with fenced table-edit blocks
-      // so the code block builder can render them with edit controls.
-      final rawTables = <String>[];
-      processed = _preprocessTables(processed, rawTables);
+      var processed = markdown;
+      final contentMap = <String, List<String>>{};
 
-      return Scrollbar(
-        controller: _scrollController,
-        child: SingleChildScrollView(
+      // Run all plugin preprocessors to convert non-fenced content
+      // (like tables and $$..$$) into fenced code blocks with synthetic tags.
+      for (final plugin in _registry.all) {
+        final preprocessor = plugin.preprocessor;
+        if (preprocessor == null) continue;
+
+        final rawContent = <String>[];
+        var index = 0;
+        processed = processed.replaceAllMapped(preprocessor.pattern, (m) {
+          final raw = m.group(0)!;
+          rawContent.add(raw);
+          final content = preprocessor.contentExtractor?.call(m) ?? raw;
+          final tag = '${preprocessor.tagPrefix}-${index++}';
+          return '\n```$tag\n$content\n```\n';
+        });
+        if (rawContent.isNotEmpty) {
+          contentMap[preprocessor.tagPrefix] = rawContent;
+        }
+      }
+
+      return GestureDetector(
+        onSecondaryTapUp: !widget.settings.readOnly
+            ? (details) => _showInsertMenu(details.globalPosition)
+            : null,
+        child: Scrollbar(
           controller: _scrollController,
-          padding: EdgeInsets.all(basic.blockPadding * 2),
-          child: MarkdownBody(
-            data: processed,
-            selectable: true,
-            extensionSet: md.ExtensionSet(
-              md.ExtensionSet.gitHubWeb.blockSyntaxes,
-              [
-                if (widget.settings.enableMath) _InlineMathSyntax(),
-                ...md.ExtensionSet.gitHubWeb.inlineSyntaxes,
-              ],
-            ),
-            styleSheet: _buildStyleSheet(basic),
-            onTapLink: (text, href, title) {
-              _handleLinkTap(href);
-            },
-            sizedImageBuilder: (config) =>
-                _buildImage(basic, config.uri, config.title, config.alt),
-            builders: {
-              'pre': _CodeBlockBuilder(
-                theme: basic,
-                settings: widget.settings,
-                editorTheme: widget.theme,
-                onCopy: _copyCodeBlock,
-                onEdit: _editCodeBlock,
-                onEditTable: (index) => _onEditTable(index, rawTables),
-                rawTables: rawTables,
+          child: SingleChildScrollView(
+            controller: _scrollController,
+            padding: EdgeInsets.all(basic.blockPadding * 2),
+            child: MarkdownBody(
+              data: processed,
+              selectable: true,
+              extensionSet: md.ExtensionSet(
+                md.ExtensionSet.gitHubWeb.blockSyntaxes,
+                [
+                  if (widget.settings.enableMath) _InlineMathSyntax(),
+                  ...md.ExtensionSet.gitHubWeb.inlineSyntaxes,
+                ],
               ),
-              'input': _TaskListBuilder(
-                enabled: widget.settings.enableInteractiveTaskLists &&
-                    !widget.settings.readOnly,
-                onToggle: _toggleTaskItem,
-                theme: basic,
-              ),
-              'math-inline': _InlineMathBuilder(theme: basic),
-              for (final level in [1, 2, 3, 4, 5, 6])
-                'h$level': _HeadingBuilder(
-                  level: level,
+              styleSheet: _buildStyleSheet(basic),
+              onTapLink: (text, href, title) {
+                _handleLinkTap(href);
+              },
+              sizedImageBuilder: (config) =>
+                  _buildImage(basic, config.uri, config.title, config.alt),
+              builders: {
+                'pre': _CodeBlockBuilder(
                   theme: basic,
-                  onTap: _onHeadingTapped,
+                  settings: widget.settings,
+                  onCopy: _copyCodeBlock,
+                  onDefaultEdit: _editCodeBlock,
+                  pluginRegistry: _registry,
+                  contentMap: contentMap,
+                  onPluginEdit: _onPluginEdit,
                 ),
-            },
+                'input': _TaskListBuilder(
+                  enabled: widget.settings.enableInteractiveTaskLists &&
+                      !widget.settings.readOnly,
+                  onToggle: _toggleTaskItem,
+                  theme: basic,
+                ),
+                'math-inline': _InlineMathBuilder(theme: basic),
+                for (final level in [1, 2, 3, 4, 5, 6])
+                  'h$level': _HeadingBuilder(
+                    level: level,
+                    theme: basic,
+                    onTap: _onHeadingTapped,
+                  ),
+              },
+            ),
           ),
         ),
       );
@@ -207,49 +240,78 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
     }
   }
 
-  /// Pre-process display math ($$...$$) into fenced code blocks
-  /// with language `math-display` so the code block builder renders them.
-  String _preprocessMath(String markdown) {
-    return markdown.replaceAllMapped(
-      RegExp(r'\$\$([\s\S]*?)\$\$'),
-      (m) => '\n```math-display\n${m.group(1)!.trim()}\n```\n',
+  // ── Plugin interaction ──
+
+  /// Open a plugin's editor for the given content and replace in source.
+  void _onPluginEdit(
+    MdContentPlugin plugin,
+    String rawOriginal,
+    String editableContent,
+  ) async {
+    final newContent = await plugin.openEditor(
+      context,
+      editableContent,
+      widget.theme,
     );
+    if (newContent != null && newContent != editableContent) {
+      final source = widget.controller.markdown;
+      final newMarkdown = plugin.wrapForMarkdown(newContent);
+      widget.controller.markdown =
+          source.replaceFirst(rawOriginal, newMarkdown);
+    }
   }
 
-  static final _tableRegex = RegExp(
-    r'^\|.+\|[ \t]*\n\|[\s\-:|]+\|[ \t]*\n(\|.+\|[ \t]*\n?)+',
-    multiLine: true,
-  );
+  /// Show a context menu for inserting content blocks.
+  void _showInsertMenu(Offset position) {
+    final insertable = _registry.insertable;
+    if (insertable.isEmpty) return;
 
-  /// Pre-process markdown tables into fenced code blocks with
-  /// language `table-edit-N` so the code block builder renders them
-  /// as interactive table widgets.
-  String _preprocessTables(String markdown, List<String> rawTables) {
-    var index = 0;
-    return markdown.replaceAllMapped(_tableRegex, (m) {
-      final raw = m.group(0)!;
-      rawTables.add(raw);
-      final tag = 'table-edit-${index++}';
-      return '\n```$tag\n$raw\n```\n';
+    final basic = widget.theme.basic;
+    showMenu<MdContentPlugin>(
+      context: context,
+      color: basic.surface,
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy,
+        position.dx,
+        position.dy,
+      ),
+      items: insertable.map((plugin) {
+        return PopupMenuItem<MdContentPlugin>(
+          value: plugin,
+          child: Row(
+            children: [
+              Icon(plugin.icon, size: 18, color: basic.textSecondary),
+              const SizedBox(width: 8),
+              Text(
+                'Insert ${plugin.displayName}',
+                style: TextStyle(color: basic.text),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    ).then((plugin) {
+      if (plugin != null) {
+        _insertContent(plugin.insertTemplate);
+      }
     });
   }
 
-  /// Open the table editor overlay for the table at the given index.
-  void _onEditTable(int index, List<String> rawTables) {
-    if (index < 0 || index >= rawTables.length) return;
-    final tableMarkdown = rawTables[index];
-    showDialog<void>(
-      context: context,
-      builder: (_) => MdTableOverlay(
-        markdownTable: tableMarkdown,
-        theme: widget.theme,
-        onSave: (newTable) {
-          final md = widget.controller.markdown;
-          final updated = md.replaceFirst(tableMarkdown, newTable);
-          widget.controller.markdown = updated;
-        },
-      ),
-    );
+  /// Insert markdown content at the end of the selected section or document.
+  void _insertContent(String template) {
+    final section = widget.controller.selectedSection;
+    if (section != null) {
+      final currentText = section.text;
+      final separator = currentText.endsWith('\n') ? '\n' : '\n\n';
+      widget.controller.updateSectionText(
+        section,
+        '$currentText$separator$template\n',
+      );
+    } else {
+      final source = widget.controller.markdown;
+      widget.controller.markdown = '$source\n\n$template\n';
+    }
   }
 
   Widget _buildImage(
@@ -416,25 +478,29 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
 
 // ── Custom markdown builders ──
 
-/// Renders code blocks with copy/edit buttons.
+/// Renders code blocks, delegating to plugins for recognized languages.
 class _CodeBlockBuilder extends MarkdownElementBuilder {
   _CodeBlockBuilder({
     required this.theme,
     required this.settings,
-    required this.editorTheme,
     required this.onCopy,
-    required this.onEdit,
-    required this.onEditTable,
-    required this.rawTables,
+    required this.onDefaultEdit,
+    required this.pluginRegistry,
+    required this.contentMap,
+    required this.onPluginEdit,
   });
 
   final MdBasicTheme theme;
   final MdEditorSettings settings;
-  final MdEditorTheme editorTheme;
   final ValueChanged<String> onCopy;
-  final void Function(String code, String? language) onEdit;
-  final ValueChanged<int> onEditTable;
-  final List<String> rawTables;
+  final void Function(String code, String? language) onDefaultEdit;
+  final MdPluginRegistry pluginRegistry;
+  final Map<String, List<String>> contentMap;
+  final void Function(
+    MdContentPlugin plugin,
+    String rawOriginal,
+    String editableContent,
+  ) onPluginEdit;
 
   String? _language;
 
@@ -457,28 +523,41 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
   Widget visitText(md.Text text, TextStyle? preferredStyle) {
     final code = text.text;
 
-    // Render mermaid diagrams using MermaidDiagram widget.
-    if (_language == 'mermaid' && settings.enableMermaid) {
-      return _MermaidBlockWidget(code: code, theme: theme);
-    }
-
-    // Render math-display blocks using flutter_math_fork.
-    if (_language == 'math-display' && settings.enableMath) {
-      return _DisplayMathWidget(expression: code, theme: theme);
-    }
-
-    // Render table-edit blocks as interactive table widgets.
-    if (_language != null && _language!.startsWith('table-edit-')) {
-      final index = int.tryParse(_language!.substring('table-edit-'.length));
-      if (index != null && index >= 0 && index < rawTables.length) {
-        return _TablePreviewWidget(
-          tableMarkdown: code,
-          theme: theme,
-          onEdit: () => onEditTable(index),
+    // Check if any plugin handles this language.
+    if (_language != null) {
+      final plugin = pluginRegistry.forLanguage(_language!);
+      if (plugin != null) {
+        final preview = plugin.buildPreview(
+          code,
+          theme,
+          onEdit: () {
+            // Determine the raw original content for replacement.
+            String rawOriginal;
+            final preprocessor = plugin.preprocessor;
+            if (preprocessor != null) {
+              final prefix = preprocessor.tagPrefix;
+              final expectedStart = '$prefix-';
+              final indexStr = _language!.startsWith(expectedStart)
+                  ? _language!.substring(expectedStart.length)
+                  : null;
+              final idx = indexStr != null ? int.tryParse(indexStr) : null;
+              final list = contentMap[prefix];
+              rawOriginal =
+                  (idx != null && list != null && idx < list.length)
+                      ? list[idx]
+                      : code;
+            } else {
+              // Native fenced block — construct the search string.
+              rawOriginal = '```$_language\n$code\n```';
+            }
+            onPluginEdit(plugin, rawOriginal, code);
+          },
         );
+        if (preview != null) return preview;
       }
     }
 
+    // Default: render as code block with copy/edit buttons.
     return _CodeBlockWidget(
       code: code,
       language: _language,
@@ -487,7 +566,7 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
       showCopy: settings.showCopyCodeButton,
       showEdit: settings.showCodeEditButton,
       onCopy: () => onCopy(code),
-      onEdit: () => onEdit(code, _language),
+      onEdit: () => onDefaultEdit(code, _language),
     );
   }
 }
@@ -562,7 +641,7 @@ class _CodeBlockWidgetState extends State<_CodeBlockWidget> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (widget.showCopy)
-                      _OverlayButton(
+                      MdOverlayButton(
                         icon: Icons.copy,
                         tooltip: 'Copy',
                         onTap: widget.onCopy,
@@ -570,7 +649,7 @@ class _CodeBlockWidgetState extends State<_CodeBlockWidget> {
                       ),
                     if (widget.showEdit) ...[
                       const SizedBox(width: 4),
-                      _OverlayButton(
+                      MdOverlayButton(
                         icon: Icons.edit,
                         tooltip: 'Edit',
                         onTap: widget.onEdit,
@@ -584,182 +663,6 @@ class _CodeBlockWidgetState extends State<_CodeBlockWidget> {
         ),
       ),
     );
-  }
-}
-
-class _OverlayButton extends StatelessWidget {
-  const _OverlayButton({
-    required this.icon,
-    required this.tooltip,
-    required this.onTap,
-    required this.theme,
-  });
-
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback? onTap;
-  final MdBasicTheme theme;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(4),
-        child: Container(
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            color: theme.surfaceVariant,
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: theme.border, width: 0.5),
-          ),
-          child: Icon(icon, size: 14, color: theme.textSecondary),
-        ),
-      ),
-    );
-  }
-}
-
-// ── Table preview widget with hover edit button ──
-
-class _TablePreviewWidget extends StatefulWidget {
-  const _TablePreviewWidget({
-    required this.tableMarkdown,
-    required this.theme,
-    required this.onEdit,
-  });
-
-  final String tableMarkdown;
-  final MdBasicTheme theme;
-  final VoidCallback onEdit;
-
-  @override
-  State<_TablePreviewWidget> createState() => _TablePreviewWidgetState();
-}
-
-class _TablePreviewWidgetState extends State<_TablePreviewWidget> {
-  bool _hovering = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final rows = _parseRows(widget.tableMarkdown);
-    if (rows.isEmpty) return const SizedBox.shrink();
-
-    final alignments = _parseAlignments(widget.tableMarkdown);
-    final theme = widget.theme;
-
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovering = true),
-      onExit: (_) => setState(() => _hovering = false),
-      child: Stack(
-        children: [
-          Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              border: Border.all(color: theme.border),
-              borderRadius: BorderRadius.circular(theme.borderRadius),
-            ),
-            child: Table(
-              border: TableBorder.all(color: theme.border, width: 0.5),
-              defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-              children: List.generate(rows.length, (r) {
-                final isHeader = r == 0;
-                return TableRow(
-                  decoration: BoxDecoration(
-                    color: isHeader
-                        ? theme.surfaceVariant
-                        : Colors.transparent,
-                  ),
-                  children: List.generate(rows[r].length, (c) {
-                    final align = c < alignments.length
-                        ? alignments[c]
-                        : TextAlign.start;
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      child: Text(
-                        rows[r][c],
-                        textAlign: align,
-                        style: TextStyle(
-                          color: theme.text,
-                          fontSize: theme.baseFontSize * 0.9,
-                          fontWeight:
-                              isHeader ? FontWeight.w600 : FontWeight.normal,
-                        ),
-                      ),
-                    );
-                  }),
-                );
-              }),
-            ),
-          ),
-          if (_hovering)
-            Positioned(
-              top: 4,
-              right: 4,
-              child: _OverlayButton(
-                icon: Icons.edit,
-                tooltip: 'Edit table',
-                onTap: widget.onEdit,
-                theme: theme,
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  List<List<String>> _parseRows(String table) {
-    final lines =
-        table.split('\n').where((l) => l.trim().isNotEmpty).toList();
-    final result = <List<String>>[];
-    for (final line in lines) {
-      final trimmed = line.trim();
-      if (RegExp(r'^[\|\s\-:]+$').hasMatch(trimmed)) continue;
-      final cells = trimmed
-          .split('|')
-          .map((c) => c.trim())
-          .where((c) => c.isNotEmpty)
-          .toList();
-      if (cells.isNotEmpty) result.add(cells);
-    }
-    // Normalize column count.
-    if (result.isNotEmpty) {
-      final maxCols =
-          result.fold<int>(0, (m, row) => row.length > m ? row.length : m);
-      for (final row in result) {
-        while (row.length < maxCols) {
-          row.add('');
-        }
-      }
-    }
-    return result;
-  }
-
-  List<TextAlign> _parseAlignments(String table) {
-    final lines =
-        table.split('\n').where((l) => l.trim().isNotEmpty).toList();
-    for (final line in lines) {
-      final trimmed = line.trim();
-      if (RegExp(r'^[\|\s\-:]+$').hasMatch(trimmed)) {
-        final parts = trimmed
-            .split('|')
-            .map((c) => c.trim())
-            .where((c) => c.isNotEmpty)
-            .toList();
-        return parts.map((p) {
-          final left = p.startsWith(':');
-          final right = p.endsWith(':');
-          if (left && right) return TextAlign.center;
-          if (right) return TextAlign.end;
-          return TextAlign.start;
-        }).toList();
-      }
-    }
-    return [];
   }
 }
 
@@ -792,116 +695,6 @@ class _TaskListBuilder extends MarkdownElementBuilder {
       );
     }
     return const SizedBox.shrink();
-  }
-}
-
-// ── Mermaid block widget ──
-
-class _MermaidBlockWidget extends StatelessWidget {
-  const _MermaidBlockWidget({required this.code, required this.theme});
-
-  final String code;
-  final MdBasicTheme theme;
-
-  /// Diagram types that flutter_mermaid 0.1.0 can actually render.
-  static final _supportedPrefixes = [
-    'graph ',
-    'graph\n',
-    'flowchart ',
-    'flowchart\n',
-    'sequenceDiagram',
-    'pie',
-    'gantt',
-    'timeline',
-    'kanban',
-    'radar-beta',
-    'xychart-beta',
-  ];
-
-  bool get _isSupported {
-    final trimmed = code.trimLeft();
-    return _supportedPrefixes.any((p) => trimmed.startsWith(p));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(theme.blockPadding),
-      decoration: BoxDecoration(
-        color: theme.surfaceVariant,
-        borderRadius: BorderRadius.circular(theme.borderRadius),
-        border: Border.all(color: theme.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: Text(
-              'mermaid',
-              style: TextStyle(
-                color: theme.textMuted,
-                fontSize: 11,
-                fontFamily: theme.monoFontFamily,
-              ),
-            ),
-          ),
-          if (_isSupported)
-            MermaidDiagram(code: code)
-          else
-            SelectableText(
-              code,
-              style: TextStyle(
-                fontFamily: theme.monoFontFamily,
-                fontSize: theme.baseFontSize * 0.9,
-                color: theme.textSecondary,
-                height: theme.lineHeight,
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Display math widget (for fenced math-display blocks) ──
-
-class _DisplayMathWidget extends StatelessWidget {
-  const _DisplayMathWidget({
-    required this.expression,
-    required this.theme,
-  });
-
-  final String expression;
-  final MdBasicTheme theme;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.symmetric(
-        vertical: theme.paragraphSpacing,
-        horizontal: theme.blockPadding,
-      ),
-      alignment: Alignment.center,
-      child: Math.tex(
-        expression.trim(),
-        mathStyle: MathStyle.display,
-        textStyle: TextStyle(
-          fontSize: theme.baseFontSize * 1.2,
-          color: theme.text,
-        ),
-        onErrorFallback: (err) => Text(
-          expression.trim(),
-          style: TextStyle(
-            color: theme.error,
-            fontFamily: theme.monoFontFamily,
-            fontSize: theme.baseFontSize,
-          ),
-        ),
-      ),
-    );
   }
 }
 

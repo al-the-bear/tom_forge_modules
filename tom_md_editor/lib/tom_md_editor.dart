@@ -26,6 +26,14 @@ export 'src/registries/md_code_editor_registry.dart';
 export 'src/registries/md_content_renderer.dart';
 export 'src/registries/md_language_renderer_registry.dart';
 
+// Plugins
+export 'src/plugins/md_content_plugin.dart';
+export 'src/plugins/md_code_plugin.dart';
+export 'src/plugins/md_default_plugins.dart';
+export 'src/plugins/md_math_plugin.dart';
+export 'src/plugins/md_mermaid_plugin.dart';
+export 'src/plugins/md_table_plugin.dart';
+
 // Events
 export 'src/events/md_events.dart';
 
