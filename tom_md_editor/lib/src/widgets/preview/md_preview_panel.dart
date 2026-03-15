@@ -191,7 +191,9 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
           child: SingleChildScrollView(
             controller: _scrollController,
             padding: EdgeInsets.all(basic.blockPadding * 2),
-            child: MarkdownBody(
+            child: DefaultTextStyle(
+              style: basic.paragraphStyle,
+              child: MarkdownBody(
               data: processed,
               selectable: true,
               extensionSet: md.ExtensionSet(
@@ -235,6 +237,7 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
                     getKey: _getOrCreateHeadingKey,
                   ),
               },
+            ),
             ),
           ),
 
