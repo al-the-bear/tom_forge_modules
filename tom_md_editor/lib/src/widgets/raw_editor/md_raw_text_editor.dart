@@ -349,45 +349,39 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
 
   Widget _buildEditor(MdBasicTheme basic) {
     try {
-      return GestureDetector(
-        onSecondaryTapUp: !widget.settings.readOnly &&
-                widget.pluginRegistry != null
-            ? (details) => _showInsertMenu(details.globalPosition)
-            : null,
-        child: Scrollbar(
-          controller: _scrollController,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Line numbers
-              if (widget.settings.showLineNumbers)
-                _buildLineNumbers(basic),
-              // Text field with syntax highlighting
-              Expanded(
-                child: SingleChildScrollView(
-                  controller: _scrollController,
-                  child: TextField(
-                    controller: _textController,
-                    focusNode: _focusNode,
-                    readOnly: widget.settings.readOnly,
-                    maxLines: null,
-                    minLines: 10,
-                    onChanged: _onTextChanged,
-                    decoration: InputDecoration(
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.all(basic.blockPadding),
-                    ),
-                    style: TextStyle(
-                      fontFamily: basic.monoFontFamily,
-                      fontSize: basic.baseFontSize,
-                      color: basic.text,
-                      height: basic.lineHeight,
-                    ),
+      return Scrollbar(
+        controller: _scrollController,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Line numbers
+            if (widget.settings.showLineNumbers) _buildLineNumbers(basic),
+            // Text field with syntax highlighting
+            Expanded(
+              child: SingleChildScrollView(
+                controller: _scrollController,
+                child: TextField(
+                  controller: _textController,
+                  focusNode: _focusNode,
+                  readOnly: widget.settings.readOnly,
+                  maxLines: null,
+                  minLines: 10,
+                  onChanged: _onTextChanged,
+                  contextMenuBuilder: _contextMenuBuilder,
+                  decoration: InputDecoration(
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.all(basic.blockPadding),
+                  ),
+                  style: TextStyle(
+                    fontFamily: basic.monoFontFamily,
+                    fontSize: basic.baseFontSize,
+                    color: basic.text,
+                    height: basic.lineHeight,
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       );
     } catch (e, st) {
@@ -396,6 +390,44 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
         child: Text('Editor error', style: TextStyle(color: basic.error)),
       );
     }
+  }
+
+  /// Build the context menu for the text field, appending insert actions
+  /// from registered plugins to the default edit actions.
+  Widget _contextMenuBuilder(
+    BuildContext context,
+    EditableTextState editableTextState,
+  ) {
+    final registry = widget.pluginRegistry;
+    final defaultItems = editableTextState.contextMenuButtonItems;
+
+    if (widget.settings.readOnly || registry == null) {
+      return AdaptiveTextSelectionToolbar.buttonItems(
+        anchors: editableTextState.contextMenuAnchors,
+        buttonItems: defaultItems,
+      );
+    }
+
+    final insertable = registry.insertable;
+    final basic = widget.theme.basic;
+    final insertItems = insertable.map((plugin) {
+      return ContextMenuButtonItem(
+        label: 'Insert ${plugin.displayName}',
+        onPressed: () {
+          ContextMenuController.removeAny();
+          if (plugin.id == 'code') {
+            _showLanguagePicker(Offset.zero, basic);
+          } else {
+            _insertContent(plugin.insertTemplate);
+          }
+        },
+      );
+    }).toList();
+
+    return AdaptiveTextSelectionToolbar.buttonItems(
+      anchors: editableTextState.contextMenuAnchors,
+      buttonItems: [...defaultItems, ...insertItems],
+    );
   }
 
   /// Common languages offered in the code block language picker.
@@ -423,49 +455,6 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
     'markdown',
     'xml',
   ];
-
-  /// Show a context menu for inserting content blocks at cursor position.
-  void _showInsertMenu(Offset position) {
-    final registry = widget.pluginRegistry;
-    if (registry == null) return;
-    final insertable = registry.insertable;
-    if (insertable.isEmpty) return;
-
-    final basic = widget.theme.basic;
-    showMenu<MdContentPlugin>(
-      context: context,
-      color: basic.surface,
-      position: RelativeRect.fromLTRB(
-        position.dx,
-        position.dy,
-        position.dx,
-        position.dy,
-      ),
-      items: insertable.map((plugin) {
-        return PopupMenuItem<MdContentPlugin>(
-          value: plugin,
-          child: Row(
-            children: [
-              Icon(plugin.icon, size: 18, color: basic.textSecondary),
-              const SizedBox(width: 8),
-              Text(
-                'Insert ${plugin.displayName}',
-                style: TextStyle(color: basic.text),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
-    ).then((plugin) {
-      if (plugin != null) {
-        if (plugin.id == 'code') {
-          _showLanguagePicker(position, basic);
-        } else {
-          _insertContent(plugin.insertTemplate);
-        }
-      }
-    });
-  }
 
   /// Show a language picker for code block insertion.
   void _showLanguagePicker(Offset position, MdBasicTheme basic) {
