@@ -186,14 +186,20 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
         }
       }
 
-      return Scrollbar(
+      // Wrap in a Theme that uses serif for the text theme so that
+      // MarkdownStyleSheet.fromTheme() creates a serif-based fallback
+      // for ALL text-bearing fields (em, strong, blockquote, etc.).
+      final serifTextTheme = Theme.of(context).textTheme.apply(
+        fontFamily: basic.serifFontFamily,
+      );
+      return Theme(
+        data: Theme.of(context).copyWith(textTheme: serifTextTheme),
+        child: Scrollbar(
           controller: _scrollController,
           child: SingleChildScrollView(
             controller: _scrollController,
             padding: EdgeInsets.all(basic.blockPadding * 2),
-            child: DefaultTextStyle(
-              style: basic.paragraphStyle,
-              child: MarkdownBody(
+            child: MarkdownBody(
               data: processed,
               selectable: true,
               extensionSet: md.ExtensionSet(
@@ -238,9 +244,8 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
                   ),
               },
             ),
-            ),
           ),
-
+        ),
       );
     } catch (e, st) {
       MdEditorDebug.logger.error('Error building markdown view', e, st);
@@ -363,6 +368,10 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
   }
 
   MarkdownStyleSheet _buildStyleSheet(MdBasicTheme basic) {
+    final serifBase = TextStyle(
+      fontFamily: basic.serifFontFamily,
+      color: basic.text,
+    );
     return MarkdownStyleSheet(
       h1: basic.headingStyle(1),
       h2: basic.headingStyle(2),
@@ -371,6 +380,12 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
       h5: basic.headingStyle(5),
       h6: basic.headingStyle(6),
       p: basic.paragraphStyle,
+      em: serifBase.copyWith(fontStyle: FontStyle.italic),
+      strong: serifBase.copyWith(fontWeight: FontWeight.bold),
+      del: serifBase.copyWith(decoration: TextDecoration.lineThrough),
+      blockquote: basic.paragraphStyle,
+      img: serifBase,
+      checkbox: serifBase.copyWith(color: basic.accent),
       code: basic.inlineCodeStyle,
       codeblockDecoration: basic.codeBlockDecoration,
       blockquoteDecoration: basic.blockquoteDecoration,
@@ -379,13 +394,9 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
         color: basic.linkColor,
         decoration: basic.linkDecoration,
       ),
-      listBullet: TextStyle(fontFamily: basic.serifFontFamily, color: basic.text),
-      tableHead: TextStyle(
-        fontFamily: basic.serifFontFamily,
-        color: basic.text,
-        fontWeight: FontWeight.w600,
-      ),
-      tableBody: TextStyle(fontFamily: basic.serifFontFamily, color: basic.text),
+      listBullet: serifBase,
+      tableHead: serifBase.copyWith(fontWeight: FontWeight.w600),
+      tableBody: serifBase,
       tableBorder: TableBorder.all(color: basic.tableBorder),
       blockSpacing: basic.paragraphSpacing,
       horizontalRuleDecoration: BoxDecoration(

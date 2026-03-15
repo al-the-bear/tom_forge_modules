@@ -140,7 +140,7 @@ class MdBasicTheme {
     fontSize: baseFontSize + 1,
     height: lineHeight,
     color: text,
-    fontWeight: normalWeight,
+    fontWeight: boldWeight,
   );
 
   TextStyle headingStyle(int level) {
