@@ -186,12 +186,17 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
         }
       }
 
+      // DefaultTextStyle provides the body font as fallback for
+      // SelectableText.rich when its root TextSpan has no style
+      // (happens when flutter_markdown merges inline children).
       return Scrollbar(
           controller: _scrollController,
           child: SingleChildScrollView(
             controller: _scrollController,
             padding: EdgeInsets.all(basic.blockPadding * 2),
-            child: MarkdownBody(
+            child: DefaultTextStyle(
+              style: basic.paragraphStyle,
+              child: MarkdownBody(
               data: processed,
               selectable: true,
               extensionSet: md.ExtensionSet(
@@ -235,6 +240,7 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
                     getKey: _getOrCreateHeadingKey,
                   ),
               },
+            ),
             ),
           ),
       );
