@@ -451,6 +451,6 @@ class _MdTableOverlayState extends State<MdTableOverlay> {
     for (var r = 1; r < _rows; r++) {
       buf.writeln('| ${_cells[r].join(' | ')} |');
     }
-    return buf.toString().trimRight();
+    return buf.toString();
   }
 }
