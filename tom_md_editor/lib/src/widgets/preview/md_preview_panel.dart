@@ -372,15 +372,17 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
       codeblockDecoration: basic.codeBlockDecoration,
       blockquoteDecoration: basic.blockquoteDecoration,
       a: TextStyle(
+        fontFamily: basic.serifFontFamily,
         color: basic.linkColor,
         decoration: basic.linkDecoration,
       ),
-      listBullet: TextStyle(color: basic.text),
+      listBullet: TextStyle(fontFamily: basic.serifFontFamily, color: basic.text),
       tableHead: TextStyle(
+        fontFamily: basic.serifFontFamily,
         color: basic.text,
         fontWeight: FontWeight.w600,
       ),
-      tableBody: TextStyle(color: basic.text),
+      tableBody: TextStyle(fontFamily: basic.serifFontFamily, color: basic.text),
       tableBorder: TableBorder.all(color: basic.tableBorder),
       blockSpacing: basic.paragraphSpacing,
       horizontalRuleDecoration: BoxDecoration(
@@ -849,7 +851,9 @@ class _HeadingBuilder extends MarkdownElementBuilder {
     final section = match.isNotEmpty ? match.first : null;
     final number =
         section != null ? controller.computeSectionNumber(section) : '';
-    final idLabel = section?.id != null ? ' [${section!.id}]' : '';
+    final hierarchicalId =
+        section != null ? controller.computeHierarchicalId(section) : '';
+    final idLabel = hierarchicalId.isNotEmpty ? ' [$hierarchicalId]' : '';
 
     final headingStyle = preferredStyle ?? theme.headingStyle(level);
     final gk = getKey(level, text);

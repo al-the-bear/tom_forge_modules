@@ -25,6 +25,7 @@ class MdBasicTheme {
     this.success = const Color(0xFF4EC9B0),
     // Typography
     this.fontFamily = 'Segoe UI',
+    this.serifFontFamily = 'Georgia',
     this.monoFontFamily = 'Cascadia Code',
     this.baseFontSize = 14.0,
     this.lineHeight = 1.6,
@@ -86,6 +87,7 @@ class MdBasicTheme {
 
   // Typography
   final String fontFamily;
+  final String serifFontFamily;
   final String monoFontFamily;
   final double baseFontSize;
   final double lineHeight;
@@ -134,7 +136,7 @@ class MdBasicTheme {
   // ── Derived styles ──
 
   TextStyle get paragraphStyle => TextStyle(
-    fontFamily: fontFamily,
+    fontFamily: serifFontFamily,
     fontSize: baseFontSize,
     height: lineHeight,
     color: text,

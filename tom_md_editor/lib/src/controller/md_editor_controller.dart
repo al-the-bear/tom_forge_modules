@@ -483,6 +483,29 @@ class MdEditorController extends ChangeNotifier {
     return path.join('.');
   }
 
+  /// Compute the full hierarchical ID chain for [target].
+  ///
+  /// Walks from the root to [target] collecting each ancestor's ID and
+  /// joins them with `-`. Returns an empty string when no ancestor has an ID.
+  String computeHierarchicalId(MdSection target) {
+    final ids = <String>[];
+    bool collect(List<MdSection> siblings, MdSection t) {
+      for (final s in siblings) {
+        if (identical(s, t)) {
+          if (s.id != null) ids.add(s.id!);
+          return true;
+        }
+        if (collect(s.subsections, t)) {
+          if (s.id != null) ids.insert(0, s.id!);
+          return true;
+        }
+      }
+      return false;
+    }
+    collect(_document.sections, target);
+    return ids.join('-');
+  }
+
   /// Promote a section by decreasing its heading level (e.g. `###` → `##`).
   ///
   /// Level 1 is already the highest and cannot be promoted further.

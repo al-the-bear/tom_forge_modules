@@ -169,7 +169,9 @@ class _MdTreeViewState extends State<MdTreeView> {
   }) {
     final section = node.data;
     final number = widget.controller.computeSectionNumber(section);
-    final idLabel = section.id != null ? ' [${section.id}]' : '';
+    final hierarchicalId =
+        widget.controller.computeHierarchicalId(section);
+    final idLabel = hierarchicalId.isNotEmpty ? ' [$hierarchicalId]' : '';
 
     final content = GestureDetector(
       onTap: () {
