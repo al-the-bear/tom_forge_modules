@@ -490,15 +490,9 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
           ],
         ),
       ).then((confirmed) {
-        if (confirmed != true) {
-          headlineController.dispose();
-          idController.dispose();
-          return;
-        }
+        if (confirmed != true) return;
         final newHeadline = headlineController.text.trim();
         final newId = idController.text.trim();
-        headlineController.dispose();
-        idController.dispose();
         if (newHeadline.isNotEmpty && newHeadline != section.headline) {
           widget.controller.updateSectionHeadline(section, newHeadline);
         }
