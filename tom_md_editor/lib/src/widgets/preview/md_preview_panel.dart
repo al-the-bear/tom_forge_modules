@@ -46,6 +46,7 @@ class MdPreviewPanel extends StatefulWidget {
 class _MdPreviewPanelState extends State<MdPreviewPanel> {
   final ScrollController _scrollController = ScrollController();
   MdSection? _lastSelectedSection;
+  bool _suppressScroll = false;
   late MdPluginRegistry _registry;
 
   @override
@@ -80,11 +81,14 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
     final selected = widget.controller.selectedSection;
     if (selected != null && selected != _lastSelectedSection) {
       _lastSelectedSection = selected;
-      // Schedule scroll after the rebuild.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _scrollToOffset(widget.controller.cursorOffset);
-      });
+      if (!_suppressScroll) {
+        // Schedule scroll after the rebuild.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _scrollToOffset(widget.controller.cursorOffset);
+        });
+      }
     }
+    _suppressScroll = false;
     setState(() {});
   }
 
@@ -171,11 +175,7 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
         }
       }
 
-      return GestureDetector(
-        onSecondaryTapUp: !widget.settings.readOnly
-            ? (details) => _showInsertMenu(details.globalPosition)
-            : null,
-        child: Scrollbar(
+      return Scrollbar(
           controller: _scrollController,
           child: SingleChildScrollView(
             controller: _scrollController,
@@ -222,7 +222,7 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
               },
             ),
           ),
-        ),
+
       );
     } catch (e, st) {
       MdEditorDebug.logger.error('Error building markdown view', e, st);
@@ -279,58 +279,6 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
     }
   }
 
-  /// Show a context menu for inserting content blocks.
-  void _showInsertMenu(Offset position) {
-    final insertable = _registry.insertable;
-    if (insertable.isEmpty) return;
-
-    final basic = widget.theme.basic;
-    showMenu<MdContentPlugin>(
-      context: context,
-      color: basic.surface,
-      position: RelativeRect.fromLTRB(
-        position.dx,
-        position.dy,
-        position.dx,
-        position.dy,
-      ),
-      items: insertable.map((plugin) {
-        return PopupMenuItem<MdContentPlugin>(
-          value: plugin,
-          child: Row(
-            children: [
-              Icon(plugin.icon, size: 18, color: basic.textSecondary),
-              const SizedBox(width: 8),
-              Text(
-                'Insert ${plugin.displayName}',
-                style: TextStyle(color: basic.text),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
-    ).then((plugin) {
-      if (plugin != null) {
-        _insertContent(plugin.insertTemplate);
-      }
-    });
-  }
-
-  /// Insert markdown content at the end of the selected section or document.
-  void _insertContent(String template) {
-    final section = widget.controller.selectedSection;
-    if (section != null) {
-      final currentText = section.text;
-      final separator = currentText.endsWith('\n') ? '\n' : '\n\n';
-      widget.controller.updateSectionText(
-        section,
-        '$currentText$separator$template\n',
-      );
-    } else {
-      final source = widget.controller.markdown;
-      widget.controller.markdown = '$source\n\n$template\n';
-    }
-  }
 
   Widget _buildImage(
     MdBasicTheme basic,
@@ -464,6 +412,9 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
       );
       if (match.isNotEmpty) {
         final section = match.first;
+        // Suppress preview scroll — clicking in the preview should only
+        // sync the raw editor, not jump the preview around.
+        _suppressScroll = true;
         widget.controller.selectSection(section);
         widget.onSectionTap?.call(section);
 

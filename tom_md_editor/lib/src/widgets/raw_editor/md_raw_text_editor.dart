@@ -398,6 +398,32 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
     }
   }
 
+  /// Common languages offered in the code block language picker.
+  static const _commonLanguages = [
+    '',
+    'dart',
+    'yaml',
+    'json',
+    'javascript',
+    'typescript',
+    'python',
+    'c',
+    'cpp',
+    'java',
+    'kotlin',
+    'swift',
+    'rust',
+    'go',
+    'ruby',
+    'php',
+    'html',
+    'css',
+    'sql',
+    'bash',
+    'markdown',
+    'xml',
+  ];
+
   /// Show a context menu for inserting content blocks at cursor position.
   void _showInsertMenu(Offset position) {
     final registry = widget.pluginRegistry;
@@ -432,9 +458,121 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
       }).toList(),
     ).then((plugin) {
       if (plugin != null) {
-        _insertContent(plugin.insertTemplate);
+        if (plugin.id == 'code') {
+          _showLanguagePicker(position, basic);
+        } else {
+          _insertContent(plugin.insertTemplate);
+        }
       }
     });
+  }
+
+  /// Show a language picker for code block insertion.
+  void _showLanguagePicker(Offset position, MdBasicTheme basic) {
+    final controller = TextEditingController();
+    showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            final filter = controller.text.toLowerCase();
+            final filtered = _commonLanguages.where((lang) {
+              if (filter.isEmpty) return true;
+              return lang.contains(filter);
+            }).toList();
+            // If the typed text doesn't match any common language, show it as
+            // a custom option.
+            final hasExactMatch = _commonLanguages.contains(filter);
+            return AlertDialog(
+              backgroundColor: basic.surface,
+              title: Text(
+                'Select Language',
+                style: TextStyle(color: basic.text, fontSize: 16),
+              ),
+              content: SizedBox(
+                width: 280,
+                height: 360,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: controller,
+                      autofocus: true,
+                      style: TextStyle(color: basic.text),
+                      decoration: InputDecoration(
+                        hintText: 'Type or select language...',
+                        hintStyle: TextStyle(color: basic.textMuted),
+                        prefixIcon: Icon(
+                          Icons.search,
+                          color: basic.textMuted,
+                          size: 18,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(
+                            basic.borderRadius,
+                          ),
+                        ),
+                        isDense: true,
+                      ),
+                      onChanged: (_) => setDialogState(() {}),
+                      onSubmitted: (value) {
+                        Navigator.of(ctx).pop(value.trim());
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: ListView(
+                        children: [
+                          if (filter.isNotEmpty && !hasExactMatch)
+                            _buildLanguageTile(
+                              ctx,
+                              basic,
+                              filter,
+                              isCustom: true,
+                            ),
+                          for (final lang in filtered)
+                            _buildLanguageTile(ctx, basic, lang),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    ).then((language) {
+      if (language != null) {
+        final lang = language.isEmpty ? '' : language;
+        _insertContent('```$lang\n\n```');
+      }
+    });
+  }
+
+  Widget _buildLanguageTile(
+    BuildContext ctx,
+    MdBasicTheme basic,
+    String language, {
+    bool isCustom = false,
+  }) {
+    final label = language.isEmpty ? '(no language)' : language;
+    return ListTile(
+      dense: true,
+      title: Text(
+        isCustom ? '"$language" (custom)' : label,
+        style: TextStyle(
+          color: basic.text,
+          fontStyle: language.isEmpty ? FontStyle.italic : FontStyle.normal,
+        ),
+      ),
+      leading: Icon(
+        isCustom ? Icons.add : Icons.code,
+        size: 16,
+        color: basic.textSecondary,
+      ),
+      onTap: () => Navigator.of(ctx).pop(language),
+    );
   }
 
   /// Insert markdown content at the current cursor position in the raw editor.
