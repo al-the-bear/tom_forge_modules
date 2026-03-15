@@ -93,7 +93,8 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
     final key = selected != null
         ? (selected.level, selected.headline)
         : null;
-    if (key != null && key != _lastSelectedKey) {
+    final selectionChanged = key != null && key != _lastSelectedKey;
+    if (selectionChanged) {
       _lastSelectedKey = key;
       if (!_suppressScroll) {
         // Schedule scroll after the rebuild so the heading widget exists.
@@ -104,11 +105,15 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
     }
     _suppressScroll = false;
 
-    // Debounce rebuilds to avoid re-rendering the full markdown on every
-    // keystroke. 150ms is fast enough to feel responsive but prevents
-    // stacking expensive MarkdownBody builds during rapid typing.
     final markdown = widget.controller.markdown;
-    if (markdown == _lastMarkdown) return;
+    if (markdown == _lastMarkdown) {
+      // Selection changes need an immediate rebuild even when the
+      // markdown content is unchanged (e.g. clicking a heading).
+      if (selectionChanged && mounted) setState(() {});
+      return;
+    }
+    // Debounce content rebuilds to avoid re-rendering the full markdown
+    // on every keystroke.
     _rebuildTimer?.cancel();
     _rebuildTimer = Timer(const Duration(milliseconds: 150), () {
       if (mounted) setState(() {});
