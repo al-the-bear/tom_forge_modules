@@ -136,11 +136,11 @@ class MdBasicTheme {
   // ── Derived styles ──
 
   TextStyle get paragraphStyle => TextStyle(
-    fontFamily: serifFontFamily,
+    fontFamily: fontFamily,
     fontSize: baseFontSize + 1,
     height: lineHeight,
-    color: text,
-    fontWeight: boldWeight,
+    color: textSecondary,
+    fontWeight: normalWeight,
   );
 
   TextStyle headingStyle(int level) {

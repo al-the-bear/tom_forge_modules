@@ -359,11 +359,8 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
   }
 
   MarkdownStyleSheet _buildStyleSheet(MdBasicTheme basic) {
-    // paragraphStyle uses inherit:false — it bypasses TextStyle
-    // merge with the theme fallback and parent TextSpans entirely.
-    // This is the single source of truth for body text font.
-    // Inline styles (em, strong, etc.) inherit from their paragraph
-    // parent via MarkdownBuilder's inline style resolution.
+    // paragraphStyle uses the same font family as headings but with
+    // a softer grey (textSecondary) to visually distinguish body text.
     return MarkdownStyleSheet(
       p: basic.paragraphStyle,
       h1: basic.headingStyle(1),
@@ -827,9 +824,8 @@ class _HeadingBuilder extends MarkdownElementBuilder {
   Widget? visitText(md.Text text, TextStyle? preferredStyle) {
     // Return a non-null widget so flutter_markdown's _inlines list
     // has non-empty children and gets cleared after the heading block ends.
-    // Without this, the heading's parent inline (with sans-serif heading
-    // style) leaks into the next paragraph, causing it to render in the
-    // wrong font.
+    // Without this, the heading's parent inline (with heading size/weight)
+    // leaks into the next paragraph's text rendering.
     return const SizedBox.shrink();
   }
 
