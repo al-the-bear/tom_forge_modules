@@ -186,15 +186,7 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
         }
       }
 
-      // Wrap in a Theme that uses serif for the text theme so that
-      // MarkdownStyleSheet.fromTheme() creates a serif-based fallback
-      // for ALL text-bearing fields (em, strong, blockquote, etc.).
-      final serifTextTheme = Theme.of(context).textTheme.apply(
-        fontFamily: basic.serifFontFamily,
-      );
-      return Theme(
-        data: Theme.of(context).copyWith(textTheme: serifTextTheme),
-        child: Scrollbar(
+      return Scrollbar(
           controller: _scrollController,
           child: SingleChildScrollView(
             controller: _scrollController,
@@ -245,7 +237,6 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
               },
             ),
           ),
-        ),
       );
     } catch (e, st) {
       MdEditorDebug.logger.error('Error building markdown view', e, st);
@@ -368,35 +359,27 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
   }
 
   MarkdownStyleSheet _buildStyleSheet(MdBasicTheme basic) {
-    final serifBase = TextStyle(
-      fontFamily: basic.serifFontFamily,
-      color: basic.text,
-    );
+    // paragraphStyle uses inherit:false — it bypasses TextStyle
+    // merge with the theme fallback and parent TextSpans entirely.
+    // This is the single source of truth for body text font.
+    // Inline styles (em, strong, etc.) inherit from their paragraph
+    // parent via MarkdownBuilder's inline style resolution.
     return MarkdownStyleSheet(
+      p: basic.paragraphStyle,
       h1: basic.headingStyle(1),
       h2: basic.headingStyle(2),
       h3: basic.headingStyle(3),
       h4: basic.headingStyle(4),
       h5: basic.headingStyle(5),
       h6: basic.headingStyle(6),
-      p: basic.paragraphStyle,
-      em: serifBase.copyWith(fontStyle: FontStyle.italic),
-      strong: serifBase.copyWith(fontWeight: FontWeight.bold),
-      del: serifBase.copyWith(decoration: TextDecoration.lineThrough),
-      blockquote: basic.paragraphStyle,
-      img: serifBase,
-      checkbox: serifBase.copyWith(color: basic.accent),
       code: basic.inlineCodeStyle,
       codeblockDecoration: basic.codeBlockDecoration,
       blockquoteDecoration: basic.blockquoteDecoration,
+      blockquote: basic.paragraphStyle,
       a: TextStyle(
-        fontFamily: basic.serifFontFamily,
         color: basic.linkColor,
         decoration: basic.linkDecoration,
       ),
-      listBullet: serifBase,
-      tableHead: serifBase.copyWith(fontWeight: FontWeight.w600),
-      tableBody: serifBase,
       tableBorder: TableBorder.all(color: basic.tableBorder),
       blockSpacing: basic.paragraphSpacing,
       horizontalRuleDecoration: BoxDecoration(

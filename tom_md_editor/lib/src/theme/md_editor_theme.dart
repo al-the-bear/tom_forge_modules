@@ -136,6 +136,7 @@ class MdBasicTheme {
   // ── Derived styles ──
 
   TextStyle get paragraphStyle => TextStyle(
+    inherit: false,
     fontFamily: serifFontFamily,
     fontSize: baseFontSize + 1,
     height: lineHeight,
