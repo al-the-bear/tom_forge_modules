@@ -60,6 +60,23 @@ class MdEditorController extends ChangeNotifier {
       List.unmodifiable(_validationErrors);
   final List<ValidationError> _validationErrors = [];
 
+  /// Cursor offset in the raw markdown source.
+  ///
+  /// Set by the raw editor when the cursor moves, or by the preview panel
+  /// when the user clicks a section/heading. Both panels observe this to
+  /// stay in sync.
+  int get cursorOffset => _cursorOffset;
+  int _cursorOffset = 0;
+
+  /// Update the cursor offset and notify listeners.
+  ///
+  /// Set [notify] to `false` when the caller is about to notify anyway
+  /// (e.g., during a batch update).
+  void setCursorOffset(int offset, {bool notify = true}) {
+    _cursorOffset = offset.clamp(0, _markdown.length);
+    if (notify) notifyListeners();
+  }
+
   /// Schema ID detected from document.
   String? get schemaId => _document.schemaId;
 

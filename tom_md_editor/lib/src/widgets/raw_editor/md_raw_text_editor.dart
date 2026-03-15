@@ -6,6 +6,7 @@ import '../../constants/md_constants.dart';
 import '../../controller/md_editor_controller.dart';
 import '../../debug/md_editor_debug.dart';
 import '../../models/md_section.dart';
+import '../../plugins/md_content_plugin.dart';
 import '../../settings/md_editor_settings.dart';
 import '../../theme/md_editor_theme.dart';
 import 'md_syntax_highlight_controller.dart';
@@ -23,6 +24,7 @@ class MdRawTextEditor extends StatefulWidget {
     this.rawPosition = RawEditorPosition.below,
     this.onTogglePosition,
     this.onShowFullDocument,
+    this.pluginRegistry,
   });
 
   final MdEditorController controller;
@@ -31,6 +33,9 @@ class MdRawTextEditor extends StatefulWidget {
   final RawEditorPosition rawPosition;
   final VoidCallback? onTogglePosition;
   final VoidCallback? onShowFullDocument;
+
+  /// Plugin registry for the insert context menu. If null, no context menu.
+  final MdPluginRegistry? pluginRegistry;
 
   @override
   State<MdRawTextEditor> createState() => _MdRawTextEditorState();
@@ -43,6 +48,7 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
   Timer? _debounce;
   bool _isUpdating = false;
   bool _headlineWarningDismissed = false;
+  bool _isSyncingCursor = false;
 
   @override
   void initState() {
@@ -61,6 +67,7 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
       fontSize: basic.baseFontSize,
       lineHeight: basic.lineHeight,
     );
+    _textController.addListener(_onCursorChanged);
     widget.controller.addListener(_onControllerChanged);
   }
 
@@ -77,6 +84,7 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
   @override
   void dispose() {
     widget.controller.removeListener(_onControllerChanged);
+    _textController.removeListener(_onCursorChanged);
     _textController.dispose();
     _focusNode.dispose();
     _scrollController.dispose();
@@ -84,10 +92,87 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
     super.dispose();
   }
 
+  /// Called when the text controller's cursor position changes.
+  void _onCursorChanged() {
+    if (_isSyncingCursor || _isUpdating) return;
+    final selection = _textController.selection;
+    if (!selection.isValid) return;
+
+    // Convert the local cursor offset to a global markdown offset.
+    final selected = widget.controller.selectedSection;
+    int globalOffset;
+    if (selected != null) {
+      // The raw editor is showing a single section's text.
+      // Find that section's position in the full markdown.
+      final sectionStart = _findSectionTextStart(selected);
+      globalOffset = sectionStart + selection.baseOffset;
+    } else {
+      globalOffset = selection.baseOffset;
+    }
+    widget.controller.setCursorOffset(globalOffset, notify: false);
+  }
+
+  /// Find the character offset where [section]'s text starts in the full
+  /// markdown.
+  int _findSectionTextStart(MdSection section) {
+    final markdown = widget.controller.markdown;
+    final headingPrefix = '${'#' * section.level} ${section.headline}';
+    final headingIdx = markdown.indexOf(headingPrefix);
+    if (headingIdx < 0) return 0;
+    // The text begins after the heading line.
+    final afterHeading = markdown.indexOf('\n', headingIdx);
+    return afterHeading >= 0 ? afterHeading + 1 : headingIdx;
+  }
+
   void _onControllerChanged() {
     if (!_isUpdating) {
       _syncText();
+      _syncCursorFromController();
     }
+  }
+
+  /// Sync the raw editor cursor to match the controller's cursorOffset.
+  void _syncCursorFromController() {
+    // Only sync if this widget doesn't have focus (to avoid fighting
+    // with the user's cursor).
+    if (_focusNode.hasFocus) return;
+
+    final globalOffset = widget.controller.cursorOffset;
+    final selected = widget.controller.selectedSection;
+    int localOffset;
+    if (selected != null) {
+      final sectionStart = _findSectionTextStart(selected);
+      localOffset = globalOffset - sectionStart;
+    } else {
+      localOffset = globalOffset;
+    }
+    final text = _textController.text;
+    localOffset = localOffset.clamp(0, text.length);
+
+    if (_textController.selection.baseOffset != localOffset ||
+        _textController.selection.extentOffset != localOffset) {
+      _isSyncingCursor = true;
+      _textController.selection = TextSelection.collapsed(offset: localOffset);
+      _isSyncingCursor = false;
+      // Scroll to make cursor visible.
+      _scrollToCursorOffset(localOffset);
+    }
+  }
+
+  /// Scroll the raw editor to make the given local offset visible.
+  void _scrollToCursorOffset(int localOffset) {
+    if (!_scrollController.hasClients) return;
+    final text = _textController.text;
+    if (text.isEmpty) return;
+    // Estimate position as fraction of text.
+    final fraction = localOffset / text.length;
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    final target = (fraction * maxScroll).clamp(0.0, maxScroll);
+    _scrollController.animateTo(
+      target,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
+    );
   }
 
   void _syncText() {
@@ -264,39 +349,45 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
 
   Widget _buildEditor(MdBasicTheme basic) {
     try {
-      return Scrollbar(
-        controller: _scrollController,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Line numbers
-            if (widget.settings.showLineNumbers)
-              _buildLineNumbers(basic),
-            // Text field with syntax highlighting
-            Expanded(
-              child: SingleChildScrollView(
-                controller: _scrollController,
-                child: TextField(
-                  controller: _textController,
-                  focusNode: _focusNode,
-                  readOnly: widget.settings.readOnly,
-                  maxLines: null,
-                  minLines: 10,
-                  onChanged: _onTextChanged,
-                  decoration: InputDecoration(
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.all(basic.blockPadding),
-                  ),
-                  style: TextStyle(
-                    fontFamily: basic.monoFontFamily,
-                    fontSize: basic.baseFontSize,
-                    color: basic.text,
-                    height: basic.lineHeight,
+      return GestureDetector(
+        onSecondaryTapUp: !widget.settings.readOnly &&
+                widget.pluginRegistry != null
+            ? (details) => _showInsertMenu(details.globalPosition)
+            : null,
+        child: Scrollbar(
+          controller: _scrollController,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Line numbers
+              if (widget.settings.showLineNumbers)
+                _buildLineNumbers(basic),
+              // Text field with syntax highlighting
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: _scrollController,
+                  child: TextField(
+                    controller: _textController,
+                    focusNode: _focusNode,
+                    readOnly: widget.settings.readOnly,
+                    maxLines: null,
+                    minLines: 10,
+                    onChanged: _onTextChanged,
+                    decoration: InputDecoration(
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.all(basic.blockPadding),
+                    ),
+                    style: TextStyle(
+                      fontFamily: basic.monoFontFamily,
+                      fontSize: basic.baseFontSize,
+                      color: basic.text,
+                      height: basic.lineHeight,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       );
     } catch (e, st) {
@@ -305,6 +396,68 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
         child: Text('Editor error', style: TextStyle(color: basic.error)),
       );
     }
+  }
+
+  /// Show a context menu for inserting content blocks at cursor position.
+  void _showInsertMenu(Offset position) {
+    final registry = widget.pluginRegistry;
+    if (registry == null) return;
+    final insertable = registry.insertable;
+    if (insertable.isEmpty) return;
+
+    final basic = widget.theme.basic;
+    showMenu<MdContentPlugin>(
+      context: context,
+      color: basic.surface,
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy,
+        position.dx,
+        position.dy,
+      ),
+      items: insertable.map((plugin) {
+        return PopupMenuItem<MdContentPlugin>(
+          value: plugin,
+          child: Row(
+            children: [
+              Icon(plugin.icon, size: 18, color: basic.textSecondary),
+              const SizedBox(width: 8),
+              Text(
+                'Insert ${plugin.displayName}',
+                style: TextStyle(color: basic.text),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    ).then((plugin) {
+      if (plugin != null) {
+        _insertContent(plugin.insertTemplate);
+      }
+    });
+  }
+
+  /// Insert markdown content at the current cursor position in the raw editor.
+  void _insertContent(String template) {
+    final text = _textController.text;
+    final selection = _textController.selection;
+    final offset = selection.isValid ? selection.baseOffset : text.length;
+
+    // Build the inserted text with surrounding newlines.
+    final before = text.substring(0, offset);
+    final after = text.substring(offset);
+    final separator = before.isEmpty || before.endsWith('\n') ? '' : '\n';
+    final trailing = after.isEmpty || after.startsWith('\n') ? '' : '\n';
+    final newText = '$before$separator$template$trailing$after';
+
+    _isUpdating = true;
+    _textController.text = newText;
+    // Place cursor at end of inserted template.
+    final newOffset = before.length + separator.length + template.length;
+    _textController.selection = TextSelection.collapsed(offset: newOffset);
+    _isUpdating = false;
+
+    _applyChanges(newText);
   }
 
   /// Warning banner shown when section text contains headline markers.

@@ -414,6 +414,7 @@ class _MdEditorState extends State<MdEditor> {
       theme: _theme,
       settings: _settings,
       rawPosition: _rawPosition,
+      pluginRegistry: _pluginRegistry,
       onTogglePosition: _settings.allowEditorPositionChange
           ? () {
               setState(() {

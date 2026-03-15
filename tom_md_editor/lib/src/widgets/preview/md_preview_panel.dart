@@ -82,24 +82,19 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
       _lastSelectedSection = selected;
       // Schedule scroll after the rebuild.
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _scrollToSection(selected);
+        _scrollToOffset(widget.controller.cursorOffset);
       });
     }
     setState(() {});
   }
 
-  void _scrollToSection(MdSection section) {
+  /// Scroll the preview to the approximate position for a source offset.
+  void _scrollToOffset(int offset) {
     try {
       if (!_scrollController.hasClients) return;
       final markdown = widget.controller.markdown;
       if (markdown.isEmpty) return;
 
-      // Find the heading line in the source markdown.
-      final headingPrefix = '${'#' * section.level} ${section.headline}';
-      final offset = markdown.indexOf(headingPrefix);
-      if (offset < 0) return;
-
-      // Estimate scroll position as a fraction of the document.
       final fraction = offset / markdown.length;
       final maxScroll = _scrollController.position.maxScrollExtent;
       final target = (fraction * maxScroll).clamp(0.0, maxScroll);
@@ -110,7 +105,7 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
         curve: Curves.easeInOut,
       );
     } catch (e, st) {
-      MdEditorDebug.logger.error('Error scrolling to section', e, st);
+      MdEditorDebug.logger.error('Error scrolling to offset', e, st);
     }
   }
 
@@ -253,11 +248,34 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
       editableContent,
       widget.theme,
     );
-    if (newContent != null && newContent != editableContent) {
+    if (newContent != null && newContent.trim() != editableContent.trim()) {
       final source = widget.controller.markdown;
       final newMarkdown = plugin.wrapForMarkdown(newContent);
-      widget.controller.markdown =
-          source.replaceFirst(rawOriginal, newMarkdown);
+
+      // Try exact replacement first, then fall back to pattern-based.
+      final idx = source.indexOf(rawOriginal);
+      if (idx >= 0) {
+        widget.controller.markdown =
+            source.replaceFirst(rawOriginal, newMarkdown);
+      } else {
+        // For fenced blocks, the constructed rawOriginal may have whitespace
+        // differences vs the actual source. Use regex to find the block.
+        final escaped = RegExp.escape(editableContent.trim());
+        final lang = plugin.languages.isNotEmpty ? plugin.languages.first : '';
+        if (lang.isNotEmpty) {
+          final pattern = RegExp(
+            '```$lang\\s*\\n\\s*$escaped\\s*\\n\\s*```',
+            dotAll: true,
+          );
+          final match = pattern.firstMatch(source);
+          if (match != null) {
+            widget.controller.markdown = source.replaceFirst(
+              match.group(0)!,
+              newMarkdown,
+            );
+          }
+        }
+      }
     }
   }
 
@@ -448,6 +466,14 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
         final section = match.first;
         widget.controller.selectSection(section);
         widget.onSectionTap?.call(section);
+
+        // Set cursor offset to the heading's position in the source markdown.
+        final markdown = widget.controller.markdown;
+        final headingPrefix = '${'#' * level} ${text.trim()}';
+        final offset = markdown.indexOf(headingPrefix);
+        if (offset >= 0) {
+          widget.controller.setCursorOffset(offset);
+        }
       }
     } catch (e, st) {
       MdEditorDebug.logger.error('Error handling heading tap', e, st);
