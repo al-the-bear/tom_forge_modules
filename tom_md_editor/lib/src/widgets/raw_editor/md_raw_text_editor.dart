@@ -393,7 +393,8 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
   }
 
   /// Build the context menu for the text field, appending insert actions
-  /// from registered plugins to the default edit actions.
+  /// from registered plugins and section operations to the default edit
+  /// actions.
   Widget _contextMenuBuilder(
     BuildContext context,
     EditableTextState editableTextState,
@@ -401,33 +402,187 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
     final registry = widget.pluginRegistry;
     final defaultItems = editableTextState.contextMenuButtonItems;
 
-    if (widget.settings.readOnly || registry == null) {
+    if (widget.settings.readOnly) {
       return AdaptiveTextSelectionToolbar.buttonItems(
         anchors: editableTextState.contextMenuAnchors,
         buttonItems: defaultItems,
       );
     }
 
-    final insertable = registry.insertable;
     final basic = widget.theme.basic;
-    final insertItems = insertable.map((plugin) {
-      return ContextMenuButtonItem(
-        label: 'Insert ${plugin.displayName}',
-        onPressed: () {
-          ContextMenuController.removeAny();
-          if (plugin.id == 'code') {
-            _showLanguagePicker(Offset.zero, basic);
-          } else {
-            _insertContent(plugin.insertTemplate);
-          }
-        },
-      );
-    }).toList();
+    final extraItems = <ContextMenuButtonItem>[];
+
+    // Plugin insert items.
+    if (registry != null) {
+      for (final plugin in registry.insertable) {
+        extraItems.add(ContextMenuButtonItem(
+          label: 'Insert ${plugin.displayName}',
+          onPressed: () {
+            ContextMenuController.removeAny();
+            if (plugin.id == 'code') {
+              _showLanguagePicker(Offset.zero, basic);
+            } else {
+              _insertContent(plugin.insertTemplate);
+            }
+          },
+        ));
+      }
+    }
+
+    // Section insertion items.
+    final selected = widget.controller.selectedSection;
+    if (selected != null) {
+      extraItems.addAll([
+        ContextMenuButtonItem(
+          label: 'Insert Section Here',
+          onPressed: () {
+            ContextMenuController.removeAny();
+            _showSectionInsertDialog(
+              mode: _SectionInsertMode.sameHere,
+              section: selected,
+            );
+          },
+        ),
+        ContextMenuButtonItem(
+          label: 'Insert Section Below',
+          onPressed: () {
+            ContextMenuController.removeAny();
+            _showSectionInsertDialog(
+              mode: _SectionInsertMode.sameBelow,
+              section: selected,
+            );
+          },
+        ),
+        ContextMenuButtonItem(
+          label: 'Insert Subsection Here',
+          onPressed: () {
+            ContextMenuController.removeAny();
+            _showSectionInsertDialog(
+              mode: _SectionInsertMode.subHere,
+              section: selected,
+            );
+          },
+        ),
+        ContextMenuButtonItem(
+          label: 'Insert Subsection Below',
+          onPressed: () {
+            ContextMenuController.removeAny();
+            _showSectionInsertDialog(
+              mode: _SectionInsertMode.subBelow,
+              section: selected,
+            );
+          },
+        ),
+      ]);
+    }
 
     return AdaptiveTextSelectionToolbar.buttonItems(
       anchors: editableTextState.contextMenuAnchors,
-      buttonItems: [...defaultItems, ...insertItems],
+      buttonItems: [...defaultItems, ...extraItems],
     );
+  }
+
+  /// Show a dialog to create a new section, then insert it based on [mode].
+  Future<void> _showSectionInsertDialog({
+    required _SectionInsertMode mode,
+    required MdSection section,
+  }) async {
+    final headlineController = TextEditingController();
+    final idController = TextEditingController();
+    final isSubsection =
+        mode == _SectionInsertMode.subHere ||
+        mode == _SectionInsertMode.subBelow;
+    final label = isSubsection ? 'Subsection' : 'Section';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('New $label'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: headlineController,
+              autofocus: true,
+              decoration: const InputDecoration(labelText: 'Headline'),
+              onSubmitted: (_) => Navigator.pop(ctx, true),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: idController,
+              decoration: const InputDecoration(
+                labelText: 'ID (optional)',
+                hintText: 'e.g. my-section-id',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Create'),
+          ),
+        ],
+      ),
+    );
+
+    final headline = headlineController.text.trim();
+    final id = idController.text.trim();
+    headlineController.dispose();
+    idController.dispose();
+    if (confirmed != true || headline.isEmpty) return;
+
+    final effectiveId = id.isEmpty ? null : id;
+    final level =
+        isSubsection ? (section.level + 1).clamp(1, 6) : section.level;
+
+    switch (mode) {
+      case _SectionInsertMode.sameHere:
+      case _SectionInsertMode.subHere:
+        // Split the current section at cursor position and insert the new
+        // section between the two halves.
+        final cursorPos = _textController.selection.isValid
+            ? _textController.selection.baseOffset
+            : _textController.text.length;
+        final text = _textController.text;
+        final before = text.substring(0, cursorPos).trimRight();
+        final after = text.substring(cursorPos).trimLeft();
+
+        // Update the current section's text to only contain the "before" part.
+        widget.controller.updateSectionText(section, before);
+        // Insert new section after current section with the "after" text as
+        // body of the new section.
+        await widget.controller.addSectionAfter(
+          afterSection: section,
+          level: level,
+          headline: headline,
+          id: effectiveId,
+          text: after,
+        );
+
+      case _SectionInsertMode.sameBelow:
+      case _SectionInsertMode.subBelow:
+        if (isSubsection) {
+          await widget.controller.insertSection(
+            parent: section,
+            index: section.subsections.length,
+            level: level,
+            headline: headline,
+            id: effectiveId,
+          );
+        } else {
+          await widget.controller.addSectionAfter(
+            afterSection: section,
+            level: level,
+            headline: headline,
+            id: effectiveId,
+          );
+        }
+    }
   }
 
   /// Common languages offered in the code block language picker.
@@ -753,3 +908,5 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
     );
   }
 }
+
+enum _SectionInsertMode { sameHere, sameBelow, subHere, subBelow }

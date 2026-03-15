@@ -168,8 +168,10 @@ class _MdTreeViewState extends State<MdTreeView> {
     bool isSelected = false,
   }) {
     final section = node.data;
+    final number = widget.controller.computeSectionNumber(section);
+    final idLabel = section.id != null ? ' [${section.id}]' : '';
 
-    return GestureDetector(
+    final content = GestureDetector(
       onTap: () {
         widget.controller.selectSection(section);
         widget.onSectionSelected?.call(section);
@@ -180,39 +182,151 @@ class _MdTreeViewState extends State<MdTreeView> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color:
-              isSelected
-                  ? basic.selection
-                  : Colors.transparent,
+          color: isSelected ? basic.selection : Colors.transparent,
         ),
         child: Row(
           children: [
+            // Drag handle
+            if (!widget.settings.readOnly)
+              MouseRegion(
+                cursor: SystemMouseCursors.grab,
+                child: Icon(
+                  Icons.drag_indicator,
+                  size: 14,
+                  color: basic.textMuted,
+                ),
+              ),
+            if (!widget.settings.readOnly) const SizedBox(width: 2),
             // Level indicator
             Icon(
               _iconForLevel(section.level),
               size: 14,
               color: isSelected ? basic.accent : basic.textMuted,
             ),
-            const SizedBox(width: 6),
-            // Headline text
+            const SizedBox(width: 4),
+            // Numbering
+            Text(
+              number,
+              style: TextStyle(
+                color: basic.textMuted,
+                fontSize: 11,
+                fontFamily: basic.monoFontFamily,
+              ),
+            ),
+            const SizedBox(width: 4),
+            // Headline text + ID
             Expanded(
-              child: Text(
-                section.headline,
-                style: TextStyle(
-                  color: isSelected ? basic.accent : basic.text,
-                  fontSize: 13,
-                  fontWeight:
-                      section.level <= 2
-                          ? FontWeight.w600
-                          : FontWeight.normal,
+              child: Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: section.headline,
+                      style: TextStyle(
+                        color: isSelected ? basic.accent : basic.text,
+                        fontSize: 13,
+                        fontWeight: section.level <= 2
+                            ? FontWeight.w600
+                            : FontWeight.normal,
+                      ),
+                    ),
+                    if (idLabel.isNotEmpty)
+                      TextSpan(
+                        text: idLabel,
+                        style: TextStyle(
+                          color: basic.textMuted,
+                          fontSize: 11,
+                          fontFamily: basic.monoFontFamily,
+                        ),
+                      ),
+                  ],
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
+            // Edit button
+            if (!widget.settings.readOnly)
+              InkWell(
+                onTap: () => _showEditDialog(section),
+                child: Tooltip(
+                  message: 'Edit headline & ID',
+                  child: Icon(
+                    Icons.edit_outlined,
+                    size: 14,
+                    color: basic.textMuted,
+                  ),
+                ),
+              ),
           ],
         ),
       ),
+    );
+
+    if (widget.settings.readOnly) return content;
+
+    // Wrap in Draggable + DragTarget for reordering.
+    return DragTarget<MdSection>(
+      onWillAcceptWithDetails: (details) {
+        if (identical(details.data, section)) return false;
+        return true;
+      },
+      onAcceptWithDetails: (details) {
+        final dropped = details.data;
+        // Move the dropped section after the target section at the same level.
+        final parent = _findParentSection(section);
+        final siblings =
+            parent?.subsections ?? widget.controller.document.sections;
+        final idx = siblings.indexOf(section);
+        widget.controller.moveSection(
+          dropped,
+          newParent: parent,
+          newIndex: idx + 1,
+        );
+      },
+      builder: (context, candidateData, rejectedData) {
+        final isDropTarget = candidateData.isNotEmpty;
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isDropTarget)
+              Container(
+                height: 2,
+                color: basic.accent,
+                margin: const EdgeInsets.symmetric(horizontal: 8),
+              ),
+            Draggable<MdSection>(
+              data: section,
+              feedback: Material(
+                elevation: 4,
+                borderRadius: BorderRadius.circular(4),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: basic.surface,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: basic.accent),
+                  ),
+                  child: Text(
+                    '$number ${section.headline}',
+                    style: TextStyle(
+                      color: basic.text,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ),
+              childWhenDragging: Opacity(
+                opacity: 0.3,
+                child: content,
+              ),
+              child: content,
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -232,6 +346,14 @@ class _MdTreeViewState extends State<MdTreeView> {
   ) {
     try {
       if (widget.settings.readOnly) return;
+
+      // Check if merging is possible (needs a next sibling at the same level).
+      final parent = _findParentSection(section);
+      final siblings =
+          parent?.subsections ?? widget.controller.document.sections;
+      final idx = siblings.indexOf(section);
+      final canMerge = idx >= 0 && idx + 1 < siblings.length;
+
       showMenu<String>(
         context: context,
         position: RelativeRect.fromLTRB(
@@ -257,11 +379,27 @@ class _MdTreeViewState extends State<MdTreeView> {
           const PopupMenuItem(value: 'move_up', child: Text('Move Up')),
           const PopupMenuItem(value: 'move_down', child: Text('Move Down')),
           if (section.level > 1)
-            const PopupMenuItem(value: 'promote', child: Text('Promote')),
+            const PopupMenuItem(
+              value: 'promote',
+              child: Text('Promote Headline'),
+            ),
           if (section.level < 6)
-            const PopupMenuItem(value: 'demote', child: Text('Demote')),
+            const PopupMenuItem(
+              value: 'demote',
+              child: Text('Demote Headline'),
+            ),
+          if (canMerge) ...[
+            const PopupMenuDivider(),
+            const PopupMenuItem(
+              value: 'merge_next',
+              child: Text('Merge with Section Below'),
+            ),
+          ],
           const PopupMenuDivider(),
-          const PopupMenuItem(value: 'rename', child: Text('Rename')),
+          const PopupMenuItem(
+            value: 'edit',
+            child: Text('Edit Headline & ID'),
+          ),
           const PopupMenuItem(
             value: 'delete',
             child: Text('Delete Section'),
@@ -280,38 +418,49 @@ class _MdTreeViewState extends State<MdTreeView> {
     try {
       switch (action) {
         case 'add_above':
+          final result = await _showNewSectionDialog();
+          if (result == null) return;
           final parent = widget.controller.document.sections.contains(section)
               ? null
               : _findParentSection(section);
-          final siblings = parent?.subsections ?? widget.controller.document.sections;
+          final siblings =
+              parent?.subsections ?? widget.controller.document.sections;
           final idx = siblings.indexOf(section);
           await widget.controller.insertSection(
             parent: parent,
             index: idx >= 0 ? idx : 0,
             level: section.level,
-            headline: 'New Section',
+            headline: result.headline,
+            id: result.id,
           );
         case 'add_below':
+          final result = await _showNewSectionDialog();
+          if (result == null) return;
           final parent = widget.controller.document.sections.contains(section)
               ? null
               : _findParentSection(section);
-          final siblings = parent?.subsections ?? widget.controller.document.sections;
+          final siblings =
+              parent?.subsections ?? widget.controller.document.sections;
           final idx = siblings.indexOf(section);
           await widget.controller.insertSection(
             parent: parent,
             index: idx >= 0 ? idx + 1 : siblings.length,
             level: section.level,
-            headline: 'New Section',
+            headline: result.headline,
+            id: result.id,
           );
         case 'add_child':
+          final result = await _showNewSectionDialog(isSubsection: true);
+          if (result == null) return;
           await widget.controller.insertSection(
             parent: section,
             index: section.subsections.length,
             level: section.level + 1,
-            headline: 'New Subsection',
+            headline: result.headline,
+            id: result.id,
           );
-        case 'rename':
-          _showRenameDialog(section);
+        case 'edit':
+          _showEditDialog(section);
         case 'delete':
           await widget.controller.deleteSection(section);
         case 'promote':
@@ -322,9 +471,15 @@ class _MdTreeViewState extends State<MdTreeView> {
           await widget.controller.moveSectionUp(section);
         case 'move_down':
           await widget.controller.moveSectionDown(section);
+        case 'merge_next':
+          await widget.controller.mergeSectionWithNext(section);
       }
     } catch (e, st) {
-      MdEditorDebug.logger.error('Error handling context action: $action', e, st);
+      MdEditorDebug.logger.error(
+        'Error handling context action: $action',
+        e,
+        st,
+      );
     }
   }
 
@@ -340,35 +495,109 @@ class _MdTreeViewState extends State<MdTreeView> {
     return find(widget.controller.document.sections, null);
   }
 
-  void _showRenameDialog(MdSection section) {
-    final textController = TextEditingController(text: section.headline);
-    showDialog<String>(
+  /// Show a dialog to create a new section with headline and ID.
+  Future<({String headline, String? id})?> _showNewSectionDialog({
+    bool isSubsection = false,
+  }) async {
+    final headlineController = TextEditingController();
+    final idController = TextEditingController();
+    final label = isSubsection ? 'Subsection' : 'Section';
+    final result = await showDialog<bool>(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: const Text('Rename Section'),
-            content: TextField(
-              controller: textController,
+      builder: (ctx) => AlertDialog(
+        title: Text('New $label'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: headlineController,
               autofocus: true,
+              decoration: const InputDecoration(labelText: 'Headline'),
+              onSubmitted: (_) => Navigator.pop(ctx, true),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: idController,
               decoration: const InputDecoration(
-                labelText: 'Headline',
+                labelText: 'ID (optional)',
+                hintText: 'e.g. my-section-id',
               ),
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, textController.text),
-                child: const Text('Rename'),
-              ),
-            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
           ),
-    ).then((newName) {
-      textController.dispose();
-      if (newName != null && newName.isNotEmpty) {
-        widget.controller.updateSectionHeadline(section, newName);
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Create'),
+          ),
+        ],
+      ),
+    );
+    final headline = headlineController.text.trim();
+    final id = idController.text.trim();
+    headlineController.dispose();
+    idController.dispose();
+    if (result != true || headline.isEmpty) return null;
+    return (headline: headline, id: id.isEmpty ? null : id);
+  }
+
+  /// Show a dialog to edit the headline and ID of a section.
+  void _showEditDialog(MdSection section) {
+    final headlineController = TextEditingController(text: section.headline);
+    final idController = TextEditingController(text: section.id ?? '');
+    showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Edit Headline & ID'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: headlineController,
+              autofocus: true,
+              decoration: const InputDecoration(labelText: 'Headline'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: idController,
+              decoration: const InputDecoration(
+                labelText: 'ID (optional)',
+                hintText: 'e.g. my-section-id',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    ).then((confirmed) {
+      if (confirmed != true) {
+        headlineController.dispose();
+        idController.dispose();
+        return;
+      }
+      final newHeadline = headlineController.text.trim();
+      final newId = idController.text.trim();
+      headlineController.dispose();
+      idController.dispose();
+      if (newHeadline.isNotEmpty && newHeadline != section.headline) {
+        widget.controller.updateSectionHeadline(section, newHeadline);
+      }
+      final effectiveId = newId.isEmpty ? null : newId;
+      if (effectiveId != section.id) {
+        widget.controller.updateSectionId(section, effectiveId);
       }
     });
   }

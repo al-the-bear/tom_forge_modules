@@ -272,6 +272,7 @@ class MdEditorController extends ChangeNotifier {
     int index = 0,
     required int level,
     required String headline,
+    String? id,
     String? text,
   }) async {
     try {
@@ -293,6 +294,7 @@ class MdEditorController extends ChangeNotifier {
       final section = MdSection(
         headline: event.headline,
         level: event.level,
+        id: id,
         text: event.text ?? '',
       );
 
@@ -388,6 +390,7 @@ class MdEditorController extends ChangeNotifier {
     required MdSection afterSection,
     required int level,
     required String headline,
+    String? id,
     String? text,
   }) async {
     final parent = _findParent(afterSection);
@@ -398,8 +401,86 @@ class MdEditorController extends ChangeNotifier {
       index: idx >= 0 ? idx + 1 : siblings.length,
       level: level,
       headline: headline,
+      id: id,
       text: text,
     );
+  }
+
+  /// Update the ID of a section.
+  Future<void> updateSectionId(MdSection section, String? newId) async {
+    try {
+      MdEditorDebug.logger.info(
+        'Updating section ID: "${section.id}" → "$newId"',
+      );
+      final oldMd = _markdown;
+      section.id = newId;
+      _rebuildMarkdown();
+      _pushUndoWithStates(oldMd, _markdown, 'Set ID: ${section.headline}');
+      notifyListeners();
+    } catch (e, st) {
+      MdEditorDebug.logger.error('Error updating section ID', e, st);
+    }
+  }
+
+  /// Merge [section] with the next sibling at the same level.
+  ///
+  /// The merged section keeps the headline and ID of the first section.
+  /// The body text of the second section (and its subsections' markdown) is
+  /// appended to the first section's text.
+  Future<void> mergeSectionWithNext(MdSection section) async {
+    try {
+      final parent = _findParent(section);
+      final siblings = parent?.subsections ?? _document.sections;
+      final idx = _indexIn(section, siblings);
+      if (idx < 0 || idx + 1 >= siblings.length) return;
+
+      final next = siblings[idx + 1];
+      MdEditorDebug.logger.info(
+        'Merging "${section.headline}" with "${next.headline}"',
+      );
+      final oldMd = _markdown;
+
+      // Append the next section's full markdown (text + subsections) to
+      // this section's text.
+      final appendix = next.toMarkdown();
+      final currentText = section.text;
+      final separator = currentText.endsWith('\n') ? '\n' : '\n\n';
+      section.text = '$currentText$separator$appendix';
+
+      // Absorb the next section's direct subsections.
+      section.subsections.addAll(next.subsections);
+      siblings.removeAt(idx + 1);
+
+      _rebuildMarkdown();
+      _pushUndoWithStates(
+        oldMd,
+        _markdown,
+        'Merge: ${section.headline} + ${next.headline}',
+      );
+      notifyListeners();
+    } catch (e, st) {
+      MdEditorDebug.logger.error('Error merging sections', e, st);
+    }
+  }
+
+  /// Compute the hierarchical numbering for a section (e.g. "1.2.3").
+  String computeSectionNumber(MdSection target) {
+    final path = <int>[];
+    bool findPath(List<MdSection> siblings, MdSection t) {
+      for (var i = 0; i < siblings.length; i++) {
+        if (identical(siblings[i], t)) {
+          path.add(i + 1);
+          return true;
+        }
+        if (findPath(siblings[i].subsections, t)) {
+          path.insert(0, i + 1);
+          return true;
+        }
+      }
+      return false;
+    }
+    findPath(_document.sections, target);
+    return path.join('.');
   }
 
   /// Promote a section by decreasing its heading level (e.g. `###` → `##`).

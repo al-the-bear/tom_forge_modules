@@ -217,7 +217,10 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
                   'h$level': _HeadingBuilder(
                     level: level,
                     theme: basic,
+                    controller: widget.controller,
+                    readOnly: widget.settings.readOnly,
                     onTap: _onHeadingTapped,
+                    onEdit: _onHeadingEdit,
                   ),
               },
             ),
@@ -428,6 +431,73 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
       }
     } catch (e, st) {
       MdEditorDebug.logger.error('Error handling heading tap', e, st);
+    }
+  }
+
+  /// Handle heading edit icon tap.
+  void _onHeadingEdit(int level, String text) {
+    try {
+      final sections = widget.controller.document.allSections;
+      final match = sections.where(
+        (s) => s.level == level && s.headline.trim() == text.trim(),
+      );
+      if (match.isEmpty) return;
+      final section = match.first;
+      final headlineController = TextEditingController(text: section.headline);
+      final idController = TextEditingController(text: section.id ?? '');
+      showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Edit Headline & ID'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: headlineController,
+                autofocus: true,
+                decoration: const InputDecoration(labelText: 'Headline'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: idController,
+                decoration: const InputDecoration(
+                  labelText: 'ID (optional)',
+                  hintText: 'e.g. my-section-id',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ).then((confirmed) {
+        if (confirmed != true) {
+          headlineController.dispose();
+          idController.dispose();
+          return;
+        }
+        final newHeadline = headlineController.text.trim();
+        final newId = idController.text.trim();
+        headlineController.dispose();
+        idController.dispose();
+        if (newHeadline.isNotEmpty && newHeadline != section.headline) {
+          widget.controller.updateSectionHeadline(section, newHeadline);
+        }
+        final effectiveId = newId.isEmpty ? null : newId;
+        if (effectiveId != section.id) {
+          widget.controller.updateSectionId(section, effectiveId);
+        }
+      });
+    } catch (e, st) {
+      MdEditorDebug.logger.error('Error handling heading edit', e, st);
     }
   }
 
@@ -730,12 +800,18 @@ class _HeadingBuilder extends MarkdownElementBuilder {
   _HeadingBuilder({
     required this.level,
     required this.theme,
+    required this.controller,
+    required this.readOnly,
     required this.onTap,
+    required this.onEdit,
   });
 
   final int level;
   final MdBasicTheme theme;
+  final MdEditorController controller;
+  final bool readOnly;
   final void Function(int level, String text) onTap;
+  final void Function(int level, String text) onEdit;
 
   @override
   Widget? visitElementAfterWithContext(
@@ -745,12 +821,74 @@ class _HeadingBuilder extends MarkdownElementBuilder {
     TextStyle? parentStyle,
   ) {
     final text = element.textContent.trim();
+    // Find the matching section to display numbering and ID.
+    final sections = controller.document.allSections;
+    final match = sections.where(
+      (s) => s.level == level && s.headline.trim() == text,
+    );
+    final section = match.isNotEmpty ? match.first : null;
+    final number =
+        section != null ? controller.computeSectionNumber(section) : '';
+    final idLabel = section?.id != null ? ' [${section!.id}]' : '';
+
     return SelectionContainer.disabled(
       child: GestureDetector(
         onTap: () => onTap(level, text),
         child: MouseRegion(
           cursor: SystemMouseCursors.click,
-          child: Text(text, style: preferredStyle ?? theme.headingStyle(level)),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              if (number.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: Text(
+                    number,
+                    style: TextStyle(
+                      color: theme.textMuted,
+                      fontSize: (preferredStyle?.fontSize ?? 16) * 0.75,
+                      fontFamily: theme.monoFontFamily,
+                    ),
+                  ),
+                ),
+              Expanded(
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: text,
+                        style: preferredStyle ?? theme.headingStyle(level),
+                      ),
+                      if (idLabel.isNotEmpty)
+                        TextSpan(
+                          text: idLabel,
+                          style: TextStyle(
+                            color: theme.textMuted,
+                            fontSize:
+                                (preferredStyle?.fontSize ?? 16) * 0.65,
+                            fontFamily: theme.monoFontFamily,
+                            fontWeight: FontWeight.normal,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              if (!readOnly)
+                Padding(
+                  padding: const EdgeInsets.only(left: 4),
+                  child: InkWell(
+                    onTap: () => onEdit(level, text),
+                    child: Icon(
+                      Icons.edit_outlined,
+                      size: 16,
+                      color: theme.textMuted,
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
