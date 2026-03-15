@@ -165,6 +165,7 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
     try {
       var processed = markdown;
       final contentMap = <String, List<String>>{};
+      var taskIndex = 0;
 
       // Run all plugin preprocessors to convert non-fenced content
       // (like tables and $$..$$) into fenced code blocks with synthetic tags.
@@ -207,6 +208,22 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
               },
               sizedImageBuilder: (config) =>
                   _buildImage(basic, config.uri, config.title, config.alt),
+              checkboxBuilder: (checked) {
+                final index = taskIndex++;
+                final enabled =
+                    widget.settings.enableInteractiveTaskLists &&
+                    !widget.settings.readOnly;
+                return GestureDetector(
+                  onTap: enabled ? () => _toggleTaskItem(index) : null,
+                  child: Icon(
+                    checked
+                        ? Icons.check_box
+                        : Icons.check_box_outline_blank,
+                    size: 18,
+                    color: checked ? basic.success : basic.textMuted,
+                  ),
+                );
+              },
               builders: {
                 'pre': _CodeBlockBuilder(
                   theme: basic,
@@ -216,12 +233,6 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
                   pluginRegistry: _registry,
                   contentMap: contentMap,
                   onPluginEdit: _onPluginEdit,
-                ),
-                'input': _TaskListBuilder(
-                  enabled: widget.settings.enableInteractiveTaskLists &&
-                      !widget.settings.readOnly,
-                  onToggle: _toggleTaskItem,
-                  theme: basic,
                 ),
                 'math-inline': _InlineMathBuilder(theme: basic),
                 for (final level in [1, 2, 3, 4, 5, 6])
@@ -716,36 +727,7 @@ class _CodeBlockWidgetState extends State<_CodeBlockWidget> {
 }
 
 /// Renders task list checkboxes as interactive widgets.
-class _TaskListBuilder extends MarkdownElementBuilder {
-  _TaskListBuilder({
-    required this.enabled,
-    required this.onToggle,
-    required this.theme,
-  });
 
-  final bool enabled;
-  final ValueChanged<int> onToggle;
-  final MdBasicTheme theme;
-  int _taskIndex = 0;
-
-  @override
-  Widget visitElementBefore(md.Element element) {
-    if (element.tag == 'input' &&
-        element.attributes['type'] == 'checkbox') {
-      final isChecked = element.attributes.containsKey('checked');
-      final index = _taskIndex++;
-      return InkWell(
-        onTap: enabled ? () => onToggle(index) : null,
-        child: Icon(
-          isChecked ? Icons.check_box : Icons.check_box_outline_blank,
-          size: 18,
-          color: isChecked ? theme.success : theme.textMuted,
-        ),
-      );
-    }
-    return const SizedBox.shrink();
-  }
-}
 
 // ── Inline math syntax ──
 
