@@ -10,6 +10,7 @@ import '../../debug/md_editor_debug.dart';
 import '../../models/md_section.dart';
 import '../../settings/md_editor_settings.dart';
 import '../../theme/md_editor_theme.dart';
+import '../overlays/md_table_overlay.dart';
 
 /// Preview panel that renders markdown as formatted content.
 ///
@@ -141,7 +142,11 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
     try {
       // Pre-process: replace $$...$$ blocks with fenced math-display blocks
       // so the code block builder can render them with flutter_math_fork.
-      final processed = _preprocessMath(markdown);
+      var processed = _preprocessMath(markdown);
+      // Pre-process: replace markdown tables with fenced table-edit blocks
+      // so the code block builder can render them with edit controls.
+      final rawTables = <String>[];
+      processed = _preprocessTables(processed, rawTables);
 
       return Scrollbar(
         controller: _scrollController,
@@ -171,6 +176,8 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
                 editorTheme: widget.theme,
                 onCopy: _copyCodeBlock,
                 onEdit: _editCodeBlock,
+                onEditTable: (index) => _onEditTable(index, rawTables),
+                rawTables: rawTables,
               ),
               'input': _TaskListBuilder(
                 enabled: widget.settings.enableInteractiveTaskLists &&
@@ -206,6 +213,42 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
     return markdown.replaceAllMapped(
       RegExp(r'\$\$([\s\S]*?)\$\$'),
       (m) => '\n```math-display\n${m.group(1)!.trim()}\n```\n',
+    );
+  }
+
+  static final _tableRegex = RegExp(
+    r'^\|.+\|[ \t]*\n\|[\s\-:|]+\|[ \t]*\n(\|.+\|[ \t]*\n?)+',
+    multiLine: true,
+  );
+
+  /// Pre-process markdown tables into fenced code blocks with
+  /// language `table-edit-N` so the code block builder renders them
+  /// as interactive table widgets.
+  String _preprocessTables(String markdown, List<String> rawTables) {
+    var index = 0;
+    return markdown.replaceAllMapped(_tableRegex, (m) {
+      final raw = m.group(0)!;
+      rawTables.add(raw);
+      final tag = 'table-edit-${index++}';
+      return '\n```$tag\n$raw\n```\n';
+    });
+  }
+
+  /// Open the table editor overlay for the table at the given index.
+  void _onEditTable(int index, List<String> rawTables) {
+    if (index < 0 || index >= rawTables.length) return;
+    final tableMarkdown = rawTables[index];
+    showDialog<void>(
+      context: context,
+      builder: (_) => MdTableOverlay(
+        markdownTable: tableMarkdown,
+        theme: widget.theme,
+        onSave: (newTable) {
+          final md = widget.controller.markdown;
+          final updated = md.replaceFirst(tableMarkdown, newTable);
+          widget.controller.markdown = updated;
+        },
+      ),
     );
   }
 
@@ -381,6 +424,8 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
     required this.editorTheme,
     required this.onCopy,
     required this.onEdit,
+    required this.onEditTable,
+    required this.rawTables,
   });
 
   final MdBasicTheme theme;
@@ -388,6 +433,8 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
   final MdEditorTheme editorTheme;
   final ValueChanged<String> onCopy;
   final void Function(String code, String? language) onEdit;
+  final ValueChanged<int> onEditTable;
+  final List<String> rawTables;
 
   String? _language;
 
@@ -418,6 +465,18 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
     // Render math-display blocks using flutter_math_fork.
     if (_language == 'math-display' && settings.enableMath) {
       return _DisplayMathWidget(expression: code, theme: theme);
+    }
+
+    // Render table-edit blocks as interactive table widgets.
+    if (_language != null && _language!.startsWith('table-edit-')) {
+      final index = int.tryParse(_language!.substring('table-edit-'.length));
+      if (index != null && index >= 0 && index < rawTables.length) {
+        return _TablePreviewWidget(
+          tableMarkdown: code,
+          theme: theme,
+          onEdit: () => onEditTable(index),
+        );
+      }
     }
 
     return _CodeBlockWidget(
@@ -559,6 +618,148 @@ class _OverlayButton extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+// ── Table preview widget with hover edit button ──
+
+class _TablePreviewWidget extends StatefulWidget {
+  const _TablePreviewWidget({
+    required this.tableMarkdown,
+    required this.theme,
+    required this.onEdit,
+  });
+
+  final String tableMarkdown;
+  final MdBasicTheme theme;
+  final VoidCallback onEdit;
+
+  @override
+  State<_TablePreviewWidget> createState() => _TablePreviewWidgetState();
+}
+
+class _TablePreviewWidgetState extends State<_TablePreviewWidget> {
+  bool _hovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = _parseRows(widget.tableMarkdown);
+    if (rows.isEmpty) return const SizedBox.shrink();
+
+    final alignments = _parseAlignments(widget.tableMarkdown);
+    final theme = widget.theme;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovering = true),
+      onExit: (_) => setState(() => _hovering = false),
+      child: Stack(
+        children: [
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              border: Border.all(color: theme.border),
+              borderRadius: BorderRadius.circular(theme.borderRadius),
+            ),
+            child: Table(
+              border: TableBorder.all(color: theme.border, width: 0.5),
+              defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+              children: List.generate(rows.length, (r) {
+                final isHeader = r == 0;
+                return TableRow(
+                  decoration: BoxDecoration(
+                    color: isHeader
+                        ? theme.surfaceVariant
+                        : Colors.transparent,
+                  ),
+                  children: List.generate(rows[r].length, (c) {
+                    final align = c < alignments.length
+                        ? alignments[c]
+                        : TextAlign.start;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      child: Text(
+                        rows[r][c],
+                        textAlign: align,
+                        style: TextStyle(
+                          color: theme.text,
+                          fontSize: theme.baseFontSize * 0.9,
+                          fontWeight:
+                              isHeader ? FontWeight.w600 : FontWeight.normal,
+                        ),
+                      ),
+                    );
+                  }),
+                );
+              }),
+            ),
+          ),
+          if (_hovering)
+            Positioned(
+              top: 4,
+              right: 4,
+              child: _OverlayButton(
+                icon: Icons.edit,
+                tooltip: 'Edit table',
+                onTap: widget.onEdit,
+                theme: theme,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  List<List<String>> _parseRows(String table) {
+    final lines =
+        table.split('\n').where((l) => l.trim().isNotEmpty).toList();
+    final result = <List<String>>[];
+    for (final line in lines) {
+      final trimmed = line.trim();
+      if (RegExp(r'^[\|\s\-:]+$').hasMatch(trimmed)) continue;
+      final cells = trimmed
+          .split('|')
+          .map((c) => c.trim())
+          .where((c) => c.isNotEmpty)
+          .toList();
+      if (cells.isNotEmpty) result.add(cells);
+    }
+    // Normalize column count.
+    if (result.isNotEmpty) {
+      final maxCols =
+          result.fold<int>(0, (m, row) => row.length > m ? row.length : m);
+      for (final row in result) {
+        while (row.length < maxCols) {
+          row.add('');
+        }
+      }
+    }
+    return result;
+  }
+
+  List<TextAlign> _parseAlignments(String table) {
+    final lines =
+        table.split('\n').where((l) => l.trim().isNotEmpty).toList();
+    for (final line in lines) {
+      final trimmed = line.trim();
+      if (RegExp(r'^[\|\s\-:]+$').hasMatch(trimmed)) {
+        final parts = trimmed
+            .split('|')
+            .map((c) => c.trim())
+            .where((c) => c.isNotEmpty)
+            .toList();
+        return parts.map((p) {
+          final left = p.startsWith(':');
+          final right = p.endsWith(':');
+          if (left && right) return TextAlign.center;
+          if (right) return TextAlign.end;
+          return TextAlign.start;
+        }).toList();
+      }
+    }
+    return [];
   }
 }
 

@@ -8,7 +8,6 @@ import '../../debug/md_editor_debug.dart';
 import '../../models/md_section.dart';
 import '../../settings/md_editor_settings.dart';
 import '../../theme/md_editor_theme.dart';
-import '../overlays/md_table_overlay.dart';
 import 'md_syntax_highlight_controller.dart';
 
 /// Raw text editor panel for editing markdown source.
@@ -238,20 +237,6 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
               ),
             ),
           ],
-          if (_hasTable(selected)) ...[
-            const SizedBox(width: 8),
-            InkWell(
-              onTap: () => _openTableEditor(basic),
-              child: Tooltip(
-                message: 'Edit table',
-                child: Icon(
-                  Icons.table_chart,
-                  size: 16,
-                  color: basic.accent,
-                ),
-              ),
-            ),
-          ],
           if (widget.controller.canUndo) ...[
             const SizedBox(width: 8),
             InkWell(
@@ -455,43 +440,6 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
     } catch (e, st) {
       MdEditorDebug.logger.error('Error escaping headline marker', e, st);
     }
-  }
-
-  static final _tablePattern = RegExp(
-    r'^\|.+\|[ \t]*\n\|[\s\-:|]+\|[ \t]*\n(\|.+\|[ \t]*\n?)+',
-    multiLine: true,
-  );
-
-  /// Whether the given section contains a markdown table.
-  bool _hasTable(MdSection? section) {
-    if (section == null) return false;
-    return _tablePattern.hasMatch(section.text);
-  }
-
-  /// Extract the first table from the selected section's text.
-  String? _extractTable(MdSection section) {
-    final match = _tablePattern.firstMatch(section.text);
-    return match?.group(0);
-  }
-
-  /// Open the table editor overlay for the first table in the section.
-  void _openTableEditor(MdBasicTheme basic) {
-    final selected = widget.controller.selectedSection;
-    if (selected == null) return;
-    final tableMarkdown = _extractTable(selected);
-    if (tableMarkdown == null) return;
-
-    showDialog<void>(
-      context: context,
-      builder: (_) => MdTableOverlay(
-        markdownTable: tableMarkdown,
-        theme: widget.theme,
-        onSave: (newTable) {
-          final newText = selected.text.replaceFirst(tableMarkdown, newTable);
-          widget.controller.updateSectionText(selected, newText);
-        },
-      ),
-    );
   }
 
   Widget _buildLineNumbers(MdBasicTheme basic) {
