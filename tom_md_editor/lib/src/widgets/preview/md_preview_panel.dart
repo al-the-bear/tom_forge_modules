@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
@@ -52,6 +54,10 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
   late MdPluginRegistry _registry;
   /// GlobalKeys for heading widgets, keyed by "level:headline".
   final Map<String, GlobalKey> _headingKeys = {};
+  /// Debounce timer for preview rebuilds.
+  Timer? _rebuildTimer;
+  /// Cached markdown to skip rebuilds when content is unchanged.
+  String _lastMarkdown = '';
 
   @override
   void initState() {
@@ -76,6 +82,7 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
 
   @override
   void dispose() {
+    _rebuildTimer?.cancel();
     widget.controller.removeListener(_onChanged);
     _scrollController.dispose();
     super.dispose();
@@ -96,7 +103,16 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
       }
     }
     _suppressScroll = false;
-    setState(() {});
+
+    // Debounce rebuilds to avoid re-rendering the full markdown on every
+    // keystroke. 150ms is fast enough to feel responsive but prevents
+    // stacking expensive MarkdownBody builds during rapid typing.
+    final markdown = widget.controller.markdown;
+    if (markdown == _lastMarkdown) return;
+    _rebuildTimer?.cancel();
+    _rebuildTimer = Timer(const Duration(milliseconds: 150), () {
+      if (mounted) setState(() {});
+    });
   }
 
   /// Scroll the heading for [section] to the top of the preview viewport.
@@ -128,6 +144,15 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
   Widget build(BuildContext context) {
     final basic = widget.theme.basic;
     final markdown = widget.controller.markdown;
+    _lastMarkdown = markdown;
+
+    // Rebuild the heading key set from scratch for the current document
+    // to prevent unbounded growth from transient heading text edits.
+    final currentKeys = <String>{};
+    for (final s in widget.controller.document.allSections) {
+      currentKeys.add(_headingKeyFor(s.level, s.headline));
+    }
+    _headingKeys.removeWhere((k, _) => !currentKeys.contains(k));
 
     return Container(
       color: basic.background,
