@@ -186,17 +186,12 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
         }
       }
 
-      // DefaultTextStyle provides the body font as fallback for
-      // SelectableText.rich when its root TextSpan has no style
-      // (happens when flutter_markdown merges inline children).
       return Scrollbar(
           controller: _scrollController,
           child: SingleChildScrollView(
             controller: _scrollController,
             padding: EdgeInsets.all(basic.blockPadding * 2),
-            child: DefaultTextStyle(
-              style: basic.paragraphStyle,
-              child: MarkdownBody(
+            child: MarkdownBody(
               data: processed,
               selectable: true,
               extensionSet: md.ExtensionSet(
@@ -240,7 +235,6 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
                     getKey: _getOrCreateHeadingKey,
                   ),
               },
-            ),
             ),
           ),
       );
@@ -834,6 +828,16 @@ class _HeadingBuilder extends MarkdownElementBuilder {
 
   /// Regex to strip HTML-comment IDs from rendered text.
   static final _commentIdRegex = RegExp(r'<!--\s*\[[^\]]*\]\s*-->');
+
+  @override
+  Widget? visitText(md.Text text, TextStyle? preferredStyle) {
+    // Return a non-null widget so flutter_markdown's _inlines list
+    // has non-empty children and gets cleared after the heading block ends.
+    // Without this, the heading's parent inline (with sans-serif heading
+    // style) leaks into the next paragraph, causing it to render in the
+    // wrong font.
+    return const SizedBox.shrink();
+  }
 
   @override
   Widget? visitElementAfterWithContext(
