@@ -8,6 +8,9 @@
 /// - **Tree**: [TreeNode], [TreeController], [TreeView]
 /// - **Controls**: [CollapseToggle], [ActionButton], [NodeActionRow]
 /// - **Text Editing**: [SyntaxHighlighter], [TextMarker], [TextEditorCore]
+/// - **Layout**: [DraggableSeparator], [SplitPanel]
+/// - **Search**: [SearchBox]
+/// - **Debug**: [EditorLogger]
 library;
 
 // Undo/Redo
@@ -35,3 +38,13 @@ export 'src/text_editor/syntax_highlighter.dart';
 export 'src/text_editor/text_marker.dart';
 export 'src/text_editor/text_editor_core.dart';
 export 'src/text_editor/text_editor_theme.dart';
+
+// Layout
+export 'src/layout/draggable_separator.dart';
+export 'src/layout/split_panel.dart';
+
+// Search
+export 'src/search/search_box.dart';
+
+// Debug
+export 'src/debug/editor_logger.dart';

@@ -1,9 +1,10 @@
 # Tom Dart Editor
 
-A Flutter widget for editing and analyzing Dart code with syntax highlighting, code completion, error display, and comprehensive theming support.
+A Flutter widget for editing and analyzing Dart code with syntax highlighting, code completion, error display, and comprehensive theming support — **without requiring a Dart SDK on the target device**.
 
 ## Features
 
+- **SDK-Free Analysis** — Full diagnostics and completions via pre-built summary bundles
 - **Syntax Highlighting** — AST-based semantic highlighting with support for all Dart constructs
 - **Rainbow Brackets** — Color-coded bracket pairs for visual depth tracking
 - **Code Completion** — Context-aware completions with customizable providers
@@ -69,10 +70,10 @@ class _MyCodeEditorState extends State<MyCodeEditor> {
 }
 ```
 
-## Embedding Guides
+## Documentation
 
-- [doc/how_to_embed.md](doc/how_to_embed.md) — one-liner embedding with
-  `SimpleSummaryBackedDartCodeEditor` and advanced controller-based options.
+- **[Usage Guide](doc/dart_editor_usage_guide.md)** — Complete guide with embedding patterns, theming, and settings
+- **[Package Summary Generation](doc/package_summary_generation.md)** — How to build `.sum` files for SDK-free analysis
 
 ## Theming
 
