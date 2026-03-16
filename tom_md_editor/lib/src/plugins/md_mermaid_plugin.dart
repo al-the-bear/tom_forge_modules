@@ -209,6 +209,9 @@ class _MermaidPreviewWidgetState extends State<_MermaidPreviewWidget> {
                 ),
                 MermaidWebView(
                   source: widget.code,
+                  theme: widget.theme.background.computeLuminance() < 0.5
+                      ? MermaidTheme.dark
+                      : MermaidTheme.light,
                   backgroundColor: widget.theme.surfaceVariant,
                 ),
               ],

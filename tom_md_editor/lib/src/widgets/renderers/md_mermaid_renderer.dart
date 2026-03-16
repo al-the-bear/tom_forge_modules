@@ -133,8 +133,10 @@ class _MdMermaidRendererState extends State<MdMermaidRenderer> {
   }
 
   Widget _buildDiagram(MdBasicTheme basic) {
+    final isDark = basic.background.computeLuminance() < 0.5;
     return MermaidWebView(
       source: widget.source,
+      theme: isDark ? MermaidTheme.dark : MermaidTheme.light,
       backgroundColor: basic.surfaceVariant,
     );
   }

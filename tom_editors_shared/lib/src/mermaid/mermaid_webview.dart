@@ -123,8 +123,12 @@ class _MermaidWebViewState extends State<MermaidWebView> {
         // Silently ignored; the HTML body background handles the color.
       }
 
-      await controller.loadHtmlString(_buildHtml(_mermaidJs!));
+      // Assign the controller before loading HTML so that
+      // onPageFinished → _renderDiagram can use it immediately.
       _controller = controller;
+      if (mounted) setState(() {});
+
+      await controller.loadHtmlString(_buildHtml(_mermaidJs!));
     } catch (e, st) {
       // WebView platform not available (e.g. in tests) or asset missing.
       debugPrint('[MermaidWebView] init failed: $e\n$st');
@@ -138,6 +142,7 @@ class _MermaidWebViewState extends State<MermaidWebView> {
   }
 
   void _onMessage(JavaScriptMessage message) {
+    debugPrint('[MermaidWebView] JS message: ${message.message}');
     final data = jsonDecode(message.message) as Map<String, dynamic>;
     final type = data['type'] as String;
 
@@ -194,8 +199,9 @@ class _MermaidWebViewState extends State<MermaidWebView> {
 <script>$mermaidJs</script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:$bgHex;overflow:hidden;font-family:sans-serif}
+body{background:$bgHex;font-family:sans-serif}
 #diagram{padding:8px}
+#diagram svg{display:block;max-width:100%;height:auto}
 .error{color:#d32f2f;font-family:monospace;font-size:12px;padding:8px}
 </style>
 </head><body>
@@ -210,12 +216,27 @@ async function renderMermaid(source,theme){
     mermaid.initialize({startOnLoad:false,theme:theme||'default',securityLevel:'strict'});
     const{svg}=await mermaid.render(id,source);
     c.innerHTML=svg;
-    await new Promise(r=>setTimeout(r,50));
-    MermaidChannel.postMessage(JSON.stringify({
-      type:'rendered',
-      width:c.scrollWidth,
-      height:c.scrollHeight
-    }));
+    // Wait for the SVG to layout, then measure its actual dimensions.
+    requestAnimationFrame(()=>{
+      requestAnimationFrame(()=>{
+        const s=c.querySelector('svg');
+        let w=0,h=0;
+        if(s){
+          const r=s.getBoundingClientRect();
+          w=Math.ceil(r.width);
+          h=Math.ceil(r.height);
+        }
+        // Fall back to container scroll dimensions if SVG rect is empty.
+        if(h<1){h=c.scrollHeight}
+        if(w<1){w=c.scrollWidth}
+        // Add padding (8px on each side).
+        MermaidChannel.postMessage(JSON.stringify({
+          type:'rendered',
+          width:w+16,
+          height:h+16
+        }));
+      });
+    });
   }catch(e){
     c.innerHTML='<div class="error">'+
       (e.message||String(e)).replace(/</g,'&lt;')+'</div>';
