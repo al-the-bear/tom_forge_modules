@@ -735,6 +735,20 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
         rawContent: rawBlock,
         theme: theme,
         onReorder: (newContent) => onListReorder(rawBlock, newContent),
+        onToggleTask: (itemIndex, checked) {
+          // Toggle the task item's checked state in the raw block.
+          final items = _parseListItems(rawBlock);
+          if (itemIndex < 0 || itemIndex >= items.length) return;
+          final item = items[itemIndex];
+          if (item.checked == null) return;
+          final oldMarker = checked ? '- [ ]' : '- [x]';
+          final newMarker = checked ? '- [x]' : '- [ ]';
+          final newLine = item.rawLine.replaceFirst(oldMarker, newMarker);
+          final newLines = items.map((it) {
+            return it == item ? newLine : it.rawLine;
+          }).join('\n');
+          onListReorder(rawBlock, newLines);
+        },
       );
     }
 
@@ -1074,8 +1088,9 @@ class _ListItem {
 
 /// Regex that captures the components of a list item line:
 /// group 1 = leading whitespace, group 2 = marker, group 3 = text.
+/// Task list pattern must come first to avoid `[-*+]` consuming `- [`.
 final _listItemRegex = RegExp(
-  r'^([ \t]*)([-*+][ \t]+|\d+\.[ \t]+|- \[[xX ]\][ \t]+)(.*)',
+  r'^([ \t]*)(- \[[xX ]\][ \t]+|[-*+][ \t]+|\d+\.[ \t]+)(.*)',
 );
 
 List<_ListItem> _parseListItems(String rawContent) {
@@ -1127,11 +1142,14 @@ class _DraggableListBlock extends StatefulWidget {
     required this.rawContent,
     required this.theme,
     required this.onReorder,
+    this.onToggleTask,
   });
 
   final String rawContent;
   final MdBasicTheme theme;
   final ValueChanged<String> onReorder;
+  /// Called when a task checkbox is tapped: (itemIndex, newChecked).
+  final void Function(int itemIndex, bool newChecked)? onToggleTask;
 
   @override
   State<_DraggableListBlock> createState() => _DraggableListBlockState();
@@ -1278,7 +1296,7 @@ class _DraggableListBlockState extends State<_DraggableListBlock> {
                         // Bullet / checkbox.
                         Padding(
                           padding: const EdgeInsets.only(right: 6, top: 2),
-                          child: _buildBullet(item, theme),
+                          child: _buildBullet(item, theme, i),
                         ),
                         // Text content.
                         Expanded(
@@ -1321,12 +1339,18 @@ class _DraggableListBlockState extends State<_DraggableListBlock> {
     return m;
   }
 
-  Widget _buildBullet(_ListItem item, MdBasicTheme theme) {
+  Widget _buildBullet(_ListItem item, MdBasicTheme theme, int index) {
     if (item.checked != null) {
-      return Icon(
-        item.checked! ? Icons.check_box : Icons.check_box_outline_blank,
-        size: 18,
-        color: item.checked! ? theme.success : theme.textMuted,
+      return GestureDetector(
+        onTap: () => widget.onToggleTask?.call(index, !item.checked!),
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: Icon(
+            item.checked! ? Icons.check_box : Icons.check_box_outline_blank,
+            size: 18,
+            color: item.checked! ? theme.success : theme.textMuted,
+          ),
+        ),
       );
     }
     final m = item.marker.trim();

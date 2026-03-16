@@ -133,6 +133,7 @@ class MdEditorController extends ChangeNotifier {
       MdEditorDebug.logger.info('Setting markdown (${value.length} chars)');
       final oldMd = _markdown;
       _setMarkdownInternal(value);
+      _refreshSelectedSection();
       _pushUndoWithStates(oldMd, _markdown, 'Set markdown');
       notifyListeners();
     } catch (e, st) {
@@ -729,6 +730,17 @@ class MdEditorController extends ChangeNotifier {
     _markdown = value;
     _document = MdParser.parse(value);
     _runSchemaValidation();
+  }
+
+  /// Re-resolve _selectedSection against the new document after re-parsing.
+  void _refreshSelectedSection() {
+    final old = _selectedSection;
+    if (old == null) return;
+    // Find the matching section by level + headline in the new document.
+    final match = _document.allSections.where(
+      (s) => s.level == old.level && s.headline == old.headline,
+    );
+    _selectedSection = match.isNotEmpty ? match.first : null;
   }
 
   /// Run schema validation against the current document.
