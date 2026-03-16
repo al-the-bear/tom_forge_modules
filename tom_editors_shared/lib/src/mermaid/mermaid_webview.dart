@@ -217,7 +217,8 @@ class _MermaidWebViewState extends State<MermaidWebView> {
 <script>$mermaidJs</script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{overflow:hidden;background:$bgHex;font-family:sans-serif}
+html,body{overflow:hidden;background:$bgHex;font-family:sans-serif;
+  pointer-events:none;user-select:none;-webkit-user-select:none}
 #diagram{padding:8px}
 #diagram svg{display:block;max-width:100%;height:auto}
 .error{color:#d32f2f;font-family:monospace;font-size:12px;padding:8px}
@@ -233,21 +234,38 @@ async function renderMermaid(source,theme){
   const id='m'+rc;
   try{
     const t=theme||'default';
-    // Two-step init: establish baseline with default theme first, then
-    // switch to the target theme. This forces Gantt (and other diagram
-    // types that inject internal <style> elements) to correctly
-    // regenerate their theme-dependent styles on the first render.
-    if(t!=='default'){
-      mermaid.initialize({startOnLoad:false,theme:'default',securityLevel:'loose'});
-    }
+    // Always initialize fresh with target theme.
     mermaid.initialize({startOnLoad:false,theme:t,securityLevel:'loose'});
     const{svg}=await mermaid.render(id,source);
     c.innerHTML=svg;
-    // Dark-theme fix: force light text on mindmap nodes.
+    // Dark-theme fixes.
     if(t==='dark'){
-      c.querySelectorAll('.mindmap-node text, .mindmap-node foreignObject div').forEach(function(el){
+      // Force light text on mindmap nodes (mermaid dark theme bug).
+      c.querySelectorAll('.mindmap-node text, .mindmap-node foreignObject span, .mindmap-node foreignObject div').forEach(function(el){
         el.style.setProperty('color','#e0e0e0','important');
         el.style.setProperty('fill','#e0e0e0','important');
+      });
+      // Force Gantt visibility: text labels, bars, section backgrounds.
+      c.querySelectorAll('.taskText, .taskTextOutsideRight, .taskTextOutsideLeft, .titleText, .sectionTitle').forEach(function(el){
+        el.style.setProperty('fill','#e0e0e0','important');
+      });
+      c.querySelectorAll('.tick text').forEach(function(el){
+        el.style.setProperty('fill','#b0b0b0','important');
+      });
+      c.querySelectorAll('.task').forEach(function(el){
+        if(!el.style.fill || el.style.fill==='none'){
+          el.style.setProperty('fill','#3a3a6a','important');
+        }
+      });
+      c.querySelectorAll('.section0,.section1,.section2,.section3').forEach(function(el){
+        var cur=el.getAttribute('fill')||el.style.fill||'';
+        if(!cur||cur==='#ffffff'||cur==='white'||cur==='#fff'){
+          el.style.setProperty('fill','#2d2d2d','important');
+        }
+      });
+      // Force grid lines / axis visibility.
+      c.querySelectorAll('.grid .tick line').forEach(function(el){
+        el.style.setProperty('stroke','#444','important');
       });
     }
     // Wait for the SVG to layout, then measure its actual dimensions.
@@ -315,11 +333,14 @@ async function renderMermaid(source,theme){
             gestureRecognizers: const <Factory<
                 OneSequenceGestureRecognizer>>{},
           ),
-          // Transparent overlay absorbs all pointer events (including
-          // mouse-wheel scroll) so the parent ScrollView handles them
-          // instead of the native WKWebView NSView.
+          // Opaque overlay that sits above the WebView's native NSView.
+          // A transparent widget would be skipped by hit testing, so we
+          // use a nearly-transparent color (alpha 1/255) to ensure this
+          // widget wins hit testing. This prevents the native WKWebView
+          // scroll view from receiving mouse-wheel events; the parent
+          // Flutter ScrollView handles them instead.
           Positioned.fill(
-            child: AbsorbPointer(absorbing: true),
+            child: Container(color: const Color(0x01000000)),
           ),
           if (_loading)
             const Center(
