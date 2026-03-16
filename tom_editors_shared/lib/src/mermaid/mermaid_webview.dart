@@ -103,7 +103,6 @@ class _MermaidWebViewState extends State<MermaidWebView> {
 
       final controller = WebViewController()
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
-        ..setBackgroundColor(widget.backgroundColor ?? Colors.white)
         ..addJavaScriptChannel(
           'MermaidChannel',
           onMessageReceived: _onMessage,
@@ -113,11 +112,22 @@ class _MermaidWebViewState extends State<MermaidWebView> {
             _pageReady = true;
             _renderDiagram();
           },
-        ))
-        ..loadHtmlString(_buildHtml(_mermaidJs!));
+        ));
+
+      // setBackgroundColor is not implemented on macOS WKWebView —
+      // ignore the error so the WebView still initialises.
+      try {
+        controller
+            .setBackgroundColor(widget.backgroundColor ?? Colors.white);
+      } catch (_) {
+        // Silently ignored; the HTML body background handles the color.
+      }
+
+      await controller.loadHtmlString(_buildHtml(_mermaidJs!));
       _controller = controller;
-    } catch (_) {
+    } catch (e, st) {
       // WebView platform not available (e.g. in tests) or asset missing.
+      debugPrint('[MermaidWebView] init failed: $e\n$st');
       if (mounted) {
         setState(() {
           _platformAvailable = false;
