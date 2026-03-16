@@ -210,8 +210,6 @@ class _MermaidWebViewState extends State<MermaidWebView> {
         '${g.toRadixString(16).padLeft(2, '0')}'
         '${b.toRadixString(16).padLeft(2, '0')}';
 
-    final isDark = widget.theme == MermaidTheme.dark;
-
     return '''<!DOCTYPE html>
 <html><head>
 <meta charset="utf-8">
@@ -223,18 +221,10 @@ html,body{overflow:hidden;background:$bgHex;font-family:sans-serif}
 #diagram{padding:8px}
 #diagram svg{display:block;max-width:100%;height:auto}
 .error{color:#d32f2f;font-family:monospace;font-size:12px;padding:8px}
-${isDark ? '''
-/* Dark-mode fix: ensure mindmap text is visible on dark nodes. */
-.mindmap-node>div{color:#e0e0e0!important}
-.mindmap-node rect,.mindmap-node circle,.mindmap-node polygon{stroke:#888!important}
-''' : ''}
 </style>
 </head><body>
 <div id="diagram"></div>
 <script>
-// Prevent the native WKWebView scroll view from capturing wheel events
-// so they pass through to the Flutter parent scroll view.
-document.addEventListener('wheel',function(e){e.preventDefault();e.stopPropagation();},{passive:false});
 
 let rc=0;
 async function renderMermaid(source,theme){
@@ -243,9 +233,23 @@ async function renderMermaid(source,theme){
   const id='m'+rc;
   try{
     const t=theme||'default';
+    // Two-step init: establish baseline with default theme first, then
+    // switch to the target theme. This forces Gantt (and other diagram
+    // types that inject internal <style> elements) to correctly
+    // regenerate their theme-dependent styles on the first render.
+    if(t!=='default'){
+      mermaid.initialize({startOnLoad:false,theme:'default',securityLevel:'loose'});
+    }
     mermaid.initialize({startOnLoad:false,theme:t,securityLevel:'loose'});
     const{svg}=await mermaid.render(id,source);
     c.innerHTML=svg;
+    // Dark-theme fix: force light text on mindmap nodes.
+    if(t==='dark'){
+      c.querySelectorAll('.mindmap-node text, .mindmap-node foreignObject div').forEach(function(el){
+        el.style.setProperty('color','#e0e0e0','important');
+        el.style.setProperty('fill','#e0e0e0','important');
+      });
+    }
     // Wait for the SVG to layout, then measure its actual dimensions.
     requestAnimationFrame(()=>{
       requestAnimationFrame(()=>{
@@ -306,14 +310,16 @@ async function renderMermaid(source,theme){
       height: _height,
       child: Stack(
         children: [
-          // IgnorePointer lets scroll and other gestures pass through
-          // to the parent ListView, since rendered diagrams are static.
-          IgnorePointer(
-            child: WebViewWidget(
-              controller: _controller!,
-              gestureRecognizers: const <Factory<
-                  OneSequenceGestureRecognizer>>{},
-            ),
+          WebViewWidget(
+            controller: _controller!,
+            gestureRecognizers: const <Factory<
+                OneSequenceGestureRecognizer>>{},
+          ),
+          // Transparent overlay absorbs all pointer events (including
+          // mouse-wheel scroll) so the parent ScrollView handles them
+          // instead of the native WKWebView NSView.
+          Positioned.fill(
+            child: AbsorbPointer(absorbing: true),
           ),
           if (_loading)
             const Center(

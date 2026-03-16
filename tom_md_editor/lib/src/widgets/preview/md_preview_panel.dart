@@ -1311,6 +1311,7 @@ class _DraggableListBlockState extends State<_DraggableListBlock> {
                             child: MarkdownBody(
                               data: item.text,
                               shrinkWrap: true,
+                              softLineBreak: true,
                               styleSheet: MarkdownStyleSheet(
                                 p: TextStyle(
                                   color: theme.text,
