@@ -161,7 +161,6 @@ class _MermaidWebViewState extends State<MermaidWebView> {
   }
 
   void _onMessage(JavaScriptMessage message) {
-    debugPrint('[MermaidWebView] JS message: ${message.message}');
     final data = jsonDecode(message.message) as Map<String, dynamic>;
     final type = data['type'] as String;
 
@@ -227,12 +226,17 @@ body{background:$bgHex;font-family:sans-serif}
 <div id="diagram"></div>
 <script>
 let rc=0;
+let curTheme='';
 async function renderMermaid(source,theme){
   const c=document.getElementById('diagram');
   rc++;
   const id='m'+rc;
   try{
-    mermaid.initialize({startOnLoad:false,theme:theme||'default',securityLevel:'strict'});
+    const t=theme||'default';
+    if(t!==curTheme){
+      curTheme=t;
+      mermaid.initialize({startOnLoad:false,theme:t,securityLevel:'sandbox'});
+    }
     const{svg}=await mermaid.render(id,source);
     c.innerHTML=svg;
     // Wait for the SVG to layout, then measure its actual dimensions.

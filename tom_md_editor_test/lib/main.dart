@@ -135,6 +135,32 @@ auto-links like https://flutter.dev.
     - Deeply nested
 - Item three
 
+### Multi-Line List Items
+
+In Markdown, continuation text belongs to a list item when it is indented
+to align with the first text character of that item (typically 2-4 spaces):
+
+- **ItemX**
+  ItemX has the meaning of representing the unknown factor
+  in a complex equation. It is used widely in examples.
+  - **Sub-ItemX-Item**
+    Sub-ItemX-Item is even more interesting because it
+    demonstrates that continuation text also works on
+    nested items — just indent further.
+
+- **Configuration**
+  All configuration lives in `tom_project.yaml` at the project root.
+  The file is validated against a JSON schema on every build.
+
+  Additional paragraphs that belong to the same list item are separated
+  by a blank line but still indented to the item level.
+
+1. **First numbered item**
+   This continuation paragraph belongs to item 1.
+   It can span multiple lines as long as they are indented.
+   1. **Nested numbered**
+      Continuation under the nested numbered item works the same way.
+
 ### Ordered List
 
 1. First step
@@ -280,6 +306,143 @@ graph LR
     Error --> Input
 ```
 
+### Class Diagram
+
+```mermaid
+classDiagram
+    class Animal {
+        +String name
+        +int age
+        +makeSound() void
+    }
+    class Dog {
+        +String breed
+        +fetch() void
+    }
+    class Cat {
+        +bool indoor
+        +purr() void
+    }
+    Animal <|-- Dog
+    Animal <|-- Cat
+```
+
+### State Diagram
+
+```mermaid
+stateDiagram-v2
+    [*] --> Idle
+    Idle --> Loading : fetch()
+    Loading --> Success : data received
+    Loading --> Error : request failed
+    Success --> Idle : reset()
+    Error --> Loading : retry()
+    Error --> Idle : cancel()
+```
+
+### Entity-Relationship Diagram
+
+```mermaid
+erDiagram
+    USER ||--o{ ORDER : places
+    ORDER ||--|{ LINE_ITEM : contains
+    PRODUCT ||--o{ LINE_ITEM : "is in"
+    USER {
+        int id PK
+        string name
+        string email
+    }
+    ORDER {
+        int id PK
+        date created
+        string status
+    }
+    PRODUCT {
+        int id PK
+        string name
+        float price
+    }
+```
+
+### Journey
+
+```mermaid
+journey
+    title User Onboarding
+    section Sign Up
+        Visit landing page: 5: User
+        Fill in form: 3: User
+        Verify email: 2: User, System
+    section First Use
+        Complete tutorial: 4: User
+        Create first project: 5: User
+        Invite team members: 3: User
+```
+
+### Git Graph
+
+```mermaid
+gitGraph
+    commit
+    commit
+    branch feature
+    checkout feature
+    commit
+    commit
+    checkout main
+    merge feature
+    commit
+    branch hotfix
+    commit
+    checkout main
+    merge hotfix
+```
+
+### Mindmap
+
+```mermaid
+mindmap
+    root((Project))
+        Frontend
+            Flutter
+            React
+        Backend
+            Dart Server
+            Node.js
+        DevOps
+            CI/CD
+            Docker
+            Kubernetes
+```
+
+### Quadrant Chart
+
+```mermaid
+quadrantChart
+    title Priority Matrix
+    x-axis Low Effort --> High Effort
+    y-axis Low Impact --> High Impact
+    quadrant-1 Do First
+    quadrant-2 Schedule
+    quadrant-3 Delegate
+    quadrant-4 Eliminate
+    Feature A: [0.2, 0.8]
+    Feature B: [0.7, 0.9]
+    Feature C: [0.3, 0.3]
+    Feature D: [0.8, 0.2]
+```
+
+### XY Chart
+
+```mermaid
+xychart-beta
+    title "Monthly Revenue"
+    x-axis [Jan, Feb, Mar, Apr, May, Jun]
+    y-axis "Revenue ($K)" 0 --> 100
+    bar [30, 45, 55, 60, 72, 90]
+    line [30, 45, 55, 60, 72, 90]
+```
+
 ## Images
 
 Images are rendered as their alt text in this editor:
@@ -365,5 +528,5 @@ This document covers:
 8. **Math** — inline and display LaTeX
 9. **Links and images**
 10. **Horizontal rules**
-11. **Mermaid diagrams** — flowcharts, sequence, gantt, pie, timeline
+11. **Mermaid diagrams** — flowcharts, sequence, gantt, pie, timeline, class, state, ER, journey, git graph, mindmap, quadrant, xychart
 ''';
