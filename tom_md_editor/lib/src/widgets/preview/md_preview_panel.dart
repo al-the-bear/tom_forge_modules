@@ -217,6 +217,16 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
         }
       }
 
+      // Pre-process list blocks into synthetic fenced code blocks so we can
+      // render them as draggable list widgets.
+      final listBlockContents = <String>[];
+      if (!widget.settings.readOnly) {
+        processed = _preprocessListBlocks(processed, listBlockContents);
+        if (listBlockContents.isNotEmpty) {
+          contentMap['listblock'] = listBlockContents;
+        }
+      }
+
       return Scrollbar(
           controller: _scrollController,
           child: SingleChildScrollView(
@@ -263,6 +273,7 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
                   pluginRegistry: _registry,
                   contentMap: contentMap,
                   onPluginEdit: _onPluginEdit,
+                  onListReorder: _onListReorder,
                 ),
                 'math-inline': _InlineMathBuilder(theme: basic),
                 for (final level in [1, 2, 3, 4, 5, 6])
@@ -564,6 +575,104 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
       MdEditorDebug.logger.error('Error toggling task item', e, st);
     }
   }
+
+  // ── List block preprocessing ──
+
+  static final _listItemLinePattern =
+      RegExp(r'^[ \t]*(?:[-*+]|\d+\.)[ \t]', multiLine: true);
+
+  /// Scan [processed] for contiguous list blocks and replace each with a
+  /// synthetic fenced code block `listblock-N` so the code block builder can
+  /// render them as draggable list widgets.
+  String _preprocessListBlocks(
+    String processed,
+    List<String> listBlockContents,
+  ) {
+    final lines = processed.split('\n');
+    final result = StringBuffer();
+    var currentBlock = <String>[];
+    var inFencedBlock = false;
+
+    void emitBlock() {
+      if (currentBlock.isEmpty) return;
+      final raw = currentBlock.join('\n');
+      final idx = listBlockContents.length;
+      listBlockContents.add(raw);
+      result.writeln('```listblock-$idx');
+      result.writeln(raw);
+      result.writeln('```');
+      currentBlock = <String>[];
+    }
+
+    for (var i = 0; i < lines.length; i++) {
+      final line = lines[i];
+
+      // Track fenced code blocks to avoid matching inside them.
+      if (line.trimLeft().startsWith('```')) {
+        if (inFencedBlock) {
+          inFencedBlock = false;
+          result.writeln(line);
+          continue;
+        }
+        // Closing a list block before the code fence.
+        emitBlock();
+        inFencedBlock = true;
+        result.writeln(line);
+        continue;
+      }
+      if (inFencedBlock) {
+        result.writeln(line);
+        continue;
+      }
+
+      final isListItem = _listItemLinePattern.hasMatch(line);
+      final isContinuation =
+          currentBlock.isNotEmpty &&
+          (line.startsWith('  ') || line.startsWith('\t'));
+      final isBlankInList = currentBlock.isNotEmpty && line.trim().isEmpty;
+
+      if (isListItem) {
+        currentBlock.add(line);
+      } else if (isContinuation || isBlankInList) {
+        // Continuation or blank line inside a list block — include it, but
+        // peek ahead: if the next non-empty line is not a list item, end the
+        // block.
+        if (isBlankInList) {
+          var next = i + 1;
+          while (next < lines.length && lines[next].trim().isEmpty) {
+            next++;
+          }
+          if (next < lines.length &&
+              _listItemLinePattern.hasMatch(lines[next])) {
+            currentBlock.add(line);
+          } else {
+            emitBlock();
+            result.writeln(line);
+          }
+        } else {
+          currentBlock.add(line);
+        }
+      } else {
+        emitBlock();
+        result.writeln(line);
+      }
+    }
+    emitBlock();
+
+    return result.toString();
+  }
+
+  /// Called when a draggable list block is reordered.
+  void _onListReorder(String originalBlock, String newBlock) {
+    final source = widget.controller.markdown;
+    final idx = source.indexOf(originalBlock);
+    if (idx >= 0) {
+      widget.controller.markdown =
+          source.substring(0, idx) +
+          newBlock +
+          source.substring(idx + originalBlock.length);
+    }
+  }
 }
 
 // ── Custom markdown builders ──
@@ -578,6 +687,7 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
     required this.pluginRegistry,
     required this.contentMap,
     required this.onPluginEdit,
+    required this.onListReorder,
   });
 
   final MdBasicTheme theme;
@@ -591,6 +701,7 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
     String rawOriginal,
     String editableContent,
   ) onPluginEdit;
+  final void Function(String originalBlock, String newBlock) onListReorder;
 
   String? _language;
 
@@ -612,6 +723,20 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
   @override
   Widget visitText(md.Text text, TextStyle? preferredStyle) {
     final code = text.text;
+
+    // Draggable list blocks.
+    if (_language != null && _language!.startsWith('listblock-')) {
+      final indexStr = _language!.substring('listblock-'.length);
+      final blockIdx = int.tryParse(indexStr) ?? 0;
+      final list = contentMap['listblock'];
+      final rawBlock =
+          (list != null && blockIdx < list.length) ? list[blockIdx] : code;
+      return _DraggableListBlock(
+        rawContent: rawBlock,
+        theme: theme,
+        onReorder: (newContent) => onListReorder(rawBlock, newContent),
+      );
+    }
 
     // Check if any plugin handles this language.
     if (_language != null) {
@@ -914,6 +1039,304 @@ class _HeadingBuilder extends MarkdownElementBuilder {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ── Draggable list block ──
+
+/// Parsed representation of a single list item.
+class _ListItem {
+  _ListItem({
+    required this.rawLine,
+    required this.text,
+    required this.marker,
+    required this.indent,
+    this.checked,
+  });
+
+  /// The complete raw markdown line(s).
+  final String rawLine;
+
+  /// Visible text content (after marker).
+  final String text;
+
+  /// The marker string, e.g. `- `, `* `, `1. `, `- [ ] `.
+  final String marker;
+
+  /// Leading whitespace count.
+  final int indent;
+
+  /// For task items: `true` = checked, `false` = unchecked, `null` = not task.
+  final bool? checked;
+}
+
+/// Regex that captures the components of a list item line:
+/// group 1 = leading whitespace, group 2 = marker, group 3 = text.
+final _listItemRegex = RegExp(
+  r'^([ \t]*)([-*+][ \t]+|\d+\.[ \t]+|- \[[xX ]\][ \t]+)(.*)',
+);
+
+List<_ListItem> _parseListItems(String rawContent) {
+  final items = <_ListItem>[];
+  final lines = rawContent.split('\n');
+  _ListItem? current;
+
+  for (final line in lines) {
+    final match = _listItemRegex.firstMatch(line);
+    if (match != null) {
+      // Start a new item.
+      final indent = match.group(1)!;
+      final marker = match.group(2)!;
+      final text = match.group(3)!;
+      bool? checked;
+      if (marker.contains('[x]') || marker.contains('[X]')) {
+        checked = true;
+      } else if (marker.contains('[ ]')) {
+        checked = false;
+      }
+      current = _ListItem(
+        rawLine: line,
+        text: text,
+        marker: marker.trimRight(),
+        indent: indent.length,
+        checked: checked,
+      );
+      items.add(current);
+    } else if (current != null && line.trim().isNotEmpty) {
+      // Continuation line — merge into current item.
+      items[items.length - 1] = _ListItem(
+        rawLine: '${current.rawLine}\n$line',
+        text: '${current.text} ${line.trim()}',
+        marker: current.marker,
+        indent: current.indent,
+        checked: current.checked,
+      );
+      current = items.last;
+    }
+    // Blank lines are ignored (kept in rawLine of their owning item if
+    // needed in future).
+  }
+  return items;
+}
+
+/// Renders a contiguous list block with drag handles for reordering items.
+class _DraggableListBlock extends StatefulWidget {
+  const _DraggableListBlock({
+    required this.rawContent,
+    required this.theme,
+    required this.onReorder,
+  });
+
+  final String rawContent;
+  final MdBasicTheme theme;
+  final ValueChanged<String> onReorder;
+
+  @override
+  State<_DraggableListBlock> createState() => _DraggableListBlockState();
+}
+
+class _DraggableListBlockState extends State<_DraggableListBlock> {
+  late List<_ListItem> _items;
+  int _draggingIndex = -1;
+  int _dropTargetIndex = -1;
+
+  @override
+  void initState() {
+    super.initState();
+    _items = _parseListItems(widget.rawContent);
+  }
+
+  @override
+  void didUpdateWidget(_DraggableListBlock oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.rawContent != widget.rawContent) {
+      _items = _parseListItems(widget.rawContent);
+    }
+  }
+
+  void _onReorder(int from, int to) {
+    final item = _items.removeAt(from);
+    _items.insert(to, item);
+    final newContent = _items.map((i) => i.rawLine).join('\n');
+    widget.onReorder(newContent);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = widget.theme;
+    if (_items.isEmpty) return const SizedBox.shrink();
+
+    return SelectionContainer.disabled(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: List.generate(_items.length, (i) {
+          final item = _items[i];
+          final isDragged = _draggingIndex == i;
+          final isTargetAbove =
+              _dropTargetIndex == i && _draggingIndex > i;
+          final isTargetBelow =
+              _dropTargetIndex == i && _draggingIndex < i;
+
+          return DragTarget<int>(
+            onWillAcceptWithDetails: (details) {
+              if (details.data != i) {
+                setState(() => _dropTargetIndex = i);
+              }
+              return details.data != i;
+            },
+            onLeave: (_) {
+              if (_dropTargetIndex == i) {
+                setState(() => _dropTargetIndex = -1);
+              }
+            },
+            onAcceptWithDetails: (details) {
+              final from = details.data;
+              final to = _draggingIndex > i ? i : i;
+              setState(() {
+                _dropTargetIndex = -1;
+                _draggingIndex = -1;
+              });
+              _onReorder(from, to);
+            },
+            builder: (context, candidateData, rejectedData) {
+              return Container(
+                decoration: BoxDecoration(
+                  border: Border(
+                    top: isTargetAbove
+                        ? BorderSide(color: theme.accent, width: 2)
+                        : BorderSide.none,
+                    bottom: isTargetBelow
+                        ? BorderSide(color: theme.accent, width: 2)
+                        : BorderSide.none,
+                  ),
+                ),
+                child: Opacity(
+                  opacity: isDragged ? 0.35 : 1.0,
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      left: item.indent.toDouble() * 8,
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Drag handle.
+                        LongPressDraggable<int>(
+                          data: i,
+                          delay: const Duration(milliseconds: 150),
+                          onDragStarted: () =>
+                              setState(() => _draggingIndex = i),
+                          onDragEnd: (_) => setState(() {
+                            _draggingIndex = -1;
+                            _dropTargetIndex = -1;
+                          }),
+                          onDraggableCanceled: (velocity, offset) =>
+                              setState(() {
+                            _draggingIndex = -1;
+                            _dropTargetIndex = -1;
+                          }),
+                          feedback: Material(
+                            elevation: 4,
+                            borderRadius: BorderRadius.circular(4),
+                            color: theme.surface,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  maxWidth: 300,
+                                ),
+                                child: Text(
+                                  '${_bulletDisplay(item)} ${item.text}',
+                                  style: TextStyle(
+                                    color: theme.text,
+                                    fontSize: theme.baseFontSize,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                          ),
+                          child: MouseRegion(
+                            cursor: SystemMouseCursors.grab,
+                            child: Padding(
+                              padding: const EdgeInsets.only(
+                                right: 4,
+                                top: 2,
+                              ),
+                              child: Icon(
+                                Icons.drag_indicator,
+                                size: 16,
+                                color: theme.textMuted,
+                              ),
+                            ),
+                          ),
+                        ),
+                        // Bullet / checkbox.
+                        Padding(
+                          padding: const EdgeInsets.only(right: 6, top: 2),
+                          child: _buildBullet(item, theme),
+                        ),
+                        // Text content.
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 2,
+                            ),
+                            child: Text(
+                              item.text,
+                              style: TextStyle(
+                                color: theme.text,
+                                fontSize: theme.baseFontSize,
+                                height: theme.lineHeight,
+                                decoration: item.checked == true
+                                    ? TextDecoration.lineThrough
+                                    : null,
+                                decorationColor:
+                                    theme.textMuted,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          );
+        }),
+      ),
+    );
+  }
+
+  String _bulletDisplay(_ListItem item) {
+    if (item.checked != null) return item.checked! ? '☑' : '☐';
+    final m = item.marker.trim();
+    if (m == '-' || m == '*' || m == '+') return '•';
+    // Ordered list — return the number.
+    return m;
+  }
+
+  Widget _buildBullet(_ListItem item, MdBasicTheme theme) {
+    if (item.checked != null) {
+      return Icon(
+        item.checked! ? Icons.check_box : Icons.check_box_outline_blank,
+        size: 18,
+        color: item.checked! ? theme.success : theme.textMuted,
+      );
+    }
+    final m = item.marker.trim();
+    final isOrdered = RegExp(r'^\d+\.$').hasMatch(m);
+    return Text(
+      isOrdered ? m : '•',
+      style: TextStyle(
+        color: theme.textMuted,
+        fontSize: theme.baseFontSize,
+        fontWeight: isOrdered ? FontWeight.w500 : FontWeight.bold,
       ),
     );
   }

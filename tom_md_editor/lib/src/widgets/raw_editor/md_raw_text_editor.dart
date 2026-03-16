@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../constants/md_constants.dart';
 import '../../controller/md_editor_controller.dart';
@@ -42,8 +43,11 @@ class MdRawTextEditor extends StatefulWidget {
 }
 
 class _MdRawTextEditorState extends State<MdRawTextEditor> {
+  /// Standard markdown indentation for nested lists (2 spaces).
+  static const _indent = '  ';
+
   late MdSyntaxHighlightController _textController;
-  final FocusNode _focusNode = FocusNode();
+  late final FocusNode _focusNode;
   final ScrollController _scrollController = ScrollController();
   Timer? _debounce;
   bool _isUpdating = false;
@@ -53,6 +57,7 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
   @override
   void initState() {
     super.initState();
+    _focusNode = FocusNode(onKeyEvent: _handleKeyEvent);
     final basic = widget.theme.basic;
     _textController = MdSyntaxHighlightController(
       text: _getEditableText(),
@@ -90,6 +95,144 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
     _scrollController.dispose();
     _debounce?.cancel();
     super.dispose();
+  }
+
+  // ── Tab / Shift-Tab indentation handling ──
+
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    if (event.logicalKey != LogicalKeyboardKey.tab) {
+      return KeyEventResult.ignored;
+    }
+    if (widget.settings.readOnly) return KeyEventResult.ignored;
+
+    final isShift = HardwareKeyboard.instance.isShiftPressed;
+    if (isShift) {
+      _handleUnindent();
+    } else {
+      _handleIndent();
+    }
+    return KeyEventResult.handled;
+  }
+
+  void _handleIndent() {
+    final selection = _textController.selection;
+    final text = _textController.text;
+    if (!selection.isValid) return;
+
+    if (selection.isCollapsed) {
+      // No selection — insert indent at cursor.
+      final offset = selection.baseOffset;
+      final newText =
+          text.substring(0, offset) + _indent + text.substring(offset);
+      _textController.value = TextEditingValue(
+        text: newText,
+        selection:
+            TextSelection.collapsed(offset: offset + _indent.length),
+      );
+    } else {
+      // Selection — indent every selected line.
+      final start = selection.start;
+      final end = selection.end;
+      final lineStart =
+          start > 0 ? text.lastIndexOf('\n', start - 1) : -1;
+      final effectiveStart = lineStart == -1 ? 0 : lineStart + 1;
+
+      final before = text.substring(0, effectiveStart);
+      final selectedBlock = text.substring(effectiveStart, end);
+      final after = text.substring(end);
+      final lines = selectedBlock.split('\n');
+      final indented = lines.map((l) => '$_indent$l').join('\n');
+      final added = lines.length * _indent.length;
+
+      _textController.value = TextEditingValue(
+        text: '$before$indented$after',
+        selection: TextSelection(
+          baseOffset: start + _indent.length,
+          extentOffset: end + added,
+        ),
+      );
+    }
+    _onTextChanged(_textController.text);
+  }
+
+  void _handleUnindent() {
+    final selection = _textController.selection;
+    final text = _textController.text;
+    if (!selection.isValid) return;
+
+    if (selection.isCollapsed) {
+      // No selection — remove leading spaces from current line.
+      final offset = selection.baseOffset;
+      final lineStart =
+          offset > 0 ? text.lastIndexOf('\n', offset - 1) : -1;
+      final effectiveStart = lineStart == -1 ? 0 : lineStart + 1;
+
+      int remove = 0;
+      for (var i = 0;
+          i < _indent.length && effectiveStart + i < text.length;
+          i++) {
+        if (text[effectiveStart + i] == ' ') {
+          remove++;
+        } else {
+          break;
+        }
+      }
+      if (remove > 0) {
+        final newText = text.substring(0, effectiveStart) +
+            text.substring(effectiveStart + remove);
+        _textController.value = TextEditingValue(
+          text: newText,
+          selection: TextSelection.collapsed(
+            offset: (offset - remove).clamp(effectiveStart, newText.length),
+          ),
+        );
+        _onTextChanged(_textController.text);
+      }
+    } else {
+      // Selection — unindent every selected line.
+      final start = selection.start;
+      final end = selection.end;
+      final lineStart =
+          start > 0 ? text.lastIndexOf('\n', start - 1) : -1;
+      final effectiveStart = lineStart == -1 ? 0 : lineStart + 1;
+
+      final before = text.substring(0, effectiveStart);
+      final selectedBlock = text.substring(effectiveStart, end);
+      final after = text.substring(end);
+      final lines = selectedBlock.split('\n');
+      int totalRemoved = 0;
+      int firstRemoved = 0;
+      final unindented = <String>[];
+
+      for (var i = 0; i < lines.length; i++) {
+        final line = lines[i];
+        int remove = 0;
+        for (var j = 0; j < _indent.length && j < line.length; j++) {
+          if (line[j] == ' ') {
+            remove++;
+          } else {
+            break;
+          }
+        }
+        unindented.add(line.substring(remove));
+        totalRemoved += remove;
+        if (i == 0) firstRemoved = remove;
+      }
+
+      final newText = '$before${unindented.join('\n')}$after';
+      _textController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection(
+          baseOffset:
+              (start - firstRemoved).clamp(effectiveStart, newText.length),
+          extentOffset: (end - totalRemoved).clamp(0, newText.length),
+        ),
+      );
+      _onTextChanged(_textController.text);
+    }
   }
 
   /// Called when the text controller's cursor position changes.
