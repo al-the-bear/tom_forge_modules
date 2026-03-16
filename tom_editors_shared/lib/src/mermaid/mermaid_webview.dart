@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:webview_flutter/webview_flutter.dart';
 
 /// Mermaid theme options matching the official mermaid.js themes.
@@ -76,6 +77,9 @@ class _MermaidWebViewState extends State<MermaidWebView> {
   bool _platformAvailable = true;
   String? _error;
 
+  /// Cached mermaid.min.js source loaded once from the bundled asset.
+  static String? _mermaidJs;
+
   @override
   void initState() {
     super.initState();
@@ -90,8 +94,13 @@ class _MermaidWebViewState extends State<MermaidWebView> {
     }
   }
 
-  void _initWebView() {
+  Future<void> _initWebView() async {
     try {
+      // Load mermaid.js from bundled asset once and cache it.
+      _mermaidJs ??= await rootBundle.loadString(
+        'packages/tom_editors_shared/assets/js/mermaid.min.js',
+      );
+
       final controller = WebViewController()
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
         ..setBackgroundColor(widget.backgroundColor ?? Colors.white)
@@ -105,12 +114,16 @@ class _MermaidWebViewState extends State<MermaidWebView> {
             _renderDiagram();
           },
         ))
-        ..loadHtmlString(_buildHtml());
+        ..loadHtmlString(_buildHtml(_mermaidJs!));
       _controller = controller;
     } catch (_) {
-      // WebView platform not available (e.g. in tests).
-      _platformAvailable = false;
-      _loading = false;
+      // WebView platform not available (e.g. in tests) or asset missing.
+      if (mounted) {
+        setState(() {
+          _platformAvailable = false;
+          _loading = false;
+        });
+      }
     }
   }
 
@@ -154,7 +167,7 @@ class _MermaidWebViewState extends State<MermaidWebView> {
     );
   }
 
-  String _buildHtml() {
+  String _buildHtml(String mermaidJs) {
     final bgColor = widget.backgroundColor ?? Colors.white;
     final r = (bgColor.r * 255.0).round().clamp(0, 255);
     final g = (bgColor.g * 255.0).round().clamp(0, 255);
@@ -168,7 +181,7 @@ class _MermaidWebViewState extends State<MermaidWebView> {
 <html><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>$mermaidJs</script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:$bgHex;overflow:hidden;font-family:sans-serif}
@@ -210,6 +223,21 @@ async function renderMermaid(source,theme){
   Widget build(BuildContext context) {
     if (!_platformAvailable || _error != null) {
       return _buildErrorFallback();
+    }
+
+    // Controller not yet ready (async init in progress) — show loading.
+    if (_controller == null) {
+      return SizedBox(
+        width: double.infinity,
+        height: widget.minHeight,
+        child: const Center(
+          child: SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
     }
 
     return SizedBox(

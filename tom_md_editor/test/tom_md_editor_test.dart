@@ -1276,7 +1276,7 @@ pie
 
       // Tap to show source
       await tester.tap(find.byIcon(Icons.code));
-      await tester.pumpAndSettle();
+      await tester.pump();
 
       expect(find.byIcon(Icons.code_off), findsOneWidget);
     });
