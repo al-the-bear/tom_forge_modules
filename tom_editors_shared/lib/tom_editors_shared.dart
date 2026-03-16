@@ -48,3 +48,6 @@ export 'src/search/search_box.dart';
 
 // Debug
 export 'src/debug/editor_logger.dart';
+
+// Mermaid
+export 'src/mermaid/mermaid_webview.dart';

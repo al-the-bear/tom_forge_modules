@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_mermaid/flutter_mermaid.dart';
+import 'package:tom_editors_shared/tom_editors_shared.dart';
 
 import '../theme/md_editor_theme.dart';
 import '../widgets/overlays/md_mermaid_overlay.dart';
@@ -47,7 +47,7 @@ abstract class MdMermaidDiagramEditor {
 ///
 /// Mermaid diagrams are native fenced code blocks (` ```mermaid `), so no
 /// preprocessing is needed. The plugin renders diagrams using
-/// [MermaidDiagram] and provides a text-based overlay editor by default.
+/// [MermaidWebView] and provides a text-based overlay editor by default.
 ///
 /// Custom graphical editors can be registered per diagram type via
 /// [registerDiagramEditor]. When editing a diagram, the plugin detects the
@@ -177,26 +177,6 @@ class _MermaidPreviewWidget extends StatefulWidget {
 class _MermaidPreviewWidgetState extends State<_MermaidPreviewWidget> {
   bool _hovering = false;
 
-  /// Diagram types that flutter_mermaid 0.1.0 can actually render.
-  static final _supportedPrefixes = [
-    'graph ',
-    'graph\n',
-    'flowchart ',
-    'flowchart\n',
-    'sequenceDiagram',
-    'pie',
-    'gantt',
-    'timeline',
-    'kanban',
-    'radar-beta',
-    'xychart-beta',
-  ];
-
-  bool get _isSupported {
-    final trimmed = widget.code.trimLeft();
-    return _supportedPrefixes.any((p) => trimmed.startsWith(p));
-  }
-
   @override
   Widget build(BuildContext context) {
     return MouseRegion(
@@ -227,18 +207,10 @@ class _MermaidPreviewWidgetState extends State<_MermaidPreviewWidget> {
                     ),
                   ),
                 ),
-                if (_isSupported)
-                  MermaidDiagram(code: widget.code)
-                else
-                  SelectableText(
-                    widget.code,
-                    style: TextStyle(
-                      fontFamily: widget.theme.monoFontFamily,
-                      fontSize: widget.theme.baseFontSize * 0.9,
-                      color: widget.theme.textSecondary,
-                      height: widget.theme.lineHeight,
-                    ),
-                  ),
+                MermaidWebView(
+                  source: widget.code,
+                  backgroundColor: widget.theme.surfaceVariant,
+                ),
               ],
             ),
           ),

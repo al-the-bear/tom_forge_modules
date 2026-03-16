@@ -1,0 +1,279 @@
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
+import 'package:webview_flutter/webview_flutter.dart';
+
+/// Mermaid theme options matching the official mermaid.js themes.
+enum MermaidTheme {
+  /// Light theme (default).
+  light('default'),
+
+  /// Dark theme.
+  dark('dark'),
+
+  /// Neutral grey theme.
+  neutral('neutral'),
+
+  /// Green forest theme.
+  forest('forest');
+
+  const MermaidTheme(this.jsName);
+
+  /// The theme name as expected by mermaid.js `initialize()`.
+  final String jsName;
+}
+
+/// Renders a Mermaid diagram using the official mermaid.js library in a
+/// WebView, providing full-fidelity rendering of all diagram types.
+///
+/// Each instance creates a small WebView that loads the mermaid.js library
+/// and renders the diagram source. The widget auto-sizes its height to fit
+/// the rendered diagram.
+///
+/// Supported diagram types include flowchart, sequence, class, state, ER,
+/// pie, gantt, timeline, kanban, mindmap, xychart, radar, gitGraph,
+/// journey, quadrant, and any future types added to mermaid.js.
+class MermaidWebView extends StatefulWidget {
+  const MermaidWebView({
+    super.key,
+    required this.source,
+    this.theme = MermaidTheme.light,
+    this.backgroundColor,
+    this.onError,
+    this.minHeight = 60,
+    this.maxHeight = 2000,
+  });
+
+  /// The Mermaid diagram source code (without fence markers).
+  final String source;
+
+  /// The mermaid rendering theme.
+  final MermaidTheme theme;
+
+  /// Background color for the diagram area. Defaults to white/transparent.
+  final Color? backgroundColor;
+
+  /// Called when mermaid.js fails to render the diagram.
+  final ValueChanged<String>? onError;
+
+  /// Minimum height before auto-sizing kicks in.
+  final double minHeight;
+
+  /// Maximum allowed height to prevent unbounded growth.
+  final double maxHeight;
+
+  @override
+  State<MermaidWebView> createState() => _MermaidWebViewState();
+}
+
+class _MermaidWebViewState extends State<MermaidWebView> {
+  WebViewController? _controller;
+  double _height = 200;
+  bool _loading = true;
+  bool _pageReady = false;
+  bool _platformAvailable = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _initWebView();
+  }
+
+  @override
+  void didUpdateWidget(MermaidWebView old) {
+    super.didUpdateWidget(old);
+    if (old.source != widget.source || old.theme != widget.theme) {
+      _renderDiagram();
+    }
+  }
+
+  void _initWebView() {
+    try {
+      final controller = WebViewController()
+        ..setJavaScriptMode(JavaScriptMode.unrestricted)
+        ..setBackgroundColor(widget.backgroundColor ?? Colors.white)
+        ..addJavaScriptChannel(
+          'MermaidChannel',
+          onMessageReceived: _onMessage,
+        )
+        ..setNavigationDelegate(NavigationDelegate(
+          onPageFinished: (_) {
+            _pageReady = true;
+            _renderDiagram();
+          },
+        ))
+        ..loadHtmlString(_buildHtml());
+      _controller = controller;
+    } catch (_) {
+      // WebView platform not available (e.g. in tests).
+      _platformAvailable = false;
+      _loading = false;
+    }
+  }
+
+  void _onMessage(JavaScriptMessage message) {
+    final data = jsonDecode(message.message) as Map<String, dynamic>;
+    final type = data['type'] as String;
+
+    if (type == 'rendered') {
+      final height = (data['height'] as num).toDouble();
+      if (mounted) {
+        setState(() {
+          _height = height.clamp(widget.minHeight, widget.maxHeight);
+          _loading = false;
+          _error = null;
+        });
+      }
+    } else if (type == 'error') {
+      final msg = data['message'] as String;
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = msg;
+        });
+      }
+      widget.onError?.call(msg);
+    }
+  }
+
+  void _renderDiagram() {
+    if (!_pageReady || _controller == null) return;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    // JSON-encode the source to safely pass it into JavaScript,
+    // preventing injection of arbitrary JS through diagram source.
+    final escapedSource = jsonEncode(widget.source);
+    final themeName = widget.theme.jsName;
+    _controller!.runJavaScript(
+      'renderMermaid($escapedSource, ${jsonEncode(themeName)});',
+    );
+  }
+
+  String _buildHtml() {
+    final bgColor = widget.backgroundColor ?? Colors.white;
+    final r = (bgColor.r * 255.0).round().clamp(0, 255);
+    final g = (bgColor.g * 255.0).round().clamp(0, 255);
+    final b = (bgColor.b * 255.0).round().clamp(0, 255);
+    final bgHex =
+        '#${r.toRadixString(16).padLeft(2, '0')}'
+        '${g.toRadixString(16).padLeft(2, '0')}'
+        '${b.toRadixString(16).padLeft(2, '0')}';
+
+    return '''<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:$bgHex;overflow:hidden;font-family:sans-serif}
+#diagram{padding:8px}
+.error{color:#d32f2f;font-family:monospace;font-size:12px;padding:8px}
+</style>
+</head><body>
+<div id="diagram"></div>
+<script>
+let rc=0;
+async function renderMermaid(source,theme){
+  const c=document.getElementById('diagram');
+  rc++;
+  const id='m'+rc;
+  try{
+    mermaid.initialize({startOnLoad:false,theme:theme||'default',securityLevel:'strict'});
+    const{svg}=await mermaid.render(id,source);
+    c.innerHTML=svg;
+    await new Promise(r=>setTimeout(r,50));
+    MermaidChannel.postMessage(JSON.stringify({
+      type:'rendered',
+      width:c.scrollWidth,
+      height:c.scrollHeight
+    }));
+  }catch(e){
+    c.innerHTML='<div class="error">'+
+      (e.message||String(e)).replace(/</g,'&lt;')+'</div>';
+    MermaidChannel.postMessage(JSON.stringify({
+      type:'error',
+      message:e.message||String(e)
+    }));
+  }
+}
+</script>
+</body></html>''';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_platformAvailable || _error != null) {
+      return _buildErrorFallback();
+    }
+
+    return SizedBox(
+      width: double.infinity,
+      height: _height,
+      child: Stack(
+        children: [
+          WebViewWidget(
+            controller: _controller!,
+            gestureRecognizers: const <Factory<
+                OneSequenceGestureRecognizer>>{},
+          ),
+          if (_loading)
+            const Center(
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorFallback() {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.warning_amber_rounded,
+                  size: 16, color: Colors.orange.shade700),
+              const SizedBox(width: 6),
+              Text(
+                'Diagram render failed',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade700,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SelectableText(
+            widget.source,
+            style: TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 12,
+              color: Colors.grey.shade600,
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

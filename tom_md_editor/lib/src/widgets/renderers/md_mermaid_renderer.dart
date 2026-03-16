@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_mermaid/flutter_mermaid.dart';
+import 'package:tom_editors_shared/tom_editors_shared.dart';
 
 import '../../debug/md_editor_debug.dart';
 import '../../theme/md_editor_theme.dart';
@@ -26,9 +26,9 @@ const kMermaidDiagramTypes = [
   'gitGraph',
 ];
 
-/// Renders Mermaid diagrams using the `flutter_mermaid` package.
+/// Renders Mermaid diagrams using a WebView with the official mermaid.js.
 ///
-/// Renders the diagram visually via [MermaidDiagram] and optionally
+/// Renders the diagram visually via [MermaidWebView] and optionally
 /// displays the source in a collapsible panel for editing.
 class MdMermaidRenderer extends StatefulWidget {
   const MdMermaidRenderer({
@@ -133,7 +133,10 @@ class _MdMermaidRendererState extends State<MdMermaidRenderer> {
   }
 
   Widget _buildDiagram(MdBasicTheme basic) {
-    return MermaidDiagram(code: widget.source);
+    return MermaidWebView(
+      source: widget.source,
+      backgroundColor: basic.surfaceVariant,
+    );
   }
 
   Widget _buildFallback(MdBasicTheme basic) {
