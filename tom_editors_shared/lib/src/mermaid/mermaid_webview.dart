@@ -182,6 +182,18 @@ class _MermaidWebViewState extends State<MermaidWebView> {
         });
       }
       widget.onError?.call(msg);
+    } else if (type == 'scroll') {
+      final deltaY = (data['deltaY'] as num).toDouble();
+      final scrollable = Scrollable.maybeOf(context);
+      if (scrollable != null) {
+        final pos = scrollable.position;
+        pos.jumpTo(
+          (pos.pixels + deltaY).clamp(
+            pos.minScrollExtent,
+            pos.maxScrollExtent,
+          ),
+        );
+      }
     }
   }
 
@@ -217,8 +229,7 @@ class _MermaidWebViewState extends State<MermaidWebView> {
 <script>$mermaidJs</script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{overflow:hidden;background:$bgHex;font-family:sans-serif;
-  pointer-events:none;user-select:none;-webkit-user-select:none}
+html,body{overflow:hidden;background:$bgHex;font-family:sans-serif}
 #diagram{padding:8px}
 #diagram svg{display:block;max-width:100%;height:auto}
 .error{color:#d32f2f;font-family:monospace;font-size:12px;padding:8px}
@@ -235,7 +246,19 @@ async function renderMermaid(source,theme){
   try{
     const t=theme||'default';
     // Always initialize fresh with target theme.
-    mermaid.initialize({startOnLoad:false,theme:t,securityLevel:'loose'});
+    var cfg={startOnLoad:false,theme:t,securityLevel:'loose'};
+    if(t==='dark'){
+      cfg.themeVariables={
+        sectionBkgColor:'#2d2d2d',altSectionBkgColor:'#363636',
+        taskBkgColor:'#3a3a6a',activeTaskBkgColor:'#4a4a7a',
+        doneTaskBkgColor:'#2a5a2a',critBkgColor:'#6a2a2a',
+        taskTextColor:'#e0e0e0',taskTextOutsideColor:'#e0e0e0',
+        taskTextDarkColor:'#e0e0e0',
+        gridColor:'#444444',todayLineColor:'#ff6666',
+        titleColor:'#e0e0e0',sectionTitleColor:'#e0e0e0'
+      };
+    }
+    mermaid.initialize(cfg);
     const{svg}=await mermaid.render(id,source);
     c.innerHTML=svg;
     // Dark-theme fixes.
@@ -298,6 +321,14 @@ async function renderMermaid(source,theme){
     }));
   }
 }
+// Forward wheel events to Flutter so the parent ScrollView can scroll.
+document.addEventListener('wheel',function(e){
+  e.preventDefault();
+  var dy=e.deltaY;
+  if(e.deltaMode===1)dy*=16;
+  if(e.deltaMode===2)dy*=window.innerHeight;
+  MermaidChannel.postMessage(JSON.stringify({type:'scroll',deltaX:e.deltaX,deltaY:dy}));
+},{passive:false,capture:true});
 </script>
 </body></html>''';
   }
@@ -333,15 +364,7 @@ async function renderMermaid(source,theme){
             gestureRecognizers: const <Factory<
                 OneSequenceGestureRecognizer>>{},
           ),
-          // Opaque overlay that sits above the WebView's native NSView.
-          // A transparent widget would be skipped by hit testing, so we
-          // use a nearly-transparent color (alpha 1/255) to ensure this
-          // widget wins hit testing. This prevents the native WKWebView
-          // scroll view from receiving mouse-wheel events; the parent
-          // Flutter ScrollView handles them instead.
-          Positioned.fill(
-            child: Container(color: const Color(0x01000000)),
-          ),
+
           if (_loading)
             const Center(
               child: SizedBox(
