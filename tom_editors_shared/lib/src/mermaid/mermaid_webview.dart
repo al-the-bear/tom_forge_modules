@@ -219,7 +219,7 @@ class _MermaidWebViewState extends State<MermaidWebView> {
 <script>$mermaidJs</script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:$bgHex;font-family:sans-serif}
+html,body{overflow:hidden;background:$bgHex;font-family:sans-serif}
 #diagram{padding:8px}
 #diagram svg{display:block;max-width:100%;height:auto}
 .error{color:#d32f2f;font-family:monospace;font-size:12px;padding:8px}
@@ -232,6 +232,10 @@ ${isDark ? '''
 </head><body>
 <div id="diagram"></div>
 <script>
+// Prevent the native WKWebView scroll view from capturing wheel events
+// so they pass through to the Flutter parent scroll view.
+document.addEventListener('wheel',function(e){e.preventDefault();e.stopPropagation();},{passive:false});
+
 let rc=0;
 async function renderMermaid(source,theme){
   const c=document.getElementById('diagram');

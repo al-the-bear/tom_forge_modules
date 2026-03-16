@@ -1120,10 +1120,11 @@ List<_ListItem> _parseListItems(String rawContent) {
       );
       items.add(current);
     } else if (current != null && line.trim().isNotEmpty) {
-      // Continuation line — merge into current item.
+      // Continuation line — merge into current item, preserving newlines
+      // so multi-line content renders as separate lines.
       items[items.length - 1] = _ListItem(
         rawLine: '${current.rawLine}\n$line',
-        text: '${current.text} ${line.trim()}',
+        text: '${current.text}\n${line.trim()}',
         marker: current.marker,
         indent: current.indent,
         checked: current.checked,
@@ -1273,6 +1274,7 @@ class _DraggableListBlockState extends State<_DraggableListBlock> {
                                     color: theme.text,
                                     fontSize: theme.baseFontSize,
                                   ),
+                                  maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
@@ -1298,23 +1300,43 @@ class _DraggableListBlockState extends State<_DraggableListBlock> {
                           padding: const EdgeInsets.only(right: 6, top: 2),
                           child: _buildBullet(item, theme, i),
                         ),
-                        // Text content.
+                        // Text content — rendered through MarkdownBody
+                        // so inline formatting (bold, italic, code, links)
+                        // is properly displayed.
                         Expanded(
                           child: Padding(
                             padding: const EdgeInsets.symmetric(
                               vertical: 2,
                             ),
-                            child: Text(
-                              item.text,
-                              style: TextStyle(
-                                color: theme.text,
-                                fontSize: theme.baseFontSize,
-                                height: theme.lineHeight,
-                                decoration: item.checked == true
-                                    ? TextDecoration.lineThrough
-                                    : null,
-                                decorationColor:
-                                    theme.textMuted,
+                            child: MarkdownBody(
+                              data: item.text,
+                              shrinkWrap: true,
+                              styleSheet: MarkdownStyleSheet(
+                                p: TextStyle(
+                                  color: theme.text,
+                                  fontSize: theme.baseFontSize,
+                                  height: theme.lineHeight,
+                                  decoration: item.checked == true
+                                      ? TextDecoration.lineThrough
+                                      : null,
+                                  decorationColor: theme.textMuted,
+                                ),
+                                strong: TextStyle(
+                                  color: theme.text,
+                                  fontSize: theme.baseFontSize,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                em: TextStyle(
+                                  color: theme.text,
+                                  fontSize: theme.baseFontSize,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                                code: theme.inlineCodeStyle,
+                                a: TextStyle(
+                                  color: theme.linkColor,
+                                  decoration: theme.linkDecoration,
+                                ),
+                                blockSpacing: 4,
                               ),
                             ),
                           ),
