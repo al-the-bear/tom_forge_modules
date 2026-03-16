@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../debug/md_editor_debug.dart';
 import '../../theme/md_editor_theme.dart';
@@ -36,18 +37,98 @@ class _MdTableOverlayState extends State<MdTableOverlay> {
   int get _rows => _cells.length;
   int get _cols => _cells.isEmpty ? 0 : _cells.first.length;
 
+  late List<FocusNode> _focusNodes;
+
+  List<FocusNode> _buildFocusNodes() {
+    return List.generate(_rows * _cols, (_) => FocusNode());
+  }
+
+  FocusNode _focusNodeAt(int row, int col) => _focusNodes[row * _cols + col];
+
+  void _focusCell(int row, int col, {int? cursorPosition}) {
+    if (row < 0 || row >= _rows || col < 0 || col >= _cols) return;
+    _focusNodeAt(row, col).requestFocus();
+    if (cursorPosition != null) {
+      final ctrl = _controllerAt(row, col);
+      final pos = cursorPosition.clamp(0, ctrl.text.length);
+      ctrl.selection = TextSelection.collapsed(offset: pos);
+    }
+  }
+
+  KeyEventResult _onCellKeyEvent(
+    int row,
+    int col,
+    FocusNode node,
+    KeyEvent event,
+  ) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    final key = event.logicalKey;
+
+    if (key == LogicalKeyboardKey.arrowUp) {
+      if (row > 0) _focusCell(row - 1, col);
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.arrowDown) {
+      if (row < _rows - 1) _focusCell(row + 1, col);
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.arrowLeft) {
+      final ctrl = _controllerAt(row, col);
+      if (ctrl.selection.baseOffset == 0 &&
+          ctrl.selection.extentOffset == 0 &&
+          col > 0) {
+        _focusCell(
+          row,
+          col - 1,
+          cursorPosition: _controllerAt(row, col - 1).text.length,
+        );
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    }
+    if (key == LogicalKeyboardKey.arrowRight) {
+      final ctrl = _controllerAt(row, col);
+      if (ctrl.selection.baseOffset == ctrl.text.length &&
+          ctrl.selection.extentOffset == ctrl.text.length &&
+          col < _cols - 1) {
+        _focusCell(row, col + 1, cursorPosition: 0);
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    }
+    if (key == LogicalKeyboardKey.enter) {
+      if (row == _rows - 1) {
+        _addRow();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _focusCell(row + 1, col, cursorPosition: 0);
+        });
+      } else {
+        _focusCell(row + 1, col, cursorPosition: 0);
+      }
+      return KeyEventResult.handled;
+    }
+
+    return KeyEventResult.ignored;
+  }
+
   @override
   void initState() {
     super.initState();
     _cells = _parseTable(widget.markdownTable);
     _alignments = _parseAlignments(widget.markdownTable);
     _controllers = _buildControllers();
+    _focusNodes = _buildFocusNodes();
   }
 
   @override
   void dispose() {
     for (final c in _controllers) {
       c.dispose();
+    }
+    for (final n in _focusNodes) {
+      n.dispose();
     }
     super.dispose();
   }
@@ -216,7 +297,10 @@ class _MdTableOverlayState extends State<MdTableOverlay> {
                       });
                     }
                   },
+                  onKeyEvent: (node, event) =>
+                      _onCellKeyEvent(r, c, node, event),
                   child: TextField(
+                    focusNode: _focusNodeAt(r, c),
                     controller: _controllerAt(r, c),
                     textAlign: _textAlignFor(c),
                     style: TextStyle(
@@ -364,6 +448,9 @@ class _MdTableOverlayState extends State<MdTableOverlay> {
       for (final cell in newRow) {
         _controllers.add(TextEditingController(text: cell));
       }
+      for (var i = 0; i < _cols; i++) {
+        _focusNodes.add(FocusNode());
+      }
     });
   }
 
@@ -372,11 +459,19 @@ class _MdTableOverlayState extends State<MdTableOverlay> {
       for (final c in _controllers) {
         c.dispose();
       }
+      for (final n in _focusNodes) {
+        n.dispose();
+      }
       for (final row in _cells) {
         row.add('');
       }
       _alignments.add(ColumnAlignment.left);
       _controllers = _buildControllers();
+      _focusNodes = _buildFocusNodes();
+    });
+    final targetCol = _cols - 1;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _focusCell(0, targetCol, cursorPosition: 0);
     });
   }
 
@@ -393,7 +488,11 @@ class _MdTableOverlayState extends State<MdTableOverlay> {
       for (final c in _controllers) {
         c.dispose();
       }
+      for (final n in _focusNodes) {
+        n.dispose();
+      }
       _controllers = _buildControllers();
+      _focusNodes = _buildFocusNodes();
       _focusedRow = _focusedRow.clamp(0, _rows - 1);
     });
   }
@@ -405,11 +504,15 @@ class _MdTableOverlayState extends State<MdTableOverlay> {
       for (final c in _controllers) {
         c.dispose();
       }
+      for (final n in _focusNodes) {
+        n.dispose();
+      }
       for (final row in _cells) {
         if (target < row.length) row.removeAt(target);
       }
       if (target < _alignments.length) _alignments.removeAt(target);
       _controllers = _buildControllers();
+      _focusNodes = _buildFocusNodes();
       _focusedCol = _focusedCol.clamp(0, _cols - 1);
     });
   }
