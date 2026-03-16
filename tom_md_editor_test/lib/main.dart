@@ -445,9 +445,11 @@ xychart-beta
 
 ## Images
 
-Images are rendered as their alt text in this editor:
+Images are loaded from URLs and displayed inline:
 
-![Flutter Logo](https://flutter.dev/assets/images/shared/brand/flutter/logo/flutter-lockup.png)
+![Dart Logo](https://dart.dev/assets/img/logo/dart-logo-for-shares.png?2)
+
+![Flutter Logo](https://storage.googleapis.com/cms-storage-bucket/0dbfcc7a59cd1cf16282.png)
 
 ## Math (LaTeX)
 

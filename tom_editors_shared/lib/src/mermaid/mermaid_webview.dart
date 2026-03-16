@@ -210,6 +210,8 @@ class _MermaidWebViewState extends State<MermaidWebView> {
         '${g.toRadixString(16).padLeft(2, '0')}'
         '${b.toRadixString(16).padLeft(2, '0')}';
 
+    final isDark = widget.theme == MermaidTheme.dark;
+
     return '''<!DOCTYPE html>
 <html><head>
 <meta charset="utf-8">
@@ -221,22 +223,23 @@ body{background:$bgHex;font-family:sans-serif}
 #diagram{padding:8px}
 #diagram svg{display:block;max-width:100%;height:auto}
 .error{color:#d32f2f;font-family:monospace;font-size:12px;padding:8px}
+${isDark ? '''
+/* Dark-mode fix: ensure mindmap text is visible on dark nodes. */
+.mindmap-node>div{color:#e0e0e0!important}
+.mindmap-node rect,.mindmap-node circle,.mindmap-node polygon{stroke:#888!important}
+''' : ''}
 </style>
 </head><body>
 <div id="diagram"></div>
 <script>
 let rc=0;
-let curTheme='';
 async function renderMermaid(source,theme){
   const c=document.getElementById('diagram');
   rc++;
   const id='m'+rc;
   try{
     const t=theme||'default';
-    if(t!==curTheme){
-      curTheme=t;
-      mermaid.initialize({startOnLoad:false,theme:t,securityLevel:'sandbox'});
-    }
+    mermaid.initialize({startOnLoad:false,theme:t,securityLevel:'loose'});
     const{svg}=await mermaid.render(id,source);
     c.innerHTML=svg;
     // Wait for the SVG to layout, then measure its actual dimensions.
@@ -299,10 +302,14 @@ async function renderMermaid(source,theme){
       height: _height,
       child: Stack(
         children: [
-          WebViewWidget(
-            controller: _controller!,
-            gestureRecognizers: const <Factory<
-                OneSequenceGestureRecognizer>>{},
+          // IgnorePointer lets scroll and other gestures pass through
+          // to the parent ListView, since rendered diagrams are static.
+          IgnorePointer(
+            child: WebViewWidget(
+              controller: _controller!,
+              gestureRecognizers: const <Factory<
+                  OneSequenceGestureRecognizer>>{},
+            ),
           ),
           if (_loading)
             const Center(
