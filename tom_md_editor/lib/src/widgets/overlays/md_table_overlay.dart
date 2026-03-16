@@ -8,6 +8,12 @@ import '../../theme/md_editor_theme.dart';
 enum ColumnAlignment { left, center, right }
 
 /// Overlay dialog for editing markdown tables with a spreadsheet-like UI.
+///
+/// Features:
+/// - Arrow key navigation between cells
+/// - Enter moves down; in the last row it appends a new row first
+/// - Insert row above/below and column left/right relative to focused cell
+/// - Drag handles for reordering rows and columns
 class MdTableOverlay extends StatefulWidget {
   const MdTableOverlay({
     super.key,
@@ -30,30 +36,198 @@ class MdTableOverlay extends StatefulWidget {
 class _MdTableOverlayState extends State<MdTableOverlay> {
   late List<List<String>> _cells;
   late List<TextEditingController> _controllers;
+  late List<FocusNode> _focusNodes;
   late List<ColumnAlignment> _alignments;
   int _focusedRow = 0;
   int _focusedCol = 0;
 
+  static const double _handleWidth = 28.0;
+
   int get _rows => _cells.length;
   int get _cols => _cells.isEmpty ? 0 : _cells.first.length;
 
-  late List<FocusNode> _focusNodes;
+  // ---------------------------------------------------------------------------
+  // Lifecycle
+  // ---------------------------------------------------------------------------
+
+  @override
+  void initState() {
+    super.initState();
+    _cells = _parseTable(widget.markdownTable);
+    _alignments = _parseAlignments(widget.markdownTable);
+    _controllers = _buildControllers();
+    _focusNodes = _buildFocusNodes();
+  }
+
+  @override
+  void dispose() {
+    for (final c in _controllers) {
+      c.dispose();
+    }
+    for (final n in _focusNodes) {
+      n.dispose();
+    }
+    super.dispose();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------------
+
+  List<TextEditingController> _buildControllers() {
+    return _cells
+        .expand((row) => row)
+        .map((cell) => TextEditingController(text: cell))
+        .toList();
+  }
 
   List<FocusNode> _buildFocusNodes() {
     return List.generate(_rows * _cols, (_) => FocusNode());
   }
 
-  FocusNode _focusNodeAt(int row, int col) => _focusNodes[row * _cols + col];
+  TextEditingController _controllerAt(int r, int c) =>
+      _controllers[r * _cols + c];
+
+  FocusNode _focusNodeAt(int r, int c) => _focusNodes[r * _cols + c];
 
   void _focusCell(int row, int col, {int? cursorPosition}) {
     if (row < 0 || row >= _rows || col < 0 || col >= _cols) return;
     _focusNodeAt(row, col).requestFocus();
     if (cursorPosition != null) {
       final ctrl = _controllerAt(row, col);
-      final pos = cursorPosition.clamp(0, ctrl.text.length);
-      ctrl.selection = TextSelection.collapsed(offset: pos);
+      ctrl.selection = TextSelection.collapsed(
+        offset: cursorPosition.clamp(0, ctrl.text.length),
+      );
     }
   }
+
+  void _syncCells() {
+    for (var r = 0; r < _rows; r++) {
+      for (var c = 0; c < _cols; c++) {
+        _cells[r][c] = _controllerAt(r, c).text;
+      }
+    }
+  }
+
+  void _disposeAll() {
+    for (final c in _controllers) {
+      c.dispose();
+    }
+    for (final n in _focusNodes) {
+      n.dispose();
+    }
+  }
+
+  /// Perform a structural mutation (insert/remove/reorder rows or columns).
+  ///
+  /// Syncs cell text from controllers, disposes old controllers and focus nodes,
+  /// runs [mutation], rebuilds both, and optionally focuses a cell after rebuild.
+  void _mutate(
+    void Function() mutation, {
+    int? focusRow,
+    int? focusCol,
+  }) {
+    _syncCells();
+    _disposeAll();
+    mutation();
+    _controllers = _buildControllers();
+    _focusNodes = _buildFocusNodes();
+    final fr = (focusRow ?? _focusedRow).clamp(0, _rows - 1);
+    final fc = (focusCol ?? _focusedCol).clamp(0, _cols - 1);
+    setState(() {
+      _focusedRow = fr;
+      _focusedCol = fc;
+    });
+    if (focusRow != null || focusCol != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _focusCell(fr, fc, cursorPosition: 0);
+      });
+    }
+  }
+
+  TextAlign _textAlignFor(int col) {
+    if (col >= _alignments.length) return TextAlign.start;
+    return switch (_alignments[col]) {
+      ColumnAlignment.left => TextAlign.start,
+      ColumnAlignment.center => TextAlign.center,
+      ColumnAlignment.right => TextAlign.end,
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Parsing
+  // ---------------------------------------------------------------------------
+
+  List<List<String>> _parseTable(String table) {
+    try {
+      final lines =
+          table.split('\n').where((l) => l.trim().isNotEmpty).toList();
+      if (lines.length < 2) {
+        return [
+          <String>['Header'],
+          <String>['Cell'],
+        ];
+      }
+      final result = <List<String>>[];
+      for (final line in lines) {
+        final trimmed = line.trim();
+        if (RegExp(r'^[\|\s\-:]+$').hasMatch(trimmed)) continue;
+        final cells = trimmed
+            .split('|')
+            .map((c) => c.trim())
+            .where((c) => c.isNotEmpty)
+            .toList(); // growable
+        if (cells.isNotEmpty) result.add(cells);
+      }
+      if (result.isNotEmpty) {
+        final maxCols =
+            result.fold<int>(0, (m, r) => r.length > m ? r.length : m);
+        for (final row in result) {
+          while (row.length < maxCols) {
+            row.add('');
+          }
+        }
+      }
+      return result.isEmpty
+          ? [
+              <String>['Header'],
+              <String>['Cell'],
+            ]
+          : result;
+    } catch (e, st) {
+      MdEditorDebug.logger.error('Error parsing table', e, st);
+      return [
+        <String>['Header'],
+        <String>['Cell'],
+      ];
+    }
+  }
+
+  List<ColumnAlignment> _parseAlignments(String table) {
+    final lines = table.split('\n').where((l) => l.trim().isNotEmpty).toList();
+    for (final line in lines) {
+      final trimmed = line.trim();
+      if (RegExp(r'^[\|\s\-:]+$').hasMatch(trimmed)) {
+        final parts = trimmed
+            .split('|')
+            .map((c) => c.trim())
+            .where((c) => c.isNotEmpty)
+            .toList();
+        return parts.map((p) {
+          final hasLeft = p.startsWith(':');
+          final hasRight = p.endsWith(':');
+          if (hasLeft && hasRight) return ColumnAlignment.center;
+          if (hasRight) return ColumnAlignment.right;
+          return ColumnAlignment.left;
+        }).toList();
+      }
+    }
+    return List.generate(_cols, (_) => ColumnAlignment.left);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Key events
+  // ---------------------------------------------------------------------------
 
   KeyEventResult _onCellKeyEvent(
     int row,
@@ -100,7 +274,7 @@ class _MdTableOverlayState extends State<MdTableOverlay> {
     }
     if (key == LogicalKeyboardKey.enter) {
       if (row == _rows - 1) {
-        _addRow();
+        _addRowAtEnd();
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _focusCell(row + 1, col, cursorPosition: 0);
         });
@@ -113,120 +287,138 @@ class _MdTableOverlayState extends State<MdTableOverlay> {
     return KeyEventResult.ignored;
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _cells = _parseTable(widget.markdownTable);
-    _alignments = _parseAlignments(widget.markdownTable);
+  // ---------------------------------------------------------------------------
+  // Row / Column mutations
+  // ---------------------------------------------------------------------------
+
+  /// Append a row at the end (used by Enter key in last row).
+  void _addRowAtEnd() {
+    _syncCells();
+    _disposeAll();
+    _cells.add(List<String>.filled(_cols, '', growable: true));
     _controllers = _buildControllers();
     _focusNodes = _buildFocusNodes();
+    setState(() {});
   }
 
-  @override
-  void dispose() {
-    for (final c in _controllers) {
-      c.dispose();
-    }
-    for (final n in _focusNodes) {
-      n.dispose();
-    }
-    super.dispose();
+  void _insertRowAbove() {
+    final target = _focusedRow;
+    if (target == 0) return;
+    _mutate(
+      () => _cells.insert(
+        target,
+        List<String>.filled(_cols, '', growable: true),
+      ),
+      focusRow: target,
+      focusCol: _focusedCol,
+    );
   }
 
-  List<List<String>> _parseTable(String table) {
+  void _insertRowBelow() {
+    final target = _focusedRow + 1;
+    _mutate(
+      () => _cells.insert(
+        target,
+        List<String>.filled(_cols, '', growable: true),
+      ),
+      focusRow: target,
+      focusCol: _focusedCol,
+    );
+  }
+
+  void _insertColumnLeft() {
+    final target = _focusedCol;
+    _mutate(() {
+      for (final row in _cells) {
+        row.insert(target, '');
+      }
+      _alignments.insert(target, ColumnAlignment.left);
+    }, focusRow: 0, focusCol: target);
+  }
+
+  void _insertColumnRight() {
+    final target = _focusedCol + 1;
+    _mutate(() {
+      for (final row in _cells) {
+        row.insert(target, '');
+      }
+      _alignments.insert(target, ColumnAlignment.left);
+    }, focusRow: 0, focusCol: target);
+  }
+
+  void _removeRow() {
+    if (_rows <= 2 || _focusedRow == 0) return;
+    _mutate(() => _cells.removeAt(_focusedRow));
+  }
+
+  void _removeColumn() {
+    if (_cols <= 1) return;
+    final target = _focusedCol.clamp(0, _cols - 1);
+    _mutate(() {
+      for (final row in _cells) {
+        if (target < row.length) row.removeAt(target);
+      }
+      if (target < _alignments.length) _alignments.removeAt(target);
+    });
+  }
+
+  void _reorderRows(int from, int to) {
+    if (from == to || from == 0 || to == 0) return;
+    _mutate(() {
+      final row = _cells.removeAt(from);
+      _cells.insert(to, row);
+    }, focusRow: to, focusCol: _focusedCol);
+  }
+
+  void _reorderColumns(int from, int to) {
+    if (from == to) return;
+    _mutate(() {
+      for (final row in _cells) {
+        final cell = row.removeAt(from);
+        row.insert(to, cell);
+      }
+      final align = _alignments.removeAt(from);
+      _alignments.insert(to, align);
+    }, focusRow: _focusedRow, focusCol: to);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Save / Markdown
+  // ---------------------------------------------------------------------------
+
+  void _save() {
     try {
-      final lines =
-          table
-              .split('\n')
-              .where((l) => l.trim().isNotEmpty)
-              .toList();
-      if (lines.length < 2) {
-        return [
-          ['Header'],
-          ['Cell'],
-        ];
-      }
-      final result = <List<String>>[];
-      for (var i = 0; i < lines.length; i++) {
-        final line = lines[i].trim();
-        // Skip separator line (---|---|...).
-        if (RegExp(r'^[\|\s\-:]+$').hasMatch(line)) continue;
-        final cells =
-            line
-                .split('|')
-                .map((c) => c.trim())
-                .where((c) => c.isNotEmpty)
-                .toList();
-        if (cells.isNotEmpty) result.add(cells);
-      }
-      // Normalize column count.
-      if (result.isNotEmpty) {
-        final maxCols = result.fold<int>(
-          0,
-          (m, row) => row.length > m ? row.length : m,
-        );
-        for (final row in result) {
-          while (row.length < maxCols) {
-            row.add('');
-          }
-        }
-      }
-      return result.isEmpty
-          ? [
-            ['Header'],
-            ['Cell'],
-          ]
-          : result;
+      _syncCells();
+      widget.onSave(_toMarkdown());
+      Navigator.of(context).pop();
     } catch (e, st) {
-      MdEditorDebug.logger.error('Error parsing table', e, st);
-      return [
-        ['Header'],
-        ['Cell'],
-      ];
+      MdEditorDebug.logger.error('Error saving table', e, st);
     }
   }
 
-  List<ColumnAlignment> _parseAlignments(String table) {
-    final lines = table.split('\n').where((l) => l.trim().isNotEmpty).toList();
-    for (final line in lines) {
-      final trimmed = line.trim();
-      if (RegExp(r'^[\|\s\-:]+$').hasMatch(trimmed)) {
-        final parts = trimmed
-            .split('|')
-            .map((c) => c.trim())
-            .where((c) => c.isNotEmpty)
-            .toList();
-        return parts.map((p) {
-          final left = p.startsWith(':');
-          final right = p.endsWith(':');
-          if (left && right) return ColumnAlignment.center;
-          if (right) return ColumnAlignment.right;
-          return ColumnAlignment.left;
-        }).toList();
-      }
+  String _toMarkdown() {
+    if (_cells.isEmpty) return '';
+    final buf = StringBuffer();
+    buf.writeln('| ${_cells.first.join(' | ')} |');
+    final seps = List.generate(_cols, (c) {
+      final a =
+          c < _alignments.length ? _alignments[c] : ColumnAlignment.left;
+      return switch (a) {
+        ColumnAlignment.left => '---',
+        ColumnAlignment.center => ':---:',
+        ColumnAlignment.right => '---:',
+      };
+    });
+    buf.writeln('| ${seps.join(' | ')} |');
+    for (var r = 1; r < _rows; r++) {
+      buf.writeln('| ${_cells[r].join(' | ')} |');
     }
-    return List.filled(_cols, ColumnAlignment.left);
+    return buf.toString();
   }
 
-  List<TextEditingController> _buildControllers() {
-    return _cells
-        .expand((row) => row)
-        .map((cell) => TextEditingController(text: cell))
-        .toList();
-  }
-
-  TextEditingController _controllerAt(int row, int col) {
-    return _controllers[row * _cols + col];
-  }
-
-  TextAlign _textAlignFor(int col) {
-    if (col >= _alignments.length) return TextAlign.start;
-    return switch (_alignments[col]) {
-      ColumnAlignment.left => TextAlign.start,
-      ColumnAlignment.center => TextAlign.center,
-      ColumnAlignment.right => TextAlign.end,
-    };
-  }
+  // ---------------------------------------------------------------------------
+  // Build
+  // ---------------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -235,7 +427,7 @@ class _MdTableOverlayState extends State<MdTableOverlay> {
     return Dialog(
       insetPadding: const EdgeInsets.all(32),
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 800, maxHeight: 500),
+        constraints: const BoxConstraints(maxWidth: 900, maxHeight: 600),
         decoration: BoxDecoration(
           color: basic.surface,
           borderRadius: BorderRadius.circular(8),
@@ -244,8 +436,9 @@ class _MdTableOverlayState extends State<MdTableOverlay> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _buildHeader(basic),
-            Expanded(child: _buildTable(basic)),
+            _buildDialogHeader(basic),
+            _buildColumnHandles(basic),
+            Expanded(child: _buildTableBody(basic)),
             _buildActions(basic),
             _buildFooter(basic),
           ],
@@ -254,7 +447,7 @@ class _MdTableOverlayState extends State<MdTableOverlay> {
     );
   }
 
-  Widget _buildHeader(MdBasicTheme basic) {
+  Widget _buildDialogHeader(MdBasicTheme basic) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -266,7 +459,7 @@ class _MdTableOverlayState extends State<MdTableOverlay> {
           Icon(Icons.table_chart, size: 18, color: basic.accent),
           const SizedBox(width: 8),
           Text(
-            'Edit Table ($_rows rows × $_cols columns)',
+            'Edit Table ($_rows rows \u00d7 $_cols columns)',
             style: TextStyle(color: basic.text, fontWeight: FontWeight.w500),
           ),
         ],
@@ -274,56 +467,157 @@ class _MdTableOverlayState extends State<MdTableOverlay> {
     );
   }
 
-  Widget _buildTable(MdBasicTheme basic) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(12),
-      child: Table(
-        border: TableBorder.all(color: basic.border),
-        children: List.generate(_rows, (r) {
-          final isHeader = r == 0;
-          return TableRow(
-            decoration: BoxDecoration(
-              color: isHeader ? basic.surfaceVariant : Colors.transparent,
-            ),
-            children: List.generate(_cols, (c) {
-              return Padding(
-                padding: const EdgeInsets.all(2),
-                child: Focus(
-                  onFocusChange: (hasFocus) {
-                    if (hasFocus) {
-                      setState(() {
-                        _focusedRow = r;
-                        _focusedCol = c;
-                      });
-                    }
-                  },
-                  onKeyEvent: (node, event) =>
-                      _onCellKeyEvent(r, c, node, event),
-                  child: TextField(
-                    focusNode: _focusNodeAt(r, c),
-                    controller: _controllerAt(r, c),
-                    textAlign: _textAlignFor(c),
-                    style: TextStyle(
-                      color: basic.text,
-                      fontSize: 13,
-                      fontWeight:
-                          isHeader ? FontWeight.w600 : FontWeight.normal,
-                    ),
-                    decoration: const InputDecoration(
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 4,
+  /// Row of draggable column handles above the table for reordering columns.
+  Widget _buildColumnHandles(MdBasicTheme basic) {
+    return Padding(
+      padding: EdgeInsets.only(left: 12.0 + _handleWidth, right: 12.0),
+      child: Row(
+        children: List.generate(_cols, (c) {
+          return Expanded(
+            child: DragTarget<int>(
+              onAcceptWithDetails: (d) => _reorderColumns(d.data, c),
+              builder: (ctx, candidates, _) {
+                final isOver = candidates.isNotEmpty;
+                return Draggable<int>(
+                  data: c,
+                  axis: Axis.horizontal,
+                  feedback: Material(
+                    color: Colors.transparent,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: basic.accent.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(4),
                       ),
-                      isDense: true,
+                      child: Icon(Icons.drag_handle, size: 14,
+                          color: basic.accent),
                     ),
                   ),
-                ),
-              );
-            }),
+                  child: Container(
+                    height: 20,
+                    decoration: BoxDecoration(
+                      color: isOver
+                          ? basic.accent.withValues(alpha: 0.15)
+                          : Colors.transparent,
+                      border: Border(
+                        bottom: BorderSide(color: basic.border, width: 0.5),
+                      ),
+                    ),
+                    child: Center(
+                      child: Icon(Icons.drag_handle, size: 12,
+                          color: basic.textMuted),
+                    ),
+                  ),
+                );
+              },
+            ),
           );
         }),
       ),
+    );
+  }
+
+  Widget _buildTableBody(MdBasicTheme basic) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Column(
+        children: List.generate(_rows, (r) => _buildRow(basic, r)),
+      ),
+    );
+  }
+
+  Widget _buildRow(MdBasicTheme basic, int r) {
+    final isHeader = r == 0;
+
+    final Widget handle;
+    if (isHeader) {
+      handle = const SizedBox(width: _handleWidth);
+    } else {
+      handle = DragTarget<int>(
+        onAcceptWithDetails: (d) => _reorderRows(d.data, r),
+        builder: (ctx, candidates, _) {
+          final isOver = candidates.isNotEmpty;
+          return Draggable<int>(
+            data: r,
+            axis: Axis.vertical,
+            feedback: Material(
+              color: Colors.transparent,
+              child: Container(
+                width: _handleWidth,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: basic.accent.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Icon(Icons.drag_indicator, size: 14,
+                    color: basic.accent),
+              ),
+            ),
+            child: SizedBox(
+              width: _handleWidth,
+              height: 28,
+              child: Center(
+                child: Icon(
+                  Icons.drag_indicator,
+                  size: 14,
+                  color: isOver ? basic.accent : basic.textMuted,
+                ),
+              ),
+            ),
+          );
+        },
+      );
+    }
+
+    return Row(
+      children: [
+        handle,
+        ...List.generate(_cols, (c) {
+          final isFocused = _focusedRow == r && _focusedCol == c;
+          return Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                color: isHeader ? basic.surfaceVariant : Colors.transparent,
+                border: Border.all(
+                  color: isFocused ? basic.accent : basic.border,
+                  width: isFocused ? 1.0 : 0.5,
+                ),
+              ),
+              child: Focus(
+                onFocusChange: (hasFocus) {
+                  if (hasFocus) {
+                    setState(() {
+                      _focusedRow = r;
+                      _focusedCol = c;
+                    });
+                  }
+                },
+                onKeyEvent: (node, event) =>
+                    _onCellKeyEvent(r, c, node, event),
+                child: TextField(
+                  focusNode: _focusNodeAt(r, c),
+                  controller: _controllerAt(r, c),
+                  textAlign: _textAlignFor(c),
+                  style: TextStyle(
+                    color: basic.text,
+                    fontSize: 13,
+                    fontWeight:
+                        isHeader ? FontWeight.w600 : FontWeight.normal,
+                  ),
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 4,
+                    ),
+                    isDense: true,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }),
+      ],
     );
   }
 
@@ -337,35 +631,40 @@ class _MdTableOverlayState extends State<MdTableOverlay> {
             spacing: 8,
             children: [
               TextButton.icon(
-                onPressed: _addRow,
-                icon: const Icon(Icons.add, size: 14),
-                label: const Text('Add Row'),
+                onPressed: _focusedRow > 0 ? _insertRowAbove : null,
+                icon: const Icon(Icons.arrow_upward, size: 14),
+                label: const Text('Row Above'),
               ),
               TextButton.icon(
-                onPressed: _addColumn,
-                icon: const Icon(Icons.add, size: 14),
-                label: const Text('Add Column'),
+                onPressed: _insertRowBelow,
+                icon: const Icon(Icons.arrow_downward, size: 14),
+                label: const Text('Row Below'),
               ),
-              if (_rows > 2)
+              TextButton.icon(
+                onPressed: _insertColumnLeft,
+                icon: const Icon(Icons.arrow_back, size: 14),
+                label: const Text('Col Left'),
+              ),
+              TextButton.icon(
+                onPressed: _insertColumnRight,
+                icon: const Icon(Icons.arrow_forward, size: 14),
+                label: const Text('Col Right'),
+              ),
+              if (_focusedRow > 0 && _rows > 2)
                 TextButton.icon(
                   onPressed: _removeRow,
                   icon: const Icon(Icons.remove, size: 14),
-                  label: Text(
-                    'Remove Row ${_focusedRow + 1}',
-                  ),
+                  label: Text('Remove Row ${_focusedRow + 1}'),
                 ),
               if (_cols > 1)
                 TextButton.icon(
                   onPressed: _removeColumn,
                   icon: const Icon(Icons.remove, size: 14),
-                  label: Text(
-                    'Remove Col ${_focusedCol + 1}',
-                  ),
+                  label: Text('Remove Col ${_focusedCol + 1}'),
                 ),
             ],
           ),
           const SizedBox(height: 4),
-          // Column alignment controls
           Row(
             children: [
               Text(
@@ -439,121 +738,5 @@ class _MdTableOverlayState extends State<MdTableOverlay> {
         ],
       ),
     );
-  }
-
-  void _addRow() {
-    setState(() {
-      final newRow = List.filled(_cols, '');
-      _cells.add(newRow);
-      for (final cell in newRow) {
-        _controllers.add(TextEditingController(text: cell));
-      }
-      for (var i = 0; i < _cols; i++) {
-        _focusNodes.add(FocusNode());
-      }
-    });
-  }
-
-  void _addColumn() {
-    setState(() {
-      for (final c in _controllers) {
-        c.dispose();
-      }
-      for (final n in _focusNodes) {
-        n.dispose();
-      }
-      for (final row in _cells) {
-        row.add('');
-      }
-      _alignments.add(ColumnAlignment.left);
-      _controllers = _buildControllers();
-      _focusNodes = _buildFocusNodes();
-    });
-    final targetCol = _cols - 1;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _focusCell(0, targetCol, cursorPosition: 0);
-    });
-  }
-
-  void _removeRow() {
-    if (_rows <= 2) return;
-    // Don't allow removing the header row (row 0).
-    final target = _focusedRow == 0 ? _rows - 1 : _focusedRow;
-    setState(() {
-      // Sync controller text back before removing.
-      for (var c = 0; c < _cols; c++) {
-        _cells[target][c] = _controllerAt(target, c).text;
-      }
-      _cells.removeAt(target);
-      for (final c in _controllers) {
-        c.dispose();
-      }
-      for (final n in _focusNodes) {
-        n.dispose();
-      }
-      _controllers = _buildControllers();
-      _focusNodes = _buildFocusNodes();
-      _focusedRow = _focusedRow.clamp(0, _rows - 1);
-    });
-  }
-
-  void _removeColumn() {
-    if (_cols <= 1) return;
-    final target = _focusedCol.clamp(0, _cols - 1);
-    setState(() {
-      for (final c in _controllers) {
-        c.dispose();
-      }
-      for (final n in _focusNodes) {
-        n.dispose();
-      }
-      for (final row in _cells) {
-        if (target < row.length) row.removeAt(target);
-      }
-      if (target < _alignments.length) _alignments.removeAt(target);
-      _controllers = _buildControllers();
-      _focusNodes = _buildFocusNodes();
-      _focusedCol = _focusedCol.clamp(0, _cols - 1);
-    });
-  }
-
-  void _save() {
-    try {
-      // Read current values from controllers.
-      for (var r = 0; r < _rows; r++) {
-        for (var c = 0; c < _cols; c++) {
-          _cells[r][c] = _controllerAt(r, c).text;
-        }
-      }
-      final markdown = _toMarkdown();
-      widget.onSave(markdown);
-      Navigator.of(context).pop();
-    } catch (e, st) {
-      MdEditorDebug.logger.error('Error saving table', e, st);
-    }
-  }
-
-  String _toMarkdown() {
-    if (_cells.isEmpty) return '';
-    final buf = StringBuffer();
-    // Header row.
-    buf.writeln('| ${_cells.first.join(' | ')} |');
-    // Separator row with alignment.
-    final separators = List.generate(_cols, (c) {
-      final align = c < _alignments.length
-          ? _alignments[c]
-          : ColumnAlignment.left;
-      return switch (align) {
-        ColumnAlignment.left => '---',
-        ColumnAlignment.center => ':---:',
-        ColumnAlignment.right => '---:',
-      };
-    });
-    buf.writeln('| ${separators.join(' | ')} |');
-    // Data rows.
-    for (var r = 1; r < _rows; r++) {
-      buf.writeln('| ${_cells[r].join(' | ')} |');
-    }
-    return buf.toString();
   }
 }
