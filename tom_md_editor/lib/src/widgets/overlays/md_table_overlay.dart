@@ -41,6 +41,15 @@ class _MdTableOverlayState extends State<MdTableOverlay> {
   int _focusedRow = 0;
   int _focusedCol = 0;
 
+  /// Index of the row currently being dragged, or -1.
+  int _draggingRow = -1;
+  /// Index of the column currently being dragged, or -1.
+  int _draggingCol = -1;
+  /// Index of the row that is the current drop target, or -1.
+  int _dropTargetRow = -1;
+  /// Index of the column that is the current drop target, or -1.
+  int _dropTargetCol = -1;
+
   static const double _handleWidth = 28.0;
 
   int get _rows => _cells.length;
@@ -473,14 +482,36 @@ class _MdTableOverlayState extends State<MdTableOverlay> {
       padding: EdgeInsets.only(left: 12.0 + _handleWidth, right: 12.0),
       child: Row(
         children: List.generate(_cols, (c) {
+          final isDragged = _draggingCol == c;
+          final isTarget = _dropTargetCol == c && _draggingCol != -1;
           return Expanded(
             child: DragTarget<int>(
-              onAcceptWithDetails: (d) => _reorderColumns(d.data, c),
+              onWillAcceptWithDetails: (d) {
+                setState(() => _dropTargetCol = c);
+                return true;
+              },
+              onLeave: (_) {
+                if (_dropTargetCol == c) {
+                  setState(() => _dropTargetCol = -1);
+                }
+              },
+              onAcceptWithDetails: (d) {
+                setState(() => _dropTargetCol = -1);
+                _reorderColumns(d.data, c);
+              },
               builder: (ctx, candidates, _) {
-                final isOver = candidates.isNotEmpty;
                 return Draggable<int>(
                   data: c,
                   axis: Axis.horizontal,
+                  onDragStarted: () => setState(() => _draggingCol = c),
+                  onDragEnd: (_) => setState(() {
+                    _draggingCol = -1;
+                    _dropTargetCol = -1;
+                  }),
+                  onDraggableCanceled: (velocity, offset) => setState(() {
+                    _draggingCol = -1;
+                    _dropTargetCol = -1;
+                  }),
                   feedback: Material(
                     color: Colors.transparent,
                     child: Container(
@@ -496,16 +527,21 @@ class _MdTableOverlayState extends State<MdTableOverlay> {
                   child: Container(
                     height: 20,
                     decoration: BoxDecoration(
-                      color: isOver
-                          ? basic.accent.withValues(alpha: 0.15)
+                      color: isDragged
+                          ? basic.textMuted.withValues(alpha: 0.15)
                           : Colors.transparent,
                       border: Border(
                         bottom: BorderSide(color: basic.border, width: 0.5),
+                        left: isTarget
+                            ? BorderSide(color: basic.accent, width: 2)
+                            : BorderSide.none,
                       ),
                     ),
                     child: Center(
                       child: Icon(Icons.drag_handle, size: 12,
-                          color: basic.textMuted),
+                          color: isDragged
+                              ? basic.textMuted.withValues(alpha: 0.3)
+                              : basic.textMuted),
                     ),
                   ),
                 );
@@ -528,18 +564,40 @@ class _MdTableOverlayState extends State<MdTableOverlay> {
 
   Widget _buildRow(MdBasicTheme basic, int r) {
     final isHeader = r == 0;
+    final isRowDragged = _draggingRow == r;
+    final isRowTarget = _dropTargetRow == r && _draggingRow != -1;
 
     final Widget handle;
     if (isHeader) {
       handle = const SizedBox(width: _handleWidth);
     } else {
       handle = DragTarget<int>(
-        onAcceptWithDetails: (d) => _reorderRows(d.data, r),
+        onWillAcceptWithDetails: (d) {
+          setState(() => _dropTargetRow = r);
+          return true;
+        },
+        onLeave: (_) {
+          if (_dropTargetRow == r) {
+            setState(() => _dropTargetRow = -1);
+          }
+        },
+        onAcceptWithDetails: (d) {
+          setState(() => _dropTargetRow = -1);
+          _reorderRows(d.data, r);
+        },
         builder: (ctx, candidates, _) {
-          final isOver = candidates.isNotEmpty;
           return Draggable<int>(
             data: r,
             axis: Axis.vertical,
+            onDragStarted: () => setState(() => _draggingRow = r),
+            onDragEnd: (_) => setState(() {
+              _draggingRow = -1;
+              _dropTargetRow = -1;
+            }),
+            onDraggableCanceled: (velocity, offset) => setState(() {
+              _draggingRow = -1;
+              _dropTargetRow = -1;
+            }),
             feedback: Material(
               color: Colors.transparent,
               child: Container(
@@ -560,7 +618,9 @@ class _MdTableOverlayState extends State<MdTableOverlay> {
                 child: Icon(
                   Icons.drag_indicator,
                   size: 14,
-                  color: isOver ? basic.accent : basic.textMuted,
+                  color: isRowDragged
+                      ? basic.textMuted.withValues(alpha: 0.3)
+                      : basic.textMuted,
                 ),
               ),
             ),
@@ -569,18 +629,40 @@ class _MdTableOverlayState extends State<MdTableOverlay> {
       );
     }
 
-    return Row(
+    final rowContent = Row(
       children: [
         handle,
         ...List.generate(_cols, (c) {
           final isFocused = _focusedRow == r && _focusedCol == c;
+          final isColDragged = _draggingCol == c;
+          final isColTarget = _dropTargetCol == c && _draggingCol != -1;
+          final isDimmed = isRowDragged || isColDragged;
           return Expanded(
             child: Container(
               decoration: BoxDecoration(
-                color: isHeader ? basic.surfaceVariant : Colors.transparent,
-                border: Border.all(
-                  color: isFocused ? basic.accent : basic.border,
-                  width: isFocused ? 1.0 : 0.5,
+                color: isDimmed
+                    ? basic.textMuted.withValues(alpha: 0.08)
+                    : isHeader
+                        ? basic.surfaceVariant
+                        : Colors.transparent,
+                border: Border(
+                  top: isRowTarget
+                      ? BorderSide(color: basic.accent, width: 2)
+                      : BorderSide(color: basic.border, width: 0.5),
+                  bottom: BorderSide(
+                    color: isFocused ? basic.accent : basic.border,
+                    width: isFocused ? 1.0 : 0.5,
+                  ),
+                  left: isColTarget
+                      ? BorderSide(color: basic.accent, width: 2)
+                      : BorderSide(
+                          color: isFocused ? basic.accent : basic.border,
+                          width: isFocused ? 1.0 : 0.5,
+                        ),
+                  right: BorderSide(
+                    color: isFocused ? basic.accent : basic.border,
+                    width: isFocused ? 1.0 : 0.5,
+                  ),
                 ),
               ),
               child: Focus(
@@ -594,23 +676,26 @@ class _MdTableOverlayState extends State<MdTableOverlay> {
                 },
                 onKeyEvent: (node, event) =>
                     _onCellKeyEvent(r, c, node, event),
-                child: TextField(
-                  focusNode: _focusNodeAt(r, c),
-                  controller: _controllerAt(r, c),
-                  textAlign: _textAlignFor(c),
-                  style: TextStyle(
-                    color: basic.text,
-                    fontSize: 13,
-                    fontWeight:
-                        isHeader ? FontWeight.w600 : FontWeight.normal,
-                  ),
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 4,
+                child: Opacity(
+                  opacity: isDimmed ? 0.35 : 1.0,
+                  child: TextField(
+                    focusNode: _focusNodeAt(r, c),
+                    controller: _controllerAt(r, c),
+                    textAlign: _textAlignFor(c),
+                    style: TextStyle(
+                      color: basic.text,
+                      fontSize: 13,
+                      fontWeight:
+                          isHeader ? FontWeight.w600 : FontWeight.normal,
                     ),
-                    isDense: true,
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 4,
+                      ),
+                      isDense: true,
+                    ),
                   ),
                 ),
               ),
@@ -619,6 +704,8 @@ class _MdTableOverlayState extends State<MdTableOverlay> {
         }),
       ],
     );
+
+    return rowContent;
   }
 
   Widget _buildActions(MdBasicTheme basic) {
