@@ -84,6 +84,38 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
       widget.controller.addListener(_onControllerChanged);
       _syncText();
     }
+    // Recreate syntax controller when the theme changes so that
+    // highlight colors match the new dark/light palette.
+    if (oldWidget.theme != widget.theme) {
+      _rebuildSyntaxController();
+    }
+  }
+
+  void _rebuildSyntaxController() {
+    final basic = widget.theme.basic;
+    final oldSelection = _textController.selection;
+    final oldText = _textController.text;
+    _textController.removeListener(_onCursorChanged);
+    _textController.dispose();
+    _textController = MdSyntaxHighlightController(
+      text: oldText,
+      headingColor: basic.accent,
+      boldColor: basic.text,
+      italicColor: basic.textSecondary,
+      codeColor: basic.success,
+      linkColor: basic.linkColor,
+      listMarkerColor: basic.textMuted,
+      defaultColor: basic.text,
+      fontFamily: basic.monoFontFamily,
+      fontSize: basic.baseFontSize,
+      lineHeight: basic.lineHeight,
+    );
+    // Restore cursor position.
+    if (oldSelection.isValid &&
+        oldSelection.end <= oldText.length) {
+      _textController.selection = oldSelection;
+    }
+    _textController.addListener(_onCursorChanged);
   }
 
   @override

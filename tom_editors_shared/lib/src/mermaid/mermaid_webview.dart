@@ -89,9 +89,28 @@ class _MermaidWebViewState extends State<MermaidWebView> {
   @override
   void didUpdateWidget(MermaidWebView old) {
     super.didUpdateWidget(old);
-    if (old.source != widget.source || old.theme != widget.theme) {
+    final bgChanged = old.backgroundColor != widget.backgroundColor;
+    if (bgChanged) {
+      _updateBackground();
+    }
+    if (old.source != widget.source || old.theme != widget.theme || bgChanged) {
       _renderDiagram();
     }
+  }
+
+  /// Update the HTML body background via JavaScript when the Flutter
+  /// background color changes (e.g. dark ↔ light theme switch).
+  void _updateBackground() {
+    if (_controller == null) return;
+    final bgColor = widget.backgroundColor ?? Colors.white;
+    final r = (bgColor.r * 255.0).round().clamp(0, 255);
+    final g = (bgColor.g * 255.0).round().clamp(0, 255);
+    final b = (bgColor.b * 255.0).round().clamp(0, 255);
+    final hex =
+        '#${r.toRadixString(16).padLeft(2, '0')}'
+        '${g.toRadixString(16).padLeft(2, '0')}'
+        '${b.toRadixString(16).padLeft(2, '0')}';
+    _controller!.runJavaScript('document.body.style.background=${jsonEncode(hex)};');
   }
 
   Future<void> _initWebView() async {
