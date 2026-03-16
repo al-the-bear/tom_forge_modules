@@ -484,6 +484,8 @@ class _MdTableOverlayState extends State<MdTableOverlay> {
         children: List.generate(_cols, (c) {
           final isDragged = _draggingCol == c;
           final isTarget = _dropTargetCol == c && _draggingCol != -1;
+          final showLeft = isTarget && _draggingCol > c;
+          final showRight = isTarget && _draggingCol < c;
           return Expanded(
             child: DragTarget<int>(
               onWillAcceptWithDetails: (d) {
@@ -532,7 +534,10 @@ class _MdTableOverlayState extends State<MdTableOverlay> {
                           : Colors.transparent,
                       border: Border(
                         bottom: BorderSide(color: basic.border, width: 0.5),
-                        left: isTarget
+                        left: showLeft
+                            ? BorderSide(color: basic.accent, width: 2)
+                            : BorderSide.none,
+                        right: showRight
                             ? BorderSide(color: basic.accent, width: 2)
                             : BorderSide.none,
                       ),
@@ -635,7 +640,14 @@ class _MdTableOverlayState extends State<MdTableOverlay> {
         ...List.generate(_cols, (c) {
           final isFocused = _focusedRow == r && _focusedCol == c;
           final isColDragged = _draggingCol == c;
-          final isColTarget = _dropTargetCol == c && _draggingCol != -1;
+          final isColTargetLeft =
+              _dropTargetCol == c && _draggingCol != -1 && _draggingCol > c;
+          final isColTargetRight =
+              _dropTargetCol == c && _draggingCol != -1 && _draggingCol < c;
+          final isRowTargetTop =
+              isRowTarget && _draggingRow > r;
+          final isRowTargetBottom =
+              isRowTarget && _draggingRow < r;
           final isDimmed = isRowDragged || isColDragged;
           return Expanded(
             child: Container(
@@ -646,23 +658,27 @@ class _MdTableOverlayState extends State<MdTableOverlay> {
                         ? basic.surfaceVariant
                         : Colors.transparent,
                 border: Border(
-                  top: isRowTarget
+                  top: isRowTargetTop
                       ? BorderSide(color: basic.accent, width: 2)
                       : BorderSide(color: basic.border, width: 0.5),
-                  bottom: BorderSide(
-                    color: isFocused ? basic.accent : basic.border,
-                    width: isFocused ? 1.0 : 0.5,
-                  ),
-                  left: isColTarget
+                  bottom: isRowTargetBottom
                       ? BorderSide(color: basic.accent, width: 2)
                       : BorderSide(
                           color: isFocused ? basic.accent : basic.border,
                           width: isFocused ? 1.0 : 0.5,
                         ),
-                  right: BorderSide(
-                    color: isFocused ? basic.accent : basic.border,
-                    width: isFocused ? 1.0 : 0.5,
-                  ),
+                  left: isColTargetLeft
+                      ? BorderSide(color: basic.accent, width: 2)
+                      : BorderSide(
+                          color: isFocused ? basic.accent : basic.border,
+                          width: isFocused ? 1.0 : 0.5,
+                        ),
+                  right: isColTargetRight
+                      ? BorderSide(color: basic.accent, width: 2)
+                      : BorderSide(
+                          color: isFocused ? basic.accent : basic.border,
+                          width: isFocused ? 1.0 : 0.5,
+                        ),
                 ),
               ),
               child: Focus(
