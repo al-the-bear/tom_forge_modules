@@ -1161,6 +1161,10 @@ class _DraggableListBlockState extends State<_DraggableListBlock> {
   int _draggingIndex = -1;
   int _dropTargetIndex = -1;
 
+  /// Horizontal swipe state for indent/unindent.
+  double _swipeDx = 0;
+  int _swipingIndex = -1;
+
   @override
   void initState() {
     super.initState();
@@ -1178,6 +1182,30 @@ class _DraggableListBlockState extends State<_DraggableListBlock> {
   void _onReorder(int from, int to) {
     final item = _items.removeAt(from);
     _items.insert(to, item);
+    final newContent = _items.map((i) => i.rawLine).join('\n');
+    widget.onReorder(newContent);
+  }
+
+  /// Change indent level of item at [index] by [delta] steps (±1).
+  /// Each indent step is 2 spaces in the raw markdown.
+  void _changeIndent(int index, int delta) {
+    final item = _items[index];
+    final newIndent = (item.indent + delta * 2).clamp(0, 16);
+    if (newIndent == item.indent) return;
+    final spaces = ' ' * newIndent;
+    // Rebuild rawLine: for multi-line items only adjust the first line's
+    // leading whitespace; continuation lines stay as-is.
+    final rawLines = item.rawLine.split('\n');
+    final firstLine = rawLines.first.trimLeft();
+    rawLines[0] = '$spaces$firstLine';
+    final newRaw = rawLines.join('\n');
+    _items[index] = _ListItem(
+      rawLine: newRaw,
+      text: item.text,
+      marker: item.marker,
+      indent: newIndent,
+      checked: item.checked,
+    );
     final newContent = _items.map((i) => i.rawLine).join('\n');
     widget.onReorder(newContent);
   }
@@ -1220,7 +1248,39 @@ class _DraggableListBlockState extends State<_DraggableListBlock> {
               _onReorder(from, to);
             },
             builder: (context, candidateData, rejectedData) {
-              return Container(
+              final swipeOffset =
+                  _swipingIndex == i ? _swipeDx : 0.0;
+              return GestureDetector(
+                onHorizontalDragStart: (_) {
+                  setState(() {
+                    _swipingIndex = i;
+                    _swipeDx = 0;
+                  });
+                },
+                onHorizontalDragUpdate: (d) {
+                  setState(() => _swipeDx += d.delta.dx);
+                },
+                onHorizontalDragEnd: (_) {
+                  // Threshold: 40px → one indent/unindent step.
+                  if (_swipeDx > 40) {
+                    _changeIndent(i, 1); // indent
+                  } else if (_swipeDx < -40) {
+                    _changeIndent(i, -1); // unindent
+                  }
+                  setState(() {
+                    _swipingIndex = -1;
+                    _swipeDx = 0;
+                  });
+                },
+                onHorizontalDragCancel: () {
+                  setState(() {
+                    _swipingIndex = -1;
+                    _swipeDx = 0;
+                  });
+                },
+                child: Transform.translate(
+                  offset: Offset(swipeOffset.clamp(-60.0, 60.0), 0),
+                  child: Container(
                 decoration: BoxDecoration(
                   border: Border(
                     top: isTargetAbove
@@ -1346,7 +1406,9 @@ class _DraggableListBlockState extends State<_DraggableListBlock> {
                     ),
                   ),
                 ),
-              );
+              ),  // Container
+              ),  // Transform.translate
+              );  // GestureDetector
             },
           );
         }),
