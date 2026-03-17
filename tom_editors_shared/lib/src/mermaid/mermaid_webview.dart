@@ -166,6 +166,10 @@ class _MermaidWebViewState extends State<MermaidWebView> {
 
     if (type == 'rendered') {
       final height = (data['height'] as num).toDouble();
+      final diag = data['diag'] as Map<String, dynamic>?;
+      if (diag != null) {
+        debugPrint('[MermaidWebView] diag: $diag');
+      }
       if (mounted) {
         setState(() {
           _height = height.clamp(widget.minHeight, widget.maxHeight);
@@ -282,19 +286,30 @@ body.dark #diagram .mindmap-node foreignObject div{color:#e0e0e0 !important}
 let rc=0;
 async function renderMermaid(source,theme){
   const c=document.getElementById('diagram');
+  const isDark=(theme==='dark');
+  // Toggle body class so the <head> CSS dark overrides activate.
+  document.body.className=isDark?'dark':'';
+  const isGantt=source.trim().split('\\n')[0].trim().toLowerCase()==='gantt';
+  // Mermaid v11 Gantt bug: first render in a fresh WebView produces
+  // zero-width viewBox because mermaid reads container width before
+  // layout. Workaround: do a throwaway render to warm up the container,
+  // then immediately re-render for real.
+  if(isGantt){
+    rc++;
+    try{
+      mermaid.initialize({startOnLoad:false,theme:'default',securityLevel:'loose'});
+      var warm=await mermaid.render('warmup'+rc,source);
+      c.innerHTML=warm.svg;
+    }catch(e){}
+    // Allow one layout pass so the container gets real dimensions.
+    await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+  }
   rc++;
   const id='m'+rc;
   try{
-    const isDark=(theme==='dark');
-    // Toggle body class so the <head> CSS dark overrides activate.
-    document.body.className=isDark?'dark':'';
-    // Mermaid v11 bug: Gantt + dark theme produces zero-width viewBox.
-    // Workaround: render Gantt with 'default' theme for correct layout;
-    // the body.dark CSS overrides in <head> apply dark colors via !important.
-    const isGantt=source.trim().split('\\n')[0].trim().toLowerCase()==='gantt';
-    const renderTheme=(isDark&&isGantt)?'default':(theme||'default');
+    const renderTheme=theme||'default';
     var cfg={startOnLoad:false,theme:renderTheme,securityLevel:'loose'};
-    if(isDark&&!isGantt){
+    if(isDark){
       cfg.themeVariables={
         sectionBkgColor:'#2d2d2d',altSectionBkgColor:'#363636',
         taskBkgColor:'#3a3a6a',activeTaskBkgColor:'#4a4a7a',
@@ -308,9 +323,8 @@ async function renderMermaid(source,theme){
     mermaid.initialize(cfg);
     const{svg}=await mermaid.render(id,source);
     c.innerHTML=svg;
-    // Post-render dark-theme DOM fixes (for non-Gantt diagrams).
-    // Gantt dark colors are handled entirely by the <head> CSS overrides.
-    if(isDark&&!isGantt){
+    // Post-render dark-theme DOM fixes.
+    if(isDark){
       c.querySelectorAll('.mindmap-node text, .mindmap-node foreignObject span, .mindmap-node foreignObject div').forEach(function(el){
         el.style.setProperty('color','#e0e0e0','important');
         el.style.setProperty('fill','#e0e0e0','important');
@@ -350,10 +364,12 @@ async function renderMermaid(source,theme){
         if(h<1){h=c.scrollHeight}
         if(w<1){w=c.scrollWidth}
         // Add padding (8px on each side).
+        var vb=s?s.getAttribute('viewBox'):'none';
         MermaidChannel.postMessage(JSON.stringify({
           type:'rendered',
           width:w+16,
-          height:h+16
+          height:h+16,
+          diag:{isGantt:isGantt,renderTheme:renderTheme,viewBox:vb,w:w,h:h}
         }));
       });
     });
