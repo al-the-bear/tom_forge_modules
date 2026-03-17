@@ -233,6 +233,47 @@ html,body{overflow:hidden;background:$bgHex;font-family:sans-serif}
 #diagram{padding:8px}
 #diagram svg{display:block;max-width:100%;height:auto}
 .error{color:#d32f2f;font-family:monospace;font-size:12px;padding:8px}
+/* Dark-mode CSS overrides — activated via body.dark class.
+   Used for Gantt (rendered with default theme for correct viewBox)
+   and as reinforcement for other dark-theme diagrams. */
+body.dark #diagram .section,
+body.dark #diagram .section0,
+body.dark #diagram .section1,
+body.dark #diagram .section2,
+body.dark #diagram .section3{fill:#2d2d2d !important}
+body.dark #diagram .task,
+body.dark #diagram .task0,
+body.dark #diagram .task1,
+body.dark #diagram .task2,
+body.dark #diagram .task3{fill:#4a5a8a !important;stroke:#667 !important}
+body.dark #diagram .taskText,
+body.dark #diagram .taskText0,
+body.dark #diagram .taskText1,
+body.dark #diagram .taskText2,
+body.dark #diagram .taskText3,
+body.dark #diagram .taskTextOutsideLeft,
+body.dark #diagram .taskTextOutsideRight,
+body.dark #diagram .taskTextOutside0,
+body.dark #diagram .taskTextOutside1,
+body.dark #diagram .taskTextOutside2,
+body.dark #diagram .taskTextOutside3{fill:#e0e0e0 !important}
+body.dark #diagram .titleText{fill:#e0e0e0 !important}
+body.dark #diagram .sectionTitle,
+body.dark #diagram .sectionTitle0,
+body.dark #diagram .sectionTitle1,
+body.dark #diagram .sectionTitle2,
+body.dark #diagram .sectionTitle3{fill:#e0e0e0 !important}
+body.dark #diagram .tick text{fill:#b0b0b0 !important}
+body.dark #diagram .grid .tick line{stroke:#555 !important}
+body.dark #diagram .domain{stroke:#666 !important}
+body.dark #diagram .today{stroke:#ff6666 !important;stroke-width:2px !important}
+body.dark #diagram .done{fill:#2a5a2a !important;stroke:#696 !important}
+body.dark #diagram .active{fill:#5a5a9a !important;stroke:#88a !important}
+body.dark #diagram .crit{fill:#6a3a3a !important;stroke:#966 !important}
+body.dark #diagram .activeCrit{fill:#6a3a3a !important;stroke:#966 !important}
+body.dark #diagram .mindmap-node text{fill:#e0e0e0 !important}
+body.dark #diagram .mindmap-node foreignObject span,
+body.dark #diagram .mindmap-node foreignObject div{color:#e0e0e0 !important}
 </style>
 </head><body>
 <div id="diagram"></div>
@@ -244,10 +285,16 @@ async function renderMermaid(source,theme){
   rc++;
   const id='m'+rc;
   try{
-    const t=theme||'default';
-    // Always initialize fresh with target theme.
-    var cfg={startOnLoad:false,theme:t,securityLevel:'loose'};
-    if(t==='dark'){
+    const isDark=(theme==='dark');
+    // Toggle body class so the <head> CSS dark overrides activate.
+    document.body.className=isDark?'dark':'';
+    // Mermaid v11 bug: Gantt + dark theme produces zero-width viewBox.
+    // Workaround: render Gantt with 'default' theme for correct layout;
+    // the body.dark CSS overrides in <head> apply dark colors via !important.
+    const isGantt=source.trim().split('\\n')[0].trim().toLowerCase()==='gantt';
+    const renderTheme=(isDark&&isGantt)?'default':(theme||'default');
+    var cfg={startOnLoad:false,theme:renderTheme,securityLevel:'loose'};
+    if(isDark&&!isGantt){
       cfg.themeVariables={
         sectionBkgColor:'#2d2d2d',altSectionBkgColor:'#363636',
         taskBkgColor:'#3a3a6a',activeTaskBkgColor:'#4a4a7a',
@@ -261,14 +308,13 @@ async function renderMermaid(source,theme){
     mermaid.initialize(cfg);
     const{svg}=await mermaid.render(id,source);
     c.innerHTML=svg;
-    // Dark-theme fixes.
-    if(t==='dark'){
-      // Force light text on mindmap nodes (mermaid dark theme bug).
+    // Post-render dark-theme DOM fixes (for non-Gantt diagrams).
+    // Gantt dark colors are handled entirely by the <head> CSS overrides.
+    if(isDark&&!isGantt){
       c.querySelectorAll('.mindmap-node text, .mindmap-node foreignObject span, .mindmap-node foreignObject div').forEach(function(el){
         el.style.setProperty('color','#e0e0e0','important');
         el.style.setProperty('fill','#e0e0e0','important');
       });
-      // Force Gantt visibility: text labels, bars, section backgrounds.
       c.querySelectorAll('.taskText, .taskTextOutsideRight, .taskTextOutsideLeft, .titleText, .sectionTitle').forEach(function(el){
         el.style.setProperty('fill','#e0e0e0','important');
       });
@@ -286,7 +332,6 @@ async function renderMermaid(source,theme){
           el.style.setProperty('fill','#2d2d2d','important');
         }
       });
-      // Force grid lines / axis visibility.
       c.querySelectorAll('.grid .tick line').forEach(function(el){
         el.style.setProperty('stroke','#444','important');
       });
