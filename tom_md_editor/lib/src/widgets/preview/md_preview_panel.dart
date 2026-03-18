@@ -715,14 +715,26 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
   }
 
   /// Called when a draggable list block is reordered.
-  void _onListReorder(String originalBlock, String newBlock) {
+  void _onListReorder(int blockIndex, String newBlock) {
     final source = widget.controller.markdown;
-    final idx = source.indexOf(originalBlock);
-    if (idx >= 0) {
-      widget.controller.markdown =
-          source.substring(0, idx) +
-          newBlock +
-          source.substring(idx + originalBlock.length);
+    final blocks = <String>[];
+    _preprocessListBlocks(source, blocks);
+    if (blockIndex < 0 || blockIndex >= blocks.length) return;
+
+    var searchFrom = 0;
+    for (var i = 0; i <= blockIndex; i++) {
+      final block = blocks[i];
+      final pos = source.indexOf(block, searchFrom);
+      final idx = pos >= 0 ? pos : source.indexOf(block);
+      if (idx < 0) return;
+      if (i == blockIndex) {
+        widget.controller.markdown =
+            source.substring(0, idx) +
+            newBlock +
+            source.substring(idx + block.length);
+        return;
+      }
+      searchFrom = idx + block.length;
     }
   }
 }
@@ -753,12 +765,13 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
     String rawOriginal,
     String editableContent,
   ) onPluginEdit;
-  final void Function(String originalBlock, String newBlock) onListReorder;
+  final void Function(int blockIndex, String newBlock) onListReorder;
 
   String? _language;
 
   @override
   void visitElementBefore(md.Element element) {
+    _language = null;
     // Extract language from class attribute on <code> inside <pre>.
     final codeChild = element.children
         ?.whereType<md.Element>()
@@ -786,7 +799,7 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
       return _DraggableListBlock(
         rawContent: rawBlock,
         theme: theme,
-        onReorder: (newContent) => onListReorder(rawBlock, newContent),
+        onReorder: (newContent) => onListReorder(blockIdx, newContent),
         onToggleTask: (itemIndex, checked) {
           // Toggle the task item's checked state in the raw block.
           final items = _parseListItems(rawBlock);
@@ -799,7 +812,7 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
           final newLines = items.map((it) {
             return it == item ? newLine : it.rawLine;
           }).join('\n');
-          onListReorder(rawBlock, newLines);
+          onListReorder(blockIdx, newLines);
         },
       );
     }

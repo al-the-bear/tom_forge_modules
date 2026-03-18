@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_highlight/flutter_highlight.dart';
+import 'package:code_text_field/code_text_field.dart';
+import 'package:highlight/languages/all.dart' as all_languages;
 
 import '../../debug/md_editor_debug.dart';
 import '../../theme/md_editor_theme.dart';
@@ -27,21 +28,27 @@ class MdCodeBlockOverlay extends StatefulWidget {
 }
 
 class _MdCodeBlockOverlayState extends State<MdCodeBlockOverlay> {
-  late TextEditingController _codeController;
+  late CodeController _codeController;
   late TextEditingController _langController;
 
   @override
   void initState() {
     super.initState();
-    _codeController = TextEditingController(text: widget.code);
+    final basic = widget.theme.basic;
+    final normalized = MdCodeHighlighting.normalizeLanguage(widget.language);
+    _codeController = CodeController(
+      text: widget.code,
+      language: normalized == null
+          ? null
+          : all_languages.allLanguages[normalized],
+      patternMap: MdCodeHighlighting.buildTheme(basic),
+    );
     _langController = TextEditingController(text: widget.language ?? '');
-    _codeController.addListener(_onChanged);
     _langController.addListener(_onChanged);
   }
 
   @override
   void dispose() {
-    _codeController.removeListener(_onChanged);
     _langController.removeListener(_onChanged);
     _codeController.dispose();
     _langController.dispose();
@@ -49,6 +56,10 @@ class _MdCodeBlockOverlayState extends State<MdCodeBlockOverlay> {
   }
 
   void _onChanged() {
+    final normalized = MdCodeHighlighting.normalizeLanguage(_langController.text);
+    _codeController.language = normalized == null
+        ? null
+        : all_languages.allLanguages[normalized];
     if (mounted) setState(() {});
   }
 
@@ -115,64 +126,28 @@ class _MdCodeBlockOverlayState extends State<MdCodeBlockOverlay> {
   }
 
   Widget _buildCodeArea(MdBasicTheme basic) {
-    final normalized = MdCodeHighlighting.normalizeLanguage(
-      _langController.text,
-    );
-    final syntaxTheme = MdCodeHighlighting.buildTheme(basic);
-
     return Padding(
       padding: const EdgeInsets.all(12),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _codeController,
-              maxLines: null,
-              expands: true,
-              textAlignVertical: TextAlignVertical.top,
-              style: TextStyle(
-                fontFamily: basic.monoFontFamily,
-                fontSize: basic.baseFontSize,
-                color: basic.text,
-                height: basic.lineHeight,
-              ),
-              decoration: InputDecoration(
-                labelText: 'Code',
-                border: OutlineInputBorder(
-                  borderSide: BorderSide(color: basic.border),
-                ),
-                contentPadding: EdgeInsets.all(basic.blockPadding),
-              ),
+      child: Container(
+        decoration: BoxDecoration(
+          color: basic.codeBackground,
+          borderRadius: BorderRadius.circular(basic.borderRadius),
+          border: Border.all(color: basic.codeBorder),
+        ),
+        child: CodeField(
+          controller: _codeController,
+          maxLines: null,
+          expands: true,
+          textStyle: basic.codeStyle,
+          background: basic.codeBackground,
+          lineNumberStyle: LineNumberStyle(
+            textStyle: TextStyle(
+              color: basic.textMuted,
+              fontSize: basic.baseFontSize * 0.8,
             ),
+            width: 44,
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: basic.codeBackground,
-                borderRadius: BorderRadius.circular(basic.borderRadius),
-                border: Border.all(color: basic.codeBorder),
-              ),
-              child: Padding(
-                padding: EdgeInsets.all(basic.blockPadding),
-                child: SingleChildScrollView(
-                  child: normalized == null
-                      ? SelectableText(
-                          _codeController.text,
-                          style: basic.codeStyle,
-                        )
-                      : HighlightView(
-                          _codeController.text,
-                          language: normalized,
-                          theme: syntaxTheme,
-                          padding: EdgeInsets.zero,
-                          textStyle: basic.codeStyle,
-                        ),
-                ),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -206,7 +181,7 @@ class _MdCodeBlockOverlayState extends State<MdCodeBlockOverlay> {
           _langController.text.trim().isEmpty
               ? null
               : _langController.text.trim();
-      widget.onSave(_codeController.text, lang);
+        widget.onSave(_codeController.text, lang);
       Navigator.of(context).pop();
     } catch (e, st) {
       MdEditorDebug.logger.error('Error saving code block', e, st);
