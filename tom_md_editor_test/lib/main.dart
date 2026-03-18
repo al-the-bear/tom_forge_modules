@@ -210,6 +210,152 @@ def greet(name: str) -> str:
     return f"Hello, {name}!"
 ```
 
+### Supported Language Samples
+
+#### yaml
+```yaml
+name: tom_md_editor
+version: 0.1.0
+features:
+  - tree
+  - preview
+  - overlays
+```
+
+#### javascript
+```javascript
+const sum = (a, b) => a + b;
+console.log(`sum=${sum(3, 4)}`);
+```
+
+#### typescript
+```typescript
+type User = { id: number; name: string };
+const user: User = { id: 1, name: 'Alex' };
+```
+
+#### c
+```c
+#include <stdio.h>
+
+int main(void) {
+  printf("hello c\\n");
+  return 0;
+}
+```
+
+#### cpp
+```cpp
+#include <iostream>
+
+int main() {
+  std::cout << "hello cpp" << std::endl;
+  return 0;
+}
+```
+
+#### java
+```java
+class Hello {
+  public static void main(String[] args) {
+    System.out.println("hello java");
+  }
+}
+```
+
+#### kotlin
+```kotlin
+fun main() {
+  println("hello kotlin")
+}
+```
+
+#### swift
+```swift
+let name = "swift"
+print("hello \(name)")
+```
+
+#### rust
+```rust
+fn main() {
+    println!("hello rust");
+}
+```
+
+#### go
+```go
+package main
+
+import "fmt"
+
+func main() {
+    fmt.Println("hello go")
+}
+```
+
+#### ruby
+```ruby
+name = 'ruby'
+puts "hello #{name}"
+```
+
+#### php
+```php
+<?php
+echo "hello php\n";
+```
+
+#### html
+```html
+<div class="card">
+  <h3>Hello HTML</h3>
+  <p>Sample markup block.</p>
+</div>
+```
+
+#### css
+```css
+.card {
+  border: 1px solid #ccc;
+  padding: 12px;
+  border-radius: 8px;
+}
+```
+
+#### sql
+```sql
+SELECT id, name
+FROM users
+WHERE active = 1
+ORDER BY name;
+```
+
+#### bash
+```bash
+#!/usr/bin/env bash
+set -e
+echo "hello bash"
+```
+
+#### markdown
+```markdown
+# Markdown Sample
+
+- item one
+- item two
+
+Use **bold** and `inline code`.
+```
+
+#### xml
+```xml
+<project>
+  <name>tom_md_editor</name>
+  <version>0.1.0</version>
+</project>
+```
+
 ## Tables
 
 | Feature | Status | Priority |

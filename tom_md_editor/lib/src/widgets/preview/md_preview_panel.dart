@@ -2,6 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_highlight/flutter_highlight.dart';
+import 'package:flutter_highlight/themes/atom-one-dark.dart';
+import 'package:flutter_highlight/themes/github.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:markdown/markdown.dart' as md;
@@ -791,6 +794,7 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
       code: code,
       language: _language,
       theme: theme,
+      enableSyntaxHighlighting: settings.enableSyntaxHighlighting,
       showLanguage: settings.showCodeBlockLanguage,
       showCopy: settings.showCopyCodeButton,
       showEdit: settings.showCodeEditButton,
@@ -805,6 +809,7 @@ class _CodeBlockWidget extends StatefulWidget {
     required this.code,
     this.language,
     required this.theme,
+    this.enableSyntaxHighlighting = true,
     this.showLanguage = true,
     this.showCopy = true,
     this.showEdit = true,
@@ -815,6 +820,7 @@ class _CodeBlockWidget extends StatefulWidget {
   final String code;
   final String? language;
   final MdBasicTheme theme;
+  final bool enableSyntaxHighlighting;
   final bool showLanguage;
   final bool showCopy;
   final bool showEdit;
@@ -827,6 +833,56 @@ class _CodeBlockWidget extends StatefulWidget {
 
 class _CodeBlockWidgetState extends State<_CodeBlockWidget> {
   bool _hovering = false;
+
+  static const Map<String, String> _languageAliases = {
+    'js': 'javascript',
+    'ts': 'typescript',
+    'py': 'python',
+    'yml': 'yaml',
+    'sh': 'bash',
+    'shell': 'bash',
+    'zsh': 'bash',
+    'c++': 'cpp',
+  };
+
+  String? _normalizedLanguage(String? language) {
+    if (language == null) return null;
+    final normalized = language.trim().toLowerCase();
+    if (normalized.isEmpty) return null;
+    return _languageAliases[normalized] ?? normalized;
+  }
+
+  Widget _buildCodeText() {
+    final normalizedLanguage = _normalizedLanguage(widget.language);
+    if (!widget.enableSyntaxHighlighting || normalizedLanguage == null) {
+      return SelectableText(
+        widget.code,
+        style: widget.theme.codeStyle,
+      );
+    }
+
+    final useDarkSyntaxTheme =
+        widget.theme.codeBackground.computeLuminance() < 0.5;
+    final syntaxTheme = useDarkSyntaxTheme
+        ? atomOneDarkTheme
+        : githubTheme;
+
+    try {
+      return HighlightView(
+        widget.code,
+        language: normalizedLanguage,
+        theme: syntaxTheme,
+        padding: EdgeInsets.zero,
+        textStyle: widget.theme.codeStyle,
+      );
+    } catch (_) {
+      // Graceful fallback when a language key is unknown.
+      return SelectableText(
+        widget.code,
+        style: widget.theme.codeStyle,
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -855,10 +911,7 @@ class _CodeBlockWidgetState extends State<_CodeBlockWidget> {
                         ),
                       ),
                     ),
-                  SelectableText(
-                    widget.code,
-                    style: widget.theme.codeStyle,
-                  ),
+                  _buildCodeText(),
                 ],
               ),
             ),
