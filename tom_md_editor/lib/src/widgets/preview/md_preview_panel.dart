@@ -1265,7 +1265,7 @@ class _DraggableListBlockState extends State<_DraggableListBlock> {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Drag handle with hover-revealed indent buttons.
+                        // Drag handle + hover-revealed indent buttons.
                         MouseRegion(
                           onEnter: (_) =>
                               setState(() => _hoveredIndex = i),
@@ -1274,71 +1274,60 @@ class _DraggableListBlockState extends State<_DraggableListBlock> {
                               setState(() => _hoveredIndex = -1);
                             }
                           },
-                          child: _hoveredIndex == i
-                              ? Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (item.indent > 0)
-                                      _indentButton(
-                                        icon: Icons.chevron_left,
-                                        theme: theme,
-                                        onTap: () => _changeIndent(i, -1),
-                                      ),
-                                    _indentButton(
-                                      icon: Icons.chevron_right,
-                                      theme: theme,
-                                      onTap: () => _changeIndent(i, 1),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              LongPressDraggable<int>(
+                                data: i,
+                                delay:
+                                    const Duration(milliseconds: 150),
+                                onDragStarted: () =>
+                                    setState(() => _draggingIndex = i),
+                                onDragEnd: (_) => setState(() {
+                                  _draggingIndex = -1;
+                                  _dropTargetIndex = -1;
+                                }),
+                                onDraggableCanceled:
+                                    (velocity, offset) =>
+                                        setState(() {
+                                  _draggingIndex = -1;
+                                  _dropTargetIndex = -1;
+                                }),
+                                feedback: Material(
+                                  elevation: 4,
+                                  borderRadius:
+                                      BorderRadius.circular(4),
+                                  color: theme.surface,
+                                  child: Padding(
+                                    padding:
+                                        const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 6,
                                     ),
-                                  ],
-                                )
-                              : LongPressDraggable<int>(
-                                  data: i,
-                                  delay:
-                                      const Duration(milliseconds: 150),
-                                  onDragStarted: () =>
-                                      setState(() => _draggingIndex = i),
-                                  onDragEnd: (_) => setState(() {
-                                    _draggingIndex = -1;
-                                    _dropTargetIndex = -1;
-                                  }),
-                                  onDraggableCanceled:
-                                      (velocity, offset) => setState(() {
-                                    _draggingIndex = -1;
-                                    _dropTargetIndex = -1;
-                                  }),
-                                  feedback: Material(
-                                    elevation: 4,
-                                    borderRadius:
-                                        BorderRadius.circular(4),
-                                    color: theme.surface,
-                                    child: Padding(
-                                      padding:
-                                          const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 6,
+                                    child: ConstrainedBox(
+                                      constraints:
+                                          const BoxConstraints(
+                                        maxWidth: 300,
                                       ),
-                                      child: ConstrainedBox(
-                                        constraints:
-                                            const BoxConstraints(
-                                          maxWidth: 300,
+                                      child: Text(
+                                        '${_bulletDisplay(item)} ${item.text}',
+                                        style: TextStyle(
+                                          color: theme.text,
+                                          fontSize:
+                                              theme.baseFontSize,
                                         ),
-                                        child: Text(
-                                          '${_bulletDisplay(item)} ${item.text}',
-                                          style: TextStyle(
-                                            color: theme.text,
-                                            fontSize:
-                                                theme.baseFontSize,
-                                          ),
-                                          maxLines: 1,
-                                          overflow:
-                                              TextOverflow.ellipsis,
-                                        ),
+                                        maxLines: 1,
+                                        overflow:
+                                            TextOverflow.ellipsis,
                                       ),
                                     ),
                                   ),
+                                ),
+                                child: MouseRegion(
+                                  cursor: SystemMouseCursors.grab,
                                   child: Padding(
                                     padding: const EdgeInsets.only(
-                                      right: 4,
+                                      right: 2,
                                       top: 2,
                                     ),
                                     child: Icon(
@@ -1348,6 +1337,24 @@ class _DraggableListBlockState extends State<_DraggableListBlock> {
                                     ),
                                   ),
                                 ),
+                              ),
+                              if (_hoveredIndex == i) ...[
+                                if (item.indent > 0)
+                                  _indentButton(
+                                    icon: Icons.chevron_left,
+                                    theme: theme,
+                                    onTap: () =>
+                                        _changeIndent(i, -1),
+                                  ),
+                                _indentButton(
+                                  icon: Icons.chevron_right,
+                                  theme: theme,
+                                  onTap: () =>
+                                      _changeIndent(i, 1),
+                                ),
+                              ],
+                            ],
+                          ),
                         ),
                         // Bullet / checkbox.
                         Padding(
