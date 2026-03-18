@@ -1161,10 +1161,6 @@ class _DraggableListBlockState extends State<_DraggableListBlock> {
   int _draggingIndex = -1;
   int _dropTargetIndex = -1;
 
-  /// Horizontal swipe state for indent/unindent.
-  double _swipeDx = 0;
-  int _swipingIndex = -1;
-
   @override
   void initState() {
     super.initState();
@@ -1248,39 +1244,7 @@ class _DraggableListBlockState extends State<_DraggableListBlock> {
               _onReorder(from, to);
             },
             builder: (context, candidateData, rejectedData) {
-              final swipeOffset =
-                  _swipingIndex == i ? _swipeDx : 0.0;
-              return GestureDetector(
-                onHorizontalDragStart: (_) {
-                  setState(() {
-                    _swipingIndex = i;
-                    _swipeDx = 0;
-                  });
-                },
-                onHorizontalDragUpdate: (d) {
-                  setState(() => _swipeDx += d.delta.dx);
-                },
-                onHorizontalDragEnd: (_) {
-                  // Threshold: 40px → one indent/unindent step.
-                  if (_swipeDx > 40) {
-                    _changeIndent(i, 1); // indent
-                  } else if (_swipeDx < -40) {
-                    _changeIndent(i, -1); // unindent
-                  }
-                  setState(() {
-                    _swipingIndex = -1;
-                    _swipeDx = 0;
-                  });
-                },
-                onHorizontalDragCancel: () {
-                  setState(() {
-                    _swipingIndex = -1;
-                    _swipeDx = 0;
-                  });
-                },
-                child: Transform.translate(
-                  offset: Offset(swipeOffset.clamp(-60.0, 60.0), 0),
-                  child: Container(
+              return Container(
                 decoration: BoxDecoration(
                   border: Border(
                     top: isTargetAbove
@@ -1355,6 +1319,18 @@ class _DraggableListBlockState extends State<_DraggableListBlock> {
                             ),
                           ),
                         ),
+                        // Indent / unindent buttons.
+                        if (item.indent > 0)
+                          _indentButton(
+                            icon: Icons.format_indent_decrease,
+                            theme: theme,
+                            onTap: () => _changeIndent(i, -1),
+                          ),
+                        _indentButton(
+                          icon: Icons.format_indent_increase,
+                          theme: theme,
+                          onTap: () => _changeIndent(i, 1),
+                        ),
                         // Bullet / checkbox.
                         Padding(
                           padding: const EdgeInsets.only(right: 6, top: 2),
@@ -1406,9 +1382,7 @@ class _DraggableListBlockState extends State<_DraggableListBlock> {
                     ),
                   ),
                 ),
-              ),  // Container
-              ),  // Transform.translate
-              );  // GestureDetector
+              );
             },
           );
         }),
@@ -1422,6 +1396,23 @@ class _DraggableListBlockState extends State<_DraggableListBlock> {
     if (m == '-' || m == '*' || m == '+') return '•';
     // Ordered list — return the number.
     return m;
+  }
+
+  Widget _indentButton({
+    required IconData icon,
+    required MdBasicTheme theme,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 1),
+          child: Icon(icon, size: 14, color: theme.textMuted),
+        ),
+      ),
+    );
   }
 
   Widget _buildBullet(_ListItem item, MdBasicTheme theme, int index) {
