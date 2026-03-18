@@ -1160,7 +1160,7 @@ class _DraggableListBlockState extends State<_DraggableListBlock> {
   late List<_ListItem> _items;
   int _draggingIndex = -1;
   int _dropTargetIndex = -1;
-  int _hoveredIndex = -1;
+  int _expandedIndex = -1;
 
   @override
   void initState() {
@@ -1265,13 +1265,11 @@ class _DraggableListBlockState extends State<_DraggableListBlock> {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Drag handle + hover-revealed indent buttons.
-                        MouseRegion(
-                          onEnter: (_) =>
-                              setState(() => _hoveredIndex = i),
-                          onExit: (_) {
-                            if (_hoveredIndex == i) {
-                              setState(() => _hoveredIndex = -1);
+                        // Drag handle + tap-revealed indent buttons.
+                        TapRegion(
+                          onTapOutside: (_) {
+                            if (_expandedIndex == i) {
+                              setState(() => _expandedIndex = -1);
                             }
                           },
                           child: Row(
@@ -1323,22 +1321,29 @@ class _DraggableListBlockState extends State<_DraggableListBlock> {
                                     ),
                                   ),
                                 ),
-                                child: MouseRegion(
-                                  cursor: SystemMouseCursors.grab,
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(
-                                      right: 2,
-                                      top: 2,
-                                    ),
-                                    child: Icon(
-                                      Icons.drag_indicator,
-                                      size: 16,
-                                      color: theme.textMuted,
+                                child: GestureDetector(
+                                  onTap: () => setState(() {
+                                    _expandedIndex =
+                                        _expandedIndex == i ? -1 : i;
+                                  }),
+                                  child: MouseRegion(
+                                    cursor: SystemMouseCursors.grab,
+                                    child: Padding(
+                                      padding:
+                                          const EdgeInsets.only(
+                                        right: 2,
+                                        top: 2,
+                                      ),
+                                      child: Icon(
+                                        Icons.drag_indicator,
+                                        size: 16,
+                                        color: theme.textMuted,
+                                      ),
                                     ),
                                   ),
                                 ),
                               ),
-                              if (_hoveredIndex == i) ...[
+                              if (_expandedIndex == i) ...[
                                 if (item.indent > 0)
                                   _indentButton(
                                     icon: Icons.chevron_left,
