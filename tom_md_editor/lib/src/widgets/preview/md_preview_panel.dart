@@ -1160,6 +1160,7 @@ class _DraggableListBlockState extends State<_DraggableListBlock> {
   late List<_ListItem> _items;
   int _draggingIndex = -1;
   int _dropTargetIndex = -1;
+  int _hoveredIndex = -1;
 
   @override
   void initState() {
@@ -1264,72 +1265,89 @@ class _DraggableListBlockState extends State<_DraggableListBlock> {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Drag handle.
-                        LongPressDraggable<int>(
-                          data: i,
-                          delay: const Duration(milliseconds: 150),
-                          onDragStarted: () =>
-                              setState(() => _draggingIndex = i),
-                          onDragEnd: (_) => setState(() {
-                            _draggingIndex = -1;
-                            _dropTargetIndex = -1;
-                          }),
-                          onDraggableCanceled: (velocity, offset) =>
-                              setState(() {
-                            _draggingIndex = -1;
-                            _dropTargetIndex = -1;
-                          }),
-                          feedback: Material(
-                            elevation: 4,
-                            borderRadius: BorderRadius.circular(4),
-                            color: theme.surface,
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              child: ConstrainedBox(
-                                constraints: const BoxConstraints(
-                                  maxWidth: 300,
-                                ),
-                                child: Text(
-                                  '${_bulletDisplay(item)} ${item.text}',
-                                  style: TextStyle(
-                                    color: theme.text,
-                                    fontSize: theme.baseFontSize,
+                        // Drag handle with hover-revealed indent buttons.
+                        MouseRegion(
+                          onEnter: (_) =>
+                              setState(() => _hoveredIndex = i),
+                          onExit: (_) {
+                            if (_hoveredIndex == i) {
+                              setState(() => _hoveredIndex = -1);
+                            }
+                          },
+                          child: _hoveredIndex == i
+                              ? Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (item.indent > 0)
+                                      _indentButton(
+                                        icon: Icons.chevron_left,
+                                        theme: theme,
+                                        onTap: () => _changeIndent(i, -1),
+                                      ),
+                                    _indentButton(
+                                      icon: Icons.chevron_right,
+                                      theme: theme,
+                                      onTap: () => _changeIndent(i, 1),
+                                    ),
+                                  ],
+                                )
+                              : LongPressDraggable<int>(
+                                  data: i,
+                                  delay:
+                                      const Duration(milliseconds: 150),
+                                  onDragStarted: () =>
+                                      setState(() => _draggingIndex = i),
+                                  onDragEnd: (_) => setState(() {
+                                    _draggingIndex = -1;
+                                    _dropTargetIndex = -1;
+                                  }),
+                                  onDraggableCanceled:
+                                      (velocity, offset) => setState(() {
+                                    _draggingIndex = -1;
+                                    _dropTargetIndex = -1;
+                                  }),
+                                  feedback: Material(
+                                    elevation: 4,
+                                    borderRadius:
+                                        BorderRadius.circular(4),
+                                    color: theme.surface,
+                                    child: Padding(
+                                      padding:
+                                          const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 6,
+                                      ),
+                                      child: ConstrainedBox(
+                                        constraints:
+                                            const BoxConstraints(
+                                          maxWidth: 300,
+                                        ),
+                                        child: Text(
+                                          '${_bulletDisplay(item)} ${item.text}',
+                                          style: TextStyle(
+                                            color: theme.text,
+                                            fontSize:
+                                                theme.baseFontSize,
+                                          ),
+                                          maxLines: 1,
+                                          overflow:
+                                              TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ),
                                   ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(
+                                      right: 4,
+                                      top: 2,
+                                    ),
+                                    child: Icon(
+                                      Icons.drag_indicator,
+                                      size: 16,
+                                      color: theme.textMuted,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ),
-                          ),
-                          child: MouseRegion(
-                            cursor: SystemMouseCursors.grab,
-                            child: Padding(
-                              padding: const EdgeInsets.only(
-                                right: 4,
-                                top: 2,
-                              ),
-                              child: Icon(
-                                Icons.drag_indicator,
-                                size: 16,
-                                color: theme.textMuted,
-                              ),
-                            ),
-                          ),
-                        ),
-                        // Indent / unindent buttons.
-                        if (item.indent > 0)
-                          _indentButton(
-                            icon: Icons.format_indent_decrease,
-                            theme: theme,
-                            onTap: () => _changeIndent(i, -1),
-                          ),
-                        _indentButton(
-                          icon: Icons.format_indent_increase,
-                          theme: theme,
-                          onTap: () => _changeIndent(i, 1),
                         ),
                         // Bullet / checkbox.
                         Padding(
@@ -1408,8 +1426,8 @@ class _DraggableListBlockState extends State<_DraggableListBlock> {
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 1),
-          child: Icon(icon, size: 14, color: theme.textMuted),
+          padding: const EdgeInsets.only(top: 2),
+          child: Icon(icon, size: 16, color: theme.textMuted),
         ),
       ),
     );
