@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_highlight/flutter_highlight.dart';
 
 import '../../debug/md_editor_debug.dart';
 import '../../theme/md_editor_theme.dart';
+import '../../utils/md_code_highlighting.dart';
 
 /// Overlay dialog for editing code blocks with syntax-aware controls.
 class MdCodeBlockOverlay extends StatefulWidget {
@@ -33,13 +35,21 @@ class _MdCodeBlockOverlayState extends State<MdCodeBlockOverlay> {
     super.initState();
     _codeController = TextEditingController(text: widget.code);
     _langController = TextEditingController(text: widget.language ?? '');
+    _codeController.addListener(_onChanged);
+    _langController.addListener(_onChanged);
   }
 
   @override
   void dispose() {
+    _codeController.removeListener(_onChanged);
+    _langController.removeListener(_onChanged);
     _codeController.dispose();
     _langController.dispose();
     super.dispose();
+  }
+
+  void _onChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
@@ -105,25 +115,64 @@ class _MdCodeBlockOverlayState extends State<MdCodeBlockOverlay> {
   }
 
   Widget _buildCodeArea(MdBasicTheme basic) {
+    final normalized = MdCodeHighlighting.normalizeLanguage(
+      _langController.text,
+    );
+    final syntaxTheme = MdCodeHighlighting.buildTheme(basic);
+
     return Padding(
       padding: const EdgeInsets.all(12),
-      child: TextField(
-        controller: _codeController,
-        maxLines: null,
-        expands: true,
-        textAlignVertical: TextAlignVertical.top,
-        style: TextStyle(
-          fontFamily: basic.monoFontFamily,
-          fontSize: basic.baseFontSize,
-          color: basic.text,
-          height: basic.lineHeight,
-        ),
-        decoration: InputDecoration(
-          border: OutlineInputBorder(
-            borderSide: BorderSide(color: basic.border),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _codeController,
+              maxLines: null,
+              expands: true,
+              textAlignVertical: TextAlignVertical.top,
+              style: TextStyle(
+                fontFamily: basic.monoFontFamily,
+                fontSize: basic.baseFontSize,
+                color: basic.text,
+                height: basic.lineHeight,
+              ),
+              decoration: InputDecoration(
+                labelText: 'Code',
+                border: OutlineInputBorder(
+                  borderSide: BorderSide(color: basic.border),
+                ),
+                contentPadding: EdgeInsets.all(basic.blockPadding),
+              ),
+            ),
           ),
-          contentPadding: EdgeInsets.all(basic.blockPadding),
-        ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                color: basic.codeBackground,
+                borderRadius: BorderRadius.circular(basic.borderRadius),
+                border: Border.all(color: basic.codeBorder),
+              ),
+              child: Padding(
+                padding: EdgeInsets.all(basic.blockPadding),
+                child: SingleChildScrollView(
+                  child: normalized == null
+                      ? SelectableText(
+                          _codeController.text,
+                          style: basic.codeStyle,
+                        )
+                      : HighlightView(
+                          _codeController.text,
+                          language: normalized,
+                          theme: syntaxTheme,
+                          padding: EdgeInsets.zero,
+                          textStyle: basic.codeStyle,
+                        ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

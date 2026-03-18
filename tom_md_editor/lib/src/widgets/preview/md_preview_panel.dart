@@ -3,8 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_highlight/flutter_highlight.dart';
-import 'package:flutter_highlight/themes/atom-one-dark.dart';
-import 'package:flutter_highlight/themes/github.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:markdown/markdown.dart' as md;
@@ -16,6 +14,8 @@ import '../../plugins/md_content_plugin.dart';
 import '../../plugins/md_default_plugins.dart';
 import '../../settings/md_editor_settings.dart';
 import '../../theme/md_editor_theme.dart';
+import '../../utils/md_code_highlighting.dart';
+import '../overlays/md_code_block_overlay.dart';
 
 /// Preview panel that renders markdown as formatted content.
 ///
@@ -462,12 +462,61 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
   }
 
   void _editCodeBlock(String code, String? language) {
-    try {
-      MdEditorDebug.logger.info('Edit code block (lang=$language)');
-      // Overlay editor would be shown here in full implementation.
-    } catch (e, st) {
-      MdEditorDebug.logger.error('Error opening code editor', e, st);
-    }
+    () async {
+      try {
+        final currentLanguage = MdCodeHighlighting.normalizeLanguage(language);
+        String? editedCode;
+        String? editedLanguage = currentLanguage;
+
+        await showDialog<void>(
+          context: context,
+          builder: (_) => MdCodeBlockOverlay(
+            code: code,
+            language: currentLanguage,
+            theme: widget.theme,
+            onSave: (newCode, newLanguage) {
+              editedCode = newCode;
+              editedLanguage = MdCodeHighlighting.normalizeLanguage(
+                newLanguage,
+              );
+            },
+          ),
+        );
+
+        if (editedCode == null) return;
+        if (editedCode == code && editedLanguage == currentLanguage) return;
+
+        final source = widget.controller.markdown;
+        final oldFence = currentLanguage == null
+            ? '```\n$code\n```'
+            : '```$currentLanguage\n$code\n```';
+        final newFence = editedLanguage == null
+            ? '```\n${editedCode!}\n```'
+            : '```$editedLanguage\n${editedCode!}\n```';
+
+        final idx = source.indexOf(oldFence);
+        if (idx >= 0) {
+          widget.controller.markdown = source.replaceFirst(oldFence, newFence);
+          return;
+        }
+
+        // Fallback for whitespace variations in fenced blocks.
+        final escaped = RegExp.escape(code.trim());
+        final langPart = currentLanguage == null
+            ? r'[ \t]*'
+            : '${RegExp.escape(currentLanguage)}[ \\t]*';
+        final pattern = RegExp(
+          '```$langPart\\n\\s*$escaped\\s*\\n```',
+          dotAll: true,
+        );
+        final match = pattern.firstMatch(source);
+        if (match != null) {
+          widget.controller.markdown = source.replaceFirst(match.group(0)!, newFence);
+        }
+      } catch (e, st) {
+        MdEditorDebug.logger.error('Error opening code editor', e, st);
+      }
+    }();
   }
 
   void _onHeadingTapped(int level, String text) {
@@ -834,26 +883,10 @@ class _CodeBlockWidget extends StatefulWidget {
 class _CodeBlockWidgetState extends State<_CodeBlockWidget> {
   bool _hovering = false;
 
-  static const Map<String, String> _languageAliases = {
-    'js': 'javascript',
-    'ts': 'typescript',
-    'py': 'python',
-    'yml': 'yaml',
-    'sh': 'bash',
-    'shell': 'bash',
-    'zsh': 'bash',
-    'c++': 'cpp',
-  };
-
-  String? _normalizedLanguage(String? language) {
-    if (language == null) return null;
-    final normalized = language.trim().toLowerCase();
-    if (normalized.isEmpty) return null;
-    return _languageAliases[normalized] ?? normalized;
-  }
-
   Widget _buildCodeText() {
-    final normalizedLanguage = _normalizedLanguage(widget.language);
+    final normalizedLanguage = MdCodeHighlighting.normalizeLanguage(
+      widget.language,
+    );
     if (!widget.enableSyntaxHighlighting || normalizedLanguage == null) {
       return SelectableText(
         widget.code,
@@ -861,11 +894,7 @@ class _CodeBlockWidgetState extends State<_CodeBlockWidget> {
       );
     }
 
-    final useDarkSyntaxTheme =
-        widget.theme.codeBackground.computeLuminance() < 0.5;
-    final syntaxTheme = useDarkSyntaxTheme
-        ? atomOneDarkTheme
-        : githubTheme;
+    final syntaxTheme = MdCodeHighlighting.buildTheme(widget.theme);
 
     try {
       return HighlightView(
@@ -899,11 +928,13 @@ class _CodeBlockWidgetState extends State<_CodeBlockWidget> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (widget.showLanguage && widget.language != null)
+                  if (widget.showLanguage &&
+                      MdCodeHighlighting.normalizeLanguage(widget.language) !=
+                          null)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 4),
                       child: Text(
-                        widget.language!,
+                        MdCodeHighlighting.normalizeLanguage(widget.language)!,
                         style: TextStyle(
                           color: widget.theme.textMuted,
                           fontSize: 11,

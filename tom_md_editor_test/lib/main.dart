@@ -215,9 +215,10 @@ def greet(name: str) -> str:
 #### (no language)
 ```
 Plain fenced block with no language tag.
-- Should keep monospace styling
-- Should not apply token colors
-TODO: verify copy/edit overlay still works
+Should keep monospace styling.
+Should not apply token colors.
+TODO: verify copy/edit overlay still works.
+12345 true false "string" key:value # still plain text here
 ```
 
 #### dart
@@ -254,13 +255,22 @@ void main() {
 ```yaml
 project:
   name: tom_md_editor
-  version: 0.2.0
+  version: "0.2.0"
+  release: 5
+  quality: 9.75
+  enabled: true
+  deprecated: false
+  optional: null
+  date: 2026-03-18
+  labels: ["editor", "preview", "code"]
   environments:
     dev:
       theme: dark
+      timeoutMs: 5000
       features: [live-preview, tree, code-overlay]
     prod:
       theme: light
+      timeoutMs: 8000
       features:
         - live-preview
         - audit-log
@@ -277,9 +287,16 @@ pipelines:
 {
   "name": "tom_md_editor",
   "version": "0.2.0",
+  "build": 5,
+  "coverage": 97.3,
+  "isStable": true,
+  "isDeprecated": false,
+  "note": null,
   "settings": {
     "readOnly": false,
     "livePreview": true,
+    "maxLines": 120,
+    "timeoutMs": 3500,
     "plugins": [
       { "id": "mermaid", "enabled": true },
       { "id": "table", "enabled": true },
@@ -648,7 +665,8 @@ popd >/dev/null
 
 #### markdown
 ```markdown
-# Markdown Sample
+Markdown sample with escaped heading marker: \# Heading 1
+Markdown sample with escaped list marker: \- list item
 
 This section tests **bold**, *italic*, `inline code`, and [links](https://example.com).
 
@@ -657,6 +675,8 @@ This section tests **bold**, *italic*, `inline code`, and [links](https://exampl
 1. Ordered item with nested list:
    - child item
    - another child
+
+Inline math: $E=mc^2$.
 
 | Feature | Status |
 |:--|--:|
