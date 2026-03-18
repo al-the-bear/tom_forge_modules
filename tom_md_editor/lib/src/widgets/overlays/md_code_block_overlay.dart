@@ -137,7 +137,7 @@ class _MdCodeBlockOverlayState extends State<MdCodeBlockOverlay> {
         child: CodeField(
           controller: _codeController,
           maxLines: null,
-          expands: true,
+          expands: false,
           textStyle: basic.codeStyle,
           background: basic.codeBackground,
           lineNumberStyle: LineNumberStyle(
@@ -181,7 +181,7 @@ class _MdCodeBlockOverlayState extends State<MdCodeBlockOverlay> {
           _langController.text.trim().isEmpty
               ? null
               : _langController.text.trim();
-        widget.onSave(_codeController.text, lang);
+      widget.onSave(_codeController.text, lang);
       Navigator.of(context).pop();
     } catch (e, st) {
       MdEditorDebug.logger.error('Error saving code block', e, st);

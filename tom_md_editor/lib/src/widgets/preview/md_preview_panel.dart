@@ -788,10 +788,11 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
   @override
   Widget visitText(md.Text text, TextStyle? preferredStyle) {
     final code = text.text;
+    final blockLanguage = _language;
 
     // Draggable list blocks.
-    if (_language != null && _language!.startsWith('listblock-')) {
-      final indexStr = _language!.substring('listblock-'.length);
+    if (blockLanguage != null && blockLanguage.startsWith('listblock-')) {
+      final indexStr = blockLanguage.substring('listblock-'.length);
       final blockIdx = int.tryParse(indexStr) ?? 0;
       final list = contentMap['listblock'];
       final rawBlock =
@@ -818,8 +819,8 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
     }
 
     // Check if any plugin handles this language.
-    if (_language != null) {
-      final plugin = pluginRegistry.forLanguage(_language!);
+    if (blockLanguage != null) {
+      final plugin = pluginRegistry.forLanguage(blockLanguage);
       if (plugin != null) {
         final preview = plugin.buildPreview(
           code,
@@ -831,8 +832,8 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
             if (preprocessor != null) {
               final prefix = preprocessor.tagPrefix;
               final expectedStart = '$prefix-';
-              final indexStr = _language!.startsWith(expectedStart)
-                  ? _language!.substring(expectedStart.length)
+                final indexStr = blockLanguage.startsWith(expectedStart)
+                  ? blockLanguage.substring(expectedStart.length)
                   : null;
               final idx = indexStr != null ? int.tryParse(indexStr) : null;
               final list = contentMap[prefix];
@@ -842,7 +843,7 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
                       : code;
             } else {
               // Native fenced block — construct the search string.
-              rawOriginal = '```$_language\n$code\n```';
+              rawOriginal = '```$blockLanguage\n$code\n```';
             }
             onPluginEdit(plugin, rawOriginal, code);
           },
@@ -854,14 +855,14 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
     // Default: render as code block with copy/edit buttons.
     return _CodeBlockWidget(
       code: code,
-      language: _language,
+      language: blockLanguage,
       theme: theme,
       enableSyntaxHighlighting: settings.enableSyntaxHighlighting,
       showLanguage: settings.showCodeBlockLanguage,
       showCopy: settings.showCopyCodeButton,
       showEdit: settings.showCodeEditButton,
       onCopy: () => onCopy(code),
-      onEdit: () => onDefaultEdit(code, _language),
+      onEdit: () => onDefaultEdit(code, blockLanguage),
     );
   }
 }
