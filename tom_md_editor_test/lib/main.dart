@@ -210,76 +210,286 @@ def greet(name: str) -> str:
     return f"Hello, {name}!"
 ```
 
-### Supported Language Samples
+### Supported Language Samples (Extensive)
+
+#### (no language)
+```
+Plain fenced block with no language tag.
+- Should keep monospace styling
+- Should not apply token colors
+TODO: verify copy/edit overlay still works
+```
+
+#### dart
+```dart
+import 'dart:math' as math;
+
+class InvoiceItem {
+  const InvoiceItem(this.name, this.price, this.qty);
+  final String name;
+  final double price;
+  final int qty;
+
+  double get total => price * qty;
+}
+
+double applyDiscount(double subtotal, {double rate = 0.1}) {
+  if (subtotal <= 0) return 0;
+  final capped = math.min(rate, 0.4);
+  return subtotal * (1 - capped);
+}
+
+void main() {
+  final items = <InvoiceItem>[
+    const InvoiceItem('Keyboard', 129.5, 1),
+    const InvoiceItem('Cable', 9.99, 3),
+  ];
+  final subtotal = items.fold<double>(0, (s, i) => s + i.total);
+  final total = applyDiscount(subtotal, rate: 0.15);
+  print('subtotal=$subtotal total=$total');
+}
+```
 
 #### yaml
 ```yaml
-name: tom_md_editor
-version: 0.1.0
-features:
-  - tree
-  - preview
-  - overlays
+project:
+  name: tom_md_editor
+  version: 0.2.0
+  environments:
+    dev:
+      theme: dark
+      features: [live-preview, tree, code-overlay]
+    prod:
+      theme: light
+      features:
+        - live-preview
+        - audit-log
+
+pipelines:
+  - id: test
+    steps:
+      - run: flutter test
+      - run: dart analyze
+```
+
+#### json
+```json
+{
+  "name": "tom_md_editor",
+  "version": "0.2.0",
+  "settings": {
+    "readOnly": false,
+    "livePreview": true,
+    "plugins": [
+      { "id": "mermaid", "enabled": true },
+      { "id": "table", "enabled": true },
+      { "id": "math", "enabled": true }
+    ]
+  },
+  "recentFiles": [
+    "doc/guide.md",
+    "doc/changelog.md"
+  ]
+}
 ```
 
 #### javascript
 ```javascript
-const sum = (a, b) => a + b;
-console.log(`sum=${sum(3, 4)}`);
+/** @typedef {{id:number,name:string,tags:string[]}} User */
+const users = [
+  { id: 1, name: 'Alex', tags: ['admin', 'editor'] },
+  { id: 2, name: 'Sam', tags: ['viewer'] }
+];
+
+const byRole = role => users.filter(u => u.tags.includes(role));
+
+async function fetchJson(url) {
+  const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+console.log(byRole('editor').map(u => u.name).join(', '));
 ```
 
 #### typescript
 ```typescript
-type User = { id: number; name: string };
-const user: User = { id: 1, name: 'Alex' };
+type Status = 'todo' | 'doing' | 'done';
+
+interface Task {
+  id: string;
+  title: string;
+  status: Status;
+  estimateHours?: number;
+}
+
+function groupByStatus(tasks: Task[]): Record<Status, Task[]> {
+  return tasks.reduce<Record<Status, Task[]>>(
+    (acc, t) => ({ ...acc, [t.status]: [...acc[t.status], t] }),
+    { todo: [], doing: [], done: [] }
+  );
+}
+
+const tasks: Task[] = [
+  { id: 'T1', title: 'Parser', status: 'done', estimateHours: 4 },
+  { id: 'T2', title: 'UI', status: 'doing' }
+];
+
+console.log(groupByStatus(tasks));
+```
+
+#### python
+```python
+from dataclasses import dataclass
+from typing import Iterable
+
+@dataclass(frozen=True)
+class Item:
+    name: str
+    price: float
+    qty: int = 1
+
+def total(items: Iterable[Item]) -> float:
+    subtotal = sum(i.price * i.qty for i in items)
+    tax = subtotal * 0.2
+    return round(subtotal + tax, 2)
+
+if __name__ == "__main__":
+    cart = [Item("Mouse", 29.9, 2), Item("Desk", 199.0)]
+    print({"total": total(cart), "count": len(cart)})
 ```
 
 #### c
 ```c
 #include <stdio.h>
+#include <string.h>
+
+typedef struct {
+  char name[32];
+  int score;
+} Player;
+
+int max_score(const Player *players, int count) {
+  int max = 0;
+  for (int i = 0; i < count; i++) {
+    if (players[i].score > max) max = players[i].score;
+  }
+  return max;
+}
 
 int main(void) {
-  printf("hello c\\n");
+  Player players[] = {{"Alex", 42}, {"Sam", 58}};
+  printf("max=%d\n", max_score(players, 2));
   return 0;
 }
 ```
 
 #### cpp
 ```cpp
+#include <algorithm>
 #include <iostream>
+#include <map>
+#include <vector>
 
 int main() {
-  std::cout << "hello cpp" << std::endl;
-  return 0;
+  std::vector<int> values{9, 2, 7, 4, 5};
+  std::sort(values.begin(), values.end());
+
+  std::map<std::string, int> counts{{"ok", 3}, {"fail", 1}};
+  for (const auto& [k, v] : counts) {
+    std::cout << k << " => " << v << "\n";
+  }
+
+  auto hasEven = std::any_of(values.begin(), values.end(), [](int n) {
+    return n % 2 == 0;
+  });
+  std::cout << "hasEven=" << std::boolalpha << hasEven << "\n";
 }
 ```
 
 #### java
 ```java
-class Hello {
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+record User(String id, String role) {}
+
+public class Demo {
   public static void main(String[] args) {
-    System.out.println("hello java");
+    var users = List.of(new User("u1", "admin"), new User("u2", "viewer"));
+    Map<String, Long> byRole = users.stream()
+      .collect(Collectors.groupingBy(User::role, Collectors.counting()));
+
+    byRole.forEach((k, v) -> System.out.println(k + ": " + v));
   }
 }
 ```
 
 #### kotlin
 ```kotlin
+data class Event(val id: String, val active: Boolean, val tags: List<String>)
+
 fun main() {
-  println("hello kotlin")
+    val events = listOf(
+        Event("E1", true, listOf("ui", "high")),
+        Event("E2", false, listOf("backend"))
+    )
+
+    val activeTags = events
+        .filter { it.active }
+        .flatMap { it.tags }
+        .distinct()
+        .sorted()
+
+    println(activeTags.joinToString(", "))
 }
 ```
 
 #### swift
 ```swift
-let name = "swift"
-print("hello \(name)")
+import Foundation
+
+struct Item: Codable {
+    let id: Int
+    let title: String
+    let done: Bool
+}
+
+let items = [
+    Item(id: 1, title: "Render markdown", done: true),
+    Item(id: 2, title: "Fix mermaid", done: false)
+]
+
+let encoder = JSONEncoder()
+encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+
+if let data = try? encoder.encode(items),
+   let json = String(data: data, encoding: .utf8) {
+    print(json)
+}
 ```
 
 #### rust
 ```rust
+use std::collections::HashMap;
+
+#[derive(Debug)]
+struct Task<'a> {
+    title: &'a str,
+    done: bool,
+}
+
+fn summarize(tasks: &[Task]) -> HashMap<&str, usize> {
+    let mut map = HashMap::new();
+    map.insert("done", tasks.iter().filter(|t| t.done).count());
+    map.insert("open", tasks.iter().filter(|t| !t.done).count());
+    map
+}
+
 fn main() {
-    println!("hello rust");
+    let tasks = [Task { title: "Parser", done: true }, Task { title: "UI", done: false }];
+    println!("{:?}", summarize(&tasks));
 }
 ```
 
@@ -287,73 +497,189 @@ fn main() {
 ```go
 package main
 
-import "fmt"
+import (
+    "encoding/json"
+    "fmt"
+    "strings"
+)
+
+type User struct {
+    Name  string   `json:"name"`
+    Roles []string `json:"roles"`
+}
 
 func main() {
-    fmt.Println("hello go")
+    u := User{Name: "Alex", Roles: []string{"admin", "editor"}}
+    b, _ := json.MarshalIndent(u, "", "  ")
+    fmt.Println(string(b))
+    fmt.Println(strings.ToUpper(u.Name))
 }
 ```
 
 #### ruby
 ```ruby
-name = 'ruby'
-puts "hello #{name}"
+User = Struct.new(:id, :name, :roles, keyword_init: true)
+
+users = [
+  User.new(id: 1, name: 'Alex', roles: %w[admin editor]),
+  User.new(id: 2, name: 'Sam', roles: %w[viewer])
+]
+
+admins = users.select { |u| u.roles.include?('admin') }
+puts admins.map(&:name).join(', ')
+
+begin
+  raise 'demo error' if admins.empty?
+rescue => e
+  warn "error: #{e.message}"
+end
 ```
 
 #### php
 ```php
 <?php
-echo "hello php\n";
+declare(strict_types=1);
+
+final class InvoiceItem {
+  public function __construct(
+    public string $name,
+    public float $price,
+    public int $qty = 1,
+  ) {}
+
+  public function total(): float {
+    return $this->price * $this->qty;
+  }
+}
+
+$items = [new InvoiceItem('Mouse', 19.9, 2), new InvoiceItem('Cable', 5.5, 3)];
+$sum = array_reduce($items, fn($s, $i) => $s + $i->total(), 0.0);
+echo json_encode(['sum' => $sum], JSON_PRETTY_PRINT) . PHP_EOL;
 ```
 
 #### html
 ```html
-<div class="card">
-  <h3>Hello HTML</h3>
-  <p>Sample markup block.</p>
-</div>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Code Demo</title>
+  </head>
+  <body>
+    <main class="layout">
+      <article class="card" data-state="active">
+        <h1>Markdown Editor</h1>
+        <p>Supports <strong>Mermaid</strong>, tables, and code overlays.</p>
+      </article>
+    </main>
+  </body>
+</html>
 ```
 
 #### css
 ```css
+:root {
+  --bg: #111827;
+  --surface: #1f2937;
+  --text: #e5e7eb;
+  --accent: #38bdf8;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font: 500 16px/1.5 "Segoe UI", sans-serif;
+  color: var(--text);
+  background: radial-gradient(circle at top, #0f172a, var(--bg));
+}
+
 .card {
-  border: 1px solid #ccc;
-  padding: 12px;
-  border-radius: 8px;
+  max-width: 680px;
+  margin: 2rem auto;
+  padding: 1.25rem;
+  border: 1px solid color-mix(in oklab, var(--accent) 35%, black);
+  border-radius: 12px;
+  background: var(--surface);
 }
 ```
 
 #### sql
 ```sql
-SELECT id, name
-FROM users
-WHERE active = 1
-ORDER BY name;
+WITH monthly AS (
+  SELECT
+    DATE_TRUNC('month', created_at) AS month,
+    status,
+    COUNT(*) AS cnt
+  FROM issues
+  WHERE created_at >= CURRENT_DATE - INTERVAL '6 months'
+  GROUP BY 1, 2
+)
+SELECT
+  month,
+  SUM(CASE WHEN status = 'open' THEN cnt ELSE 0 END) AS open_count,
+  SUM(CASE WHEN status = 'closed' THEN cnt ELSE 0 END) AS closed_count
+FROM monthly
+GROUP BY month
+ORDER BY month;
 ```
 
 #### bash
 ```bash
 #!/usr/bin/env bash
-set -e
-echo "hello bash"
+set -euo pipefail
+
+PROJECT_DIR="${1:-.}"
+echo "Running checks in: $PROJECT_DIR"
+
+pushd "$PROJECT_DIR" >/dev/null
+dart analyze
+flutter test --no-pub
+
+if [[ -n "$(git status --porcelain)" ]]; then
+  echo "Workspace has local changes"
+else
+  echo "Workspace clean"
+fi
+
+popd >/dev/null
 ```
 
 #### markdown
 ```markdown
 # Markdown Sample
 
-- item one
-- item two
+This section tests **bold**, *italic*, `inline code`, and [links](https://example.com).
 
-Use **bold** and `inline code`.
+> A quote block with `code` and **emphasis**.
+
+1. Ordered item with nested list:
+   - child item
+   - another child
+
+| Feature | Status |
+|:--|--:|
+| Mermaid | ✅ |
+| Syntax Highlighting | ✅ |
 ```
 
 #### xml
 ```xml
-<project>
-  <name>tom_md_editor</name>
-  <version>0.1.0</version>
-</project>
+<?xml version="1.0" encoding="UTF-8"?>
+<workspace name="tom_forge">
+  <project id="tom_md_editor" language="dart">
+    <features>
+      <feature enabled="true">preview</feature>
+      <feature enabled="true">mermaid</feature>
+      <feature enabled="true">syntax-highlighting</feature>
+    </features>
+    <metadata created="2026-03-18">
+      <owner>al-the-bear</owner>
+      <status>active</status>
+    </metadata>
+  </project>
+</workspace>
 ```
 
 ## Tables

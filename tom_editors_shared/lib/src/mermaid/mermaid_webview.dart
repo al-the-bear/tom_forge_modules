@@ -161,15 +161,17 @@ class _MermaidWebViewState extends State<MermaidWebView> {
   }
 
   void _onMessage(JavaScriptMessage message) {
-    final data = jsonDecode(message.message) as Map<String, dynamic>;
-    final type = data['type'] as String;
+    Map<String, dynamic> data;
+    try {
+      data = jsonDecode(message.message) as Map<String, dynamic>;
+    } catch (_) {
+      return;
+    }
+    final type = data['type'] as String?;
+    if (type == null) return;
 
     if (type == 'rendered') {
       final height = (data['height'] as num).toDouble();
-      final diag = data['diag'] as Map<String, dynamic>?;
-      if (diag != null) {
-        debugPrint('[MermaidWebView] diag: $diag');
-      }
       if (mounted) {
         setState(() {
           _height = height.clamp(widget.minHeight, widget.maxHeight);
@@ -284,7 +286,68 @@ body.dark #diagram .mindmap-node foreignObject div{color:#e0e0e0 !important}
 <script>
 
 let rc=0;
-async function renderMermaid(source,theme){
+function parseViewBox(svg){
+  if(!svg){return {w:0,h:0,text:'none'}};
+  var vb=svg.getAttribute('viewBox')||'none';
+  if(vb==='none'){return {w:0,h:0,text:vb}};
+  var p=vb.trim().split(/\\s+/).map(Number);
+  if(p.length<4||Number.isNaN(p[2])||Number.isNaN(p[3])){
+    return {w:0,h:0,text:vb};
+  }
+  return {w:Math.max(0,p[2]),h:Math.max(0,p[3]),text:vb};
+}
+
+function measureDiagram(c){
+  var s=c.querySelector('svg');
+  var r=s?s.getBoundingClientRect():{width:0,height:0};
+  var vb=parseViewBox(s);
+  var sw=Math.ceil(s?Number(s.getAttribute('width')||0):0);
+  var sh=Math.ceil(s?Number(s.getAttribute('height')||0):0);
+  var width=Math.max(
+    Math.ceil(r.width||0),
+    vb.w,
+    sw,
+    Math.ceil(c.scrollWidth||0),
+    Math.ceil(document.body.scrollWidth||0),
+    Math.ceil(document.documentElement.scrollWidth||0)
+  );
+  var height=Math.max(
+    Math.ceil(r.height||0),
+    vb.h,
+    sh,
+    Math.ceil(c.scrollHeight||0),
+    Math.ceil(document.body.scrollHeight||0),
+    Math.ceil(document.documentElement.scrollHeight||0)
+  );
+  return {
+    svg:s,
+    viewBox:vb.text,
+    viewBoxWidth:vb.w,
+    viewBoxHeight:vb.h,
+    width:width,
+    height:height
+  };
+}
+
+function postRendered(c,isGantt,renderTheme){
+  var m=measureDiagram(c);
+  MermaidChannel.postMessage(JSON.stringify({
+    type:'rendered',
+    width:Math.max(32,m.width+16),
+    height:Math.max(32,m.height+16),
+    diag:{
+      isGantt:isGantt,
+      renderTheme:renderTheme,
+      viewBox:m.viewBox,
+      w:m.width,
+      h:m.height
+    }
+  }));
+  return m;
+}
+
+async function renderMermaid(source,theme,attempt){
+  attempt=attempt||0;
   const c=document.getElementById('diagram');
   const isDark=(theme==='dark');
   // Toggle body class so the <head> CSS dark overrides activate.
@@ -350,29 +413,18 @@ async function renderMermaid(source,theme){
         el.style.setProperty('stroke','#444','important');
       });
     }
-    // Wait for the SVG to layout, then measure its actual dimensions.
-    requestAnimationFrame(()=>{
-      requestAnimationFrame(()=>{
-        const s=c.querySelector('svg');
-        let w=0,h=0;
-        if(s){
-          const r=s.getBoundingClientRect();
-          w=Math.ceil(r.width);
-          h=Math.ceil(r.height);
-        }
-        // Fall back to container scroll dimensions if SVG rect is empty.
-        if(h<1){h=c.scrollHeight}
-        if(w<1){w=c.scrollWidth}
-        // Add padding (8px on each side).
-        var vb=s?s.getAttribute('viewBox'):'none';
-        MermaidChannel.postMessage(JSON.stringify({
-          type:'rendered',
-          width:w+16,
-          height:h+16,
-          diag:{isGantt:isGantt,renderTheme:renderTheme,viewBox:vb,w:w,h:h}
-        }));
-      });
-    });
+    // Wait for layout, then measure with retries when dimensions are unstable.
+    await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+    var m=postRendered(c,isGantt,renderTheme);
+    var zeroOrTiny=m.width<32||m.height<32;
+    var invalidGantt=isGantt&&(m.viewBoxWidth<1||m.viewBoxHeight<1);
+    if((zeroOrTiny||invalidGantt)&&attempt<3){
+      await new Promise(r=>setTimeout(r,40));
+      return renderMermaid(source,theme,attempt+1);
+    }
+
+    // Send one more stabilized size after the browser settles late layout.
+    setTimeout(function(){postRendered(c,isGantt,renderTheme);},80);
   }catch(e){
     c.innerHTML='<div class="error">'+
       (e.message||String(e)).replace(/</g,'&lt;')+'</div>';
