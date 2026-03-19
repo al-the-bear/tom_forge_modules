@@ -6,6 +6,7 @@ import '../../debug/md_editor_debug.dart';
 import '../../models/md_section.dart';
 import '../../settings/md_editor_settings.dart';
 import '../../theme/md_editor_theme.dart';
+import '../../validation/schema_section_helper.dart';
 
 /// Tree view panel showing section hierarchy with drag-drop reordering.
 class MdTreeView extends StatefulWidget {
@@ -259,6 +260,8 @@ class _MdTreeViewState extends State<MdTreeView> {
                   ),
                 ),
               ),
+            // Schema validation indicator
+            ..._buildValidationIndicator(section, basic),
           ],
         ),
       ),
@@ -356,6 +359,9 @@ class _MdTreeViewState extends State<MdTreeView> {
       final idx = siblings.indexOf(section);
       final canMerge = idx >= 0 && idx + 1 < siblings.length;
 
+      // Build schema-aware subsection items.
+      final subsectionItems = _buildSchemaSubsectionItems(section);
+
       showMenu<String>(
         context: context,
         position: RelativeRect.fromLTRB(
@@ -373,10 +379,8 @@ class _MdTreeViewState extends State<MdTreeView> {
             value: 'add_below',
             child: Text('Add Section Below'),
           ),
-          const PopupMenuItem(
-            value: 'add_child',
-            child: Text('Add Subsection'),
-          ),
+          // Schema-aware subsection items or generic fallback
+          ...subsectionItems,
           const PopupMenuDivider(),
           const PopupMenuItem(value: 'move_up', child: Text('Move Up')),
           const PopupMenuItem(value: 'move_down', child: Text('Move Down')),
@@ -416,8 +420,120 @@ class _MdTreeViewState extends State<MdTreeView> {
     }
   }
 
+  /// Build schema-aware subsection menu items.
+  ///
+  /// If a schema is loaded and the section has defined subsection types,
+  /// returns individual items for each allowed type. Otherwise, returns
+  /// a generic "Add Subsection" item.
+  List<PopupMenuEntry<String>> _buildSchemaSubsectionItems(
+    MdSection section,
+  ) {
+    final schema = widget.controller.schema;
+    if (schema != null) {
+      final helper = SchemaSectionHelper(schema);
+      final allowed = helper.getAllowedSubsections(
+        section,
+        document: widget.controller.document,
+      );
+
+      if (allowed.isNotEmpty) {
+        return [
+          const PopupMenuDivider(),
+          for (final sub in allowed)
+            PopupMenuItem(
+              value: 'add_typed_child:${sub.typeName}',
+              child: Tooltip(
+                message: sub.description ?? '',
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.subdirectory_arrow_right, size: 14),
+                    const SizedBox(width: 6),
+                    Text('Add ${sub.capitalizedName}'),
+                  ],
+                ),
+              ),
+            ),
+          const PopupMenuDivider(),
+          const PopupMenuItem(
+            value: 'add_child',
+            child: Text('Add Custom Subsection...'),
+          ),
+        ];
+      }
+    }
+
+    // Fallback: generic subsection item
+    return [
+      const PopupMenuItem(
+        value: 'add_child',
+        child: Text('Add Subsection'),
+      ),
+    ];
+  }
+
+  /// Build validation indicator widgets for a section.
+  List<Widget> _buildValidationIndicator(
+    MdSection section,
+    MdBasicTheme basic,
+  ) {
+    final errors = _getValidationErrorsForSection(section);
+    if (errors.isEmpty) return const [];
+
+    final worstSeverity = errors.fold<ValidationSeverity>(
+      ValidationSeverity.info,
+      (worst, error) =>
+          error.severity.index < worst.index ? error.severity : worst,
+    );
+
+    final (icon, color) = switch (worstSeverity) {
+      ValidationSeverity.error => (Icons.error, basic.error),
+      ValidationSeverity.warning => (Icons.warning_amber, basic.warning),
+      ValidationSeverity.info => (Icons.info_outline, basic.accent),
+    };
+
+    final tooltip = errors.map((e) => e.message).join('\n');
+
+    return [
+      const SizedBox(width: 4),
+      Tooltip(
+        message: tooltip,
+        child: Icon(icon, size: 14, color: color),
+      ),
+    ];
+  }
+
+  /// Get validation errors relevant to a specific section.
+  List<ValidationError> _getValidationErrorsForSection(MdSection section) {
+    final allErrors = widget.controller.validationErrors;
+    if (allErrors.isEmpty) return const [];
+
+    final sectionId = section.id ?? '';
+    final headline = section.headline.toLowerCase();
+
+    return allErrors.where((error) {
+      if (error.path.isEmpty) return false;
+      final firstPath = error.path.first.toString().toLowerCase();
+      // Match by section ID or headline.
+      if (sectionId.isNotEmpty && firstPath == sectionId) return true;
+      if (firstPath == headline) return true;
+      // Match by message mentioning the section.
+      final msg = error.message.toLowerCase();
+      if (sectionId.isNotEmpty && msg.contains(sectionId)) return true;
+      if (msg.contains(headline)) return true;
+      return false;
+    }).toList();
+  }
+
   Future<void> _handleContextAction(String action, MdSection section) async {
     try {
+      // Handle schema-typed subsection insertion.
+      if (action.startsWith('add_typed_child:')) {
+        final typeName = action.substring('add_typed_child:'.length);
+        await _addTypedSubsection(section, typeName);
+        return;
+      }
+
       switch (action) {
         case 'add_above':
           final result = await _showNewSectionDialog();
@@ -485,6 +601,39 @@ class _MdTreeViewState extends State<MdTreeView> {
     }
   }
 
+  /// Insert a typed subsection based on schema definition.
+  Future<void> _addTypedSubsection(
+    MdSection parentSection,
+    String typeName,
+  ) async {
+    final schema = widget.controller.schema;
+    if (schema == null) return;
+
+    final typeDef = schema.sectionTypes[typeName];
+    final prefix = typeDef?.prefix;
+    final capitalName = typeName
+        .replaceAll('-', ' ')
+        .split(' ')
+        .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
+        .join(' ');
+
+    // Pre-fill headline and ID from the schema type.
+    final result = await _showNewSectionDialog(
+      isSubsection: true,
+      defaultHeadline: capitalName,
+      defaultId: prefix,
+    );
+    if (result == null) return;
+
+    await widget.controller.insertSection(
+      parent: parentSection,
+      index: parentSection.subsections.length,
+      level: parentSection.level + 1,
+      headline: result.headline,
+      id: result.id,
+    );
+  }
+
   MdSection? _findParentSection(MdSection target) {
     MdSection? find(List<MdSection> siblings, MdSection? parent) {
       for (final s in siblings) {
@@ -500,9 +649,13 @@ class _MdTreeViewState extends State<MdTreeView> {
   /// Show a dialog to create a new section with headline and ID.
   Future<({String headline, String? id})?> _showNewSectionDialog({
     bool isSubsection = false,
+    String? defaultHeadline,
+    String? defaultId,
   }) async {
-    final headlineController = TextEditingController();
-    final idController = TextEditingController();
+    final headlineController = TextEditingController(
+      text: defaultHeadline ?? '',
+    );
+    final idController = TextEditingController(text: defaultId ?? '');
     final label = isSubsection ? 'Subsection' : 'Section';
     final result = await showDialog<bool>(
       context: context,

@@ -15,6 +15,9 @@ class MdSchemaValidator {
   /// The currently loaded schema.
   specs.DocSpecSchema? _schema;
 
+  /// The current schema, if any.
+  specs.DocSpecSchema? get schema => _schema;
+
   /// Whether a schema is loaded and validation is available.
   bool get hasSchema => _schema != null;
 

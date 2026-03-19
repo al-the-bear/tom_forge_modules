@@ -80,6 +80,9 @@ class MdEditorController extends ChangeNotifier {
   /// Schema ID detected from document.
   String? get schemaId => _document.schemaId;
 
+  /// The currently loaded schema, if any.
+  specs.DocSpecSchema? get schema => _schemaValidator.schema;
+
   /// Event handlers for intercepting operations.
   MdEditorEventHandlers? eventHandlers;
 

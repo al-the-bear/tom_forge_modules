@@ -6,6 +6,7 @@ import 'package:flutter_highlight/flutter_highlight.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:markdown/markdown.dart' as md;
+import 'package:tom_editors_shared/tom_editors_shared.dart';
 
 import '../../controller/md_editor_controller.dart';
 import '../../debug/md_editor_debug.dart';
@@ -15,6 +16,7 @@ import '../../plugins/md_default_plugins.dart';
 import '../../settings/md_editor_settings.dart';
 import '../../theme/md_editor_theme.dart';
 import '../../utils/md_code_highlighting.dart';
+import '../../validation/schema_section_helper.dart';
 import '../overlays/md_code_block_overlay.dart';
 
 /// Preview panel that renders markdown as formatted content.
@@ -287,7 +289,9 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
                     readOnly: widget.settings.readOnly,
                     onTap: _onHeadingTapped,
                     onEdit: _onHeadingEdit,
+                    onContextMenu: _onHeadingContextMenu,
                     getKey: _getOrCreateHeadingKey,
+                    getValidationErrors: _getValidationErrorsForSection,
                   ),
               },
             ),
@@ -605,6 +609,211 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
     } catch (e, st) {
       MdEditorDebug.logger.error('Error handling heading edit', e, st);
     }
+  }
+
+  void _onHeadingContextMenu(Offset position, int level, String text) {
+    try {
+      final sections = widget.controller.document.allSections;
+      final match = sections.where(
+        (s) => s.level == level && s.headline.trim() == text,
+      );
+      if (match.isEmpty) return;
+      final section = match.first;
+
+      // Build schema-aware subsection items.
+      final subsectionItems = _buildSchemaSubsectionItems(section);
+
+      showMenu<String>(
+        context: context,
+        position: RelativeRect.fromLTRB(
+          position.dx,
+          position.dy,
+          position.dx,
+          position.dy,
+        ),
+        items: [
+          const PopupMenuItem(
+            value: 'add_above',
+            child: Text('Add Section Above'),
+          ),
+          const PopupMenuItem(
+            value: 'add_below',
+            child: Text('Add Section Below'),
+          ),
+          ...subsectionItems,
+          const PopupMenuDivider(),
+          const PopupMenuItem(
+            value: 'edit',
+            child: Text('Edit Headline & ID'),
+          ),
+        ],
+      ).then((value) {
+        if (value == null) return;
+        _handlePreviewContextAction(value, section);
+      });
+    } catch (e, st) {
+      MdEditorDebug.logger.error('Error showing heading context menu', e, st);
+    }
+  }
+
+  /// Build schema-aware subsection menu items for the preview context menu.
+  List<PopupMenuEntry<String>> _buildSchemaSubsectionItems(
+    MdSection section,
+  ) {
+    final schema = widget.controller.schema;
+    if (schema != null) {
+      final helper = SchemaSectionHelper(schema);
+      final allowed = helper.getAllowedSubsections(
+        section,
+        document: widget.controller.document,
+      );
+
+      if (allowed.isNotEmpty) {
+        return [
+          const PopupMenuDivider(),
+          for (final sub in allowed)
+            PopupMenuItem(
+              value: 'add_typed_child:${sub.typeName}',
+              child: Tooltip(
+                message: sub.description ?? '',
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.subdirectory_arrow_right, size: 14),
+                    const SizedBox(width: 6),
+                    Text('Add ${sub.capitalizedName}'),
+                  ],
+                ),
+              ),
+            ),
+          const PopupMenuDivider(),
+          const PopupMenuItem(
+            value: 'add_child',
+            child: Text('Add Custom Subsection...'),
+          ),
+        ];
+      }
+    }
+
+    return [
+      const PopupMenuItem(
+        value: 'add_child',
+        child: Text('Add Subsection'),
+      ),
+    ];
+  }
+
+  void _handlePreviewContextAction(String action, MdSection section) {
+    try {
+      // Handle schema-typed subsection insertion.
+      if (action.startsWith('add_typed_child:')) {
+        final typeName = action.substring('add_typed_child:'.length);
+        _addTypedSubsection(section, typeName);
+        return;
+      }
+
+      switch (action) {
+        case 'add_above':
+        case 'add_below':
+          _addSectionRelative(section, above: action == 'add_above');
+        case 'add_child':
+          _addChildSection(section);
+        case 'edit':
+          _onHeadingEdit(section.level, section.headline);
+      }
+    } catch (e, st) {
+      MdEditorDebug.logger.error('Error handling context action', e, st);
+    }
+  }
+
+  void _addSectionRelative(MdSection section, {required bool above}) {
+    final allTopLevel = widget.controller.document.sections;
+    // Find parent to determine sibling list.
+    MdSection? parent;
+    List<MdSection> siblings = allTopLevel;
+    for (final top in allTopLevel) {
+      if (top == section) break;
+      final found = _findParentOf(section, top);
+      if (found != null) {
+        parent = found;
+        siblings = found.subsections;
+        break;
+      }
+    }
+    final idx = siblings.indexOf(section);
+    if (idx < 0) return;
+    final insertIdx = above ? idx : idx + 1;
+    widget.controller.insertSection(
+      parent: parent,
+      index: insertIdx,
+      level: section.level,
+      headline: 'New Section',
+    );
+  }
+
+  /// Find the parent of [target] within the subtree rooted at [root].
+  MdSection? _findParentOf(MdSection target, MdSection root) {
+    for (final child in root.subsections) {
+      if (child == target) return root;
+      final found = _findParentOf(target, child);
+      if (found != null) return found;
+    }
+    return null;
+  }
+
+  void _addChildSection(MdSection section) {
+    final childLevel = section.level + 1;
+    if (childLevel > 6) return;
+    widget.controller.insertSection(
+      parent: section,
+      index: section.subsections.length,
+      level: childLevel,
+      headline: 'New Subsection',
+    );
+  }
+
+  void _addTypedSubsection(MdSection section, String typeName) {
+    final schema = widget.controller.schema;
+    if (schema == null) return;
+
+    final helper = SchemaSectionHelper(schema);
+    final allowed = helper.getAllowedSubsections(
+      section,
+      document: widget.controller.document,
+    );
+    final sub = allowed.where((s) => s.typeName == typeName).firstOrNull;
+    if (sub == null) return;
+
+    final headline = sub.capitalizedName;
+    final id = sub.prefix;
+    final childLevel = section.level + 1;
+    if (childLevel > 6) return;
+    widget.controller.insertSection(
+      parent: section,
+      index: section.subsections.length,
+      level: childLevel,
+      headline: headline,
+      id: id,
+    );
+  }
+
+  List<ValidationError> _getValidationErrorsForSection(MdSection section) {
+    final allErrors = widget.controller.validationErrors;
+    if (allErrors.isEmpty) return const [];
+
+    final sectionId = section.id ?? '';
+    final headline = section.headline.toLowerCase();
+
+    return allErrors.where((error) {
+      if (error.path.isEmpty) return false;
+      final firstPath = error.path.first.toString().toLowerCase();
+      if (sectionId.isNotEmpty && firstPath == sectionId) return true;
+      if (firstPath == headline) return true;
+      final msg = error.message.toLowerCase();
+      if (sectionId.isNotEmpty && msg.contains(sectionId)) return true;
+      if (msg.contains(headline)) return true;
+      return false;
+    }).toList();
   }
 
   void _toggleTaskItem(int index) {
@@ -1055,7 +1264,9 @@ class _HeadingBuilder extends MarkdownElementBuilder {
     required this.readOnly,
     required this.onTap,
     required this.onEdit,
+    required this.onContextMenu,
     required this.getKey,
+    required this.getValidationErrors,
   });
 
   final int level;
@@ -1064,7 +1275,9 @@ class _HeadingBuilder extends MarkdownElementBuilder {
   final bool readOnly;
   final void Function(int level, String text) onTap;
   final void Function(int level, String text) onEdit;
+  final void Function(Offset position, int level, String text) onContextMenu;
   final GlobalKey Function(int level, String headline) getKey;
+  final List<ValidationError> Function(MdSection section) getValidationErrors;
 
   /// Regex to strip HTML-comment IDs from rendered text.
   static final _commentIdRegex = RegExp(r'<!--\s*\[[^\]]*\]\s*-->');
@@ -1108,6 +1321,13 @@ class _HeadingBuilder extends MarkdownElementBuilder {
       child: GestureDetector(
         key: gk,
         onTap: () => onTap(level, text),
+        onSecondaryTapDown: readOnly
+            ? null
+            : (details) => onContextMenu(
+                  details.globalPosition,
+                  level,
+                  text,
+                ),
         child: MouseRegion(
           cursor: SystemMouseCursors.click,
           child: Row(
@@ -1136,6 +1356,9 @@ class _HeadingBuilder extends MarkdownElementBuilder {
                   ),
                 ),
               ),
+              // Validation error indicator
+              if (section != null)
+                ..._buildValidationIndicator(section),
               if (!readOnly)
                 Padding(
                   padding: const EdgeInsets.only(left: 4),
@@ -1153,6 +1376,36 @@ class _HeadingBuilder extends MarkdownElementBuilder {
         ),
       ),
     );
+  }
+
+  /// Build validation error indicators for a section heading.
+  List<Widget> _buildValidationIndicator(MdSection section) {
+    final errors = getValidationErrors(section);
+    if (errors.isEmpty) return const [];
+
+    final worstSeverity = errors.fold<ValidationSeverity>(
+      ValidationSeverity.info,
+      (worst, error) =>
+          error.severity.index < worst.index ? error.severity : worst,
+    );
+
+    final (icon, color) = switch (worstSeverity) {
+      ValidationSeverity.error => (Icons.error, Colors.red[700]!),
+      ValidationSeverity.warning => (Icons.warning_amber, Colors.orange[700]!),
+      ValidationSeverity.info => (Icons.info_outline, theme.accent),
+    };
+
+    final tooltip = errors.map((e) => e.message).join('\n');
+
+    return [
+      Padding(
+        padding: const EdgeInsets.only(left: 6),
+        child: Tooltip(
+          message: tooltip,
+          child: Icon(icon, size: 16, color: color),
+        ),
+      ),
+    ];
   }
 }
 
