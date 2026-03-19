@@ -1,4 +1,10 @@
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:path/path.dart' as path;
+import 'package:tom_doc_specs/tom_doc_specs.dart';
 import 'package:tom_md_editor/tom_md_editor.dart';
 
 void main() {
@@ -15,13 +21,139 @@ class MdEditorDemoApp extends StatelessWidget {
       title: 'Tom Markdown Editor Demo',
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark(useMaterial3: true),
-      home: const MdEditorDemoPage(),
+      home: const DocumentPickerPage(),
     );
   }
 }
 
+/// Available test document types.
+enum TestDocument {
+  demo('Demo Document', 'Comprehensive markdown feature showcase'),
+  docspecs('DocSpecs Test', 'Schema validation and structured documents'),
+  empty('Empty Document', 'Start with a blank document'),
+  ;
+
+  const TestDocument(this.label, this.description);
+  final String label;
+  final String description;
+}
+
+/// Document picker shown on startup.
+class DocumentPickerPage extends StatelessWidget {
+  const DocumentPickerPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Choose Document')),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 500),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'Tom Markdown Editor',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Select a document to start editing',
+                  style: TextStyle(color: Colors.grey[400]),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 32),
+                for (final doc in TestDocument.values) ...[
+                  _DocumentCard(document: doc),
+                  const SizedBox(height: 12),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DocumentCard extends StatelessWidget {
+  const _DocumentCard({required this.document});
+  final TestDocument document;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: InkWell(
+        onTap: () => _openDocument(context, document),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Icon(_iconFor(document), size: 32, color: Colors.blue),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      document.label,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      document.description,
+                      style: TextStyle(fontSize: 13, color: Colors.grey[400]),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  IconData _iconFor(TestDocument doc) {
+    return switch (doc) {
+      TestDocument.demo => Icons.article,
+      TestDocument.docspecs => Icons.schema,
+      TestDocument.empty => Icons.add_circle_outline,
+    };
+  }
+
+  Future<void> _openDocument(BuildContext context, TestDocument doc) async {
+    String markdown;
+    switch (doc) {
+      case TestDocument.demo:
+        markdown = _demoMarkdown;
+      case TestDocument.docspecs:
+        markdown = await rootBundle.loadString('assets/docspecs_test_document.md');
+      case TestDocument.empty:
+        markdown = '# New Document\n\nStart writing here...\n';
+    }
+
+    if (context.mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => MdEditorDemoPage(initialMarkdown: markdown),
+        ),
+      );
+    }
+  }
+}
+
 class MdEditorDemoPage extends StatefulWidget {
-  const MdEditorDemoPage({super.key});
+  const MdEditorDemoPage({super.key, required this.initialMarkdown});
+  final String initialMarkdown;
 
   @override
   State<MdEditorDemoPage> createState() => _MdEditorDemoPageState();
@@ -32,11 +164,31 @@ class _MdEditorDemoPageState extends State<MdEditorDemoPage> {
   bool _darkMode = true;
   bool _readOnly = false;
   bool _showTree = true;
+  DocSpecSchema? _schema;
+  String? _schemaFolderPath;
 
   @override
   void initState() {
     super.initState();
-    _controller = MdEditorController(initialMarkdown: _demoMarkdown);
+    _controller = MdEditorController(initialMarkdown: widget.initialMarkdown);
+    // Default schema folder (configurable)
+    _schemaFolderPath = _findDefaultSchemaFolder();
+  }
+
+  /// Find the default .tom folder for schemas.
+  String? _findDefaultSchemaFolder() {
+    // Start from executable directory and look for .tom folder
+    var dir = Directory.current;
+    for (var i = 0; i < 10; i++) {
+      final tomDir = Directory(path.join(dir.path, '.tom', 'docspecs-schema'));
+      if (tomDir.existsSync()) {
+        return tomDir.path;
+      }
+      final parent = dir.parent;
+      if (parent.path == dir.path) break;
+      dir = parent;
+    }
+    return null;
   }
 
   @override
@@ -57,8 +209,34 @@ class _MdEditorDemoPageState extends State<MdEditorDemoPage> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'Back to document picker',
+          onPressed: () => Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const DocumentPickerPage()),
+          ),
+        ),
         title: const Text('Tom Markdown Editor'),
         actions: [
+          // Schema picker button
+          IconButton(
+            icon: Icon(
+              Icons.schema,
+              color: _schema != null ? Colors.green : null,
+            ),
+            tooltip: _schema != null
+                ? 'Schema: ${_schema!.fullId}'
+                : 'Pick Schema',
+            onPressed: _pickSchema,
+          ),
+          // Skeleton generation button (enabled when schema is loaded)
+          if (_schema != null)
+            IconButton(
+              icon: const Icon(Icons.auto_awesome),
+              tooltip: 'Generate skeleton from schema',
+              onPressed: _generateSkeleton,
+            ),
+          const VerticalDivider(width: 16),
           _toggle('Dark', _darkMode, (v) => setState(() => _darkMode = v)),
           _toggle(
             'Read-only',
@@ -96,6 +274,107 @@ class _MdEditorDemoPageState extends State<MdEditorDemoPage> {
         ],
       ),
     );
+  }
+
+  /// Pick a schema file and associate it with the document.
+  Future<void> _pickSchema() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['yaml', 'yml'],
+      initialDirectory: _schemaFolderPath,
+      dialogTitle: 'Select DocSpecs Schema',
+    );
+
+    if (result == null || result.files.isEmpty) return;
+    final filePath = result.files.single.path;
+    if (filePath == null) return;
+
+    try {
+      final schema = await SchemaLoader.load(filePath);
+      setState(() => _schema = schema);
+
+      // Insert schema comment into the document if not already present
+      _insertSchemaComment(schema);
+
+      // Set schema on controller for validation
+      _controller.setSchema(schema);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Loaded schema: ${schema.fullId}'),
+            backgroundColor: Colors.green[700],
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load schema: $e'),
+            backgroundColor: Colors.red[700],
+          ),
+        );
+      }
+    }
+  }
+
+  /// Insert the docspec comment at the start of the document.
+  void _insertSchemaComment(DocSpecSchema schema) {
+    final markdown = _controller.markdown;
+    final schemaComment = '<!-- docspec: ${schema.id}/${schema.version} -->\n';
+
+    // Check if document already has a docspec comment
+    final docspecPattern = RegExp(r'<!--\s*docspec:\s*\S+\s*-->\s*\n?');
+    if (docspecPattern.hasMatch(markdown)) {
+      // Replace existing comment
+      final updated = markdown.replaceFirst(docspecPattern, schemaComment);
+      _controller.markdown = updated;
+    } else {
+      // Insert at the beginning
+      _controller.markdown = schemaComment + markdown;
+    }
+  }
+
+  /// Generate a skeleton document from the loaded schema.
+  Future<void> _generateSkeleton() async {
+    if (_schema == null) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Generate Skeleton'),
+        content: Text(
+          'This will replace the current document with a skeleton '
+          'based on the "${_schema!.id}" schema.\n\n'
+          'Continue?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Generate'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    final skeleton = DocSpecsSkeletonGenerator.generate(_schema!);
+    _controller.markdown = skeleton;
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Skeleton document generated'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
   }
 }
 

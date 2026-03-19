@@ -32,8 +32,12 @@ dependencies:
     sdk: flutter
 
   cupertino_icons: ^1.0.8
+  file_picker: ^9.0.0
+  path: ^1.8.0
   tom_md_editor:
     path: ../tom_md_editor
+  tom_doc_specs:
+    path: ../../tom_ai/ai_build/tom_doc_specs
 
 dev_dependencies:
   flutter_test:
@@ -56,6 +60,9 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  assets:
+    - assets/
 
   # To add assets to your application, add an assets section, like this:
   # assets:
