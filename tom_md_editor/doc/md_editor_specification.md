@@ -557,7 +557,7 @@ Users can associate a schema with a document via:
 
 ```dart
 MdEditorSettings(
-  // Path to folder containing .docspec-schema.yaml files
+  // Path to folder containing .docspecs-schema.yaml files
   docSpecsSchemaFolder: '/path/to/.tom/docspecs-schema',
 )
 ```

@@ -17,7 +17,12 @@ import '../../settings/md_editor_settings.dart';
 import '../../theme/md_editor_theme.dart';
 import '../../utils/md_code_highlighting.dart';
 import '../../validation/schema_section_helper.dart';
+import '../../validation/schema_template_helper.dart';
 import '../overlays/md_code_block_overlay.dart';
+import '../schema/md_char_counter.dart';
+import '../schema/md_form_editor.dart';
+import '../schema/md_tag_selector.dart';
+import '../schema/md_validation_prompt_banner.dart';
 
 /// Preview panel that renders markdown as formatted content.
 ///
@@ -166,9 +171,17 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
 
     return Container(
       color: basic.background,
-      child: markdown.isEmpty
-          ? _buildEmptyState(basic)
-          : _buildMarkdownView(basic, markdown),
+      child: Column(
+        children: [
+          // Schema context widgets for selected section.
+          _buildSchemaContextBar(basic),
+          Expanded(
+            child: markdown.isEmpty
+                ? _buildEmptyState(basic)
+                : _buildMarkdownView(basic, markdown),
+          ),
+        ],
+      ),
     );
   }
 
@@ -192,6 +205,123 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  /// Build schema context bar shown above the preview when a section
+  /// is selected and schema is active.
+  ///
+  /// Integrates: form editor (P2), tag selector (P3.2),
+  /// character counter (P4.3), validation prompts (P6.3).
+  Widget _buildSchemaContextBar(MdBasicTheme basic) {
+    final section = widget.controller.selectedSection;
+    final schema = widget.controller.schema;
+    if (section == null || schema == null) return const SizedBox.shrink();
+
+    final helper = SchemaSectionHelper(schema);
+    final tmpl = SchemaTemplateHelper(schema);
+    final typeName = helper.getSectionTypeName(
+      section,
+      document: widget.controller.document,
+    );
+    if (typeName == null) return const SizedBox.shrink();
+
+    final typeDef = schema.sectionTypes[typeName];
+    if (typeDef == null) return const SizedBox.shrink();
+
+    final editorTheme = widget.theme;
+    final widgets = <Widget>[];
+
+    // Validation prompt banner (P6.3).
+    if (widget.settings.showValidationPrompts) {
+      final prompt = tmpl.getValidationPrompt(typeName);
+      if (prompt != null) {
+        widgets.add(MdValidationPromptBanner(
+          prompt: prompt,
+          sectionId: section.id,
+          theme: editorTheme,
+        ));
+      }
+    }
+
+    // Character counter (P4.3).
+    if (widget.settings.showCharCounter) {
+      final constraints = tmpl.getTextConstraints(typeName);
+      if (constraints.min != null ||
+          constraints.max != null ||
+          constraints.required) {
+        widgets.add(Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          child: MdCharCounter(
+            currentLength: section.text.length,
+            minLength: constraints.min,
+            maxLength: constraints.max,
+            textRequired: constraints.required,
+            theme: editorTheme,
+          ),
+        ));
+      }
+    }
+
+    // Tag selector (P3.2).
+    if (widget.settings.enableTagSelector && !widget.settings.readOnly) {
+      final allowedTags = tmpl.getAllowedTags(typeName);
+      if (allowedTags.isNotEmpty) {
+        final selectedTags = MdTagSelector.parseTags(section.text);
+        widgets.add(Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          child: MdTagSelector(
+            allowedTags: allowedTags,
+            selectedTags: selectedTags,
+            theme: editorTheme,
+            onChanged: (tags) {
+              final newText = MdTagSelector.updateTags(section.text, tags);
+              widget.controller.updateSectionText(section, newText);
+            },
+          ),
+        ));
+      }
+    }
+
+    // Form editor (P2).
+    if (widget.settings.enableFormEditor && !widget.settings.readOnly) {
+      final formType = tmpl.getFormType(typeName);
+      if (formType != null) {
+        final currentValues = MdFormEditor.parseFormContent(section.text);
+        widgets.add(Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          child: MdFormEditor(
+            formType: formType,
+            currentValues: currentValues,
+            customTags: schema.customTags,
+            requiredFields: tmpl.getRequiredFields(typeName),
+            theme: editorTheme,
+            onChanged: (values) {
+              final newText = MdFormEditor.serializeFormContent(
+                values,
+                formType,
+              );
+              widget.controller.updateSectionText(section, newText);
+            },
+          ),
+        ));
+      }
+    }
+
+    if (widgets.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: basic.surfaceVariant,
+        border: Border(
+          bottom: BorderSide(color: basic.border, width: 0.5),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: widgets,
       ),
     );
   }

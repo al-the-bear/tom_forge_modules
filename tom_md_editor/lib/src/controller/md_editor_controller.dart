@@ -12,6 +12,8 @@ import '../models/md_search_result.dart';
 import '../models/md_section.dart';
 import '../providers/md_document_provider.dart';
 import '../validation/md_schema_validator.dart';
+import '../validation/schema_section_helper.dart';
+import '../validation/schema_template_helper.dart';
 
 /// Edit operation stored in the undo history.
 class MdEditOperation {
@@ -727,6 +729,102 @@ class MdEditorController extends ChangeNotifier {
   /// Find section by ID.
   MdSection? findSectionById(String id) => _document.findById(id);
 
+  // ── Schema helpers ──
+
+  /// Get a [SchemaSectionHelper] for the current schema.
+  ///
+  /// Returns `null` if no schema is loaded.
+  SchemaSectionHelper? get schemaHelper {
+    final s = schema;
+    return s != null ? SchemaSectionHelper(s) : null;
+  }
+
+  /// Get a [SchemaTemplateHelper] for the current schema.
+  ///
+  /// Returns `null` if no schema is loaded.
+  SchemaTemplateHelper? get templateHelper {
+    final s = schema;
+    return s != null ? SchemaTemplateHelper(s) : null;
+  }
+
+  /// Find the parent of a section.
+  MdSection? findParent(MdSection target) => _findParent(target);
+
+  /// Find the index of a section among its siblings.
+  int findIndex(MdSection target) => _findIndex(target);
+
+  // ── P1.3: Auto-scaffold ──
+
+  /// Scaffold all missing required sections into the document.
+  ///
+  /// Uses the schema's document structure to identify required sections
+  /// that are missing, then inserts them with template content.
+  /// Returns the number of sections created.
+  Future<int> scaffoldMissingSections() async {
+    final helper = schemaHelper;
+    final tmpl = templateHelper;
+    if (helper == null || tmpl == null) return 0;
+
+    final missing = helper.getMissingSections(_document);
+    if (missing.isEmpty) return 0;
+
+    final oldMd = _markdown;
+    var created = 0;
+
+    // Insert top-level missing sections first.
+    for (final info in missing.where((m) => m.isTopLevel)) {
+      final headline = _formatSectionName(info.sectionName);
+      final template = tmpl.generateTemplate(info.sectionType);
+      final section = MdSection(
+        headline: headline,
+        level: 1,
+        id: tmpl.generateSuggestedId(info.sectionType),
+        text: template,
+      );
+      _document.sections.add(section);
+      created++;
+    }
+
+    // Insert subsection missing sections.
+    for (final info in missing.where((m) => !m.isTopLevel)) {
+      if (info.parentSection == null) continue;
+      final headline = _formatSectionName(info.sectionName);
+      final template = tmpl.generateTemplate(info.sectionType);
+      final parentLevel = info.parentSection!.level;
+      final section = MdSection(
+        headline: headline,
+        level: parentLevel + 1,
+        id: tmpl.generateSuggestedId(info.sectionType),
+        text: template,
+      );
+      info.parentSection!.subsections.add(section);
+      created++;
+    }
+
+    if (created > 0) {
+      _rebuildMarkdown();
+      _pushUndoWithStates(
+        oldMd,
+        _markdown,
+        'Scaffold $created missing sections',
+      );
+      notifyListeners();
+    }
+
+    return created;
+  }
+
+  /// Get validation errors for a specific section.
+  List<ValidationError> getErrorsForSection(MdSection section) {
+    final sectionId =
+        section.id ?? section.headline.toLowerCase().replaceAll(' ', '-');
+    return _validationErrors.where((e) {
+      final msg = e.message.toLowerCase();
+      return msg.contains(sectionId.toLowerCase()) ||
+          msg.contains(section.headline.toLowerCase());
+    }).toList();
+  }
+
   // ── Private helpers ──
 
   void _setMarkdownInternal(String value) {
@@ -841,6 +939,14 @@ class MdEditorController extends ChangeNotifier {
     for (final sub in section.subsections) {
       _adjustLevels(sub, delta);
     }
+  }
+
+  /// Format a section name from kebab-case to title case.
+  String _formatSectionName(String name) {
+    return name
+        .split('-')
+        .map((w) => w.isEmpty ? '' : '${w[0].toUpperCase()}${w.substring(1)}')
+        .join(' ');
   }
 
   /// Export the document as a JSON map for serialization.

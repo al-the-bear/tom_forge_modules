@@ -7,6 +7,8 @@ import '../../models/md_section.dart';
 import '../../settings/md_editor_settings.dart';
 import '../../theme/md_editor_theme.dart';
 import '../../validation/schema_section_helper.dart';
+import '../../validation/schema_template_helper.dart';
+import '../schema/md_quick_fix_menu.dart';
 
 /// Tree view panel showing section hierarchy with drag-drop reordering.
 class MdTreeView extends StatefulWidget {
@@ -174,6 +176,26 @@ class _MdTreeViewState extends State<MdTreeView> {
         widget.controller.computeHierarchicalId(section);
     final idLabel = hierarchicalId.isNotEmpty ? ' [$hierarchicalId]' : '';
 
+    // Build schema type tooltip (P5.3).
+    String? typeTooltip;
+    if (widget.settings.showSectionTypeTooltips &&
+        widget.controller.schema != null) {
+      final helper = SchemaSectionHelper(
+        widget.controller.schema!,
+      );
+      final typeName = helper.getSectionTypeName(
+        section,
+        document: widget.controller.document,
+      );
+      if (typeName != null) {
+        final typeDef = helper.schema.sectionTypes[typeName];
+        final parts = <String>[typeName];
+        if (typeDef?.description != null) parts.add(typeDef!.description!);
+        if (typeDef?.format != null) parts.add('Format: ${typeDef!.format}');
+        typeTooltip = parts.join(' — ');
+      }
+    }
+
     final content = GestureDetector(
       onTap: () {
         widget.controller.selectSection(section);
@@ -267,12 +289,35 @@ class _MdTreeViewState extends State<MdTreeView> {
       ),
     );
 
-    if (widget.settings.readOnly) return content;
+    // Wrap in schema type tooltip if available.
+    final wrappedContent = typeTooltip != null
+        ? Tooltip(message: typeTooltip, child: content)
+        : content;
+
+    if (widget.settings.readOnly) return wrappedContent;
 
     // Wrap in Draggable + DragTarget for reordering.
     return DragTarget<MdSection>(
       onWillAcceptWithDetails: (details) {
         if (identical(details.data, section)) return false;
+        // Position-aware drag-drop validation.
+        if (widget.settings.enablePositionAwareDragDrop &&
+            widget.controller.schema != null) {
+          final helper = SchemaSectionHelper(
+            widget.controller.schema!,
+          );
+          final parent = _findParentSection(section);
+          final siblings =
+              parent?.subsections ?? widget.controller.document.sections;
+          final idx = siblings.indexOf(section);
+          final dropInfo = helper.isValidDropTarget(
+            draggedSection: details.data,
+            targetParent: parent,
+            targetIndex: idx + 1,
+            document: widget.controller.document,
+          );
+          return dropInfo.isValid;
+        }
         return true;
       },
       onAcceptWithDetails: (details) {
@@ -290,6 +335,7 @@ class _MdTreeViewState extends State<MdTreeView> {
       },
       builder: (context, candidateData, rejectedData) {
         final isDropTarget = candidateData.isNotEmpty;
+        final isRejected = rejectedData.isNotEmpty;
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -297,6 +343,12 @@ class _MdTreeViewState extends State<MdTreeView> {
               Container(
                 height: 2,
                 color: basic.accent,
+                margin: const EdgeInsets.symmetric(horizontal: 8),
+              ),
+            if (isRejected)
+              Container(
+                height: 2,
+                color: basic.error,
                 margin: const EdgeInsets.symmetric(horizontal: 8),
               ),
             Draggable<MdSection>(
@@ -325,9 +377,9 @@ class _MdTreeViewState extends State<MdTreeView> {
               ),
               childWhenDragging: Opacity(
                 opacity: 0.3,
-                child: content,
+                child: wrappedContent,
               ),
-              child: content,
+              child: wrappedContent,
             ),
           ],
         );
@@ -362,6 +414,30 @@ class _MdTreeViewState extends State<MdTreeView> {
       // Build schema-aware subsection items.
       final subsectionItems = _buildSchemaSubsectionItems(section);
 
+      // Build typed top-level items for above/below.
+      final isTopLevel =
+          widget.controller.document.sections.contains(section);
+      final topLevelAboveItems =
+          isTopLevel ? _buildTopLevelTypeItems('above') : const <PopupMenuEntry<String>>[];
+      final topLevelBelowItems =
+          isTopLevel ? _buildTopLevelTypeItems('below') : const <PopupMenuEntry<String>>[];
+
+      // Build quick-fix items.
+      final quickFixItems = _buildQuickFixItems(section);
+
+      // Build section type tooltip info.
+      String? sectionTypeLabel;
+      if (widget.settings.showSectionTypeTooltips &&
+          widget.controller.schema != null) {
+        final helper = SchemaSectionHelper(
+          widget.controller.schema!,
+        );
+        sectionTypeLabel = helper.getSectionTypeName(
+          section,
+          document: widget.controller.document,
+        );
+      }
+
       showMenu<String>(
         context: context,
         position: RelativeRect.fromLTRB(
@@ -371,16 +447,34 @@ class _MdTreeViewState extends State<MdTreeView> {
           position.dy,
         ),
         items: [
+          if (sectionTypeLabel != null)
+            PopupMenuItem(
+              enabled: false,
+              child: Text(
+                'Type: $sectionTypeLabel',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontStyle: FontStyle.italic,
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onSurface
+                      .withValues(alpha: 0.5),
+                ),
+              ),
+            ),
           const PopupMenuItem(
             value: 'add_above',
             child: Text('Add Section Above'),
           ),
+          ...topLevelAboveItems,
           const PopupMenuItem(
             value: 'add_below',
             child: Text('Add Section Below'),
           ),
+          ...topLevelBelowItems,
           // Schema-aware subsection items or generic fallback
           ...subsectionItems,
+          ...quickFixItems,
           const PopupMenuDivider(),
           const PopupMenuItem(value: 'move_up', child: Text('Move Up')),
           const PopupMenuItem(value: 'move_down', child: Text('Move Down')),
@@ -423,8 +517,8 @@ class _MdTreeViewState extends State<MdTreeView> {
   /// Build schema-aware subsection menu items.
   ///
   /// If a schema is loaded and the section has defined subsection types,
-  /// returns individual items for each allowed type. Otherwise, returns
-  /// a generic "Add Subsection" item.
+  /// returns individual items for each allowed type. Uses availability
+  /// filtering to exclude types that have reached their max-count.
   List<PopupMenuEntry<String>> _buildSchemaSubsectionItems(
     MdSection section,
   ) {
@@ -438,7 +532,7 @@ class _MdTreeViewState extends State<MdTreeView> {
     final schema = widget.controller.schema;
     if (schema != null) {
       final helper = SchemaSectionHelper(schema);
-      final allowed = helper.getAllowedSubsections(
+      final allowed = helper.getAvailableSubsections(
         section,
         document: widget.controller.document,
       );
@@ -446,6 +540,7 @@ class _MdTreeViewState extends State<MdTreeView> {
       if (allowed.isNotEmpty) {
         items.add(const PopupMenuDivider());
         for (final sub in allowed) {
+          final countInfo = _buildCountLabel(helper, sub.typeName);
           items.add(
             PopupMenuItem(
               value: 'add_typed_child:${sub.typeName}',
@@ -457,6 +552,19 @@ class _MdTreeViewState extends State<MdTreeView> {
                     const Icon(Icons.subdirectory_arrow_right, size: 14),
                     const SizedBox(width: 6),
                     Text('Add ${sub.capitalizedName}'),
+                    if (countInfo.isNotEmpty) ...[
+                      const SizedBox(width: 4),
+                      Text(
+                        countInfo,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.5),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -467,6 +575,116 @@ class _MdTreeViewState extends State<MdTreeView> {
     }
 
     return items;
+  }
+
+  /// Build count label for a subsection type (e.g., "2/5" for 2 of max 5).
+  String _buildCountLabel(SchemaSectionHelper helper, String typeName) {
+    final typeDef = helper.schema.sectionTypes[typeName];
+    if (typeDef?.maxCountInDocument == null) return '';
+    final count =
+        helper.countSectionsOfType(typeName, widget.controller.document);
+    return '($count/${typeDef!.maxCountInDocument})';
+  }
+
+  /// Build schema-aware menu items for "Add Section Above/Below" at top level.
+  List<PopupMenuEntry<String>> _buildTopLevelTypeItems(String prefix) {
+    final schema = widget.controller.schema;
+    if (schema == null) return const [];
+
+    final helper = SchemaSectionHelper(schema);
+    final available =
+        helper.getAvailableTopLevelSections(widget.controller.document);
+
+    if (available.isEmpty) return const [];
+
+    final items = <PopupMenuEntry<String>>[
+      const PopupMenuDivider(),
+    ];
+    for (final entry in available) {
+      final capitalName = entry.name
+          .replaceAll('-', ' ')
+          .split(' ')
+          .map(
+              (w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
+          .join(' ');
+      items.add(
+        PopupMenuItem(
+          value: '${prefix}_typed:${entry.sectionType}:${entry.name}',
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                entry.optional ? Icons.add_circle_outline : Icons.add_circle,
+                size: 14,
+              ),
+              const SizedBox(width: 6),
+              Text(capitalName),
+              if (!entry.optional)
+                Padding(
+                  padding: const EdgeInsets.only(left: 4),
+                  child: Text(
+                    '(required)',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .error
+                          .withValues(alpha: 0.7),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+    }
+    return items;
+  }
+
+  /// Build quick-fix menu items for a section's validation errors.
+  List<PopupMenuEntry<String>> _buildQuickFixItems(MdSection section) {
+    if (!widget.settings.enableQuickFixes) return const [];
+
+    final errors = _getValidationErrorsForSection(section);
+    if (errors.isEmpty) return const [];
+
+    final fixes = <QuickFixAction>[];
+    for (final error in errors) {
+      fixes.addAll(QuickFixAnalyzer.getFixesForError(
+        error,
+        onInsertSection: (typeName) => () {
+          widget.controller.scaffoldMissingSections();
+        },
+        onNavigateToSection: (sectionId) => () {
+          // Navigate handled by tree selection.
+        },
+        onRenameId: (sectionId) => () {
+          // Rename is a no-op from the context menu.
+        },
+        onDeleteSection: (sectionId) => () {
+          // Delete handled separately.
+        },
+        onMoveSection: (sectionId) => () {
+          // Move handled separately.
+        },
+      ));
+    }
+    if (fixes.isEmpty) return const [];
+
+    return [
+      const PopupMenuDivider(),
+      ...fixes.take(5).indexed.map((e) => PopupMenuItem(
+            value: 'quick_fix:${e.$1}',
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(e.$2.icon, size: 14, color: Colors.amber),
+                const SizedBox(width: 6),
+                Flexible(child: Text(e.$2.label, maxLines: 1)),
+              ],
+            ),
+          )),
+    ];
   }
 
   /// Build validation indicator widgets for a section.
@@ -528,6 +746,30 @@ class _MdTreeViewState extends State<MdTreeView> {
       if (action.startsWith('add_typed_child:')) {
         final typeName = action.substring('add_typed_child:'.length);
         await _addTypedSubsection(section, typeName);
+        return;
+      }
+
+      // Handle typed top-level section insertion (above/below).
+      if (action.startsWith('above_typed:') ||
+          action.startsWith('below_typed:')) {
+        final isAbove = action.startsWith('above_');
+        final parts = action.split(':');
+        if (parts.length >= 3) {
+          final typeName = parts[1];
+          final sectionName = parts[2];
+          await _addTypedTopLevelSection(
+            section,
+            typeName,
+            sectionName,
+            above: isAbove,
+          );
+        }
+        return;
+      }
+
+      // Handle quick-fix actions.
+      if (action.startsWith('quick_fix:')) {
+        // Quick fixes are informational; selecting one is acknowledgement.
         return;
       }
 
@@ -599,6 +841,9 @@ class _MdTreeViewState extends State<MdTreeView> {
   }
 
   /// Insert a typed subsection based on schema definition.
+  ///
+  /// Uses [SchemaTemplateHelper] to pre-fill template content and
+  /// suggested IDs based on the section type definition.
   Future<void> _addTypedSubsection(
     MdSection parentSection,
     String typeName,
@@ -606,21 +851,25 @@ class _MdTreeViewState extends State<MdTreeView> {
     final schema = widget.controller.schema;
     if (schema == null) return;
 
-    final typeDef = schema.sectionTypes[typeName];
-    final prefix = typeDef?.prefix;
+    final tmpl = SchemaTemplateHelper(schema);
+    final suggestedId = tmpl.generateSuggestedId(typeName);
     final capitalName = typeName
         .replaceAll('-', ' ')
         .split(' ')
         .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
         .join(' ');
 
-    // Pre-fill headline and ID from the schema type.
+    final idPattern = tmpl.getIdPattern(typeName);
     final result = await _showNewSectionDialog(
       isSubsection: true,
       defaultHeadline: capitalName,
-      defaultId: prefix,
+      defaultId: suggestedId,
+      patternHint: idPattern,
     );
     if (result == null) return;
+
+    // Generate template content for the new section.
+    final template = tmpl.generateTemplate(typeName);
 
     await widget.controller.insertSection(
       parent: parentSection,
@@ -628,6 +877,46 @@ class _MdTreeViewState extends State<MdTreeView> {
       level: parentSection.level + 1,
       headline: result.headline,
       id: result.id,
+      text: template,
+    );
+  }
+
+  /// Insert a typed top-level section above or below the reference section.
+  Future<void> _addTypedTopLevelSection(
+    MdSection referenceSection,
+    String typeName,
+    String sectionName, {
+    required bool above,
+  }) async {
+    final schema = widget.controller.schema;
+    if (schema == null) return;
+
+    final tmpl = SchemaTemplateHelper(schema);
+    final suggestedId = tmpl.generateSuggestedId(typeName);
+    final capitalName = sectionName
+        .replaceAll('-', ' ')
+        .split(' ')
+        .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
+        .join(' ');
+
+    final idPattern = tmpl.getIdPattern(typeName);
+    final result = await _showNewSectionDialog(
+      defaultHeadline: capitalName,
+      defaultId: suggestedId,
+      patternHint: idPattern,
+    );
+    if (result == null) return;
+
+    final template = tmpl.generateTemplate(typeName);
+    final siblings = widget.controller.document.sections;
+    final idx = siblings.indexOf(referenceSection);
+
+    await widget.controller.insertSection(
+      index: above ? (idx >= 0 ? idx : 0) : (idx >= 0 ? idx + 1 : siblings.length),
+      level: 1,
+      headline: result.headline,
+      id: result.id,
+      text: template,
     );
   }
 
@@ -644,10 +933,14 @@ class _MdTreeViewState extends State<MdTreeView> {
   }
 
   /// Show a dialog to create a new section with headline and ID.
+  ///
+  /// When [patternHint] is provided, shows a hint below the ID field
+  /// indicating the expected format (e.g., from `pattern-check`).
   Future<({String headline, String? id})?> _showNewSectionDialog({
     bool isSubsection = false,
     String? defaultHeadline,
     String? defaultId,
+    String? patternHint,
   }) async {
     final headlineController = TextEditingController(
       text: defaultHeadline ?? '',
@@ -675,6 +968,20 @@ class _MdTreeViewState extends State<MdTreeView> {
                 hintText: 'e.g. my-section-id',
               ),
             ),
+            if (patternHint != null && patternHint.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Expected pattern: $patternHint',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Theme.of(ctx)
+                      .colorScheme
+                      .onSurface
+                      .withValues(alpha: 0.5),
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
           ],
         ),
         actions: [

@@ -59,6 +59,19 @@ export 'src/widgets/status_bar/md_editor_status_bar.dart';
 
 // Overlays
 export 'src/widgets/overlays/md_code_block_overlay.dart';
+
+// Schema Widgets
+export 'src/widgets/schema/md_char_counter.dart';
+export 'src/widgets/schema/md_form_editor.dart';
+export 'src/widgets/schema/md_quick_fix_menu.dart';
+export 'src/widgets/schema/md_schema_info_panel.dart';
+export 'src/widgets/schema/md_tag_selector.dart';
+export 'src/widgets/schema/md_validation_prompt_banner.dart';
+
+// Validation
+export 'src/validation/md_schema_validator.dart';
+export 'src/validation/schema_section_helper.dart';
+export 'src/validation/schema_template_helper.dart';
 export 'src/widgets/overlays/md_math_overlay.dart';
 export 'src/widgets/overlays/md_mermaid_overlay.dart';
 export 'src/widgets/overlays/md_table_overlay.dart';
@@ -66,9 +79,6 @@ export 'src/widgets/overlays/md_table_overlay.dart';
 // Renderers
 export 'src/widgets/renderers/md_math_renderer.dart';
 export 'src/widgets/renderers/md_mermaid_renderer.dart';
-
-// Validation
-export 'src/validation/md_schema_validator.dart';
 
 // Syntax Highlighting
 export 'src/widgets/raw_editor/md_syntax_highlight_controller.dart';

@@ -58,6 +58,14 @@ class MdEditorSettings {
     this.enableSchemaValidation = false,
     this.showSchemaErrors = true,
     this.enableAutoScaffold = false,
+    this.showSchemaInfoPanel = false,
+    this.enableFormEditor = true,
+    this.enableTagSelector = true,
+    this.showCharCounter = true,
+    this.enableQuickFixes = true,
+    this.showValidationPrompts = true,
+    this.showSectionTypeTooltips = true,
+    this.enablePositionAwareDragDrop = true,
     // Behavior
     this.readOnly = false,
     this.enableUndo = true,
@@ -141,6 +149,14 @@ class MdEditorSettings {
   final bool enableSchemaValidation;
   final bool showSchemaErrors;
   final bool enableAutoScaffold;
+  final bool showSchemaInfoPanel;
+  final bool enableFormEditor;
+  final bool enableTagSelector;
+  final bool showCharCounter;
+  final bool enableQuickFixes;
+  final bool showValidationPrompts;
+  final bool showSectionTypeTooltips;
+  final bool enablePositionAwareDragDrop;
 
   // ── Behavior ──
   final bool readOnly;
@@ -203,6 +219,14 @@ class MdEditorSettings {
     bool? enableSchemaValidation,
     bool? showSchemaErrors,
     bool? enableAutoScaffold,
+    bool? showSchemaInfoPanel,
+    bool? enableFormEditor,
+    bool? enableTagSelector,
+    bool? showCharCounter,
+    bool? enableQuickFixes,
+    bool? showValidationPrompts,
+    bool? showSectionTypeTooltips,
+    bool? enablePositionAwareDragDrop,
     // Behavior
     bool? readOnly,
     bool? enableUndo,
@@ -275,6 +299,17 @@ class MdEditorSettings {
           enableSchemaValidation ?? this.enableSchemaValidation,
       showSchemaErrors: showSchemaErrors ?? this.showSchemaErrors,
       enableAutoScaffold: enableAutoScaffold ?? this.enableAutoScaffold,
+      showSchemaInfoPanel: showSchemaInfoPanel ?? this.showSchemaInfoPanel,
+      enableFormEditor: enableFormEditor ?? this.enableFormEditor,
+      enableTagSelector: enableTagSelector ?? this.enableTagSelector,
+      showCharCounter: showCharCounter ?? this.showCharCounter,
+      enableQuickFixes: enableQuickFixes ?? this.enableQuickFixes,
+      showValidationPrompts:
+          showValidationPrompts ?? this.showValidationPrompts,
+      showSectionTypeTooltips:
+          showSectionTypeTooltips ?? this.showSectionTypeTooltips,
+      enablePositionAwareDragDrop:
+          enablePositionAwareDragDrop ?? this.enablePositionAwareDragDrop,
       // Behavior
       readOnly: readOnly ?? this.readOnly,
       enableUndo: enableUndo ?? this.enableUndo,

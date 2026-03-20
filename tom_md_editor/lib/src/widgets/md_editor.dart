@@ -18,6 +18,7 @@ import '../settings/md_editor_settings.dart';
 import '../theme/md_editor_theme.dart';
 import 'preview/md_preview_panel.dart';
 import 'raw_editor/md_raw_text_editor.dart';
+import 'schema/md_schema_info_panel.dart';
 import 'status_bar/md_editor_status_bar.dart';
 import 'toolbar/md_editor_toolbar.dart';
 import 'tree/md_search_panel.dart';
@@ -387,6 +388,9 @@ class _MdEditorState extends State<MdEditor> {
             },
           ),
         ),
+        // Schema info panel (P5.1) — shown below the tree.
+        if (_settings.showSchemaInfoPanel && _controller.schema != null)
+          MdSchemaInfoPanel(schema: _controller.schema!, theme: _theme),
       ],
     );
   }
