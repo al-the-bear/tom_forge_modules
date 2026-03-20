@@ -428,6 +428,13 @@ class _MdTreeViewState extends State<MdTreeView> {
   List<PopupMenuEntry<String>> _buildSchemaSubsectionItems(
     MdSection section,
   ) {
+    final items = <PopupMenuEntry<String>>[
+      const PopupMenuItem(
+        value: 'add_child',
+        child: Text('Add Subsection'),
+      ),
+    ];
+
     final schema = widget.controller.schema;
     if (schema != null) {
       final helper = SchemaSectionHelper(schema);
@@ -437,9 +444,9 @@ class _MdTreeViewState extends State<MdTreeView> {
       );
 
       if (allowed.isNotEmpty) {
-        return [
-          const PopupMenuDivider(),
-          for (final sub in allowed)
+        items.add(const PopupMenuDivider());
+        for (final sub in allowed) {
+          items.add(
             PopupMenuItem(
               value: 'add_typed_child:${sub.typeName}',
               child: Tooltip(
@@ -454,22 +461,12 @@ class _MdTreeViewState extends State<MdTreeView> {
                 ),
               ),
             ),
-          const PopupMenuDivider(),
-          const PopupMenuItem(
-            value: 'add_child',
-            child: Text('Add Custom Subsection...'),
-          ),
-        ];
+          );
+        }
       }
     }
 
-    // Fallback: generic subsection item
-    return [
-      const PopupMenuItem(
-        value: 'add_child',
-        child: Text('Add Subsection'),
-      ),
-    ];
+    return items;
   }
 
   /// Build validation indicator widgets for a section.

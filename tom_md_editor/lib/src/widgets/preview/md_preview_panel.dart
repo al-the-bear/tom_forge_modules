@@ -660,6 +660,13 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
   List<PopupMenuEntry<String>> _buildSchemaSubsectionItems(
     MdSection section,
   ) {
+    final items = <PopupMenuEntry<String>>[
+      const PopupMenuItem(
+        value: 'add_child',
+        child: Text('Add Subsection'),
+      ),
+    ];
+
     final schema = widget.controller.schema;
     if (schema != null) {
       final helper = SchemaSectionHelper(schema);
@@ -669,9 +676,9 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
       );
 
       if (allowed.isNotEmpty) {
-        return [
-          const PopupMenuDivider(),
-          for (final sub in allowed)
+        items.add(const PopupMenuDivider());
+        for (final sub in allowed) {
+          items.add(
             PopupMenuItem(
               value: 'add_typed_child:${sub.typeName}',
               child: Tooltip(
@@ -686,21 +693,12 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
                 ),
               ),
             ),
-          const PopupMenuDivider(),
-          const PopupMenuItem(
-            value: 'add_child',
-            child: Text('Add Custom Subsection...'),
-          ),
-        ];
+          );
+        }
       }
     }
 
-    return [
-      const PopupMenuItem(
-        value: 'add_child',
-        child: Text('Add Subsection'),
-      ),
-    ];
+    return items;
   }
 
   void _handlePreviewContextAction(String action, MdSection section) {
