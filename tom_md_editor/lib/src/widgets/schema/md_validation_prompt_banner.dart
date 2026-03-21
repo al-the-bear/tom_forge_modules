@@ -12,14 +12,34 @@ class MdValidationPromptBanner extends StatelessWidget {
     required this.prompt,
     required this.theme,
     this.sectionId,
+    this.sectionText,
+    this.sectionLineNumber,
+    this.sectionTags,
+    this.sectionFields,
+    this.parentId,
     this.onDismiss,
   });
 
   /// The validation prompt text from the schema.
   final String prompt;
 
-  /// Section ID for ${parent.id} interpolation.
+  /// Section ID for ${id} interpolation.
   final String? sectionId;
+
+  /// Section body text for ${text} interpolation (used as length).
+  final String? sectionText;
+
+  /// Section line number for ${lineNumber} interpolation.
+  final int? sectionLineNumber;
+
+  /// Tags from comment metadata for ${tags} interpolation.
+  final String? sectionTags;
+
+  /// Comment metadata fields for ${fields.*} interpolation.
+  final Map<String, String>? sectionFields;
+
+  /// Parent section ID for ${parent.id} interpolation.
+  final String? parentId;
 
   /// Editor theme.
   final MdEditorTheme theme;
@@ -65,11 +85,37 @@ class MdValidationPromptBanner extends StatelessWidget {
     );
   }
 
-  /// Resolve ${parent.id} placeholders.
+  /// Resolve ${...} placeholders in the prompt text.
   String _resolvePrompt() {
     var resolved = prompt;
     if (sectionId != null) {
+      resolved = resolved.replaceAll(r'${id}', sectionId!);
       resolved = resolved.replaceAll(r'${parent.id}', sectionId!);
+    }
+    if (parentId != null) {
+      resolved = resolved.replaceAll(r'${parent.id}', parentId!);
+    }
+    if (sectionText != null) {
+      resolved = resolved.replaceAll(
+        r'${text}',
+        '${sectionText!.length}',
+      );
+    }
+    if (sectionLineNumber != null) {
+      resolved = resolved.replaceAll(
+        r'${lineNumber}',
+        sectionLineNumber.toString(),
+      );
+    }
+    if (sectionTags != null) {
+      resolved = resolved.replaceAll(r'${tags}', sectionTags!);
+    }
+    // Resolve ${fields.*} placeholders from comment metadata.
+    if (sectionFields != null) {
+      resolved = resolved.replaceAllMapped(
+        RegExp(r'\$\{fields\.([^}]+)\}'),
+        (m) => sectionFields![m.group(1)] ?? m.group(0)!,
+      );
     }
     return resolved;
   }
