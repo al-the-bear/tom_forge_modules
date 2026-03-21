@@ -1460,10 +1460,13 @@ class _HeadingBuilder extends MarkdownElementBuilder {
     final headingStyle = preferredStyle ?? theme.headingStyle(level);
     final gk = getKey(level, headline);
 
-    return SelectionContainer.disabled(
-      child: GestureDetector(
-        key: gk,
-        onTap: () => onTap(level, headline),
+    // Wrap with KeyedSubtree so Flutter can correlate old and new heading
+    // widgets across rebuilds, preventing GlobalKey duplicate errors.
+    return KeyedSubtree(
+      key: gk,
+      child: SelectionContainer.disabled(
+        child: GestureDetector(
+          onTap: () => onTap(level, headline),
         onSecondaryTapDown: readOnly
             ? null
             : (details) => onContextMenu(
@@ -1564,6 +1567,7 @@ class _HeadingBuilder extends MarkdownElementBuilder {
           ),
         ),
       ),
+    ),
     );
   }
 
