@@ -1033,6 +1033,8 @@ class MdEditorController extends ChangeNotifier {
     // Re-parse to update line numbers etc.
     _document = MdParser.parse(_markdown);
     _relinkSelectedSection();
+    // Re-validate against schema so errors stay current after edits.
+    _runSchemaValidation();
   }
 
   /// After re-parsing, the old _selectedSection is orphaned.
