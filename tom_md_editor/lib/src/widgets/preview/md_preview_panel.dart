@@ -1427,77 +1427,137 @@ class _HeadingBuilder extends MarkdownElementBuilder {
     TextStyle? preferredStyle,
     TextStyle? parentStyle,
   ) {
-    // Strip any leftover HTML comments from the rendered text.
+    // Strip any HTML comments from the rendered text for matching purposes.
     final rawText = element.textContent.trim();
-    final text = rawText.replaceAll(_htmlCommentRegex, '').trim();
+    final strippedText = rawText.replaceAll(_htmlCommentRegex, '').trim();
 
-    // Find the matching section to display numbering and ID.
+    // Find the matching section in the document model.
+    // Try exact match first, then fall back to contains-based matching.
     final sections = controller.document.allSections;
-    final match = sections.where(
-      (s) => s.level == level && s.headline.trim() == text,
-    );
-    final section = match.isNotEmpty ? match.first : null;
+    final exactMatch = sections
+        .where((s) => s.level == level && s.headline.trim() == strippedText)
+        .toList();
+    MdSection? section;
+    if (exactMatch.isNotEmpty) {
+      section = exactMatch.first;
+    } else if (strippedText.isNotEmpty) {
+      // Fallback: section headline is contained in the stripped text or vice versa.
+      final fallback = sections.where((s) =>
+          s.level == level &&
+          (strippedText.contains(s.headline.trim()) ||
+              s.headline.trim().contains(strippedText)));
+      section = fallback.isNotEmpty ? fallback.first : null;
+    }
+
+    // Use section data for all display, keys, and callbacks.
+    final headline = section?.headline ?? strippedText;
     final number =
         section != null ? controller.computeSectionNumber(section) : '';
     final hierarchicalId =
         section != null ? controller.computeHierarchicalId(section) : '';
-    final idLabel = hierarchicalId.isNotEmpty ? ' [$hierarchicalId]' : '';
+    final sectionId = section?.id;
 
     final headingStyle = preferredStyle ?? theme.headingStyle(level);
-    final gk = getKey(level, text);
+    final gk = getKey(level, headline);
 
     return SelectionContainer.disabled(
       child: GestureDetector(
         key: gk,
-        onTap: () => onTap(level, text),
+        onTap: () => onTap(level, headline),
         onSecondaryTapDown: readOnly
             ? null
             : (details) => onContextMenu(
                   details.globalPosition,
                   level,
-                  text,
+                  headline,
                 ),
         child: MouseRegion(
           cursor: SystemMouseCursors.click,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Text.rich(
-                  TextSpan(
-                    children: [
-                      if (number.isNotEmpty)
-                        TextSpan(
-                          text: '$number ',
-                          style: headingStyle,
-                        ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Expanded(
+                    child: Text.rich(
                       TextSpan(
-                        text: text,
-                        style: headingStyle,
+                        children: [
+                          if (number.isNotEmpty)
+                            TextSpan(
+                              text: '$number ',
+                              style: headingStyle,
+                            ),
+                          TextSpan(
+                            text: headline,
+                            style: headingStyle,
+                          ),
+                        ],
                       ),
-                      if (idLabel.isNotEmpty)
-                        TextSpan(
-                          text: idLabel,
-                          style: headingStyle,
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-              // Validation error indicator
-              if (section != null)
-                ..._buildValidationIndicator(section),
-              if (!readOnly)
-                Padding(
-                  padding: const EdgeInsets.only(left: 4),
-                  child: InkWell(
-                    onTap: () => onEdit(level, text),
-                    child: Icon(
-                      Icons.edit_outlined,
-                      size: 16,
-                      color: theme.textMuted,
                     ),
+                  ),
+                  // Validation error indicator
+                  if (section != null)
+                    ..._buildValidationIndicator(section),
+                  if (!readOnly)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: InkWell(
+                        onTap: () => onEdit(level, headline),
+                        child: Icon(
+                          Icons.edit_outlined,
+                          size: 16,
+                          color: theme.textMuted,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              // Section ID subtitle — shown as small styled component
+              if (sectionId != null && sectionId.isNotEmpty)
+                Padding(
+                  padding: EdgeInsets.only(
+                    left: number.isNotEmpty ? 24.0 : 0.0,
+                    bottom: 2,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.tag,
+                        size: 12,
+                        color: theme.textMuted,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        sectionId,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: theme.textMuted,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                      if (hierarchicalId.isNotEmpty &&
+                          hierarchicalId != sectionId)
+                        Text(
+                          '  ($hierarchicalId)',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: theme.textMuted.withAlpha(150),
+                          ),
+                        ),
+                      if (!readOnly) ...[
+                        const SizedBox(width: 4),
+                        InkWell(
+                          onTap: () => onEdit(level, headline),
+                          child: Icon(
+                            Icons.edit,
+                            size: 12,
+                            color: theme.textMuted,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
             ],

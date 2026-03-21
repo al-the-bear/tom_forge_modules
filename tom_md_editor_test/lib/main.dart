@@ -233,13 +233,19 @@ class _MdEditorDemoPageState extends State<MdEditorDemoPage> {
 
   /// Find the workspace root by walking up from cwd looking for `.tom/`.
   String? _findWorkspaceRoot() {
-    var dir = Directory.current;
-    for (var i = 0; i < 10; i++) {
-      final tomDir = Directory(path.join(dir.path, '.tom'));
-      if (tomDir.existsSync()) return dir.path;
-      final parent = dir.parent;
-      if (parent.path == dir.path) break;
-      dir = parent;
+    // Try from cwd first, then from executable path.
+    for (final startPath in [
+      Directory.current.path,
+      path.dirname(Platform.resolvedExecutable),
+    ]) {
+      var dir = Directory(startPath);
+      for (var i = 0; i < 15; i++) {
+        final tomDir = Directory(path.join(dir.path, '.tom'));
+        if (tomDir.existsSync()) return dir.path;
+        final parent = dir.parent;
+        if (parent.path == dir.path) break;
+        dir = parent;
+      }
     }
     return null;
   }

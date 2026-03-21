@@ -125,7 +125,7 @@ import 'package:tom_doc_specs/tom_doc_specs.dart';
 
 void main() async {
   // Load schema
-  final schema = await SchemaLoader.load('schemas/specification-1.0.docspec-schema.yaml');
+  final schema = await SchemaLoader.load('schemas/specification-1.0.docspecs-schema.yaml');
   
   // Parse and validate document
   final doc = await DocSpecs.scanDocument(
