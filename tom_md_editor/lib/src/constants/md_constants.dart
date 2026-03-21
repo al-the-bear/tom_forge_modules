@@ -63,6 +63,11 @@ class MdConstants {
     r'<!--\s*schema\s*=\s*([^\s>]+)\s*-->',
   );
 
+  /// Regex to detect `<!-- docspec: <id>/<version> -->` as a standalone line.
+  static final RegExp docspecPattern = RegExp(
+    r'<!--\s*docspec:\s*(\S+)\s*-->',
+  );
+
   // ── Headline marker detection ──
 
   /// Regex for headline markers at line start inside body text.

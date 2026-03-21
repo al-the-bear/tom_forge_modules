@@ -1408,8 +1408,8 @@ class _HeadingBuilder extends MarkdownElementBuilder {
   final GlobalKey Function(int level, String headline) getKey;
   final List<ValidationError> Function(MdSection section) getValidationErrors;
 
-  /// Regex to strip HTML-comment IDs from rendered text.
-  static final _commentIdRegex = RegExp(r'<!--\s*\[[^\]]*\]\s*-->');
+  /// Regex to strip ALL HTML comments from rendered heading text.
+  static final _htmlCommentRegex = RegExp(r'<!--[\s\S]*?-->');
 
   @override
   Widget? visitText(md.Text text, TextStyle? preferredStyle) {
@@ -1427,9 +1427,9 @@ class _HeadingBuilder extends MarkdownElementBuilder {
     TextStyle? preferredStyle,
     TextStyle? parentStyle,
   ) {
-    // Strip any leftover HTML comment IDs from the rendered text.
+    // Strip any leftover HTML comments from the rendered text.
     final rawText = element.textContent.trim();
-    final text = rawText.replaceAll(_commentIdRegex, '').trim();
+    final text = rawText.replaceAll(_htmlCommentRegex, '').trim();
 
     // Find the matching section to display numbering and ID.
     final sections = controller.document.allSections;

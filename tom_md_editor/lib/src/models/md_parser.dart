@@ -30,6 +30,12 @@ class MdParser {
           i++;
           continue;
         }
+        final docspecMatch = MdConstants.docspecPattern.firstMatch(line);
+        if (docspecMatch != null) {
+          schemaId = docspecMatch.group(1);
+          i++;
+          continue;
+        }
         break;
       }
       while (i < lines.length) {

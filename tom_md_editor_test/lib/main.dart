@@ -196,17 +196,34 @@ class _MdEditorDemoPageState extends State<MdEditorDemoPage> {
     final filename = widget.documentFilename;
     if (filename == null || !SchemaResolver.isDocSpecDocument(filename)) return;
 
+    final wsRoot = _findWorkspaceRoot();
+    MdEditorDebug.logger.info(
+      'Auto-schema: cwd=${Directory.current.path}, wsRoot=$wsRoot, file=$filename',
+    );
+
     try {
       final schema = await SchemaResolver.resolveByDocumentFilename(
         documentFilename: filename,
         documentText: widget.initialMarkdown,
-        workspaceRoot: _findWorkspaceRoot(),
+        workspaceRoot: wsRoot,
       );
       if (schema != null && mounted) {
         setState(() => _schema = schema);
         _controller.setSchema(schema);
         MdEditorDebug.logger.info(
           'Auto-loaded schema: ${schema.fullId}',
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Auto-loaded schema: ${schema.fullId}'),
+              backgroundColor: Colors.green[700],
+            ),
+          );
+        }
+      } else {
+        MdEditorDebug.logger.warn(
+          'Auto-schema: no matching schema found for "$filename"',
         );
       }
     } catch (e) {
