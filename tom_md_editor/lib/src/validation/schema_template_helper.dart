@@ -13,8 +13,8 @@ class SchemaTemplateHelper {
   /// Generate template text for a section of the given type.
   ///
   /// Returns pre-filled content based on the type's format:
-  /// - `form` types: generates `Key: ` lines for each form field
-  /// - `code` types: generates a fenced code block with the first language
+  /// - form types (ending in `-form`): generates `Key: ` lines for each field
+  /// - code types (pipe-separated languages or single language): fenced block
   /// - default: returns the type description as placeholder text
   String generateTemplate(String typeName) {
     final typeDef = schema.sectionTypes[typeName];
@@ -22,15 +22,15 @@ class SchemaTemplateHelper {
 
     final format = typeDef.format;
     if (format != null) {
-      // Check for form format (e.g., "form endpoint-form")
-      if (format.startsWith('form ')) {
-        final formTypeName = format.substring(5).trim();
-        return _buildFormTemplate(formTypeName, typeDef);
+      // Check for form format (e.g., "endpoint-form")
+      if (format.endsWith('-form')) {
+        return _buildFormTemplate(format, typeDef);
       }
-      // Check for code format (e.g., "code dart|typescript|python")
-      if (format.startsWith('code ')) {
-        final languages = format.substring(5).trim();
-        return _buildCodeTemplate(languages);
+      // Code format: single language or pipe-separated list
+      // (e.g., "sql" or "dart|typescript|python")
+      if (_looksLikeCodeFormat(format)) {
+        final firstLang = format.split('|').first.trim();
+        return _buildCodeTemplate(firstLang);
       }
     }
 
@@ -66,22 +66,27 @@ class SchemaTemplateHelper {
   }
 
   /// Get the allowed code languages for a code-format section.
+  ///
+  /// Format syntax per docspecs spec: pipe-separated language names
+  /// (e.g., `dart|typescript|python`) or a single language (e.g., `sql`).
   List<String> getCodeLanguages(String typeName) {
     final typeDef = schema.sectionTypes[typeName];
     if (typeDef == null) return const [];
     final format = typeDef.format;
-    if (format == null || !format.startsWith('code ')) return const [];
-    return format.substring(5).trim().split('|');
+    if (format == null || !_looksLikeCodeFormat(format)) return const [];
+    return format.split('|').map((l) => l.trim()).toList();
   }
 
   /// Get the form type definition for a form-format section.
+  ///
+  /// Format syntax per docspecs spec: name ending in `-form`
+  /// (e.g., `endpoint-form`). The form type name IS the format value.
   specs.FormTypeDef? getFormType(String typeName) {
     final typeDef = schema.sectionTypes[typeName];
     if (typeDef == null) return null;
     final format = typeDef.format;
-    if (format == null || !format.startsWith('form ')) return null;
-    final formTypeName = format.substring(5).trim();
-    return schema.formTypes?[formTypeName];
+    if (format == null || !format.endsWith('-form')) return null;
+    return schema.formTypes?[format];
   }
 
   /// Get the allowed tags for a section type.
@@ -131,9 +136,19 @@ class SchemaTemplateHelper {
   }
 
   /// Build template for code-format sections.
-  String _buildCodeTemplate(String languages) {
-    final firstLang = languages.split('|').first.trim();
-    return '```$firstLang\n// TODO: Add code here\n```';
+  String _buildCodeTemplate(String language) {
+    return '```$language\n// TODO: Add code here\n```';
+  }
+
+  /// Whether a format string looks like a code language specification.
+  ///
+  /// Code formats are either a single lowercase word (e.g., `sql`, `dart`)
+  /// or pipe-separated lowercase words (e.g., `dart|typescript|python`).
+  /// Excludes form formats (ending in `-form`).
+  static bool _looksLikeCodeFormat(String format) {
+    if (format.endsWith('-form')) return false;
+    // Must be non-empty and composed of word characters, pipes, and dashes.
+    return RegExp(r'^[a-z][a-z0-9]*([|][a-z][a-z0-9]*)*$').hasMatch(format);
   }
 
   /// Build template from description.

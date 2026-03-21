@@ -134,13 +134,15 @@ class _DocumentCard extends StatelessWidget {
 
   Future<void> _openDocument(BuildContext context, TestDocument doc) async {
     String markdown;
+    String? documentFilename;
     switch (doc) {
       case TestDocument.demo:
         markdown = _demoMarkdown;
       case TestDocument.docspecs:
         markdown = await rootBundle.loadString('assets/docspecs_test_document.md');
       case TestDocument.schemaTest:
-        markdown = await rootBundle.loadString('assets/schema_test_document.md');
+        documentFilename = 'schema-test-document.sct.ds.md';
+        markdown = await rootBundle.loadString('assets/$documentFilename');
       case TestDocument.empty:
         markdown = '# New Document\n\nStart writing here...\n';
     }
@@ -148,7 +150,10 @@ class _DocumentCard extends StatelessWidget {
     if (context.mounted) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => MdEditorDemoPage(initialMarkdown: markdown),
+          builder: (_) => MdEditorDemoPage(
+            initialMarkdown: markdown,
+            documentFilename: documentFilename,
+          ),
         ),
       );
     }
@@ -156,8 +161,13 @@ class _DocumentCard extends StatelessWidget {
 }
 
 class MdEditorDemoPage extends StatefulWidget {
-  const MdEditorDemoPage({super.key, required this.initialMarkdown});
+  const MdEditorDemoPage({
+    super.key,
+    required this.initialMarkdown,
+    this.documentFilename,
+  });
   final String initialMarkdown;
+  final String? documentFilename;
 
   @override
   State<MdEditorDemoPage> createState() => _MdEditorDemoPageState();
@@ -177,6 +187,44 @@ class _MdEditorDemoPageState extends State<MdEditorDemoPage> {
     _controller = MdEditorController(initialMarkdown: widget.initialMarkdown);
     // Default schema folder (configurable)
     _schemaFolderPath = _findDefaultSchemaFolder();
+    // Auto-load schema for .ds.md documents
+    _tryAutoLoadSchema();
+  }
+
+  /// Attempt to auto-resolve and load a schema based on the document filename.
+  Future<void> _tryAutoLoadSchema() async {
+    final filename = widget.documentFilename;
+    if (filename == null || !SchemaResolver.isDocSpecDocument(filename)) return;
+
+    try {
+      final schema = await SchemaResolver.resolveByDocumentFilename(
+        documentFilename: filename,
+        documentText: widget.initialMarkdown,
+        workspaceRoot: _findWorkspaceRoot(),
+      );
+      if (schema != null && mounted) {
+        setState(() => _schema = schema);
+        _controller.setSchema(schema);
+        MdEditorDebug.logger.info(
+          'Auto-loaded schema: ${schema.fullId}',
+        );
+      }
+    } catch (e) {
+      MdEditorDebug.logger.warn('Auto-schema load failed: $e');
+    }
+  }
+
+  /// Find the workspace root by walking up from cwd looking for `.tom/`.
+  String? _findWorkspaceRoot() {
+    var dir = Directory.current;
+    for (var i = 0; i < 10; i++) {
+      final tomDir = Directory(path.join(dir.path, '.tom'));
+      if (tomDir.existsSync()) return dir.path;
+      final parent = dir.parent;
+      if (parent.path == dir.path) break;
+      dir = parent;
+    }
+    return null;
   }
 
   /// Find the default .tom folder for schemas.
