@@ -30,6 +30,7 @@ class MdEditorDemoApp extends StatelessWidget {
 enum TestDocument {
   demo('Demo Document', 'Comprehensive markdown feature showcase'),
   docspecs('DocSpecs Test', 'Schema validation and structured documents'),
+  schemaTest('Schema Test', 'Exercises ALL DocSpecs features for editor testing'),
   empty('Empty Document', 'Start with a blank document'),
   ;
 
@@ -126,6 +127,7 @@ class _DocumentCard extends StatelessWidget {
     return switch (doc) {
       TestDocument.demo => Icons.article,
       TestDocument.docspecs => Icons.schema,
+      TestDocument.schemaTest => Icons.science,
       TestDocument.empty => Icons.add_circle_outline,
     };
   }
@@ -137,6 +139,8 @@ class _DocumentCard extends StatelessWidget {
         markdown = _demoMarkdown;
       case TestDocument.docspecs:
         markdown = await rootBundle.loadString('assets/docspecs_test_document.md');
+      case TestDocument.schemaTest:
+        markdown = await rootBundle.loadString('assets/schema_test_document.md');
       case TestDocument.empty:
         markdown = '# New Document\n\nStart writing here...\n';
     }
