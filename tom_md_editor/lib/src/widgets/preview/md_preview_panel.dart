@@ -62,8 +62,6 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
   (int, String)? _lastSelectedKey;
   bool _suppressScroll = false;
   late MdPluginRegistry _registry;
-  /// GlobalKeys for heading widgets, keyed by "level:headline".
-  final Map<String, GlobalKey> _headingKeys = {};
   /// Debounce timer for preview rebuilds.
   Timer? _rebuildTimer;
   /// Cached markdown to skip rebuilds when content is unchanged.
@@ -133,11 +131,20 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
   /// Scroll the heading for [section] to the top of the preview viewport.
   void _scrollToSection(MdSection section) {
     try {
-      final hKey = _headingKeyFor(section.level, section.headline);
-      final gk = _headingKeys[hKey];
-      if (gk == null || gk.currentContext == null) return;
+      final targetKey = ValueKey(_headingKeyFor(section.level, section.headline));
+      BuildContext? headingCtx;
+      void search(Element element) {
+        if (headingCtx != null) return;
+        if (element.widget.key == targetKey) {
+          headingCtx = element;
+          return;
+        }
+        element.visitChildren(search);
+      }
+      (context as Element).visitChildren(search);
+      if (headingCtx == null) return;
       Scrollable.ensureVisible(
-        gk.currentContext!,
+        headingCtx!,
         alignment: 0.0,
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
@@ -150,24 +157,11 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
   String _headingKeyFor(int level, String headline) =>
       '$level:${headline.trim()}';
 
-  GlobalKey _getOrCreateHeadingKey(int level, String headline) {
-    final hKey = _headingKeyFor(level, headline);
-    return _headingKeys.putIfAbsent(hKey, GlobalKey.new);
-  }
-
   @override
   Widget build(BuildContext context) {
     final basic = widget.theme.basic;
     final markdown = widget.controller.markdown;
     _lastMarkdown = markdown;
-
-    // Rebuild the heading key set from scratch for the current document
-    // to prevent unbounded growth from transient heading text edits.
-    final currentKeys = <String>{};
-    for (final s in widget.controller.document.allSections) {
-      currentKeys.add(_headingKeyFor(s.level, s.headline));
-    }
-    _headingKeys.removeWhere((k, _) => !currentKeys.contains(k));
 
     return Container(
       color: basic.background,
@@ -421,7 +415,6 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
                     onTap: _onHeadingTapped,
                     onEdit: _onHeadingEdit,
                     onContextMenu: _onHeadingContextMenu,
-                    getKey: _getOrCreateHeadingKey,
                     getValidationErrors: _getValidationErrorsForSection,
                   ),
               },
@@ -1394,7 +1387,6 @@ class _HeadingBuilder extends MarkdownElementBuilder {
     required this.onTap,
     required this.onEdit,
     required this.onContextMenu,
-    required this.getKey,
     required this.getValidationErrors,
   });
 
@@ -1405,7 +1397,6 @@ class _HeadingBuilder extends MarkdownElementBuilder {
   final void Function(int level, String text) onTap;
   final void Function(int level, String text) onEdit;
   final void Function(Offset position, int level, String text) onContextMenu;
-  final GlobalKey Function(int level, String headline) getKey;
   final List<ValidationError> Function(MdSection section) getValidationErrors;
 
   /// Regex to strip ALL HTML comments from rendered heading text.
@@ -1456,13 +1447,13 @@ class _HeadingBuilder extends MarkdownElementBuilder {
     final sectionId = section?.id;
 
     final headingStyle = preferredStyle ?? theme.headingStyle(level);
-    final gk = getKey(level, headline);
+    final headingKey = ValueKey('$level:${headline.trim()}');
     final commentMeta = section?.commentMetadata ?? const {};
 
-    // Wrap with KeyedSubtree so Flutter can correlate old and new heading
-    // widgets across rebuilds, preventing GlobalKey duplicate errors.
+    // Use ValueKey (not GlobalKey) to avoid duplicate-key crashes
+    // during MarkdownBody rebuilds. Scroll-to uses tree traversal.
     return KeyedSubtree(
-      key: gk,
+      key: headingKey,
       child: SelectionContainer.disabled(
         child: GestureDetector(
           onTap: () => onTap(level, headline),
