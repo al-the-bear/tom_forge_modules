@@ -296,6 +296,7 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
             currentValues: currentValues,
             customTags: schema.customTags,
             requiredFields: tmpl.getRequiredFields(typeName),
+            textPatternCheck: schema.sectionTypes[typeName]?.patternCheckText,
             theme: editorTheme,
             onChanged: (values) {
               final newText = MdFormEditor.serializeFormContent(

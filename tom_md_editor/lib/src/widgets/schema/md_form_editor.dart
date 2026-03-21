@@ -18,6 +18,7 @@ class MdFormEditor extends StatefulWidget {
     this.customTags = const {},
     this.readOnly = false,
     this.requiredFields = const [],
+    this.textPatternCheck,
   });
 
   /// The form type definition from the schema.
@@ -40,6 +41,12 @@ class MdFormEditor extends StatefulWidget {
 
   /// Whether the form is read-only.
   final bool readOnly;
+
+  /// Optional section-type-level text pattern check.
+  ///
+  /// When set, the serialized form text is validated against this pattern
+  /// on every change and a banner error is shown if it does not match.
+  final specs.PatternCheckDef? textPatternCheck;
 
   /// Parse form field values from raw section text.
   ///
@@ -83,6 +90,7 @@ class MdFormEditor extends StatefulWidget {
 class _MdFormEditorState extends State<MdFormEditor> {
   late Map<String, TextEditingController> _controllers;
   final Map<String, String?> _fieldErrors = {};
+  String? _textPatternError;
 
   @override
   void initState() {
@@ -125,7 +133,33 @@ class _MdFormEditorState extends State<MdFormEditor> {
       }
       _validateField(field, text);
     }
+    _validateTextPattern(values);
     widget.onChanged(values);
+  }
+
+  /// Validate the serialized form text against the section-type pattern.
+  void _validateTextPattern(Map<String, String> values) {
+    final check = widget.textPatternCheck;
+    if (check == null) {
+      if (_textPatternError != null) {
+        setState(() => _textPatternError = null);
+      }
+      return;
+    }
+    final serialized =
+        MdFormEditor.serializeFormContent(values, widget.formType);
+    String? error;
+    try {
+      final regex = RegExp(check.pattern);
+      if (serialized.isNotEmpty && !regex.hasMatch(serialized)) {
+        error = check.errorMessage;
+      }
+    } catch (_) {
+      // Invalid regex — skip.
+    }
+    if (_textPatternError != error) {
+      setState(() => _textPatternError = error);
+    }
   }
 
   /// Validate a single field and set its error message in [_fieldErrors].
@@ -187,6 +221,28 @@ class _MdFormEditorState extends State<MdFormEditor> {
             ],
           ),
           const SizedBox(height: 8),
+          // Text pattern error banner
+          if (_textPatternError != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              margin: const EdgeInsets.only(bottom: 6),
+              decoration: BoxDecoration(
+                color: basic.error.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.warning_amber, size: 14, color: basic.error),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      _textPatternError!,
+                      style: TextStyle(color: basic.error, fontSize: 11),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           // Form fields
           ...widget.formType.fields.map(_buildField),
         ],

@@ -814,6 +814,44 @@ class MdEditorController extends ChangeNotifier {
     return created;
   }
 
+  /// Insert a single missing section matching [typeName].
+  ///
+  /// Finds the first missing section whose type matches [typeName] and
+  /// scaffolds it into the document. Returns `true` if a section was created.
+  Future<bool> scaffoldSectionByType(String typeName) async {
+    final helper = schemaHelper;
+    final tmpl = templateHelper;
+    if (helper == null || tmpl == null) return false;
+
+    final missing = helper.getMissingSections(_document);
+    final match = missing.where((m) => m.sectionType == typeName);
+    if (match.isEmpty) return false;
+
+    final info = match.first;
+    final oldMd = _markdown;
+    final headline = _formatSectionName(info.sectionName);
+    final template = tmpl.generateTemplate(info.sectionType);
+    final section = MdSection(
+      headline: headline,
+      level: info.isTopLevel ? 1 : (info.parentSection!.level + 1),
+      id: tmpl.generateSuggestedId(info.sectionType),
+      text: template,
+    );
+
+    if (info.isTopLevel) {
+      _document.sections.add(section);
+    } else if (info.parentSection != null) {
+      info.parentSection!.subsections.add(section);
+    } else {
+      return false;
+    }
+
+    _rebuildMarkdown();
+    _pushUndoWithStates(oldMd, _markdown, 'Insert $typeName section');
+    notifyListeners();
+    return true;
+  }
+
   /// Get validation errors for a specific section.
   List<ValidationError> getErrorsForSection(MdSection section) {
     final sectionId =

@@ -657,7 +657,7 @@ class _MdTreeViewState extends State<MdTreeView> {
       fixes.addAll(QuickFixAnalyzer.getFixesForError(
         error,
         onInsertSection: (typeName) => () {
-          widget.controller.scaffoldMissingSections();
+          widget.controller.scaffoldSectionByType(typeName);
         },
         onNavigateToSection: (sectionId) => () {
           final target = widget.controller.findSectionById(sectionId);
