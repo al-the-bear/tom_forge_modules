@@ -736,20 +736,43 @@ class _MdTreeViewState extends State<MdTreeView> {
   }
 
   /// Get validation errors relevant to a specific section.
-  List<ValidationError> _getValidationErrorsForSection(MdSection section) {
+  ///
+  /// When [includeChildren] is true (default), also collects errors
+  /// from all subsections, so parent nodes show the worst severity.
+  List<ValidationError> _getValidationErrorsForSection(
+    MdSection section, {
+    bool includeChildren = true,
+  }) {
     final allErrors = widget.controller.validationErrors;
     if (allErrors.isEmpty) return const [];
 
     final sectionId = section.id ?? '';
     final headline = section.headline.toLowerCase();
 
+    // Collect IDs and headlines of this section and all descendants.
+    final matchIds = <String>{};
+    final matchHeadlines = <String>{};
+
+    void collectMatches(MdSection s) {
+      final id = s.id ?? '';
+      if (id.isNotEmpty) matchIds.add(id);
+      matchHeadlines.add(s.headline.toLowerCase());
+      if (includeChildren) {
+        for (final child in s.subsections) {
+          collectMatches(child);
+        }
+      }
+    }
+
+    collectMatches(section);
+
     return allErrors.where((error) {
       if (error.path.isEmpty) return false;
       final firstPath = error.path.first.toString().toLowerCase();
-      // Match by section ID or headline.
-      if (sectionId.isNotEmpty && firstPath == sectionId) return true;
-      if (firstPath == headline) return true;
-      // Match by message mentioning the section.
+      // Match by section ID or headline (including children).
+      if (matchIds.any((id) => firstPath == id)) return true;
+      if (matchHeadlines.any((h) => firstPath == h)) return true;
+      // Match by message mentioning the section itself (not children).
       final msg = error.message.toLowerCase();
       if (sectionId.isNotEmpty && msg.contains(sectionId)) return true;
       if (msg.contains(headline)) return true;

@@ -229,11 +229,35 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
 
     // Validation prompt banner (P6.3).
     if (widget.settings.showValidationPrompts) {
-      final prompt = tmpl.getValidationPrompt(typeName);
+      // Find parent section ID for ${parent.id} interpolation.
+      String? parentId;
+      for (final topLevel in widget.controller.document.sections) {
+        if (topLevel == section) break;
+        for (final child in topLevel.subsections) {
+          if (child == section) {
+            parentId = topLevel.id;
+            break;
+          }
+        }
+        if (parentId != null) break;
+      }
+
+      final prompt = tmpl.getDocumentValidationPrompt(
+        typeName: typeName,
+        sectionId: section.id,
+        parentSectionId: parentId,
+      );
       if (prompt != null) {
         widgets.add(MdValidationPromptBanner(
           prompt: prompt,
           sectionId: section.id,
+          sectionText: section.text,
+          sectionLineNumber: section.sourceLineStart,
+          sectionTags: section.commentMetadata['tags'],
+          sectionFields: section.commentMetadata.isEmpty
+              ? null
+              : section.commentMetadata,
+          parentId: parentId,
           theme: editorTheme,
         ));
       }

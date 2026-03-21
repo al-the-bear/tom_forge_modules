@@ -198,7 +198,9 @@ class _MdEditorDemoPageState extends State<MdEditorDemoPage> {
 
     final wsRoot = _findWorkspaceRoot();
     MdEditorDebug.logger.info(
-      'Auto-schema: cwd=${Directory.current.path}, wsRoot=$wsRoot, file=$filename',
+      'Auto-schema: cwd=${Directory.current.path}, '
+      'exe=${Platform.resolvedExecutable}, '
+      'wsRoot=$wsRoot, file=$filename',
     );
 
     try {
@@ -234,12 +236,21 @@ class _MdEditorDemoPageState extends State<MdEditorDemoPage> {
   /// Find the workspace root by walking up from cwd looking for `.tom/`.
   String? _findWorkspaceRoot() {
     // Try from cwd first, then from executable path.
+    // On macOS, the executable is deep inside the .app bundle under build/,
+    // so we need enough levels to climb out.
     for (final startPath in [
       Directory.current.path,
-      path.dirname(Platform.resolvedExecutable),
+      Platform.resolvedExecutable,
+      // On macOS, also try the unresolved executable path
+      // (symlinks may point elsewhere).
+      Platform.executable,
     ]) {
       var dir = Directory(startPath);
-      for (var i = 0; i < 15; i++) {
+      // If startPath is a file (not directory), start from parent.
+      if (!dir.existsSync() || FileSystemEntity.isFileSync(startPath)) {
+        dir = dir.parent;
+      }
+      for (var i = 0; i < 20; i++) {
         final tomDir = Directory(path.join(dir.path, '.tom'));
         if (tomDir.existsSync()) return dir.path;
         final parent = dir.parent;
@@ -247,21 +258,25 @@ class _MdEditorDemoPageState extends State<MdEditorDemoPage> {
         dir = parent;
       }
     }
+
+    // Fallback: check if TOM_WORKSPACE_ROOT environment variable is set.
+    final envRoot = Platform.environment['TOM_WORKSPACE_ROOT'];
+    if (envRoot != null) {
+      final tomDir = Directory(path.join(envRoot, '.tom'));
+      if (tomDir.existsSync()) return envRoot;
+    }
+
     return null;
   }
 
   /// Find the default .tom folder for schemas.
   String? _findDefaultSchemaFolder() {
-    // Start from executable directory and look for .tom folder
-    var dir = Directory.current;
-    for (var i = 0; i < 10; i++) {
-      final tomDir = Directory(path.join(dir.path, '.tom', 'docspecs-schema'));
-      if (tomDir.existsSync()) {
-        return tomDir.path;
-      }
-      final parent = dir.parent;
-      if (parent.path == dir.path) break;
-      dir = parent;
+    // Reuse workspace root detection to find schemas.
+    final wsRoot = _findWorkspaceRoot();
+    if (wsRoot != null) {
+      final schemaDir =
+          Directory(path.join(wsRoot, '.tom', 'docspecs-schema'));
+      if (schemaDir.existsSync()) return schemaDir.path;
     }
     return null;
   }

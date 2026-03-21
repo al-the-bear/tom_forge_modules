@@ -51,6 +51,8 @@ class MdFormEditor extends StatefulWidget {
   /// Parse form field values from raw section text.
   ///
   /// Expects lines like `- FieldName: value` or `FieldName: value`.
+  /// Keys are normalized to lowercase for case-insensitive matching
+  /// with schema field names.
   static Map<String, String> parseFormContent(String text) {
     final values = <String, String>{};
     final lines = text.split('\n');
@@ -60,7 +62,7 @@ class MdFormEditor extends StatefulWidget {
       final content = trimmed.startsWith('- ') ? trimmed.substring(2) : trimmed;
       final colonIdx = content.indexOf(':');
       if (colonIdx > 0) {
-        final key = content.substring(0, colonIdx).trim();
+        final key = content.substring(0, colonIdx).trim().toLowerCase();
         final value = content.substring(colonIdx + 1).trim();
         if (key.isNotEmpty) {
           values[key] = value;

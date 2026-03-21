@@ -114,6 +114,40 @@ class SchemaTemplateHelper {
     return typeDef?.validationPrompt;
   }
 
+  /// Get the validation prompt for a section, checking document-level
+  /// overrides first, then falling back to the section-type prompt.
+  ///
+  /// Document sections can define their own `validation-prompt` that
+  /// overrides the type-level prompt. This method also checks for
+  /// `subsection-validation-prompt` on parent document sections.
+  String? getDocumentValidationPrompt({
+    required String typeName,
+    String? sectionId,
+    String? parentSectionId,
+  }) {
+    // Check document-level section overrides.
+    for (final entry in schema.document.sections.entries) {
+      // Match by section type.
+      if (entry.value.sectionType == typeName) {
+        if (entry.value.validationPrompt != null) {
+          return entry.value.validationPrompt;
+        }
+      }
+      // Check if this section is a child — use parent's subsectionValidationPrompt.
+      if (parentSectionId != null &&
+          entry.value.subsectionValidationPrompt != null) {
+        final parentType = schema.sectionTypes[entry.value.sectionType];
+        if (parentType?.prefix != null &&
+            parentSectionId.startsWith(parentType!.prefix!)) {
+          return entry.value.subsectionValidationPrompt;
+        }
+      }
+    }
+
+    // Fall back to type-level prompt.
+    return schema.sectionTypes[typeName]?.validationPrompt;
+  }
+
   /// Get the required fields for a section type.
   List<String> getRequiredFields(String typeName) {
     final typeDef = schema.sectionTypes[typeName];
