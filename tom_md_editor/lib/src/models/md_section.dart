@@ -7,6 +7,7 @@ class MdSection {
     required this.headline,
     required this.level,
     this.id,
+    this.commentMetadata = const {},
     this.text = '',
     List<MdSection>? subsections,
     this.sourceLineStart,
@@ -21,6 +22,9 @@ class MdSection {
 
   /// Optional section ID extracted from `[id]` or `<!--[id]-->`.
   String? id;
+
+  /// Key-value metadata from HTML comments (e.g., `component-id=auth`).
+  Map<String, String> commentMetadata;
 
   /// Body text between this heading and the next heading.
   String text;
@@ -37,8 +41,15 @@ class MdSection {
   /// Returns the raw markdown for this section (excluding subsections).
   String toHeadlineMarkdown() {
     final prefix = '#' * level;
-    final idPart = id != null ? '<!--[$id]--> ' : '';
-    return '$prefix $idPart$headline';
+    if (id == null && commentMetadata.isEmpty) {
+      return '$prefix $headline';
+    }
+    final metaParts = commentMetadata.entries
+        .map((e) => '${e.key}=${e.value}')
+        .join(', ');
+    final idStr = id ?? '';
+    final sep = idStr.isNotEmpty && metaParts.isNotEmpty ? ' ' : '';
+    return '$prefix <!--[$idStr]$sep$metaParts --> $headline';
   }
 
   /// Returns full markdown including body and subsections recursively.

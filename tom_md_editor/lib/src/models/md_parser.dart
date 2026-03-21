@@ -55,11 +55,16 @@ class MdParser {
             }
           }
 
-          // Extract optional section ID.
+          // Extract optional section ID and comment metadata.
           String? sectionId;
+          Map<String, String> commentMetadata = const {};
           final idMatch = _sectionIdRegex.firstMatch(headlineRaw);
           if (idMatch != null) {
             sectionId = idMatch.group(1) ?? idMatch.group(2);
+            final metaRaw = idMatch.group(3);
+            if (metaRaw != null && metaRaw.trim().isNotEmpty) {
+              commentMetadata = _parseCommentMetadata(metaRaw.trim());
+            }
             headlineRaw =
                 headlineRaw.replaceFirst(_sectionIdRegex, '').trim();
           }
@@ -82,6 +87,7 @@ class MdParser {
             headline: headlineRaw,
             level: level,
             id: sectionId,
+            commentMetadata: commentMetadata,
             text: bodyText,
             sourceLineStart: sectionStart,
             sourceLineEnd: i,
@@ -131,8 +137,23 @@ class MdParser {
 
   static final RegExp _headingRegex = RegExp(r'^(#{1,6})\s+(.+)$');
   static final RegExp _sectionIdRegex = RegExp(
-    r'(?:\[([^\]]+)\]|<!--\s*\[([^\]]+)\]\s*-->)',
+    r'(?:\[([^\]]+)\]|<!--\s*\[([^\]]+)\](\s[^>]*?)?\s*-->)',
   );
+
+  /// Parse `key=value, key=value` metadata from an HTML comment.
+  static Map<String, String> _parseCommentMetadata(String raw) {
+    final result = <String, String>{};
+    for (final part in raw.split(',')) {
+      final trimmed = part.trim();
+      final eqIdx = trimmed.indexOf('=');
+      if (eqIdx > 0) {
+        final key = trimmed.substring(0, eqIdx).trim();
+        final value = trimmed.substring(eqIdx + 1).trim();
+        if (key.isNotEmpty) result[key] = value;
+      }
+    }
+    return result;
+  }
 
   /// Trim leading/trailing blank lines from body text.
   static String _trimBody(List<String> lines) {

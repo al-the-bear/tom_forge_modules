@@ -1453,12 +1453,11 @@ class _HeadingBuilder extends MarkdownElementBuilder {
     final headline = section?.headline ?? strippedText;
     final number =
         section != null ? controller.computeSectionNumber(section) : '';
-    final hierarchicalId =
-        section != null ? controller.computeHierarchicalId(section) : '';
     final sectionId = section?.id;
 
     final headingStyle = preferredStyle ?? theme.headingStyle(level);
     final gk = getKey(level, headline);
+    final commentMeta = section?.commentMetadata ?? const {};
 
     // Wrap with KeyedSubtree so Flutter can correlate old and new heading
     // widgets across rebuilds, preventing GlobalKey duplicate errors.
@@ -1467,107 +1466,105 @@ class _HeadingBuilder extends MarkdownElementBuilder {
       child: SelectionContainer.disabled(
         child: GestureDetector(
           onTap: () => onTap(level, headline),
-        onSecondaryTapDown: readOnly
-            ? null
-            : (details) => onContextMenu(
-                  details.globalPosition,
-                  level,
-                  headline,
-                ),
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
-                children: [
-                  Expanded(
-                    child: Text.rich(
-                      TextSpan(
-                        children: [
-                          if (number.isNotEmpty)
+          onSecondaryTapDown: readOnly
+              ? null
+              : (details) => onContextMenu(
+                    details.globalPosition,
+                    level,
+                    headline,
+                  ),
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── Heading row: number + headline + [id] + edit ──
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Expanded(
+                      child: Text.rich(
+                        TextSpan(
+                          children: [
+                            if (number.isNotEmpty)
+                              TextSpan(
+                                text: '$number ',
+                                style: headingStyle,
+                              ),
                             TextSpan(
-                              text: '$number ',
+                              text: headline,
                               style: headingStyle,
                             ),
-                          TextSpan(
-                            text: headline,
-                            style: headingStyle,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  // Validation error indicator
-                  if (section != null)
-                    ..._buildValidationIndicator(section),
-                  if (!readOnly)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 4),
-                      child: InkWell(
-                        onTap: () => onEdit(level, headline),
-                        child: Icon(
-                          Icons.edit_outlined,
-                          size: 16,
-                          color: theme.textMuted,
+                            // Section ID shown in square brackets after headline
+                            if (sectionId != null && sectionId.isNotEmpty)
+                              TextSpan(
+                                text: ' [$sectionId]',
+                                style: headingStyle.copyWith(
+                                  color: theme.textMuted,
+                                  fontSize: (headingStyle.fontSize ?? 16) * 0.7,
+                                  fontFamily: 'monospace',
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                     ),
-                ],
-              ),
-              // Section ID subtitle — shown as small styled component
-              if (sectionId != null && sectionId.isNotEmpty)
-                Padding(
-                  padding: EdgeInsets.only(
-                    left: number.isNotEmpty ? 24.0 : 0.0,
-                    bottom: 2,
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.tag,
-                        size: 12,
-                        color: theme.textMuted,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        sectionId,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: theme.textMuted,
-                          fontFamily: 'monospace',
-                        ),
-                      ),
-                      if (hierarchicalId.isNotEmpty &&
-                          hierarchicalId != sectionId)
-                        Text(
-                          '  ($hierarchicalId)',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: theme.textMuted.withAlpha(150),
-                          ),
-                        ),
-                      if (!readOnly) ...[
-                        const SizedBox(width: 4),
-                        InkWell(
+                    // Validation error indicator
+                    if (section != null)
+                      ..._buildValidationIndicator(section),
+                    if (!readOnly)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 4),
+                        child: InkWell(
                           onTap: () => onEdit(level, headline),
                           child: Icon(
-                            Icons.edit,
-                            size: 12,
+                            Icons.edit_outlined,
+                            size: 16,
                             color: theme.textMuted,
                           ),
                         ),
-                      ],
-                    ],
-                  ),
+                      ),
+                  ],
                 ),
-            ],
+                // ── Comment metadata chips row ──
+                if (commentMeta.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2, bottom: 2),
+                    child: Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: commentMeta.entries.map((e) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: theme.accent.withAlpha(25),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(
+                              color: theme.accent.withAlpha(60),
+                              width: 0.5,
+                            ),
+                          ),
+                          child: Text(
+                            '${e.key}: ${e.value}',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: theme.textSecondary,
+                              fontFamily: 'monospace',
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
-    ),
     );
   }
 
