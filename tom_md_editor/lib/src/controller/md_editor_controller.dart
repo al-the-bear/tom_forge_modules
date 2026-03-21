@@ -825,6 +825,137 @@ class MdEditorController extends ChangeNotifier {
     }).toList();
   }
 
+  // ── For-each sync ──
+
+  /// Compute the sync state for all for-each linked sections.
+  ///
+  /// Returns a [ForEachSyncResult] describing which sections need to be
+  /// created (missing from registry) and which are orphaned (registry entry
+  /// removed). Does NOT modify the document — callers decide what to apply.
+  ForEachSyncResult computeForEachSync() {
+    final helper = schemaHelper;
+    final tmpl = templateHelper;
+    if (helper == null || tmpl == null) {
+      return const ForEachSyncResult(missing: [], orphaned: []);
+    }
+
+    final missing = <ForEachMissing>[];
+    final orphaned = <ForEachOrphaned>[];
+
+    for (final entry in (schema?.document.sections ?? {}).entries) {
+      final sectionDef = entry.value;
+      if (sectionDef.forEach == null) continue;
+
+      final sectionName = entry.key;
+      final forEach = sectionDef.forEach!;
+      final registryIds =
+          helper.getRegistryIds(_document, sectionName);
+
+      // Find the parent section for this for-each group.
+      final parentSections = _document.sections.where((s) {
+        final typeName =
+            helper.getSectionTypeName(s, document: _document);
+        return typeName == sectionDef.sectionType;
+      });
+      if (parentSections.isEmpty) continue;
+      final parent = parentSections.first;
+
+      // Get existing child IDs.
+      final existingIds = <String>{};
+      for (final child in parent.subsections) {
+        if (child.id != null) existingIds.add(child.id!);
+      }
+
+      // Missing: registry IDs not in existing children.
+      for (final id in registryIds) {
+        if (!existingIds.contains(id)) {
+          missing.add(ForEachMissing(
+            sectionName: sectionName,
+            registryId: id,
+            parentSection: parent,
+            sectionType: forEach.sectionType,
+          ));
+        }
+      }
+
+      // Orphaned: existing children not in registry.
+      final registryIdSet = registryIds.toSet();
+      for (final child in parent.subsections) {
+        if (child.id != null && !registryIdSet.contains(child.id!)) {
+          orphaned.add(ForEachOrphaned(
+            sectionName: sectionName,
+            sectionId: child.id!,
+            section: child,
+            parentSection: parent,
+          ));
+        }
+      }
+    }
+
+    return ForEachSyncResult(missing: missing, orphaned: orphaned);
+  }
+
+  /// Create sections for missing for-each entries.
+  ///
+  /// Returns the number of sections created.
+  Future<int> syncForEachMissing(List<ForEachMissing> entries) async {
+    final tmpl = templateHelper;
+    if (tmpl == null || entries.isEmpty) return 0;
+
+    final oldMd = _markdown;
+    var created = 0;
+
+    for (final entry in entries) {
+      final template = tmpl.generateTemplate(entry.sectionType);
+      final headline = _formatSectionName(entry.registryId);
+      final section = MdSection(
+        headline: headline,
+        level: entry.parentSection.level + 1,
+        id: entry.registryId,
+        text: template,
+      );
+      entry.parentSection.subsections.add(section);
+      created++;
+    }
+
+    if (created > 0) {
+      _rebuildMarkdown();
+      _pushUndoWithStates(
+        oldMd,
+        _markdown,
+        'Sync: create $created for-each sections',
+      );
+      notifyListeners();
+    }
+    return created;
+  }
+
+  /// Remove orphaned for-each sections.
+  ///
+  /// Returns the number of sections removed.
+  Future<int> removeForEachOrphaned(List<ForEachOrphaned> entries) async {
+    if (entries.isEmpty) return 0;
+
+    final oldMd = _markdown;
+    var removed = 0;
+
+    for (final entry in entries) {
+      entry.parentSection.subsections.remove(entry.section);
+      removed++;
+    }
+
+    if (removed > 0) {
+      _rebuildMarkdown();
+      _pushUndoWithStates(
+        oldMd,
+        _markdown,
+        'Sync: remove $removed orphaned sections',
+      );
+      notifyListeners();
+    }
+    return removed;
+  }
+
   // ── Private helpers ──
 
   void _setMarkdownInternal(String value) {
@@ -988,4 +1119,50 @@ class MdEditorController extends ChangeNotifier {
     }
     return buf.toString().trimRight();
   }
+}
+
+// ── For-each sync data classes ──
+
+/// Result of a for-each sync analysis.
+class ForEachSyncResult {
+  /// Entries that exist in the registry but have no corresponding section.
+  final List<ForEachMissing> missing;
+
+  /// Sections that exist but have no corresponding registry entry.
+  final List<ForEachOrphaned> orphaned;
+
+  const ForEachSyncResult({required this.missing, required this.orphaned});
+
+  /// Whether everything is in sync.
+  bool get isSynced => missing.isEmpty && orphaned.isEmpty;
+}
+
+/// A registry entry with no corresponding detail section.
+class ForEachMissing {
+  final String sectionName;
+  final String registryId;
+  final MdSection parentSection;
+  final String sectionType;
+
+  const ForEachMissing({
+    required this.sectionName,
+    required this.registryId,
+    required this.parentSection,
+    required this.sectionType,
+  });
+}
+
+/// A detail section with no corresponding registry entry.
+class ForEachOrphaned {
+  final String sectionName;
+  final String sectionId;
+  final MdSection section;
+  final MdSection parentSection;
+
+  const ForEachOrphaned({
+    required this.sectionName,
+    required this.sectionId,
+    required this.section,
+    required this.parentSection,
+  });
 }

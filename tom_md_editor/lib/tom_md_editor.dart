@@ -62,9 +62,11 @@ export 'src/widgets/overlays/md_code_block_overlay.dart';
 
 // Schema Widgets
 export 'src/widgets/schema/md_char_counter.dart';
+export 'src/widgets/schema/md_for_each_sync_banner.dart';
 export 'src/widgets/schema/md_form_editor.dart';
 export 'src/widgets/schema/md_quick_fix_menu.dart';
 export 'src/widgets/schema/md_schema_info_panel.dart';
+export 'src/widgets/schema/md_schema_picker.dart';
 export 'src/widgets/schema/md_tag_selector.dart';
 export 'src/widgets/schema/md_validation_prompt_banner.dart';
 

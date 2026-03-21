@@ -82,6 +82,7 @@ class MdFormEditor extends StatefulWidget {
 
 class _MdFormEditorState extends State<MdFormEditor> {
   late Map<String, TextEditingController> _controllers;
+  final Map<String, String?> _fieldErrors = {};
 
   @override
   void initState() {
@@ -122,8 +123,36 @@ class _MdFormEditorState extends State<MdFormEditor> {
       if (text.isNotEmpty) {
         values[field.fieldname] = text;
       }
+      _validateField(field, text);
     }
     widget.onChanged(values);
+  }
+
+  /// Validate a single field and set its error message in [_fieldErrors].
+  void _validateField(specs.FormFieldDef field, String value) {
+    String? error;
+    final isRequired = (field.required ?? false) ||
+        widget.requiredFields.contains(field.fieldname);
+
+    if (isRequired && value.trim().isEmpty) {
+      error = '${field.fieldname} is required';
+    } else if (value.isNotEmpty && field.patternCheck != null) {
+      final pattern = field.patternCheck!.pattern;
+      try {
+        final regex = RegExp(pattern);
+        if (!regex.hasMatch(value)) {
+          error = field.patternCheck!.errorMessage;
+        }
+      } catch (_) {
+        // Invalid regex — skip validation.
+      }
+    }
+
+    if (_fieldErrors[field.fieldname] != error) {
+      setState(() {
+        _fieldErrors[field.fieldname] = error;
+      });
+    }
   }
 
   @override
@@ -218,36 +247,55 @@ class _MdFormEditorState extends State<MdFormEditor> {
   Widget _buildTextField(specs.FormFieldDef field) {
     final basic = widget.theme.basic;
     final controller = _controllers[field.fieldname];
+    final error = _fieldErrors[field.fieldname];
+    final hasError = error != null;
+    final borderColor = hasError ? basic.error : basic.border;
 
-    return SizedBox(
-      height: 32,
-      child: TextField(
-        controller: controller,
-        readOnly: widget.readOnly,
-        onChanged: (_) => _onFieldChanged(),
-        style: TextStyle(color: basic.text, fontSize: 13),
-        decoration: InputDecoration(
-          isDense: true,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 8,
-            vertical: 6,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          height: 32,
+          child: TextField(
+            controller: controller,
+            readOnly: widget.readOnly,
+            onChanged: (_) => _onFieldChanged(),
+            style: TextStyle(color: basic.text, fontSize: 13),
+            decoration: InputDecoration(
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: 6,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(4),
+                borderSide: BorderSide(color: borderColor),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(4),
+                borderSide: BorderSide(color: borderColor),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(4),
+                borderSide: BorderSide(
+                  color: hasError ? basic.error : basic.accent,
+                ),
+              ),
+              hintText: _getHintForField(field),
+              hintStyle: TextStyle(color: basic.textMuted, fontSize: 12),
+            ),
           ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(4),
-            borderSide: BorderSide(color: basic.border),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(4),
-            borderSide: BorderSide(color: basic.border),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(4),
-            borderSide: BorderSide(color: basic.accent),
-          ),
-          hintText: _getHintForField(field),
-          hintStyle: TextStyle(color: basic.textMuted, fontSize: 12),
         ),
-      ),
+        if (hasError)
+          Padding(
+            padding: const EdgeInsets.only(top: 2, left: 4),
+            child: Text(
+              error,
+              style: TextStyle(color: basic.error, fontSize: 10),
+            ),
+          ),
+      ],
     );
   }
 

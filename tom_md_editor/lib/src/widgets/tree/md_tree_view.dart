@@ -641,6 +641,10 @@ class _MdTreeViewState extends State<MdTreeView> {
     return items;
   }
 
+  /// Stores quick-fix actions from the last context menu build, so
+  /// [_handleContextAction] can execute the selected fix by index.
+  List<QuickFixAction> _lastQuickFixes = const [];
+
   /// Build quick-fix menu items for a section's validation errors.
   List<PopupMenuEntry<String>> _buildQuickFixItems(MdSection section) {
     if (!widget.settings.enableQuickFixes) return const [];
@@ -656,20 +660,33 @@ class _MdTreeViewState extends State<MdTreeView> {
           widget.controller.scaffoldMissingSections();
         },
         onNavigateToSection: (sectionId) => () {
-          // Navigate handled by tree selection.
+          final target = widget.controller.findSectionById(sectionId);
+          if (target != null) {
+            widget.controller.selectSection(target);
+          }
         },
         onRenameId: (sectionId) => () {
-          // Rename is a no-op from the context menu.
+          final target = widget.controller.findSectionById(sectionId);
+          if (target != null) {
+            _showEditDialog(target);
+          }
         },
         onDeleteSection: (sectionId) => () {
-          // Delete handled separately.
+          final target = widget.controller.findSectionById(sectionId);
+          if (target != null) {
+            widget.controller.deleteSection(target);
+          }
         },
         onMoveSection: (sectionId) => () {
-          // Move handled separately.
+          final target = widget.controller.findSectionById(sectionId);
+          if (target != null) {
+            widget.controller.moveSectionUp(target);
+          }
         },
       ));
     }
     if (fixes.isEmpty) return const [];
+    _lastQuickFixes = fixes;
 
     return [
       const PopupMenuDivider(),
@@ -769,7 +786,10 @@ class _MdTreeViewState extends State<MdTreeView> {
 
       // Handle quick-fix actions.
       if (action.startsWith('quick_fix:')) {
-        // Quick fixes are informational; selecting one is acknowledgement.
+        final idx = int.tryParse(action.substring('quick_fix:'.length));
+        if (idx != null && idx >= 0 && idx < _lastQuickFixes.length) {
+          _lastQuickFixes[idx].onExecute();
+        }
         return;
       }
 
@@ -860,11 +880,20 @@ class _MdTreeViewState extends State<MdTreeView> {
         .join(' ');
 
     final idPattern = tmpl.getIdPattern(typeName);
+
+    // Collect registry IDs for autocomplete suggestions.
+    final schemaHelper = widget.controller.schemaHelper;
+    final registryIds = schemaHelper != null
+        ? schemaHelper.getRegistryIds(
+            widget.controller.document, typeName)
+        : <String>[];
+
     final result = await _showNewSectionDialog(
       isSubsection: true,
       defaultHeadline: capitalName,
       defaultId: suggestedId,
       patternHint: idPattern,
+      idSuggestions: registryIds,
     );
     if (result == null) return;
 
@@ -900,10 +929,19 @@ class _MdTreeViewState extends State<MdTreeView> {
         .join(' ');
 
     final idPattern = tmpl.getIdPattern(typeName);
+
+    // Collect registry IDs for autocomplete suggestions.
+    final schemaHelper = widget.controller.schemaHelper;
+    final registryIds = schemaHelper != null
+        ? schemaHelper.getRegistryIds(
+            widget.controller.document, typeName)
+        : <String>[];
+
     final result = await _showNewSectionDialog(
       defaultHeadline: capitalName,
       defaultId: suggestedId,
       patternHint: idPattern,
+      idSuggestions: registryIds,
     );
     if (result == null) return;
 
@@ -936,11 +974,15 @@ class _MdTreeViewState extends State<MdTreeView> {
   ///
   /// When [patternHint] is provided, shows a hint below the ID field
   /// indicating the expected format (e.g., from `pattern-check`).
+  ///
+  /// When [idSuggestions] is provided, shows autocomplete suggestions
+  /// for the ID field while still allowing free-form typing.
   Future<({String headline, String? id})?> _showNewSectionDialog({
     bool isSubsection = false,
     String? defaultHeadline,
     String? defaultId,
     String? patternHint,
+    List<String> idSuggestions = const [],
   }) async {
     final headlineController = TextEditingController(
       text: defaultHeadline ?? '',
@@ -961,13 +1003,49 @@ class _MdTreeViewState extends State<MdTreeView> {
               onSubmitted: (_) => Navigator.pop(ctx, true),
             ),
             const SizedBox(height: 12),
-            TextField(
-              controller: idController,
-              decoration: const InputDecoration(
-                labelText: 'ID (optional)',
-                hintText: 'e.g. my-section-id',
+            if (idSuggestions.isNotEmpty)
+              Autocomplete<String>(
+                optionsBuilder: (textEditingValue) {
+                  final query = textEditingValue.text.toLowerCase();
+                  if (query.isEmpty) return idSuggestions;
+                  return idSuggestions.where(
+                    (s) => s.toLowerCase().contains(query),
+                  );
+                },
+                fieldViewBuilder: (ctx, controller, focusNode, onSubmit) {
+                  // Sync the external idController with the autocomplete's.
+                  controller.text = idController.text;
+                  controller.addListener(() {
+                    idController.text = controller.text;
+                  });
+                  return TextField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    decoration: InputDecoration(
+                      labelText: 'ID (optional)',
+                      hintText: defaultId ?? 'e.g. my-section-id',
+                      suffixIcon: Icon(
+                        Icons.arrow_drop_down,
+                        color: Theme.of(ctx)
+                            .colorScheme
+                            .onSurface
+                            .withValues(alpha: 0.5),
+                      ),
+                    ),
+                  );
+                },
+                onSelected: (value) {
+                  idController.text = value;
+                },
+              )
+            else
+              TextField(
+                controller: idController,
+                decoration: InputDecoration(
+                  labelText: 'ID (optional)',
+                  hintText: defaultId ?? 'e.g. my-section-id',
+                ),
               ),
-            ),
             if (patternHint != null && patternHint.isNotEmpty) ...[
               const SizedBox(height: 8),
               Text(

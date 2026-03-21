@@ -18,6 +18,7 @@ import '../settings/md_editor_settings.dart';
 import '../theme/md_editor_theme.dart';
 import 'preview/md_preview_panel.dart';
 import 'raw_editor/md_raw_text_editor.dart';
+import 'schema/md_for_each_sync_banner.dart';
 import 'schema/md_schema_info_panel.dart';
 import 'status_bar/md_editor_status_bar.dart';
 import 'toolbar/md_editor_toolbar.dart';
@@ -377,6 +378,12 @@ class _MdEditorState extends State<MdEditor> {
   Widget _buildTreePanel() {
     return Column(
       children: [
+        // For-each sync banner (P6.1) — shown above the tree.
+        if (_controller.schema != null)
+          MdForEachSyncBanner(
+            controller: _controller,
+            theme: _theme,
+          ),
         Expanded(
           child: MdTreeView(
             controller: _controller,

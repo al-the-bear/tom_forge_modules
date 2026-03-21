@@ -10,6 +10,8 @@ import '../../models/md_section.dart';
 import '../../plugins/md_content_plugin.dart';
 import '../../settings/md_editor_settings.dart';
 import '../../theme/md_editor_theme.dart';
+import '../../validation/schema_section_helper.dart';
+import '../../validation/schema_template_helper.dart';
 import 'md_syntax_highlight_controller.dart';
 
 /// Raw text editor panel for editing markdown source.
@@ -787,7 +789,28 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
   ];
 
   /// Show a language picker for code block insertion.
+  ///
+  /// When the current section has a schema type with `format: code lang1|lang2`,
+  /// the allowed languages are promoted to the top and others are shown in a
+  /// separate "Other" group. The user can always type a custom language.
   void _showLanguagePicker(Offset position, MdBasicTheme basic) {
+    // Determine schema-allowed languages for the selected section.
+    List<String> schemaLanguages = const [];
+    final schema = widget.controller.schema;
+    final selected = widget.controller.selectedSection;
+    if (schema != null && selected != null) {
+      final sectionHelper = SchemaSectionHelper(schema);
+      final typeName = sectionHelper.getSectionTypeName(
+        selected,
+        document: widget.controller.document,
+      );
+      if (typeName != null) {
+        final tmplHelper = SchemaTemplateHelper(schema);
+        schemaLanguages = tmplHelper.getCodeLanguages(typeName);
+      }
+    }
+    final hasSchemaFilter = schemaLanguages.isNotEmpty;
+
     final controller = TextEditingController();
     showDialog<String>(
       context: context,
@@ -795,13 +818,32 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
         return StatefulBuilder(
           builder: (ctx, setDialogState) {
             final filter = controller.text.toLowerCase();
-            final filtered = _commonLanguages.where((lang) {
-              if (filter.isEmpty) return true;
-              return lang.contains(filter);
-            }).toList();
-            // If the typed text doesn't match any common language, show it as
-            // a custom option.
-            final hasExactMatch = _commonLanguages.contains(filter);
+
+            // Build the primary list: schema languages first if available.
+            List<String> primaryLanguages;
+            List<String> otherLanguages;
+            if (hasSchemaFilter) {
+              primaryLanguages = schemaLanguages.where((lang) {
+                if (filter.isEmpty) return true;
+                return lang.toLowerCase().contains(filter);
+              }).toList();
+              otherLanguages = _commonLanguages.where((lang) {
+                if (schemaLanguages.contains(lang)) return false;
+                if (filter.isEmpty) return true;
+                return lang.contains(filter);
+              }).toList();
+            } else {
+              primaryLanguages = _commonLanguages.where((lang) {
+                if (filter.isEmpty) return true;
+                return lang.contains(filter);
+              }).toList();
+              otherLanguages = const [];
+            }
+
+            final hasExactMatch =
+                _commonLanguages.contains(filter) ||
+                schemaLanguages.contains(filter);
+
             return AlertDialog(
               backgroundColor: basic.surface,
               title: Text(
@@ -849,8 +891,33 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
                               filter,
                               isCustom: true,
                             ),
-                          for (final lang in filtered)
+                          for (final lang in primaryLanguages)
                             _buildLanguageTile(ctx, basic, lang),
+                          if (hasSchemaFilter &&
+                              otherLanguages.isNotEmpty) ...[
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                top: 8,
+                                bottom: 4,
+                                left: 16,
+                              ),
+                              child: Text(
+                                'Other languages',
+                                style: TextStyle(
+                                  color: basic.textMuted,
+                                  fontSize: 11,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ),
+                            for (final lang in otherLanguages)
+                              _buildLanguageTile(
+                                ctx,
+                                basic,
+                                lang,
+                                isOther: true,
+                              ),
+                          ],
                         ],
                       ),
                     ),
@@ -874,6 +941,7 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
     MdBasicTheme basic,
     String language, {
     bool isCustom = false,
+    bool isOther = false,
   }) {
     final label = language.isEmpty ? '(no language)' : language;
     return ListTile(
@@ -881,14 +949,14 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
       title: Text(
         isCustom ? '"$language" (custom)' : label,
         style: TextStyle(
-          color: basic.text,
+          color: isOther ? basic.textMuted : basic.text,
           fontStyle: language.isEmpty ? FontStyle.italic : FontStyle.normal,
         ),
       ),
       leading: Icon(
         isCustom ? Icons.add : Icons.code,
         size: 16,
-        color: basic.textSecondary,
+        color: isOther ? basic.textMuted : basic.textSecondary,
       ),
       onTap: () => Navigator.of(ctx).pop(language),
     );
