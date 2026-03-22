@@ -246,110 +246,131 @@ class _MdEditorDemoPageState extends State<MdEditorDemoPage> {
     final savedPath = prefs.getString(_kSchemaFolderPath);
     if (savedPath != null && savedPath.isNotEmpty) {
       _schemaFolderPath = savedPath;
-    } else {
-      // Fallback to detection
-      _schemaFolderPath = _findDefaultSchemaFolder();
     }
     if (mounted) setState(() {});
     _tryAutoLoadSchema();
   }
 
-  /// Attempt to auto-resolve and load a schema based on the document filename.
+  /// Pattern to extract document type from `<title>.<type>.ds.md` filenames.
+  static final _dsTypePattern = RegExp(r'^.+\.([^.]+)\.ds\.md$');
+
+  /// Attempt to auto-load a schema by looking directly in the preferences
+  /// schema folder for a subfolder matching the document type.
   Future<void> _tryAutoLoadSchema() async {
     final filename = widget.documentFilename;
-    if (filename == null || !SchemaResolver.isDocSpecDocument(filename)) return;
-
-    // Derive workspace root from schema folder path if available
-    // Schema folder is typically at <wsRoot>/.tom/docspecs-schema
-    String? wsRoot = _findWorkspaceRoot();
-    if (wsRoot == null && _schemaFolderPath != null) {
-      // Try to derive workspace root: go up two levels from docspecs-schema
-      final candidate = Directory(_schemaFolderPath!).parent.parent.path;
-      final tomDir = Directory(path.join(candidate, '.tom'));
-      if (tomDir.existsSync()) wsRoot = candidate;
+    if (filename == null) {
+      debugPrint('[schema] No document filename — skipping auto-load.');
+      return;
     }
-    MdEditorDebug.logger.info(
-      'Auto-schema: cwd=${Directory.current.path}, '
-      'exe=${Platform.resolvedExecutable}, '
-      'wsRoot=$wsRoot, file=$filename',
-    );
 
+    final typeMatch = _dsTypePattern.firstMatch(filename);
+    if (typeMatch == null) {
+      debugPrint('[schema] "$filename" is not a .ds.md document — skipping.');
+      return;
+    }
+    final type = typeMatch.group(1)!;
+    debugPrint('[schema] Document type: "$type" (from "$filename")');
+
+    if (_schemaFolderPath == null || _schemaFolderPath!.isEmpty) {
+      debugPrint('[schema] No schema folder configured in preferences.');
+      return;
+    }
+
+    final schemaDir = Directory(_schemaFolderPath!);
+    debugPrint('[schema] Schema folder: ${schemaDir.path}');
+    debugPrint('[schema] Schema folder exists: ${schemaDir.existsSync()}');
+
+    if (!schemaDir.existsSync()) {
+      debugPrint('[schema] Schema folder does not exist — aborting.');
+      return;
+    }
+
+    // List all entries in the schema folder
+    final entries = schemaDir.listSync();
+    debugPrint('[schema] Entries in schema folder (${entries.length}):');
+    for (final entry in entries) {
+      debugPrint('[schema]   ${path.basename(entry.path)} '
+          '(${entry is Directory ? "dir" : "file"})');
+    }
+
+    // Find subfolder ending with .<type>
+    Directory? matchingFolder;
+    for (final entry in entries) {
+      if (entry is Directory) {
+        final dirName = path.basename(entry.path);
+        if (dirName.endsWith('.$type')) {
+          matchingFolder = entry;
+          debugPrint('[schema] Matched subfolder: $dirName');
+          break;
+        }
+      }
+    }
+
+    if (matchingFolder == null) {
+      debugPrint('[schema] No subfolder ending with ".$type" found.');
+      return;
+    }
+
+    // List schema files in the matching subfolder
+    final schemaFiles = matchingFolder.listSync();
+    debugPrint('[schema] Files in ${path.basename(matchingFolder.path)} '
+        '(${schemaFiles.length}):');
+    for (final f in schemaFiles) {
+      debugPrint('[schema]   ${path.basename(f.path)}');
+    }
+
+    // Find the best .docspecs-schema.yaml file
+    final schemaExtPattern = RegExp(r'\.docspecs-schema\.ya?ml$');
+    final candidates = <File>[];
+    for (final f in schemaFiles) {
+      if (f is File && schemaExtPattern.hasMatch(path.basename(f.path))) {
+        candidates.add(f);
+      }
+    }
+
+    if (candidates.isEmpty) {
+      debugPrint('[schema] No .docspecs-schema.yaml files found.');
+      return;
+    }
+
+    // Extract requested version from document text
+    String? requestedVersion;
+    final commentPattern = RegExp(r'<!--\s*docspec:\s*(\S+)\s*-->');
+    final commentMatch = commentPattern.firstMatch(widget.initialMarkdown);
+    if (commentMatch != null) {
+      final parts = commentMatch.group(1)!.split('/');
+      if (parts.length == 2) requestedVersion = parts[1];
+    }
+    debugPrint('[schema] Requested version from document: $requestedVersion');
+
+    // Pick the right file
+    File schemaFile = candidates.first;
+    if (requestedVersion != null) {
+      for (final f in candidates) {
+        if (path.basename(f.path).contains(requestedVersion)) {
+          schemaFile = f;
+          break;
+        }
+      }
+    }
+
+    debugPrint('[schema] Loading schema: ${schemaFile.path}');
     try {
-      final schema = await SchemaResolver.resolveByDocumentFilename(
-        documentFilename: filename,
-        documentText: widget.initialMarkdown,
-        workspaceRoot: wsRoot,
-      );
-      if (schema != null && mounted) {
+      final schema = await SchemaLoader.load(schemaFile.path);
+      if (mounted) {
         setState(() => _schema = schema);
         _controller.setSchema(schema);
-        MdEditorDebug.logger.info(
-          'Auto-loaded schema: ${schema.fullId}',
-        );
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Auto-loaded schema: ${schema.fullId}'),
-              backgroundColor: Colors.green[700],
-            ),
-          );
-        }
-      } else {
-        MdEditorDebug.logger.warn(
-          'Auto-schema: no matching schema found for "$filename"',
+        debugPrint('[schema] Loaded schema: ${schema.fullId}');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Auto-loaded schema: ${schema.fullId}'),
+            backgroundColor: Colors.green[700],
+          ),
         );
       }
     } catch (e) {
-      MdEditorDebug.logger.warn('Auto-schema load failed: $e');
+      debugPrint('[schema] Failed to load schema: $e');
     }
-  }
-
-  /// Find the workspace root by walking up from cwd looking for `.tom/`.
-  String? _findWorkspaceRoot() {
-    // Try from cwd first, then from executable path.
-    // On macOS, the executable is deep inside the .app bundle under build/,
-    // so we need enough levels to climb out.
-    for (final startPath in [
-      Directory.current.path,
-      Platform.resolvedExecutable,
-      // On macOS, also try the unresolved executable path
-      // (symlinks may point elsewhere).
-      Platform.executable,
-    ]) {
-      var dir = Directory(startPath);
-      // If startPath is a file (not directory), start from parent.
-      if (!dir.existsSync() || FileSystemEntity.isFileSync(startPath)) {
-        dir = dir.parent;
-      }
-      for (var i = 0; i < 20; i++) {
-        final tomDir = Directory(path.join(dir.path, '.tom'));
-        if (tomDir.existsSync()) return dir.path;
-        final parent = dir.parent;
-        if (parent.path == dir.path) break;
-        dir = parent;
-      }
-    }
-
-    // Fallback: check if TOM_WORKSPACE_ROOT environment variable is set.
-    final envRoot = Platform.environment['TOM_WORKSPACE_ROOT'];
-    if (envRoot != null) {
-      final tomDir = Directory(path.join(envRoot, '.tom'));
-      if (tomDir.existsSync()) return envRoot;
-    }
-
-    return null;
-  }
-
-  /// Find the default .tom folder for schemas.
-  String? _findDefaultSchemaFolder() {
-    // Reuse workspace root detection to find schemas.
-    final wsRoot = _findWorkspaceRoot();
-    if (wsRoot != null) {
-      final schemaDir =
-          Directory(path.join(wsRoot, '.tom', 'docspecs-schema'));
-      if (schemaDir.existsSync()) return schemaDir.path;
-    }
-    return null;
   }
 
   @override
