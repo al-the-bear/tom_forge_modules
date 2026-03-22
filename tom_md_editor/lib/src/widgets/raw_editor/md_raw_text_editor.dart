@@ -310,15 +310,25 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
 
   void _onControllerChanged() {
     if (!_isUpdating) {
-      // Reset headline editing mode when the selected section changes.
+      // Reset headline editing mode when a truly different section is
+      // selected.  After _rebuildMarkdown() the controller creates new
+      // MdSection objects, so compare by headline + level instead of
+      // identity to avoid resetting on every notification.
       final current = widget.controller.selectedSection;
-      if (current != _lastSelectedSection) {
+      if (!_isSameSection(current, _lastSelectedSection)) {
         _editingHeadline = false;
-        _lastSelectedSection = current;
       }
+      _lastSelectedSection = current;
       _syncText();
       _syncCursorFromController();
     }
+  }
+
+  /// Compare two sections by content rather than identity.
+  static bool _isSameSection(MdSection? a, MdSection? b) {
+    if (identical(a, b)) return true;
+    if (a == null || b == null) return false;
+    return a.headline == b.headline && a.level == b.level;
   }
 
   /// Sync the raw editor cursor to match the controller's cursorOffset.
