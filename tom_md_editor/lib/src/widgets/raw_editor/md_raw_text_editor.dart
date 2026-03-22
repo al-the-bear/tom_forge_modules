@@ -315,12 +315,21 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
       // MdSection objects, so compare by headline + level instead of
       // identity to avoid resetting on every notification.
       final current = widget.controller.selectedSection;
-      if (!_isSameSection(current, _lastSelectedSection)) {
+      final sectionChanged = !_isSameSection(current, _lastSelectedSection);
+      if (sectionChanged) {
         _editingHeadline = false;
       }
       _lastSelectedSection = current;
       _syncText();
-      _syncCursorFromController();
+      if (sectionChanged && _scrollController.hasClients) {
+        // Reset scroll position so the (possibly shorter) text is visible
+        // from the top.  Skip cursor sync — the global cursor offset is
+        // stale from the previous section and _scrollToCursorOffset would
+        // animate the view away from the visible text.
+        _scrollController.jumpTo(0);
+      } else {
+        _syncCursorFromController();
+      }
     }
   }
 
@@ -378,12 +387,20 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
   void _syncText() {
     final newText = _getEditableText();
     if (_textController.text != newText) {
+      // Suppress the debounced _applyChanges that would otherwise fire
+      // from the TextField.onChanged callback.  Programmatic text updates
+      // should not trigger a round-trip through updateSectionText.
+      _isUpdating = true;
       final selection = _textController.selection;
       _textController.text = newText;
+      // Cancel the debounce AFTER setting text — the setter synchronously
+      // fires TextField.onChanged which creates a new debounce timer.
+      _debounce?.cancel();
       // Try to preserve cursor position.
       if (selection.isValid && selection.end <= newText.length) {
         _textController.selection = selection;
       }
+      _isUpdating = false;
     }
   }
 

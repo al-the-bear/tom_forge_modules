@@ -1281,4 +1281,178 @@ pie
       expect(find.byIcon(Icons.code_off), findsOneWidget);
     });
   });
+
+  group('Section text preservation', () {
+    const testDoc = '''<!-- docspec: schema-test/1.0 -->
+# Schema Test Document
+
+Intro text for root section.
+
+## <!--[overview] --> Project Overview
+
+This is the project overview section.
+It has multiple lines of text.
+Goals: Test everything.
+
+## <!--[config-001] --> Configuration
+
+Environment: production
+Version: 2.1.0
+Owner: Tom Framework Team
+
+## <!--[components-001] --> Component Registry
+
+This section defines all components.
+
+### <!--[comp-auth] component-id=auth --> Authentication
+
+Handles user authentication and session management.
+Supports OAuth2.
+
+### <!--[comp-api] component-id=api --> API Gateway
+
+Central API gateway routes requests.
+Applies rate limiting.
+
+## <!--[detail-auth] --> Auth Component
+
+Detailed specification for authentication.
+
+### <!--[api-auth] --> Auth API Endpoints
+
+API endpoints for auth.
+
+#### <!--[endpoint-login] --> Login
+
+Description: Authenticates a user.
+Method: POST
+Path: /api/v1/auth/login
+Auth: none
+
+#### <!--[endpoint-logout] --> Logout
+
+Description: Invalidates session.
+Method: POST
+Path: /api/v1/auth/logout
+Auth: token
+''';
+
+    test('all sections have non-empty text after initial parse', () {
+      final doc = MdParser.parse(testDoc);
+      final all = doc.allSections;
+
+      // Verify each section has text
+      for (final s in all) {
+        expect(
+          s.text.isNotEmpty,
+          isTrue,
+          reason: 'Section "${s.headline}" (level ${s.level}) should have text '
+              'but got empty. sourceLineStart=${s.sourceLineStart}',
+        );
+      }
+    });
+
+    test('section text survives round-trip', () {
+      final doc = MdParser.parse(testDoc);
+      final allOriginal = doc.allSections;
+
+      // Round-trip
+      final serialized = MdParser.toMarkdown(doc);
+      final doc2 = MdParser.parse(serialized);
+      final allRoundTrip = doc2.allSections;
+
+      expect(allRoundTrip.length, allOriginal.length);
+      for (var i = 0; i < allOriginal.length; i++) {
+        expect(
+          allRoundTrip[i].headline,
+          allOriginal[i].headline,
+          reason: 'Headline mismatch at index $i',
+        );
+        expect(
+          allRoundTrip[i].text,
+          allOriginal[i].text,
+          reason: 'Text mismatch for "${allOriginal[i].headline}"',
+        );
+      }
+    });
+
+    test('controller selectSection preserves section text', () {
+      final controller = MdEditorController(initialMarkdown: testDoc);
+
+      final all = controller.document.allSections;
+      // Click through each section
+      for (final section in all) {
+        controller.selectSection(section);
+        final selected = controller.selectedSection;
+        expect(selected, isNotNull,
+            reason: 'Should have selected "${section.headline}"');
+        expect(selected!.headline, section.headline);
+        expect(
+          selected.text.isNotEmpty,
+          isTrue,
+          reason: 'Selected section "${section.headline}" should have text '
+              'but got empty. text.length=${selected.text.length}',
+        );
+        expect(selected.text, section.text,
+            reason: 'Text should match for "${section.headline}"');
+      }
+      controller.dispose();
+    });
+
+    test('controller selectSection + rebuild preserves text', () {
+      final controller = MdEditorController(initialMarkdown: testDoc);
+
+      // Select first section
+      final firstSection = controller.document.allSections[1]; // Overview
+      controller.selectSection(firstSection);
+      expect(controller.selectedSection!.text.isNotEmpty, isTrue);
+
+      // Now select second section (Configuration)
+      final secondSection = controller.document.allSections[2];
+      controller.selectSection(secondSection);
+      expect(controller.selectedSection!.headline, 'Configuration');
+      expect(
+        controller.selectedSection!.text,
+        contains('Environment'),
+        reason: 'Configuration section should contain "Environment"',
+      );
+
+      // Select component section
+      final componentSection = controller.document.allSections[3];
+      controller.selectSection(componentSection);
+      expect(controller.selectedSection!.headline, 'Component Registry');
+      expect(
+        controller.selectedSection!.text,
+        contains('components'),
+        reason: 'Component Registry should contain "components"',
+      );
+
+      controller.dispose();
+    });
+
+    test('section text after updateSectionText round-trip', () {
+      final controller = MdEditorController(initialMarkdown: testDoc);
+
+      // Select and update overview section
+      final overview = controller.document.allSections[1];
+      controller.selectSection(overview);
+      controller.updateSectionText(overview, 'New overview text');
+
+      // After rebuild, check OTHER sections still have text
+      final all = controller.document.allSections;
+      for (final s in all) {
+        if (s.headline == 'Project Overview') {
+          expect(s.text, 'New overview text');
+        } else {
+          expect(
+            s.text.isNotEmpty,
+            isTrue,
+            reason: 'Section "${s.headline}" lost text after updateSectionText '
+                'on a different section',
+          );
+        }
+      }
+      controller.dispose();
+    });
+  });
 }
