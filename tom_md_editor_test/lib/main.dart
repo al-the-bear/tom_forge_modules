@@ -251,11 +251,7 @@ class _MdEditorDemoPageState extends State<MdEditorDemoPage> {
     _tryAutoLoadSchema();
   }
 
-  /// Pattern to extract document type from `<title>.<type>.ds.md` filenames.
-  static final _dsTypePattern = RegExp(r'^.+\.([^.]+)\.ds\.md$');
-
-  /// Attempt to auto-load a schema by looking directly in the preferences
-  /// schema folder for a subfolder matching the document type.
+  /// Attempt to auto-load a schema using the configured schema folder.
   Future<void> _tryAutoLoadSchema() async {
     final filename = widget.documentFilename;
     if (filename == null) {
@@ -263,12 +259,12 @@ class _MdEditorDemoPageState extends State<MdEditorDemoPage> {
       return;
     }
 
-    final typeMatch = _dsTypePattern.firstMatch(filename);
-    if (typeMatch == null) {
+    if (!SchemaResolver.isDocSpecDocument(filename)) {
       debugPrint('[schema] "$filename" is not a .ds.md document — skipping.');
       return;
     }
-    final type = typeMatch.group(1)!;
+
+    final type = SchemaResolver.extractDocumentType(filename);
     debugPrint('[schema] Document type: "$type" (from "$filename")');
 
     if (_schemaFolderPath == null || _schemaFolderPath!.isEmpty) {
@@ -276,88 +272,27 @@ class _MdEditorDemoPageState extends State<MdEditorDemoPage> {
       return;
     }
 
+    debugPrint('[schema] Schema folder: $_schemaFolderPath');
     final schemaDir = Directory(_schemaFolderPath!);
-    debugPrint('[schema] Schema folder: ${schemaDir.path}');
     debugPrint('[schema] Schema folder exists: ${schemaDir.existsSync()}');
 
-    if (!schemaDir.existsSync()) {
-      debugPrint('[schema] Schema folder does not exist — aborting.');
-      return;
-    }
-
-    // List all entries in the schema folder
-    final entries = schemaDir.listSync();
-    debugPrint('[schema] Entries in schema folder (${entries.length}):');
-    for (final entry in entries) {
-      debugPrint('[schema]   ${path.basename(entry.path)} '
-          '(${entry is Directory ? "dir" : "file"})');
-    }
-
-    // Find subfolder ending with .<type>
-    Directory? matchingFolder;
-    for (final entry in entries) {
-      if (entry is Directory) {
-        final dirName = path.basename(entry.path);
-        if (dirName.endsWith('.$type')) {
-          matchingFolder = entry;
-          debugPrint('[schema] Matched subfolder: $dirName');
-          break;
-        }
+    if (schemaDir.existsSync()) {
+      final entries = schemaDir.listSync();
+      debugPrint('[schema] Entries in schema folder (${entries.length}):');
+      for (final entry in entries) {
+        debugPrint('[schema]   ${path.basename(entry.path)} '
+            '(${entry is Directory ? "dir" : "file"})');
       }
     }
 
-    if (matchingFolder == null) {
-      debugPrint('[schema] No subfolder ending with ".$type" found.');
-      return;
-    }
-
-    // List schema files in the matching subfolder
-    final schemaFiles = matchingFolder.listSync();
-    debugPrint('[schema] Files in ${path.basename(matchingFolder.path)} '
-        '(${schemaFiles.length}):');
-    for (final f in schemaFiles) {
-      debugPrint('[schema]   ${path.basename(f.path)}');
-    }
-
-    // Find the best .docspecs-schema.yaml file
-    final schemaExtPattern = RegExp(r'\.docspecs-schema\.ya?ml$');
-    final candidates = <File>[];
-    for (final f in schemaFiles) {
-      if (f is File && schemaExtPattern.hasMatch(path.basename(f.path))) {
-        candidates.add(f);
-      }
-    }
-
-    if (candidates.isEmpty) {
-      debugPrint('[schema] No .docspecs-schema.yaml files found.');
-      return;
-    }
-
-    // Extract requested version from document text
-    String? requestedVersion;
-    final commentPattern = RegExp(r'<!--\s*docspec:\s*(\S+)\s*-->');
-    final commentMatch = commentPattern.firstMatch(widget.initialMarkdown);
-    if (commentMatch != null) {
-      final parts = commentMatch.group(1)!.split('/');
-      if (parts.length == 2) requestedVersion = parts[1];
-    }
-    debugPrint('[schema] Requested version from document: $requestedVersion');
-
-    // Pick the right file
-    File schemaFile = candidates.first;
-    if (requestedVersion != null) {
-      for (final f in candidates) {
-        if (path.basename(f.path).contains(requestedVersion)) {
-          schemaFile = f;
-          break;
-        }
-      }
-    }
-
-    debugPrint('[schema] Loading schema: ${schemaFile.path}');
+    debugPrint('[schema] Calling SchemaResolver.resolveByDocumentFilename...');
     try {
-      final schema = await SchemaLoader.load(schemaFile.path);
-      if (mounted) {
+      final schema = await SchemaResolver.resolveByDocumentFilename(
+        documentFilename: filename,
+        documentText: widget.initialMarkdown,
+        schemaFolder: _schemaFolderPath,
+      );
+      if (schema != null && mounted) {
         setState(() => _schema = schema);
         _controller.setSchema(schema);
         debugPrint('[schema] Loaded schema: ${schema.fullId}');
@@ -367,6 +302,8 @@ class _MdEditorDemoPageState extends State<MdEditorDemoPage> {
             backgroundColor: Colors.green[700],
           ),
         );
+      } else {
+        debugPrint('[schema] No matching schema found for "$filename".');
       }
     } catch (e) {
       debugPrint('[schema] Failed to load schema: $e');
