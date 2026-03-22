@@ -172,9 +172,8 @@ class _MdTreeViewState extends State<MdTreeView> {
   }) {
     final section = node.data;
     final number = widget.controller.computeSectionNumber(section);
-    final hierarchicalId =
-        widget.controller.computeHierarchicalId(section);
-    final idLabel = hierarchicalId.isNotEmpty ? ' [$hierarchicalId]' : '';
+    final sectionId = section.id ?? '';
+    final idLabel = sectionId.isNotEmpty ? ' [$sectionId]' : '';
 
     // Build schema type tooltip (P5.3).
     String? typeTooltip;
