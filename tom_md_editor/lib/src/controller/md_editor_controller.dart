@@ -857,9 +857,13 @@ class MdEditorController extends ChangeNotifier {
     final sectionId =
         section.id ?? section.headline.toLowerCase().replaceAll(' ', '-');
     return _validationErrors.where((e) {
-      final msg = e.message.toLowerCase();
-      return msg.contains(sectionId.toLowerCase()) ||
-          msg.contains(section.headline.toLowerCase());
+      // Match by path (set by _convertError from sectionId)
+      if (e.path.isNotEmpty) {
+        final firstPath = e.path.first.toString().toLowerCase();
+        if (firstPath == sectionId.toLowerCase()) return true;
+        if (firstPath == section.headline.toLowerCase()) return true;
+      }
+      return false;
     }).toList();
   }
 

@@ -746,9 +746,6 @@ class _MdTreeViewState extends State<MdTreeView> {
     final allErrors = widget.controller.validationErrors;
     if (allErrors.isEmpty) return const [];
 
-    final sectionId = section.id ?? '';
-    final headline = section.headline.toLowerCase();
-
     // Collect IDs and headlines of this section and all descendants.
     final matchIds = <String>{};
     final matchHeadlines = <String>{};
@@ -772,10 +769,6 @@ class _MdTreeViewState extends State<MdTreeView> {
       // Match by section ID or headline (including children).
       if (matchIds.any((id) => firstPath == id)) return true;
       if (matchHeadlines.any((h) => firstPath == h)) return true;
-      // Match by message mentioning the section itself (not children).
-      final msg = error.message.toLowerCase();
-      if (sectionId.isNotEmpty && msg.contains(sectionId)) return true;
-      if (msg.contains(headline)) return true;
       return false;
     }).toList();
   }

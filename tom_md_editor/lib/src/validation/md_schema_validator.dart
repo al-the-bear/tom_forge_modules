@@ -203,7 +203,7 @@ class MdSchemaValidator {
   /// [ValidationError].
   ValidationError _convertError(specs.ValidationError specError) {
     final path = <Object>[];
-    if (specError.sectionId != null) {
+    if (specError.sectionId != null && specError.sectionId!.isNotEmpty) {
       path.add(specError.sectionId!);
     }
     path.add(specError.category.name);

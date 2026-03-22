@@ -955,9 +955,6 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
       final firstPath = error.path.first.toString().toLowerCase();
       if (sectionId.isNotEmpty && firstPath == sectionId) return true;
       if (firstPath == headline) return true;
-      final msg = error.message.toLowerCase();
-      if (sectionId.isNotEmpty && msg.contains(sectionId)) return true;
-      if (msg.contains(headline)) return true;
       return false;
     }).toList();
   }
