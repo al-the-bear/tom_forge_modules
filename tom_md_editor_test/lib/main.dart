@@ -4,8 +4,12 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:path/path.dart' as path;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tom_doc_specs/tom_doc_specs.dart';
 import 'package:tom_md_editor/tom_md_editor.dart';
+
+/// SharedPreferences key for the schema folder path.
+const _kSchemaFolderPath = 'schema_folder_path';
 
 void main() {
   MdEditorDebug.enabled = true;
@@ -43,10 +47,58 @@ enum TestDocument {
 class DocumentPickerPage extends StatelessWidget {
   const DocumentPickerPage({super.key});
 
+  Future<void> _openFile(BuildContext context) async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['md', 'txt', 'markdown'],
+      dialogTitle: 'Open Markdown File',
+    );
+    if (result == null || result.files.isEmpty) return;
+    final filePath = result.files.single.path;
+    if (filePath == null) return;
+
+    final file = File(filePath);
+    final markdown = await file.readAsString();
+    final filename = path.basename(filePath);
+
+    if (context.mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => MdEditorDemoPage(
+            initialMarkdown: markdown,
+            documentFilename: filename,
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _showPreferences(BuildContext context) async {
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => const _PreferencesDialog(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Choose Document')),
+      appBar: AppBar(
+        title: const Text('Choose Document'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.folder_open),
+            tooltip: 'Open file',
+            onPressed: () => _openFile(context),
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings),
+            tooltip: 'Preferences',
+            onPressed: () => _showPreferences(context),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 500),
@@ -185,9 +237,20 @@ class _MdEditorDemoPageState extends State<MdEditorDemoPage> {
   void initState() {
     super.initState();
     _controller = MdEditorController(initialMarkdown: widget.initialMarkdown);
-    // Default schema folder (configurable)
-    _schemaFolderPath = _findDefaultSchemaFolder();
-    // Auto-load schema for .ds.md documents
+    _initPreferencesAndSchema();
+  }
+
+  /// Load saved preferences, then attempt schema auto-loading.
+  Future<void> _initPreferencesAndSchema() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedPath = prefs.getString(_kSchemaFolderPath);
+    if (savedPath != null && savedPath.isNotEmpty) {
+      _schemaFolderPath = savedPath;
+    } else {
+      // Fallback to detection
+      _schemaFolderPath = _findDefaultSchemaFolder();
+    }
+    if (mounted) setState(() {});
     _tryAutoLoadSchema();
   }
 
@@ -196,7 +259,15 @@ class _MdEditorDemoPageState extends State<MdEditorDemoPage> {
     final filename = widget.documentFilename;
     if (filename == null || !SchemaResolver.isDocSpecDocument(filename)) return;
 
-    final wsRoot = _findWorkspaceRoot();
+    // Derive workspace root from schema folder path if available
+    // Schema folder is typically at <wsRoot>/.tom/docspecs-schema
+    String? wsRoot = _findWorkspaceRoot();
+    if (wsRoot == null && _schemaFolderPath != null) {
+      // Try to derive workspace root: go up two levels from docspecs-schema
+      final candidate = Directory(_schemaFolderPath!).parent.parent.path;
+      final tomDir = Directory(path.join(candidate, '.tom'));
+      if (tomDir.existsSync()) wsRoot = candidate;
+    }
     MdEditorDebug.logger.info(
       'Auto-schema: cwd=${Directory.current.path}, '
       'exe=${Platform.resolvedExecutable}, '
@@ -308,6 +379,12 @@ class _MdEditorDemoPageState extends State<MdEditorDemoPage> {
         ),
         title: const Text('Tom Markdown Editor'),
         actions: [
+          // Open file button
+          IconButton(
+            icon: const Icon(Icons.folder_open),
+            tooltip: 'Open file',
+            onPressed: _openFile,
+          ),
           // Schema picker button
           IconButton(
             icon: Icon(
@@ -326,6 +403,12 @@ class _MdEditorDemoPageState extends State<MdEditorDemoPage> {
               tooltip: 'Generate skeleton from schema',
               onPressed: _generateSkeleton,
             ),
+          // Preferences button
+          IconButton(
+            icon: const Icon(Icons.settings),
+            tooltip: 'Preferences',
+            onPressed: _showPreferences,
+          ),
           const VerticalDivider(width: 16),
           _toggle('Dark', _darkMode, (v) => setState(() => _darkMode = v)),
           _toggle(
@@ -364,6 +447,49 @@ class _MdEditorDemoPageState extends State<MdEditorDemoPage> {
         ],
       ),
     );
+  }
+
+  /// Open an arbitrary markdown file from the file system.
+  Future<void> _openFile() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['md', 'txt', 'markdown'],
+      dialogTitle: 'Open Markdown File',
+    );
+    if (result == null || result.files.isEmpty) return;
+    final filePath = result.files.single.path;
+    if (filePath == null) return;
+
+    final file = File(filePath);
+    final markdown = await file.readAsString();
+    final filename = path.basename(filePath);
+
+    if (mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => MdEditorDemoPage(
+            initialMarkdown: markdown,
+            documentFilename: filename,
+          ),
+        ),
+      );
+    }
+  }
+
+  /// Show the preferences dialog.
+  Future<void> _showPreferences() async {
+    final changed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => const _PreferencesDialog(),
+    );
+    if (changed == true) {
+      // Reload saved preferences
+      final prefs = await SharedPreferences.getInstance();
+      final savedPath = prefs.getString(_kSchemaFolderPath);
+      if (savedPath != null && savedPath.isNotEmpty) {
+        setState(() => _schemaFolderPath = savedPath);
+      }
+    }
   }
 
   /// Pick a schema file and associate it with the document.
@@ -465,6 +591,120 @@ class _MdEditorDemoPageState extends State<MdEditorDemoPage> {
         ),
       );
     }
+  }
+}
+
+/// Preferences dialog for configuring persistent settings.
+class _PreferencesDialog extends StatefulWidget {
+  const _PreferencesDialog();
+
+  @override
+  State<_PreferencesDialog> createState() => _PreferencesDialogState();
+}
+
+class _PreferencesDialogState extends State<_PreferencesDialog> {
+  late TextEditingController _schemaFolderController;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _schemaFolderController = TextEditingController();
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedPath = prefs.getString(_kSchemaFolderPath) ?? '';
+    _schemaFolderController.text = savedPath;
+    if (mounted) setState(() => _loading = false);
+  }
+
+  @override
+  void dispose() {
+    _schemaFolderController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickFolder() async {
+    final result = await FilePicker.platform.getDirectoryPath(
+      dialogTitle: 'Select Schema Folder',
+      initialDirectory: _schemaFolderController.text.isEmpty
+          ? null
+          : _schemaFolderController.text,
+    );
+    if (result != null) {
+      _schemaFolderController.text = result;
+    }
+  }
+
+  Future<void> _save() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      _kSchemaFolderPath,
+      _schemaFolderController.text.trim(),
+    );
+    if (mounted) Navigator.of(context).pop(true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Preferences'),
+      content: SizedBox(
+        width: 500,
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Schema Folder Path',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Path to the folder containing DocSpecs schema files. '
+                    'This is typically the .tom/docspecs-schema folder in '
+                    'your workspace.',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _schemaFolderController,
+                          decoration: const InputDecoration(
+                            hintText: '/path/to/.tom/docspecs-schema',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.folder),
+                        tooltip: 'Browse...',
+                        onPressed: _pickFolder,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _save,
+          child: const Text('Save'),
+        ),
+      ],
+    );
   }
 }
 
