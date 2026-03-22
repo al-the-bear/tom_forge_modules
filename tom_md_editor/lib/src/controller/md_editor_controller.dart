@@ -428,6 +428,29 @@ class MdEditorController extends ChangeNotifier {
     }
   }
 
+  /// Update the comment metadata of a section.
+  Future<void> updateCommentMetadata(
+    MdSection section,
+    Map<String, String> newMetadata,
+  ) async {
+    try {
+      MdEditorDebug.logger.info(
+        'Updating comment metadata for "${section.headline}"',
+      );
+      final oldMd = _markdown;
+      section.commentMetadata = newMetadata;
+      _rebuildMarkdown();
+      _pushUndoWithStates(
+        oldMd,
+        _markdown,
+        'Update metadata: ${section.headline}',
+      );
+      notifyListeners();
+    } catch (e, st) {
+      MdEditorDebug.logger.error('Error updating comment metadata', e, st);
+    }
+  }
+
   /// Merge [section] with the next sibling at the same level.
   ///
   /// The merged section keeps the headline and ID of the first section.

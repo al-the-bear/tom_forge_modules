@@ -8,6 +8,7 @@ import '../../settings/md_editor_settings.dart';
 import '../../theme/md_editor_theme.dart';
 import '../../validation/schema_section_helper.dart';
 import '../../validation/schema_template_helper.dart';
+import '../dialogs/edit_section_dialog.dart';
 import '../schema/md_quick_fix_menu.dart';
 
 /// Tree view panel showing section hierarchy with drag-drop reordering.
@@ -1097,7 +1098,7 @@ class _MdTreeViewState extends State<MdTreeView> {
     return (headline: headline, id: id.isEmpty ? null : id);
   }
 
-  /// Show a dialog to edit the headline and ID of a section.
+  /// Show a dialog to edit the headline, ID, and comment metadata of a section.
   void _showEditDialog(MdSection section) {
     final headlineController = TextEditingController(text: section.headline);
     final idController = TextEditingController(text: section.id ?? '');
@@ -1106,6 +1107,7 @@ class _MdTreeViewState extends State<MdTreeView> {
     final schema = widget.controller.schema;
     final prefixSuggestions = <String>[];
     String? patternHint;
+    List<String> schemaFields = const [];
     if (schema != null) {
       for (final entry in schema.sectionTypes.entries) {
         final prefix = entry.value.prefix;
@@ -1113,7 +1115,7 @@ class _MdTreeViewState extends State<MdTreeView> {
           prefixSuggestions.add(prefix);
         }
       }
-      // Resolve current type for pattern hint.
+      // Resolve current type for pattern hint and required fields.
       final schemaHelper = widget.controller.schemaHelper;
       if (schemaHelper != null) {
         final typeName = schemaHelper.getSectionTypeName(
@@ -1123,96 +1125,37 @@ class _MdTreeViewState extends State<MdTreeView> {
         if (typeName != null) {
           final tmpl = SchemaTemplateHelper(schema);
           patternHint = tmpl.getIdPattern(typeName);
+          schemaFields = tmpl.getRequiredFields(typeName);
         }
       }
     }
 
+    // Build metadata controllers from existing values + schema required fields.
+    final existingMeta = Map<String, String>.from(section.commentMetadata);
+    final allKeys = <String>{...existingMeta.keys, ...schemaFields};
+    final metaControllers = <String, TextEditingController>{};
+    for (final key in allKeys) {
+      metaControllers[key] =
+          TextEditingController(text: existingMeta[key] ?? '');
+    }
+
     showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Edit Headline & ID'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: headlineController,
-              autofocus: true,
-              decoration: const InputDecoration(labelText: 'Headline'),
-            ),
-            const SizedBox(height: 12),
-            if (prefixSuggestions.isNotEmpty)
-              Autocomplete<String>(
-                optionsBuilder: (textEditingValue) {
-                  final query = textEditingValue.text.toLowerCase();
-                  if (query.isEmpty) return prefixSuggestions;
-                  return prefixSuggestions.where(
-                    (s) => s.toLowerCase().contains(query),
-                  );
-                },
-                fieldViewBuilder: (ctx, controller, focusNode, onSubmit) {
-                  controller.text = idController.text;
-                  controller.addListener(() {
-                    idController.text = controller.text;
-                  });
-                  return TextField(
-                    controller: controller,
-                    focusNode: focusNode,
-                    decoration: InputDecoration(
-                      labelText: 'ID (optional)',
-                      hintText: 'e.g. my-section-id',
-                      suffixIcon: Icon(
-                        Icons.arrow_drop_down,
-                        color: Theme.of(ctx)
-                            .colorScheme
-                            .onSurface
-                            .withValues(alpha: 0.5),
-                      ),
-                    ),
-                  );
-                },
-                onSelected: (value) {
-                  idController.text = value;
-                },
-              )
-            else
-              TextField(
-                controller: idController,
-                decoration: const InputDecoration(
-                  labelText: 'ID (optional)',
-                  hintText: 'e.g. my-section-id',
-                ),
-              ),
-            if (patternHint != null && patternHint.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                'Expected pattern: $patternHint',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Theme.of(ctx)
-                      .colorScheme
-                      .onSurface
-                      .withValues(alpha: 0.5),
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-            ],
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Save'),
-          ),
-        ],
+      builder: (ctx) => EditSectionDialog(
+        headlineController: headlineController,
+        idController: idController,
+        metaControllers: metaControllers,
+        prefixSuggestions: prefixSuggestions,
+        patternHint: patternHint,
+        schemaFields: schemaFields,
       ),
     ).then((confirmed) {
       if (confirmed != true) {
         headlineController.dispose();
         idController.dispose();
+        for (final c in metaControllers.values) {
+          c.dispose();
+        }
         return;
       }
       final newHeadline = headlineController.text.trim();
@@ -1226,7 +1169,27 @@ class _MdTreeViewState extends State<MdTreeView> {
       if (effectiveId != section.id) {
         widget.controller.updateSectionId(section, effectiveId);
       }
+      // Collect updated metadata, dropping empty values.
+      final newMeta = <String, String>{};
+      for (final entry in metaControllers.entries) {
+        final value = entry.value.text.trim();
+        if (value.isNotEmpty) {
+          newMeta[entry.key] = value;
+        }
+        entry.value.dispose();
+      }
+      if (!_mapEquals(newMeta, section.commentMetadata)) {
+        widget.controller.updateCommentMetadata(section, newMeta);
+      }
     });
+  }
+
+  static bool _mapEquals(Map<String, String> a, Map<String, String> b) {
+    if (a.length != b.length) return false;
+    for (final key in a.keys) {
+      if (a[key] != b[key]) return false;
+    }
+    return true;
   }
 
   TreeTheme _buildTreeTheme(MdBasicTheme basic) {
