@@ -85,7 +85,23 @@ class MdSchemaValidator {
         debugPrint('[MdSchemaValidator] Document passed validation');
       }
 
-      return specErrors.map(_convertError).toList();
+      // Build line→name map for sections with empty IDs so errors
+      // can be matched to sections by headline when sectionId is empty.
+      final lineToName = <int, String>{};
+      void buildLineMap(List<scanner.Section>? sections) {
+        if (sections == null) return;
+        for (final s in sections) {
+          if (s.id.isEmpty && s.name.isNotEmpty) {
+            lineToName[s.lineNumber] = s.name;
+          }
+          buildLineMap(s.sections);
+        }
+      }
+      buildLineMap(document.sections);
+
+      return specErrors
+          .map((e) => _convertError(e, lineToName))
+          .toList();
     } catch (e, st) {
       MdEditorDebug.logger.error('Schema validation failed', e, st);
       return [
@@ -201,10 +217,22 @@ class MdSchemaValidator {
 
   /// Convert a doc_specs [specs.ValidationError] to an editor
   /// [ValidationError].
-  ValidationError _convertError(specs.ValidationError specError) {
+  ///
+  /// [lineToName] maps line numbers to section names for sections with
+  /// empty IDs, so errors can be matched to sections by headline.
+  ValidationError _convertError(
+    specs.ValidationError specError,
+    Map<int, String> lineToName,
+  ) {
     final path = <Object>[];
-    if (specError.sectionId != null && specError.sectionId!.isNotEmpty) {
-      path.add(specError.sectionId!);
+    final sid = specError.sectionId;
+    if (sid != null && sid.isNotEmpty) {
+      path.add(sid);
+    } else if (specError.lineNumber != null &&
+        lineToName.containsKey(specError.lineNumber)) {
+      // For empty-ID sections, use the headline so the error displays
+      // on the correct section in the tree view and preview panel.
+      path.add(lineToName[specError.lineNumber]!);
     }
     path.add(specError.category.name);
 
