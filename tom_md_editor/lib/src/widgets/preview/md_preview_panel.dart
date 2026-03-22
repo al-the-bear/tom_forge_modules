@@ -6,6 +6,7 @@ import 'package:flutter_highlight/flutter_highlight.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:markdown/markdown.dart' as md;
+import 'package:tom_doc_specs/tom_doc_specs.dart' as specs;
 import 'package:tom_editors_shared/tom_editors_shared.dart';
 
 import '../../controller/md_editor_controller.dart';
@@ -302,31 +303,8 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
       }
     }
 
-    // Form editor (P2).
-    if (widget.settings.enableFormEditor && !widget.settings.readOnly) {
-      final formType = tmpl.getFormType(typeName);
-      if (formType != null) {
-        final currentValues = MdFormEditor.parseFormContent(section.text);
-        widgets.add(Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          child: MdFormEditor(
-            formType: formType,
-            currentValues: currentValues,
-            customTags: schema.customTags,
-            requiredFields: tmpl.getRequiredFields(typeName),
-            textPatternCheck: schema.sectionTypes[typeName]?.patternCheckText,
-            theme: editorTheme,
-            onChanged: (values) {
-              final newText = MdFormEditor.serializeFormContent(
-                values,
-                formType,
-              );
-              widget.controller.updateSectionText(section, newText);
-            },
-          ),
-        ));
-      }
-    }
+    // Form editor (P2) — now rendered inline in the markdown preview.
+    // See _preprocessFormSections() and _CodeBlockBuilder.
 
     if (widgets.isEmpty) return const SizedBox.shrink();
 
@@ -350,6 +328,13 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
       var processed = markdown;
       final contentMap = <String, List<String>>{};
       var taskIndex = 0;
+
+      // Replace form section body text with synthetic fenced blocks
+      // BEFORE other preprocessors run (form text looks like list items).
+      final formSections = <_FormSectionData>[];
+      if (widget.settings.enableFormEditor && !widget.settings.readOnly) {
+        processed = _preprocessFormSections(processed, formSections);
+      }
 
       // Run all plugin preprocessors to convert non-fenced content
       // (like tables and $$..$$) into fenced code blocks with synthetic tags.
@@ -428,6 +413,9 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
                   contentMap: contentMap,
                   onPluginEdit: _onPluginEdit,
                   onListReorder: _onListReorder,
+                  formSections: formSections,
+                  editorTheme: widget.theme,
+                  controller: widget.controller,
                 ),
                 'math-inline': _InlineMathBuilder(theme: basic),
                 for (final level in [1, 2, 3, 4, 5, 6])
@@ -1055,6 +1043,67 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
     }
   }
 
+  // ── Form section preprocessing ──
+
+  /// Replace form-type section body text with synthetic `formfield-N` fenced
+  /// code blocks so [_CodeBlockBuilder] can render inline [MdFormEditor]
+  /// widgets.  Must run **before** list-block and plugin preprocessors
+  /// because form text is serialised as list items (`- Field: value`).
+  String _preprocessFormSections(
+    String markdown,
+    List<_FormSectionData> formSections,
+  ) {
+    final schema = widget.controller.schema;
+    if (schema == null) return markdown;
+
+    final doc = widget.controller.document;
+    final helper = SchemaSectionHelper(schema);
+    final tmpl = SchemaTemplateHelper(schema);
+
+    // Collect form sections in document order.
+    void collect(MdSection section) {
+      final typeName = helper.getSectionTypeName(
+        section,
+        document: doc,
+      );
+      if (typeName != null && section.text.isNotEmpty) {
+        final formType = tmpl.getFormType(typeName);
+        if (formType != null) {
+          formSections.add(_FormSectionData(
+            formType: formType,
+            section: section,
+            typeName: typeName,
+            customTags: schema.customTags,
+            requiredFields: tmpl.getRequiredFields(typeName),
+            textPatternCheck: schema.sectionTypes[typeName]?.patternCheckText,
+          ));
+        }
+      }
+      for (final sub in section.subsections) {
+        collect(sub);
+      }
+    }
+
+    for (final s in doc.sections) {
+      collect(s);
+    }
+    if (formSections.isEmpty) return markdown;
+
+    // Replace each form section's body text with a synthetic fenced block.
+    // Work backwards through the list so that earlier replacements don't
+    // shift character offsets for later ones.
+    var result = markdown;
+    for (var i = formSections.length - 1; i >= 0; i--) {
+      final data = formSections[i];
+      final heading = data.section.toHeadlineMarkdown();
+      final body = data.section.text;
+      final searchKey = '$heading\n\n$body';
+      final replacement = '$heading\n\n```formfield-$i\n$body\n```';
+      result = result.replaceFirst(searchKey, replacement);
+    }
+    return result;
+  }
+
   // ── List block preprocessing ──
 
   static final _listItemLinePattern =
@@ -1168,6 +1217,28 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
 
 // ── Custom markdown builders ──
 
+/// Data collected during form-section preprocessing.
+///
+/// One entry per form section whose body text has been replaced with a
+/// synthetic `formfield-N` fenced code block.
+class _FormSectionData {
+  _FormSectionData({
+    required this.formType,
+    required this.section,
+    required this.typeName,
+    required this.customTags,
+    required this.requiredFields,
+    this.textPatternCheck,
+  });
+
+  final specs.FormTypeDef formType;
+  final MdSection section;
+  final String typeName;
+  final Map<String, dynamic> customTags;
+  final List<String> requiredFields;
+  final specs.PatternCheckDef? textPatternCheck;
+}
+
 /// Renders code blocks, delegating to plugins for recognized languages.
 class _CodeBlockBuilder extends MarkdownElementBuilder {
   _CodeBlockBuilder({
@@ -1179,6 +1250,9 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
     required this.contentMap,
     required this.onPluginEdit,
     required this.onListReorder,
+    required this.formSections,
+    required this.editorTheme,
+    required this.controller,
   });
 
   final MdBasicTheme theme;
@@ -1193,6 +1267,9 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
     String editableContent,
   ) onPluginEdit;
   final void Function(int blockIndex, String newBlock) onListReorder;
+  final List<_FormSectionData> formSections;
+  final MdEditorTheme editorTheme;
+  final MdEditorController controller;
 
   String? _language;
 
@@ -1216,6 +1293,31 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
   Widget visitText(md.Text text, TextStyle? preferredStyle) {
     final code = text.text;
     final blockLanguage = _language;
+
+    // Inline form fields for schema form-type sections.
+    if (blockLanguage != null && blockLanguage.startsWith('formfield-')) {
+      final formIdx =
+          int.tryParse(blockLanguage.substring('formfield-'.length)) ?? 0;
+      if (formIdx < formSections.length) {
+        final data = formSections[formIdx];
+        final currentValues = MdFormEditor.parseFormContent(data.section.text);
+        return MdFormEditor(
+          formType: data.formType,
+          currentValues: currentValues,
+          customTags: data.customTags,
+          requiredFields: data.requiredFields,
+          textPatternCheck: data.textPatternCheck,
+          theme: editorTheme,
+          onChanged: (values) {
+            final newText = MdFormEditor.serializeFormContent(
+              values,
+              data.formType,
+            );
+            controller.updateSectionText(data.section, newText);
+          },
+        );
+      }
+    }
 
     // Draggable list blocks.
     if (blockLanguage != null && blockLanguage.startsWith('listblock-')) {
