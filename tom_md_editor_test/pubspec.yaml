@@ -38,6 +38,7 @@ dependencies:
     path: ../tom_md_editor
   tom_doc_specs:
     path: ../../tom_ai/ai_build/tom_doc_specs
+  shared_preferences: ^2.5.4
 
 dev_dependencies:
   flutter_test:
