@@ -671,6 +671,18 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
         mode == _SectionInsertMode.subBelow;
     final label = isSubsection ? 'Subsection' : 'Section';
 
+    // Collect prefix suggestions from schema section types.
+    final schema = widget.controller.schema;
+    final prefixSuggestions = <String>[];
+    if (schema != null) {
+      for (final entry in schema.sectionTypes.entries) {
+        final prefix = entry.value.prefix;
+        if (prefix != null && prefix.isNotEmpty) {
+          prefixSuggestions.add(prefix);
+        }
+      }
+    }
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -685,13 +697,48 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
               onSubmitted: (_) => Navigator.pop(ctx, true),
             ),
             const SizedBox(height: 12),
-            TextField(
-              controller: idController,
-              decoration: const InputDecoration(
-                labelText: 'ID (optional)',
-                hintText: 'e.g. my-section-id',
+            if (prefixSuggestions.isNotEmpty)
+              Autocomplete<String>(
+                optionsBuilder: (textEditingValue) {
+                  final query = textEditingValue.text.toLowerCase();
+                  if (query.isEmpty) return prefixSuggestions;
+                  return prefixSuggestions.where(
+                    (s) => s.toLowerCase().contains(query),
+                  );
+                },
+                fieldViewBuilder: (ctx, controller, focusNode, onSubmit) {
+                  controller.text = idController.text;
+                  controller.addListener(() {
+                    idController.text = controller.text;
+                  });
+                  return TextField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    decoration: InputDecoration(
+                      labelText: 'ID (optional)',
+                      hintText: 'e.g. my-section-id',
+                      suffixIcon: Icon(
+                        Icons.arrow_drop_down,
+                        color: Theme.of(ctx)
+                            .colorScheme
+                            .onSurface
+                            .withValues(alpha: 0.5),
+                      ),
+                    ),
+                  );
+                },
+                onSelected: (value) {
+                  idController.text = value;
+                },
+              )
+            else
+              TextField(
+                controller: idController,
+                decoration: const InputDecoration(
+                  labelText: 'ID (optional)',
+                  hintText: 'e.g. my-section-id',
+                ),
               ),
-            ),
           ],
         ),
         actions: [

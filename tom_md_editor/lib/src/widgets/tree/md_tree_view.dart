@@ -1102,6 +1102,32 @@ class _MdTreeViewState extends State<MdTreeView> {
   void _showEditDialog(MdSection section) {
     final headlineController = TextEditingController(text: section.headline);
     final idController = TextEditingController(text: section.id ?? '');
+
+    // Collect prefix suggestions from schema section types.
+    final schema = widget.controller.schema;
+    final prefixSuggestions = <String>[];
+    String? patternHint;
+    if (schema != null) {
+      for (final entry in schema.sectionTypes.entries) {
+        final prefix = entry.value.prefix;
+        if (prefix != null && prefix.isNotEmpty) {
+          prefixSuggestions.add(prefix);
+        }
+      }
+      // Resolve current type for pattern hint.
+      final schemaHelper = widget.controller.schemaHelper;
+      if (schemaHelper != null) {
+        final typeName = schemaHelper.getSectionTypeName(
+          section,
+          document: widget.controller.document,
+        );
+        if (typeName != null) {
+          final tmpl = SchemaTemplateHelper(schema);
+          patternHint = tmpl.getIdPattern(typeName);
+        }
+      }
+    }
+
     showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1115,13 +1141,62 @@ class _MdTreeViewState extends State<MdTreeView> {
               decoration: const InputDecoration(labelText: 'Headline'),
             ),
             const SizedBox(height: 12),
-            TextField(
-              controller: idController,
-              decoration: const InputDecoration(
-                labelText: 'ID (optional)',
-                hintText: 'e.g. my-section-id',
+            if (prefixSuggestions.isNotEmpty)
+              Autocomplete<String>(
+                optionsBuilder: (textEditingValue) {
+                  final query = textEditingValue.text.toLowerCase();
+                  if (query.isEmpty) return prefixSuggestions;
+                  return prefixSuggestions.where(
+                    (s) => s.toLowerCase().contains(query),
+                  );
+                },
+                fieldViewBuilder: (ctx, controller, focusNode, onSubmit) {
+                  controller.text = idController.text;
+                  controller.addListener(() {
+                    idController.text = controller.text;
+                  });
+                  return TextField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    decoration: InputDecoration(
+                      labelText: 'ID (optional)',
+                      hintText: 'e.g. my-section-id',
+                      suffixIcon: Icon(
+                        Icons.arrow_drop_down,
+                        color: Theme.of(ctx)
+                            .colorScheme
+                            .onSurface
+                            .withValues(alpha: 0.5),
+                      ),
+                    ),
+                  );
+                },
+                onSelected: (value) {
+                  idController.text = value;
+                },
+              )
+            else
+              TextField(
+                controller: idController,
+                decoration: const InputDecoration(
+                  labelText: 'ID (optional)',
+                  hintText: 'e.g. my-section-id',
+                ),
               ),
-            ),
+            if (patternHint != null && patternHint.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Expected pattern: $patternHint',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Theme.of(ctx)
+                      .colorScheme
+                      .onSurface
+                      .withValues(alpha: 0.5),
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
           ],
         ),
         actions: [
