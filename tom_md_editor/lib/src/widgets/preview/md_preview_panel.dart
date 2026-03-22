@@ -1090,18 +1090,40 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
     if (formSections.isEmpty) return markdown;
 
     // Replace each form section's body text with a synthetic fenced block.
-    // Work backwards through the list so that earlier replacements don't
-    // shift character offsets for later ones.
-    var result = markdown;
+    // Use line offsets from the section model (reliable) instead of text
+    // matching via toHeadlineMarkdown() (fragile, may not match original).
+    // Work backwards so earlier replacements don't shift line indices.
+    final lines = markdown.split('\n');
     for (var i = formSections.length - 1; i >= 0; i--) {
       final data = formSections[i];
-      final heading = data.section.toHeadlineMarkdown();
+      final lineStart = data.section.sourceLineStart;
+      if (lineStart == null) continue;
+
       final body = data.section.text;
-      final searchKey = '$heading\n\n$body';
-      final replacement = '$heading\n\n```formfield-$i\n$body\n```';
-      result = result.replaceFirst(searchKey, replacement);
+      if (body.isEmpty) continue;
+
+      // Skip heading line and blank lines to find where body text starts.
+      var bodyLineStart = lineStart + 1;
+      while (bodyLineStart < lines.length &&
+          lines[bodyLineStart].trim().isEmpty) {
+        bodyLineStart++;
+      }
+
+      // Verify the body content matches before replacing.
+      final bodyLines = body.split('\n');
+      final bodyLineEnd = bodyLineStart + bodyLines.length;
+      if (bodyLineEnd > lines.length) continue;
+      final actual = lines.sublist(bodyLineStart, bodyLineEnd).join('\n');
+      if (actual != body) continue;
+
+      // Replace body lines with synthetic fenced block.
+      lines.replaceRange(bodyLineStart, bodyLineEnd, [
+        '```formfield-$i',
+        body,
+        '```',
+      ]);
     }
-    return result;
+    return lines.join('\n');
   }
 
   // ── List block preprocessing ──

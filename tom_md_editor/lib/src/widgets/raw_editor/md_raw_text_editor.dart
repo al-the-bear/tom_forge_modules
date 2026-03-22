@@ -56,6 +56,13 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
   bool _headlineWarningDismissed = false;
   bool _isSyncingCursor = false;
 
+  /// When true the raw editor shows the section's heading line (including
+  /// HTML comment metadata) instead of the body text.
+  bool _editingHeadline = false;
+
+  /// Track the selected section to reset [_editingHeadline] on change.
+  MdSection? _lastSelectedSection;
+
   @override
   void initState() {
     super.initState();
@@ -303,6 +310,12 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
 
   void _onControllerChanged() {
     if (!_isUpdating) {
+      // Reset headline editing mode when the selected section changes.
+      final current = widget.controller.selectedSection;
+      if (current != _lastSelectedSection) {
+        _editingHeadline = false;
+        _lastSelectedSection = current;
+      }
       _syncText();
       _syncCursorFromController();
     }
@@ -368,9 +381,26 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
     // If a section is selected, show only that section's text.
     final selected = widget.controller.selectedSection;
     if (selected != null) {
+      if (_editingHeadline) {
+        return _getRawHeadingLine(selected);
+      }
       return selected.text;
     }
     return widget.controller.markdown;
+  }
+
+  /// Extract the original heading line from the source markdown using
+  /// the section's [sourceLineStart].  Falls back to the reconstructed
+  /// heading when line info is unavailable.
+  String _getRawHeadingLine(MdSection section) {
+    final lineStart = section.sourceLineStart;
+    if (lineStart != null) {
+      final lines = widget.controller.markdown.split('\n');
+      if (lineStart < lines.length) {
+        return lines[lineStart];
+      }
+    }
+    return section.toHeadlineMarkdown();
   }
 
   void _onTextChanged(String value) {
@@ -390,7 +420,11 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
       _isUpdating = true;
       final selected = widget.controller.selectedSection;
       if (selected != null) {
-        widget.controller.updateSectionText(selected, value);
+        if (_editingHeadline) {
+          _applyHeadlineChanges(selected, value);
+        } else {
+          widget.controller.updateSectionText(selected, value);
+        }
       } else {
         widget.controller.markdown = value;
       }
@@ -399,6 +433,17 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
       _isUpdating = false;
       MdEditorDebug.logger.error('Error applying changes', e, st);
     }
+  }
+
+  /// Replace the heading line in the source markdown with the edited text.
+  void _applyHeadlineChanges(MdSection section, String editedLine) {
+    final lineStart = section.sourceLineStart;
+    if (lineStart == null) return;
+    final md = widget.controller.markdown;
+    final lines = md.split('\n');
+    if (lineStart >= lines.length) return;
+    lines[lineStart] = editedLine;
+    widget.controller.markdown = lines.join('\n');
   }
 
   @override
@@ -444,18 +489,47 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
           Icon(Icons.code, size: 14, color: basic.textSecondary),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
-              selected != null
-                  ? 'Editing: ${selected.headline}'
-                  : 'Raw Markdown',
-              style: TextStyle(
-                color: basic.textSecondary,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+            child: selected != null
+                ? GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _editingHeadline = !_editingHeadline;
+                        _syncText();
+                      });
+                    },
+                    child: Tooltip(
+                      message: _editingHeadline
+                          ? 'Click to edit section text'
+                          : 'Click to edit heading',
+                      child: Text(
+                        _editingHeadline
+                            ? 'Heading: ${selected.headline}'
+                            : 'Editing: ${selected.headline}',
+                        style: TextStyle(
+                          color: _editingHeadline
+                              ? basic.accent
+                              : basic.textSecondary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          decoration: TextDecoration.underline,
+                          decorationStyle: TextDecorationStyle.dotted,
+                          decorationColor: basic.textMuted,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  )
+                : Text(
+                    'Raw Markdown',
+                    style: TextStyle(
+                      color: basic.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
           ),
           if (selected != null)
             InkWell(
