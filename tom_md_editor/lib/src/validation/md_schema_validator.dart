@@ -93,9 +93,29 @@ class MdSchemaValidator {
   }
 
   /// Convert an [MdDocument] to a [specs.SpecDoc] for proper validation.
+  ///
+  /// DocScanner treats the H1 heading as the document itself (title, id, text)
+  /// with H2 sections as direct children. The editor's MdDocument includes the
+  /// H1 as a section in [MdDocument.sections], making H2s grandchildren.
+  /// To match DocScanner behavior, if there is a single level-1 section
+  /// matching the document title, promote its subsections to document level.
   scanner.Document _convertDocument(MdDocument mdDocument) {
-    final sections = mdDocument.sections
-        .map((s) => _convertSection(s, 0))
+    // Determine effective sections: flatten H1 wrapper if present
+    List<MdSection> effectiveSections;
+    String docText = '';
+    if (mdDocument.sections.length == 1 &&
+        mdDocument.sections.first.level == 1) {
+      final h1 = mdDocument.sections.first;
+      effectiveSections = h1.subsections;
+      docText = h1.text;
+    } else {
+      effectiveSections = mdDocument.sections;
+    }
+
+    final sections = effectiveSections
+        .asMap()
+        .entries
+        .map((e) => _convertSection(e.value, e.key))
         .toList();
 
     final fields = _extractDocumentFields(mdDocument);
@@ -106,7 +126,7 @@ class MdSchemaValidator {
       id: mdDocument.title ?? 'document',
       rawHeadline: '',
       fields: fields,
-      text: '',
+      text: docText,
       sections: sections.isEmpty ? null : sections,
       filenameWithPath: mdDocument.path ?? '',
       loadTimestamp: DateTime.now().toIso8601String(),
@@ -117,7 +137,7 @@ class MdSchemaValidator {
       projectPath: '',
       workspaceRoot: '',
       projectRoot: '',
-      hierarchyDepth: _calculateMaxDepth(mdDocument.sections),
+      hierarchyDepth: _calculateMaxDepth(effectiveSections),
     );
 
     return specs.SpecDoc.fromDocument(
