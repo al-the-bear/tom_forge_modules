@@ -43,6 +43,26 @@ class MdSchemaValidator {
 
     try {
       final document = _convertDocument(mdDocument);
+
+      // Log document structure for debugging
+      debugPrint('[MdSchemaValidator] Schema: ${_schema!.fullId}');
+      debugPrint('[MdSchemaValidator] Document: ${document.runtimeType} '
+          'id=${document.id}, sections=${document.sections?.length ?? 0}');
+      if (document is specs.SpecDoc) {
+        debugPrint('[MdSchemaValidator] SpecDoc schemaId: ${document.schemaId}');
+      }
+      void logSections(List<scanner.Section> sections, String indent) {
+        for (final s in sections) {
+          final typeInfo = s is specs.SpecSection ? ' type=${s.type}' : '';
+          debugPrint('$indent[${s.id}] "${s.name}"$typeInfo '
+              'fields=${s.fields.keys.toList()}');
+          if (s.sections != null) logSections(s.sections!, '$indent  ');
+        }
+      }
+      if (document.sections != null) {
+        logSections(document.sections!, '  ');
+      }
+
       final validator = specs.DocSpecsValidator(schema: _schema!);
       final specErrors = validator.validate(document);
 
@@ -72,19 +92,20 @@ class MdSchemaValidator {
     }
   }
 
-  /// Convert an [MdDocument] to a doc_scanner [scanner.Document].
+  /// Convert an [MdDocument] to a [specs.SpecDoc] for proper validation.
   scanner.Document _convertDocument(MdDocument mdDocument) {
     final sections = mdDocument.sections
         .map((s) => _convertSection(s, 0))
         .toList();
 
-    return scanner.Document(
+    final fields = _extractDocumentFields(mdDocument);
+    final baseDoc = scanner.Document(
       index: 0,
       lineNumber: 1,
       name: mdDocument.title ?? '',
       id: mdDocument.title ?? 'document',
       rawHeadline: '',
-      fields: _extractDocumentFields(mdDocument),
+      fields: fields,
       text: '',
       sections: sections.isEmpty ? null : sections,
       filenameWithPath: mdDocument.path ?? '',
@@ -98,9 +119,14 @@ class MdSchemaValidator {
       projectRoot: '',
       hierarchyDepth: _calculateMaxDepth(mdDocument.sections),
     );
+
+    return specs.SpecDoc.fromDocument(
+      baseDoc,
+      schemaId: mdDocument.schemaId ?? _schema?.fullId ?? '',
+    );
   }
 
-  /// Convert an [MdSection] to a doc_scanner [scanner.Section].
+  /// Convert an [MdSection] to a [specs.SpecSection] with type resolution.
   scanner.Section _convertSection(MdSection mdSection, int index) {
     final subsections = mdSection.subsections
         .asMap()
@@ -108,15 +134,42 @@ class MdSchemaValidator {
         .map((e) => _convertSection(e.value, e.key))
         .toList();
 
-    return scanner.Section(
+    final sectionId = mdSection.id ?? '';
+
+    // Use commentMetadata as fields (these come from <!-- key=value --> comments)
+    final fields = Map<String, String>.from(mdSection.commentMetadata);
+
+    // Resolve section type by prefix matching against schema (same as DocSpecsFactory)
+    String? sectionType;
+    String? format;
+    if (_schema != null) {
+      for (final entry in _schema!.sectionTypes.entries) {
+        final prefix = entry.value.prefix;
+        if (prefix != null &&
+            sectionId.toLowerCase().startsWith(prefix.toLowerCase())) {
+          sectionType = entry.key;
+          format = entry.value.format;
+          break;
+        }
+      }
+    }
+
+    // Parse tags from fields
+    final tags =
+        fields['tags']?.split(',').map((t) => t.trim()).toList() ?? <String>[];
+
+    return specs.SpecSection(
       index: index,
       lineNumber: mdSection.sourceLineStart ?? 0,
       name: mdSection.headline,
-      id: mdSection.id ?? '',
+      id: sectionId,
       rawHeadline: '${'#' * mdSection.level} ${mdSection.headline}',
-      fields: const {},
+      fields: fields,
       text: mdSection.text,
       sections: subsections.isEmpty ? null : subsections,
+      type: sectionType,
+      tags: tags,
+      format: format,
     );
   }
 
