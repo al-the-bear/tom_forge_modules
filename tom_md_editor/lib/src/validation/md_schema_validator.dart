@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:tom_doc_scanner/tom_doc_scanner.dart' as scanner;
 import 'package:tom_doc_specs/tom_doc_specs.dart' as specs;
 import 'package:tom_editors_shared/tom_editors_shared.dart';
@@ -44,6 +45,20 @@ class MdSchemaValidator {
       final document = _convertDocument(mdDocument);
       final validator = specs.DocSpecsValidator(schema: _schema!);
       final specErrors = validator.validate(document);
+
+      // Log validation errors to console for debugging
+      if (specErrors.isNotEmpty) {
+        debugPrint(
+            '[MdSchemaValidator] ${specErrors.length} validation error(s):');
+        for (final e in specErrors) {
+          debugPrint(
+              '  [${e.category.name}] ${e.message} '
+              '(line ${e.lineNumber}, section: ${e.sectionId})');
+        }
+      } else {
+        debugPrint('[MdSchemaValidator] Document passed validation');
+      }
+
       return specErrors.map(_convertError).toList();
     } catch (e, st) {
       MdEditorDebug.logger.error('Schema validation failed', e, st);
