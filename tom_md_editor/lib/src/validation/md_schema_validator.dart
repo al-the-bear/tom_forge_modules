@@ -66,14 +66,20 @@ class MdSchemaValidator {
       final validator = specs.DocSpecsValidator(schema: _schema!);
       final specErrors = validator.validate(document);
 
-      // Log validation errors to console for debugging
+      // Log validation errors to console for debugging (deduplicate identical messages)
       if (specErrors.isNotEmpty) {
         debugPrint(
             '[MdSchemaValidator] ${specErrors.length} validation error(s):');
+        final seenMessages = <String>{};
         for (final e in specErrors) {
-          debugPrint(
-              '  [${e.category.name}] ${e.message} '
-              '(line ${e.lineNumber}, section: ${e.sectionId})');
+          final msg = '  [${e.category.name}] ${e.message} '
+              '(line ${e.lineNumber}, section: ${e.sectionId})';
+          if (seenMessages.add(msg)) {
+            debugPrint(msg);
+          }
+        }
+        if (seenMessages.length < specErrors.length) {
+          debugPrint('  (${specErrors.length - seenMessages.length} duplicate message(s) omitted)');
         }
       } else {
         debugPrint('[MdSchemaValidator] Document passed validation');
