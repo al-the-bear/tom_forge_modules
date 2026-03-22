@@ -320,13 +320,20 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
         _editingHeadline = false;
       }
       _lastSelectedSection = current;
-      _syncText();
-      if (sectionChanged && _scrollController.hasClients) {
-        // Reset scroll position so the (possibly shorter) text is visible
-        // from the top.  Skip cursor sync — the global cursor offset is
-        // stale from the previous section and _scrollToCursorOffset would
-        // animate the view away from the visible text.
-        _scrollController.jumpTo(0);
+      _syncText(resetCursor: sectionChanged);
+      if (sectionChanged) {
+        // Flutter's EditableText schedules _showCaretOnScreen as a
+        // post-frame callback whenever the selection or text changes.
+        // That callback reads the current caret rect after layout and
+        // calls ensureVisible → animateTo, overriding any jumpTo we
+        // do synchronously here.  Schedule our own post-frame reset
+        // so it runs AFTER Flutter's internal caret scrolling.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          if (_scrollController.hasClients) {
+            _scrollController.jumpTo(0);
+          }
+        });
       } else {
         _syncCursorFromController();
       }
@@ -384,7 +391,7 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
     );
   }
 
-  void _syncText() {
+  void _syncText({bool resetCursor = false}) {
     final newText = _getEditableText();
     if (_textController.text != newText) {
       // Suppress the debounced _applyChanges that would otherwise fire
@@ -396,8 +403,13 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
       // Cancel the debounce AFTER setting text — the setter synchronously
       // fires TextField.onChanged which creates a new debounce timer.
       _debounce?.cancel();
-      // Try to preserve cursor position.
-      if (selection.isValid && selection.end <= newText.length) {
+      if (resetCursor) {
+        // On section change, place cursor at the start so Flutter's
+        // internal _showCaretOnScreen scrolls to the top, not the end.
+        _textController.selection =
+            const TextSelection.collapsed(offset: 0);
+      } else if (selection.isValid && selection.end <= newText.length) {
+        // Same-section update: try to preserve cursor position.
         _textController.selection = selection;
       }
       _isUpdating = false;
