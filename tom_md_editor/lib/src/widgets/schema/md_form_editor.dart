@@ -19,6 +19,7 @@ class MdFormEditor extends StatefulWidget {
     this.readOnly = false,
     this.requiredFields = const [],
     this.textPatternCheck,
+    this.useListPrefix = false,
   });
 
   /// The form type definition from the schema.
@@ -41,6 +42,11 @@ class MdFormEditor extends StatefulWidget {
 
   /// Whether the form is read-only.
   final bool readOnly;
+
+  /// Whether to use `- ` prefix when serializing form content.
+  ///
+  /// Set to true if the original section text uses list-item format.
+  final bool useListPrefix;
 
   /// Optional section-type-level text pattern check.
   ///
@@ -73,14 +79,19 @@ class MdFormEditor extends StatefulWidget {
   }
 
   /// Serialize form field values back to markdown text.
+  ///
+  /// When [useListPrefix] is true, each line is prefixed with `- `.
+  /// Default is false (plain `Key: value` lines).
   static String serializeFormContent(
     Map<String, String> values,
-    specs.FormTypeDef formType,
-  ) {
+    specs.FormTypeDef formType, {
+    bool useListPrefix = false,
+  }) {
+    final prefix = useListPrefix ? '- ' : '';
     final buffer = StringBuffer();
     for (final field in formType.fields) {
       final value = values[field.fieldname] ?? '';
-      buffer.writeln('- ${field.fieldname}: $value');
+      buffer.writeln('$prefix${field.fieldname}: $value');
     }
     return buffer.toString().trimRight();
   }
@@ -148,8 +159,11 @@ class _MdFormEditorState extends State<MdFormEditor> {
       }
       return;
     }
-    final serialized =
-        MdFormEditor.serializeFormContent(values, widget.formType);
+    final serialized = MdFormEditor.serializeFormContent(
+      values,
+      widget.formType,
+      useListPrefix: widget.useListPrefix,
+    );
     String? error;
     try {
       final regex = RegExp(check.pattern);

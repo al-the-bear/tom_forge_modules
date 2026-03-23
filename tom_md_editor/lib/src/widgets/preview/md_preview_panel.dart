@@ -22,7 +22,6 @@ import '../../validation/schema_template_helper.dart';
 import '../dialogs/edit_section_dialog.dart';
 import '../overlays/md_code_block_overlay.dart';
 import '../schema/md_form_editor.dart';
-import '../schema/md_tag_selector.dart';
 import '../schema/md_validation_prompt_banner.dart';
 
 /// Preview panel that renders markdown as formatted content.
@@ -786,7 +785,7 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
     // Use the currently selected section from the controller.
     final section = widget.controller.selectedSection;
 
-    // Build tag insertion item if the section supports tags.
+    // Build tag insertion item if the section's type has allowed-tags.
     final tagItems = <ContextMenuButtonItem>[];
     if (section != null && !widget.settings.readOnly) {
       final schema = widget.controller.schema;
@@ -802,7 +801,15 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
           allowedTags = tmpl.getAllowedTags(typeName);
         }
       }
-      final existingTags = MdTagSelector.parseTags(section.text);
+      // Check heading comment metadata for existing tags.
+      final existingTagStr = section.commentMetadata['tags'] ?? '';
+      final existingTags = existingTagStr.isNotEmpty
+          ? existingTagStr
+                .split(',')
+                .map((t) => t.trim())
+                .where((t) => t.isNotEmpty)
+                .toList()
+          : <String>[];
       if (allowedTags.isNotEmpty || existingTags.isNotEmpty) {
         tagItems.add(ContextMenuButtonItem(
           label: existingTags.isNotEmpty ? 'Edit Tags' : 'Insert Tags',
@@ -933,10 +940,17 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
     }
   }
 
-  /// Insert a new `<!-- tags: -->` comment or open the tag editor for an
-  /// existing one.
+  /// Open the tag editor for the section's heading comment metadata tags.
   void _onInsertOrEditTags(MdSection section) {
-    final existingTags = MdTagSelector.parseTags(section.text);
+    // Read existing tags from heading comment metadata.
+    final existingTagStr = section.commentMetadata['tags'] ?? '';
+    final existingTags = existingTagStr.isNotEmpty
+        ? existingTagStr
+              .split(',')
+              .map((t) => t.trim())
+              .where((t) => t.isNotEmpty)
+              .toList()
+        : <String>[];
 
     // Look up allowed-tags from schema.
     var allowedTags = <String>[];
@@ -951,17 +965,6 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
       if (typeName != null) {
         allowedTags = tmpl.getAllowedTags(typeName);
       }
-    }
-
-    if (existingTags.isEmpty && allowedTags.isEmpty) {
-      // No schema tags and none existing — insert a blank tag comment
-      // placeholder so the user can see it in the raw editor.
-      final trimmed = section.text.trimRight();
-      widget.controller.updateSectionText(
-        section,
-        '$trimmed\n\n<!-- tags: -->',
-      );
-      return;
     }
 
     _showTagEditorPopup(_TagChipData(
@@ -1124,8 +1127,14 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
           )
           .firstOrNull;
       final target = current ?? section;
-      final newText = MdTagSelector.updateTags(target.text, result);
-      widget.controller.updateSectionText(target, newText);
+      // Save tags into heading comment metadata (tags=value1,value2).
+      final newMetadata = Map<String, String>.from(target.commentMetadata);
+      if (result.isEmpty) {
+        newMetadata.remove('tags');
+      } else {
+        newMetadata['tags'] = result.join(',');
+      }
+      widget.controller.updateCommentMetadata(target, newMetadata);
     });
   }
 
@@ -1634,6 +1643,8 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
       if (formIdx < formSections.length) {
         final data = formSections[formIdx];
         final currentValues = MdFormEditor.parseFormContent(data.section.text);
+        // Detect whether original text uses list-prefix format (e.g., "- Field: value").
+        final useListPrefix = data.section.text.trimLeft().startsWith('- ');
         return MdFormEditor(
           formType: data.formType,
           currentValues: currentValues,
@@ -1641,10 +1652,12 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
           requiredFields: data.requiredFields,
           textPatternCheck: data.textPatternCheck,
           theme: editorTheme,
+          useListPrefix: useListPrefix,
           onChanged: (values) {
             final newText = MdFormEditor.serializeFormContent(
               values,
               data.formType,
+              useListPrefix: useListPrefix,
             );
             controller.updateSectionText(data.section, newText);
           },

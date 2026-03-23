@@ -328,12 +328,16 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
         // That callback reads the current caret rect after layout and
         // calls ensureVisible → animateTo, overriding any jumpTo we
         // do synchronously here.  Schedule our own post-frame reset
-        // so it runs AFTER Flutter's internal caret scrolling.
+        // so it runs AFTER Flutter's internal caret scrolling by
+        // nesting a second post-frame callback.
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
-          if (_scrollController.hasClients) {
-            _scrollController.jumpTo(0);
-          }
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            if (_scrollController.hasClients) {
+              _scrollController.jumpTo(0);
+            }
+          });
         });
       } else {
         _syncCursorFromController();
