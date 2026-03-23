@@ -58,6 +58,9 @@ class MdPreviewPanel extends StatefulWidget {
 
 class _MdPreviewPanelState extends State<MdPreviewPanel> {
   final ScrollController _scrollController = ScrollController();
+  /// Key for the markdown content subtree, used to traverse heading elements
+  /// from the context menu builder (which runs in an overlay context).
+  final _markdownBodyKey = GlobalKey();
   /// Track last selected section by value (level + headline) to avoid
   /// false-positive change detection after re-parsing.
   (int, String)? _lastSelectedKey;
@@ -350,6 +353,8 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
                   selectableRegionState,
                 );
               },
+              child: KeyedSubtree(
+              key: _markdownBodyKey,
               child: MarkdownBody(
               data: processed,
               selectable: false,
@@ -412,6 +417,7 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
                   ),
               },
             ),
+          ),
           ),
           ),
       );
@@ -855,7 +861,10 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
       element.visitChildren(searchElement);
     }
 
-    context.visitChildElements(searchElement);
+    final element = _markdownBodyKey.currentContext;
+    if (element != null) {
+      element.visitChildElements(searchElement);
+    }
     return bestMatch;
   }
 
