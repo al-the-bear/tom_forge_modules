@@ -58,9 +58,6 @@ class MdPreviewPanel extends StatefulWidget {
 
 class _MdPreviewPanelState extends State<MdPreviewPanel> {
   final ScrollController _scrollController = ScrollController();
-  /// Key for the markdown content subtree, used to traverse heading elements
-  /// from the context menu builder (which runs in an overlay context).
-  final _markdownBodyKey = GlobalKey();
   /// Track last selected section by value (level + headline) to avoid
   /// false-positive change detection after re-parsing.
   (int, String)? _lastSelectedKey;
@@ -353,8 +350,6 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
                   selectableRegionState,
                 );
               },
-              child: KeyedSubtree(
-              key: _markdownBodyKey,
               child: MarkdownBody(
               data: processed,
               selectable: false,
@@ -417,7 +412,6 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
                   ),
               },
             ),
-          ),
           ),
           ),
       );
@@ -787,11 +781,10 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
     SelectableRegionState selectableRegionState,
   ) {
     final standardItems = selectableRegionState.contextMenuButtonItems;
-
-    // Determine which section was right-clicked using the anchor position.
     final anchors = selectableRegionState.contextMenuAnchors;
-    final clickPosition = anchors.primaryAnchor;
-    final section = _findSectionAtPosition(clickPosition);
+
+    // Use the currently selected section from the controller.
+    final section = widget.controller.selectedSection;
 
     // Build tag insertion item if the section supports tags.
     final tagItems = <ContextMenuButtonItem>[];
@@ -825,47 +818,6 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
       anchors: anchors,
       buttonItems: [...standardItems, ...tagItems],
     );
-  }
-
-  /// Find the section whose heading is closest above [globalPosition].
-  MdSection? _findSectionAtPosition(Offset globalPosition) {
-    final allSections = widget.controller.document.allSections;
-    MdSection? bestMatch;
-    double bestY = double.negativeInfinity;
-
-    void searchElement(Element element) {
-      final key = element.widget.key;
-      if (key is ValueKey<String>) {
-        final keyStr = key.value;
-        // Heading keys are formatted as '$level:$headline'.
-        final colonIdx = keyStr.indexOf(':');
-        if (colonIdx > 0) {
-          final level = int.tryParse(keyStr.substring(0, colonIdx));
-          if (level != null) {
-            final renderBox = element.findRenderObject();
-            if (renderBox is RenderBox && renderBox.hasSize) {
-              final pos = renderBox.localToGlobal(Offset.zero);
-              if (pos.dy <= globalPosition.dy && pos.dy > bestY) {
-                bestY = pos.dy;
-                final headline = keyStr.substring(colonIdx + 1);
-                final match = allSections.where(
-                  (s) =>
-                      s.level == level && s.headline.trim() == headline,
-                );
-                if (match.isNotEmpty) bestMatch = match.first;
-              }
-            }
-          }
-        }
-      }
-      element.visitChildren(searchElement);
-    }
-
-    final element = _markdownBodyKey.currentContext;
-    if (element != null) {
-      element.visitChildElements(searchElement);
-    }
-    return bestMatch;
   }
 
   void _onHeadingContextMenu(Offset position, int level, String text) {
