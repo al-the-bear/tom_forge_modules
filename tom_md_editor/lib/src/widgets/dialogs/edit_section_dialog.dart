@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
-/// Dialog for editing a section's headline, ID, and comment metadata.
+/// Dialog for editing a section's headline, ID, tags, and comment metadata.
 ///
 /// Displays headline and ID fields (with optional prefix autocomplete),
+/// a tag editor with schema-allowed tags shown as filter chips,
 /// plus one text field per metadata key.  Metadata keys come from:
-///  - existing `commentMetadata` on the section
+///  - existing `commentMetadata` on the section (excluding 'tags')
 ///  - `requiredFields` declared by the schema for this section type
 class EditSectionDialog extends StatefulWidget {
   const EditSectionDialog({
@@ -15,6 +16,8 @@ class EditSectionDialog extends StatefulWidget {
     this.prefixSuggestions = const [],
     this.patternHint,
     this.schemaFields = const [],
+    this.allowedTags = const [],
+    this.initialTags = const [],
   });
 
   final TextEditingController headlineController;
@@ -24,26 +27,62 @@ class EditSectionDialog extends StatefulWidget {
   final String? patternHint;
   final List<String> schemaFields;
 
+  /// Tags allowed by the schema for this section type.
+  /// If empty, any tags are allowed.
+  final List<String> allowedTags;
+
+  /// Initial tags from section's commentMetadata['tags'].
+  final List<String> initialTags;
+
   @override
   State<EditSectionDialog> createState() => _EditSectionDialogState();
 }
 
 class _EditSectionDialogState extends State<EditSectionDialog> {
   final _newKeyController = TextEditingController();
+  final _newTagController = TextEditingController();
+  late List<String> _currentTags;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentTags = List<String>.from(widget.initialTags);
+  }
 
   @override
   void dispose() {
     _newKeyController.dispose();
+    _newTagController.dispose();
     super.dispose();
   }
 
   void _addMetadataField() {
     final key = _newKeyController.text.trim();
     if (key.isEmpty || widget.metaControllers.containsKey(key)) return;
+    if (key == 'tags') return; // Tags handled separately.
     setState(() {
       widget.metaControllers[key] = TextEditingController();
       _newKeyController.clear();
     });
+  }
+
+  void _addCustomTag() {
+    final tag = _newTagController.text.trim();
+    if (tag.isEmpty || _currentTags.contains(tag)) return;
+    setState(() {
+      _currentTags.add(tag);
+      _newTagController.clear();
+    });
+  }
+
+  /// Get semantic color for a tag based on its name.
+  Color _tagColor(String tag, ColorScheme colorScheme) {
+    final lower = tag.toLowerCase();
+    if (lower == 'critical' || lower == 'error') return Colors.red;
+    if (lower == 'high' || lower == 'warning') return Colors.orange;
+    if (lower == 'medium' || lower == 'info') return Colors.blue;
+    if (lower == 'low' || lower == 'minor') return Colors.green;
+    return colorScheme.primary;
   }
 
   @override
@@ -51,10 +90,15 @@ class _EditSectionDialogState extends State<EditSectionDialog> {
     final colorScheme = Theme.of(context).colorScheme;
     final mutedColor = colorScheme.onSurface.withValues(alpha: 0.5);
 
+    // Custom tags are tags not in allowedTags.
+    final customTags = _currentTags
+        .where((t) => !widget.allowedTags.contains(t))
+        .toList();
+
     return AlertDialog(
       title: const Text('Edit Section'),
       content: SizedBox(
-        width: 360,
+        width: 400,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -121,6 +165,111 @@ class _EditSectionDialogState extends State<EditSectionDialog> {
                   ),
                 ),
               ],
+
+              // — Tags —
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Icon(Icons.label, size: 16, color: mutedColor),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Tags',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.onSurface.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              // Allowed tags as filter chips.
+              if (widget.allowedTags.isNotEmpty) ...[
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: widget.allowedTags.map((tag) {
+                    final isSelected = _currentTags.contains(tag);
+                    final color = _tagColor(tag, colorScheme);
+                    return FilterChip(
+                      label: Text(
+                        tag,
+                        style: TextStyle(
+                          color: isSelected ? Colors.white : color,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
+                      ),
+                      selected: isSelected,
+                      selectedColor: color.withValues(alpha: 0.8),
+                      backgroundColor: color.withValues(alpha: 0.1),
+                      checkmarkColor: Colors.white,
+                      side: BorderSide(color: color.withValues(alpha: 0.4)),
+                      onSelected: (selected) {
+                        setState(() {
+                          if (selected) {
+                            _currentTags.add(tag);
+                          } else {
+                            _currentTags.remove(tag);
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 8),
+              ],
+
+              // Custom tags (deletable chips).
+              if (customTags.isNotEmpty) ...[
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: customTags.map((tag) {
+                    final color = _tagColor(tag, colorScheme);
+                    return Chip(
+                      label: Text(
+                        tag,
+                        style: TextStyle(
+                          color: color,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
+                      ),
+                      backgroundColor: color.withValues(alpha: 0.1),
+                      side: BorderSide(color: color.withValues(alpha: 0.4)),
+                      deleteIconColor: color,
+                      onDeleted: () {
+                        setState(() => _currentTags.remove(tag));
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 8),
+              ],
+
+              // Add new tag field.
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _newTagController,
+                      decoration: const InputDecoration(
+                        hintText: 'Add tag...',
+                        isDense: true,
+                      ),
+                      onSubmitted: (_) => _addCustomTag(),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.add, size: 18),
+                    tooltip: 'Add tag',
+                    onPressed: _addCustomTag,
+                  ),
+                ],
+              ),
 
               // — Comment Metadata —
               if (widget.metaControllers.isNotEmpty) ...[
@@ -191,7 +340,7 @@ class _EditSectionDialogState extends State<EditSectionDialog> {
           child: const Text('Cancel'),
         ),
         TextButton(
-          onPressed: () => Navigator.pop(context, true),
+          onPressed: () => Navigator.pop(context, _currentTags),
           child: const Text('Save'),
         ),
       ],

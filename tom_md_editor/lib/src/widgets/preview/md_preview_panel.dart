@@ -397,8 +397,6 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
                     onEdit: _onHeadingEdit,
                     onContextMenu: _onHeadingContextMenu,
                     getValidationErrors: _getValidationErrorsForSection,
-                    getAllowedTags: _getAllowedTagsForSection,
-                    onEditTags: _editTagsForSection,
                   ),
               },
             ),
@@ -698,15 +696,25 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
       }
 
       // Build metadata controllers from existing values + schema required fields.
+      // Exclude 'tags' since it's handled separately in the dialog.
       final existingMeta = Map<String, String>.from(section.commentMetadata);
+      final tagsStr = existingMeta.remove('tags') ?? '';
+      final initialTags = tagsStr.isNotEmpty
+          ? tagsStr.split(',').map((t) => t.trim()).where((t) => t.isNotEmpty).toList()
+          : <String>[];
+
       final allKeys = <String>{...existingMeta.keys, ...schemaFields};
+      allKeys.remove('tags'); // Ensure tags not in metadata controllers.
       final metaControllers = <String, TextEditingController>{};
       for (final key in allKeys) {
         metaControllers[key] =
             TextEditingController(text: existingMeta[key] ?? '');
       }
 
-      showDialog<bool>(
+      // Get allowed tags from schema.
+      final allowedTags = _getAllowedTagsForSection(section);
+
+      showDialog<List<String>>(
         context: context,
         builder: (ctx) => EditSectionDialog(
           headlineController: headlineController,
@@ -715,9 +723,12 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
           prefixSuggestions: prefixSuggestions,
           patternHint: patternHint,
           schemaFields: schemaFields,
+          allowedTags: allowedTags,
+          initialTags: initialTags,
         ),
-      ).then((confirmed) {
-        if (confirmed != true) {
+      ).then((resultTags) {
+        if (resultTags == null) {
+          // User cancelled.
           headlineController.dispose();
           idController.dispose();
           for (final c in metaControllers.values) {
@@ -744,6 +755,10 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
             newMeta[entry.key] = value;
           }
           entry.value.dispose();
+        }
+        // Add tags back to metadata if any.
+        if (resultTags.isNotEmpty) {
+          newMeta['tags'] = resultTags.join(',');
         }
         if (!_mapEquals(newMeta, section.commentMetadata)) {
           widget.controller.updateCommentMetadata(section, newMeta);
@@ -806,7 +821,7 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
           label: existingTags.isNotEmpty ? 'Edit Tags' : 'Insert Tags',
           onPressed: () {
             ContextMenuController.removeAny();
-            _onInsertOrEditTags(section);
+            _onHeadingEdit(section.level, section.headline);
           },
         ));
       }
@@ -931,206 +946,6 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
     }
   }
 
-  /// Open the tag editor for the section's heading comment metadata tags.
-  void _onInsertOrEditTags(MdSection section) {
-    // Read existing tags from heading comment metadata.
-    final existingTagStr = section.commentMetadata['tags'] ?? '';
-    final existingTags = existingTagStr.isNotEmpty
-        ? existingTagStr
-              .split(',')
-              .map((t) => t.trim())
-              .where((t) => t.isNotEmpty)
-              .toList()
-        : <String>[];
-
-    // Look up allowed-tags from schema.
-    var allowedTags = <String>[];
-    final schema = widget.controller.schema;
-    if (schema != null) {
-      final helper = SchemaSectionHelper(schema);
-      final tmpl = SchemaTemplateHelper(schema);
-      final typeName = helper.getSectionTypeName(
-        section,
-        document: widget.controller.document,
-      );
-      if (typeName != null) {
-        allowedTags = tmpl.getAllowedTags(typeName);
-      }
-    }
-
-    _showTagEditorPopup(
-      section: section,
-      selectedTags: existingTags,
-      allowedTags: allowedTags,
-    );
-  }
-
-  /// Show a popup dialog to edit tags for a section.
-  void _showTagEditorPopup({
-    required MdSection section,
-    required List<String> selectedTags,
-    required List<String> allowedTags,
-  }) {
-    var currentTags = List<String>.from(selectedTags);
-    final newTagController = TextEditingController();
-
-    showDialog<List<String>>(
-      context: context,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx, setDialogState) {
-            final theme = widget.theme.basic;
-            return AlertDialog(
-              title: Row(
-                children: [
-                  Icon(Icons.label, size: 18, color: theme.accent),
-                  const SizedBox(width: 8),
-                  const Expanded(child: Text('Edit Tags')),
-                ],
-              ),
-              content: SizedBox(
-                width: 400,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (allowedTags.isNotEmpty) ...[
-                      Text(
-                        'Allowed tags:',
-                        style: TextStyle(
-                          color: theme.textSecondary,
-                          fontSize: 12,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: allowedTags.map((tag) {
-                          final isSelected = currentTags.contains(tag);
-                          return FilterChip(
-                            label: Text(tag),
-                            selected: isSelected,
-                            onSelected: (selected) {
-                              setDialogState(() {
-                                if (selected) {
-                                  currentTags.add(tag);
-                                } else {
-                                  currentTags.remove(tag);
-                                }
-                              });
-                            },
-                          );
-                        }).toList(),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-                    // Show current custom tags (not in allowedTags).
-                    if (currentTags
-                        .where((t) => !allowedTags.contains(t))
-                        .isNotEmpty) ...[
-                      Text(
-                        'Custom tags:',
-                        style: TextStyle(
-                          color: theme.textSecondary,
-                          fontSize: 12,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: currentTags
-                            .where((t) => !allowedTags.contains(t))
-                            .map((tag) {
-                          return Chip(
-                            label: Text(tag),
-                            onDeleted: () {
-                              setDialogState(() {
-                                currentTags.remove(tag);
-                              });
-                            },
-                          );
-                        }).toList(),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-                    // Text field to add new tags.
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: newTagController,
-                            decoration: const InputDecoration(
-                              hintText: 'Add tag...',
-                              isDense: true,
-                            ),
-                            onSubmitted: (value) {
-                              final tag = value.trim();
-                              if (tag.isNotEmpty &&
-                                  !currentTags.contains(tag)) {
-                                setDialogState(() {
-                                  currentTags.add(tag);
-                                  newTagController.clear();
-                                });
-                              }
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          icon: const Icon(Icons.add, size: 18),
-                          onPressed: () {
-                            final tag = newTagController.text.trim();
-                            if (tag.isNotEmpty &&
-                                !currentTags.contains(tag)) {
-                              setDialogState(() {
-                                currentTags.add(tag);
-                                newTagController.clear();
-                              });
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Cancel'),
-                ),
-                FilledButton(
-                  onPressed: () => Navigator.pop(ctx, currentTags),
-                  child: const Text('Save'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    ).then((result) {
-      if (result == null) return;
-      // Re-link section in case document was re-parsed while dialog was open.
-      final doc = widget.controller.document;
-      final current = doc.allSections
-          .where(
-            (s) => s.headline == section.headline && s.level == section.level,
-          )
-          .firstOrNull;
-      final target = current ?? section;
-      // Save tags into heading comment metadata (tags=value1,value2).
-      final newMetadata = Map<String, String>.from(target.commentMetadata);
-      if (result.isEmpty) {
-        newMetadata.remove('tags');
-      } else {
-        newMetadata['tags'] = result.join(',');
-      }
-      widget.controller.updateCommentMetadata(target, newMetadata);
-    });
-  }
-
   void _addSectionRelative(MdSection section, {required bool above}) {
     final allTopLevel = widget.controller.document.sections;
     // Find parent to determine sibling list.
@@ -1231,11 +1046,6 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
     );
     if (typeName == null) return const [];
     return tmpl.getAllowedTags(typeName);
-  }
-
-  /// Edit tags for a section via the tag editor popup.
-  void _editTagsForSection(MdSection section) {
-    _onInsertOrEditTags(section);
   }
 
   void _toggleTaskItem(int index) {
@@ -1828,8 +1638,6 @@ class _HeadingBuilder extends MarkdownElementBuilder {
     required this.onEdit,
     required this.onContextMenu,
     required this.getValidationErrors,
-    required this.getAllowedTags,
-    required this.onEditTags,
   });
 
   final int level;
@@ -1840,8 +1648,6 @@ class _HeadingBuilder extends MarkdownElementBuilder {
   final void Function(int level, String text) onEdit;
   final void Function(Offset position, int level, String text) onContextMenu;
   final List<ValidationError> Function(MdSection section) getValidationErrors;
-  final List<String> Function(MdSection section) getAllowedTags;
-  final void Function(MdSection section) onEditTags;
 
   /// Regex to strip ALL HTML comments from rendered heading text.
   static final _htmlCommentRegex = RegExp(r'<!--[\s\S]*?-->');
@@ -1985,17 +1791,16 @@ class _HeadingBuilder extends MarkdownElementBuilder {
         ? tagsStr.split(',').map((t) => t.trim()).where((t) => t.isNotEmpty).toList()
         : <String>[];
     final otherMeta = Map<String, String>.from(commentMeta)..remove('tags');
-    final allowedTags = getAllowedTags(section);
 
     return Padding(
       padding: const EdgeInsets.only(top: 2, bottom: 2),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Tags chips (clickable to edit tags)
-          if (tags.isNotEmpty || allowedTags.isNotEmpty)
+          // Tags chips (clickable to edit section including tags)
+          if (tags.isNotEmpty)
             GestureDetector(
-              onTap: readOnly ? null : () => onEditTags(section),
+              onTap: readOnly ? null : () => onEdit(level, headline),
               child: MouseRegion(
                 cursor: readOnly ? SystemMouseCursors.basic : SystemMouseCursors.click,
                 child: Row(
@@ -2006,48 +1811,25 @@ class _HeadingBuilder extends MarkdownElementBuilder {
                     Wrap(
                       spacing: 4,
                       runSpacing: 4,
-                      children: tags.isEmpty
-                          ? [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                                decoration: BoxDecoration(
-                                  color: theme.textMuted.withAlpha(20),
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(color: theme.textMuted.withAlpha(40), width: 0.5),
-                                ),
-                                child: Text(
-                                  'add tags',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: theme.textMuted,
-                                    fontStyle: FontStyle.italic,
-                                  ),
-                                ),
-                              ),
-                            ]
-                          : tags.map((tag) {
-                              final color = _tagColor(tag);
-                              final isAllowed = allowedTags.isEmpty || allowedTags.contains(tag);
-                              return Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                                decoration: BoxDecoration(
-                                  color: color.withAlpha(30),
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: color.withAlpha(isAllowed ? 100 : 50),
-                                    width: isAllowed ? 1.0 : 0.5,
-                                  ),
-                                ),
-                                child: Text(
-                                  tag,
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: color,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              );
-                            }).toList(),
+                      children: tags.map((tag) {
+                        final color = _tagColor(tag);
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: color.withAlpha(30),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: color.withAlpha(100), width: 1.0),
+                          ),
+                          child: Text(
+                            tag,
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: color,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        );
+                      }).toList(),
                     ),
                     const SizedBox(width: 8),
                   ],
