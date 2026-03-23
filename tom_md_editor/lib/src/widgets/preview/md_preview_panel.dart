@@ -21,7 +21,6 @@ import '../../validation/schema_section_helper.dart';
 import '../../validation/schema_template_helper.dart';
 import '../dialogs/edit_section_dialog.dart';
 import '../overlays/md_code_block_overlay.dart';
-import '../schema/md_char_counter.dart';
 import '../schema/md_form_editor.dart';
 import '../schema/md_tag_selector.dart';
 import '../schema/md_validation_prompt_banner.dart';
@@ -265,24 +264,7 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
       }
     }
 
-    // Character counter (P4.3).
-    if (widget.settings.showCharCounter) {
-      final constraints = tmpl.getTextConstraints(typeName);
-      if (constraints.min != null ||
-          constraints.max != null ||
-          constraints.required) {
-        widgets.add(Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          child: MdCharCounter(
-            currentLength: section.text.length,
-            minLength: constraints.min,
-            maxLength: constraints.max,
-            textRequired: constraints.required,
-            theme: editorTheme,
-          ),
-        ));
-      }
-    }
+    // Character counter (P4.3) — moved to raw editor title bar.
 
     // Tag selector (P3.2).
     if (widget.settings.enableTagSelector && !widget.settings.readOnly) {
@@ -1711,33 +1693,43 @@ class _HeadingBuilder extends MarkdownElementBuilder {
                 if (commentMeta.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 2, bottom: 2),
-                    child: Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      children: commentMeta.entries.map((e) {
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 1,
-                          ),
-                          decoration: BoxDecoration(
-                            color: theme.accent.withAlpha(25),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(
-                              color: theme.accent.withAlpha(60),
-                              width: 0.5,
-                            ),
-                          ),
-                          child: Text(
-                            '${e.key}: ${e.value}',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: theme.textSecondary,
-                              fontFamily: 'monospace',
-                            ),
-                          ),
-                        );
-                      }).toList(),
+                    child: GestureDetector(
+                      onTap: readOnly
+                          ? null
+                          : () => onEdit(level, headline),
+                      child: MouseRegion(
+                        cursor: readOnly
+                            ? SystemMouseCursors.basic
+                            : SystemMouseCursors.click,
+                        child: Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          children: commentMeta.entries.map((e) {
+                            return Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 1,
+                              ),
+                              decoration: BoxDecoration(
+                                color: theme.accent.withAlpha(25),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: theme.accent.withAlpha(60),
+                                  width: 0.5,
+                                ),
+                              ),
+                              child: Text(
+                                '${e.key}: ${e.value}',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: theme.textSecondary,
+                                  fontFamily: 'monospace',
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
                     ),
                   ),
               ],

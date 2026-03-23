@@ -12,6 +12,7 @@ import '../../settings/md_editor_settings.dart';
 import '../../theme/md_editor_theme.dart';
 import '../../validation/schema_section_helper.dart';
 import '../../validation/schema_template_helper.dart';
+import '../schema/md_char_counter.dart';
 import 'md_syntax_highlight_controller.dart';
 
 /// Raw text editor panel for editing markdown source.
@@ -514,6 +515,37 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
     return MdConstants.headlineMarkerPattern.hasMatch(selected.text);
   }
 
+  /// Build a compact character counter for the selected section.
+  Widget _buildCharCounter(MdSection section) {
+    final schema = widget.controller.schema;
+    if (schema == null || !widget.settings.showCharCounter) {
+      return const SizedBox.shrink();
+    }
+
+    final helper = SchemaSectionHelper(schema);
+    final tmpl = SchemaTemplateHelper(schema);
+    final typeName = helper.getSectionTypeName(
+      section,
+      document: widget.controller.document,
+    );
+    if (typeName == null) return const SizedBox.shrink();
+
+    final constraints = tmpl.getTextConstraints(typeName);
+    if (constraints.min == null &&
+        constraints.max == null &&
+        !constraints.required) {
+      return const SizedBox.shrink();
+    }
+
+    return MdCharCounter(
+      currentLength: section.text.length,
+      minLength: constraints.min,
+      maxLength: constraints.max,
+      textRequired: constraints.required,
+      theme: widget.theme,
+    );
+  }
+
   Widget _buildTitleBar(MdBasicTheme basic, MdSection? selected) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -570,6 +602,7 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
                     overflow: TextOverflow.ellipsis,
                   ),
           ),
+          if (selected != null) _buildCharCounter(selected),
           if (selected != null)
             InkWell(
               onTap: () => widget.controller.selectSection(null),
