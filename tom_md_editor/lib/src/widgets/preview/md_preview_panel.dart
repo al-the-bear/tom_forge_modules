@@ -265,10 +265,6 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
 
     // Character counter (P4.3) — moved to raw editor title bar.
 
-    // Tag selector (P3.2).
-    // Tag selector (P3.2) — moved to inline preview rendering.
-    // See _preprocessTagComments() and _CodeBlockBuilder.
-
     // Form editor (P2) — now rendered inline in the markdown preview.
     // See _preprocessFormSections() and _CodeBlockBuilder.
 
@@ -301,11 +297,6 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
       if (widget.settings.enableFormEditor && !widget.settings.readOnly) {
         processed = _preprocessFormSections(processed, formSections);
       }
-
-      // Replace <!-- tags: ... --> comments with synthetic fenced blocks
-      // so they render as interactive tag chips in the preview.
-      final tagChipSections = <_TagChipData>[];
-      processed = _preprocessTagComments(processed, tagChipSections);
 
       // Run all plugin preprocessors to convert non-fenced content
       // (like tables and $$..$$) into fenced code blocks with synthetic tags.
@@ -392,10 +383,8 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
                   onPluginEdit: _onPluginEdit,
                   onListReorder: _onListReorder,
                   formSections: formSections,
-                  tagChipSections: tagChipSections,
                   editorTheme: widget.theme,
                   controller: widget.controller,
-                  onTagEdit: _showTagEditorPopup,
                 ),
                 'math-inline': _InlineMathBuilder(theme: basic),
                 for (final level in [1, 2, 3, 4, 5, 6])
@@ -408,6 +397,8 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
                     onEdit: _onHeadingEdit,
                     onContextMenu: _onHeadingContextMenu,
                     getValidationErrors: _getValidationErrorsForSection,
+                    getAllowedTags: _getAllowedTagsForSection,
+                    onEditTags: _editTagsForSection,
                   ),
               },
             ),
@@ -967,18 +958,20 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
       }
     }
 
-    _showTagEditorPopup(_TagChipData(
+    _showTagEditorPopup(
       section: section,
       selectedTags: existingTags,
       allowedTags: allowedTags,
-    ));
+    );
   }
 
   /// Show a popup dialog to edit tags for a section.
-  void _showTagEditorPopup(_TagChipData data) {
-    final section = data.section;
-    var selectedTags = List<String>.from(data.selectedTags);
-    final allowedTags = data.allowedTags;
+  void _showTagEditorPopup({
+    required MdSection section,
+    required List<String> selectedTags,
+    required List<String> allowedTags,
+  }) {
+    var currentTags = List<String>.from(selectedTags);
     final newTagController = TextEditingController();
 
     showDialog<List<String>>(
@@ -1014,16 +1007,16 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
                         spacing: 6,
                         runSpacing: 6,
                         children: allowedTags.map((tag) {
-                          final isSelected = selectedTags.contains(tag);
+                          final isSelected = currentTags.contains(tag);
                           return FilterChip(
                             label: Text(tag),
                             selected: isSelected,
                             onSelected: (selected) {
                               setDialogState(() {
                                 if (selected) {
-                                  selectedTags.add(tag);
+                                  currentTags.add(tag);
                                 } else {
-                                  selectedTags.remove(tag);
+                                  currentTags.remove(tag);
                                 }
                               });
                             },
@@ -1033,7 +1026,7 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
                       const SizedBox(height: 16),
                     ],
                     // Show current custom tags (not in allowedTags).
-                    if (selectedTags
+                    if (currentTags
                         .where((t) => !allowedTags.contains(t))
                         .isNotEmpty) ...[
                       Text(
@@ -1047,14 +1040,14 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
                       Wrap(
                         spacing: 6,
                         runSpacing: 6,
-                        children: selectedTags
+                        children: currentTags
                             .where((t) => !allowedTags.contains(t))
                             .map((tag) {
                           return Chip(
                             label: Text(tag),
                             onDeleted: () {
                               setDialogState(() {
-                                selectedTags.remove(tag);
+                                currentTags.remove(tag);
                               });
                             },
                           );
@@ -1075,9 +1068,9 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
                             onSubmitted: (value) {
                               final tag = value.trim();
                               if (tag.isNotEmpty &&
-                                  !selectedTags.contains(tag)) {
+                                  !currentTags.contains(tag)) {
                                 setDialogState(() {
-                                  selectedTags.add(tag);
+                                  currentTags.add(tag);
                                   newTagController.clear();
                                 });
                               }
@@ -1090,9 +1083,9 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
                           onPressed: () {
                             final tag = newTagController.text.trim();
                             if (tag.isNotEmpty &&
-                                !selectedTags.contains(tag)) {
+                                !currentTags.contains(tag)) {
                               setDialogState(() {
-                                selectedTags.add(tag);
+                                currentTags.add(tag);
                                 newTagController.clear();
                               });
                             }
@@ -1109,7 +1102,7 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
                   child: const Text('Cancel'),
                 ),
                 FilledButton(
-                  onPressed: () => Navigator.pop(ctx, selectedTags),
+                  onPressed: () => Navigator.pop(ctx, currentTags),
                   child: const Text('Save'),
                 ),
               ],
@@ -1225,6 +1218,26 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
     }).toList();
   }
 
+  /// Get allowed tags for a section from the schema.
+  List<String> _getAllowedTagsForSection(MdSection section) {
+    final schema = widget.controller.schema;
+    if (schema == null) return const [];
+
+    final helper = SchemaSectionHelper(schema);
+    final tmpl = SchemaTemplateHelper(schema);
+    final typeName = helper.getSectionTypeName(
+      section,
+      document: widget.controller.document,
+    );
+    if (typeName == null) return const [];
+    return tmpl.getAllowedTags(typeName);
+  }
+
+  /// Edit tags for a section via the tag editor popup.
+  void _editTagsForSection(MdSection section) {
+    _onInsertOrEditTags(section);
+  }
+
   void _toggleTaskItem(int index) {
     try {
       MdEditorDebug.logger.info('Toggle task item at index $index');
@@ -1333,106 +1346,6 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
 
   static final _listItemLinePattern =
       RegExp(r'^[ \t]*(?:[-*+]|\d+\.)[ \t]', multiLine: true);
-
-  // ── Tag comment preprocessing ──
-
-  static final _tagCommentPattern =
-      RegExp(r'<!--\s*tags:\s*(.+?)\s*-->', multiLine: true);
-
-  /// Replace `<!-- tags: tag1, tag2 -->` HTML comments with synthetic fenced
-  /// blocks so they render as inline tag chips in the preview.
-  ///
-  /// Uses a two-pass approach: forward pass identifies tag comments (skipping
-  /// those inside code blocks) and finds owner sections via text matching;
-  /// backward pass replaces lines without index shifting.
-  String _preprocessTagComments(
-    String markdown,
-    List<_TagChipData> tagChipSections,
-  ) {
-    final schema = widget.controller.schema;
-    final doc = widget.controller.document;
-    final helper = schema != null ? SchemaSectionHelper(schema) : null;
-    final tmpl = schema != null ? SchemaTemplateHelper(schema) : null;
-    final allSections = doc.allSections;
-
-    final lines = markdown.split('\n');
-
-    // Forward pass: find tag comments, skipping those inside code blocks.
-    // Track owner sections via text content matching (robust against line
-    // shifts from prior preprocessing like form sections).
-    final entries = <({int line, String tagsStr, String tagComment})>[];
-    var inCodeBlock = false;
-    for (var i = 0; i < lines.length; i++) {
-      final trimmed = lines[i].trimLeft();
-      if (trimmed.startsWith('```') || trimmed.startsWith('~~~')) {
-        inCodeBlock = !inCodeBlock;
-        continue;
-      }
-      if (inCodeBlock) continue;
-
-      final match = _tagCommentPattern.firstMatch(lines[i]);
-      if (match == null) continue;
-      entries.add((
-        line: i,
-        tagsStr: match.group(1)!,
-        tagComment: match.group(0)!,
-      ));
-    }
-
-    if (entries.isEmpty) return markdown;
-
-    // Match each tag comment to its owner section by text content.
-    final claimedIndices = <int>{};
-    final entryData = <({int line, String tagsStr, MdSection? owner})>[];
-    for (final e in entries) {
-      MdSection? owner;
-      for (var j = 0; j < allSections.length; j++) {
-        if (claimedIndices.contains(j)) continue;
-        if (allSections[j].text.contains(e.tagComment)) {
-          owner = allSections[j];
-          claimedIndices.add(j);
-          break;
-        }
-      }
-      entryData.add((line: e.line, tagsStr: e.tagsStr, owner: owner));
-    }
-
-    // Backward pass: replace tag comment lines with synthetic fenced blocks.
-    for (var k = entryData.length - 1; k >= 0; k--) {
-      final e = entryData[k];
-      final selectedTags = e.tagsStr
-          .split(',')
-          .map((t) => t.trim())
-          .where((t) => t.isNotEmpty)
-          .toList();
-
-      var allowedTags = <String>[];
-      if (e.owner != null && helper != null && tmpl != null) {
-        final typeName = helper.getSectionTypeName(
-          e.owner!,
-          document: doc,
-        );
-        if (typeName != null) {
-          allowedTags = tmpl.getAllowedTags(typeName);
-        }
-      }
-
-      final idx = tagChipSections.length;
-      tagChipSections.add(_TagChipData(
-        section: e.owner ?? doc.sections.first,
-        selectedTags: selectedTags,
-        allowedTags: allowedTags,
-      ));
-
-      lines.replaceRange(e.line, e.line + 1, [
-        '```tagchips-$idx',
-        e.tagsStr,
-        '```',
-      ]);
-    }
-
-    return lines.join('\n');
-  }
 
   /// Scan [processed] for contiguous list blocks and replace each with a
   /// synthetic fenced code block `listblock-N` so the code block builder can
@@ -1564,19 +1477,6 @@ class _FormSectionData {
   final specs.PatternCheckDef? textPatternCheck;
 }
 
-/// Data for a tag comment found in section body text.
-class _TagChipData {
-  _TagChipData({
-    required this.section,
-    required this.selectedTags,
-    required this.allowedTags,
-  });
-
-  final MdSection section;
-  final List<String> selectedTags;
-  final List<String> allowedTags;
-}
-
 /// Renders code blocks, delegating to plugins for recognized languages.
 class _CodeBlockBuilder extends MarkdownElementBuilder {
   _CodeBlockBuilder({
@@ -1589,10 +1489,8 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
     required this.onPluginEdit,
     required this.onListReorder,
     required this.formSections,
-    required this.tagChipSections,
     required this.editorTheme,
     required this.controller,
-    required this.onTagEdit,
   });
 
   final MdBasicTheme theme;
@@ -1608,10 +1506,8 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
   ) onPluginEdit;
   final void Function(int blockIndex, String newBlock) onListReorder;
   final List<_FormSectionData> formSections;
-  final List<_TagChipData> tagChipSections;
   final MdEditorTheme editorTheme;
   final MdEditorController controller;
-  final void Function(_TagChipData data) onTagEdit;
 
   String? _language;
 
@@ -1661,20 +1557,6 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
             );
             controller.updateSectionText(data.section, newText);
           },
-        );
-      }
-    }
-
-    // Inline tag chips for <!-- tags: ... --> comments.
-    if (blockLanguage != null && blockLanguage.startsWith('tagchips-')) {
-      final tagIdx =
-          int.tryParse(blockLanguage.substring('tagchips-'.length)) ?? 0;
-      if (tagIdx < tagChipSections.length) {
-        final data = tagChipSections[tagIdx];
-        return _InlineTagChips(
-          data: data,
-          theme: editorTheme,
-          onTap: () => onTagEdit(data),
         );
       }
     }
@@ -1946,6 +1828,8 @@ class _HeadingBuilder extends MarkdownElementBuilder {
     required this.onEdit,
     required this.onContextMenu,
     required this.getValidationErrors,
+    required this.getAllowedTags,
+    required this.onEditTags,
   });
 
   final int level;
@@ -1956,6 +1840,8 @@ class _HeadingBuilder extends MarkdownElementBuilder {
   final void Function(int level, String text) onEdit;
   final void Function(Offset position, int level, String text) onContextMenu;
   final List<ValidationError> Function(MdSection section) getValidationErrors;
+  final List<String> Function(MdSection section) getAllowedTags;
+  final void Function(MdSection section) onEditTags;
 
   /// Regex to strip ALL HTML comments from rendered heading text.
   static final _htmlCommentRegex = RegExp(r'<!--[\s\S]*?-->');
@@ -2077,54 +1963,138 @@ class _HeadingBuilder extends MarkdownElementBuilder {
                   ],
                 ),
                 // ── Comment metadata chips row ──
-                if (commentMeta.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2, bottom: 2),
-                    child: GestureDetector(
-                      onTap: readOnly
-                          ? null
-                          : () => onEdit(level, headline),
-                      child: MouseRegion(
-                        cursor: readOnly
-                            ? SystemMouseCursors.basic
-                            : SystemMouseCursors.click,
-                        child: Wrap(
-                          spacing: 6,
-                          runSpacing: 4,
-                          children: commentMeta.entries.map((e) {
-                            return Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 1,
-                              ),
-                              decoration: BoxDecoration(
-                                color: theme.accent.withAlpha(25),
-                                borderRadius: BorderRadius.circular(4),
-                                border: Border.all(
-                                  color: theme.accent.withAlpha(60),
-                                  width: 0.5,
-                                ),
-                              ),
-                              child: Text(
-                                '${e.key}: ${e.value}',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: theme.textSecondary,
-                                  fontFamily: 'monospace',
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                        ),
-                      ),
-                    ),
-                  ),
+                if (commentMeta.isNotEmpty && section != null)
+                  _buildMetadataRow(section, commentMeta, headline),
               ],
             ),
           ),
         ),
       ),
     );
+  }
+
+  /// Build the metadata row with tags rendered specially.
+  Widget _buildMetadataRow(
+    MdSection section,
+    Map<String, String> commentMeta,
+    String headline,
+  ) {
+    // Separate tags from other metadata.
+    final tagsStr = commentMeta['tags'] ?? '';
+    final tags = tagsStr.isNotEmpty
+        ? tagsStr.split(',').map((t) => t.trim()).where((t) => t.isNotEmpty).toList()
+        : <String>[];
+    final otherMeta = Map<String, String>.from(commentMeta)..remove('tags');
+    final allowedTags = getAllowedTags(section);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 2, bottom: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Tags chips (clickable to edit tags)
+          if (tags.isNotEmpty || allowedTags.isNotEmpty)
+            GestureDetector(
+              onTap: readOnly ? null : () => onEditTags(section),
+              child: MouseRegion(
+                cursor: readOnly ? SystemMouseCursors.basic : SystemMouseCursors.click,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.label, size: 12, color: theme.textMuted),
+                    const SizedBox(width: 4),
+                    Wrap(
+                      spacing: 4,
+                      runSpacing: 4,
+                      children: tags.isEmpty
+                          ? [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: theme.textMuted.withAlpha(20),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: theme.textMuted.withAlpha(40), width: 0.5),
+                                ),
+                                child: Text(
+                                  'add tags',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: theme.textMuted,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ),
+                            ]
+                          : tags.map((tag) {
+                              final color = _tagColor(tag);
+                              final isAllowed = allowedTags.isEmpty || allowedTags.contains(tag);
+                              return Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: color.withAlpha(30),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: color.withAlpha(isAllowed ? 100 : 50),
+                                    width: isAllowed ? 1.0 : 0.5,
+                                  ),
+                                ),
+                                child: Text(
+                                  tag,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: color,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                ),
+              ),
+            ),
+          // Other metadata (clickable to edit section)
+          if (otherMeta.isNotEmpty)
+            Flexible(
+              child: GestureDetector(
+                onTap: readOnly ? null : () => onEdit(level, headline),
+                child: MouseRegion(
+                  cursor: readOnly ? SystemMouseCursors.basic : SystemMouseCursors.click,
+                  child: Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: otherMeta.entries.map((e) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: theme.accent.withAlpha(25),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: theme.accent.withAlpha(60), width: 0.5),
+                        ),
+                        child: Text(
+                          '${e.key}: ${e.value}',
+                          style: TextStyle(fontSize: 10, color: theme.textSecondary, fontFamily: 'monospace'),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Get semantic color for a tag based on its name.
+  Color _tagColor(String tag) {
+    final lower = tag.toLowerCase();
+    if (lower == 'critical' || lower == 'error') return Colors.red;
+    if (lower == 'high' || lower == 'warning') return Colors.orange;
+    if (lower == 'medium' || lower == 'info') return Colors.blue;
+    if (lower == 'low' || lower == 'minor') return Colors.green;
+    return theme.accent;
   }
 
   /// Build validation error indicators for a section heading.
@@ -2569,97 +2539,5 @@ class _DraggableListBlockState extends State<_DraggableListBlock> {
         fontWeight: isOrdered ? FontWeight.w500 : FontWeight.bold,
       ),
     );
-  }
-}
-
-// ── Inline tag chips widget ──
-
-/// Renders tag chips inline in the preview at the position where a
-/// `<!-- tags: ... -->` comment was in the source markdown.
-class _InlineTagChips extends StatelessWidget {
-  const _InlineTagChips({
-    required this.data,
-    required this.theme,
-    required this.onTap,
-  });
-
-  final _TagChipData data;
-  final MdEditorTheme theme;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final basic = theme.basic;
-    final tags = data.selectedTags;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.label, size: 14, color: basic.textMuted),
-              const SizedBox(width: 6),
-              Flexible(
-                child: Wrap(
-                  spacing: 4,
-                  runSpacing: 4,
-                  children: tags.isEmpty
-                      ? [
-                          Text(
-                            'Click to add tags',
-                            style: TextStyle(
-                              color: basic.textMuted,
-                              fontSize: 11,
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                        ]
-                      : tags.map((tag) {
-                          final color = _tagColor(tag, basic);
-                          final isAllowed = data.allowedTags.isEmpty ||
-                              data.allowedTags.contains(tag);
-                          return Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: color.withAlpha(40),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: color.withAlpha(120),
-                                width: isAllowed ? 1.0 : 0.5,
-                              ),
-                            ),
-                            child: Text(
-                              tag,
-                              style: TextStyle(
-                                color: color,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Color _tagColor(String tag, MdBasicTheme basic) {
-    final lower = tag.toLowerCase();
-    if (lower == 'critical' || lower == 'error') return Colors.red;
-    if (lower == 'high' || lower == 'warning') return Colors.orange;
-    if (lower == 'medium' || lower == 'info') return Colors.blue;
-    if (lower == 'low' || lower == 'minor') return Colors.green;
-    return basic.accent;
   }
 }
