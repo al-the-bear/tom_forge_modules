@@ -10,6 +10,9 @@ import 'package:tom_md_editor/tom_md_editor.dart';
 
 /// SharedPreferences key for the schema folder path.
 const _kSchemaFolderPath = 'schema_folder_path';
+const _kDarkMode = 'dark_mode';
+const _kShowTree = 'show_tree';
+const _kPrefixCaseStyle = 'prefix_case_style';
 
 void main() {
   MdEditorDebug.enabled = true;
@@ -74,9 +77,16 @@ class DocumentPickerPage extends StatelessWidget {
   }
 
   Future<void> _showPreferences(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!context.mounted) return;
     await showDialog<void>(
       context: context,
-      builder: (ctx) => const _PreferencesDialog(),
+      builder: (ctx) => _PreferencesDialog(
+        darkMode: prefs.getBool(_kDarkMode) ?? false,
+        showTree: prefs.getBool(_kShowTree) ?? true,
+        prefixCaseStyle: PrefixCaseStyle.values[
+            prefs.getInt(_kPrefixCaseStyle) ?? 0],
+      ),
     );
   }
 
@@ -230,6 +240,7 @@ class _MdEditorDemoPageState extends State<MdEditorDemoPage> {
   bool _darkMode = true;
   bool _readOnly = false;
   bool _showTree = true;
+  PrefixCaseStyle _prefixCaseStyle = PrefixCaseStyle.uppercase;
   DocSpecSchema? _schema;
   String? _schemaFolderPath;
 
@@ -247,6 +258,10 @@ class _MdEditorDemoPageState extends State<MdEditorDemoPage> {
     if (savedPath != null && savedPath.isNotEmpty) {
       _schemaFolderPath = savedPath;
     }
+    _darkMode = prefs.getBool(_kDarkMode) ?? true;
+    _showTree = prefs.getBool(_kShowTree) ?? true;
+    final caseIdx = prefs.getInt(_kPrefixCaseStyle) ?? 0;
+    _prefixCaseStyle = PrefixCaseStyle.values[caseIdx.clamp(0, 2)];
     if (mounted) setState(() {});
     _tryAutoLoadSchema();
   }
@@ -324,6 +339,7 @@ class _MdEditorDemoPageState extends State<MdEditorDemoPage> {
       showTree: _showTree,
       autoHideEditor: false,
       livePreview: true,
+      prefixCaseStyle: _prefixCaseStyle,
     );
 
     return Scaffold(
@@ -368,13 +384,11 @@ class _MdEditorDemoPageState extends State<MdEditorDemoPage> {
             onPressed: _showPreferences,
           ),
           const VerticalDivider(width: 16),
-          _toggle('Dark', _darkMode, (v) => setState(() => _darkMode = v)),
           _toggle(
             'Read-only',
             _readOnly,
             (v) => setState(() => _readOnly = v),
           ),
-          _toggle('Tree', _showTree, (v) => setState(() => _showTree = v)),
           const SizedBox(width: 8),
         ],
       ),
@@ -436,17 +450,23 @@ class _MdEditorDemoPageState extends State<MdEditorDemoPage> {
 
   /// Show the preferences dialog.
   Future<void> _showPreferences() async {
-    final changed = await showDialog<bool>(
+    final result = await showDialog<_PreferencesResult>(
       context: context,
-      builder: (ctx) => const _PreferencesDialog(),
+      builder: (ctx) => _PreferencesDialog(
+        darkMode: _darkMode,
+        showTree: _showTree,
+        prefixCaseStyle: _prefixCaseStyle,
+      ),
     );
-    if (changed == true) {
-      // Reload saved preferences
-      final prefs = await SharedPreferences.getInstance();
-      final savedPath = prefs.getString(_kSchemaFolderPath);
-      if (savedPath != null && savedPath.isNotEmpty) {
-        setState(() => _schemaFolderPath = savedPath);
-      }
+    if (result != null) {
+      setState(() {
+        _darkMode = result.darkMode;
+        _showTree = result.showTree;
+        _prefixCaseStyle = result.prefixCaseStyle;
+        if (result.schemaFolderPath.isNotEmpty) {
+          _schemaFolderPath = result.schemaFolderPath;
+        }
+      });
     }
   }
 
@@ -552,9 +572,32 @@ class _MdEditorDemoPageState extends State<MdEditorDemoPage> {
   }
 }
 
+/// Result from the preferences dialog.
+class _PreferencesResult {
+  final String schemaFolderPath;
+  final bool darkMode;
+  final bool showTree;
+  final PrefixCaseStyle prefixCaseStyle;
+
+  const _PreferencesResult({
+    required this.schemaFolderPath,
+    required this.darkMode,
+    required this.showTree,
+    required this.prefixCaseStyle,
+  });
+}
+
 /// Preferences dialog for configuring persistent settings.
 class _PreferencesDialog extends StatefulWidget {
-  const _PreferencesDialog();
+  const _PreferencesDialog({
+    required this.darkMode,
+    required this.showTree,
+    required this.prefixCaseStyle,
+  });
+
+  final bool darkMode;
+  final bool showTree;
+  final PrefixCaseStyle prefixCaseStyle;
 
   @override
   State<_PreferencesDialog> createState() => _PreferencesDialogState();
@@ -562,12 +605,18 @@ class _PreferencesDialog extends StatefulWidget {
 
 class _PreferencesDialogState extends State<_PreferencesDialog> {
   late TextEditingController _schemaFolderController;
+  late bool _darkMode;
+  late bool _showTree;
+  late PrefixCaseStyle _prefixCaseStyle;
   bool _loading = true;
 
   @override
   void initState() {
     super.initState();
     _schemaFolderController = TextEditingController();
+    _darkMode = widget.darkMode;
+    _showTree = widget.showTree;
+    _prefixCaseStyle = widget.prefixCaseStyle;
     _loadPreferences();
   }
 
@@ -602,7 +651,17 @@ class _PreferencesDialogState extends State<_PreferencesDialog> {
       _kSchemaFolderPath,
       _schemaFolderController.text.trim(),
     );
-    if (mounted) Navigator.of(context).pop(true);
+    await prefs.setBool(_kDarkMode, _darkMode);
+    await prefs.setBool(_kShowTree, _showTree);
+    await prefs.setInt(_kPrefixCaseStyle, _prefixCaseStyle.index);
+    if (mounted) {
+      Navigator.of(context).pop(_PreferencesResult(
+        schemaFolderPath: _schemaFolderController.text.trim(),
+        darkMode: _darkMode,
+        showTree: _showTree,
+        prefixCaseStyle: _prefixCaseStyle,
+      ));
+    }
   }
 
   @override
@@ -617,6 +676,64 @@ class _PreferencesDialogState extends State<_PreferencesDialog> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // — Appearance —
+                  const Text(
+                    'Appearance',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  SwitchListTile(
+                    title: const Text('Dark Mode'),
+                    subtitle: const Text('Switch between dark and light theme'),
+                    value: _darkMode,
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    onChanged: (v) => setState(() => _darkMode = v),
+                  ),
+                  SwitchListTile(
+                    title: const Text('Show Tree'),
+                    subtitle: const Text('Show the section tree panel'),
+                    value: _showTree,
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    onChanged: (v) => setState(() => _showTree = v),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // — Prefix Case Style —
+                  const Text(
+                    'ID Prefix Case Style',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'How section type prefixes are displayed in the '
+                    'edit dialog dropdown.',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                  ),
+                  const SizedBox(height: 8),
+                  SegmentedButton<PrefixCaseStyle>(
+                    segments: const [
+                      ButtonSegment(
+                        value: PrefixCaseStyle.uppercase,
+                        label: Text('UPPER'),
+                      ),
+                      ButtonSegment(
+                        value: PrefixCaseStyle.lowercase,
+                        label: Text('lower'),
+                      ),
+                      ButtonSegment(
+                        value: PrefixCaseStyle.propercase,
+                        label: Text('Proper'),
+                      ),
+                    ],
+                    selected: {_prefixCaseStyle},
+                    onSelectionChanged: (v) =>
+                        setState(() => _prefixCaseStyle = v.first),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // — Schema Folder —
                   const Text(
                     'Schema Folder Path',
                     style: TextStyle(fontWeight: FontWeight.w600),
@@ -654,7 +771,7 @@ class _PreferencesDialogState extends State<_PreferencesDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
+          onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
         FilledButton(
