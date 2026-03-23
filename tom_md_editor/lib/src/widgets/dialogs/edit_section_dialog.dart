@@ -221,8 +221,8 @@ class _EditSectionDialogState extends State<EditSectionDialog> {
                 const SizedBox(height: 8),
               ],
 
-              // Custom tags (deletable chips).
-              if (customTags.isNotEmpty) ...[
+              // Custom tags (deletable chips) - only shown when no allowed tags.
+              if (widget.allowedTags.isEmpty && customTags.isNotEmpty) ...[
                 Wrap(
                   spacing: 6,
                   runSpacing: 6,
@@ -249,27 +249,72 @@ class _EditSectionDialogState extends State<EditSectionDialog> {
                 const SizedBox(height: 8),
               ],
 
-              // Add new tag field.
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _newTagController,
-                      decoration: const InputDecoration(
-                        hintText: 'Add tag...',
-                        isDense: true,
+              // Add tag: dropdown if allowedTags, free-text otherwise.
+              if (widget.allowedTags.isNotEmpty) ...[
+                // Dropdown for unselected allowed tags.
+                Builder(builder: (context) {
+                  final unselected = widget.allowedTags
+                      .where((t) => !_currentTags.contains(t))
+                      .toList();
+                  if (unselected.isEmpty) {
+                    return Text(
+                      'All allowed tags selected',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontStyle: FontStyle.italic,
+                        color: mutedColor,
                       ),
-                      onSubmitted: (_) => _addCustomTag(),
+                    );
+                  }
+                  return DropdownButtonFormField<String>(
+                    decoration: const InputDecoration(
+                      labelText: 'Add tag',
+                      isDense: true,
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    icon: const Icon(Icons.add, size: 18),
-                    tooltip: 'Add tag',
-                    onPressed: _addCustomTag,
-                  ),
-                ],
-              ),
+                    hint: const Text('Select tag to add'),
+                    items: unselected.map((tag) {
+                      final color = _tagColor(tag, colorScheme);
+                      return DropdownMenuItem(
+                        value: tag,
+                        child: Text(
+                          tag,
+                          style: TextStyle(
+                            color: color,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (tag) {
+                      if (tag != null && !_currentTags.contains(tag)) {
+                        setState(() => _currentTags.add(tag));
+                      }
+                    },
+                  );
+                }),
+              ] else ...[
+                // Free-text field when no allowed tags defined.
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _newTagController,
+                        decoration: const InputDecoration(
+                          hintText: 'Add tag...',
+                          isDense: true,
+                        ),
+                        onSubmitted: (_) => _addCustomTag(),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.add, size: 18),
+                      tooltip: 'Add tag',
+                      onPressed: _addCustomTag,
+                    ),
+                  ],
+                ),
+              ],
 
               // — Comment Metadata —
               if (widget.metaControllers.isNotEmpty) ...[
