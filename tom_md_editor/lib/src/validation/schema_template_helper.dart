@@ -59,6 +59,14 @@ class SchemaTemplateHelper {
     return typeDef?.patternCheckId?.pattern;
   }
 
+  /// Get the ID pattern info (pattern + error message) for a section type.
+  ({String pattern, String errorMessage})? getIdPatternInfo(String typeName) {
+    final typeDef = schema.sectionTypes[typeName];
+    final check = typeDef?.patternCheckId;
+    if (check == null) return null;
+    return (pattern: check.pattern, errorMessage: check.errorMessage);
+  }
+
   /// Get the text pattern regex for a section type, if defined.
   String? getTextPattern(String typeName) {
     final typeDef = schema.sectionTypes[typeName];

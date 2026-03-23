@@ -668,28 +668,58 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
       final headlineController = TextEditingController(text: section.headline);
       final idController = TextEditingController(text: section.id ?? '');
 
-      // Collect prefix suggestions from schema section types.
+      // Build context-sensitive allowed section types.
       final schema = widget.controller.schema;
-      final prefixSuggestions = <String>[];
-      String? patternHint;
+      final hasSchema = schema != null;
+      var allowedSectionTypes = <SectionTypeInfo>[];
       List<String> schemaFields = const [];
+
       if (schema != null) {
-        for (final entry in schema.sectionTypes.entries) {
-          final prefix = entry.value.prefix;
-          if (prefix != null && prefix.isNotEmpty) {
-            prefixSuggestions.add(prefix);
-          }
-        }
-        // Resolve current type for pattern hint and required fields.
         final schemaHelper = widget.controller.schemaHelper;
+        final tmpl = SchemaTemplateHelper(schema);
+
+        // Find parent section to get allowed child types.
+        final parent = _findParentSection(section);
+        if (parent != null) {
+          // Child of another section - get allowed subsection types.
+          final allowed = schemaHelper?.getAllowedSubsections(
+            parent,
+            document: widget.controller.document,
+          );
+          if (allowed != null) {
+            allowedSectionTypes = allowed.map((sub) {
+              final prefix = sub.typeDef?.prefix ?? sub.typeName;
+              final patternInfo = tmpl.getIdPatternInfo(sub.typeName);
+              return (
+                typeName: sub.typeName,
+                prefix: prefix,
+                idPattern: patternInfo?.pattern,
+                idPatternErrorMessage: patternInfo?.errorMessage,
+              );
+            }).toList();
+          }
+        } else {
+          // Top-level section - get allowed top-level types from document structure.
+          final topLevel = schemaHelper?.getAllowedTopLevelSections() ?? [];
+          allowedSectionTypes = topLevel.map((top) {
+            final prefix = top.typeDef?.prefix ?? top.sectionType;
+            final patternInfo = tmpl.getIdPatternInfo(top.sectionType);
+            return (
+              typeName: top.sectionType,
+              prefix: prefix,
+              idPattern: patternInfo?.pattern,
+              idPatternErrorMessage: patternInfo?.errorMessage,
+            );
+          }).toList();
+        }
+
+        // Get required fields for current section type.
         if (schemaHelper != null) {
           final typeName = schemaHelper.getSectionTypeName(
             section,
             document: widget.controller.document,
           );
           if (typeName != null) {
-            final tmpl = SchemaTemplateHelper(schema);
-            patternHint = tmpl.getIdPattern(typeName);
             schemaFields = tmpl.getRequiredFields(typeName);
           }
         }
@@ -720,8 +750,8 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
           headlineController: headlineController,
           idController: idController,
           metaControllers: metaControllers,
-          prefixSuggestions: prefixSuggestions,
-          patternHint: patternHint,
+          allowedSectionTypes: allowedSectionTypes,
+          hasSchema: hasSchema,
           schemaFields: schemaFields,
           allowedTags: allowedTags,
           initialTags: initialTags,
@@ -976,6 +1006,17 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
     for (final child in root.subsections) {
       if (child == target) return root;
       final found = _findParentOf(target, child);
+      if (found != null) return found;
+    }
+    return null;
+  }
+
+  /// Find the parent section of [target], or null if it's a top-level section.
+  MdSection? _findParentSection(MdSection target) {
+    final topLevel = widget.controller.document.sections;
+    for (final top in topLevel) {
+      if (top == target) return null; // Top-level section.
+      final found = _findParentOf(target, top);
       if (found != null) return found;
     }
     return null;

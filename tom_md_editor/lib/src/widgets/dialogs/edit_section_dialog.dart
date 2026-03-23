@@ -1,5 +1,13 @@
 import 'package:flutter/material.dart';
 
+/// Information about a section type allowed at the current location.
+typedef SectionTypeInfo = ({
+  String typeName,
+  String prefix,
+  String? idPattern,
+  String? idPatternErrorMessage,
+});
+
 /// Dialog for editing a section's headline, ID, tags, and comment metadata.
 ///
 /// Displays headline and ID fields (with optional prefix autocomplete),
@@ -13,8 +21,8 @@ class EditSectionDialog extends StatefulWidget {
     required this.headlineController,
     required this.idController,
     required this.metaControllers,
-    this.prefixSuggestions = const [],
-    this.patternHint,
+    this.allowedSectionTypes = const [],
+    this.hasSchema = false,
     this.schemaFields = const [],
     this.allowedTags = const [],
     this.initialTags = const [],
@@ -23,8 +31,15 @@ class EditSectionDialog extends StatefulWidget {
   final TextEditingController headlineController;
   final TextEditingController idController;
   final Map<String, TextEditingController> metaControllers;
-  final List<String> prefixSuggestions;
-  final String? patternHint;
+
+  /// Section types allowed at this location (context-sensitive).
+  /// Each entry contains typeName, prefix, idPattern, and error message.
+  final List<SectionTypeInfo> allowedSectionTypes;
+
+  /// Whether schema mode is active. If false, only shows free-text ID field.
+  final bool hasSchema;
+
+  /// Schema-required metadata fields for this section type.
   final List<String> schemaFields;
 
   /// Tags allowed by the schema for this section type.
@@ -41,18 +56,107 @@ class EditSectionDialog extends StatefulWidget {
 class _EditSectionDialogState extends State<EditSectionDialog> {
   final _newKeyController = TextEditingController();
   final _newTagController = TextEditingController();
+  final _idSuffixController = TextEditingController();
   late List<String> _currentTags;
+  String? _selectedPrefix;
 
   @override
   void initState() {
     super.initState();
     _currentTags = List<String>.from(widget.initialTags);
+    _initializeIdParts();
+  }
+
+  void _initializeIdParts() {
+    // Parse existing ID into prefix + suffix.
+    final existingId = widget.idController.text;
+    if (existingId.isEmpty || widget.allowedSectionTypes.isEmpty) {
+      _selectedPrefix = null;
+      _idSuffixController.text = existingId;
+      return;
+    }
+
+    // Try to match a known prefix.
+    for (final typeInfo in widget.allowedSectionTypes) {
+      final prefix = typeInfo.prefix;
+      if (existingId == prefix) {
+        _selectedPrefix = prefix;
+        _idSuffixController.text = '';
+        return;
+      }
+      // Check if ID starts with prefix followed by separator (-, ., _).
+      if (existingId.startsWith(prefix)) {
+        final rest = existingId.substring(prefix.length);
+        if (rest.isEmpty || rest.startsWith('-') || rest.startsWith('.') || rest.startsWith('_')) {
+          _selectedPrefix = prefix;
+          _idSuffixController.text = rest;
+          return;
+        }
+      }
+    }
+
+    // No prefix match - use first available or null.
+    _selectedPrefix = widget.allowedSectionTypes.isNotEmpty
+        ? widget.allowedSectionTypes.first.prefix
+        : null;
+    _idSuffixController.text = existingId;
+  }
+
+  String get _completeId {
+    if (_selectedPrefix == null || _selectedPrefix!.isEmpty) {
+      return _idSuffixController.text;
+    }
+    return '$_selectedPrefix${_idSuffixController.text}';
+  }
+
+  void _updateIdController() {
+    widget.idController.text = _completeId;
+  }
+
+  /// Get validation status for current ID.
+  ({bool isValid, String? errorMessage}) _validateId() {
+    if (widget.allowedSectionTypes.isEmpty) {
+      return (isValid: true, errorMessage: null);
+    }
+
+    final id = _completeId;
+    if (id.isEmpty) {
+      return (isValid: true, errorMessage: null); // Empty ID is okay.
+    }
+
+    // Find the section type matching the selected prefix.
+    final typeInfo = widget.allowedSectionTypes
+        .where((t) => t.prefix == _selectedPrefix)
+        .firstOrNull;
+
+    if (typeInfo == null) {
+      return (isValid: false, errorMessage: 'No matching section type');
+    }
+
+    final pattern = typeInfo.idPattern;
+    if (pattern == null || pattern.isEmpty) {
+      return (isValid: true, errorMessage: null); // No pattern = any ID okay.
+    }
+
+    try {
+      final regex = RegExp(pattern);
+      if (regex.hasMatch(id)) {
+        return (isValid: true, errorMessage: null);
+      }
+      return (
+        isValid: false,
+        errorMessage: typeInfo.idPatternErrorMessage ?? 'Pattern: $pattern',
+      );
+    } catch (e) {
+      return (isValid: false, errorMessage: 'Invalid regex: $pattern');
+    }
   }
 
   @override
   void dispose() {
     _newKeyController.dispose();
     _newTagController.dispose();
+    _idSuffixController.dispose();
     super.dispose();
   }
 
@@ -98,7 +202,7 @@ class _EditSectionDialogState extends State<EditSectionDialog> {
     return AlertDialog(
       title: const Text('Edit Section'),
       content: SizedBox(
-        width: 400,
+        width: 420,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -113,58 +217,7 @@ class _EditSectionDialogState extends State<EditSectionDialog> {
               const SizedBox(height: 12),
 
               // — ID —
-              if (widget.prefixSuggestions.isNotEmpty)
-                Autocomplete<String>(
-                  optionsBuilder: (textEditingValue) {
-                    final query = textEditingValue.text.toLowerCase();
-                    if (query.isEmpty) return widget.prefixSuggestions;
-                    return widget.prefixSuggestions.where(
-                      (s) => s.toLowerCase().contains(query),
-                    );
-                  },
-                  fieldViewBuilder: (ctx, controller, focusNode, onSubmit) {
-                    controller.text = widget.idController.text;
-                    controller.addListener(() {
-                      widget.idController.text = controller.text;
-                    });
-                    return TextField(
-                      controller: controller,
-                      focusNode: focusNode,
-                      decoration: InputDecoration(
-                        labelText: 'ID (optional)',
-                        hintText: 'e.g. my-section-id',
-                        suffixIcon: Icon(
-                          Icons.arrow_drop_down,
-                          color: mutedColor,
-                        ),
-                      ),
-                    );
-                  },
-                  onSelected: (value) {
-                    widget.idController.text = value;
-                  },
-                )
-              else
-                TextField(
-                  controller: widget.idController,
-                  decoration: const InputDecoration(
-                    labelText: 'ID (optional)',
-                    hintText: 'e.g. my-section-id',
-                  ),
-                ),
-
-              if (widget.patternHint != null &&
-                  widget.patternHint!.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text(
-                  'Expected pattern: ${widget.patternHint}',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: mutedColor,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              ],
+              _buildIdEditor(colorScheme, mutedColor),
 
               // — Tags —
               const SizedBox(height: 16),
@@ -388,6 +441,157 @@ class _EditSectionDialogState extends State<EditSectionDialog> {
           onPressed: () => Navigator.pop(context, _currentTags),
           child: const Text('Save'),
         ),
+      ],
+    );
+  }
+
+  /// Build the ID editor with split prefix + suffix when in schema mode.
+  Widget _buildIdEditor(ColorScheme colorScheme, Color mutedColor) {
+    // No schema mode - just a free-text field.
+    if (!widget.hasSchema) {
+      return TextField(
+        controller: widget.idController,
+        decoration: const InputDecoration(
+          labelText: 'ID (optional)',
+          hintText: 'e.g. my-section-id',
+        ),
+      );
+    }
+
+    // Schema mode with no allowed types - just show free-text.
+    if (widget.allowedSectionTypes.isEmpty) {
+      return TextField(
+        controller: widget.idController,
+        decoration: const InputDecoration(
+          labelText: 'ID (optional)',
+          hintText: 'e.g. my-section-id',
+        ),
+      );
+    }
+
+    // Schema mode with allowed types - split prefix dropdown + suffix.
+    final validation = _validateId();
+    final completeId = _completeId;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Prefix dropdown.
+            SizedBox(
+              width: 140,
+              child: DropdownButtonFormField<String>(
+                decoration: InputDecoration(
+                  labelText: 'Type Prefix',
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                ),
+                value: _selectedPrefix,
+                items: widget.allowedSectionTypes.map((typeInfo) {
+                  return DropdownMenuItem(
+                    value: typeInfo.prefix,
+                    child: Text(
+                      typeInfo.prefix,
+                      style: TextStyle(
+                        fontFamily: 'monospace',
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.primary,
+                      ),
+                    ),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedPrefix = value;
+                    _updateIdController();
+                  });
+                },
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Suffix text field.
+            Expanded(
+              child: TextField(
+                controller: _idSuffixController,
+                decoration: const InputDecoration(
+                  labelText: 'ID Suffix',
+                  isDense: true,
+                  hintText: '-001 or .my-section',
+                ),
+                onChanged: (_) {
+                  setState(() {
+                    _updateIdController();
+                  });
+                },
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Validation indicator.
+            Padding(
+              padding: const EdgeInsets.only(top: 14),
+              child: validation.isValid
+                  ? Icon(
+                      Icons.check_circle,
+                      size: 20,
+                      color: Colors.green[600],
+                    )
+                  : Tooltip(
+                      message: validation.errorMessage ?? 'Invalid ID format',
+                      child: Icon(
+                        Icons.error,
+                        size: 20,
+                        color: Colors.red[600],
+                      ),
+                    ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        // Complete ID preview.
+        if (completeId.isNotEmpty)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: validation.isValid
+                  ? Colors.green.withValues(alpha: 0.1)
+                  : Colors.red.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(
+                color: validation.isValid
+                    ? Colors.green.withValues(alpha: 0.3)
+                    : Colors.red.withValues(alpha: 0.3),
+              ),
+            ),
+            child: Row(
+              children: [
+                Text(
+                  'Complete ID: ',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: mutedColor,
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    completeId,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontFamily: 'monospace',
+                      fontWeight: FontWeight.w600,
+                      color: validation.isValid
+                          ? Colors.green[700]
+                          : Colors.red[700],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
       ],
     );
   }
