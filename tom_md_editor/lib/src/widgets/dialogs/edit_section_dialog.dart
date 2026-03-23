@@ -76,18 +76,22 @@ class _EditSectionDialogState extends State<EditSectionDialog> {
       return;
     }
 
-    // Try to match a known prefix.
+    // Try to match a known prefix (case-insensitive).
+    final lowerExistingId = existingId.toLowerCase();
     for (final typeInfo in widget.allowedSectionTypes) {
       final prefix = typeInfo.prefix;
-      if (existingId == prefix) {
+      final lowerPrefix = prefix.toLowerCase();
+      if (lowerExistingId == lowerPrefix) {
+        // Use schema's prefix casing, not what user typed.
         _selectedPrefix = prefix;
         _idSuffixController.text = '';
         return;
       }
       // Check if ID starts with prefix followed by separator (-, ., _).
-      if (existingId.startsWith(prefix)) {
+      if (lowerExistingId.startsWith(lowerPrefix)) {
         final rest = existingId.substring(prefix.length);
         if (rest.isEmpty || rest.startsWith('-') || rest.startsWith('.') || rest.startsWith('_')) {
+          // Use schema's prefix casing.
           _selectedPrefix = prefix;
           _idSuffixController.text = rest;
           return;
@@ -479,9 +483,9 @@ class _EditSectionDialogState extends State<EditSectionDialog> {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Prefix dropdown.
-            SizedBox(
-              width: 140,
+            // Prefix dropdown - use Flexible to prevent overflow.
+            Flexible(
+              flex: 2,
               child: DropdownButtonFormField<String>(
                 decoration: InputDecoration(
                   labelText: 'Type Prefix',
@@ -491,7 +495,8 @@ class _EditSectionDialogState extends State<EditSectionDialog> {
                     vertical: 8,
                   ),
                 ),
-                value: _selectedPrefix,
+                isExpanded: true,
+                initialValue: _selectedPrefix,
                 items: widget.allowedSectionTypes.map((typeInfo) {
                   return DropdownMenuItem(
                     value: typeInfo.prefix,
@@ -502,6 +507,7 @@ class _EditSectionDialogState extends State<EditSectionDialog> {
                         fontWeight: FontWeight.w600,
                         color: colorScheme.primary,
                       ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   );
                 }).toList(),
@@ -515,12 +521,17 @@ class _EditSectionDialogState extends State<EditSectionDialog> {
             ),
             const SizedBox(width: 8),
             // Suffix text field.
-            Expanded(
+            Flexible(
+              flex: 3,
               child: TextField(
                 controller: _idSuffixController,
                 decoration: const InputDecoration(
                   labelText: 'ID Suffix',
                   isDense: true,
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   hintText: '-001 or .my-section',
                 ),
                 onChanged: (_) {

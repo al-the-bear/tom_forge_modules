@@ -135,7 +135,7 @@ class SchemaSectionHelper {
   /// Returns the section names and types defined in `document.sections`.
   List<({String name, String sectionType, specs.SectionTypeDef? typeDef, bool optional})>
       getAllowedTopLevelSections() {
-    return schema.document.sections.entries.map((entry) {
+    final result = schema.document.sections.entries.map((entry) {
       final typeDef = schema.sectionTypes[entry.value.sectionType];
       return (
         name: entry.key,
@@ -144,12 +144,14 @@ class SchemaSectionHelper {
         optional: entry.value.optional ?? false,
       );
     }).toList();
+    return result;
   }
 
   /// Match a section to a type by its ID prefix.
+  /// Match a section to a type by its ID prefix (case-insensitive).
   String? _matchByPrefix(MdSection section) {
     if (section.id == null || section.id!.isEmpty) return null;
-    final sectionId = section.id!;
+    final sectionId = section.id!.toLowerCase();
 
     String? bestMatch;
     var bestLen = 0;
@@ -157,7 +159,7 @@ class SchemaSectionHelper {
     for (final entry in schema.sectionTypes.entries) {
       final prefix = entry.value.prefix;
       if (prefix != null &&
-          sectionId.startsWith(prefix) &&
+          sectionId.startsWith(prefix.toLowerCase()) &&
           prefix.length > bestLen) {
         bestMatch = entry.key;
         bestLen = prefix.length;

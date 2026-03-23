@@ -146,7 +146,7 @@ class SchemaTemplateHelper {
           entry.value.subsectionValidationPrompt != null) {
         final parentType = schema.sectionTypes[entry.value.sectionType];
         if (parentType?.prefix != null &&
-            parentSectionId.startsWith(parentType!.prefix!)) {
+            parentSectionId.toLowerCase().startsWith(parentType!.prefix!.toLowerCase())) {
           return entry.value.subsectionValidationPrompt;
         }
       }

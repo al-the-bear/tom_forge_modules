@@ -3,6 +3,18 @@ import '../constants/md_constants.dart';
 /// Position of the raw text editor relative to the preview.
 enum RawEditorPosition { below, right }
 
+/// How ID prefixes are displayed in the editor dropdown.
+enum PrefixCaseStyle {
+  /// All uppercase: `OVERVIEW`, `CONFIG`, `TASK`
+  uppercase,
+
+  /// All lowercase: `overview`, `config`, `task`
+  lowercase,
+
+  /// First letter uppercase, rest lowercase: `Overview`, `Config`, `Task`
+  propercase,
+}
+
 /// All configurable settings for the markdown editor.
 class MdEditorSettings {
   const MdEditorSettings({
@@ -66,6 +78,7 @@ class MdEditorSettings {
     this.showValidationPrompts = true,
     this.showSectionTypeTooltips = true,
     this.enablePositionAwareDragDrop = true,
+    this.prefixCaseStyle = PrefixCaseStyle.uppercase,
     // Behavior
     this.readOnly = false,
     this.enableUndo = true,
@@ -157,6 +170,7 @@ class MdEditorSettings {
   final bool showValidationPrompts;
   final bool showSectionTypeTooltips;
   final bool enablePositionAwareDragDrop;
+  final PrefixCaseStyle prefixCaseStyle;
 
   // ── Behavior ──
   final bool readOnly;
@@ -227,6 +241,7 @@ class MdEditorSettings {
     bool? showValidationPrompts,
     bool? showSectionTypeTooltips,
     bool? enablePositionAwareDragDrop,
+    PrefixCaseStyle? prefixCaseStyle,
     // Behavior
     bool? readOnly,
     bool? enableUndo,
@@ -310,6 +325,7 @@ class MdEditorSettings {
           showSectionTypeTooltips ?? this.showSectionTypeTooltips,
       enablePositionAwareDragDrop:
           enablePositionAwareDragDrop ?? this.enablePositionAwareDragDrop,
+      prefixCaseStyle: prefixCaseStyle ?? this.prefixCaseStyle,
       // Behavior
       readOnly: readOnly ?? this.readOnly,
       enableUndo: enableUndo ?? this.enableUndo,

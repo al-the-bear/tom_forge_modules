@@ -657,7 +657,7 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
   }
 
   /// Handle heading edit icon tap.
-  void _onHeadingEdit(int level, String text) {
+  Future<void> _onHeadingEdit(int level, String text) async {
     try {
       final sections = widget.controller.document.allSections;
       final match = sections.where(
@@ -680,15 +680,37 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
 
         // Find parent section to get allowed child types.
         final parent = _findParentSection(section);
-        if (parent != null) {
-          // Child of another section - get allowed subsection types.
+        
+        // Check if parent has a known schema type.
+        // If parent is the document title (no schema type), treat children
+        // as effectively top-level sections for schema purposes.
+        final parentHasSchemaType = parent != null &&
+            schemaHelper?.getSectionTypeName(
+              parent,
+              document: widget.controller.document,
+            ) != null;
+
+        String applyPrefixCase(String value) {
+          switch (widget.settings.prefixCaseStyle) {
+            case PrefixCaseStyle.uppercase:
+              return value.toUpperCase();
+            case PrefixCaseStyle.lowercase:
+              return value.toLowerCase();
+            case PrefixCaseStyle.propercase:
+              if (value.isEmpty) return value;
+              return value[0].toUpperCase() + value.substring(1).toLowerCase();
+          }
+        }
+
+        if (parent != null && parentHasSchemaType) {
+          // Child of a schema-typed section - get allowed subsection types.
           final allowed = schemaHelper?.getAllowedSubsections(
             parent,
             document: widget.controller.document,
           );
-          if (allowed != null) {
+          if (allowed != null && allowed.isNotEmpty) {
             allowedSectionTypes = allowed.map((sub) {
-              final prefix = sub.typeDef?.prefix ?? sub.typeName;
+              final prefix = applyPrefixCase(sub.typeDef?.prefix ?? sub.typeName);
               final patternInfo = tmpl.getIdPatternInfo(sub.typeName);
               return (
                 typeName: sub.typeName,
@@ -699,10 +721,11 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
             }).toList();
           }
         } else {
-          // Top-level section - get allowed top-level types from document structure.
+          // Top-level section OR child of untyped section (e.g., document title)
+          // - get allowed top-level types from document structure.
           final topLevel = schemaHelper?.getAllowedTopLevelSections() ?? [];
           allowedSectionTypes = topLevel.map((top) {
-            final prefix = top.typeDef?.prefix ?? top.sectionType;
+            final prefix = applyPrefixCase(top.typeDef?.prefix ?? top.sectionType);
             final patternInfo = tmpl.getIdPatternInfo(top.sectionType);
             return (
               typeName: top.sectionType,
@@ -744,7 +767,7 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
       // Get allowed tags from schema.
       final allowedTags = _getAllowedTagsForSection(section);
 
-      showDialog<List<String>>(
+      final resultTags = await showDialog<List<String>>(
         context: context,
         builder: (ctx) => EditSectionDialog(
           headlineController: headlineController,
@@ -756,44 +779,47 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
           allowedTags: allowedTags,
           initialTags: initialTags,
         ),
-      ).then((resultTags) {
-        if (resultTags == null) {
-          // User cancelled.
-          headlineController.dispose();
-          idController.dispose();
-          for (final c in metaControllers.values) {
-            c.dispose();
-          }
-          return;
+      );
+
+      // Read controller values before disposal.
+      final newHeadline = headlineController.text.trim();
+      final newId = idController.text.trim();
+      final newMeta = <String, String>{};
+      for (final entry in metaControllers.entries) {
+        final value = entry.value.text.trim();
+        if (value.isNotEmpty) {
+          newMeta[entry.key] = value;
         }
-        final newHeadline = headlineController.text.trim();
-        final newId = idController.text.trim();
+      }
+
+      // Defer disposal to ensure dialog animation completes first.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
         headlineController.dispose();
         idController.dispose();
-        if (newHeadline.isNotEmpty && newHeadline != section.headline) {
-          widget.controller.updateSectionHeadline(section, newHeadline);
-        }
-        final effectiveId = newId.isEmpty ? null : newId;
-        if (effectiveId != section.id) {
-          widget.controller.updateSectionId(section, effectiveId);
-        }
-        // Collect updated metadata, dropping empty values.
-        final newMeta = <String, String>{};
-        for (final entry in metaControllers.entries) {
-          final value = entry.value.text.trim();
-          if (value.isNotEmpty) {
-            newMeta[entry.key] = value;
-          }
-          entry.value.dispose();
-        }
-        // Add tags back to metadata if any.
-        if (resultTags.isNotEmpty) {
-          newMeta['tags'] = resultTags.join(',');
-        }
-        if (!_mapEquals(newMeta, section.commentMetadata)) {
-          widget.controller.updateCommentMetadata(section, newMeta);
+        for (final c in metaControllers.values) {
+          c.dispose();
         }
       });
+
+      if (resultTags == null) {
+        // User cancelled.
+        return;
+      }
+
+      if (newHeadline.isNotEmpty && newHeadline != section.headline) {
+        widget.controller.updateSectionHeadline(section, newHeadline);
+      }
+      final effectiveId = newId.isEmpty ? null : newId;
+      if (effectiveId != section.id) {
+        widget.controller.updateSectionId(section, effectiveId);
+      }
+      // Add tags back to metadata if any.
+      if (resultTags.isNotEmpty) {
+        newMeta['tags'] = resultTags.join(',');
+      }
+      if (!_mapEquals(newMeta, section.commentMetadata)) {
+        widget.controller.updateCommentMetadata(section, newMeta);
+      }
     } catch (e, st) {
       MdEditorDebug.logger.error('Error handling heading edit', e, st);
     }
@@ -1015,11 +1041,21 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
   MdSection? _findParentSection(MdSection target) {
     final topLevel = widget.controller.document.sections;
     for (final top in topLevel) {
-      if (top == target) return null; // Top-level section.
+      // Use attribute comparison instead of object identity since sections
+      // may have been recreated via allSections getter.
+      if (_sectionsMatch(top, target)) return null; // Top-level section.
       final found = _findParentOf(target, top);
       if (found != null) return found;
     }
     return null;
+  }
+
+  /// Check if two sections match by attributes (not object identity).
+  bool _sectionsMatch(MdSection a, MdSection b) {
+    return a.level == b.level &&
+        a.headline == b.headline &&
+        a.id == b.id &&
+        a.sourceLineStart == b.sourceLineStart;
   }
 
   void _addChildSection(MdSection section) {
