@@ -343,9 +343,16 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
           child: SingleChildScrollView(
             controller: _scrollController,
             padding: EdgeInsets.all(basic.blockPadding * 2),
-            child: MarkdownBody(
+            child: SelectionArea(
+              contextMenuBuilder: (ctx, selectableRegionState) {
+                return _buildBodyContextMenu(
+                  ctx,
+                  selectableRegionState,
+                );
+              },
+              child: MarkdownBody(
               data: processed,
-              selectable: true,
+              selectable: false,
               extensionSet: md.ExtensionSet(
                 md.ExtensionSet.gitHubWeb.blockSyntaxes,
                 [
@@ -405,6 +412,7 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
                   ),
               },
             ),
+          ),
           ),
       );
     } catch (e, st) {
@@ -764,6 +772,93 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
     return true;
   }
 
+  /// Build a custom context menu for the selection area in the preview body.
+  ///
+  /// Includes standard selection buttons (Copy, Select All) plus
+  /// "Insert Tags" / "Edit Tags" when the right-clicked section supports tags.
+  Widget _buildBodyContextMenu(
+    BuildContext ctx,
+    SelectableRegionState selectableRegionState,
+  ) {
+    final standardItems = selectableRegionState.contextMenuButtonItems;
+
+    // Determine which section was right-clicked using the anchor position.
+    final anchors = selectableRegionState.contextMenuAnchors;
+    final clickPosition = anchors.primaryAnchor;
+    final section = _findSectionAtPosition(clickPosition);
+
+    // Build tag insertion item if the section supports tags.
+    final tagItems = <ContextMenuButtonItem>[];
+    if (section != null && !widget.settings.readOnly) {
+      final schema = widget.controller.schema;
+      var allowedTags = <String>[];
+      if (schema != null) {
+        final helper = SchemaSectionHelper(schema);
+        final tmpl = SchemaTemplateHelper(schema);
+        final typeName = helper.getSectionTypeName(
+          section,
+          document: widget.controller.document,
+        );
+        if (typeName != null) {
+          allowedTags = tmpl.getAllowedTags(typeName);
+        }
+      }
+      final existingTags = MdTagSelector.parseTags(section.text);
+      if (allowedTags.isNotEmpty || existingTags.isNotEmpty) {
+        tagItems.add(ContextMenuButtonItem(
+          label: existingTags.isNotEmpty ? 'Edit Tags' : 'Insert Tags',
+          onPressed: () {
+            ContextMenuController.removeAny();
+            _onInsertOrEditTags(section);
+          },
+        ));
+      }
+    }
+
+    return AdaptiveTextSelectionToolbar.buttonItems(
+      anchors: anchors,
+      buttonItems: [...standardItems, ...tagItems],
+    );
+  }
+
+  /// Find the section whose heading is closest above [globalPosition].
+  MdSection? _findSectionAtPosition(Offset globalPosition) {
+    final allSections = widget.controller.document.allSections;
+    MdSection? bestMatch;
+    double bestY = double.negativeInfinity;
+
+    void searchElement(Element element) {
+      final key = element.widget.key;
+      if (key is ValueKey<String>) {
+        final keyStr = key.value;
+        // Heading keys are formatted as '$level:$headline'.
+        final colonIdx = keyStr.indexOf(':');
+        if (colonIdx > 0) {
+          final level = int.tryParse(keyStr.substring(0, colonIdx));
+          if (level != null) {
+            final renderBox = element.findRenderObject();
+            if (renderBox is RenderBox && renderBox.hasSize) {
+              final pos = renderBox.localToGlobal(Offset.zero);
+              if (pos.dy <= globalPosition.dy && pos.dy > bestY) {
+                bestY = pos.dy;
+                final headline = keyStr.substring(colonIdx + 1);
+                final match = allSections.where(
+                  (s) =>
+                      s.level == level && s.headline.trim() == headline,
+                );
+                if (match.isNotEmpty) bestMatch = match.first;
+              }
+            }
+          }
+        }
+      }
+      element.visitChildren(searchElement);
+    }
+
+    context.visitChildElements(searchElement);
+    return bestMatch;
+  }
+
   void _onHeadingContextMenu(Offset position, int level, String text) {
     try {
       final sections = widget.controller.document.allSections;
@@ -795,14 +890,6 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
           ),
           ...subsectionItems,
           const PopupMenuDivider(),
-          PopupMenuItem(
-            value: 'tags',
-            child: Text(
-              MdTagSelector.parseTags(section.text).isNotEmpty
-                  ? 'Edit Tags'
-                  : 'Insert Tags',
-            ),
-          ),
           const PopupMenuItem(
             value: 'edit',
             child: Text('Edit Headline & ID'),
@@ -877,8 +964,6 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
           _addSectionRelative(section, above: action == 'add_above');
         case 'add_child':
           _addChildSection(section);
-        case 'tags':
-          _onInsertOrEditTags(section);
         case 'edit':
           _onHeadingEdit(section.level, section.headline);
       }
@@ -1070,8 +1155,16 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
       },
     ).then((result) {
       if (result == null) return;
-      final newText = MdTagSelector.updateTags(section.text, result);
-      widget.controller.updateSectionText(section, newText);
+      // Re-link section in case document was re-parsed while dialog was open.
+      final doc = widget.controller.document;
+      final current = doc.allSections
+          .where(
+            (s) => s.headline == section.headline && s.level == section.level,
+          )
+          .firstOrNull;
+      final target = current ?? section;
+      final newText = MdTagSelector.updateTags(target.text, result);
+      widget.controller.updateSectionText(target, newText);
     });
   }
 
@@ -1278,6 +1371,10 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
 
   /// Replace `<!-- tags: tag1, tag2 -->` HTML comments with synthetic fenced
   /// blocks so they render as inline tag chips in the preview.
+  ///
+  /// Uses a two-pass approach: forward pass identifies tag comments (skipping
+  /// those inside code blocks) and finds owner sections via text matching;
+  /// backward pass replaces lines without index shifting.
   String _preprocessTagComments(
     String markdown,
     List<_TagChipData> tagChipSections,
@@ -1286,34 +1383,63 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
     final doc = widget.controller.document;
     final helper = schema != null ? SchemaSectionHelper(schema) : null;
     final tmpl = schema != null ? SchemaTemplateHelper(schema) : null;
+    final allSections = doc.allSections;
 
     final lines = markdown.split('\n');
-    // Work backwards so replacements don't shift line indices.
-    for (var i = lines.length - 1; i >= 0; i--) {
+
+    // Forward pass: find tag comments, skipping those inside code blocks.
+    // Track owner sections via text content matching (robust against line
+    // shifts from prior preprocessing like form sections).
+    final entries = <({int line, String tagsStr, String tagComment})>[];
+    var inCodeBlock = false;
+    for (var i = 0; i < lines.length; i++) {
+      final trimmed = lines[i].trimLeft();
+      if (trimmed.startsWith('```') || trimmed.startsWith('~~~')) {
+        inCodeBlock = !inCodeBlock;
+        continue;
+      }
+      if (inCodeBlock) continue;
+
       final match = _tagCommentPattern.firstMatch(lines[i]);
       if (match == null) continue;
+      entries.add((
+        line: i,
+        tagsStr: match.group(1)!,
+        tagComment: match.group(0)!,
+      ));
+    }
 
-      final tagsStr = match.group(1)!;
-      final selectedTags = tagsStr
+    if (entries.isEmpty) return markdown;
+
+    // Match each tag comment to its owner section by text content.
+    final claimedIndices = <int>{};
+    final entryData = <({int line, String tagsStr, MdSection? owner})>[];
+    for (final e in entries) {
+      MdSection? owner;
+      for (var j = 0; j < allSections.length; j++) {
+        if (claimedIndices.contains(j)) continue;
+        if (allSections[j].text.contains(e.tagComment)) {
+          owner = allSections[j];
+          claimedIndices.add(j);
+          break;
+        }
+      }
+      entryData.add((line: e.line, tagsStr: e.tagsStr, owner: owner));
+    }
+
+    // Backward pass: replace tag comment lines with synthetic fenced blocks.
+    for (var k = entryData.length - 1; k >= 0; k--) {
+      final e = entryData[k];
+      final selectedTags = e.tagsStr
           .split(',')
           .map((t) => t.trim())
           .where((t) => t.isNotEmpty)
           .toList();
 
-      // Find the section that contains this line.
-      MdSection? ownerSection;
-      for (final section in doc.allSections) {
-        final start = section.sourceLineStart;
-        if (start == null) continue;
-        // Section spans from its heading line to the next section's heading.
-        if (i >= start) ownerSection = section;
-      }
-
-      // Look up allowed-tags from schema if available.
       var allowedTags = <String>[];
-      if (ownerSection != null && helper != null && tmpl != null) {
+      if (e.owner != null && helper != null && tmpl != null) {
         final typeName = helper.getSectionTypeName(
-          ownerSection,
+          e.owner!,
           document: doc,
         );
         if (typeName != null) {
@@ -1323,15 +1449,14 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
 
       final idx = tagChipSections.length;
       tagChipSections.add(_TagChipData(
-        section: ownerSection ?? doc.sections.first,
+        section: e.owner ?? doc.sections.first,
         selectedTags: selectedTags,
         allowedTags: allowedTags,
       ));
 
-      // Replace the tag comment line with a synthetic fenced block.
-      lines.replaceRange(i, i + 1, [
+      lines.replaceRange(e.line, e.line + 1, [
         '```tagchips-$idx',
-        tagsStr,
+        e.tagsStr,
         '```',
       ]);
     }
