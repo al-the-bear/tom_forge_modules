@@ -521,7 +521,7 @@ class ForgeAction {
   /// Execute the action.
   /// Returns an undo object (information needed to reverse the action),
   /// or null if the action is not undoable.
-  final Future<Object?> Function() execute;
+  final Future<Object?> Function( Map<String,Object> parameters ) execute;
 
   /// Whether the action is currently enabled. Evaluated dynamically.
   final bool Function() isEnabled;
