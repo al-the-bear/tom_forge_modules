@@ -977,7 +977,7 @@ class TomFormEditorModule extends ForgeModule {
     menu: ForgeMenuLocation.modules,
     group: 'Form Editor',
     priority: 0,
-    execute: () async {
+    execute: (parameters) async {
       final field = await _shell.dialogs.showInputBox(
         prompt: 'Field name',
         placeholder: 'Enter field name',
@@ -1639,6 +1639,41 @@ abstract class ForgeShortcutManager {
   /// Detect conflicts with an existing binding.
   ForgeShortcutBinding? conflictsWith(ForgeShortcutKey key);
 }
+```
+
+#### ForgeShortcutBinding and ForgeShortcutKey
+
+Shortcut bindings connect actions to key combinations. Used throughout the module system (§8.2), component contracts (§4.3), and the menu system (§7.2):
+
+```dart
+class ForgeShortcutBinding {
+  /// The action this shortcut triggers.
+  final ForgeAction action;
+
+  /// The key combination that activates this shortcut.
+  final ForgeShortcutKey key;
+
+  /// When this shortcut is active. Null = always active.
+  /// Examples: 'editorFocus', 'textEditorFocus', 'explorerFocus'.
+  final String? context;
+}
+
+class ForgeShortcutKey {
+  /// The primary key (e.g., LogicalKeyboardKey.keyS).
+  final LogicalKeyboardKey key;
+
+  /// Whether the primary modifier is required (CMD on macOS, CTRL on others).
+  final bool primaryModifier;
+
+  /// Whether SHIFT is required.
+  final bool shift;
+
+  /// Whether ALT/OPT is required.
+  final bool alt;
+}
+
+/// Panel locations in the shell layout.
+enum ForgePanelLocation { left, right, bottom, middle }
 ```
 
 #### File-to-Editor Resolution (Two-Phase)
@@ -2432,10 +2467,10 @@ These views ship with the panel shell framework as members of `TomForgeShellModu
 |------|--------------|-------------|---------------|
 | **Terminal** | `shellModule.terminal` | Embedded terminal emulator (pty-based on desktop). Multiple terminal instances managed as tabs within the view. | Bottom |
 | **Output** | `shellModule.output` | Read-only text output channel. Components can write to named output channels (dropdown to select channel). Shows timestamped, scrollable log output. | Bottom |
-| **Problems** | `shellModule.problems` | Aggregated diagnostics list (errors, warnings, info). Components register problem providers. Click-to-navigate to source location. Filterable by severity and source. | Bottom |
-| **Explorer** | `shellModule.explorer` | File/resource tree browser. Shows workspace files, supports open/rename/delete. Double-click opens in editor. | Left |
-| **Search** | `shellModule.search` | Full-text search across workspace files. Shows results grouped by file with match highlighting. Click navigates to match. | Left |
-| **Outline** | `shellModule.outline` | Structural outline of the active editor's content (sections, classes, functions — editor-dependent). Follows focus. Click navigates within the editor. | Left |
+| **Problems** | `shellModule.problems` | Aggregated diagnostics list (errors, warnings, info). Components register problem providers via `ForgeDiagnosticManager`. Click-to-navigate to source location. Filterable by severity and source. | Bottom |
+| **Explorer** | `shellModule.explorer` | File/resource tree browser. Shows workspace files, supports open/rename/delete. Double-click opens in editor. Supports file decorations (badges, colors) via `ForgeFileDecorationManager`. | Left |
+| **Search** | `shellModule.search` | Full-text search across workspace files. Shows results grouped by file with match highlighting. Click navigates to match. Modules can trigger searches programmatically via `ForgeSearchManager`. | Left |
+| **Outline** | `shellModule.outline` | Structural outline of the active editor's content (sections, classes, functions). Modules register outline providers via `ForgeOutlineManager`. Follows focus. Click navigates within the editor. | Left |
 | **File History** | `shellModule.history` | Revision history for the active file. Shows timestamps, diffs, restore options. Reads from `.forge/revisions/`. | Right |
 
 ### 14.2 Suggested for Later
@@ -2811,7 +2846,7 @@ Per Tom Forge convention, the panel shell implements trail-based debug mode:
 ### Phase 3 — Component Framework
 
 - `ForgeComponent`, `ForgeEditor`, `ForgeView` base contracts
-- `ForgeTextEditor` with `ForgeDocument`, text selection, cursor, modification API
+- `ForgeTextEditor` with `ForgeDocument`, text selection, cursor, modification API, multi-selection (`selections`, `setSelections`), visible range, per-editor options (`ForgeTextEditorOptions`), and decoration system (`ForgeDecorationType`, `setDecorations`, `clearDecorations`)
 - `ForgeVisualEditor` with element selection, viewport, zoom
 - `ForgeSchemaEditor` with content-based schema detection
 - Component host wrapper with drag handles
@@ -2825,7 +2860,7 @@ Per Tom Forge convention, the panel shell implements trail-based debug mode:
 ### Phase 4 — Module System and Actions
 
 - `ForgeModule` contract and lifecycle (activate/deactivate)
-- `ForgeShellApi` implementation
+- `ForgeShellApi` implementation with all services: systemState, layout, statusBar, fileSystem, modules, output, diagnostics, config, notifications, progress, dialogs, terminals, clipboard, environment, storage, undoManager, secrets (`ForgeSecretStorage`), fileDecorations (`ForgeFileDecorationManager`), virtualDocuments (`ForgeVirtualDocumentManager`), outline (`ForgeOutlineManager`), search (`ForgeSearchManager`)
 - `TomForgeShellModule` with built-in views
 - Action collection from modules and components
 - Menu population from actions
@@ -2850,7 +2885,7 @@ Per Tom Forge convention, the panel shell implements trail-based debug mode:
 
 ### Phase 7 — Auto-Save and Revisioning
 
-- `ForgeFileSystem` with routed file access
+- `ForgeFileSystem` with routed file access (`read`, `readBytes`, `write`, `save`, `delete`, `exists`, `stat`, `list`, `watch`, `applyWorkspaceEdit`)
 - Auto-save service (focus loss + idle timer)
 - File revision management in `.forge/revisions/`
 - Undo stack persistence in `.forge/undo/`
@@ -2860,10 +2895,10 @@ Per Tom Forge convention, the panel shell implements trail-based debug mode:
 
 - Terminal view (pty integration)
 - Output view (channel-based log viewer)
-- Problems view (diagnostic aggregator)
-- Explorer view (file tree)
-- Search view (text search)
-- Outline view (active editor structure)
+- Problems view (diagnostic aggregator, backed by `ForgeDiagnosticManager`)
+- Explorer view (file tree with file decorations via `ForgeFileDecorationManager`)
+- Search view (text search, backed by `ForgeSearchManager` for programmatic access)
+- Outline view (active editor structure, backed by `ForgeOutlineManager` for provider registration)
 - File History view (revision browser)
 
 ### Phase 9 — Persistence and Polish
