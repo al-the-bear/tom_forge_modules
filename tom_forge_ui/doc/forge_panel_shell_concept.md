@@ -3099,3 +3099,10 @@ For implementation-level details not covered in this concept document, see the c
 | Event ordering guarantees | §7.3 |
 | Test strategy & patterns | §8 |
 | Cross-reference matrix | §9 |
+| Test modules implementation | §10 |
+| Editor integration (tom_md_editor) | §11.2 |
+| Editor integration (tom_dart_editor) | §11.3 |
+| Editor integration (tom_yaml_editor) | §11.4 |
+| Shared library requirements | §11.5 |
+| Integration test scenarios | §11.6 |
+| Implementation checklist | §11.7 |

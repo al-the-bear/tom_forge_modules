@@ -17,6 +17,9 @@
 7. [Event Ordering and Lifecycle](#7-event-ordering-and-lifecycle)
 8. [Test Strategy](#8-test-strategy)
 9. [Cross-Reference Matrix](#9-cross-reference-matrix)
+10. [Test Modules Specification](#10-test-modules-specification)
+11. [Editor Integration Requirements](#11-editor-integration-requirements)
+12. [Cross-Reference Updates](#12-cross-reference-updates)
 
 ---
 
@@ -1737,6 +1740,1068 @@ class ForgeStorageKeys {
 | `SH002` | Shortcut | Invalid shortcut: {shortcut} |
 | `UI001` | UI | Layout restoration failed |
 | `UI002` | UI | Drag operation failed |
+
+---
+
+## 10. Test Modules Specification
+
+This section defines the test modules used to validate the shell implementation and integrate existing editor components. The goal is to exercise all shell services comprehensively while exposing any weaknesses in current editor implementations.
+
+### 10.1 Test Module Architecture
+
+```
+tom_forge_ui/
+  lib/
+    src/
+      testing/
+        test_module.dart              # ForgeTestModule — test harness module
+        test_text_editor.dart         # Minimal ForgeTextEditor implementation
+        test_visual_editor.dart       # Minimal ForgeVisualEditor implementation
+        mock_services.dart            # In-memory mock implementations
+        test_workspace.dart           # Test file structure generator
+  test/
+    shell_test_harness.dart           # Complete shell test setup
+    integration/
+      editor_integration_test.dart    # Editor adapter validation
+```
+
+### 10.2 ForgeTestModule
+
+A minimal module providing test components for shell validation:
+
+```dart
+class ForgeTestModule extends ForgeModule {
+  @override
+  String get id => 'test';
+  
+  @override
+  String get displayName => 'Test Module';
+  
+  // Test editors
+  late final testTextEditor = ForgeTestTextEditor(this);
+  late final testVisualEditor = ForgeTestVisualEditor(this);
+  
+  @override
+  List<ForgeEditor> get editors => [testTextEditor, testVisualEditor];
+  
+  @override
+  List<ForgeView> get views => [testInfoView];
+  
+  @override
+  List<ForgeAction> get actions => [
+    ForgeAction(
+      id: 'test.insertText',
+      label: 'Insert Test Text',
+      execute: (_) async {
+        final editor = api.systemState.activeEditor;
+        if (editor is ForgeTextEditor) {
+          editor.insertText('[TEST]');
+        }
+      },
+    ),
+    ForgeAction(
+      id: 'test.triggerError',
+      label: 'Trigger Test Error',
+      execute: (_) async {
+        api.notifications.showError('Test error triggered');
+      },
+    ),
+    ForgeAction(
+      id: 'test.createDiagnostics',
+      label: 'Create Test Diagnostics',
+      execute: (_) async {
+        _testDiagnostics.clear();
+        _testDiagnostics.add(ForgeDiagnostic(
+          uri: api.systemState.activeEditor?.uri ?? Uri.parse('test://file'),
+          range: TextRange(
+            start: TextPosition(line: 0, column: 0),
+            end: TextPosition(line: 0, column: 10),
+          ),
+          message: 'Test diagnostic',
+          severity: ForgeSeverity.warning,
+          source: 'TestModule',
+        ));
+      },
+    ),
+  ];
+  
+  late final ForgeDiagnosticCollection _testDiagnostics;
+  
+  @override
+  Future<void> activate(ForgeShellApi api) async {
+    await super.activate(api);
+    _testDiagnostics = api.diagnostics.createCollection('test');
+  }
+  
+  @override
+  Future<void> deactivate() async {
+    _testDiagnostics.dispose();
+    await super.deactivate();
+  }
+}
+```
+
+### 10.3 ForgeTestTextEditor
+
+Minimal text editor implementation for testing `ForgeTextEditor` contract:
+
+```dart
+class ForgeTestTextEditor extends ForgeTextEditor {
+  final ForgeModule _module;
+  final _document = ForgeTestDocument();
+  final _cursorPosition = ValueNotifier(TextPosition(line: 0, column: 0));
+  final _selection = ValueNotifier<TextRange?>(null);
+  final _selections = ValueNotifier<List<TextRange>>([]);
+  final _visibleRange = ValueNotifier(TextRange(
+    start: TextPosition(line: 0, column: 0),
+    end: TextPosition(line: 20, column: 0),
+  ));
+  final _isDirty = ValueNotifier(false);
+  final _decorations = <String, List<ForgeDecorationRange>>{};
+  var _options = ForgeTextEditorOptions();
+  
+  ForgeTestTextEditor(this._module);
+  
+  @override
+  ForgeModule get module => _module;
+  
+  @override
+  Uri get uri => _document.uri;
+  
+  @override
+  FileHandlingResult canHandle(Uri uri) {
+    // Accept .test files
+    return uri.path.endsWith('.test') 
+        ? FileHandlingResult.accept 
+        : FileHandlingResult.reject;
+  }
+  
+  @override
+  ForgeDocument get document => _document;
+  
+  @override
+  ValueListenable<TextPosition> get cursorPosition => _cursorPosition;
+  
+  @override
+  ValueListenable<TextRange?> get selection => _selection;
+  
+  @override
+  ValueListenable<List<TextRange>> get selections => _selections;
+  
+  @override
+  void setSelections(List<TextRange> ranges) {
+    _selections.value = ranges;
+    if (ranges.isNotEmpty) {
+      _selection.value = ranges.first;
+    }
+  }
+  
+  @override
+  String get selectedText {
+    final sel = _selection.value;
+    if (sel == null || sel.isEmpty) return '';
+    return _document.textInRange(sel);
+  }
+  
+  @override
+  bool get hasSelection => _selection.value != null && !_selection.value!.isEmpty;
+  
+  @override
+  ValueListenable<TextRange> get visibleRange => _visibleRange;
+  
+  @override
+  ValueListenable<bool> get isDirty => _isDirty;
+  
+  @override
+  void insertText(String text) {
+    final pos = _cursorPosition.value;
+    _document.insert(pos, text);
+    _isDirty.value = true;
+  }
+  
+  @override
+  void replaceRange(TextRange range, String replacement) {
+    _document.replace(range, replacement);
+    _isDirty.value = true;
+  }
+  
+  @override
+  void deleteRange(TextRange range) {
+    _document.replace(range, '');
+    _isDirty.value = true;
+  }
+  
+  @override
+  void setCursorPosition(TextPosition position) {
+    _cursorPosition.value = position;
+  }
+  
+  @override
+  void setSelection(TextRange range) {
+    _selection.value = range;
+    _selections.value = [range];
+  }
+  
+  @override
+  void selectAll() {
+    setSelection(TextRange(
+      start: TextPosition(line: 0, column: 0),
+      end: TextPosition(
+        line: _document.lineCount - 1,
+        column: _document.lineAt(_document.lineCount - 1).length,
+      ),
+    ));
+  }
+  
+  @override
+  void revealPosition(TextPosition position) {
+    // Test implementation — just update visible range
+    _visibleRange.value = TextRange(
+      start: TextPosition(line: max(0, position.line - 10), column: 0),
+      end: TextPosition(line: position.line + 10, column: 0),
+    );
+  }
+  
+  @override
+  void revealRange(TextRange range) {
+    revealPosition(range.start);
+  }
+  
+  @override
+  List<TextRange> findAll(Pattern pattern) {
+    return _document.findAll(pattern);
+  }
+  
+  @override
+  int replaceAll(Pattern pattern, String replacement) {
+    return _document.replaceAll(pattern, replacement);
+  }
+  
+  @override
+  ForgeTextEditorOptions get options => _options;
+  
+  @override
+  void updateOptions(ForgeTextEditorOptions options) {
+    _options = options;
+  }
+  
+  @override
+  void setDecorations(ForgeDecorationType type, List<ForgeDecorationRange> ranges) {
+    _decorations[type.key] = ranges;
+  }
+  
+  @override
+  void clearDecorations(ForgeDecorationType type) {
+    _decorations.remove(type.key);
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    // Minimal test UI
+    return Container(
+      color: Colors.grey[900],
+      child: Column(
+        children: [
+          Text('Test Editor: ${uri.path}'),
+          Expanded(child: Text(_document.text)),
+        ],
+      ),
+    );
+  }
+  
+  @override
+  String get title => uri.pathSegments.last;
+  
+  @override
+  IconData get icon => Icons.text_fields;
+}
+```
+
+### 10.4 ForgeTestDocument
+
+Minimal `ForgeDocument` implementation:
+
+```dart
+class ForgeTestDocument implements ForgeDocument {
+  final Uri _uri;
+  final List<String> _lines = [''];
+  final _isDirty = ValueNotifier(false);
+  final _changeController = StreamController<DocumentChangeEvent>.broadcast();
+  int _version = 0;
+  
+  ForgeTestDocument({Uri? uri}) : _uri = uri ?? Uri.parse('test://untitled');
+  
+  @override
+  Uri get uri => _uri;
+  
+  @override
+  String get text => _lines.join('\n');
+  
+  @override
+  int get lineCount => _lines.length;
+  
+  @override
+  String lineAt(int line) => _lines[line];
+  
+  @override
+  String textInRange(TextRange range) {
+    if (range.start.line == range.end.line) {
+      return _lines[range.start.line].substring(range.start.column, range.end.column);
+    }
+    final buffer = StringBuffer();
+    buffer.write(_lines[range.start.line].substring(range.start.column));
+    for (var i = range.start.line + 1; i < range.end.line; i++) {
+      buffer.write('\n');
+      buffer.write(_lines[i]);
+    }
+    buffer.write('\n');
+    buffer.write(_lines[range.end.line].substring(0, range.end.column));
+    return buffer.toString();
+  }
+  
+  @override
+  String get languageId => 'plaintext';
+  
+  @override
+  Encoding get encoding => utf8;
+  
+  @override
+  int get version => _version;
+  
+  @override
+  bool get isUntitled => _uri.scheme == 'test';
+  
+  @override
+  ValueListenable<bool> get isDirty => _isDirty;
+  
+  @override
+  Stream<DocumentChangeEvent> get onDidChange => _changeController.stream;
+  
+  void insert(TextPosition pos, String text) {
+    final line = _lines[pos.line];
+    _lines[pos.line] = line.substring(0, pos.column) + text + line.substring(pos.column);
+    _version++;
+    _isDirty.value = true;
+    _fireChange([TextRange(start: pos, end: pos)]);
+  }
+  
+  void replace(TextRange range, String text) {
+    // Simplified single-line replace for testing
+    if (range.start.line == range.end.line) {
+      final line = _lines[range.start.line];
+      _lines[range.start.line] = 
+        line.substring(0, range.start.column) + text + line.substring(range.end.column);
+    }
+    _version++;
+    _isDirty.value = true;
+    _fireChange([range]);
+  }
+  
+  List<TextRange> findAll(Pattern pattern) {
+    final results = <TextRange>[];
+    for (var lineNum = 0; lineNum < _lines.length; lineNum++) {
+      for (final match in pattern.allMatches(_lines[lineNum])) {
+        results.add(TextRange(
+          start: TextPosition(line: lineNum, column: match.start),
+          end: TextPosition(line: lineNum, column: match.end),
+        ));
+      }
+    }
+    return results;
+  }
+  
+  int replaceAll(Pattern pattern, String replacement) {
+    var count = 0;
+    for (var i = 0; i < _lines.length; i++) {
+      final newLine = _lines[i].replaceAll(pattern, replacement);
+      if (newLine != _lines[i]) {
+        count += pattern.allMatches(_lines[i]).length;
+        _lines[i] = newLine;
+      }
+    }
+    if (count > 0) {
+      _version++;
+      _isDirty.value = true;
+    }
+    return count;
+  }
+  
+  void _fireChange(List<TextRange> changes) {
+    _changeController.add(DocumentChangeEvent(changes: changes, document: this));
+  }
+}
+```
+
+### 10.5 Test Workspace Generator
+
+Generates a test file structure for integration tests:
+
+```dart
+class ForgeTestWorkspace {
+  final Directory root;
+  
+  ForgeTestWorkspace(this.root);
+  
+  static Future<ForgeTestWorkspace> create() async {
+    final dir = await Directory.systemTemp.createTemp('forge_test_');
+    final workspace = ForgeTestWorkspace(dir);
+    await workspace._populate();
+    return workspace;
+  }
+  
+  Future<void> _populate() async {
+    // Test files
+    await _createFile('readme.md', '# Test Workspace\n\nThis is a test.');
+    await _createFile('config.yaml', 'name: test\nversion: 1');
+    await _createFile('main.dart', 'void main() {\n  print("Hello");\n}');
+    await _createFile('data.json', '{"key": "value"}');
+    await _createFile('sample.test', 'Test file content');
+    
+    // Nested structure
+    await _createFile('src/lib.dart', 'library test;');
+    await _createFile('src/utils.dart', '// Utils');
+    await _createFile('docs/guide.md', '# Guide');
+    
+    // Schema files
+    await _createFile('schema/form.yaml', '# schema: form-v2\nfields: []');
+    await _createFile('schema/workflow.yaml', '# schema: workflow\nsteps: []');
+  }
+  
+  Future<void> _createFile(String path, String content) async {
+    final file = File('${root.path}/$path');
+    await file.parent.create(recursive: true);
+    await file.writeAsString(content);
+  }
+  
+  Uri get rootUri => root.uri;
+  
+  Future<void> dispose() async {
+    await root.delete(recursive: true);
+  }
+}
+```
+
+---
+
+## 11. Editor Integration Requirements
+
+This section specifies the modifications required to integrate existing Tom Forge editor components (`tom_md_editor`, `tom_dart_editor`, `tom_yaml_editor`) with the Panel Shell's `ForgeTextEditor` and `ForgeSchemaEditor` contracts.
+
+**Critical:** These modifications MUST be completed before the editors can be used within the shell. Each gap is classified by priority and implementation complexity.
+
+### 11.1 Integration Gap Summary
+
+| Editor | Target Contract | Gaps | Priority | Effort |
+|--------|-----------------|------|----------|--------|
+| `tom_md_editor` | `ForgeTextEditor` | 8 gaps | High | Medium |
+| `tom_dart_editor` | `ForgeTextEditor` | 9 gaps | High | Medium |
+| `tom_yaml_editor` | `ForgeSchemaEditor` | 6 gaps | Medium | Low |
+
+### 11.2 tom_md_editor Adaptation
+
+**Current:** `MdEditor` widget with `MdEditorController`, standalone usage pattern.
+
+**Target:** `ForgeMdEditor extends ForgeTextEditor` with shell integration.
+
+#### Gap Analysis
+
+| # | Gap | Current State | Required Change | Effort |
+|---|-----|---------------|-----------------|--------|
+| 1 | **URI association** | Uses `markdown: String` or `MdDocumentProvider` | Add `uri` property, associate with file path | Low |
+| 2 | **canHandle/canHandleContent** | Not implemented | Accept `.md`, `.markdown`; inspect for DocSpec schema | Low |
+| 3 | **ForgeDocument interface** | Has `MdDocument` (section-based) | Create `ForgeMdDocument` adapter wrapping `MdDocument` | Medium |
+| 4 | **ValueListenable pattern** | Uses callbacks (`onChanged`, `onSectionSelected`) | Expose `ValueNotifier<T>` for cursor, selection | Medium |
+| 5 | **Multi-selection** | Not supported | Add `selections` property (may be single-selection only) | Low |
+| 6 | **visibleRange** | Not exposed | Expose scroll viewport as `ValueListenable<TextRange>` | Medium |
+| 7 | **Decorations API** | Has `TextMarker` internally | Adapt to `setDecorations(type, ranges)` | Medium |
+| 8 | **ForgeTextEditorOptions** | Uses `MdEditorSettings` | Map to/from `ForgeTextEditorOptions` | Low |
+
+#### Adapter Implementation
+
+```dart
+/// Shell adapter for MdEditor, implementing ForgeTextEditor.
+class ForgeMdEditor extends ForgeTextEditor {
+  final MdEditorController _controller;
+  final ForgeMdDocument _document;
+  final ValueNotifier<TextPosition> _cursorPosition;
+  final ValueNotifier<TextRange?> _selection;
+  final ValueNotifier<List<TextRange>> _selections;
+  final ValueNotifier<TextRange> _visibleRange;
+  
+  ForgeMdEditor({
+    required ForgeModule module,
+    required Uri uri,
+    String? initialContent,
+  }) : _controller = MdEditorController(initialMarkdown: initialContent),
+       _document = ForgeMdDocument(uri),
+       _cursorPosition = ValueNotifier(TextPosition(line: 0, column: 0)),
+       _selection = ValueNotifier(null),
+       _selections = ValueNotifier([]),
+       _visibleRange = ValueNotifier(/* default */),
+       super(module);
+  
+  @override
+  Uri get uri => _document.uri;
+  
+  @override
+  FileHandlingResult canHandle(Uri uri) {
+    final ext = uri.pathSegments.last.split('.').last.toLowerCase();
+    return ['md', 'markdown'].contains(ext) 
+        ? FileHandlingResult.accept 
+        : FileHandlingResult.reject;
+  }
+  
+  @override
+  ForgeDocument get document => _document;
+  
+  // ... implement remaining ForgeTextEditor methods by delegating to _controller
+  
+  @override
+  Widget build(BuildContext context) {
+    return MdEditor(
+      controller: _controller,
+      onChanged: (md) => _document._updateContent(md),
+      // Wire up cursor/selection change callbacks to ValueNotifiers
+    );
+  }
+}
+
+/// ForgeDocument adapter for MdDocument.
+class ForgeMdDocument implements ForgeDocument {
+  final Uri _uri;
+  MdDocument _mdDocument;
+  final _isDirty = ValueNotifier(false);
+  final _changeController = StreamController<DocumentChangeEvent>.broadcast();
+  int _version = 0;
+  
+  ForgeMdDocument(this._uri) : _mdDocument = MdDocument(sections: []);
+  
+  @override
+  Uri get uri => _uri;
+  
+  @override
+  String get text => _mdDocument.toMarkdown();
+  
+  @override
+  int get lineCount => text.split('\n').length;
+  
+  @override
+  String lineAt(int line) => text.split('\n')[line];
+  
+  @override
+  String textInRange(TextRange range) {
+    // Convert TextRange to string range and extract
+    final lines = text.split('\n');
+    // ... implementation
+  }
+  
+  @override
+  String get languageId => 'markdown';
+  
+  @override
+  Encoding get encoding => utf8;
+  
+  @override
+  int get version => _version;
+  
+  @override
+  bool get isUntitled => false;
+  
+  @override
+  ValueListenable<bool> get isDirty => _isDirty;
+  
+  @override
+  Stream<DocumentChangeEvent> get onDidChange => _changeController.stream;
+  
+  void _updateContent(String markdown) {
+    _mdDocument = MdParser().parse(markdown);
+    _version++;
+    _isDirty.value = true;
+    _changeController.add(DocumentChangeEvent(
+      changes: [/* full document change */],
+      document: this,
+    ));
+  }
+}
+```
+
+#### Required Changes to `tom_md_editor`
+
+| File | Change | Description |
+|------|--------|-------------|
+| `md_raw_text_editor.dart` | Expose scroll position | Add callback/notifier for visible line range |
+| `md_editor_controller.dart` | Expose cursor position | Add `ValueNotifier<int> cursorOffset` |
+| `md_editor_controller.dart` | Selection tracking | Add `ValueNotifier<(int start, int end)?> selection` |
+| `md_editor.dart` | Decoration support | Add `setDecorations` method that maps to `TextMarker` |
+
+### 11.3 tom_dart_editor Adaptation
+
+**Current:** `DartCodeEditor` widget with `DartCodeController`, standalone usage.
+
+**Target:** `ForgeDartEditor extends ForgeTextEditor` with shell integration.
+
+#### Gap Analysis
+
+| # | Gap | Current State | Required Change | Effort |
+|---|-----|---------------|-----------------|--------|
+| 1 | **URI association** | Not present | Add `uri` property | Low |
+| 2 | **canHandle/canHandleContent** | Not implemented | Accept `.dart` | Low |
+| 3 | **ForgeDocument interface** | Has `DartCodeController.userCode` | Create `ForgeDartDocument` adapter | Medium |
+| 4 | **ValueListenable for cursor** | Internal `_cursorPosition` | Expose as `ValueNotifier<TextPosition>` | Low |
+| 5 | **ValueListenable for selection** | Internal `TextEditingController.selection` | Expose as `ValueNotifier<TextRange?>` | Low |
+| 6 | **Multi-selection** | Not supported | Add minimal support (single selection okay) | Low |
+| 7 | **visibleRange** | Not exposed | Expose from `ScrollController` | Medium |
+| 8 | **Decorations API** | Has error highlighting, bracket matching | Generalize to `setDecorations(type, ranges)` | Medium |
+| 9 | **ForgeTextEditorOptions** | Uses `DartEditorTheme` | Map to `ForgeTextEditorOptions` | Low |
+
+#### Adapter Implementation
+
+```dart
+/// Shell adapter for DartCodeEditor, implementing ForgeTextEditor.
+class ForgeDartEditor extends ForgeTextEditor {
+  final DartCodeController _controller;
+  final ForgeDartDocument _document;
+  final ValueNotifier<TextPosition> _cursorPosition;
+  final ValueNotifier<TextRange?> _selection;
+  final ValueNotifier<List<TextRange>> _selections;
+  final ValueNotifier<TextRange> _visibleRange;
+  final Map<String, List<ForgeDecorationRange>> _decorations = {};
+  
+  ForgeDartEditor({
+    required ForgeModule module,
+    required Uri uri,
+    String? initialContent,
+  }) : _controller = DartCodeController(initialCode: initialContent ?? ''),
+       _document = ForgeDartDocument(uri),
+       _cursorPosition = ValueNotifier(TextPosition(line: 0, column: 0)),
+       _selection = ValueNotifier(null),
+       _selections = ValueNotifier([]),
+       _visibleRange = ValueNotifier(/* default */),
+       super(module);
+  
+  @override
+  Uri get uri => _document.uri;
+  
+  @override
+  FileHandlingResult canHandle(Uri uri) {
+    return uri.path.endsWith('.dart') 
+        ? FileHandlingResult.accept 
+        : FileHandlingResult.reject;
+  }
+  
+  @override
+  ForgeDocument get document => _document;
+  
+  @override
+  void setDecorations(ForgeDecorationType type, List<ForgeDecorationRange> ranges) {
+    _decorations[type.key] = ranges;
+    // Map to DartCodeEditor's error/highlight system
+    if (type.key == 'diagnostics') {
+      // Convert ranges to CodeError format for internal rendering
+    }
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return DartCodeEditor(
+      controller: _controller,
+      errors: _mapDecorationsToErrors(),
+      onChanged: (code) => _document._updateContent(code),
+      onCursorChanged: (pos) => _cursorPosition.value = _toTextPosition(pos),
+      onSelectionChanged: (sel) => _selection.value = _toTextRange(sel),
+    );
+  }
+}
+```
+
+#### Required Changes to `tom_dart_editor`
+
+| File | Change | Description |
+|------|--------|-------------|
+| `dart_code_editor.dart` | Add cursor callback | `onCursorChanged: (int offset)` |
+| `dart_code_editor.dart` | Add selection callback | `onSelectionChanged: (int start, int end)` |
+| `dart_code_editor.dart` | Expose scroll position | `onVisibleRangeChanged: (int startLine, int endLine)` |
+| `dart_code_editor.dart` | Generalize decorations | Replace hardcoded error styling with decoration key system |
+
+### 11.4 tom_yaml_editor Adaptation
+
+**Current:** `YamlSchemaEditor` widget with `YamlEditorController`, tree-based editing.
+
+**Target:** `ForgeYamlEditor extends ForgeSchemaEditor` (not ForgeTextEditor — this is a schema-aware editor).
+
+#### Gap Analysis
+
+| # | Gap | Current State | Required Change | Effort |
+|---|-----|---------------|-----------------|--------|
+| 1 | **URI association** | Not present | Add `uri` property | Low |
+| 2 | **canHandleContent** | Not implemented | Check for schema comments (`# schema:`) | Low |
+| 3 | **schemaLabel** | Has `YamlSchema` but no display label | Add `schemaLabel` from schema definition | Low |
+| 4 | **Text mode toggle** | Has `_textMode` internal state | Expose toggle; in text mode, implement ForgeTextEditor-like API | Medium |
+| 5 | **ForgeDocument adapter** | Has `YamlDocumentModel` | Create adapter for YAML text access | Low |
+| 6 | **Dirty tracking** | Internal undo history tracks changes | Expose as `ValueListenable<bool>` | Low |
+
+#### Adapter Implementation
+
+```dart
+/// Shell adapter for YamlSchemaEditor, implementing ForgeSchemaEditor.
+class ForgeYamlEditor extends ForgeSchemaEditor {
+  final YamlEditorController _controller;
+  final Uri _uri;
+  final ValueNotifier<bool> _isDirty;
+  
+  ForgeYamlEditor({
+    required ForgeModule module,
+    required Uri uri,
+    String? initialContent,
+    YamlSchema? schema,
+  }) : _uri = uri,
+       _controller = YamlEditorController(
+         initialYaml: initialContent ?? '',
+         schema: schema,
+       ),
+       _isDirty = ValueNotifier(false),
+       super(module) {
+    _controller.addListener(() {
+      _isDirty.value = _controller.canUndo;
+    });
+  }
+  
+  @override
+  Uri get uri => _uri;
+  
+  @override
+  FileHandlingResult canHandle(Uri uri) => FileHandlingResult.inspect;
+  
+  @override
+  FileHandlingResult canHandleContent(Uri uri, Uint8List bytes) {
+    final content = utf8.decode(bytes);
+    // Check for schema comment in first 10 lines
+    final lines = content.split('\n').take(10);
+    for (final line in lines) {
+      if (line.startsWith('# schema:') || line.startsWith('#schema:')) {
+        // Extract schema ID and check if we support it
+        final schemaId = line.split(':').last.trim();
+        if (_supportedSchemas.contains(schemaId)) {
+          return FileHandlingResult.accept;
+        }
+      }
+    }
+    return FileHandlingResult.reject;
+  }
+  
+  @override
+  String get schemaLabel => _controller.schema?.title ?? 'YAML Schema';
+  
+  @override
+  ValueListenable<bool> get isDirty => _isDirty;
+  
+  @override
+  Widget build(BuildContext context) {
+    return YamlSchemaEditor(
+      controller: _controller,
+      onChanged: (_) => _isDirty.value = true,
+    );
+  }
+  
+  @override
+  String get title => uri.pathSegments.last;
+  
+  @override
+  IconData get icon => Icons.data_object;
+  
+  static const _supportedSchemas = {'form-v2', 'workflow', 'config'};
+}
+```
+
+#### Required Changes to `tom_yaml_editor`
+
+| File | Change | Description |
+|------|--------|-------------|
+| `yaml_editor_controller.dart` | Dirty state notifier | Add `ValueListenable<bool> isDirty` computed from undo state |
+| `yaml_schema_editor.dart` | URI property | Add `Uri? uri` parameter/property |
+| `yaml_schema.dart` | Schema label | Ensure `YamlSchema.title` is populated |
+
+### 11.5 tom_editors_shared Requirements
+
+The shared library needs these additions to support shell integration:
+
+| Addition | Description | Used By |
+|----------|-------------|---------|
+| `ForgeDocumentAdapter` | Base class for adapting editor documents to `ForgeDocument` | All editors |
+| `ForgeValidationBridge` | Convert `ValidationError` to `ForgeDiagnostic` | YAML, Markdown editors |
+| `PositionConverter` | Convert between offset-based and line/column positions | All text editors |
+
+```dart
+/// Base adapter class for bridging editor documents to ForgeDocument.
+abstract class ForgeDocumentAdapter implements ForgeDocument {
+  final Uri _uri;
+  final ValueNotifier<bool> _isDirty = ValueNotifier(false);
+  final StreamController<DocumentChangeEvent> _changes = 
+      StreamController.broadcast();
+  int _version = 0;
+  
+  ForgeDocumentAdapter(this._uri);
+  
+  @override
+  Uri get uri => _uri;
+  
+  @override
+  int get version => _version;
+  
+  @override
+  ValueListenable<bool> get isDirty => _isDirty;
+  
+  @override
+  Stream<DocumentChangeEvent> get onDidChange => _changes.stream;
+  
+  @protected
+  void markDirty() {
+    _version++;
+    _isDirty.value = true;
+  }
+  
+  @protected
+  void markClean() {
+    _isDirty.value = false;
+  }
+  
+  @protected
+  void fireChange(List<TextRange> changes) {
+    _changes.add(DocumentChangeEvent(changes: changes, document: this));
+  }
+  
+  void dispose() {
+    _changes.close();
+  }
+}
+
+/// Converts ValidationError to ForgeDiagnostic.
+class ForgeValidationBridge {
+  static List<ForgeDiagnostic> convert(
+    List<ValidationError> errors,
+    Uri uri,
+    String Function(List<Object> path) pathToRange,
+  ) {
+    return errors.map((e) => ForgeDiagnostic(
+      uri: uri,
+      range: _parseRange(pathToRange(e.path)),
+      message: e.message,
+      severity: _mapSeverity(e.severity),
+      source: 'Schema',
+      code: e.code,
+    )).toList();
+  }
+  
+  static ForgeSeverity _mapSeverity(ValidationSeverity severity) {
+    return switch (severity) {
+      ValidationSeverity.error => ForgeSeverity.error,
+      ValidationSeverity.warning => ForgeSeverity.warning,
+      ValidationSeverity.info => ForgeSeverity.info,
+    };
+  }
+}
+```
+
+### 11.6 Integration Test Scenarios
+
+These scenarios validate that adapted editors work correctly within the shell:
+
+| # | Scenario | Editors | Services Tested |
+|---|----------|---------|-----------------|
+| 1 | Open `.md` file | ForgeMdEditor | FileSystem, Layout, SystemState |
+| 2 | Open `.dart` file | ForgeDartEditor | FileSystem, Layout, SystemState |
+| 3 | Open schema YAML | ForgeYamlEditor | FileSystem, Layout, canHandleContent |
+| 4 | Edit and save | All | FileSystem, UndoManager, Dirty tracking |
+| 5 | Multi-editor split | All | Layout, Focus, Multi-render |
+| 6 | Cross-editor diagnostics | Dart, YAML | DiagnosticManager, Problems view |
+| 7 | Search across files | All | SearchManager, EditorList |
+| 8 | Undo/redo | All | UndoManager, ComponentHistory |
+| 9 | Copy/paste | All | Clipboard, insertText |
+| 10 | Find in editor | Text editors | findAll, setDecorations (search highlight) |
+
+```dart
+// test/integration/editor_integration_test.dart
+
+void main() {
+  group('Editor Integration', () {
+    late ForgeTestWorkspace workspace;
+    late ForgeShellTestHarness harness;
+    
+    setUp(() async {
+      workspace = await ForgeTestWorkspace.create();
+      harness = ForgeShellTestHarness(workspaceUri: workspace.rootUri);
+      await harness.start();
+    });
+    
+    tearDown(() async {
+      await harness.stop();
+      await workspace.dispose();
+    });
+    
+    test('opens markdown file with ForgeMdEditor', () async {
+      final uri = workspace.rootUri.resolve('readme.md');
+      
+      final editor = await harness.openEditor(uri);
+      
+      expect(editor, isA<ForgeMdEditor>());
+      expect(editor.uri, uri);
+      expect(editor.document.languageId, 'markdown');
+    });
+    
+    test('opens dart file with ForgeDartEditor', () async {
+      final uri = workspace.rootUri.resolve('main.dart');
+      
+      final editor = await harness.openEditor(uri);
+      
+      expect(editor, isA<ForgeDartEditor>());
+      expect(editor.document.text, contains('void main()'));
+    });
+    
+    test('opens schema YAML with ForgeYamlEditor', () async {
+      final uri = workspace.rootUri.resolve('schema/form.yaml');
+      
+      final editor = await harness.openEditor(uri);
+      
+      expect(editor, isA<ForgeYamlEditor>());
+      expect((editor as ForgeYamlEditor).schemaLabel, 'form-v2');
+    });
+    
+    test('edit triggers dirty state', () async {
+      final uri = workspace.rootUri.resolve('main.dart');
+      final editor = await harness.openEditor(uri) as ForgeDartEditor;
+      
+      expect(editor.isDirty.value, isFalse);
+      
+      editor.insertText('// comment\n');
+      
+      expect(editor.isDirty.value, isTrue);
+    });
+    
+    test('save clears dirty state', () async {
+      final uri = workspace.rootUri.resolve('main.dart');
+      final editor = await harness.openEditor(uri) as ForgeDartEditor;
+      
+      editor.insertText('// comment\n');
+      expect(editor.isDirty.value, isTrue);
+      
+      await harness.api.fileSystem.save(uri);
+      
+      expect(editor.isDirty.value, isFalse);
+    });
+    
+    test('diagnostics appear in Problems view', () async {
+      final uri = workspace.rootUri.resolve('main.dart');
+      await harness.openEditor(uri);
+      
+      // Inject a test diagnostic
+      harness.api.diagnostics.createCollection('test')
+        .add(ForgeDiagnostic(
+          uri: uri,
+          range: TextRange(
+            start: TextPosition(line: 0, column: 0),
+            end: TextPosition(line: 0, column: 4),
+          ),
+          message: 'Test error',
+          severity: ForgeSeverity.error,
+          source: 'Test',
+        ));
+      
+      await harness.pumpAndSettle();
+      
+      expect(harness.problemsView.diagnostics, hasLength(1));
+    });
+    
+    test('two-phase file resolution prefers primary editor', () async {
+      final uri = workspace.rootUri.resolve('config.yaml');
+      
+      // Both YamlSchemaEditor and a hypothetical generic YAML editor could handle .yaml
+      // Schema editor should NOT claim it unless it has a schema comment
+      
+      final editor = await harness.openEditor(uri);
+      
+      // config.yaml has no schema comment, so generic editor should win
+      expect(editor, isNot(isA<ForgeYamlEditor>()));
+    });
+    
+    test('multi-editor split shares document state', () async {
+      final uri = workspace.rootUri.resolve('readme.md');
+      
+      final editor1 = await harness.openEditor(uri);
+      harness.splitMiddlePanel();
+      final editor2 = await harness.openEditorInPanel(uri, 1);
+      
+      // Same document instance
+      expect(editor1.document, same(editor2.document));
+      
+      // Edit in one, visible in other
+      (editor1 as ForgeTextEditor).insertText('Added text');
+      expect(editor2.document.text, contains('Added text'));
+    });
+  });
+}
+```
+
+### 11.7 Implementation Checklist
+
+**Phase 1: Adapter Layer (Week 1)**
+
+- [ ] Create `ForgeDocumentAdapter` base class in `tom_editors_shared`
+- [ ] Create `ForgeValidationBridge` in `tom_editors_shared`
+- [ ] Create `PositionConverter` utility in `tom_editors_shared`
+- [ ] Implement `ForgeMdEditor` adapter skeleton
+- [ ] Implement `ForgeDartEditor` adapter skeleton
+- [ ] Implement `ForgeYamlEditor` adapter skeleton
+
+**Phase 2: Editor Modifications (Week 2)**
+
+- [ ] `tom_md_editor`: Add cursor/selection/scroll notifiers
+- [ ] `tom_md_editor`: Expose decoration API
+- [ ] `tom_dart_editor`: Add cursor/selection callbacks
+- [ ] `tom_dart_editor`: Expose scroll position
+- [ ] `tom_dart_editor`: Generalize decoration system
+- [ ] `tom_yaml_editor`: Add URI property
+- [ ] `tom_yaml_editor`: Expose dirty state notifier
+
+**Phase 3: Integration Tests (Week 3)**
+
+- [ ] Set up test workspace generator
+- [ ] Implement editor open tests
+- [ ] Implement edit/save/dirty tests
+- [ ] Implement diagnostics integration tests
+- [ ] Implement multi-editor tests
+- [ ] Implement two-phase resolution tests
+
+**Phase 4: Shell Integration (Week 4)**
+
+- [ ] Register adapted editors in `TomForgeShellModule`
+- [ ] Wire up file resolution pipeline
+- [ ] Test "Open with" dialog behavior
+- [ ] Validate Problems view integration
+- [ ] Validate Search view integration
+
+---
+
+## 12. Cross-Reference Updates
+
+### 12.1 Concept to Spec Additions
+
+| Concept Section | New Spec Sections |
+|-----------------|-------------------|
+| §4 Components | §10 Test Modules, §11 Editor Integration |
+| §10.4 Service API | §10.2-10.5 Test implementations |
+| §8 Module System | §10.2 ForgeTestModule |
+| §17 Implementation | §11.7 Implementation Checklist |
+| §18 Implementation Phases | §11.7 ties to Phase 3-4 |
+
+### 12.2 Editor Package to Spec Mapping
+
+| Package | Spec Sections |
+|---------|---------------|
+| `tom_md_editor` | §11.2 |
+| `tom_dart_editor` | §11.3 |
+| `tom_yaml_editor` | §11.4 |
+| `tom_editors_shared` | §11.5 |
+| `tom_forge_ui` (test) | §10 |
 
 ---
 
