@@ -3,7 +3,7 @@
 **Project:** tom_forge_ui  
 **Component:** Panel Shell Framework  
 **Date:** 2026-03-24  
-**Status:** Concept (v3)
+**Status:** Concept (v4 — OO/type-safe redesign)
 
 ---
 
@@ -18,7 +18,7 @@ The framework lives in `tom_forge_ui` (library) with a test/demo application in 
 | Term | Definition |
 |------|-----------|
 | **Workspace** | The root folder opened by the user. Contains source files, configuration, and a `.forge/` folder for state and file revisions. |
-| **Application** | A named arrangement of panels, components, and shortcuts. Multiple applications can be open simultaneously. Switching between applications keeps the previous one alive in memory. |
+| **Application** | A named arrangement of panels, components, and shortcuts. References components from modules. Multiple applications can be open simultaneously. Switching between applications keeps the previous one alive in memory. |
 | **Component** | An editor or view that plugs into the shell. |
 | **Module** | A cohesive group of related components, actions, and shortcuts compiled into the application. No dynamic loading — modules are type-safe Dart code. |
 | **Shell** | The top-level framework that manages panels, focus, menus, shortcuts, and state. |
@@ -34,6 +34,7 @@ The framework lives in `tom_forge_ui` (library) with a test/demo application in 
 - **Auto-save by default** — files save on focus loss or after 1-second idle
 - **File revisioning** — the `.forge/` folder in the workspace tracks file revisions and shell state
 - **Code-configured** — initial layout is declarative in Dart; comprehensive runtime configurability; changes persist
+- **Object-oriented API** — no string IDs, no registries, no indirect lookups. Components are direct typed class members on modules; actions, views, editors are all referenced as Dart objects. The Dart type system (`is`, generics) replaces string-based identity throughout
 
 ---
 
@@ -145,25 +146,31 @@ Each tab in the left, right, and bottom panels contains an **accordeon** — a v
 
 ### 3.3 Component Size Hints
 
-Components in accordeon sections provide size hints:
+Components in accordeon sections provide size hints as explicit width/height pairs (in logical pixels):
 
 ```dart
-abstract class ForgeComponentSizeHints {
+class ForgeComponentSizeHints {
   /// Minimum size the component needs to be functional.
-  double get minSize;
+  final Size minSize;
 
   /// Preferred size for comfortable display.
-  double get preferredSize;
+  final Size preferredSize;
 
   /// Maximum useful size (beyond this, extra space is wasted).
-  double get maxSize;
+  final Size maxSize;
+
+  const ForgeComponentSizeHints({
+    this.minSize = const Size(120, 80),
+    this.preferredSize = const Size(260, 200),
+    this.maxSize = const Size(double.infinity, double.infinity),
+  });
 }
 ```
 
-- `minSize` — the accordeon will not shrink a section below this
+- `minSize` — the accordeon will not shrink a section below this width/height
 - `preferredSize` — used for initial/equilibrium sizing when multiple sections share space
 - `maxSize` — extra space beyond this is allocated to other sections
-- "Size" means height in left/right panels, width in the bottom panel
+- The shell uses the **height** component for left/right panels (vertical accordeon) and the **width** component for the bottom panel (horizontal flow). Both dimensions are available so the layout engine can make informed decisions regardless of orientation.
 
 ---
 
@@ -206,65 +213,130 @@ A single logical component can be rendered in multiple locations simultaneously.
 
 ### 4.3 Component Contract
 
-Every component implements:
+Every component implements `ForgeComponent`. Components are accessed as **direct typed members** on their owning module — there are no string IDs or type registries. The shell interacts with components through this interface:
 
 ```dart
-abstract class ForgeComponent extends Widget {
-  /// Unique type identifier for this component kind.
-  String get componentTypeId;
-
-  /// Display title for tabs and headers.
-  String get title;
+abstract class ForgeComponent {
+  /// Display title for tabs and headers. Observable — the shell
+  /// re-renders the tab/header when this changes.
+  ValueListenable<String> get title;
 
   /// Optional subtitle shown in small font under accordeon titles.
-  String? get titleExtension;
+  ValueListenable<String?> get titleExtension;
 
   /// Icon for tab display.
   IconData get icon;
 
-  /// Whether this is an editor (closable) or a view (not closable).
+  /// Whether this is an editor (closable) or a view.
   bool get isEditor;
-
-  /// For editors: the URI this editor is associated with.
-  Uri? get uri;
 
   /// Size hints for accordeon layout.
   ForgeComponentSizeHints get sizeHints;
-
-  /// Whether this component supports back/forward navigation.
-  bool get supportsHistory;
 
   /// Whether this component supports multi-render (UI copies).
   /// Default: true. Set to false for components that cannot be rendered
   /// in parallel (e.g., terminal emulator with exclusive pty).
   bool get supportsMultiRender => true;
 
+  /// Create the Flutter widget for the main component instance.
+  /// Called once when the component is first placed in the layout.
+  Widget buildMain(BuildContext context);
+
+  /// Create a Flutter widget for a UI copy (multi-render).
+  /// Each call returns an independent UI copy that shares data state
+  /// with the main widget but has its own scroll position, selection, etc.
+  Widget buildCopy(BuildContext context);
+
   /// Actions this component contributes to the menu and command palette.
   List<ForgeAction> get actions => [];
 
   /// Shortcut bindings this component contributes when focused.
   List<ForgeShortcutBinding> get shortcuts => [];
+
+  /// The owning module (set by the module during initialization).
+  ForgeModule get module;
 }
 ```
 
-### 4.4 Component Registration
+#### ForgeEditor (extends ForgeComponent)
 
-Components are registered with the shell so it knows what's available. Registration happens through modules (see §8) during their `activate()` call:
+Editors are file-bound components identified by URI:
 
 ```dart
-class ForgeComponentRegistry {
-  /// Register a view factory. View type ID → factory function.
-  void registerView(String typeId, ForgeViewFactory factory);
+abstract class ForgeEditor extends ForgeComponent {
+  @override
+  bool get isEditor => true;
 
-  /// Register an editor factory. Editor type ID → factory function.
-  void registerEditor(String typeId, ForgeEditorFactory factory);
+  /// The URI this editor is associated with.
+  Uri get uri;
 
-  /// Get all registered view types.
-  List<ForgeComponentDescriptor> get viewTypes;
+  /// Whether this editor can handle the given URI. The shell asks
+  /// all registered editors in order — the first one that returns
+  /// true gets the file. No glob pattern registration needed.
+  bool canHandle(Uri uri);
 
-  /// Get all registered editor types.
-  List<ForgeComponentDescriptor> get editorTypes;
+  /// Whether this editor has unsaved changes.
+  ValueListenable<bool> get isDirty;
+
+  /// The component's history manager for back/forward navigation.
+  /// Null if the component does not support history.
+  ComponentHistoryManager? get historyManager;
 }
+```
+
+#### ForgeView (extends ForgeComponent)
+
+Views are singleton components identified by their Dart type:
+
+```dart
+abstract class ForgeView extends ForgeComponent {
+  @override
+  bool get isEditor => false;
+}
+```
+
+#### ComponentHistoryManager
+
+Components that support back/forward navigation (e.g., help browser, documentation viewer) expose a history manager. The shell's title bar back/forward arrows delegate to this:
+
+```dart
+abstract class ComponentHistoryManager {
+  /// Whether back navigation is available.
+  ValueListenable<bool> get canGoBack;
+
+  /// Whether forward navigation is available.
+  ValueListenable<bool> get canGoForward;
+
+  /// Navigate back. Updates the component's content and title.
+  void goBack();
+
+  /// Navigate forward.
+  void goForward();
+
+  /// The current history entry's label (for tooltip on nav buttons).
+  String get currentLabel;
+}
+```
+
+### 4.4 Component Ownership and Access
+
+Components are **owned by modules** and exposed as **direct typed members** on the module class. There is no global component registry and no string-based lookup. The shell discovers components through the modules it is configured with.
+
+**Key rules:**
+
+- Every component belongs to exactly one module
+- Modules expose their components as typed `late final` members (see §8.3)
+- Layout configuration references these members directly: `shellModule.explorer`, `flowEditorModule.flowEditor`
+- The shell itself is a module (`TomForgeShellModule`) that owns the built-in views (Explorer, Output, Problems, Terminal, etc.)
+- When the shell needs to open a file, it iterates over all registered editors and calls `canHandle(uri)` — the first editor that returns `true` opens the file
+
+```dart
+// No registry needed — layout config references module members directly:
+PanelTabConfig(
+  title: 'Explorer',
+  icon: Icons.folder,
+  sections: [shellModule.explorer, shellModule.outline],
+)
 ```
 
 ---
@@ -310,17 +382,17 @@ class TomForgeShell {
   /// <workspace>/.forge (local). Selected at startup.
   final Directory configDirectory;
 
-  /// All applications available in this shell.
+  /// All modules compiled into this shell. Modules own components
+  /// and expose them as typed members.
+  final List<ForgeModule> modules;
+
+  /// All applications available in this shell. Applications are
+  /// layout configuration structures — they reference components
+  /// from modules but do not own or provide components themselves.
   final List<ForgeApplication> applications;
 
-  /// Global component registry (populated by modules).
-  final ForgeComponentRegistry registry;
-
-  /// Application-level status bar items.
-  final List<StatusBarItem> globalStatusItems;
-
-  /// Registered modules.
-  final List<ForgeModule> modules;
+  /// Global configuration defaults.
+  final ForgeConfig config;
 
   /// The .forge folder manager (uses configDirectory).
   final ForgeFolderManager forgeFolder;
@@ -336,10 +408,8 @@ class ForgeApplication {
   /// Icon for the application dropdown.
   final IconData? icon;
 
-  /// Components available in this application.
-  final List<ForgeComponentDescriptor> components;
-
-  /// Initial layout configuration.
+  /// Layout configuration referencing components from modules.
+  /// Components are referenced directly as typed objects, not by string ID.
   final ApplicationLayout layout;
 
   /// Whether this application is currently active (visible).
@@ -370,33 +440,30 @@ class PanelTabConfig {
   final IconData icon;
 
   /// Accordeon sections in this tab.
-  final List<AccordeonSectionConfig> sections;
-}
-
-class AccordeonSectionConfig {
-  /// The component to display in this section.
-  final String componentTypeId;
-
-  /// For editors: the URI to open.
-  final Uri? uri;
-
-  /// Whether this section starts pinned open.
-  final bool initiallyPinned;
+  /// Each section is a direct reference to a ForgeView from a module.
+  final List<ForgeView> sections;
 }
 
 class MiddlePanelConfig {
   /// Initial flex factor for horizontal space distribution.
   final double flex;
 
-  /// Components (tabs) in this middle panel.
+  /// Editor tabs in this middle panel.
   final List<MiddleTabConfig> tabs;
 }
 
 class MiddleTabConfig {
-  final String componentTypeId;
+  /// Direct reference to an editor component from a module.
+  final ForgeEditor editor;
+
+  /// The URI to open in this editor.
   final Uri? uri;
+
+  MiddleTabConfig(this.editor, {this.uri});
 }
 ```
+
+**Design note:** Applications are purely **structural/layout elements** in the shell configuration. All components come from modules. An application's layout references module members directly — e.g., `shellModule.explorer` for the Explorer view or `flowEditorModule.flowEditor` for the flow editor. Modules can also expose pre-configured `ForgeApplication` instances (e.g., `dartEditorModule.d4rtScriptingApplication`) so the top-level setup stays clean.
 
 ### 6.3 Application Switching
 
@@ -432,13 +499,10 @@ The menu bar has a **fixed top-level structure** with menu items automatically p
 
 ### 7.2 Action-Based Menu Population
 
-Menu items are **actions** (`ForgeAction`). Components, views, and modules register actions with the shell. Each action declares which menu it belongs to:
+Menu items are **actions** (`ForgeAction`). Components and modules expose actions as typed members or lists. Each action declares which menu it belongs to. Actions are identified by their **object identity** — no string IDs:
 
 ```dart
 class ForgeAction {
-  /// Unique action identifier (e.g., 'editor.save', 'flow.runNode').
-  final String id;
-
   /// Display label in menus.
   final String label;
 
@@ -454,10 +518,10 @@ class ForgeAction {
   /// Sort order within group.
   final int priority;
 
-  /// Execute the action with optional parameters.
+  /// Execute the action.
   /// Returns an undo object (information needed to reverse the action),
   /// or null if the action is not undoable.
-  final Future<Object?> Function(Map<String, Object> params) execute;
+  final Future<Object?> Function() execute;
 
   /// Whether the action is currently enabled. Evaluated dynamically.
   final bool Function() isEnabled;
@@ -478,10 +542,10 @@ enum ForgeMenuLocation { file, edit, view, go, modules, help }
 
 **Action execution model:**
 
-- `execute(params)` receives a parameter map. For menu invocations, `params` is typically empty. For programmatic calls (e.g., from other modules or keyboard shortcuts), callers can pass structured data.
+- `execute()` performs the action. For actions needing user input, the action itself uses `ForgeDialogManager` (via the shell API) to open quick picks, input boxes, or file dialogs.
 - The return value is the **undo object** — an opaque value containing whatever information the action needs to reverse itself. If the action returns `null`, it is not added to the undo stack.
 - `undo(undoInfo)` reverses the action using the previously returned undo object.
-- **User input during execution:** Actions can use `ForgeDialogManager` (via the shell API) to open quick picks, input boxes, or file dialogs before performing the operation. This is the standard pattern for actions that need user choices (e.g., "Rename" opens an input box, "Open File" opens a file picker).
+- Actions are referenced as direct objects — `formEditorModule.addFieldAction` — not looked up by string ID.
 ```
 
 ### 7.3 Menu Configurability
@@ -501,9 +565,11 @@ Context menus are dynamically composed from the **system state** (see §10). Com
 
 ```dart
 class ForgeContextMenuContribution {
-  final String actionId;
+  /// The action to execute when this context menu item is selected.
+  final ForgeAction action;
 
   /// When to show this item. Evaluated against current system state.
+  /// Example: show "Copy" only when the focused editor has a text selection.
   final bool Function(ForgeSystemState state) isApplicable;
 }
 ```
@@ -514,84 +580,91 @@ class ForgeContextMenuContribution {
 
 ### 8.1 Concept
 
-A **module** is a cohesive group of related functionality that registers with the shell. Modules are the primary way to add editors, views, actions, and shortcuts to Tom Forge. Unlike VS Code extensions, Tom Forge modules are compiled into the same Flutter application — there is no dynamic loading, no marketplace, and no sandboxing. Modules run in the same Dart isolate as the shell and have full, type-safe access to the shell API. They are best thought of as **shell components** — integrated parts of the application.
+A **module** is an integration wrapper that brings one or more components (editors, views) into the shell, along with their actions, shortcuts, and context menu contributions. Modules are the primary organizational unit for adding functionality to Tom Forge.
+
+Unlike VS Code extensions, Tom Forge modules are **compiled into the same Flutter application** — there is no dynamic loading, no marketplace, and no sandboxing. Modules run in the same Dart isolate as the shell and have full, type-safe access to the shell API and to each other.
+
+**Key characteristics:**
+
+- Modules expose their components as **direct typed class members** — e.g., `formEditorModule.formEditor`, `shellModule.explorer`
+- Layout configuration references these members directly (no string IDs)
+- Modules can expose pre-configured `ForgeApplication` layouts
+- The **shell itself is a module** (`TomForgeShellModule`) that provides built-in views (Explorer, Output, Problems, Terminal, Search, Outline, etc.)
+- Each module is a Dart class with a well-defined lifecycle (`activate` / `deactivate`)
+- Modules for external editors (Dart editor, flow editor, etc.) will be implemented in a separate project (`tom_forge_modules`) that wraps existing editor components into shell-compatible modules
 
 ### 8.2 Module Contract
 
 ```dart
 abstract class ForgeModule {
-  /// Unique module identifier.
-  String get id;
-
-  /// Display name for the module.
+  /// Display name for the module (shown in configuration UI).
   String get displayName;
 
   /// Called when the module is activated. The shell reference provides
-  /// full access to the shell API — registration, state, services, etc.
+  /// full access to the shell API for initialization.
   void activate(ForgeShellApi shell);
 
   /// Called when the module is deactivated (shutdown).
   void deactivate();
 
-  /// Actions this module contributes.
+  /// All editors this module provides. The shell uses this list to
+  /// discover which editors can handle a file (via canHandle).
+  List<ForgeEditor> get editors;
+
+  /// All views this module provides.
+  List<ForgeView> get views;
+
+  /// Actions this module contributes to menus and command palette.
   List<ForgeAction> get actions;
 
   /// Shortcut bindings this module contributes.
   List<ForgeShortcutBinding> get shortcuts;
+
+  /// Context menu contributions.
+  List<ForgeContextMenuContribution> get contextMenus => [];
+
+  /// Status bar items this module contributes.
+  List<StatusBarItem> get statusBarItems => [];
 }
 ```
 
 ### 8.3 Example: Form Editor Module
 
-Visual elements (editors, views) are **direct members** of the module class, not items in a list. This makes them accessible for use in code-based layout configuration (see §16.1).
+Components are **direct typed members** of the module class. This makes them accessible in code-based layout configuration (see §16.1) and by other modules via type-safe cross-references.
 
 ```dart
 class TomFormEditorModule extends ForgeModule {
   late final ForgeShellApi _shell;
 
-  // --- Visual elements as direct members ---
+  // --- Components as direct typed members ---
 
   /// The form editor (opens .form.yaml files).
-  late final ForgeEditorDescriptor formEditor;
+  late final FormEditor formEditor;
 
   /// Properties view showing form field properties.
-  late final ForgeViewDescriptor propertiesView;
-
-  @override
-  String get id => 'tom.form_editor';
+  late final FormPropertiesView propertiesView;
 
   @override
   String get displayName => 'Tom Form Editor';
 
   @override
+  List<ForgeEditor> get editors => [formEditor];
+
+  @override
+  List<ForgeView> get views => [propertiesView];
+
+  @override
   void activate(ForgeShellApi shell) {
     _shell = shell;
 
-    // Create descriptors as members (accessible for layout config)
-    formEditor = shell.registry.registerEditor(
-      'tom.form_editor',
-      displayName: 'Form Editor',
-      icon: Icons.dynamic_form,
-      factory: (uri) => TomFormEditor(shell: shell, uri: uri),
-    );
+    // Create components as direct members
+    formEditor = FormEditor(shell: shell);
+    propertiesView = FormPropertiesView(shell: shell);
 
-    propertiesView = shell.registry.registerView(
-      'tom.form_properties',
-      displayName: 'Form Properties',
-      icon: Icons.settings,
-      factory: () => TomFormPropertiesView(shell: shell),
-    );
-
-    // Register a file association — .form.yaml → form editor
-    shell.fileAssociations.register(
-      pattern: '*.form.yaml',
-      editorTypeId: 'tom.form_editor',
-    );
-
-    // Listen to selection changes in the form editor
-    shell.systemState.onSelectionChanged.listen((selection) {
-      if (selection.componentTypeId == 'tom.form_editor') {
-        // Update the properties view with the selected field
+    // React to focus changes — update properties when form editor is focused
+    shell.systemState.onFocusChanged.listen((event) {
+      if (event.component is FormEditor) {
+        propertiesView.showPropertiesFor(event.component as FormEditor);
       }
     });
   }
@@ -600,68 +673,93 @@ class TomFormEditorModule extends ForgeModule {
   void deactivate() {}
 
   @override
-  List<ForgeAction> get actions => [
-    ForgeAction(
-      id: 'tom.form_editor.addField',
-      label: 'Add Form Field',
-      menu: ForgeMenuLocation.modules,
-      group: 'tom.form_editor',
-      priority: 0,
-      execute: (params) async {
-        final field = await _shell.dialogs.showInputBox(
-          prompt: 'Field name',
-          placeholder: 'Enter field name',
-        );
-        if (field == null) return null; // user cancelled
-        return _addField(field); // returns undo info
-      },
-      undo: (undoInfo) async => _removeField(undoInfo),
-      isEnabled: () => _shell.systemState.focusedComponentTypeId == 'tom.form_editor',
-      isVisible: () => _shell.systemState.focusedComponentTypeId == 'tom.form_editor',
-    ),
-  ];
+  List<ForgeAction> get actions => [addFieldAction];
 
   @override
   List<ForgeShortcutBinding> get shortcuts => [];
+
+  /// Add a form field to the active form.
+  late final addFieldAction = ForgeAction(
+    label: 'Add Form Field',
+    menu: ForgeMenuLocation.modules,
+    group: 'Form Editor',
+    priority: 0,
+    execute: () async {
+      final field = await _shell.dialogs.showInputBox(
+        prompt: 'Field name',
+        placeholder: 'Enter field name',
+      );
+      if (field == null) return null; // user cancelled
+      return formEditor.addField(field); // returns undo info
+    },
+    undo: (undoInfo) async => formEditor.removeField(undoInfo),
+    isEnabled: () => _shell.systemState.focusedComponent is FormEditor,
+    isVisible: () => _shell.systemState.focusedComponent is FormEditor,
+  );
+}
+
+/// The form editor — handles .form.yaml files.
+class FormEditor extends ForgeEditor {
+  final ForgeShellApi shell;
+
+  FormEditor({required this.shell});
+
+  @override
+  ValueListenable<String> get title => _title;
+  final _title = ValueNotifier('Form Editor');
+
+  @override
+  IconData get icon => Icons.dynamic_form;
+
+  @override
+  bool canHandle(Uri uri) => uri.path.endsWith('.form.yaml');
+
+  @override
+  Widget buildMain(BuildContext context) => FormEditorWidget(editor: this);
+
+  @override
+  Widget buildCopy(BuildContext context) => FormEditorWidget(editor: this, isCopy: true);
+
+  @override
+  ForgeModule get module => shell.modules.get<TomFormEditorModule>();
+
+  Object addField(String name) { /* ... returns undo info */ }
+  void removeField(Object undoInfo) { /* ... */ }
 }
 ```
 
+**Key differences from VS Code pattern:**
+- No `registerEditor('type.id', factory)` — the editor is a direct class member
+- No `shell.fileAssociations.register(pattern: '*.form.yaml', ...)` — the editor implements `canHandle(uri)` directly
+- No `componentTypeId` comparisons — use `is FormEditor` (Dart type system)
+- The action references `formEditor` directly, not by string lookup
+- Other modules can access this module's components: `shell.modules.get<TomFormEditorModule>().formEditor`
+
 ### 8.4 Module Lifecycle
 
-1. Modules are declared in the `TomForgeShell` configuration
-2. `activate()` is called during shell startup, in dependency order
-3. Modules can reference each other via `shell.modules.get<T>()`
+1. Modules are declared in the `TomForgeShell` configuration as typed instances
+2. `activate()` is called during shell startup, in declaration order
+3. Modules can reference each other via `shell.modules.get<T>()` (type-safe)
 4. `deactivate()` is called during shell shutdown, in reverse order
+5. When the shell needs to open a file, it iterates `module.editors` across all modules and calls `canHandle(uri)` — the first match wins
 
 ### 8.5 Shell API Surface
 
-The `ForgeShellApi` passed to modules provides:
+The `ForgeShellApi` passed to modules provides direct, typed access to all shell services. No string-based lookups — everything is accessed through objects and types:
 
 ```dart
 abstract class ForgeShellApi {
-  /// Component registration.
-  ForgeComponentRegistry get registry;
-
   /// System state — focus, selection, open editors, problems, etc.
   ForgeSystemState get systemState;
-
-  /// Menu and action registration.
-  ForgeActionRegistry get actions;
-
-  /// Shortcut manager.
-  ForgeShortcutManager get shortcuts;
-
-  /// File system access (routed through .forge revisioning).
-  ForgeFileSystem get fileSystem;
 
   /// Layout control — open/close panels, focus components, etc.
   ForgeLayoutController get layout;
 
-  /// Status bar item registration.
+  /// Status bar control.
   ForgeStatusBarController get statusBar;
 
-  /// File association registry (file pattern → editor type).
-  ForgeFileAssociationRegistry get fileAssociations;
+  /// File system access (routed through .forge revisioning).
+  ForgeFileSystem get fileSystem;
 
   /// Module cross-references (type-safe).
   ForgeModuleRegistry get modules;
@@ -695,6 +793,9 @@ abstract class ForgeShellApi {
 
   /// Per-module persistent storage.
   ForgeModuleStorage get storage;
+
+  /// The undo/redo stack for actions.
+  ForgeUndoManager get undoManager;
 }
 ```
 
@@ -721,11 +822,11 @@ The Configuration tab contains these sections (as accordeon items):
 | **Shortcuts** | Shortcut editor: view all bindings, rebind, detect conflicts (see §11.5) |
 | **Modules** | List of loaded modules, enable/disable, module-specific settings |
 | **Layout** | Panel visibility, default sizes, reset to defaults |
-| **File Types** | File association editor (pattern → editor mapping) |
+| **File Types** | File-to-editor resolution: view which editors handle which files, adjust priority order |
 
-### 9.3 Code-Based Configuration
+### 9.3 Code-Based Configuration and Startup Sequence
 
-Configuration is defined in code and can be overridden at runtime. The code-configured values serve as defaults:
+Configuration is defined in code as the **baseline default** and then overlaid with persisted user changes at startup. The code-configured values serve as the reset target:
 
 ```dart
 class ForgeConfig {
@@ -754,6 +855,37 @@ class AutoSaveConfig {
 }
 ```
 
+**Startup configuration sequence:**
+
+```
+1. Code config
+   ├─ TomForgeShell constructor receives ForgeConfig with all defaults
+   ├─ Modules are instantiated (but not activated yet)
+   └─ Applications are defined with layout referencing module members
+
+2. Startup dialog
+   ├─ User selects workspace + config mode (or remembered from prefs)
+   └─ .forge/ folder path is resolved
+
+3. Persisted config overlay
+   ├─ Load .forge/config.json (or ~/.forge/config.json in split mode)
+   ├─ Overlay on top of code config (user changes win)
+   ├─ Load .forge/state/layout.json → override code-based ApplicationLayout
+   └─ Load .forge/state/open-editors.json → restore editor tabs
+
+4. Module activation
+   ├─ activate() called on each module in declaration order
+   ├─ Modules create their component instances
+   └─ Modules can read config via shell.config
+
+5. Shell render
+   ├─ Build widget tree from merged layout (code + persisted)
+   ├─ Open restored editor tabs
+   └─ Status bar items from modules become active
+```
+
+The **reset** option in the Configuration tab restores the code-configured defaults, discarding persisted overrides.
+
 ### 9.4 Configuration Persistence
 
 - Configuration changes made via the Configuration tab are saved to `.forge/config.json`
@@ -779,10 +911,9 @@ The system state API provides a comprehensive, real-time view of the shell's cur
 abstract class ForgeSystemState {
   // --- Focus ---
 
-  /// The currently focused component's type ID (null if no component is focused).
-  String? get focusedComponentTypeId;
-
-  /// The currently focused component instance (null if none).
+  /// The currently focused component (null if no component is focused).
+  /// This is a direct object reference — use `is` to check the type:
+  ///   if (state.focusedComponent is FormEditor) { ... }
   ForgeComponent? get focusedComponent;
 
   /// Whether the focused component is the main instance or a UI copy.
@@ -793,17 +924,31 @@ abstract class ForgeSystemState {
 
   // --- Editors ---
 
-  /// All currently open editor URIs.
-  List<Uri> get openEditorUris;
+  /// All currently open editors (direct references).
+  List<ForgeEditor> get openEditors;
 
-  /// The active editor URI (the editor with focus, or last focused).
-  Uri? get activeEditorUri;
+  /// The active editor (the editor with focus, or last focused).
+  ForgeEditor? get activeEditor;
 
-  /// URIs of editors with unsaved changes.
-  List<Uri> get dirtyEditorUris;
+  /// Editors with unsaved changes.
+  List<ForgeEditor> get dirtyEditors;
 
   /// Whether any editor has unsaved changes.
   bool get hasUnsavedChanges;
+
+  // --- Component Context ---
+
+  /// The current text selection in the focused component, if any.
+  /// Returns null if the focused component has no text selection
+  /// or does not support text selection.
+  TextSelection? get focusedTextSelection;
+
+  /// The selected text content in the focused component, if any.
+  String? get focusedSelectedText;
+
+  /// Whether the focused component currently has a non-empty text selection.
+  /// Useful for context menus: show "Copy" only when text is selected.
+  bool get hasTextSelection;
 
   // --- Explorer / Selection ---
 
@@ -863,7 +1008,7 @@ abstract class ForgeSystemState {
 
   // --- Streams ---
 
-  /// Fires when focus changes.
+  /// Fires when focus changes. Provides the old and new component references.
   Stream<FocusChangeEvent> get onFocusChanged;
 
   /// Fires when an editor's dirty state changes.
@@ -871,6 +1016,9 @@ abstract class ForgeSystemState {
 
   /// Fires when explorer selection changes.
   Stream<SelectionChangeEvent> get onSelectionChanged;
+
+  /// Fires when the focused component's text selection changes.
+  Stream<TextSelectionChangeEvent> get onTextSelectionChanged;
 
   /// Fires when diagnostics change.
   Stream<DiagnosticChangeEvent> get onDiagnosticsChanged;
@@ -884,28 +1032,50 @@ abstract class ForgeSystemState {
   /// Fires when panel visibility or layout changes.
   Stream<LayoutChangeEvent> get onLayoutChanged;
 }
+
+class FocusChangeEvent {
+  /// The previously focused component (null if none was focused).
+  final ForgeComponent? previous;
+
+  /// The newly focused component (null if focus was lost).
+  final ForgeComponent? current;
+}
 ```
+
+**Design note on URIs:** Files are identified by `Uri` because URIs are universal resource identifiers that can represent local files (`file://`), virtual documents, or remote resources. Editors expose `Uri get uri` and `bool canHandle(Uri uri)` — the URI is the file handle, while the editor object itself is the component handle. There is no need for a separate component ID system: use the Dart type system (`is FormEditor`, `is FlowEditor`) for type checks and object identity for instance checks.
 
 ### 10.3 Action Visibility and Enablement
 
 Actions dynamically evaluate their `isVisible` and `isEnabled` callbacks against the current system state. The shell re-evaluates these whenever the relevant state changes:
 
 ```dart
-// Example: "Save All" saves all dirty editors and returns an undo object.
+// Example: "Save All" saves all dirty editors.
 ForgeAction(
-  id: 'file.saveAll',
   label: 'Save All',
   menu: ForgeMenuLocation.file,
   isEnabled: () => systemState.hasUnsavedChanges,
   isVisible: () => true,
-  execute: (params) async {
-    final saved = List<Uri>.from(systemState.dirtyEditorUris);
-    for (final uri in saved) {
-      await shell.fileSystem.save(uri);
+  execute: () async {
+    final saved = List<ForgeEditor>.from(systemState.dirtyEditors);
+    for (final editor in saved) {
+      await shell.fileSystem.save(editor.uri);
     }
-    return saved; // undo info: list of URIs that were saved
+    return saved; // undo info: list of editors that were saved
   },
   undo: null, // save is not undoable at this level
+);
+
+// Example: "Copy" action — visible only when text is selected.
+ForgeAction(
+  label: 'Copy',
+  menu: ForgeMenuLocation.edit,
+  isEnabled: () => systemState.hasTextSelection,
+  isVisible: () => systemState.hasTextSelection,
+  execute: () async {
+    final text = systemState.focusedSelectedText;
+    if (text != null) await shell.clipboard.writeText(text);
+    return null; // not undoable
+  },
 );
 ```
 
@@ -967,11 +1137,16 @@ abstract class ForgeLayoutController {
   /// Toggle a panel's visibility.
   void togglePanel(ForgePanelLocation location);
 
-  /// Focus a specific component by type ID.
-  void focusComponent(String componentTypeId);
+  /// Focus a specific component (direct reference, no ID).
+  void focusComponent(ForgeComponent component);
 
-  /// Open an editor for the given URI. Reuses an existing tab if already open.
-  void openEditor(Uri uri, {int? middlePanelIndex});
+  /// Open a file. The shell iterates all module editors and calls
+  /// canHandle(uri) — the first match opens the file. Reuses an
+  /// existing tab if an editor for this URI is already open.
+  void openFile(Uri uri, {int? middlePanelIndex});
+
+  /// Open a specific editor for the given URI (bypasses canHandle).
+  void openEditor(ForgeEditor editor, Uri uri, {int? middlePanelIndex});
 
   /// Split the active middle panel (add a new middle panel column).
   void splitMiddlePanel();
@@ -1057,88 +1232,73 @@ abstract class ForgeDiagnosticCollection {
 }
 ```
 
-#### ForgeActionRegistry
+#### ForgeUndoManager
+
+Actions register with the undo manager automatically when their `execute()` returns a non-null undo object:
 
 ```dart
-abstract class ForgeActionRegistry {
-  /// Register an action.
-  void register(ForgeAction action);
-
-  /// Execute an action by ID with optional parameters.
-  /// Returns the undo object (or null if the action is not undoable).
-  Future<Object?> execute(String actionId, {Map<String, Object> params = const {}});
-
-  /// Get an action by ID.
-  ForgeAction? get(String actionId);
-
-  /// List all registered actions.
-  List<ForgeAction> get allActions;
-
-  /// Remove an action by ID.
-  void remove(String actionId);
-
+abstract class ForgeUndoManager {
   /// Undo the last undoable action.
   Future<void> undo();
 
   /// Redo the last undone action.
   Future<void> redo();
+
+  /// Whether undo is available.
+  ValueListenable<bool> get canUndo;
+
+  /// Whether redo is available.
+  ValueListenable<bool> get canRedo;
 }
 ```
 
 #### ForgeShortcutManager
 
+Shortcuts are collected from modules and components automatically. The manager resolves conflicts and allows runtime rebinding:
+
 ```dart
 abstract class ForgeShortcutManager {
-  /// Register a shortcut binding.
-  void register(ForgeShortcutBinding binding);
-
-  /// List all registered shortcut bindings.
+  /// All registered shortcut bindings (from all modules and components).
   List<ForgeShortcutBinding> get allBindings;
 
   /// Rebind a shortcut to a new key combination.
-  void rebind(String actionId, ForgeShortcutKey newKey);
+  void rebind(ForgeAction action, ForgeShortcutKey newKey);
 
-  /// Remove a shortcut binding.
-  void remove(String actionId);
+  /// Reset a shortcut to its default binding.
+  void resetToDefault(ForgeAction action);
 
   /// Detect conflicts with an existing binding.
   ForgeShortcutBinding? conflictsWith(ForgeShortcutKey key);
 }
 ```
 
-#### ForgeFileAssociationRegistry
+#### File-to-Editor Resolution
+
+There is no file association registry. Instead, when the shell needs to open a file, it asks editors directly:
 
 ```dart
-abstract class ForgeFileAssociationRegistry {
-  /// Register a file pattern → editor type association.
-  void register({required String pattern, required String editorTypeId});
-
-  /// Get the editor type ID for a given URI.
-  String? getEditorForUri(Uri uri);
-
-  /// List all associations.
-  List<FileAssociation> get allAssociations;
-
-  /// Remove an association by pattern.
-  void remove(String pattern);
+// The shell iterates all modules and their editors:
+ForgeEditor? findEditorForFile(Uri uri) {
+  for (final module in modules) {
+    for (final editor in module.editors) {
+      if (editor.canHandle(uri)) return editor;
+    }
+  }
+  return null; // no editor can handle this file
 }
 ```
+
+Module declaration order determines priority — earlier modules win when multiple editors can handle the same file. Users can override this in the Configuration tab (File Types section, see §9.2).
 
 #### ForgeModuleRegistry
 
 ```dart
 abstract class ForgeModuleRegistry {
-  /// Get a typed module reference.
+  /// Get a typed module reference. Type-safe, no string IDs.
   T get<T extends ForgeModule>();
-
-  /// Get a module by ID.
-  ForgeModule? getById(String id);
 
   /// List all registered modules.
   List<ForgeModule> get allModules;
-
-  /// Whether a module is active.
-  bool isActive(String id);
 }
 ```
 
@@ -1146,20 +1306,20 @@ abstract class ForgeModuleRegistry {
 
 ```dart
 abstract class ForgeConfigManager {
-  /// Get a configuration value by key.
-  T? get<T>(String key);
-
-  /// Set a configuration value.
-  void set(String key, Object? value);
-
-  /// Get the full configuration object.
+  /// Get the full configuration object (code defaults + persisted overrides).
   ForgeConfig get current;
 
-  /// Get module-scoped configuration section.
-  Map<String, dynamic> getSection(String moduleId);
+  /// Update a configuration property. Persists the change.
+  void update(void Function(ForgeConfig config) updater);
+
+  /// Get module-specific configuration (typed).
+  T getModuleConfig<T extends ForgeModule, C>(T module);
 
   /// Fires when any configuration value changes.
   Stream<ConfigChangeEvent> get onDidChange;
+
+  /// Reset all configuration to code-configured defaults.
+  void resetToDefaults();
 }
 ```
 
@@ -1167,16 +1327,12 @@ abstract class ForgeConfigManager {
 
 ```dart
 abstract class ForgeStatusBarController {
-  /// Register a status bar item.
-  void register(StatusBarItem item);
-
-  /// Remove a status bar item by ID.
-  void remove(String id);
-
-  /// Update a status bar item.
-  void update(String id, {String? text, IconData? icon, String? tooltip});
+  /// All currently visible status bar items.
+  List<StatusBarItem> get items;
 }
 ```
+
+Status bar items are contributed by modules via `ForgeModule.statusBarItems`. The shell automatically collects them. Items activate/deactivate based on their `isActive` callback (see §15.2).
 
 #### ForgeNotificationManager (new)
 
@@ -1319,8 +1475,9 @@ abstract class ForgeEnvironment {
 ```dart
 abstract class ForgeModuleStorage {
   /// Get a key-value store scoped to the calling module.
-  /// Data is stored in .forge/modules/<moduleId>/.
-  ForgeKeyValueStore forModule(String moduleId);
+  /// Data is stored in .forge/modules/<module-type-name>/.
+  /// The module type is used as the directory name (no string IDs).
+  ForgeKeyValueStore forModule(ForgeModule module);
 }
 
 abstract class ForgeKeyValueStore {
@@ -1466,7 +1623,7 @@ The `.forge/` folder in the **workspace root directory** stores workspace state 
     <uri-hash>/         # Per-file undo history
       stack.json        # Undo/redo stack metadata
   modules/
-    <module-id>/        # Per-module persistent storage
+    <module-type>/      # Per-module persistent storage (directory named by Dart type)
 ```
 
 When using global configuration mode, configuration lives in `~/.forge/`:
@@ -1475,7 +1632,7 @@ When using global configuration mode, configuration lives in `~/.forge/`:
 ~/.forge/
   config.json           # Global configuration overrides
   modules/
-    <module-id>/        # Global per-module persistent storage
+    <module-type>/      # Global per-module persistent storage
 ```
 
 **Important:** Workspace-specific data (revisions, layout state, undo history) is **always** stored in `<workspace>/.forge/` — never in `~/.forge/`. The global `~/.forge/` only holds configuration and module config data.
@@ -1639,30 +1796,30 @@ When `--workspace` is provided, the dialog is skipped and the shell opens direct
 
 ### 14.1 Initial Implementation (v1)
 
-These views ship with the panel shell framework:
+These views ship with the panel shell framework as members of `TomForgeShellModule`:
 
-| View | Type ID | Description | Default Panel |
-|------|---------|-------------|---------------|
-| **Terminal** | `forge.terminal` | Embedded terminal emulator (pty-based on desktop). Multiple terminal instances managed as tabs within the view. | Bottom |
-| **Output** | `forge.output` | Read-only text output channel. Components can write to named output channels (dropdown to select channel). Shows timestamped, scrollable log output. | Bottom |
-| **Problems** | `forge.problems` | Aggregated diagnostics list (errors, warnings, info). Components register problem providers. Click-to-navigate to source location. Filterable by severity and source. | Bottom |
-| **Explorer** | `forge.explorer` | File/resource tree browser. Shows workspace files, supports open/rename/delete. Double-click opens in editor. | Left |
-| **Search** | `forge.search` | Full-text search across workspace files. Shows results grouped by file with match highlighting. Click navigates to match. | Left |
-| **Outline** | `forge.outline` | Structural outline of the active editor's content (sections, classes, functions — editor-dependent). Follows focus. Click navigates within the editor. | Left |
-| **File History** | `forge.file_history` | Revision history for the active file. Shows timestamps, diffs, restore options. Reads from `.forge/revisions/`. | Right |
+| View | Module Member | Description | Default Panel |
+|------|--------------|-------------|---------------|
+| **Terminal** | `shellModule.terminal` | Embedded terminal emulator (pty-based on desktop). Multiple terminal instances managed as tabs within the view. | Bottom |
+| **Output** | `shellModule.output` | Read-only text output channel. Components can write to named output channels (dropdown to select channel). Shows timestamped, scrollable log output. | Bottom |
+| **Problems** | `shellModule.problems` | Aggregated diagnostics list (errors, warnings, info). Components register problem providers. Click-to-navigate to source location. Filterable by severity and source. | Bottom |
+| **Explorer** | `shellModule.explorer` | File/resource tree browser. Shows workspace files, supports open/rename/delete. Double-click opens in editor. | Left |
+| **Search** | `shellModule.search` | Full-text search across workspace files. Shows results grouped by file with match highlighting. Click navigates to match. | Left |
+| **Outline** | `shellModule.outline` | Structural outline of the active editor's content (sections, classes, functions — editor-dependent). Follows focus. Click navigates within the editor. | Left |
+| **File History** | `shellModule.history` | Revision history for the active file. Shows timestamps, diffs, restore options. Reads from `.forge/revisions/`. | Right |
 
 ### 14.2 Suggested for Later
 
-| View | Type ID | Description | Rationale |
-|------|---------|-------------|-----------|
-| **Debug Console** | `forge.debug` | Interactive debug output and evaluation | Needed once D4rt integration lands |
-| **Git / Source Control** | `forge.scm` | Git status, staging, commit, diff | Common development need |
-| **Notifications** | `forge.notifications` | System and component notifications with history | Better than toast-only |
-| **Minimap** | `forge.minimap` | Thumbnail overview of the active editor | Useful for large files |
-| **Properties** | `forge.properties` | Context-sensitive property editor for the selected item | Useful for visual editors (flow editor, form editor) |
-| **Preview** | `forge.preview` | Live preview of the active editor's content (markdown, flow diagram) | Already exists in tom_md_editor |
-| **Help** | `forge.help` | Contextual documentation browser | Supports back/forward history |
-| **Execution Monitor** | `forge.execution` | Real-time flow execution display (node states, timing, logs) | Core for the flow editor |
+| View | Module Member | Description | Rationale |
+|------|--------------|-------------|-----------|
+| **Debug Console** | `shellModule.debug` | Interactive debug output and evaluation | Needed once D4rt integration lands |
+| **Git / Source Control** | `shellModule.scm` | Git status, staging, commit, diff | Common development need |
+| **Notifications** | `shellModule.notifications` | System and component notifications with history | Better than toast-only |
+| **Minimap** | `shellModule.minimap` | Thumbnail overview of the active editor | Useful for large files |
+| **Properties** | `shellModule.properties` | Context-sensitive property editor for the selected item | Useful for visual editors (flow editor, form editor) |
+| **Preview** | `shellModule.preview` | Live preview of the active editor's content (markdown, flow diagram) | Already exists in tom_md_editor |
+| **Help** | `shellModule.help` | Contextual documentation browser | Supports back/forward history |
+| **Execution Monitor** | `shellModule.execution` | Real-time flow execution display (node states, timing, logs) | Core for the flow editor |
 
 ### 14.3 View Responsibilities
 
@@ -1690,19 +1847,35 @@ Each built-in view is a self-contained package-level widget. The panel shell pro
 
 ```dart
 class StatusBarItem {
-  final String id;
-  final String text;
+  /// Display text. Observable — the shell re-renders when this changes.
+  final ValueListenable<String> text;
+
+  /// Optional icon.
   final IconData? icon;
+
   final StatusBarAlignment alignment; // left, center, right
-  final int priority; // higher = closer to edge
+
+  /// Higher priority = closer to the edge of its alignment zone.
+  final int priority;
+
+  /// Tap handler (e.g., click language mode to change it).
   final VoidCallback? onTap;
+
+  /// Tooltip on hover.
   final String? tooltip;
+
+  /// Whether this status bar item is currently active (visible).
+  /// Evaluated dynamically against the system state. Items that return
+  /// false are hidden. This enables context-sensitive status lines:
+  /// e.g., "Ln 42, Col 17" only shows when a text editor is focused.
+  final bool Function(ForgeSystemState state) isActive;
 }
 ```
 
-- **Global items:** contributed by the shell (connection status, application info, problem count)
-- **Component items:** contributed by the focused component (cursor position, file encoding, language)
-- Items are reactive — they update via `ValueNotifier` or stream
+- **Global items:** contributed by the shell module (connection status, application info, problem count) — typically always active
+- **Component items:** contributed by modules, active only when the relevant component is focused (cursor position, file encoding, language mode)
+- Items with `ValueListenable<String> text` update reactively — no manual refresh calls needed
+- The `isActive` callback is re-evaluated whenever `ForgeSystemState` changes, so items appear/disappear based on context (e.g., cursor position item becomes active when a text editor gains focus, and deactivates when a non-text view gains focus)
 
 ---
 
@@ -1710,103 +1883,11 @@ class StatusBarItem {
 
 ### 16.1 Example
 
-```dart
-void main() {
-  // Define modules
-  final formEditorModule = TomFormEditorModule();
-  final flowEditorModule = TomFlowEditorModule();
-
-  final shell = TomForgeShell(
-    workspace: Directory.current,
-    modules: [formEditorModule, flowEditorModule],
-    config: ForgeConfig(
-      autoSave: AutoSaveConfig(enabled: true, idleDelay: Duration(seconds: 1)),
-      revisioning: RevisioningConfig(maxRevisionsPerFile: 50),
-    ),
-    applications: [
-      ForgeApplication(
-        title: 'Tom Flow',
-        layout: ApplicationLayout(
-          leftPanel: PanelConfig(
-            initialSize: 260,
-            tabs: [
-              PanelTabConfig(
-                title: 'Explorer',
-                icon: Icons.folder,
-                sections: [
-                  AccordeonSectionConfig(componentTypeId: 'forge.explorer'),
-                  AccordeonSectionConfig(componentTypeId: 'forge.outline'),
-                ],
-              ),
-              PanelTabConfig(
-                title: 'Search',
-                icon: Icons.search,
-                sections: [
-                  AccordeonSectionConfig(componentTypeId: 'forge.search'),
-                ],
-              ),
-            ],
-          ),
-          rightPanel: PanelConfig(
-            initialSize: 240,
-            tabs: [
-              PanelTabConfig(
-                title: 'Properties',
-                icon: Icons.settings,
-                sections: [
-                  AccordeonSectionConfig(componentTypeId: 'forge.properties'),
-                  AccordeonSectionConfig(componentTypeId: 'forge.file_history'),
-                ],
-              ),
-            ],
-          ),
-          bottomPanel: PanelConfig(
-            initialSize: 200,
-            tabs: [
-              PanelTabConfig(
-                title: 'Terminal',
-                icon: Icons.terminal,
-                sections: [
-                  AccordeonSectionConfig(componentTypeId: 'forge.terminal'),
-                ],
-              ),
-              PanelTabConfig(
-                title: 'Output',
-                icon: Icons.output,
-                sections: [
-                  AccordeonSectionConfig(componentTypeId: 'forge.output'),
-                  AccordeonSectionConfig(componentTypeId: 'forge.problems'),
-                ],
-              ),
-            ],
-          ),
-          middlePanels: [
-            MiddlePanelConfig(
-              flex: 1,
-              tabs: [
-                MiddleTabConfig(
-                  componentTypeId: 'tom.flow_editor',
-                  uri: Uri.file('example.queue.yaml'),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-      ForgeApplication(title: 'Tom D4rt Scripting'),
-      ForgeApplication(title: 'Tom Worktracker'),
-    ],
-  );
-
-  runApp(TomForgeShellApp(shell: shell));
-}
-```
-
-### 16.1b Example, user version
+The shell setup references module members directly — no string IDs, no registries:
 
 ```dart
 void main() {
-  // Define modules
+  // Instantiate modules. Each module owns its components as typed members.
   final shellModule = TomForgeShellModule();
   final formEditorModule = TomFormEditorModule();
   final flowEditorModule = TomFlowEditorModule();
@@ -1815,12 +1896,19 @@ void main() {
 
   final shell = TomForgeShell(
     workspace: Directory.current,
-    modules: [shellModule, formEditorModule, flowEditorModule,dartEditorModule,worktrackerModule],
+    modules: [
+      shellModule,
+      formEditorModule,
+      flowEditorModule,
+      dartEditorModule,
+      worktrackerModule,
+    ],
     config: ForgeConfig(
       autoSave: AutoSaveConfig(enabled: true, idleDelay: Duration(seconds: 1)),
       revisioning: RevisioningConfig(maxRevisionsPerFile: 50),
     ),
     applications: [
+      // Application with explicit layout — references module members directly
       ForgeApplication(
         title: 'Tom Flow',
         layout: ApplicationLayout(
@@ -1890,6 +1978,8 @@ void main() {
           ],
         ),
       ),
+
+      // Modules can provide pre-configured applications
       dartEditorModule.d4rtScriptingApplication,
       worktrackerModule.worktrackerApplication,
     ],
@@ -1898,6 +1988,12 @@ void main() {
   runApp(TomForgeShellApp(shell: shell));
 }
 ```
+
+**Key patterns demonstrated:**
+- **Direct member access:** `shellModule.explorer`, `flowEditorModule.queueEditor` — typed, IDE-navigable, refactor-safe
+- **Module-provided applications:** `dartEditorModule.d4rtScriptingApplication` — modules can expose entire application layouts
+- **No string IDs anywhere** — components, views, editors are all direct Dart object references
+- **Shell as a module:** `TomForgeShellModule` provides built-in views (Explorer, Output, Problems, Terminal, Search, Outline, File History, Properties)
 
 ### 16.2 Layout Persistence
 
@@ -1934,14 +2030,16 @@ tom_forge_ui/
         drag_overlay.dart           # Drop zone overlay for drag-and-drop
         resizable_divider.dart      # Drag handle for panel resizing
       components/
-        forge_component.dart        # Component base class / interface
+        forge_component.dart        # ForgeComponent, ForgeEditor, ForgeView base classes
         component_host.dart         # Wraps a component in a panel section
-        component_registry.dart     # Registration and factory lookup
+        component_history.dart      # ComponentHistoryManager
         component_state.dart        # Shared data state + per-copy UI state
         multi_render_manager.dart   # Track main component vs UI copies
+        file_resolution.dart        # canHandle()-based file-to-editor resolution
       modules/
-        forge_module.dart           # Module base class
-        module_registry.dart        # Module lifecycle and cross-references
+        forge_module.dart           # ForgeModule base class
+        module_registry.dart        # Module lifecycle and type-safe cross-references
+        shell_module.dart           # TomForgeShellModule — built-in views
       models/
         application_model.dart      # TomForgeShell, ForgeApplication
         layout_model.dart           # PanelConfig, TabConfig, etc.
@@ -1962,7 +2060,7 @@ tom_forge_ui/
         forge_folder_manager.dart   # .forge/ folder initialization and access
         revision_manager.dart       # File revision storage and retrieval
         shortcut_manager.dart       # Shortcut registration, trigger key, conflicts
-        action_registry.dart        # Menu action registration and evaluation
+        action_collector.dart       # Collect actions from modules and components
         config_manager.dart         # Configuration load/save/defaults
         notification_manager.dart   # Toast notifications with action buttons
         progress_manager.dart       # Progress indicators (status bar / overlay)
@@ -1973,8 +2071,8 @@ tom_forge_ui/
         module_storage.dart         # Per-module key-value persistence
         diagnostic_manager.dart     # Diagnostic collection management
         output_channel_manager.dart # Output channel creation and lifecycle
-        file_association_registry.dart # File pattern → editor mapping
-        status_bar_controller.dart  # Status bar item registration and updates
+        undo_manager.dart           # ForgeUndoManager — action undo/redo stack
+        status_bar_controller.dart  # Status bar item collection and visibility
       config/
         forge_config.dart           # ForgeConfig, AutoSaveConfig, etc.
         config_views/
@@ -2072,20 +2170,23 @@ Per Tom Forge convention, the panel shell implements trail-based debug mode:
 
 ### Phase 3 — Component Framework
 
-- `ForgeComponent` contract and `ForgeComponentRegistry`
+- `ForgeComponent`, `ForgeEditor`, `ForgeView` contracts
 - Component host wrapper with drag handles
 - Multi-render: data state sharing by URI/type, independent UI state per copy
 - SHIFT+drag to create UI copies
 - Focus tracking service
 - `ForgeSystemState` implementation
+- `canHandle(uri)` file-to-editor resolution
 
 ### Phase 4 — Module System and Actions
 
 - `ForgeModule` contract and lifecycle (activate/deactivate)
 - `ForgeShellApi` implementation
-- Action registry and menu population
+- `TomForgeShellModule` with built-in views
+- Action collection from modules and components
+- Menu population from actions
 - Context menus based on system state
-- Module cross-references
+- Module cross-references via `get<T>()`
 
 ### Phase 5 — Shortcuts and Configuration
 
