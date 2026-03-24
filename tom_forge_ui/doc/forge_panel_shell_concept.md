@@ -3,7 +3,7 @@
 **Project:** tom_forge_ui  
 **Component:** Panel Shell Framework  
 **Date:** 2026-03-24  
-**Status:** Concept (v4 — OO/type-safe redesign)
+**Status:** Concept (v6 — API completeness: decorations, multi-selection, workspace edit, virtual docs, outline, search, secrets)
 
 ---
 
@@ -320,11 +320,23 @@ abstract class ForgeTextEditor extends ForgeEditor {
   /// The current text selection range. Null when no selection.
   ValueListenable<TextRange?> get selection;
 
+  /// All current selections (for multi-cursor editing).
+  /// Contains at least one entry when the editor is active.
+  ValueListenable<List<TextRange>> get selections;
+
+  /// Set multiple selections (multi-cursor).
+  void setSelections(List<TextRange> ranges);
+
   /// The currently selected text content. Empty string when no selection.
   String get selectedText;
 
   /// Whether there is a non-empty text selection.
   bool get hasSelection;
+
+  /// The currently visible text range (what the user can see).
+  /// Changes on scroll. Useful for scroll-aware features like
+  /// virtual rendering, minimap sync, and lazy decoration.
+  ValueListenable<TextRange> get visibleRange;
 
   /// Replace the current selection with the given text.
   /// If no selection, inserts at the cursor position.
@@ -348,11 +360,30 @@ abstract class ForgeTextEditor extends ForgeEditor {
   /// Reveal the given position by scrolling to it.
   void revealPosition(TextPosition position);
 
+  /// Reveal the given range by scrolling to make it visible.
+  void revealRange(TextRange range);
+
   /// Find occurrences of a pattern in the document.
   List<TextRange> findAll(Pattern pattern);
 
   /// Replace all occurrences of a pattern.
   int replaceAll(Pattern pattern, String replacement);
+
+  /// Per-editor options (tab size, insert spaces, word wrap).
+  /// Overrides global defaults for this editor instance.
+  ForgeTextEditorOptions get options;
+
+  /// Update per-editor options.
+  void updateOptions(ForgeTextEditorOptions options);
+
+  /// Apply decorations to ranges in this editor. Decorations are
+  /// visual markers — error underlines, search highlights, git diff
+  /// markers, breakpoint icons, etc. Each decoration type is keyed
+  /// so modules can update/clear their own decorations independently.
+  void setDecorations(ForgeDecorationType type, List<ForgeDecorationRange> ranges);
+
+  /// Remove all decorations of the given type from this editor.
+  void clearDecorations(ForgeDecorationType type);
 }
 
 /// The document model for a text editor. Represents the file content
@@ -378,6 +409,13 @@ abstract class ForgeDocument {
 
   /// The file's encoding.
   Encoding get encoding;
+
+  /// Document version counter. Increments on each edit.
+  /// Useful for detecting stale references and concurrent modifications.
+  int get version;
+
+  /// Whether this document has never been saved to disk ("untitled").
+  bool get isUntitled;
 
   /// Whether the document has been modified since last save.
   ValueListenable<bool> get isDirty;
@@ -411,6 +449,71 @@ class DocumentChangeEvent {
 
   /// The document after the change.
   final ForgeDocument document;
+}
+
+/// Per-editor options that override global defaults.
+class ForgeTextEditorOptions {
+  /// Number of spaces per tab. Null = use global default.
+  final int? tabSize;
+
+  /// Whether to insert spaces instead of tab characters.
+  final bool? insertSpaces;
+
+  /// Word wrap mode.
+  final ForgeWordWrap? wordWrap;
+}
+
+enum ForgeWordWrap { off, on, wordWrapColumn, bounded }
+
+/// A decoration type created by a module for visual markers.
+/// Each type defines the visual style; instances are applied to
+/// ranges via `ForgeTextEditor.setDecorations()`.
+class ForgeDecorationType {
+  /// Unique key for this decoration type (used to update/clear).
+  final String key;
+
+  /// Background color for decorated ranges.
+  final Color? backgroundColor;
+
+  /// Border style for decorated ranges.
+  final ForgeBorderStyle? border;
+
+  /// Text style override for decorated ranges.
+  final TextStyle? textStyle;
+
+  /// Underline style (e.g., wavy for errors, dotted for warnings).
+  final ForgeUnderlineStyle? underlineStyle;
+
+  /// Underline color.
+  final Color? underlineColor;
+
+  /// Gutter icon (margin decoration).
+  final IconData? gutterIcon;
+
+  /// Gutter icon color.
+  final Color? gutterIconColor;
+
+  /// Whether to render in the overview ruler (scrollbar minimap).
+  final bool overviewRuler;
+
+  /// Overview ruler color.
+  final Color? overviewRulerColor;
+}
+
+enum ForgeUnderlineStyle { solid, dotted, dashed, wavy }
+
+class ForgeBorderStyle {
+  final Color color;
+  final double width;
+  final BorderRadius? borderRadius;
+}
+
+/// A range with a decoration applied to it.
+class ForgeDecorationRange {
+  final TextRange range;
+
+  /// Optional hover message shown when the cursor is over this range.
+  final String? hoverMessage;
 }
 ```
 
@@ -989,6 +1092,21 @@ abstract class ForgeShellApi {
 
   /// The undo/redo stack for actions.
   ForgeUndoManager get undoManager;
+
+  /// Secure storage for tokens, API keys, and other secrets.
+  ForgeSecretStorage get secrets;
+
+  /// File decoration registration (badges, colors in explorer).
+  ForgeFileDecorationManager get fileDecorations;
+
+  /// Virtual document content provider registration.
+  ForgeVirtualDocumentManager get virtualDocuments;
+
+  /// Outline provider registration (feeds the Outline view).
+  ForgeOutlineManager get outline;
+
+  /// Programmatic workspace-wide text search.
+  ForgeSearchManager get search;
 }
 ```
 
@@ -1291,6 +1409,11 @@ abstract class ForgeFileSystem {
   /// Read file content at the given URI.
   Future<String> read(Uri uri);
 
+  /// Read raw file bytes at the given URI. Used for binary files
+  /// and for the two-phase file resolution flow (canHandleContent
+  /// receives Uint8List).
+  Future<Uint8List> readBytes(Uri uri);
+
   /// Write content to the given URI (creates or overwrites).
   /// Automatically creates a revision snapshot if revisioning is enabled.
   Future<void> write(Uri uri, String content);
@@ -1314,6 +1437,11 @@ abstract class ForgeFileSystem {
   /// Watch a file or directory for changes. Returns a stream of events.
   Stream<FileSystemEvent> watch(Uri uri, {bool recursive = false});
 
+  /// Apply a workspace edit atomically — multiple file creates, deletes,
+  /// renames, and text edits as a single undo step. Used for refactoring
+  /// operations that span multiple files.
+  Future<bool> applyWorkspaceEdit(ForgeWorkspaceEdit edit);
+
   /// Fires when any file changes (create, modify, delete).
   Stream<FileChangeEvent> get onDidChange;
 
@@ -1322,6 +1450,40 @@ abstract class ForgeFileSystem {
 
   /// Fires before a file is saved. Listeners can modify content.
   Stream<WillSaveEvent> get onWillSave;
+}
+
+/// An atomic multi-file edit operation. All changes are applied as a
+/// single undo step and either all succeed or all are rolled back.
+class ForgeWorkspaceEdit {
+  /// Text edits grouped by URI.
+  final Map<Uri, List<ForgeTextEdit>> textEdits;
+
+  /// File operations (create, delete, rename).
+  final List<ForgeFileOperation> fileOperations;
+}
+
+class ForgeTextEdit {
+  final TextRange range;
+  final String newText;
+}
+
+abstract class ForgeFileOperation {}
+
+class ForgeCreateFileOperation extends ForgeFileOperation {
+  final Uri uri;
+  final String? content;
+  final bool overwrite;
+}
+
+class ForgeDeleteFileOperation extends ForgeFileOperation {
+  final Uri uri;
+  final bool recursive;
+}
+
+class ForgeRenameFileOperation extends ForgeFileOperation {
+  final Uri oldUri;
+  final Uri newUri;
+  final bool overwrite;
 }
 ```
 
@@ -1781,6 +1943,185 @@ abstract class ForgeKeyValueStore {
 
   /// List all keys.
   List<String> get keys;
+}
+```
+
+#### ForgeSecretStorage (new)
+
+Secure, encrypted storage for tokens, API keys, passwords, and other sensitive data. Uses the platform's secure storage (Keychain on macOS, Credential Manager on Windows, libsecret on Linux):
+
+```dart
+abstract class ForgeSecretStorage {
+  /// Store a secret value.
+  Future<void> store(String key, String value);
+
+  /// Retrieve a secret value. Returns null if not found.
+  Future<String?> get(String key);
+
+  /// Delete a secret.
+  Future<void> delete(String key);
+
+  /// Fires when a secret is stored or deleted.
+  Stream<SecretChangeEvent> get onDidChange;
+}
+```
+
+#### ForgeFileDecorationManager (new)
+
+File decorations add visual markers (badges, color tints) to files and folders in the Explorer view. Modules register decoration providers to show SCM status, build errors, ignored files, etc.:
+
+```dart
+abstract class ForgeFileDecorationManager {
+  /// Register a file decoration provider. Returns a disposable.
+  ForgeDisposable registerProvider(ForgeFileDecorationProvider provider);
+}
+
+abstract class ForgeFileDecorationProvider {
+  /// Provide decorations for the given URI. Return null for no decoration.
+  ForgeFileDecoration? provideDecoration(Uri uri);
+
+  /// Fires when decorations should be re-evaluated.
+  Stream<Uri?> get onDidChange;
+}
+
+class ForgeFileDecoration {
+  /// Badge text (short, 1-2 characters, e.g., "M", "!", "2").
+  final String? badge;
+
+  /// Badge tooltip.
+  final String? tooltip;
+
+  /// Tint color for the file label.
+  final Color? color;
+
+  /// Whether to propagate this decoration to parent folders.
+  final bool propagate;
+}
+```
+
+#### ForgeVirtualDocumentManager (new)
+
+Virtual document providers supply content for custom URI schemes. This enables computed documents (diffs, previews, generated content) without writing files to disk:
+
+```dart
+abstract class ForgeVirtualDocumentManager {
+  /// Register a virtual document provider for the given URI scheme.
+  /// Returns a disposable.
+  ForgeDisposable registerProvider(String scheme, ForgeVirtualDocumentProvider provider);
+}
+
+abstract class ForgeVirtualDocumentProvider {
+  /// Provide text content for the given URI.
+  Future<String> provideContent(Uri uri);
+
+  /// Fires when the content for a URI has changed and should be refreshed.
+  Stream<Uri> get onDidChange;
+}
+```
+
+#### ForgeOutlineManager (new)
+
+Outline providers feed structured symbol/section data to the built-in Outline view. Without this registration, the Outline view cannot show content from module editors:
+
+```dart
+abstract class ForgeOutlineManager {
+  /// Register an outline provider for a specific editor type.
+  /// Returns a disposable.
+  ForgeDisposable registerProvider(ForgeOutlineProvider provider);
+}
+
+abstract class ForgeOutlineProvider {
+  /// Whether this provider can supply outline data for the given editor.
+  bool canProvide(ForgeEditor editor);
+
+  /// Provide outline items for the given editor.
+  Future<List<ForgeOutlineItem>> provideOutline(ForgeEditor editor);
+
+  /// Fires when the outline for the current editor has changed.
+  Stream<void> get onDidChange;
+}
+
+class ForgeOutlineItem {
+  /// Display label.
+  final String label;
+
+  /// Item kind (class, function, property, section, etc.).
+  final ForgeSymbolKind kind;
+
+  /// Detail text (e.g., return type, parameter signature).
+  final String? detail;
+
+  /// The range in the document this item represents.
+  final TextRange range;
+
+  /// The range to select when clicking this item.
+  final TextRange selectionRange;
+
+  /// Children (nested outline — methods inside a class, etc.).
+  final List<ForgeOutlineItem> children;
+}
+
+enum ForgeSymbolKind {
+  file, module, namespace, package, classKind, method, property,
+  field, constructor, enumKind, interface, function, variable,
+  constant, string, number, boolean, array, object, key, nullKind,
+  enumMember, struct, event, operator, typeParameter, section,
+}
+```
+
+#### ForgeSearchManager (new)
+
+Programmatic workspace-wide text search. Modules can trigger searches and receive results without using the Search view UI:
+
+```dart
+abstract class ForgeSearchManager {
+  /// Search for a pattern across workspace files.
+  Future<List<ForgeSearchResult>> search(
+    String query, {
+    bool isRegExp = false,
+    bool isCaseSensitive = false,
+    bool isWordMatch = false,
+    String? includePattern,
+    String? excludePattern,
+    int? maxResults,
+  });
+
+  /// Search and stream results as they arrive.
+  Stream<ForgeSearchResult> searchStream(
+    String query, {
+    bool isRegExp = false,
+    bool isCaseSensitive = false,
+    bool isWordMatch = false,
+    String? includePattern,
+    String? excludePattern,
+  });
+}
+
+class ForgeSearchResult {
+  /// The file URI containing the match.
+  final Uri uri;
+
+  /// The matched ranges within the file.
+  final List<ForgeSearchMatch> matches;
+}
+
+class ForgeSearchMatch {
+  /// The range of the match.
+  final TextRange range;
+
+  /// The line text containing the match (for preview).
+  final String lineText;
+}
+```
+
+#### ForgeDisposable
+
+Common disposable interface used by registration methods:
+
+```dart
+abstract class ForgeDisposable {
+  /// Unregister / clean up the resource.
+  void dispose();
 }
 ```
 
@@ -2321,7 +2662,7 @@ tom_forge_ui/
       components/
         forge_component.dart        # ForgeComponent base class
         forge_editor.dart           # ForgeEditor, FileHandlingResult
-        forge_text_editor.dart      # ForgeTextEditor, ForgeDocument, TextPosition, TextRange
+        forge_text_editor.dart      # ForgeTextEditor, ForgeDocument, TextPosition, TextRange, decorations
         forge_visual_editor.dart    # ForgeVisualEditor (canvas/node editors)
         forge_schema_editor.dart    # ForgeSchemaEditor (content-based schema detection)
         forge_view.dart             # ForgeView base class
@@ -2367,6 +2708,11 @@ tom_forge_ui/
         output_channel_manager.dart # Output channel creation and lifecycle
         undo_manager.dart           # ForgeUndoManager — action undo/redo stack
         status_bar_controller.dart  # Status bar item collection and visibility
+        secret_storage.dart         # ForgeSecretStorage — secure credential storage
+        file_decoration_manager.dart # ForgeFileDecorationManager — explorer file badges/colors
+        virtual_document_manager.dart # ForgeVirtualDocumentManager — custom URI scheme content
+        outline_manager.dart        # ForgeOutlineManager — structured outline provider registration
+        search_manager.dart         # ForgeSearchManager — programmatic workspace text search
       config/
         forge_config.dart           # ForgeConfig, AutoSaveConfig, etc.
         config_views/
