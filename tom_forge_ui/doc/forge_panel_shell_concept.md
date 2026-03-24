@@ -3,7 +3,8 @@
 **Project:** tom_forge_ui  
 **Component:** Panel Shell Framework  
 **Date:** 2026-03-24  
-**Status:** Concept (v6 — API completeness: decorations, multi-selection, workspace edit, virtual docs, outline, search, secrets)
+**Status:** Concept (v6 — API completeness: decorations, multi-selection, workspace edit, virtual docs, outline, search, secrets)  
+**Companion:** [Implementation Specification](forge_panel_shell_spec.md) — widget details, error handling, performance, accessibility, persistence formats, test strategy
 
 ---
 
@@ -3068,3 +3069,33 @@ Per Tom Forge convention, the panel shell implements trail-based debug mode:
 - Animation for panel transitions
 - Accessibility (screen reader support, high contrast)
 - Debug trail integration
+
+---
+
+## 19. Implementation Details Cross-Reference
+
+For implementation-level details not covered in this concept document, see the companion [Implementation Specification](forge_panel_shell_spec.md):
+
+| Topic | Spec Section |
+|-------|-------------|
+| Animation timing & curves | §2.1 |
+| Dimension constants | §2.2 |
+| Theme extension (`ForgeShellTheme`) | §2.3 |
+| Focus management | §2.4 |
+| Scroll behaviors | §2.5 |
+| Drag/drop visual feedback | §2.6 |
+| Error categories & UI | §3 |
+| Memory budgets & caching | §4.1, §4.4 |
+| Virtualization requirements | §4.2 |
+| Lazy loading patterns | §4.3 |
+| Debouncing/throttling | §4.5 |
+| Keyboard navigation | §5.1 |
+| Screen reader support | §5.2 |
+| High contrast mode | §5.3 |
+| Reduced motion | §5.4 |
+| JSON schemas for state files | §6 |
+| Shell lifecycle sequence | §7.1 |
+| Editor lifecycle sequence | §7.2 |
+| Event ordering guarantees | §7.3 |
+| Test strategy & patterns | §8 |
+| Cross-reference matrix | §9 |
