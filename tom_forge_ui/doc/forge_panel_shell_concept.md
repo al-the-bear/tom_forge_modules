@@ -291,8 +291,12 @@ class ForgeComponentRegistry {
 
 ```dart
 class TomForgeShell {
-  /// The workspace root directory.
+  /// The workspace root directory (selected at startup).
   final Directory workspace;
+
+  /// The configuration directory. Either ~/.forge (global) or
+  /// <workspace>/.forge (local). Selected at startup.
+  final Directory configDirectory;
 
   /// All applications available in this shell.
   final List<ForgeApplication> applications;
@@ -306,7 +310,7 @@ class TomForgeShell {
   /// Registered extensions.
   final List<ForgeExtension> extensions;
 
-  /// The .forge folder manager.
+  /// The .forge folder manager (uses configDirectory).
   final ForgeFolderManager forgeFolder;
 
   /// System state controller.
@@ -948,18 +952,152 @@ Undo/redo operates at two levels:
 
 Both levels are stored in `.forge/` for persistence across sessions.
 
-### 12.5 .forge Folder Initialization
+### 12.5 .forge Folder Location
 
-- The `.forge/` folder **must be present** for Tom Forge to operate with full functionality (revisioning, layout persistence, configuration).
-- On first launch with a new workspace, Tom Forge prompts the user: _"Initialize .forge folder in this workspace?"_ with Accept / Decline options.
-- Declining runs Tom Forge in **limited mode** — no file revisioning, no layout persistence, no configuration persistence. Auto-save still works (direct file writes).
-- The `.forge/` folder should be added to `.gitignore` (Tom Forge suggests this during initialization).
+The `.forge/` folder location depends on the **configuration directory** chosen at startup (see §13):
+
+| Config directory | .forge location | Use case |
+|-----------------|----------------|----------|
+| `~/.forge` (global) | `~/.forge/` | Shared config across projects; revisions/state stored globally per workspace path |
+| `<workspace>/.forge` (local) | `<workspace>/.forge/` | Project-specific config; revisions travel with the project |
+
+When using the global `~/.forge`, workspace-specific data (revisions, layout, open editors) is stored in a subdirectory keyed by the workspace path hash: `~/.forge/workspaces/<hash>/`.
+
+When using the local `<workspace>/.forge`, the `.forge/` folder should be added to `.gitignore` (Tom Forge suggests this during initialization).
 
 ---
 
-## 13. Built-In Views
+## 13. Startup Dialog
 
-### 13.1 Initial Implementation (v1)
+### 13.1 Overview
+
+When Tom Forge launches, it shows a **startup dialog** before the shell is rendered. The dialog lets the user pick or confirm two directories:
+
+1. **Workspace directory** — the root folder to open
+2. **Configuration directory** — where `.forge/` data (revisions, state, config) is stored
+
+The shell remembers both directories using **platform application preferences** (`SharedPreferences` / native key-value store) so the dialog can pre-populate on subsequent launches.
+
+### 13.2 Workspace Directory Selection
+
+**Default detection logic** (in priority order):
+
+1. **Remembered path** — if the user previously chose a workspace, pre-fill that path
+2. **Walk up from CWD** — starting from the current working directory, walk up the directory hierarchy looking for a `.forge/` folder. Stop at the first match. Skip `~/.forge` (the global config directory is not a workspace).
+3. **CWD itself** — if no `.forge/` is found, default to the current working directory
+4. **No default** — if CWD is the home directory or root, leave the field empty
+
+**UI:**
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Tom Forge Setup                       │
+│                                                         │
+│  Workspace Directory                                    │
+│  ┌─────────────────────────────────────────────┐ [📁]   │
+│  │ /Users/alex/projects/my_app                 │        │
+│  └─────────────────────────────────────────────┘        │
+│  ℹ Found .forge/ at /Users/alex/projects/my_app         │
+│                                                         │
+│  Configuration Storage                                  │
+│  ○ Global (~/.forge)          ● Project (.forge/)       │
+│  ┌─────────────────────────────────────────────┐ [📁]   │
+│  │ /Users/alex/projects/my_app/.forge           │        │
+│  └─────────────────────────────────────────────┘        │
+│                                                         │
+│  ☑ Remember these settings                              │
+│                                                         │
+│  Recent Workspaces                                      │
+│  ├─ /Users/alex/projects/my_app       (last opened)     │
+│  ├─ /Users/alex/projects/other_proj                     │
+│  └─ /Users/alex/work/client_proj                        │
+│                                                         │
+│              [ Cancel ]  [ Open Workspace ]              │
+└─────────────────────────────────────────────────────────┘
+```
+
+### 13.3 Configuration Directory Selection
+
+**Options:**
+
+| Option | Directory | Description |
+|--------|-----------|-------------|
+| **Global** | `~/.forge/` | Default on first launch. Config is shared across all workspaces. Workspace-specific data is stored in `~/.forge/workspaces/<hash>/`. |
+| **Project** | `<workspace>/.forge/` | Config travels with the project. Good for teams or project-specific tooling setups. |
+| **Custom** | User-chosen path | Advanced: user picks any directory via the folder picker. |
+
+**Default:** `~/.forge` on first launch. If the startup dialog detects an existing `<workspace>/.forge/` folder, it switches the default to Project.
+
+### 13.4 Remembered Preferences
+
+The shell stores these values in **platform application preferences** (not in `.forge/`, since `.forge/` hasn't been resolved yet at startup time):
+
+```dart
+class ForgeStartupPreferences {
+  /// Last opened workspace directory.
+  String? lastWorkspacePath;
+
+  /// Configuration directory mode for the last workspace.
+  /// 'global' | 'project' | 'custom'
+  String? lastConfigMode;
+
+  /// Custom config directory path (only when mode is 'custom').
+  String? lastCustomConfigPath;
+
+  /// Whether to skip the dialog and use remembered settings.
+  bool rememberSettings;
+
+  /// Recent workspace paths (most recent first, max 10).
+  List<String> recentWorkspaces;
+}
+```
+
+Stored via `SharedPreferences` (Flutter) or equivalent platform key-value store, keyed under `forge.startup.*`.
+
+### 13.5 Startup Flow
+
+```
+App launches
+  ↓
+Load ForgeStartupPreferences
+  ↓
+┌─ rememberSettings == true AND lastWorkspacePath is valid?
+│   YES → Skip dialog, open shell with remembered paths
+│   NO  → Show startup dialog with pre-filled defaults
+└─
+  ↓
+User confirms or changes workspace + config directory
+  ↓
+Save updated preferences
+  ↓
+Initialize ForgeFolderManager with chosen paths
+  ↓
+┌─ .forge/ folder exists at chosen config location?
+│   YES → Load existing config, state, revisions
+│   NO  → Create .forge/ folder structure
+│         If project mode: suggest adding .forge/ to .gitignore
+└─
+  ↓
+Activate extensions, build shell, render
+```
+
+### 13.6 Command-Line Override
+
+The startup dialog can be bypassed via command-line arguments:
+
+```
+tom_forge --workspace /path/to/project
+tom_forge --workspace /path/to/project --config global
+tom_forge --workspace /path/to/project --config /custom/path
+```
+
+When `--workspace` is provided, the dialog is skipped and the shell opens directly. If `--config` is omitted, the remembered preference for that workspace is used (or `global` as fallback).
+
+---
+
+## 14. Built-In Views
+
+### 14.1 Initial Implementation (v1)
 
 These views ship with the panel shell framework:
 
@@ -973,7 +1111,7 @@ These views ship with the panel shell framework:
 | **Outline** | `forge.outline` | Structural outline of the active editor's content (sections, classes, functions — editor-dependent). Follows focus. Click navigates within the editor. | Left |
 | **File History** | `forge.file_history` | Revision history for the active file. Shows timestamps, diffs, restore options. Reads from `.forge/revisions/`. | Right |
 
-### 13.2 Suggested for Later
+### 14.2 Suggested for Later
 
 | View | Type ID | Description | Rationale |
 |------|---------|-------------|-----------|
@@ -986,7 +1124,7 @@ These views ship with the panel shell framework:
 | **Help** | `forge.help` | Contextual documentation browser | Supports back/forward history |
 | **Execution Monitor** | `forge.execution` | Real-time flow execution display (node states, timing, logs) | Core for the flow editor |
 
-### 13.3 View Responsibilities
+### 14.3 View Responsibilities
 
 Each built-in view is a self-contained package-level widget. The panel shell provides:
 
@@ -997,9 +1135,9 @@ Each built-in view is a self-contained package-level widget. The panel shell pro
 
 ---
 
-## 14. Status Bar
+## 15. Status Bar
 
-### 14.1 Structure
+### 15.1 Structure
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
@@ -1008,7 +1146,7 @@ Each built-in view is a self-contained package-level widget. The panel shell pro
  ← global items →       ← active component items →        ← global →
 ```
 
-### 14.2 Status Bar Items
+### 15.2 Status Bar Items
 
 ```dart
 class StatusBarItem {
@@ -1028,9 +1166,9 @@ class StatusBarItem {
 
 ---
 
-## 15. Application Setup (Code-Configured)
+## 16. Application Setup (Code-Configured)
 
-### 15.1 Example
+### 16.1 Example
 
 ```dart
 void main() {
@@ -1124,7 +1262,7 @@ void main() {
 }
 ```
 
-### 15.2 Layout Persistence
+### 16.2 Layout Persistence
 
 - Layout changes (panel sizes, component positions, tab order) are persisted per application in `.forge/state/layout.json`
 - On startup: load persisted layout; fall back to code-configured defaults
@@ -1133,9 +1271,9 @@ void main() {
 
 ---
 
-## 16. Implementation Architecture
+## 17. Implementation Architecture
 
-### 16.1 Package Structure
+### 17.1 Package Structure
 
 ```
 tom_forge_ui/
@@ -1173,6 +1311,10 @@ tom_forge_ui/
         status_bar_model.dart       # StatusBarItem
         action_model.dart           # ForgeAction, ForgeMenuLocation
         shortcut_model.dart         # ForgeShortcutBinding, trigger key config
+      startup/
+        startup_dialog.dart         # Workspace + config directory picker
+        startup_preferences.dart    # ForgeStartupPreferences (SharedPreferences)
+        workspace_detector.dart     # Walk-up .forge detection logic
       services/
         layout_persistence.dart     # Save/load layout state to .forge/
         focus_service.dart          # Track active component, notify listeners
@@ -1204,7 +1346,7 @@ tom_forge_ui/
         file_history_view.dart
 ```
 
-### 16.2 State Management
+### 17.2 State Management
 
 - **Shell state:** `ForgeShellController` (a `ChangeNotifier`) manages the overall layout, active application, panel sizes, and component placement
 - **System state:** `ForgeSystemState` provides reactive access to focus, editors, selection, diagnostics, and more. Used by actions, menus, and extensions.
@@ -1212,7 +1354,7 @@ tom_forge_ui/
 - **Component UI state:** Each UI copy maintains its own `ForgeComponentUiState` (scroll position, cursor, selection). Managed by `MultiRenderManager`.
 - **Reactive updates:** `ValueListenable` pattern consistent with other Tom Forge components
 
-### 16.3 Widget Tree (Simplified)
+### 17.3 Widget Tree (Simplified)
 
 ```
 TomForgeShellApp
@@ -1246,7 +1388,7 @@ TomForgeShellApp
          └─ StatusBar
 ```
 
-### 16.4 Debug Mode
+### 17.4 Debug Mode
 
 Per Tom Forge convention, the panel shell implements trail-based debug mode:
 
@@ -1257,17 +1399,18 @@ Per Tom Forge convention, the panel shell implements trail-based debug mode:
 
 ---
 
-## 17. Implementation Phases
+## 18. Implementation Phases
 
 ### Phase 1 — Shell Skeleton
 
+- **Startup dialog** — workspace + config directory picker with preference persistence
 - `ForgeShell` widget with title bar, menu bar, status bar, panel areas
 - Resizable dividers between all panels
 - Basic `ForgeApplication` and `TomForgeShell` models
 - Application dropdown (switch applications, all stay alive)
 - Middle panels with tab bar (1–4 panels, split/merge)
 - Placeholder components for testing layout
-- `.forge/` folder initialization prompt
+- `.forge/` folder initialization (global or project-local)
 
 ### Phase 2 — Accordeon Panels
 
