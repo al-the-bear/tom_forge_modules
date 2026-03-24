@@ -51,3 +51,8 @@ export 'src/debug/editor_logger.dart';
 
 // Mermaid
 export 'src/mermaid/mermaid_webview.dart';
+
+// Forge Bridge
+export 'src/forge_bridge/forge_document_adapter.dart';
+export 'src/forge_bridge/forge_validation_bridge.dart';
+export 'src/forge_bridge/position_converter.dart';

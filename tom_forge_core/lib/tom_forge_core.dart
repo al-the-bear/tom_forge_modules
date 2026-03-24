@@ -1,8 +1,26 @@
-/// Support for doing something awesome.
+/// Core types and contracts for the Tom Forge Panel Shell.
 ///
-/// More dartdocs go here.
+/// Provides platform-independent types used across forge packages:
+///
+/// - **Types**: [ForgeTextPosition], [ForgeTextRange], [ForgeSeverity],
+///   [ForgeDiagnostic], [FileHandlingResult], [ForgeTextEditorOptions]
+/// - **Document**: [ForgeDocument], [DocumentChangeEvent]
+/// - **Decorations**: [ForgeDecorationType], [ForgeDecorationRange]
+/// - **Events**: Focus, selection, diagnostic, layout, and file events
+/// - **Workspace Edit**: [ForgeWorkspaceEdit], [ForgeTextEdit]
 library;
 
-export 'src/tom_forge_core_base.dart';
+// Core types
+export 'src/types/text_position.dart';
+export 'src/types/text_range.dart';
+export 'src/types/forge_severity.dart';
+export 'src/types/forge_diagnostic.dart';
+export 'src/types/file_handling_result.dart';
+export 'src/types/text_editor_options.dart';
+export 'src/types/decoration_types.dart';
+export 'src/types/forge_enums.dart';
+export 'src/types/forge_events.dart';
+export 'src/types/workspace_edit.dart';
 
-// TODO: Export any libraries intended for clients of this package.
+// Document
+export 'src/document/forge_document.dart';
