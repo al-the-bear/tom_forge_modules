@@ -641,6 +641,27 @@ abstract class ForgeShellApi {
 
   /// Configuration access.
   ForgeConfigManager get config;
+
+  /// Notification toasts and dialogs.
+  ForgeNotificationManager get notifications;
+
+  /// Progress indicators (status bar or overlay).
+  ForgeProgressManager get progress;
+
+  /// Programmatic dialogs (quick pick, input box, file picker).
+  ForgeDialogManager get dialogs;
+
+  /// Terminal instance management.
+  ForgeTerminalManager get terminals;
+
+  /// Clipboard access (read/write text).
+  ForgeClipboard get clipboard;
+
+  /// Environment utilities (open external URI, app info).
+  ForgeEnvironment get environment;
+
+  /// Per-extension persistent storage.
+  ForgeExtensionStorage get storage;
 }
 ```
 
@@ -783,6 +804,30 @@ abstract class ForgeSystemState {
   /// All applications.
   List<ForgeApplication> get applications;
 
+  // --- Layout ---
+
+  /// Which panels are currently visible (open).
+  Set<ForgePanelLocation> get visiblePanels;
+
+  /// Number of middle panels currently showing.
+  int get middlePanelCount;
+
+  /// Index of the active (focused) middle panel.
+  int get activeMiddlePanelIndex;
+
+  // --- Window ---
+
+  /// Whether the application window has OS-level focus.
+  bool get isWindowFocused;
+
+  // --- Search ---
+
+  /// The current search query (empty when not searching).
+  String get searchQuery;
+
+  /// Whether search is currently active.
+  bool get isSearchActive;
+
   // --- Streams ---
 
   /// Fires when focus changes.
@@ -799,6 +844,12 @@ abstract class ForgeSystemState {
 
   /// Fires when any open editor list changes.
   Stream<EditorListChangeEvent> get onEditorsChanged;
+
+  /// Fires when the application window gains or loses OS focus.
+  Stream<WindowFocusEvent> get onWindowFocusChanged;
+
+  /// Fires when panel visibility or layout changes.
+  Stream<LayoutChangeEvent> get onLayoutChanged;
 }
 ```
 
@@ -817,6 +868,428 @@ ForgeAction(
   isVisible: () => true,
   execute: () => shell.fileSystem.save(systemState.activeEditorUri!),
 );
+```
+
+### 10.4 Service API Details
+
+This section details the APIs for each service on `ForgeShellApi` that are not fully specified in the sections above.
+
+#### ForgeFileSystem
+
+```dart
+abstract class ForgeFileSystem {
+  /// Read file content at the given URI.
+  Future<String> read(Uri uri);
+
+  /// Write content to the given URI (creates or overwrites).
+  /// Automatically creates a revision snapshot if revisioning is enabled.
+  Future<void> write(Uri uri, String content);
+
+  /// Save (persist) the current content of a file.
+  /// Triggers revision snapshot and dirty-state update.
+  Future<void> save(Uri uri);
+
+  /// Delete a file.
+  Future<void> delete(Uri uri);
+
+  /// Check whether a file exists.
+  Future<bool> exists(Uri uri);
+
+  /// Stat a file (size, modification time, type).
+  Future<FileStat> stat(Uri uri);
+
+  /// List contents of a directory.
+  Future<List<FileSystemEntity>> list(Uri directoryUri, {bool recursive = false});
+
+  /// Watch a file or directory for changes. Returns a stream of events.
+  Stream<FileSystemEvent> watch(Uri uri, {bool recursive = false});
+
+  /// Fires when any file changes (create, modify, delete).
+  Stream<FileChangeEvent> get onDidChange;
+
+  /// Fires after a file is saved.
+  Stream<Uri> get onDidSave;
+
+  /// Fires before a file is saved. Listeners can modify content.
+  Stream<WillSaveEvent> get onWillSave;
+}
+```
+
+#### ForgeLayoutController
+
+```dart
+abstract class ForgeLayoutController {
+  /// Open a panel (left, right, or bottom).
+  void openPanel(ForgePanelLocation location);
+
+  /// Close a panel.
+  void closePanel(ForgePanelLocation location);
+
+  /// Toggle a panel's visibility.
+  void togglePanel(ForgePanelLocation location);
+
+  /// Focus a specific component by type ID.
+  void focusComponent(String componentTypeId);
+
+  /// Open an editor for the given URI. Reuses an existing tab if already open.
+  void openEditor(Uri uri, {int? middlePanelIndex});
+
+  /// Split the active middle panel (add a new middle panel column).
+  void splitMiddlePanel();
+
+  /// Get the current configuration of a panel.
+  PanelConfig? getPanelConfig(ForgePanelLocation location);
+
+  /// Get the index of the active middle panel.
+  int get activeMiddlePanelIndex;
+
+  /// Reveal a file in the explorer view.
+  void revealInExplorer(Uri uri);
+}
+```
+
+#### ForgeOutputChannelManager and ForgeOutputChannel
+
+```dart
+abstract class ForgeOutputChannelManager {
+  /// Create a new output channel.
+  ForgeOutputChannel create(String name);
+
+  /// Get an existing channel by name.
+  ForgeOutputChannel? get(String name);
+
+  /// List all output channels.
+  List<ForgeOutputChannel> get channels;
+}
+
+abstract class ForgeOutputChannel {
+  /// Channel name.
+  String get name;
+
+  /// Append text (no newline).
+  void append(String text);
+
+  /// Append text with trailing newline.
+  void appendLine(String line);
+
+  /// Clear all content.
+  void clear();
+
+  /// Show this channel in the Output view.
+  void show({bool preserveFocus = true});
+
+  /// Hide this channel.
+  void hide();
+
+  /// Dispose the channel (remove from manager).
+  void dispose();
+}
+```
+
+#### ForgeDiagnosticManager
+
+```dart
+abstract class ForgeDiagnosticManager {
+  /// Create a named diagnostic collection (e.g., for a linter or build tool).
+  ForgeDiagnosticCollection createCollection(String name);
+
+  /// Get all diagnostics across collections.
+  List<ForgeDiagnostic> get all;
+
+  /// Get diagnostics for a specific URI.
+  List<ForgeDiagnostic> forUri(Uri uri);
+}
+
+abstract class ForgeDiagnosticCollection {
+  /// Collection name.
+  String get name;
+
+  /// Set diagnostics for a URI (replaces previous for that URI).
+  void set(Uri uri, List<ForgeDiagnostic> diagnostics);
+
+  /// Remove diagnostics for a URI.
+  void delete(Uri uri);
+
+  /// Clear all diagnostics in this collection.
+  void clear();
+
+  /// Dispose the collection.
+  void dispose();
+}
+```
+
+#### ForgeActionRegistry
+
+```dart
+abstract class ForgeActionRegistry {
+  /// Register an action.
+  void register(ForgeAction action);
+
+  /// Execute an action by ID.
+  void execute(String actionId);
+
+  /// Get an action by ID.
+  ForgeAction? get(String actionId);
+
+  /// List all registered actions.
+  List<ForgeAction> get allActions;
+
+  /// Remove an action by ID.
+  void remove(String actionId);
+}
+```
+
+#### ForgeShortcutManager
+
+```dart
+abstract class ForgeShortcutManager {
+  /// Register a shortcut binding.
+  void register(ForgeShortcutBinding binding);
+
+  /// List all registered shortcut bindings.
+  List<ForgeShortcutBinding> get allBindings;
+
+  /// Rebind a shortcut to a new key combination.
+  void rebind(String actionId, ForgeShortcutKey newKey);
+
+  /// Remove a shortcut binding.
+  void remove(String actionId);
+
+  /// Detect conflicts with an existing binding.
+  ForgeShortcutBinding? conflictsWith(ForgeShortcutKey key);
+}
+```
+
+#### ForgeFileAssociationRegistry
+
+```dart
+abstract class ForgeFileAssociationRegistry {
+  /// Register a file pattern → editor type association.
+  void register({required String pattern, required String editorTypeId});
+
+  /// Get the editor type ID for a given URI.
+  String? getEditorForUri(Uri uri);
+
+  /// List all associations.
+  List<FileAssociation> get allAssociations;
+
+  /// Remove an association by pattern.
+  void remove(String pattern);
+}
+```
+
+#### ForgeExtensionRegistry
+
+```dart
+abstract class ForgeExtensionRegistry {
+  /// Get a typed extension reference.
+  T get<T extends ForgeExtension>();
+
+  /// Get an extension by ID.
+  ForgeExtension? getById(String id);
+
+  /// List all registered extensions.
+  List<ForgeExtension> get allExtensions;
+
+  /// Whether an extension is active.
+  bool isActive(String id);
+}
+```
+
+#### ForgeConfigManager
+
+```dart
+abstract class ForgeConfigManager {
+  /// Get a configuration value by key.
+  T? get<T>(String key);
+
+  /// Set a configuration value.
+  void set(String key, Object? value);
+
+  /// Get the full configuration object.
+  ForgeConfig get current;
+
+  /// Get extension-scoped configuration section.
+  Map<String, dynamic> getSection(String extensionId);
+
+  /// Fires when any configuration value changes.
+  Stream<ConfigChangeEvent> get onDidChange;
+}
+```
+
+#### ForgeStatusBarController
+
+```dart
+abstract class ForgeStatusBarController {
+  /// Register a status bar item.
+  void register(StatusBarItem item);
+
+  /// Remove a status bar item by ID.
+  void remove(String id);
+
+  /// Update a status bar item.
+  void update(String id, {String? text, IconData? icon, String? tooltip});
+}
+```
+
+#### ForgeNotificationManager (new)
+
+```dart
+abstract class ForgeNotificationManager {
+  /// Show an information notification.
+  Future<String?> showInformation(String message, {List<String> actions = const []});
+
+  /// Show a warning notification.
+  Future<String?> showWarning(String message, {List<String> actions = const []});
+
+  /// Show an error notification.
+  Future<String?> showError(String message, {List<String> actions = const []});
+}
+```
+
+Returns the label of the selected action button, or null if dismissed.
+
+#### ForgeProgressManager (new)
+
+```dart
+abstract class ForgeProgressManager {
+  /// Run a task with a progress indicator.
+  /// Location can be statusBar or overlay.
+  Future<T> withProgress<T>({
+    required String title,
+    required ForgeProgressLocation location,
+    required Future<T> Function(ForgeProgressReporter reporter) task,
+    bool cancellable = false,
+  });
+}
+
+abstract class ForgeProgressReporter {
+  /// Report progress increment (0–100) and optional message.
+  void report({int? increment, String? message});
+}
+
+enum ForgeProgressLocation { statusBar, overlay }
+```
+
+#### ForgeDialogManager (new)
+
+```dart
+abstract class ForgeDialogManager {
+  /// Show a quick pick (selection list).
+  Future<T?> showQuickPick<T>(List<ForgeQuickPickItem<T>> items, {
+    String? placeholder,
+    bool canSelectMany = false,
+  });
+
+  /// Show a text input box.
+  Future<String?> showInputBox({
+    String? prompt,
+    String? value,
+    String? placeholder,
+    String? Function(String)? validateInput,
+  });
+
+  /// Show a file open dialog.
+  Future<List<Uri>?> showOpenDialog({
+    String? title,
+    bool canSelectMany = false,
+    bool canSelectFolders = false,
+    List<FileFilter>? filters,
+  });
+
+  /// Show a file save dialog.
+  Future<Uri?> showSaveDialog({
+    String? title,
+    Uri? defaultUri,
+    List<FileFilter>? filters,
+  });
+}
+```
+
+#### ForgeTerminalManager (new)
+
+```dart
+abstract class ForgeTerminalManager {
+  /// Create a new terminal instance.
+  ForgeTerminal create({String? name, String? shellPath, String? cwd});
+
+  /// Get all open terminals.
+  List<ForgeTerminal> get terminals;
+
+  /// Get the currently active terminal.
+  ForgeTerminal? get activeTerminal;
+
+  /// Fires when a terminal is opened.
+  Stream<ForgeTerminal> get onDidOpen;
+
+  /// Fires when a terminal is closed.
+  Stream<ForgeTerminal> get onDidClose;
+
+  /// Fires when the active terminal changes.
+  Stream<ForgeTerminal?> get onDidChangeActive;
+}
+
+abstract class ForgeTerminal {
+  /// Terminal name.
+  String get name;
+
+  /// Send text to the terminal.
+  void sendText(String text, {bool addNewLine = true});
+
+  /// Show this terminal.
+  void show({bool preserveFocus = true});
+
+  /// Close and dispose the terminal.
+  void dispose();
+}
+```
+
+#### ForgeClipboard (new)
+
+```dart
+abstract class ForgeClipboard {
+  /// Read text from the system clipboard.
+  Future<String> readText();
+
+  /// Write text to the system clipboard.
+  Future<void> writeText(String text);
+}
+```
+
+#### ForgeEnvironment (new)
+
+```dart
+abstract class ForgeEnvironment {
+  /// Application name.
+  String get appName;
+
+  /// Open a URI in the default external application (browser, file manager).
+  Future<void> openExternal(Uri uri);
+}
+```
+
+#### ForgeExtensionStorage (new)
+
+```dart
+abstract class ForgeExtensionStorage {
+  /// Get a key-value store scoped to the calling extension.
+  /// Data is stored in .forge/extensions/<extensionId>/.
+  ForgeKeyValueStore forExtension(String extensionId);
+}
+
+abstract class ForgeKeyValueStore {
+  /// Get a value.
+  T? get<T>(String key);
+
+  /// Set a value.
+  Future<void> set(String key, Object? value);
+
+  /// Remove a key.
+  Future<void> remove(String key);
+
+  /// List all keys.
+  List<String> get keys;
+}
 ```
 
 ---
@@ -1327,6 +1800,17 @@ tom_forge_ui/
         shortcut_manager.dart       # Shortcut registration, trigger key, conflicts
         action_registry.dart        # Menu action registration and evaluation
         config_manager.dart         # Configuration load/save/defaults
+        notification_manager.dart   # Toast notifications with action buttons
+        progress_manager.dart       # Progress indicators (status bar / overlay)
+        dialog_manager.dart         # Quick pick, input box, file dialogs
+        terminal_manager.dart       # Terminal instance lifecycle and I/O
+        clipboard_service.dart      # System clipboard read/write
+        environment_service.dart    # App info, open external URIs
+        extension_storage.dart      # Per-extension key-value persistence
+        diagnostic_manager.dart     # Diagnostic collection management
+        output_channel_manager.dart # Output channel creation and lifecycle
+        file_association_registry.dart # File pattern → editor mapping
+        status_bar_controller.dart  # Status bar item registration and updates
       config/
         forge_config.dart           # ForgeConfig, AutoSaveConfig, etc.
         config_views/
@@ -1344,6 +1828,7 @@ tom_forge_ui/
         search_view.dart
         outline_view.dart
         file_history_view.dart
+        notifications_view.dart
 ```
 
 ### 17.2 State Management
