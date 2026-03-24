@@ -1359,6 +1359,58 @@ class FocusChangeEvent {
   /// The newly focused component (null if focus was lost).
   final ForgeComponent? current;
 }
+
+class DirtyStateEvent {
+  /// The editor whose dirty state changed.
+  final ForgeEditor editor;
+
+  /// The new dirty state.
+  final bool isDirty;
+}
+
+class SelectionChangeEvent {
+  /// The component whose selection changed.
+  final ForgeComponent component;
+
+  /// The new selection (type depends on component — TextRange, List<Object>, etc.).
+  final Object? selection;
+}
+
+class TextSelectionChangeEvent {
+  /// The text editor whose selection changed.
+  final ForgeTextEditor editor;
+
+  /// The new text selection.
+  final TextRange? selection;
+}
+
+class DiagnosticChangeEvent {
+  /// URIs with changed diagnostics.
+  final List<Uri> uris;
+}
+
+class EditorListChangeEvent {
+  /// Editors that were opened.
+  final List<ForgeEditor> opened;
+
+  /// Editors that were closed.
+  final List<ForgeEditor> closed;
+}
+
+class WindowFocusEvent {
+  /// Whether the window is now focused.
+  final bool focused;
+}
+
+class LayoutChangeEvent {
+  /// The type of layout change.
+  final LayoutChangeType type;
+
+  /// The affected panel (if applicable).
+  final ForgePanelLocation? panel;
+}
+
+enum LayoutChangeType { panelOpened, panelClosed, panelResized, middlePanelSplit, middlePanelMerged }
 ```
 
 **Design note on URIs:** Files are identified by `Uri` because URIs are universal resource identifiers that can represent local files (`file://`), virtual documents, or remote resources. Editors expose `Uri get uri` and `FileHandlingResult canHandle(Uri uri)` — the URI is the file handle, while the editor object itself is the component handle. There is no need for a separate component ID system: use the Dart type system (`is FormEditor`, `is FlowEditor`, `is ForgeTextEditor`) for type checks and object identity for instance checks.
@@ -1485,6 +1537,31 @@ class ForgeRenameFileOperation extends ForgeFileOperation {
   final Uri newUri;
   final bool overwrite;
 }
+
+/// A file system change event.
+class FileChangeEvent {
+  /// The URI that changed.
+  final Uri uri;
+
+  /// The type of change.
+  final FileChangeType type;
+}
+
+enum FileChangeType { created, modified, deleted }
+
+/// Event fired before a file is saved. Listeners can modify content.
+class WillSaveEvent {
+  /// The URI being saved.
+  final Uri uri;
+
+  /// The content to be saved. Listeners can modify this.
+  String content;
+
+  /// Reason for the save.
+  final SaveReason reason;
+}
+
+enum SaveReason { manual, autoSave, focusLoss }
 ```
 
 #### ForgeLayoutController
@@ -1598,6 +1675,39 @@ abstract class ForgeDiagnosticCollection {
 
   /// Dispose the collection.
   void dispose();
+}
+
+/// A single diagnostic issue (error, warning, info, hint).
+class ForgeDiagnostic {
+  /// The file this diagnostic applies to.
+  final Uri uri;
+
+  /// The range in the document.
+  final TextRange range;
+
+  /// The diagnostic message.
+  final String message;
+
+  /// Severity level.
+  final ForgeSeverity severity;
+
+  /// Source identifier (e.g., 'dart', 'yaml-lint', 'form-validator').
+  final String source;
+
+  /// Optional error code.
+  final String? code;
+}
+
+enum ForgeSeverity { error, warning, info, hint }
+
+/// Aggregated diagnostic counts by severity.
+class DiagnosticSummary {
+  final int errors;
+  final int warnings;
+  final int infos;
+  final int hints;
+
+  int get total => errors + warnings + infos + hints;
 }
 ```
 
@@ -1807,6 +1917,18 @@ abstract class ForgeConfigManager {
   /// Reset all configuration to code-configured defaults.
   void resetToDefaults();
 }
+
+/// Event fired when a configuration value changes.
+class ConfigChangeEvent {
+  /// Key path of the changed configuration.
+  final String key;
+
+  /// The new value (null if deleted).
+  final Object? newValue;
+
+  /// The previous value (null if newly added).
+  final Object? oldValue;
+}
 ```
 
 #### ForgeStatusBarController
@@ -1891,6 +2013,33 @@ abstract class ForgeDialogManager {
     Uri? defaultUri,
     List<FileFilter>? filters,
   });
+}
+
+/// An item in a quick pick list.
+class ForgeQuickPickItem<T> {
+  /// The label shown in the list.
+  final String label;
+
+  /// Optional description shown below the label.
+  final String? description;
+
+  /// Optional detail text.
+  final String? detail;
+
+  /// The value returned when this item is selected.
+  final T value;
+
+  /// Whether this item is pre-selected.
+  final bool picked;
+}
+
+/// A file filter for open/save dialogs.
+class FileFilter {
+  /// Display name (e.g., 'YAML Files').
+  final String name;
+
+  /// File extensions without dots (e.g., ['yaml', 'yml']).
+  final List<String> extensions;
 }
 ```
 
@@ -1998,6 +2147,15 @@ abstract class ForgeSecretStorage {
 
   /// Fires when a secret is stored or deleted.
   Stream<SecretChangeEvent> get onDidChange;
+}
+
+/// Event fired when a secret is stored or deleted.
+class SecretChangeEvent {
+  /// The secret key.
+  final String key;
+
+  /// True if the secret was deleted, false if stored/updated.
+  final bool deleted;
 }
 ```
 
@@ -2535,6 +2693,8 @@ class StatusBarItem {
   /// e.g., "Ln 42, Col 17" only shows when a text editor is focused.
   final bool Function(ForgeSystemState state) isActive;
 }
+
+enum StatusBarAlignment { left, center, right }
 ```
 
 - **Global items:** contributed by the shell module (connection status, application info, problem count) — typically always active
