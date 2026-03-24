@@ -260,7 +260,7 @@ abstract class ForgeComponent {
 
 #### ForgeEditor (extends ForgeComponent)
 
-Editors are file-bound components identified by URI:
+Editors are file-bound components identified by URI. The base class provides the minimal contract every editor shares — file association, dirty tracking, and two-phase file resolution. Specialized subclasses add domain-specific APIs (text manipulation, visual canvas, schema delegation):
 
 ```dart
 abstract class ForgeEditor extends ForgeComponent {
@@ -270,10 +270,18 @@ abstract class ForgeEditor extends ForgeComponent {
   /// The URI this editor is associated with.
   Uri get uri;
 
-  /// Whether this editor can handle the given URI. The shell asks
-  /// all registered editors in order — the first one that returns
-  /// true gets the file. No glob pattern registration needed.
-  bool canHandle(Uri uri);
+  /// Phase 1: Whether this editor can handle the given URI based on
+  /// extension or path alone. Must be fast — no file I/O.
+  /// Return `accept` to claim the file, `reject` to skip,
+  /// or `inspect` to request a Phase 2 content inspection.
+  FileHandlingResult canHandle(Uri uri);
+
+  /// Phase 2: Called only when `canHandle()` returned `inspect`.
+  /// The editor receives the raw file bytes and can make a final
+  /// accept/reject decision based on content (e.g., YAML schema
+  /// comments, magic bytes, file structure). Default: accept.
+  FileHandlingResult canHandleContent(Uri uri, Uint8List bytes) =>
+      FileHandlingResult.accept;
 
   /// Whether this editor has unsaved changes.
   ValueListenable<bool> get isDirty;
@@ -281,6 +289,188 @@ abstract class ForgeEditor extends ForgeComponent {
   /// The component's history manager for back/forward navigation.
   /// Null if the component does not support history.
   ComponentHistoryManager? get historyManager;
+}
+
+/// Result of a file handling check (Phase 1 or Phase 2).
+enum FileHandlingResult {
+  /// The editor accepts this file.
+  accept,
+
+  /// The editor cannot handle this file.
+  reject,
+
+  /// The editor needs to inspect the file content before deciding
+  /// (Phase 1 only — triggers a Phase 2 call).
+  inspect,
+}
+```
+
+#### ForgeTextEditor (extends ForgeEditor)
+
+Text-based editors that provide document access, text selection, cursor positioning, and text manipulation. Most traditional editors (code, YAML, markdown, JSON) extend this:
+
+```dart
+abstract class ForgeTextEditor extends ForgeEditor {
+  /// The document model backing this editor.
+  ForgeDocument get document;
+
+  /// The current cursor position (line, column).
+  ValueListenable<TextPosition> get cursorPosition;
+
+  /// The current text selection range. Null when no selection.
+  ValueListenable<TextRange?> get selection;
+
+  /// The currently selected text content. Empty string when no selection.
+  String get selectedText;
+
+  /// Whether there is a non-empty text selection.
+  bool get hasSelection;
+
+  /// Replace the current selection with the given text.
+  /// If no selection, inserts at the cursor position.
+  void insertText(String text);
+
+  /// Replace text in the given range.
+  void replaceRange(TextRange range, String replacement);
+
+  /// Delete text in the given range.
+  void deleteRange(TextRange range);
+
+  /// Set the cursor position.
+  void setCursorPosition(TextPosition position);
+
+  /// Set the selection range.
+  void setSelection(TextRange range);
+
+  /// Select all text.
+  void selectAll();
+
+  /// Reveal the given position by scrolling to it.
+  void revealPosition(TextPosition position);
+
+  /// Find occurrences of a pattern in the document.
+  List<TextRange> findAll(Pattern pattern);
+
+  /// Replace all occurrences of a pattern.
+  int replaceAll(Pattern pattern, String replacement);
+}
+
+/// The document model for a text editor. Represents the file content
+/// as a structured text buffer with line-level access.
+abstract class ForgeDocument {
+  /// The document's URI.
+  Uri get uri;
+
+  /// The full text content.
+  String get text;
+
+  /// The number of lines.
+  int get lineCount;
+
+  /// Get the text of a specific line (0-based).
+  String lineAt(int line);
+
+  /// Get the text in a range.
+  String textInRange(TextRange range);
+
+  /// The language or file type identifier (e.g., 'dart', 'yaml').
+  String get languageId;
+
+  /// The file's encoding.
+  Encoding get encoding;
+
+  /// Whether the document has been modified since last save.
+  ValueListenable<bool> get isDirty;
+
+  /// Fires when the document content changes.
+  Stream<DocumentChangeEvent> get onDidChange;
+}
+
+class TextPosition {
+  /// 0-based line number.
+  final int line;
+
+  /// 0-based column offset.
+  final int column;
+
+  const TextPosition({required this.line, required this.column});
+}
+
+class TextRange {
+  final TextPosition start;
+  final TextPosition end;
+
+  const TextRange({required this.start, required this.end});
+
+  bool get isEmpty => start == end;
+}
+
+class DocumentChangeEvent {
+  /// The ranges that were changed.
+  final List<TextRange> changes;
+
+  /// The document after the change.
+  final ForgeDocument document;
+}
+```
+
+#### ForgeVisualEditor (extends ForgeEditor)
+
+Canvas-based editors for visual content — flow diagrams, form layouts, node graphs. Provides element selection and viewport control instead of text manipulation:
+
+```dart
+abstract class ForgeVisualEditor extends ForgeEditor {
+  /// The currently selected elements on the canvas.
+  ValueListenable<List<Object>> get selectedElements;
+
+  /// Whether any element is currently selected.
+  bool get hasElementSelection;
+
+  /// Select elements programmatically.
+  void selectElements(List<Object> elements);
+
+  /// Clear the current selection.
+  void clearSelection();
+
+  /// The current viewport (visible area of the canvas).
+  ValueListenable<Rect> get viewport;
+
+  /// Pan/zoom to reveal a specific area.
+  void revealArea(Rect area);
+
+  /// Zoom to fit all content in the viewport.
+  void zoomToFit();
+
+  /// The current zoom level (1.0 = 100%).
+  ValueListenable<double> get zoomLevel;
+
+  /// Set the zoom level.
+  void setZoom(double level);
+}
+```
+
+#### ForgeSchemaEditor (extends ForgeEditor)
+
+Schema editors inspect a file's content to determine which schema or editing mode to apply. They always return `inspect` from `canHandle()` because their decision depends on content, not just the URI. In the "Open with" dialog, schema editors appear in an **Additional Options** section because they require content inspection to decide:
+
+```dart
+abstract class ForgeSchemaEditor extends ForgeEditor {
+  /// Always returns `inspect` — schema editors need file content
+  /// to determine whether they can handle the file.
+  @override
+  FileHandlingResult canHandle(Uri uri) => FileHandlingResult.inspect;
+
+  /// Inspect the file content and determine whether this schema
+  /// editor can handle it. Typically checks for:
+  /// - A schema comment (e.g., `# schema: form-v2` in YAML)
+  /// - A specific structure or root key
+  /// - Magic bytes or file signature
+  @override
+  FileHandlingResult canHandleContent(Uri uri, Uint8List bytes);
+
+  /// The schema identifier this editor handles (for display purposes).
+  /// Shown in the "Open with" dialog's Additional Options section.
+  String get schemaLabel;
 }
 ```
 
@@ -328,7 +518,7 @@ Components are **owned by modules** and exposed as **direct typed members** on t
 - Modules expose their components as typed `late final` members (see §8.3)
 - Layout configuration references these members directly: `shellModule.explorer`, `flowEditorModule.flowEditor`
 - The shell itself is a module (`TomForgeShellModule`) that owns the built-in views (Explorer, Output, Problems, Terminal, etc.)
-- When the shell needs to open a file, it iterates over all registered editors and calls `canHandle(uri)` — the first editor that returns `true` opens the file
+- When the shell needs to open a file, it runs the two-phase file resolution process (see §10.4) — editors claim files via `canHandle(uri)` and optionally `canHandleContent(uri, bytes)`
 
 ```dart
 // No registry needed — layout config references module members directly:
@@ -712,7 +902,10 @@ class FormEditor extends ForgeEditor {
   IconData get icon => Icons.dynamic_form;
 
   @override
-  bool canHandle(Uri uri) => uri.path.endsWith('.form.yaml');
+  FileHandlingResult canHandle(Uri uri) =>
+      uri.path.endsWith('.form.yaml')
+          ? FileHandlingResult.accept
+          : FileHandlingResult.reject;
 
   @override
   Widget buildMain(BuildContext context) => FormEditorWidget(editor: this);
@@ -741,7 +934,7 @@ class FormEditor extends ForgeEditor {
 2. `activate()` is called during shell startup, in declaration order
 3. Modules can reference each other via `shell.modules.get<T>()` (type-safe)
 4. `deactivate()` is called during shell shutdown, in reverse order
-5. When the shell needs to open a file, it iterates `module.editors` across all modules and calls `canHandle(uri)` — the first match wins
+5. When the shell needs to open a file, it runs the two-phase resolution process (§10.4): first `canHandle(uri)` on all editors, then `canHandleContent(uri, bytes)` for editors that requested content inspection
 
 ### 8.5 Shell API Surface
 
@@ -822,7 +1015,7 @@ The Configuration tab contains these sections (as accordeon items):
 | **Shortcuts** | Shortcut editor: view all bindings, rebind, detect conflicts (see §11.5) |
 | **Modules** | List of loaded modules, enable/disable, module-specific settings |
 | **Layout** | Panel visibility, default sizes, reset to defaults |
-| **File Types** | File-to-editor resolution: view which editors handle which files, adjust priority order |
+| **File Types** | File-to-editor resolution: view which editors handle which files, adjust priority order, configure "Open with" defaults |
 
 ### 9.3 Code-Based Configuration and Startup Sequence
 
@@ -939,16 +1132,24 @@ abstract class ForgeSystemState {
   // --- Component Context ---
 
   /// The current text selection in the focused component, if any.
-  /// Returns null if the focused component has no text selection
-  /// or does not support text selection.
+  /// Delegates to `ForgeTextEditor.selection` when the focused
+  /// component is a ForgeTextEditor. Returns null for non-text editors.
   TextSelection? get focusedTextSelection;
 
   /// The selected text content in the focused component, if any.
+  /// Delegates to `ForgeTextEditor.selectedText` when the focused
+  /// component is a ForgeTextEditor. Returns null for non-text editors.
   String? get focusedSelectedText;
 
   /// Whether the focused component currently has a non-empty text selection.
-  /// Useful for context menus: show "Copy" only when text is selected.
+  /// True when the focused component is a ForgeTextEditor with a selection,
+  /// or a ForgeVisualEditor with selected elements.
   bool get hasTextSelection;
+
+  /// The selected elements in the focused component, if any.
+  /// Delegates to `ForgeVisualEditor.selectedElements` when the focused
+  /// component is a ForgeVisualEditor. Returns null for non-visual editors.
+  List<Object>? get focusedSelectedElements;
 
   // --- Explorer / Selection ---
 
@@ -1042,7 +1243,7 @@ class FocusChangeEvent {
 }
 ```
 
-**Design note on URIs:** Files are identified by `Uri` because URIs are universal resource identifiers that can represent local files (`file://`), virtual documents, or remote resources. Editors expose `Uri get uri` and `bool canHandle(Uri uri)` — the URI is the file handle, while the editor object itself is the component handle. There is no need for a separate component ID system: use the Dart type system (`is FormEditor`, `is FlowEditor`) for type checks and object identity for instance checks.
+**Design note on URIs:** Files are identified by `Uri` because URIs are universal resource identifiers that can represent local files (`file://`), virtual documents, or remote resources. Editors expose `Uri get uri` and `FileHandlingResult canHandle(Uri uri)` — the URI is the file handle, while the editor object itself is the component handle. There is no need for a separate component ID system: use the Dart type system (`is FormEditor`, `is FlowEditor`, `is ForgeTextEditor`) for type checks and object identity for instance checks.
 
 ### 10.3 Action Visibility and Enablement
 
@@ -1140,13 +1341,19 @@ abstract class ForgeLayoutController {
   /// Focus a specific component (direct reference, no ID).
   void focusComponent(ForgeComponent component);
 
-  /// Open a file. The shell iterates all module editors and calls
-  /// canHandle(uri) — the first match opens the file. Reuses an
-  /// existing tab if an editor for this URI is already open.
+  /// Open a file. The shell runs two-phase file resolution (§10.4):
+  /// Phase 1 checks canHandle(uri), Phase 2 inspects content for
+  /// editors that requested it. If multiple editors accept, the
+  /// first by module priority wins. Reuses an existing tab if an
+  /// editor for this URI is already open.
   void openFile(Uri uri, {int? middlePanelIndex});
 
-  /// Open a specific editor for the given URI (bypasses canHandle).
+  /// Open a specific editor for the given URI (bypasses resolution).
   void openEditor(ForgeEditor editor, Uri uri, {int? middlePanelIndex});
+
+  /// Show the "Open with" dialog for the given URI. Lists all
+  /// accepting editors (Phase 1) and additional options (Phase 2).
+  Future<void> openFileWith(Uri uri, {int? middlePanelIndex});
 
   /// Split the active middle panel (add a new middle panel column).
   void splitMiddlePanel();
@@ -1272,23 +1479,105 @@ abstract class ForgeShortcutManager {
 }
 ```
 
-#### File-to-Editor Resolution
+#### File-to-Editor Resolution (Two-Phase)
 
-There is no file association registry. Instead, when the shell needs to open a file, it asks editors directly:
+File-to-editor resolution uses a **two-phase process** to determine which editor opens a file. Phase 1 is fast (URI-only), Phase 2 gives editors a chance to inspect file content:
+
+**Phase 1 — URI-Based Matching:**
 
 ```dart
-// The shell iterates all modules and their editors:
-ForgeEditor? findEditorForFile(Uri uri) {
+// Phase 1: Ask all editors based on URI alone (fast, no I/O).
+FileResolutionResult resolveEditorForFile(Uri uri) {
+  final accepted = <ForgeEditor>[];
+  final needsInspection = <ForgeEditor>[];
+
   for (final module in modules) {
     for (final editor in module.editors) {
-      if (editor.canHandle(uri)) return editor;
+      final result = editor.canHandle(uri);
+      if (result == FileHandlingResult.accept) {
+        accepted.add(editor);
+      } else if (result == FileHandlingResult.inspect) {
+        needsInspection.add(editor);
+      }
     }
   }
-  return null; // no editor can handle this file
+
+  return FileResolutionResult(
+    accepted: accepted,
+    needsInspection: needsInspection,
+  );
 }
 ```
 
-Module declaration order determines priority — earlier modules win when multiple editors can handle the same file. Users can override this in the Configuration tab (File Types section, see §9.2).
+**Phase 2 — Content Inspection:**
+
+```dart
+// Phase 2: For editors that returned `inspect`, read the file
+// and let them decide based on content.
+Future<ForgeEditor?> findEditorForFile(Uri uri) async {
+  final phase1 = resolveEditorForFile(uri);
+
+  // Run Phase 2 for editors that need content inspection.
+  if (phase1.needsInspection.isNotEmpty) {
+    final bytes = await fileSystem.readBytes(uri);
+    for (final editor in phase1.needsInspection) {
+      final result = editor.canHandleContent(uri, bytes);
+      if (result == FileHandlingResult.accept) {
+        phase1.accepted.add(editor);
+      }
+      // `reject` or `inspect` in Phase 2 → skip
+    }
+  }
+
+  if (phase1.accepted.isEmpty) return null;
+
+  // Module declaration order determines priority — first accepted editor wins.
+  return phase1.accepted.first;
+}
+```
+
+**"Open with" Dialog:**
+
+When the user explicitly requests "Open with" (via context menu or command palette), the shell presents a dialog with all editors that can handle the file:
+
+```dart
+Future<ForgeEditor?> showOpenWithDialog(Uri uri) async {
+  final phase1 = resolveEditorForFile(uri);
+
+  // Phase 2 for content-inspecting editors
+  final additionalOptions = <ForgeEditor>[];
+  if (phase1.needsInspection.isNotEmpty) {
+    final bytes = await fileSystem.readBytes(uri);
+    for (final editor in phase1.needsInspection) {
+      final result = editor.canHandleContent(uri, bytes);
+      if (result == FileHandlingResult.accept) {
+        additionalOptions.add(editor);
+      }
+    }
+  }
+
+  // Show dialog with two sections:
+  // 1. "Editors" — editors that accepted based on URI (phase 1)
+  // 2. "Additional Options" — schema editors and others that
+  //    accepted after content inspection (phase 2)
+  return shell.dialogs.showOpenWithPicker(
+    uri: uri,
+    editors: phase1.accepted,
+    additionalOptions: additionalOptions,
+  );
+}
+```
+
+The "Open with" dialog displays:
+
+| Section | Source | Example |
+|---------|--------|---------|
+| **Editors** | Phase 1 accepts (URI-based) | YAML Editor, Text Editor |
+| **Additional Options** | Phase 2 accepts (content-based) | Form Schema Editor, Flow Schema Editor |
+
+Schema editors (see §4.3 `ForgeSchemaEditor`) always return `inspect` from `canHandle()`, so they always appear in the Additional Options section. This makes them discoverable without polluting the primary editor list.
+
+Module declaration order determines priority within each section. Users can override this in the Configuration tab (File Types section, see §9.2) to set a preferred default editor per file extension and to pin schema editors as default for specific content patterns.
 
 #### ForgeModuleRegistry
 
@@ -2030,12 +2319,17 @@ tom_forge_ui/
         drag_overlay.dart           # Drop zone overlay for drag-and-drop
         resizable_divider.dart      # Drag handle for panel resizing
       components/
-        forge_component.dart        # ForgeComponent, ForgeEditor, ForgeView base classes
+        forge_component.dart        # ForgeComponent base class
+        forge_editor.dart           # ForgeEditor, FileHandlingResult
+        forge_text_editor.dart      # ForgeTextEditor, ForgeDocument, TextPosition, TextRange
+        forge_visual_editor.dart    # ForgeVisualEditor (canvas/node editors)
+        forge_schema_editor.dart    # ForgeSchemaEditor (content-based schema detection)
+        forge_view.dart             # ForgeView base class
         component_host.dart         # Wraps a component in a panel section
         component_history.dart      # ComponentHistoryManager
         component_state.dart        # Shared data state + per-copy UI state
         multi_render_manager.dart   # Track main component vs UI copies
-        file_resolution.dart        # canHandle()-based file-to-editor resolution
+        file_resolution.dart        # Two-phase file-to-editor resolution + "Open with"
       modules/
         forge_module.dart           # ForgeModule base class
         module_registry.dart        # Module lifecycle and type-safe cross-references
@@ -2170,13 +2464,17 @@ Per Tom Forge convention, the panel shell implements trail-based debug mode:
 
 ### Phase 3 — Component Framework
 
-- `ForgeComponent`, `ForgeEditor`, `ForgeView` contracts
+- `ForgeComponent`, `ForgeEditor`, `ForgeView` base contracts
+- `ForgeTextEditor` with `ForgeDocument`, text selection, cursor, modification API
+- `ForgeVisualEditor` with element selection, viewport, zoom
+- `ForgeSchemaEditor` with content-based schema detection
 - Component host wrapper with drag handles
 - Multi-render: data state sharing by URI/type, independent UI state per copy
 - SHIFT+drag to create UI copies
 - Focus tracking service
 - `ForgeSystemState` implementation
-- `canHandle(uri)` file-to-editor resolution
+- Two-phase file-to-editor resolution (`canHandle` + `canHandleContent`)
+- "Open with" dialog with primary editors and additional options
 
 ### Phase 4 — Module System and Actions
 
