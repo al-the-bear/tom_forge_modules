@@ -1,0 +1,115 @@
+Implement Tom Forge Panel Shell — Complete Implementation
+
+CONTEXT
+
+Implement the Panel Shell for tom_forge_ui based on:
+- Concept document: tom_forge/tom_forge_ui/doc/forge_panel_shell_concept.md
+- Implementation spec: tom_forge/tom_forge_ui/doc/forge_panel_shell_spec.md
+
+Read both documents fully before starting. The spec contains gap analysis, adapter code, and test implementations that should be copied with minimal modification.
+
+PRE-IMPLEMENTATION
+
+1. Commit current state of tom_forge before making changes
+2. Create todo list from tasks below
+
+IMPLEMENTATION TASKS
+
+Phase 1: Shared Infrastructure (tom_editors_shared)
+
+1. Add ForgeDocumentAdapter base class — see §11.5
+2. Add ForgeValidationBridge for ValidationError to ForgeDiagnostic conversion — see §11.5
+3. Add PositionConverter utility (offset to line/column) — see §11.5
+4. Run dart analyze and fix any issues
+
+Phase 2: Editor Modifications
+
+tom_md_editor (§11.2 Required Changes table):
+5. Add Uri? uri property to MdEditor/MdEditorController
+6. Add cursor position ValueNotifier with callback
+7. Add selection ValueNotifier with callback
+8. Add visible range ValueNotifier with scroll callback
+9. Expose decoration API via setDecorations(type, ranges)
+
+tom_dart_editor (§11.3 Required Changes table):
+10. Add onCursorChanged callback to DartCodeEditor
+11. Add onSelectionChanged callback to DartCodeEditor
+12. Add onVisibleRangeChanged callback for scroll position
+13. Generalize decoration system (replace hardcoded error styling)
+
+tom_yaml_editor (§11.4 Required Changes table):
+14. Add Uri? uri property to YamlSchemaEditor
+15. Expose ValueListenable<bool> isDirty from undo state
+16. Ensure YamlSchema.title is populated for schemaLabel
+
+Run dart analyze on each package after modifications.
+
+Phase 3: Shell Core (tom_forge_ui)
+
+Create directory structure per §10.1:
+
+tom_forge_ui/lib/src/
+  shell/
+    forge_shell.dart
+    forge_shell_api.dart
+  services/
+    file_system_service.dart
+    diagnostic_service.dart
+    notification_service.dart
+    command_service.dart
+    search_service.dart
+  editors/
+    forge_editor.dart
+    forge_text_editor.dart
+    forge_schema_editor.dart
+    forge_document.dart
+  modules/
+    forge_module.dart
+  testing/
+    test_module.dart
+    test_text_editor.dart
+    test_document.dart
+    test_workspace.dart
+
+17. Implement core types from concept §5-6 (ForgePosition, TextRange, ForgeDiagnostic, etc.)
+18. Implement ForgeDocument interface — see concept §6.4
+19. Implement ForgeEditor base class — see concept §6.1
+20. Implement ForgeTextEditor abstract class — see concept §6.2
+21. Implement ForgeSchemaEditor abstract class — see concept §6.3
+22. Implement ForgeModule abstract class — see concept §8
+23. Implement ForgeShellApi — see concept §10.4
+24. Implement service stubs (FileSystemService, DiagnosticService, etc.) — see concept §10
+
+Phase 4: Editor Adapters (tom_forge_ui)
+
+25. Implement ForgeMdEditor adapter — copy from §11.2
+26. Implement ForgeDartEditor adapter — copy from §11.3
+27. Implement ForgeYamlEditor adapter — copy from §11.4
+28. Register adapters in TomForgeShellModule
+
+Phase 5: Test Module
+
+29. Implement ForgeTestModule — copy from §10.2
+30. Implement ForgeTestTextEditor — copy from §10.3
+31. Implement ForgeTestDocument — copy from §10.4
+32. Implement ForgeTestWorkspace generator — copy from §10.5
+
+Phase 6: Integration Tests
+
+Create tom_forge_ui/test/integration/:
+33. Implement editor_integration_test.dart — copy test cases from §11.6
+34. Run all tests, fix failures
+
+QA REQUIREMENTS
+
+- Run dart analyze after each package modification
+- Fix ALL analyzer errors before proceeding
+- Run tests in tom_forge_ui after implementation
+- Commit each phase separately with descriptive message
+
+OUTPUT
+
+After completion, provide:
+1. List of files created/modified per package
+2. Test results summary
+3. Any deviations from spec with rationale
