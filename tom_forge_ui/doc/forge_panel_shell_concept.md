@@ -1370,6 +1370,7 @@ These use a single modifier key (CMD on macOS, CTRL on Windows/Linux) and are al
 | `Cmd+3` | Focus middle panel 3 | Global |
 | `Cmd+4` | Focus middle panel 4 | Global |
 | `Cmd+S` | Save all dirty editors | Global |
+| `Cmd+Y` | Delete line | When in text editor |
 | `Cmd+X` | Cut | When text is selected |
 | `Cmd+C` | Copy | When text is selected |
 | `Cmd+V` | Paste | When text input is focused |
@@ -1410,8 +1411,7 @@ Action "New File" executes, popup closes
 **Key behavior:**
 
 - Shortcut menus are **registered by modules** — each module can contribute one or more shortcut menus
-- The popup only appears when no text input field has keyboard focus (to avoid intercepting typing)
-- Follow-up keys are **single keys** — no modifier required inside the popup (but modifiers are tolerated)
+- Follow-up keys are **single keys** — no modifier required inside the popup (but the modifiers SHIFT-CMD/CTRL are tolerated, so selection can following without releasing the modifiers)
 - The shortcut popup shows categorized actions with their keybindings
 
 ### 11.5 Component-Specific Shortcuts
@@ -1795,6 +1795,103 @@ void main() {
       ),
       ForgeApplication(title: 'Tom D4rt Scripting'),
       ForgeApplication(title: 'Tom Worktracker'),
+    ],
+  );
+
+  runApp(TomForgeShellApp(shell: shell));
+}
+```
+
+### 16.1b Example, user version
+
+```dart
+void main() {
+  // Define modules
+  final shellModule = TomForgeShellModule();
+  final formEditorModule = TomFormEditorModule();
+  final flowEditorModule = TomFlowEditorModule();
+  final dartEditorModule = DartEditorModule();
+  final worktrackerModule = WorktrackerModule();
+
+  final shell = TomForgeShell(
+    workspace: Directory.current,
+    modules: [shellModule, formEditorModule, flowEditorModule,dartEditorModule,worktrackerModule],
+    config: ForgeConfig(
+      autoSave: AutoSaveConfig(enabled: true, idleDelay: Duration(seconds: 1)),
+      revisioning: RevisioningConfig(maxRevisionsPerFile: 50),
+    ),
+    applications: [
+      ForgeApplication(
+        title: 'Tom Flow',
+        layout: ApplicationLayout(
+          leftPanel: PanelConfig(
+            initialSize: 260,
+            tabs: [
+              PanelTabConfig(
+                title: 'Explorer',
+                icon: Icons.folder,
+                sections: [
+                  shellModule.explorer,
+                  shellModule.outline,
+                ],
+              ),
+              PanelTabConfig(
+                title: 'Search',
+                icon: Icons.search,
+                sections: [
+                  shellModule.search,
+                ],
+              ),
+            ],
+          ),
+          rightPanel: PanelConfig(
+            initialSize: 240,
+            tabs: [
+              PanelTabConfig(
+                title: 'Properties',
+                icon: Icons.settings,
+                sections: [
+                  shellModule.properties,
+                  shellModule.history,
+                ],
+              ),
+            ],
+          ),
+          bottomPanel: PanelConfig(
+            initialSize: 200,
+            tabs: [
+              PanelTabConfig(
+                title: 'Terminal',
+                icon: Icons.terminal,
+                sections: [
+                  shellModule.terminal,
+                ],
+              ),
+              PanelTabConfig(
+                title: 'Output',
+                icon: Icons.output,
+                sections: [
+                  shellModule.output,
+                  shellModule.problems,
+                ],
+              ),
+            ],
+          ),
+          middlePanels: [
+            MiddlePanelConfig(
+              flex: 1,
+              tabs: [
+                MiddleTabConfig(
+                  flowEditorModule.queueEditor,
+                  uri: Uri.file('example.queue.yaml'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      dartEditorModule.d4rtScriptingApplication,
+      worktrackerModule.worktrackerApplication,
     ],
   );
 

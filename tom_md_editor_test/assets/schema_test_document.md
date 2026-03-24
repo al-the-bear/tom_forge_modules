@@ -129,8 +129,6 @@ Due-date: 2026-04-15
 Implement the full login flow including credential validation,
 token generation, and session creation.
 
-<!-- tags: critical -->
-
 #### <!--[TASK-002] tags=high --> Add OAuth2 Support
 
 Assignee: Bob
@@ -138,8 +136,6 @@ Priority: high
 Status: draft
 
 Add OAuth2 provider integration for Google and GitHub login.
-
-<!-- tags: high -->
 
 ### <!--[impl-auth] --> Auth Implementation Notes
 
@@ -213,8 +209,6 @@ Status: review
 Implement sliding-window rate limiting per API key with configurable
 thresholds per endpoint.
 
-<!-- tags: medium -->
-
 ### <!--[impl-api] --> Gateway Implementation Notes
 
 The API gateway should use a reverse proxy pattern with configurable
@@ -235,15 +229,11 @@ The system must implement secure authentication using industry-standard
 practices including bcrypt password hashing, JWT tokens with appropriate
 expiry, and protection against brute force attacks via rate limiting.
 
-<!-- tags: critical -->
-
 ### <!--[REQ-002] tags=high --> API Rate Limiting
 
 The API gateway must enforce rate limiting per client with configurable
 thresholds. Default rate limit: 100 requests per minute per API key.
 Exceeded limits must return HTTP 429 with a Retry-After header.
-
-<!-- tags: high -->
 
 ### <!--[REQ-003] tags=medium --> Health Monitoring
 
