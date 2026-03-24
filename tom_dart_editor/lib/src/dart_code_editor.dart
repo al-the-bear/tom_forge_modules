@@ -23,6 +23,7 @@ class DartCodeController extends ChangeNotifier {
 
   DartCodeController({
     String initialCode = '',
+    this.uri,
     List<String> implicitImports = const [
       'dart:async',
       'dart:collection',
@@ -30,6 +31,9 @@ class DartCodeController extends ChangeNotifier {
     ],
   })  : _userCode = initialCode,
         _implicitImports = implicitImports;
+
+  /// Optional URI associated with this editor's document.
+  Uri? uri;
 
   /// The code as entered by the user (without implicit imports).
   String get userCode => _userCode;
@@ -568,6 +572,15 @@ class DartCodeEditor extends StatefulWidget {
     String prefix,
   )? onCompletionRequest;
 
+  /// Called when the cursor position changes (character offset).
+  final ValueChanged<int>? onCursorChanged;
+
+  /// Called when the text selection range changes.
+  final ValueChanged<({int start, int end})>? onSelectionChanged;
+
+  /// Called when the visible line range changes due to scrolling.
+  final ValueChanged<({int startLine, int endLine})>? onVisibleRangeChanged;
+
   DartCodeEditor({
     super.key,
     required this.controller,
@@ -577,6 +590,9 @@ class DartCodeEditor extends StatefulWidget {
     this.onChanged,
     this.onErrorTap,
     this.onCompletionRequest,
+    this.onCursorChanged,
+    this.onSelectionChanged,
+    this.onVisibleRangeChanged,
     this.settings = const DartEditorSettings(),
     this.onSettingsChanged,
     DartEditorTheme? theme,
@@ -714,12 +730,14 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
     }
     // Rebuild to update error underlines position
     setState(() {});
+    _notifyVisibleRangeChanged();
   }
 
   void _onSelectionChanged() {
     final pos = _textController.selection.baseOffset;
     _textController.updateCursorPosition(pos);
     setState(() {});
+    _notifyCursorAndSelection();
   }
 
   void _onFocusChanged() {
@@ -727,6 +745,34 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
       _hideCompletion();
       _hideParameterHelp();
     }
+  }
+
+  /// Notify forge callbacks about cursor position and selection changes.
+  void _notifyCursorAndSelection() {
+    final selection = _textController.selection;
+    if (!selection.isValid) return;
+    widget.onCursorChanged?.call(selection.baseOffset);
+    widget.onSelectionChanged?.call((
+      start: selection.start,
+      end: selection.end,
+    ));
+  }
+
+  /// Notify forge callback about visible line range based on scroll position.
+  void _notifyVisibleRangeChanged() {
+    if (widget.onVisibleRangeChanged == null) return;
+    if (!_scrollController.hasClients) return;
+    final lineHeight = widget.theme.font.fontSize * 1.5;
+    if (lineHeight <= 0) return;
+    final offset = _scrollController.offset;
+    final viewportHeight = _scrollController.position.viewportDimension;
+    final startLine = (offset / lineHeight).floor();
+    final endLine =
+        ((offset + viewportHeight) / lineHeight).ceil();
+    widget.onVisibleRangeChanged?.call((
+      startLine: startLine,
+      endLine: endLine,
+    ));
   }
 
   void _handleTextChange(String newText) {

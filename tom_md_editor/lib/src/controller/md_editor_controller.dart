@@ -36,11 +36,69 @@ class MdEditorController extends ChangeNotifier {
   MdEditorController({
     String? initialMarkdown,
     this.eventHandlers,
+    this.uri,
     int maxUndoHistory = 100,
   }) : _undoHistory = UndoHistory<MdEditOperation>(maxDepth: maxUndoHistory) {
     if (initialMarkdown != null) {
       _setMarkdownInternal(initialMarkdown);
     }
+  }
+
+  // ── Forge integration ──
+
+  /// Optional URI associated with this editor's document.
+  ///
+  /// Used by forge shell adapters to identify the file being edited.
+  Uri? uri;
+
+  /// Cursor position as a [ValueNotifier] for forge shell observation.
+  ///
+  /// Updated whenever the cursor offset changes.
+  final ValueNotifier<int> cursorPositionNotifier = ValueNotifier(0);
+
+  /// Selection range as a [ValueNotifier] for forge shell observation.
+  ///
+  /// Holds (start, end) offsets, or null when no selection is active.
+  final ValueNotifier<({int start, int end})?> selectionNotifier =
+      ValueNotifier(null);
+
+  /// Visible line range as a [ValueNotifier] for forge shell observation.
+  ///
+  /// Holds (firstLine, lastLine) currently visible in the viewport.
+  final ValueNotifier<({int firstLine, int lastLine})> visibleRangeNotifier =
+      ValueNotifier((firstLine: 0, lastLine: 20));
+
+  /// Active decoration ranges keyed by decoration type string.
+  ///
+  /// Used by forge shell adapters to apply diagnostic highlights,
+  /// search results, or other visual markers.
+  final Map<String, List<({int start, int end})>> _decorations = {};
+
+  /// Set decoration ranges for a given [type] key.
+  ///
+  /// Replaces any existing ranges for that type and notifies listeners.
+  void setDecorations(String type, List<({int start, int end})> ranges) {
+    _decorations[type] = List.unmodifiable(ranges);
+    notifyListeners();
+  }
+
+  /// Clear decoration ranges for a given [type] key.
+  void clearDecorations(String type) {
+    if (_decorations.remove(type) != null) {
+      notifyListeners();
+    }
+  }
+
+  /// Get all active decoration ranges.
+  Map<String, List<({int start, int end})>> get decorations =>
+      Map.unmodifiable(_decorations);
+
+  @override
+  void dispose() {
+    cursorPositionNotifier.dispose();
+    selectionNotifier.dispose();
+    visibleRangeNotifier.dispose();
+    super.dispose();
   }
 
   // ── Public state ──
@@ -76,6 +134,7 @@ class MdEditorController extends ChangeNotifier {
   /// (e.g., during a batch update).
   void setCursorOffset(int offset, {bool notify = true}) {
     _cursorOffset = offset.clamp(0, _markdown.length);
+    cursorPositionNotifier.value = _cursorOffset;
     if (notify) notifyListeners();
   }
 

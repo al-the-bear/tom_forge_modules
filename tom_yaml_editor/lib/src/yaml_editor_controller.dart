@@ -52,12 +52,24 @@ class YamlEditorController extends ChangeNotifier {
   YamlEditorController({
     String initialYaml = '',
     YamlSchema? schema,
+    this.uri,
     int maxUndoHistory = 100,
   })  : _document = YamlDocumentModel.parse(initialYaml),
         _schema = schema {
     _history = UndoHistory<YamlEditOperation>(maxDepth: maxUndoHistory);
     _revalidate();
   }
+
+  /// Optional URI associated with this editor's document.
+  Uri? uri;
+
+  /// Whether the document has been modified since creation or last save.
+  ///
+  /// Backed by a [ValueNotifier] for forge shell observation.
+  final ValueNotifier<bool> isDirtyNotifier = ValueNotifier(false);
+
+  /// Mark the document as saved (not dirty).
+  void markClean() => isDirtyNotifier.value = false;
 
   /// The current YAML text (serialized from the non-destructive model).
   String get yamlText => _document.toYamlString();
@@ -113,6 +125,7 @@ class YamlEditorController extends ChangeNotifier {
       ));
       _document = operation.apply(_document);
       _lastOperation = operation; // Store for UI to adjust expansion state
+      isDirtyNotifier.value = true;
       trailEvent('controller: applyEdit applied, revalidating');
       _revalidate();
       trailEvent('controller: applyEdit revalidated, notifying');
