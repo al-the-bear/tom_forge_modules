@@ -3,13 +3,13 @@
 **Project:** tom_forge_ui  
 **Component:** Panel Shell Framework  
 **Date:** 2026-03-24  
-**Status:** Concept (v2)
+**Status:** Concept (v3)
 
 ---
 
 ## 1. Overview
 
-The Tom Forge Panel Shell is a desktop-optimized, multi-panel application framework for composing visual development tools. It provides a VS Code-inspired window layout with applications, editors, views, and configurable panel arrangements — all within a single Flutter window.
+The Tom Forge Panel Shell is a desktop-optimized, multi-panel application framework for composing visual development tools. It provides a familiar IDE-style window layout with applications, editors, views, and configurable panel arrangements — all within a single Flutter application.
 
 The framework lives in `tom_forge_ui` (library) with a test/demo application in `tom_forge_app`.
 
@@ -17,10 +17,10 @@ The framework lives in `tom_forge_ui` (library) with a test/demo application in 
 
 | Term | Definition |
 |------|-----------|
-| **Workspace** | The root folder opened by the user (equivalent to a VS Code workspace folder). Contains source files, configuration, and a `.forge/` folder for state and file revisions. |
-| **Application** | A named arrangement of panels, components, and shortcuts. Multiple applications can be open simultaneously. Switching between applications does not close the previous one. Analogous to a VS Code "workspace configuration" but kept alive in memory. |
+| **Workspace** | The root folder opened by the user. Contains source files, configuration, and a `.forge/` folder for state and file revisions. |
+| **Application** | A named arrangement of panels, components, and shortcuts. Multiple applications can be open simultaneously. Switching between applications keeps the previous one alive in memory. |
 | **Component** | An editor or view that plugs into the shell. |
-| **Extension** | A group of related components, actions, and shortcuts that registers with the shell. |
+| **Module** | A cohesive group of related components, actions, and shortcuts compiled into the application. No dynamic loading — modules are type-safe Dart code. |
 | **Shell** | The top-level framework that manages panels, focus, menus, shortcuts, and state. |
 
 ### Design Principles
@@ -29,8 +29,8 @@ The framework lives in `tom_forge_ui` (library) with a test/demo application in 
 - **Component-based** — editors and views are self-contained widgets that plug into the shell
 - **Multi-render components** — a component can appear in multiple locations; each UI copy has its own UI state (scroll position, selection), but all copies share the same data state
 - **Drag-and-drop layout** — users rearrange components freely between panels
-- **Extension-driven** — functionality is packaged as extensions (groups of components + actions + shortcuts) with deep shell access
-- **VS Code-inspired API, more powerful** — no plugin sandboxing; extensions can deeply modify shell behavior
+- **Module-driven** — functionality is packaged as modules (groups of components + actions + shortcuts) compiled directly into the application with full, type-safe shell access
+- **Integrated, not sandboxed** — modules are normal Dart code in the same isolate as the shell; no marketplace, no dynamic loading, no serialization boundaries
 - **Auto-save by default** — files save on focus loss or after 1-second idle
 - **File revisioning** — the `.forge/` folder in the workspace tracks file revisions and shell state
 - **Code-configured** — initial layout is declarative in Dart; comprehensive runtime configurability; changes persist
@@ -43,9 +43,9 @@ The framework lives in `tom_forge_ui` (library) with a test/demo application in 
 ┌─────────────────────────────────────────────────────────────────────┐
 │  ◀ ▶   │        🔍 Application Title              │ [Application ▾]│  Title Bar
 ├────┬────────────────────────────────────────────────────────┬───────┤
-│    │  ┌─ Menu Bar ──────────────────────────────────────┐   │       │
-│    │  │ File  Edit  View  Extensions…  Help             │   │       │
-│    │  └─────────────────────────────────────────────────┘   │       │
+│    │  ┌─ Menu Bar (native) ─────────────────────────────────┐   │       │
+│    │  │ File  Edit  View  Modules…  Help                   │   │       │
+│    │  └─────────────────────────────────────────────────────┘   │       │
 │ L  │   ┌─ Tab1 ─┬─ Tab2 ─┐  ┌─ Tab3 ─┬─ Tab4 ─┐          │  R    │
 │ E  │   │        │         │  │        │         │          │  I    │
 │ F  │   │  Middle Panel 1  │  │  Middle Panel 2  │          │  G    │
@@ -173,8 +173,18 @@ abstract class ForgeComponentSizeHints {
 
 | Type | Closable | Multi-Render | Data State Sharing | UI State | Primary Location |
 |------|----------|--------------|--------------------|----------|------------------|
-| **Editor** | Yes (× button) | Yes (SHIFT+drag creates UI copy) | By URI — all copies share one data model | Each copy has own scroll position, cursor, selection | Middle panels |
-| **View** | No | Yes (SHIFT+drag creates UI copy) | By type — all copies share one data model | Each copy has own scroll position, expansion state | Left / right / bottom panels |
+| **Editor** | Yes — all copies are equal, all are closable (× button) | Yes (SHIFT+drag creates UI copy) | By URI — all copies share one data model | Each copy has own scroll position, cursor, selection | Middle panels |
+| **View** | Main component: not closable. UI copies: closable (× button). | Yes (SHIFT+drag creates UI copy) | By type — all copies share one data model | Each copy has own scroll position, expansion state | Left / right / bottom panels |
+
+### 4.1.1 Close and Pin Button Positioning
+
+Tabs and section headers may show **close** (×) and **pin** (📌) icon buttons:
+
+- The **close button** (×) is always at the **far right** of the tab/header
+- The **pin button** is to the **left of the close button** (i.e., second from right)
+- If only one button is present (e.g., close without pin), it sits at the far right
+- **Editors:** all copies show a close button (all are equal, no "main" distinction)
+- **Views:** the main component shows no close button (it cannot be closed); UI copies show a close button
 
 ### 4.2 Component Identity and Multi-Render
 
@@ -189,7 +199,9 @@ A single logical component can be rendered in multiple locations simultaneously.
 - **UI state** (scroll position, cursor position, selection highlight, collapsed/expanded sections) is **independent per copy**. Each copy maintains its own UI state.
 - **Creating a UI copy:** Hold **SHIFT** while dragging a component tab or section header. The original stays in place; a new UI copy appears at the drop location.
 - **Regular drag** (without SHIFT) **moves** the component — the original location is vacated.
-- **Closing a UI copy** disposes only that copy's UI state. The main component and other copies remain unaffected. If the main component is closed and UI copies exist, the oldest UI copy becomes the new main component.
+- **Closing copies:**
+  - **Editors:** All copies are equal — any copy can be closed. There is no "main" editor. Closing the last copy closes the editor entirely.
+  - **Views:** The main component (the first/original instance) cannot be closed. Only UI copies can be closed. If the main component is removed from the layout by the user (e.g., cleared from a panel), the oldest UI copy is promoted to main.
 - **Focus:** Each UI copy is independently focusable. The shell tracks which copy has focus for keyboard shortcuts and menu actions.
 
 ### 4.3 Component Contract
@@ -237,7 +249,7 @@ abstract class ForgeComponent extends Widget {
 
 ### 4.4 Component Registration
 
-Components are registered with the shell so it knows what's available. Registration happens through extensions (see §8) or directly:
+Components are registered with the shell so it knows what's available. Registration happens through modules (see §8) during their `activate()` call:
 
 ```dart
 class ForgeComponentRegistry {
@@ -301,14 +313,14 @@ class TomForgeShell {
   /// All applications available in this shell.
   final List<ForgeApplication> applications;
 
-  /// Global component registry (populated by extensions).
+  /// Global component registry (populated by modules).
   final ForgeComponentRegistry registry;
 
   /// Application-level status bar items.
   final List<StatusBarItem> globalStatusItems;
 
-  /// Registered extensions.
-  final List<ForgeExtension> extensions;
+  /// Registered modules.
+  final List<ForgeModule> modules;
 
   /// The .forge folder manager (uses configDirectory).
   final ForgeFolderManager forgeFolder;
@@ -400,7 +412,12 @@ class MiddleTabConfig {
 
 ### 7.1 Menu Structure
 
-The menu bar sits below the title bar and above the middle panels. It has a **fixed top-level structure** with menu items automatically populated from components, views, extensions, and the shell itself.
+Tom Forge uses the **platform-native menu system** on macOS, Windows, and Linux. Flutter's `PlatformMenuBar` (macOS) and `MenuBar` widget (other platforms) render menus using the host OS's native menu infrastructure. This means:
+
+- **macOS:** menus appear in the system menu bar at the top of the screen (standard Mac behavior), not inside the Flutter window
+- **Windows / Linux:** menus appear as a native-style menu bar inside the window
+
+The menu bar has a **fixed top-level structure** with menu items automatically populated from components, views, modules, and the shell itself.
 
 **Fixed top-level menus:**
 
@@ -410,12 +427,12 @@ The menu bar sits below the title bar and above the middle panels. It has a **fi
 | **Edit** | Focused component | Undo, Redo, Cut, Copy, Paste, Find, Replace |
 | **View** | Shell | Toggle panels, zoom, appearance, layout |
 | **Go** | Shell + focused component | Go-to-file, go-to-line, go-to-symbol, back/forward |
-| **Extensions** | Extensions | Each extension can contribute a submenu here |
+| **Modules** | Modules | Each module can contribute a submenu here |
 | **Help** | Shell | About, keyboard shortcuts reference, documentation |
 
 ### 7.2 Action-Based Menu Population
 
-Menu items are **actions** (`ForgeAction`). Components, views, and extensions register actions with the shell. Each action declares which menu it belongs to:
+Menu items are **actions** (`ForgeAction`). Components, views, and modules register actions with the shell. Each action declares which menu it belongs to:
 
 ```dart
 class ForgeAction {
@@ -437,8 +454,10 @@ class ForgeAction {
   /// Sort order within group.
   final int priority;
 
-  /// Callback when the action is triggered.
-  final VoidCallback execute;
+  /// Execute the action with optional parameters.
+  /// Returns an undo object (information needed to reverse the action),
+  /// or null if the action is not undoable.
+  final Future<Object?> Function(Map<String, Object> params) execute;
 
   /// Whether the action is currently enabled. Evaluated dynamically.
   final bool Function() isEnabled;
@@ -448,9 +467,21 @@ class ForgeAction {
 
   /// Shortcut binding (optional — displayed next to the menu item).
   final ForgeShortcutBinding? shortcut;
+
+  /// Undo the action using the undo object returned by execute().
+  /// Null if the action is not undoable.
+  final Future<void> Function(Object undoInfo)? undo;
 }
 
-enum ForgeMenuLocation { file, edit, view, go, extensions, help }
+enum ForgeMenuLocation { file, edit, view, go, modules, help }
+```
+
+**Action execution model:**
+
+- `execute(params)` receives a parameter map. For menu invocations, `params` is typically empty. For programmatic calls (e.g., from other modules or keyboard shortcuts), callers can pass structured data.
+- The return value is the **undo object** — an opaque value containing whatever information the action needs to reverse itself. If the action returns `null`, it is not added to the undo stack.
+- `undo(undoInfo)` reverses the action using the previously returned undo object.
+- **User input during execution:** Actions can use `ForgeDialogManager` (via the shell API) to open quick picks, input boxes, or file dialogs before performing the operation. This is the standard pattern for actions that need user choices (e.g., "Rename" opens an input box, "Open File" opens a file picker).
 ```
 
 ### 7.3 Menu Configurability
@@ -479,45 +510,52 @@ class ForgeContextMenuContribution {
 
 ---
 
-## 8. Extension System
+## 8. Module System
 
 ### 8.1 Concept
 
-An **extension** is a cohesive group of related functionality that registers with the shell. Extensions are the primary way to add editors, views, actions, and shortcuts to Tom Forge. Unlike VS Code extensions, Tom Forge extensions run in the same Dart isolate as the shell — there is no sandboxing. Extensions have full access to the shell API and can deeply modify behavior.
+A **module** is a cohesive group of related functionality that registers with the shell. Modules are the primary way to add editors, views, actions, and shortcuts to Tom Forge. Unlike VS Code extensions, Tom Forge modules are compiled into the same Flutter application — there is no dynamic loading, no marketplace, and no sandboxing. Modules run in the same Dart isolate as the shell and have full, type-safe access to the shell API. They are best thought of as **shell components** — integrated parts of the application.
 
-### 8.2 Extension Contract
+### 8.2 Module Contract
 
 ```dart
-abstract class ForgeExtension {
-  /// Unique extension identifier.
+abstract class ForgeModule {
+  /// Unique module identifier.
   String get id;
 
-  /// Display name for the extension.
+  /// Display name for the module.
   String get displayName;
 
-  /// Called when the extension is activated. The shell reference provides
+  /// Called when the module is activated. The shell reference provides
   /// full access to the shell API — registration, state, services, etc.
   void activate(ForgeShellApi shell);
 
-  /// Called when the extension is deactivated (shutdown).
+  /// Called when the module is deactivated (shutdown).
   void deactivate();
 
-  /// Components this extension provides.
-  List<ForgeComponentDescriptor> get components;
-
-  /// Actions this extension contributes.
+  /// Actions this module contributes.
   List<ForgeAction> get actions;
 
-  /// Shortcut bindings this extension contributes.
+  /// Shortcut bindings this module contributes.
   List<ForgeShortcutBinding> get shortcuts;
 }
 ```
 
-### 8.3 Example: Form Editor Extension
+### 8.3 Example: Form Editor Module
+
+Visual elements (editors, views) are **direct members** of the module class, not items in a list. This makes them accessible for use in code-based layout configuration (see §16.1).
 
 ```dart
-class TomFormEditorExtension extends ForgeExtension {
+class TomFormEditorModule extends ForgeModule {
   late final ForgeShellApi _shell;
+
+  // --- Visual elements as direct members ---
+
+  /// The form editor (opens .form.yaml files).
+  late final ForgeEditorDescriptor formEditor;
+
+  /// Properties view showing form field properties.
+  late final ForgeViewDescriptor propertiesView;
 
   @override
   String get id => 'tom.form_editor';
@@ -529,16 +567,19 @@ class TomFormEditorExtension extends ForgeExtension {
   void activate(ForgeShellApi shell) {
     _shell = shell;
 
-    // Register an editor for .form.yaml files
-    shell.registry.registerEditor(
+    // Create descriptors as members (accessible for layout config)
+    formEditor = shell.registry.registerEditor(
       'tom.form_editor',
-      (uri) => TomFormEditor(shell: shell, uri: uri),
+      displayName: 'Form Editor',
+      icon: Icons.dynamic_form,
+      factory: (uri) => TomFormEditor(shell: shell, uri: uri),
     );
 
-    // Register a properties view that shows form field properties
-    shell.registry.registerView(
+    propertiesView = shell.registry.registerView(
       'tom.form_properties',
-      () => TomFormPropertiesView(shell: shell),
+      displayName: 'Form Properties',
+      icon: Icons.settings,
+      factory: () => TomFormPropertiesView(shell: shell),
     );
 
     // Register a file association — .form.yaml → form editor
@@ -559,30 +600,22 @@ class TomFormEditorExtension extends ForgeExtension {
   void deactivate() {}
 
   @override
-  List<ForgeComponentDescriptor> get components => [
-    ForgeComponentDescriptor(
-      typeId: 'tom.form_editor',
-      displayName: 'Form Editor',
-      icon: Icons.dynamic_form,
-      isEditor: true,
-    ),
-    ForgeComponentDescriptor(
-      typeId: 'tom.form_properties',
-      displayName: 'Form Properties',
-      icon: Icons.settings,
-      isEditor: false,
-    ),
-  ];
-
-  @override
   List<ForgeAction> get actions => [
     ForgeAction(
       id: 'tom.form_editor.addField',
       label: 'Add Form Field',
-      menu: ForgeMenuLocation.extensions,
+      menu: ForgeMenuLocation.modules,
       group: 'tom.form_editor',
       priority: 0,
-      execute: () => _addField(),
+      execute: (params) async {
+        final field = await _shell.dialogs.showInputBox(
+          prompt: 'Field name',
+          placeholder: 'Enter field name',
+        );
+        if (field == null) return null; // user cancelled
+        return _addField(field); // returns undo info
+      },
+      undo: (undoInfo) async => _removeField(undoInfo),
       isEnabled: () => _shell.systemState.focusedComponentTypeId == 'tom.form_editor',
       isVisible: () => _shell.systemState.focusedComponentTypeId == 'tom.form_editor',
     ),
@@ -593,16 +626,16 @@ class TomFormEditorExtension extends ForgeExtension {
 }
 ```
 
-### 8.4 Extension Lifecycle
+### 8.4 Module Lifecycle
 
-1. Extensions are declared in the `TomForgeShell` configuration
+1. Modules are declared in the `TomForgeShell` configuration
 2. `activate()` is called during shell startup, in dependency order
-3. Extensions can reference each other via `shell.extensions.get<T>()`
+3. Modules can reference each other via `shell.modules.get<T>()`
 4. `deactivate()` is called during shell shutdown, in reverse order
 
 ### 8.5 Shell API Surface
 
-The `ForgeShellApi` passed to extensions provides:
+The `ForgeShellApi` passed to modules provides:
 
 ```dart
 abstract class ForgeShellApi {
@@ -630,8 +663,8 @@ abstract class ForgeShellApi {
   /// File association registry (file pattern → editor type).
   ForgeFileAssociationRegistry get fileAssociations;
 
-  /// Extension cross-references.
-  ForgeExtensionRegistry get extensions;
+  /// Module cross-references (type-safe).
+  ForgeModuleRegistry get modules;
 
   /// Output channel creation.
   ForgeOutputChannelManager get output;
@@ -660,8 +693,8 @@ abstract class ForgeShellApi {
   /// Environment utilities (open external URI, app info).
   ForgeEnvironment get environment;
 
-  /// Per-extension persistent storage.
-  ForgeExtensionStorage get storage;
+  /// Per-module persistent storage.
+  ForgeModuleStorage get storage;
 }
 ```
 
@@ -686,7 +719,7 @@ The Configuration tab contains these sections (as accordeon items):
 | **General** | Application-wide settings: auto-save, theme, font size, tab size |
 | **Menu** | Menu structure editor: reorder, hide, add custom entries (see §7.3) |
 | **Shortcuts** | Shortcut editor: view all bindings, rebind, detect conflicts (see §11.5) |
-| **Extensions** | List of loaded extensions, enable/disable, extension-specific settings |
+| **Modules** | List of loaded modules, enable/disable, module-specific settings |
 | **Layout** | Panel visibility, default sizes, reset to defaults |
 | **File Types** | File association editor (pattern → editor mapping) |
 
@@ -737,7 +770,7 @@ The system state API provides a comprehensive, real-time view of the shell's cur
 
 - **Menu/action enablement** — actions show, hide, or disable based on state
 - **Context menus** — items appear based on what's focused/selected
-- **Extension logic** — extensions react to state changes
+- **Module logic** — modules react to state changes
 - **Shortcut context** — shortcuts are active only in relevant contexts
 
 ### 10.2 State Properties
@@ -858,15 +891,21 @@ abstract class ForgeSystemState {
 Actions dynamically evaluate their `isVisible` and `isEnabled` callbacks against the current system state. The shell re-evaluates these whenever the relevant state changes:
 
 ```dart
-// Example: "Save" is only enabled when the active editor is dirty.
+// Example: "Save All" saves all dirty editors and returns an undo object.
 ForgeAction(
-  id: 'file.save',
-  label: 'Save',
+  id: 'file.saveAll',
+  label: 'Save All',
   menu: ForgeMenuLocation.file,
-  isEnabled: () => systemState.activeEditorUri != null &&
-      systemState.dirtyEditorUris.contains(systemState.activeEditorUri),
+  isEnabled: () => systemState.hasUnsavedChanges,
   isVisible: () => true,
-  execute: () => shell.fileSystem.save(systemState.activeEditorUri!),
+  execute: (params) async {
+    final saved = List<Uri>.from(systemState.dirtyEditorUris);
+    for (final uri in saved) {
+      await shell.fileSystem.save(uri);
+    }
+    return saved; // undo info: list of URIs that were saved
+  },
+  undo: null, // save is not undoable at this level
 );
 ```
 
@@ -1025,8 +1064,9 @@ abstract class ForgeActionRegistry {
   /// Register an action.
   void register(ForgeAction action);
 
-  /// Execute an action by ID.
-  void execute(String actionId);
+  /// Execute an action by ID with optional parameters.
+  /// Returns the undo object (or null if the action is not undoable).
+  Future<Object?> execute(String actionId, {Map<String, Object> params = const {}});
 
   /// Get an action by ID.
   ForgeAction? get(String actionId);
@@ -1036,6 +1076,12 @@ abstract class ForgeActionRegistry {
 
   /// Remove an action by ID.
   void remove(String actionId);
+
+  /// Undo the last undoable action.
+  Future<void> undo();
+
+  /// Redo the last undone action.
+  Future<void> redo();
 }
 ```
 
@@ -1078,20 +1124,20 @@ abstract class ForgeFileAssociationRegistry {
 }
 ```
 
-#### ForgeExtensionRegistry
+#### ForgeModuleRegistry
 
 ```dart
-abstract class ForgeExtensionRegistry {
-  /// Get a typed extension reference.
-  T get<T extends ForgeExtension>();
+abstract class ForgeModuleRegistry {
+  /// Get a typed module reference.
+  T get<T extends ForgeModule>();
 
-  /// Get an extension by ID.
-  ForgeExtension? getById(String id);
+  /// Get a module by ID.
+  ForgeModule? getById(String id);
 
-  /// List all registered extensions.
-  List<ForgeExtension> get allExtensions;
+  /// List all registered modules.
+  List<ForgeModule> get allModules;
 
-  /// Whether an extension is active.
+  /// Whether a module is active.
   bool isActive(String id);
 }
 ```
@@ -1109,8 +1155,8 @@ abstract class ForgeConfigManager {
   /// Get the full configuration object.
   ForgeConfig get current;
 
-  /// Get extension-scoped configuration section.
-  Map<String, dynamic> getSection(String extensionId);
+  /// Get module-scoped configuration section.
+  Map<String, dynamic> getSection(String moduleId);
 
   /// Fires when any configuration value changes.
   Stream<ConfigChangeEvent> get onDidChange;
@@ -1268,13 +1314,13 @@ abstract class ForgeEnvironment {
 }
 ```
 
-#### ForgeExtensionStorage (new)
+#### ForgeModuleStorage (new)
 
 ```dart
-abstract class ForgeExtensionStorage {
-  /// Get a key-value store scoped to the calling extension.
-  /// Data is stored in .forge/extensions/<extensionId>/.
-  ForgeKeyValueStore forExtension(String extensionId);
+abstract class ForgeModuleStorage {
+  /// Get a key-value store scoped to the calling module.
+  /// Data is stored in .forge/modules/<moduleId>/.
+  ForgeKeyValueStore forModule(String moduleId);
 }
 
 abstract class ForgeKeyValueStore {
@@ -1296,40 +1342,22 @@ abstract class ForgeKeyValueStore {
 
 ## 11. Keyboard Shortcuts
 
-### 11.1 Two-Key Shortcut System
+### 11.1 Shortcut Architecture
 
-Tom Forge uses a **two-key shortcut system** to avoid conflicting with VS Code shortcuts (since Tom Forge may run as an embedded panel or alongside VS Code during development):
+Tom Forge uses two complementary shortcut mechanisms:
 
-1. **Primary modifier shortcuts** — Standard shortcuts with CMD (macOS) or CTRL (Windows/Linux) that apply to universal operations.
-2. **Trigger key shortcuts** — A dedicated trigger key (default: unmodified key like `Space` or `\``) opens a shortcut popup. The second key executes the action.
+1. **Standard shortcuts** — Single-modifier shortcuts (CMD on macOS, CTRL on Windows/Linux) for universal operations. These are a **limited, fixed set** of essential operations.
+2. **Custom shortcut menus** — Module-defined popup menus opened via **Shift+CMD+\<key\>**. The menu shows available follow-up actions; the user presses a single key (or clicks) to execute.
 
-### 11.2 Trigger Key Flow
+### 11.2 Design Rationale
 
-```
-User presses trigger key (e.g., Space when no text field is focused)
-    ↓
-Shortcut popup appears below the search bar:
-┌───────────────────────────────────────┐
-│ [E] Explorer  [T] Terminal  [O] Output│
-│ [P] Problems  [S] Search   [H] Help  │
-│ [1] Panel 1   [2] Panel 2  [3] ...   │
-│                                       │
-│         Press key or ESC to cancel    │
-└───────────────────────────────────────┘
-    ↓
-User presses the second key
-    ↓
-Action executes, popup closes
-```
+- Standard shortcuts intentionally avoid two-modifier combinations (no Cmd+Shift+X, no Ctrl+Alt+F, etc.) — keeping the set small and memorable
+- Custom shortcut menus provide **discoverable, context-rich** access to module-specific commands without polluting the global shortcut space
+- Multiple shortcut menus can coexist (e.g., Shift+Cmd+E for Explorer commands, Shift+Cmd+G for Git commands)
 
-- The popup shows available actions with their keybindings
-- **ESC** or clicking outside cancels the popup
-- The trigger key is configurable (see §9.2)
-- The popup only appears when no text input field is focused (to avoid interfering with typing)
+### 11.3 Standard Shortcuts
 
-### 11.3 Primary Modifier Shortcuts
-
-These use CMD (macOS) / CTRL (Windows/Linux) and are always active:
+These use a single modifier key (CMD on macOS, CTRL on Windows/Linux) and are always active. The list is intentionally small — no two-modifier combinations are used for standard shortcuts:
 
 | Shortcut | Action | Context |
 |----------|--------|---------|
@@ -1341,20 +1369,52 @@ These use CMD (macOS) / CTRL (Windows/Linux) and are always active:
 | `Cmd+2` | Focus middle panel 2 | Global |
 | `Cmd+3` | Focus middle panel 3 | Global |
 | `Cmd+4` | Focus middle panel 4 | Global |
-| `Cmd+S` | Save active editor | When editor is focused |
+| `Cmd+S` | Save all dirty editors | Global |
 | `Cmd+X` | Cut | When text is selected |
 | `Cmd+C` | Copy | When text is selected |
 | `Cmd+V` | Paste | When text input is focused |
-| `Cmd+Y` | Delete line | When text editor is focused |
-| `Cmd+Z` | Undo | When editor is focused |
-| `Cmd+Shift+Z` | Redo | When editor is focused |
-| `Cmd+W` | Close active editor tab | When editor is focused |
-| `Cmd+Shift+T` | Reopen last closed editor | Global |
-| `Cmd+[` / `Cmd+]` | Navigate back / forward | When component supports history |
-| `Cmd+Tab` | Cycle through open editors | Global |
-| `` Ctrl+` `` | Focus terminal view | Global |
+| `Cmd+U` | Undo | When editor is focused |
+| `Cmd+Z` | Redo | When editor is focused |
 
-### 11.4 Main Component vs UI Copy Focus
+### 11.4 Custom Shortcut Menus
+
+In addition to the standard shortcuts, there can be **multiple custom shortcut menus**. Each is opened via **Shift+Cmd+\<key\>** (macOS) or **Shift+Ctrl+\<key\>** (Windows/Linux). Pressing the modifier combination opens a popup menu that shows the available follow-up actions.
+
+**Activation:** `Shift+Cmd+<trigger key>` (e.g., `Shift+Cmd+E` opens the Explorer shortcut menu)
+
+**After the menu opens, the user can:**
+
+1. Press a follow-up key (with or without modifier) to trigger the action
+2. Click on an action in the menu
+3. Use arrow keys + Enter to select an action
+4. Press **ESC** or click outside the popup to cancel
+
+```
+User presses Shift+Cmd+E (Explorer shortcut menu trigger)
+    ↓
+Shortcut popup appears below the search bar:
+┌───────────────────────────────────────┐
+│ [R] Reveal in Finder                  │
+│ [N] New File                          │
+│ [D] New Folder                        │
+│ [C] Collapse All                      │
+│                                       │
+│         Press key or ESC to cancel    │
+└───────────────────────────────────────┘
+    ↓
+User presses 'N' (with or without modifier)
+    ↓
+Action "New File" executes, popup closes
+```
+
+**Key behavior:**
+
+- Shortcut menus are **registered by modules** — each module can contribute one or more shortcut menus
+- The popup only appears when no text input field has keyboard focus (to avoid intercepting typing)
+- Follow-up keys are **single keys** — no modifier required inside the popup (but modifiers are tolerated)
+- The shortcut popup shows categorized actions with their keybindings
+
+### 11.5 Component-Specific Shortcuts
 
 When a shortcut targets a component (e.g., `Cmd+S`), it applies to the **focused UI copy** of that component, not necessarily the main component. The distinction matters for:
 
@@ -1362,15 +1422,15 @@ When a shortcut targets a component (e.g., `Cmd+S`), it applies to the **focused
 - **Find** — opens find in the specific UI copy that has focus (UI state is per-copy)
 - **Scroll** — affects only the focused copy's viewport
 
-### 11.5 Shortcut Editor
+### 11.6 Shortcut Editor
 
 The Shortcut Editor (in the Configuration tab, see §9.2) provides:
 
-- **Full listing** of all registered shortcuts (from shell, extensions, components)
+- **Full listing** of all registered shortcuts (from shell, modules, components)
 - **Conflict detection** — highlights when two shortcuts use the same key combination
 - **Rebinding** — click a shortcut row, then press the desired key combination
 - **Reset** — restore individual or all shortcuts to defaults
-- **Search/filter** — find shortcuts by action name, key, or extension
+- **Search/filter** — find shortcuts by action name, key, or module
 - **Context column** — shows when each shortcut is active (global, editor-focused, component-specific)
 
 ---
@@ -1389,11 +1449,11 @@ Auto-save can be disabled globally or per file type in the Configuration tab.
 
 ### 12.2 The .forge Folder
 
-The `.forge/` folder lives in the **workspace root directory** (the opened folder). It stores:
+The `.forge/` folder in the **workspace root directory** stores workspace state (layout, open editors, revisions, undo history). It should typically be added to `.gitignore`.
 
 ```
-.forge/
-  config.json           # Runtime configuration overrides
+<workspace>/.forge/
+  config.json           # Runtime configuration overrides (only if project-local config mode)
   state/
     layout.json         # Current panel layout per application
     open-editors.json   # Open editor URIs per application
@@ -1405,7 +1465,20 @@ The `.forge/` folder lives in the **workspace root directory** (the opened folde
   undo/
     <uri-hash>/         # Per-file undo history
       stack.json        # Undo/redo stack metadata
+  modules/
+    <module-id>/        # Per-module persistent storage
 ```
+
+When using global configuration mode, configuration lives in `~/.forge/`:
+
+```
+~/.forge/
+  config.json           # Global configuration overrides
+  modules/
+    <module-id>/        # Global per-module persistent storage
+```
+
+**Important:** Workspace-specific data (revisions, layout state, undo history) is **always** stored in `<workspace>/.forge/` — never in `~/.forge/`. The global `~/.forge/` only holds configuration and module config data.
 
 ### 12.3 File Revisioning
 
@@ -1420,23 +1493,23 @@ The shell **routes all file access** through `ForgeFileSystem`, which transparen
 
 Undo/redo operates at two levels:
 
-1. **Editor-level undo** — standard text/content undo within the editor (Cmd+Z / Cmd+Shift+Z). This is per-editor and uses the data state's undo stack.
+1. **Editor-level undo** — standard text/content undo within the editor (Cmd+U / Cmd+Z for redo). This is per-editor and uses the data state's undo stack.
 2. **File-level undo** — reverts to a previous file revision. Access via the File History view or command palette.
 
 Both levels are stored in `.forge/` for persistence across sessions.
 
 ### 12.5 .forge Folder Location
 
-The `.forge/` folder location depends on the **configuration directory** chosen at startup (see §13):
+Tom Forge uses one or two `.forge/` folders depending on the configuration mode chosen at startup (see §13):
 
-| Config directory | .forge location | Use case |
-|-----------------|----------------|----------|
-| `~/.forge` (global) | `~/.forge/` | Shared config across projects; revisions/state stored globally per workspace path |
-| `<workspace>/.forge` (local) | `<workspace>/.forge/` | Project-specific config; revisions travel with the project |
+| Mode | Config location | State location | Use case |
+|------|----------------|----------------|----------|
+| **Local** (default) | `<workspace>/.forge/config/` | `<workspace>/.forge/` | Everything in one place; simplest setup; config travels with the project |
+| **Split** | `~/.forge/config/` | `<workspace>/.forge/` | Shared configuration across workspaces; workspace state is always local |
 
-When using the global `~/.forge`, workspace-specific data (revisions, layout, open editors) is stored in a subdirectory keyed by the workspace path hash: `~/.forge/workspaces/<hash>/`.
+In both modes, **workspace state** (revisions, layout, open editors, undo history, module data) is **always** stored in `<workspace>/.forge/`. There is no per-workspace hash directory — state lives directly in the workspace folder.
 
-When using the local `<workspace>/.forge`, the `.forge/` folder should be added to `.gitignore` (Tom Forge suggests this during initialization).
+The `<workspace>/.forge/` folder should typically be added to `.gitignore` (Tom Forge suggests this during initialization). The `~/.forge/` directory, when used, contains only global configuration — never workspace state.
 
 ---
 
@@ -1473,10 +1546,7 @@ The shell remembers both directories using **platform application preferences** 
 │  ℹ Found .forge/ at /Users/alex/projects/my_app         │
 │                                                         │
 │  Configuration Storage                                  │
-│  ○ Global (~/.forge)          ● Project (.forge/)       │
-│  ┌─────────────────────────────────────────────┐ [📁]   │
-│  │ /Users/alex/projects/my_app/.forge           │        │
-│  └─────────────────────────────────────────────┘        │
+│  ● Local (.forge/ in workspace)   ○ Split (~/.forge)    │
 │                                                         │
 │  ☑ Remember these settings                              │
 │                                                         │
@@ -1493,13 +1563,12 @@ The shell remembers both directories using **platform application preferences** 
 
 **Options:**
 
-| Option | Directory | Description |
-|--------|-----------|-------------|
-| **Global** | `~/.forge/` | Default on first launch. Config is shared across all workspaces. Workspace-specific data is stored in `~/.forge/workspaces/<hash>/`. |
-| **Project** | `<workspace>/.forge/` | Config travels with the project. Good for teams or project-specific tooling setups. |
-| **Custom** | User-chosen path | Advanced: user picks any directory via the folder picker. |
+| Option | Config location | State location | Description |
+|--------|----------------|----------------|-------------|
+| **Local** | `<workspace>/.forge/config/` | `<workspace>/.forge/` | Default. Config + state live together in the workspace. Good for teams or project-specific setups. |
+| **Split** | `~/.forge/config/` | `<workspace>/.forge/` | Config is shared across workspaces. Workspace state (revisions, layout, undo) is always local. |
 
-**Default:** `~/.forge` on first launch. If the startup dialog detects an existing `<workspace>/.forge/` folder, it switches the default to Project.
+**Default:** Local (everything in `<workspace>/.forge/`) on first launch. If `~/.forge/config/` already exists, the dialog switches the default to Split.
 
 ### 13.4 Remembered Preferences
 
@@ -1510,17 +1579,15 @@ class ForgeStartupPreferences {
   /// Last opened workspace directory.
   String? lastWorkspacePath;
 
-  /// Configuration directory mode for the last workspace.
-  /// 'global' | 'project' | 'custom'
+  /// Configuration mode for the last workspace.
+  /// 'local' | 'split'
   String? lastConfigMode;
-
-  /// Custom config directory path (only when mode is 'custom').
-  String? lastCustomConfigPath;
 
   /// Whether to skip the dialog and use remembered settings.
   bool rememberSettings;
 
   /// Recent workspace paths (most recent first, max 10).
+  /// Shown in the startup dialog for quick re-opening.
   List<String> recentWorkspaces;
 }
 ```
@@ -1539,19 +1606,19 @@ Load ForgeStartupPreferences
 │   NO  → Show startup dialog with pre-filled defaults
 └─
   ↓
-User confirms or changes workspace + config directory
+User confirms or changes workspace + config mode
   ↓
-Save updated preferences
+Save updated preferences (add workspace to recentWorkspaces)
   ↓
 Initialize ForgeFolderManager with chosen paths
   ↓
-┌─ .forge/ folder exists at chosen config location?
+┌─ .forge/ folder exists at workspace?
 │   YES → Load existing config, state, revisions
 │   NO  → Create .forge/ folder structure
-│         If project mode: suggest adding .forge/ to .gitignore
+│         Suggest adding .forge/ to .gitignore
 └─
   ↓
-Activate extensions, build shell, render
+Activate modules, build shell, render
 ```
 
 ### 13.6 Command-Line Override
@@ -1560,11 +1627,11 @@ The startup dialog can be bypassed via command-line arguments:
 
 ```
 tom_forge --workspace /path/to/project
-tom_forge --workspace /path/to/project --config global
-tom_forge --workspace /path/to/project --config /custom/path
+tom_forge --workspace /path/to/project --config local
+tom_forge --workspace /path/to/project --config split
 ```
 
-When `--workspace` is provided, the dialog is skipped and the shell opens directly. If `--config` is omitted, the remembered preference for that workspace is used (or `global` as fallback).
+When `--workspace` is provided, the dialog is skipped and the shell opens directly. If `--config` is omitted, the remembered preference for that workspace is used (or `local` as fallback).
 
 ---
 
@@ -1645,13 +1712,13 @@ class StatusBarItem {
 
 ```dart
 void main() {
-  // Define extensions
-  final formEditorExtension = TomFormEditorExtension();
-  final flowEditorExtension = TomFlowEditorExtension();
+  // Define modules
+  final formEditorModule = TomFormEditorModule();
+  final flowEditorModule = TomFlowEditorModule();
 
   final shell = TomForgeShell(
     workspace: Directory.current,
-    extensions: [formEditorExtension, flowEditorExtension],
+    modules: [formEditorModule, flowEditorModule],
     config: ForgeConfig(
       autoSave: AutoSaveConfig(enabled: true, idleDelay: Duration(seconds: 1)),
       revisioning: RevisioningConfig(maxRevisionsPerFile: 50),
@@ -1775,9 +1842,9 @@ tom_forge_ui/
         component_registry.dart     # Registration and factory lookup
         component_state.dart        # Shared data state + per-copy UI state
         multi_render_manager.dart   # Track main component vs UI copies
-      extensions/
-        forge_extension.dart        # Extension base class
-        extension_registry.dart     # Extension lifecycle and cross-references
+      modules/
+        forge_module.dart           # Module base class
+        module_registry.dart        # Module lifecycle and cross-references
       models/
         application_model.dart      # TomForgeShell, ForgeApplication
         layout_model.dart           # PanelConfig, TabConfig, etc.
@@ -1806,7 +1873,7 @@ tom_forge_ui/
         terminal_manager.dart       # Terminal instance lifecycle and I/O
         clipboard_service.dart      # System clipboard read/write
         environment_service.dart    # App info, open external URIs
-        extension_storage.dart      # Per-extension key-value persistence
+        module_storage.dart         # Per-module key-value persistence
         diagnostic_manager.dart     # Diagnostic collection management
         output_channel_manager.dart # Output channel creation and lifecycle
         file_association_registry.dart # File pattern → editor mapping
@@ -1817,7 +1884,7 @@ tom_forge_ui/
           general_config_view.dart
           menu_config_view.dart
           shortcut_config_view.dart
-          extension_config_view.dart
+          module_config_view.dart
           layout_config_view.dart
           filetype_config_view.dart
       views/                        # Built-in views
@@ -1834,7 +1901,7 @@ tom_forge_ui/
 ### 17.2 State Management
 
 - **Shell state:** `ForgeShellController` (a `ChangeNotifier`) manages the overall layout, active application, panel sizes, and component placement
-- **System state:** `ForgeSystemState` provides reactive access to focus, editors, selection, diagnostics, and more. Used by actions, menus, and extensions.
+- **System state:** `ForgeSystemState` provides reactive access to focus, editors, selection, diagnostics, and more. Used by actions, menus, and modules.
 - **Component data state:** Each component type manages its own data state internally. The shell provides a `ForgeComponentStateManager` that maps URIs/types to shared data state objects.
 - **Component UI state:** Each UI copy maintains its own `ForgeComponentUiState` (scroll position, cursor, selection). Managed by `MultiRenderManager`.
 - **Reactive updates:** `ValueListenable` pattern consistent with other Tom Forge components
@@ -1915,20 +1982,20 @@ Per Tom Forge convention, the panel shell implements trail-based debug mode:
 - Focus tracking service
 - `ForgeSystemState` implementation
 
-### Phase 4 — Extension System and Actions
+### Phase 4 — Module System and Actions
 
-- `ForgeExtension` contract and lifecycle (activate/deactivate)
+- `ForgeModule` contract and lifecycle (activate/deactivate)
 - `ForgeShellApi` implementation
 - Action registry and menu population
 - Context menus based on system state
-- Extension cross-references
+- Module cross-references
 
 ### Phase 5 — Shortcuts and Configuration
 
 - Two-key shortcut system with trigger key popup
 - Primary modifier shortcuts (Cmd+P, Cmd+S, etc.)
 - Shortcut manager with conflict detection
-- Configuration tab with all config views (general, menu, shortcuts, extensions, layout, file types)
+- Configuration tab with all config views (general, menu, shortcuts, modules, layout, file types)
 - Configuration persistence to `.forge/config.json`
 
 ### Phase 6 — Drag and Drop

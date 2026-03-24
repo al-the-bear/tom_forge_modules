@@ -2,7 +2,7 @@
 
 **Project:** tom_forge_ui  
 **Date:** 2026-03-24  
-**Purpose:** Comprehensive mapping between the VS Code Extension API and the Tom Forge Shell API. Used to identify coverage gaps and Forge-specific additions.
+**Purpose:** Comprehensive mapping between the VS Code Extension API and the Tom Forge Shell API (which uses "modules" instead of "extensions"). Used to identify coverage gaps and Forge-specific additions.
 
 ---
 
@@ -27,41 +27,41 @@ This section lists **every major VS Code API namespace and capability** and show
 
 | VS Code API | Description | Forge Equivalent | Status |
 |-------------|-------------|-------------------|--------|
-| `activate(context: ExtensionContext)` | Called when extension activates; receives context with subscriptions, storage, secrets | `ForgeExtension.activate(ForgeShellApi shell)` — shell reference provides full API access | ✅ |
-| `deactivate()` | Called on extension shutdown | `ForgeExtension.deactivate()` | ✅ |
-| `ExtensionContext.subscriptions` | Disposable list — auto-disposed on deactivate | No equivalent — extensions manage own cleanup in `deactivate()` | 🔶 |
-| `ExtensionContext.extensionPath` | Filesystem path to the extension | Not applicable — extensions are compiled into the app | ➖ |
+| `activate(context: ExtensionContext)` | Called when extension activates; receives context with subscriptions, storage, secrets | `ForgeModule.activate(ForgeShellApi shell)` — shell reference provides full API access | ✅ |
+| `deactivate()` | Called on extension shutdown | `ForgeModule.deactivate()` | ✅ |
+| `ExtensionContext.subscriptions` | Disposable list — auto-disposed on deactivate | No equivalent — modules manage own cleanup in `deactivate()` | 🟡 |
+| `ExtensionContext.extensionPath` | Filesystem path to the extension | Not applicable — modules are compiled into the app | ➖ |
 | `ExtensionContext.extensionUri` | URI of extension directory | Not applicable | ➖ |
 | `ExtensionContext.globalState` | Persistent key-value store (across workspaces) | `ForgeConfigManager` — config persisted in `.forge/` | 🔶 |
 | `ExtensionContext.workspaceState` | Per-workspace key-value store | `ForgeConfigManager` — config persisted in workspace `.forge/` | 🔶 |
 | `ExtensionContext.secrets` | Secure storage for tokens/passwords | ❌ No secret storage API | ❌ |
-| `ExtensionContext.storageUri` | Extension-specific storage directory | No per-extension storage directory | ❌ |
-| `ExtensionContext.globalStorageUri` | Global extension storage | No equivalent | ❌ |
-| `ExtensionContext.logUri` | Extension log file location | Extensions use `ForgeOutputChannelManager` for logging | 🔶 |
+| `ExtensionContext.storageUri` | Extension-specific storage directory | `ForgeModuleStorage.forModule(id)` — per-module key-value store | ✅ |
+| `ExtensionContext.globalStorageUri` | Global extension storage | No equivalent | ➖ |
+| `ExtensionContext.logUri` | Extension log file location | Modules use `ForgeOutputChannelManager` for logging | 🟡 |
 | `ExtensionContext.extensionMode` | Development / Production / Test | No equivalent | ❌ |
-| `extensions.getExtension(id)` | Get another extension by ID | `ForgeExtensionRegistry.get<T>()` — cross-references | ✅ |
-| `extensions.all` | List of all installed extensions | `ForgeExtensionRegistry` — iterable | ✅ |
-| `extensions.onDidChange` | Extension install/uninstall events | Not applicable — extensions are compile-time | ➖ |
+| `extensions.getExtension(id)` | Get another extension by ID | `ForgeModuleRegistry.get<T>()` — type-safe cross-references | ✅ |
+| `extensions.all` | List of all installed extensions | `ForgeModuleRegistry.allModules` | ✅ |
+| `extensions.onDidChange` | Extension install/uninstall events | Not applicable — modules are compile-time | ➖ |
 
 **What VS Code extensions expose back to VS Code:**
 
 | VS Code Mechanism | Description | Forge Equivalent | Status |
 |-------------------|-------------|-------------------|--------|
-| `package.json: activationEvents` | Declares when extension activates (onLanguage, onCommand, workspaceContains, etc.) | Extensions always activate at startup, in dependency order | 🔶 |
-| `package.json: contributes.commands` | Declares commands the extension provides | `ForgeExtension.actions` — list of `ForgeAction` | ✅ |
+| `package.json: activationEvents` | Declares when extension activates (onLanguage, onCommand, workspaceContains, etc.) | Modules always activate at startup, in dependency order | 🟡 |
+| `package.json: contributes.commands` | Declares commands the extension provides | `ForgeModule.actions` — list of `ForgeAction` | ✅ |
 | `package.json: contributes.menus` | Declares menu contributions (editor/title, context, etc.) | Actions declare `ForgeMenuLocation`; context menus via `ForgeContextMenuContribution` | ✅ |
-| `package.json: contributes.keybindings` | Declares keyboard shortcuts | `ForgeExtension.shortcuts` — list of `ForgeShortcutBinding` | ✅ |
+| `package.json: contributes.keybindings` | Declares keyboard shortcuts | `ForgeModule.shortcuts` — list of `ForgeShortcutBinding` | ✅ |
 | `package.json: contributes.languages` | Declares language support (ID, aliases, extensions, config) | `ForgeFileAssociationRegistry` — pattern → editor mapping | 🔶 |
 | `package.json: contributes.grammars` | TextMate grammars for syntax highlighting | ❌ No grammar/syntax highlighting system | ❌ |
-| `package.json: contributes.themes` | Color themes | `ForgeConfig.theme` — but no theme contribution from extensions | 🔶 |
+| `package.json: contributes.themes` | Color themes | `ForgeConfig.theme` — but no theme contribution from modules | 🟡 |
 | `package.json: contributes.iconThemes` | File icon themes | ❌ No icon theme system | ❌ |
 | `package.json: contributes.productIconThemes` | Product icon overrides | ❌ | ❌ |
 | `package.json: contributes.snippets` | Code snippets | ❌ No snippet system | ❌ |
 | `package.json: contributes.jsonValidation` | JSON schema associations | ❌ No built-in JSON schema integration | ❌ |
-| `package.json: contributes.views` | Declares views for side bar containers | Components declared via `ForgeExtension.components` | ✅ |
+| `package.json: contributes.views` | Declares views for side bar containers | Components declared as direct members on `ForgeModule` | ✅ |
 | `package.json: contributes.viewsContainers` | Custom sidebar containers | Custom tabs in left/right panels via `PanelTabConfig` | ✅ |
 | `package.json: contributes.viewsWelcome` | Welcome content for empty views | ❌ No welcome content system | ❌ |
-| `package.json: contributes.configuration` | Extension settings (shown in Settings UI) | Extension configuration views in Configuration tab | ✅ |
+| `package.json: contributes.configuration` | Extension settings (shown in Settings UI) | Module configuration views in Configuration tab | ✅ |
 | `package.json: contributes.configurationDefaults` | Default settings values | `ForgeConfig` code-configured defaults | ✅ |
 | `package.json: contributes.taskDefinitions` | Task types for the task system | ❌ No task system | ❌ |
 | `package.json: contributes.problemMatchers` | Regex matchers for build output | ❌ No problem matcher system | ❌ |
@@ -73,7 +73,7 @@ This section lists **every major VS Code API namespace and capability** and show
 | `package.json: contributes.customEditors` | Custom editor types for specific file types | `ForgeComponentRegistry.registerEditor()` + `ForgeFileAssociationRegistry` | ✅ |
 | `package.json: contributes.notebooks` | Notebook types | ❌ No notebook system | ❌ |
 | `package.json: contributes.notebookRenderer` | Custom notebook cell renderers | ❌ | ❌ |
-| Extension API export | Extensions export an API object for other extensions | `ForgeExtensionRegistry.get<T>()` — direct Dart type access (stronger than VS Code) | ✅ |
+| Extension API export | Extensions export an API object for other extensions | `ForgeModuleRegistry.get<T>()` — direct Dart type access (stronger than VS Code) | ✅ |
 
 ---
 
@@ -103,8 +103,8 @@ This section lists **every major VS Code API namespace and capability** and show
 | `window.createOutputChannel` | Create output channel | `ForgeOutputChannelManager` | ✅ |
 | `window.createWebviewPanel` | Create a webview panel | Not applicable — use native Flutter widgets | ➖ |
 | `window.registerWebviewPanelSerializer` | Webview state restoration | Not applicable | ➖ |
-| `window.createTreeView` | Create tree view in sidebar | Extensions create view components directly as Flutter widgets | 🔶 |
-| `window.registerTreeDataProvider` | Register tree data for a view | Extensions build tree widgets directly | 🔶 |
+| `window.createTreeView` | Create tree view in sidebar | Modules create view components directly as Flutter widgets | 🟡 |
+| `window.registerTreeDataProvider` | Register tree data for a view | Modules build tree widgets directly | 🟡 |
 | `window.registerFileDecorationProvider` | File decorations in explorer (badges, colors) | ❌ No file decoration API | ❌ |
 | `window.registerUriHandler` | Handle custom URI schemes | ❌ No URI handler system | ❌ |
 | `window.registerCustomEditorProvider` | Register custom editor | `ForgeComponentRegistry.registerEditor()` | ✅ |
@@ -217,7 +217,7 @@ This section lists **every major VS Code API namespace and capability** and show
 | `languages.match(selector, document)` | Match document against selector | File association matching via `ForgeFileAssociationRegistry` | 🔶 |
 | `languages.registerDocumentDropEditProvider` | Handle file/data drop into editor | ❌ No in-editor drop API | ❌ |
 
-**Note:** The entire `vscode.languages` namespace is VS Code's language server protocol integration layer. Tom Forge is not a code editor IDE — it's a visual tooling shell. Language services would be provided by individual editor extensions (e.g., a D4rt editor extension that includes completion, hover, etc.) rather than as shell-level APIs. The shell could optionally provide a `ForgeLanguageServiceRegistry` for extensions that want consistent language feature integration.
+**Note:** The entire `vscode.languages` namespace is VS Code's language server protocol integration layer. Tom Forge is not a code editor IDE — it's a visual tooling shell. Language services would be provided by individual editor modules (e.g., a D4rt editor module that includes completion, hover, etc.) rather than as shell-level APIs. The shell could optionally provide a `ForgeLanguageServiceRegistry` for modules that want consistent language feature integration.
 
 ---
 
@@ -369,7 +369,7 @@ This section lists **every major VS Code API namespace and capability** and show
 | `TextEditorEdit.delete` | Delete range | ❌ | ❌ |
 | `TextEditorEdit.replace` | Replace range with text | ❌ | ❌ |
 
-**Note:** Tom Forge intentionally does not expose text-level APIs at the shell level. Each editor extension manages its own document model internally. The shell tracks document-level metadata (URI, dirty state, open/close) but not text content or positions. This is a deliberate architectural difference — the shell is a layout/coordination framework, not a text editing framework.
+**Note:** Tom Forge intentionally does not expose text-level APIs at the shell level. Each editor module manages its own document model internally. The shell tracks document-level metadata (URI, dirty state, open/close) but not text content or positions. This is a deliberate architectural difference — the shell is a layout/coordination framework, not a text editing framework.
 
 ---
 
@@ -438,7 +438,7 @@ This section lists every Forge API surface and shows whether VS Code has an equi
 | `layout` | Programmatic layout control (panels, focus) | `window.showTextDocument`, `commands.executeCommand('workbench.*')` | 🆕 (direct) |
 | `statusBar` | Status bar item registration | `window.createStatusBarItem` | ✅ |
 | `fileAssociations` | File pattern → editor mapping | `contributes.customEditors` + `contributes.languages` | 🔶 |
-| `extensions` | Extension cross-references | `extensions.getExtension(id)` | ✅ |
+| `modules` | Module cross-references | `extensions.getExtension(id)` | ✅ |
 | `output` | Output channel management | `window.createOutputChannel` | ✅ |
 | `diagnostics` | Problem/diagnostic registration | `languages.createDiagnosticCollection` | ✅ |
 | `config` | Configuration access | `workspace.getConfiguration` | ✅ |
@@ -486,22 +486,22 @@ This section lists every Forge API surface and shows whether VS Code has an equi
 | Independent UI state per copy | Each copy has own scroll, cursor, selection | Split editors have independent scroll/cursor | ✅ |
 | Main component vs copies | Lifecycle tracking, oldest copy promotion | No concept — all splits are equal | 🆕 |
 
-### 5. Extension System (§8)
+### 5. Module System (§8)
 
 | Forge API | Description | VS Code Equivalent | Status |
 |-----------|-------------|--------------------|--------|
 | No sandboxing — same Dart isolate | Deep shell access, modify anything | Sandboxed extension host process | 🆕 |
-| `ForgeExtension.components` | Declarative component list | `package.json` contributions | 🔶 |
-| `ForgeExtension.actions` | Declarative action list | `package.json: contributes.commands` | 🔶 |
-| `ForgeExtension.shortcuts` | Declarative shortcut list | `package.json: contributes.keybindings` | 🔶 |
-| Extension dependency order activation | Activate in dependency order | `extensionDependencies` in package.json | ✅ |
-| `ForgeExtensionRegistry.get<T>()` | Type-safe cross-reference | `extensions.getExtension(id).exports` (untyped) | 🆕 (type-safe) |
+| `ForgeModule` direct members | Declarative component list as class members | `package.json` contributions | 🟡 |
+| `ForgeModule.actions` | Declarative action list | `package.json: contributes.commands` | 🟡 |
+| `ForgeModule.shortcuts` | Declarative shortcut list | `package.json: contributes.keybindings` | 🟡 |
+| Module dependency order activation | Activate in dependency order | `extensionDependencies` in package.json | ✅ |
+| `ForgeModuleRegistry.get<T>()` | Type-safe cross-reference | `extensions.getExtension(id).exports` (untyped) | 🆕 (type-safe) |
 
 ### 6. Menu System (§7)
 
 | Forge API | Description | VS Code Equivalent | Status |
 |-----------|-------------|--------------------|--------|
-| Fixed top-level menu structure | File, Edit, View, Go, Extensions, Help | VS Code has similar menus (not extensible top-level) | ✅ |
+| Fixed top-level menu structure | File, Edit, View, Go, Modules, Help | VS Code has similar menus (not extensible top-level) | ✅ |
 | Action-based population | Actions declare menu + group + priority | `contributes.menus` with `group` and `order` | ✅ |
 | Menu configurability (user can reorder/hide) | Runtime menu editor in Configuration tab | No equivalent — menus are fixed | 🆕 |
 | Dynamic `isVisible` / `isEnabled` | Per-action computed visibility | `when` clauses in package.json (declarative) | 🆕 (imperative) |
@@ -531,14 +531,14 @@ This section lists every Forge API surface and shows whether VS Code has an equi
 |-----------|-------------|--------------------|--------|
 | Built-in Configuration tab (⚙, pinned) | Always-present settings panel | Settings UI (Cmd+,) | 🔶 |
 | Code-based defaults + runtime overrides | `ForgeConfig` → `.forge/config.json` | `defaultSettings` → `settings.json` | ✅ |
-| Configuration views (Menu, Shortcuts, Extensions, Layout, File Types) | Dedicated editors for each area | Mixed — Settings UI, Keyboard Shortcuts, Extensions view | 🆕 (integrated) |
+| Configuration views (Menu, Shortcuts, Modules, Layout, File Types) | Dedicated editors for each area | Mixed — Settings UI, Keyboard Shortcuts, Extensions view | 🆕 (integrated) |
 
 ### 10. Startup Dialog (§13)
 
 | Forge API | Description | VS Code Equivalent | Status |
 |-----------|-------------|--------------------|--------|
 | Workspace picker at startup | Choose workspace + config directory | Welcome tab + `File > Open Folder` | 🆕 |
-| Configuration directory selection (global/project/custom) | Where .forge data lives | No equivalent | 🆕 |
+| Configuration directory selection (local/split) | Where .forge data lives | No equivalent | 🆕 |
 | Remembered preferences (`SharedPreferences`) | Remember last workspace | Recent files/folders list | 🔶 |
 | CLI override (`--workspace`, `--config`) | Command-line bypass | `code /path/to/folder` | ✅ |
 
@@ -556,7 +556,7 @@ This section lists every Forge API surface and shows whether VS Code has an equi
 | Forge API | Description | VS Code Equivalent | Status |
 |-----------|-------------|--------------------|--------|
 | `ForgeStatusBarController` | Register status bar items | `window.createStatusBarItem` | ✅ |
-| Global + component items | Items from shell and focused component | Same — extensions contribute items | ✅ |
+| Global + component items | Items from shell and focused component | Same — modules contribute items | ✅ |
 | Reactive updates via `ValueNotifier` | Auto-update on state change | `StatusBarItem.text` + `command` (manual update) | 🆕 (reactive) |
 
 ---
@@ -565,7 +565,7 @@ This section lists every Forge API surface and shows whether VS Code has an equi
 
 ### Critical Gaps (should add to Forge)
 
-These are capabilities that visual tooling extensions will commonly need:
+These are capabilities that visual tooling modules will commonly need:
 
 | # | Gap | VS Code API | Recommendation for Forge |
 |---|-----|-------------|--------------------------|
@@ -575,11 +575,11 @@ These are capabilities that visual tooling extensions will commonly need:
 | 4 | **File dialog** | `window.showOpenDialog`, `window.showSaveDialog` | Add `ForgeDialogManager.showOpenDialog()`, `showSaveDialog()` — thin wrapper over Flutter file picker. |
 | 5 | **Clipboard API** | `env.clipboard` | Add `ForgeClipboard` — read/write text clipboard. |
 | 6 | **External URI opener** | `env.openExternal` | Add `ForgeEnvironment.openExternal(uri)` — open URL in browser, file in OS default app. |
-| 7 | **File system events** | `workspace.createFileSystemWatcher`, `onDidCreate/Delete/Rename` | Add `ForgeFileSystem.watch(pattern)` — file system watcher with events. Critical for explorer auto-refresh and extension reactivity. |
-| 8 | **Document change events** | `workspace.onDidChangeTextDocument`, save/pre-save events | Add `ForgeFileSystem.onDidChange`, `onDidSave`, `onWillSave` events. Extensions need to react to file edits. |
-| 9 | **Text editor decorations** | `createTextEditorDecorationType`, `setDecorations` | Add `ForgeDecorationProvider` — extensions can contribute decorations (highlights, margin icons, underlines) to editors that support it. Editor-specific, not shell-level. |
+| 7 | **File system events** | `workspace.createFileSystemWatcher`, `onDidCreate/Delete/Rename` | Add `ForgeFileSystem.watch(pattern)` — file system watcher with events. Critical for explorer auto-refresh and module reactivity. |
+| 8 | **Document change events** | `workspace.onDidChangeTextDocument`, save/pre-save events | Add `ForgeFileSystem.onDidChange`, `onDidSave`, `onWillSave` events. Modules need to react to file edits. |
+| 9 | **Text editor decorations** | `createTextEditorDecorationType`, `setDecorations` | Add `ForgeDecorationProvider` — modules can contribute decorations (highlights, margin icons, underlines) to editors that support it. Editor-specific, not shell-level. |
 | 10 | **File decorations (explorer)** | `registerFileDecorationProvider` | Add `ForgeFileDecorationProvider` — badges, colors on files in explorer. Useful for SCM status, build errors. |
-| 11 | **Per-extension storage** | `ExtensionContext.globalState`, `workspaceState`, `storageUri` | Add `ForgeExtensionStorage` — key-value store per extension in `.forge/extensions/<id>/`. |
+| 11 | **Per-module storage** | `ExtensionContext.globalState`, `workspaceState`, `storageUri` | Add `ForgeModuleStorage` — key-value store per module in `.forge/modules/<id>/`. |
 | 12 | **Terminal API** | `window.createTerminal`, `terminals`, `activeTerminal`, events | Add `ForgeTerminalManager` to `ForgeShellApi` — create terminals, list them, write to them, listen to events. |
 | 13 | **Configuration change event** | `workspace.onDidChangeConfiguration` | Add `ForgeConfigManager.onDidChange` stream. |
 
@@ -588,7 +588,7 @@ These are capabilities that visual tooling extensions will commonly need:
 | # | Gap | Notes |
 |---|-----|-------|
 | 14 | Secret storage | Add when authentication features are needed |
-| 15 | Language services (completion, hover, etc.) | Individual editor extensions implement this internally; shell-level API optional |
+| 15 | Language services (completion, hover, etc.) | Individual editor modules implement this internally; shell-level API optional |
 | 16 | Debug adapter protocol | Add with D4rt debugger integration |
 | 17 | Task system | Could add simple process runner API |
 | 18 | Test API | Could add when test runner integration is needed |
@@ -607,7 +607,7 @@ These are capabilities that visual tooling extensions will commonly need:
 |---|---------|-------|
 | 1 | **Unified system state API** | Single `ForgeSystemState` vs VS Code's scattered events across namespaces |
 | 2 | **Multi-application model** | Multiple layouts alive simultaneously — VS Code only has one |
-| 3 | **No extension sandboxing** | Type-safe, same-process extensions — zero IPC overhead, full API access |
+| 3 | **No module sandboxing** | Type-safe, same-process modules — zero IPC overhead, full API access |
 | 4 | **Built-in file revisioning** | `.forge/` folder tracking revisions without requiring git |
 | 5 | **Persistent undo across sessions** | Undo history survives app restart |
 | 6 | **Two-key shortcut system** | Avoids OS/host app shortcut conflicts |
@@ -616,7 +616,7 @@ These are capabilities that visual tooling extensions will commonly need:
 | 9 | **Multi-render with independent UI state** | SHIFT+drag creates copies with their own scroll/cursor |
 | 10 | **Startup workspace/config picker** | User chooses both workspace and config storage location |
 | 11 | **Imperative action visibility** | `isEnabled()`/`isVisible()` callbacks vs VS Code's declarative `when` strings |
-| 12 | **Type-safe extension cross-references** | `get<T>()` vs untyped `exports` object |
+| 12 | **Type-safe module cross-references** | `get<T>()` vs untyped `exports` object |
 | 13 | **Reactive status bar items** | `ValueNotifier`-based auto-update vs manual text assignment |
 | 14 | **Configuration tab always visible** | Pinned ⚙ in left panel vs separate settings editor |
 
@@ -641,7 +641,7 @@ This section verifies that every component, state element, service, and model me
 | `ForgeAction` | ✅ `ForgeActionRegistry` | Register/execute/list |
 | `ForgeContextMenuContribution` | ✅ Declared in §7.4 | Register via `ForgeActionRegistry` |
 | `ForgeShortcutBinding` | ✅ `ForgeShortcutManager` | Register/rebind/list |
-| `ForgeExtension` | ✅ `ForgeExtensionRegistry` | Lifecycle, cross-refs |
+| `ForgeModule` | ✅ `ForgeModuleRegistry` | Lifecycle, cross-refs |
 | `ForgeConfig` / `AutoSaveConfig` | ✅ `ForgeConfigManager` | Read/write |
 | `ForgeStartupPreferences` | ✅ Via `SharedPreferences` | Pre-shell startup |
 | `TomForgeShell` | ✅ Top-level configuration | Construction-time |
@@ -658,10 +658,10 @@ This section verifies that every component, state element, service, and model me
 | `ForgeLayoutController` | ✅ `layout` | ❌ Mentioned but no methods declared | Add `openPanel`, `closePanel`, `focusComponent`, `openEditor`, `splitMiddlePanel`, `getActiveMiddlePanel` |
 | `ForgeStatusBarController` | ✅ `statusBar` | 🔶 Registration implied but not detailed | Add `register(StatusBarItem)`, `remove(id)`, `update(id, updates)` |
 | `ForgeFileAssociationRegistry` | ✅ `fileAssociations` | 🔶 `register` shown in example | Add `list`, `getEditorForUri`, `remove` |
-| `ForgeExtensionRegistry` | ✅ `extensions` | 🔶 `get<T>()` shown | Add `list`, `isActive(id)` |
+| `ForgeModuleRegistry` | ✅ `modules` | 🟡 `get<T>()` shown | Add `list`, `isActive(id)` |
 | `ForgeOutputChannelManager` | ✅ `output` | ❌ Not detailed | Add `create(name)`, `get(name)`, `list`, `ForgeOutputChannel.append/appendLine/clear/show/hide/dispose` |
 | `ForgeDiagnosticManager` | ✅ `diagnostics` | 🔶 Referenced but not detailed | Add `createCollection(name)`, `ForgeDiagnosticCollection.set/delete/clear/dispose` |
-| `ForgeConfigManager` | ✅ `config` | 🔶 Read implied | Add `get<T>(key)`, `set(key, value)`, `onDidChange`, `getSection(extension)` |
+| `ForgeConfigManager` | ✅ `config` | 🟡 Read implied | Add `get<T>(key)`, `set(key, value)`, `onDidChange`, `getSection(module)` |
 
 ### State Elements in ForgeSystemState
 
