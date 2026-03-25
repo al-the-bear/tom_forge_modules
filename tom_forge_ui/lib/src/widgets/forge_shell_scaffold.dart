@@ -104,18 +104,20 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Column(
-          children: [
-            _buildTitleBar(context),
-            // TODO: Add menu bar
-            Expanded(child: _buildMainArea(context)),
-            ForgeStatusBarWidget(controller: widget.statusBarController),
-          ],
-        ),
-        ForgeNotificationOverlay(manager: widget.notificationManager),
-      ],
+    return Material(
+      child: Stack(
+        children: [
+          Column(
+            children: [
+              _buildTitleBar(context),
+              // TODO: Add menu bar
+              Expanded(child: _buildMainArea(context)),
+              ForgeStatusBarWidget(controller: widget.statusBarController),
+            ],
+          ),
+          ForgeNotificationOverlay(manager: widget.notificationManager),
+        ],
+      ),
     );
   }
 
