@@ -17,24 +17,50 @@ class ForgeNotificationOverlay extends StatefulWidget {
 }
 
 class _ForgeNotificationOverlayState extends State<ForgeNotificationOverlay> {
+  List<NotificationItem> _items = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _items = widget.manager.notifications.value;
+    widget.manager.notifications.addListener(_onChanged);
+  }
+
+  @override
+  void didUpdateWidget(ForgeNotificationOverlay oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.manager != widget.manager) {
+      oldWidget.manager.notifications.removeListener(_onChanged);
+      widget.manager.notifications.addListener(_onChanged);
+      _items = widget.manager.notifications.value;
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.manager.notifications.removeListener(_onChanged);
+    super.dispose();
+  }
+
+  void _onChanged() {
+    setState(() {
+      _items = widget.manager.notifications.value;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<List<NotificationItem>>(
-      valueListenable: widget.manager.notifications,
-      builder: (context, items, _) {
-        if (items.isEmpty) return const SizedBox.shrink();
-        return Positioned(
-          top: 40,
-          right: 12,
-          width: 340,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              for (final item in items) _buildToast(context, item),
-            ],
-          ),
-        );
-      },
+    if (_items.isEmpty) return const SizedBox.shrink();
+    return Positioned(
+      top: 40,
+      right: 12,
+      width: 340,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          for (final item in _items) _buildToast(context, item),
+        ],
+      ),
     );
   }
 

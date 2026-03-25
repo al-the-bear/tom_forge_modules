@@ -1,9 +1,2 @@
-import 'package:flutter/foundation.dart';
-
-/// Undo/redo management for shell-level actions.
-abstract class ForgeUndoManager {
-  Future<void> undo();
-  Future<void> redo();
-  ValueListenable<bool> get canUndo;
-  ValueListenable<bool> get canRedo;
-}
+// Re-export from tom_forge_core.
+export 'package:tom_forge_core/src/services/forge_undo_manager.dart';
