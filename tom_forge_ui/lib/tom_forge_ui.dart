@@ -62,3 +62,36 @@ export 'src/testing/test_module.dart';
 export 'src/testing/test_text_editor.dart';
 export 'src/testing/test_workspace.dart';
 
+// ── Defaults ──
+export 'src/defaults/default_clipboard.dart';
+export 'src/defaults/default_config_manager.dart';
+export 'src/defaults/default_diagnostic_manager.dart';
+export 'src/defaults/default_dialog_manager.dart';
+export 'src/defaults/default_layout_controller.dart';
+export 'src/defaults/default_module_registry.dart';
+export 'src/defaults/default_notification_manager.dart';
+export 'src/defaults/default_outline_manager.dart';
+export 'src/defaults/default_output_manager.dart';
+export 'src/defaults/default_progress_manager.dart';
+export 'src/defaults/default_search_manager.dart';
+export 'src/defaults/default_shell_api.dart';
+export 'src/defaults/default_status_bar_controller.dart';
+export 'src/defaults/default_system_state.dart';
+export 'src/defaults/default_undo_manager.dart';
+export 'src/defaults/memory_file_system.dart';
+export 'src/defaults/stub_services.dart';
+
+// ── Widgets ──
+export 'src/widgets/forge_editor_tab_bar.dart';
+export 'src/widgets/forge_notification_overlay.dart';
+export 'src/widgets/forge_panel_widget.dart';
+export 'src/widgets/forge_shell_scaffold.dart';
+export 'src/widgets/forge_status_bar_widget.dart';
+
+// ── Views ──
+export 'src/views/forge_file_explorer_view.dart';
+export 'src/views/forge_outline_view.dart';
+export 'src/views/forge_output_view.dart';
+export 'src/views/forge_problems_view.dart';
+export 'src/views/forge_search_view.dart';
+
