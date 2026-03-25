@@ -1,3 +1,6 @@
+import 'package:flutter/widgets.dart';
+
+import '../model/forge_config.dart';
 import '../services/forge_clipboard.dart';
 import '../services/forge_config_manager.dart';
 import '../services/forge_dialog_manager.dart';
@@ -20,6 +23,22 @@ import '../shell/forge_module_registry.dart';
 import '../shell/forge_shell_api.dart';
 import '../shell/forge_status_bar_controller.dart';
 import '../shell/forge_system_state.dart';
+import 'default_clipboard.dart';
+import 'default_config_manager.dart';
+import 'default_diagnostic_manager.dart';
+import 'default_dialog_manager.dart';
+import 'default_layout_controller.dart';
+import 'default_module_registry.dart';
+import 'default_notification_manager.dart';
+import 'default_outline_manager.dart';
+import 'default_output_manager.dart';
+import 'default_progress_manager.dart';
+import 'default_search_manager.dart';
+import 'default_status_bar_controller.dart';
+import 'default_system_state.dart';
+import 'default_undo_manager.dart';
+import 'memory_file_system.dart';
+import 'stub_services.dart';
 
 /// Default implementation of [ForgeShellApi].
 ///
@@ -112,4 +131,70 @@ class DefaultShellApi implements ForgeShellApi {
     required this.outline,
     required this.search,
   });
+
+  /// Creates a [DefaultShellApi] with all default implementations wired.
+  ///
+  /// [fileSystemSeed] populates the in-memory file system.
+  /// [appName] is used as the application config name.
+  /// [navigatorKey] enables dialog routing.
+  factory DefaultShellApi.withDefaults({
+    required Map<String, String> fileSystemSeed,
+    required String appName,
+    required GlobalKey<NavigatorState> navigatorKey,
+  }) {
+    final memFs = MemoryFileSystem(seed: fileSystemSeed);
+
+    final systemState = DefaultSystemState();
+    final moduleRegistry = DefaultModuleRegistry();
+    final layoutController = DefaultLayoutController(
+      systemState: systemState,
+      fileSystem: memFs,
+      moduleRegistry: moduleRegistry,
+    );
+    final statusBarController = DefaultStatusBarController(
+      registry: moduleRegistry,
+    );
+    final diagnosticManager = DefaultDiagnosticManager();
+    final outputManager = DefaultOutputChannelManager();
+    final configManager = DefaultConfigManager(
+      initial: const ForgeConfig(),
+    );
+    final notificationManager = DefaultNotificationManager();
+    final progressManager = DefaultProgressManager();
+    final dialogManager = DefaultDialogManager();
+    final undoManager = DefaultUndoManager();
+    final clipboardService = DefaultClipboard();
+    final searchManager = DefaultSearchManager(fileSystem: memFs);
+    final outlineManager = DefaultOutlineManager();
+    final terminalManager = DefaultTerminalManager();
+    final storageService = DefaultModuleStorage();
+    final environmentService = DefaultEnvironment();
+    final secretStorage = DefaultSecretStorage();
+    final fileDecorationManager = DefaultFileDecorationManager();
+    final virtualDocumentManager = DefaultVirtualDocumentManager();
+
+    return DefaultShellApi(
+      systemState: systemState,
+      layout: layoutController,
+      statusBar: statusBarController,
+      fileSystem: memFs,
+      modules: moduleRegistry,
+      output: outputManager,
+      diagnostics: diagnosticManager,
+      config: configManager,
+      notifications: notificationManager,
+      progress: progressManager,
+      dialogs: dialogManager,
+      terminals: terminalManager,
+      clipboard: clipboardService,
+      environment: environmentService,
+      storage: storageService,
+      undoManager: undoManager,
+      secrets: secretStorage,
+      fileDecorations: fileDecorationManager,
+      virtualDocuments: virtualDocumentManager,
+      outline: outlineManager,
+      search: searchManager,
+    );
+  }
 }
