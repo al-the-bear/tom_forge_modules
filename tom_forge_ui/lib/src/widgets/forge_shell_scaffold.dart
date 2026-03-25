@@ -13,10 +13,70 @@ import 'forge_notification_overlay.dart';
 import 'forge_panel_widget.dart';
 import 'forge_status_bar_widget.dart';
 
+/// Animation constants for shell UI.
+class ForgeAnimations {
+  static const Duration panelTransition = Duration(milliseconds: 200);
+  static const Duration tabTransition = Duration(milliseconds: 150);
+  static const Duration dropZoneFade = Duration(milliseconds: 100);
+  static const Duration shortcutPopupIn = Duration(milliseconds: 150);
+  static const Duration shortcutPopupOut = Duration(milliseconds: 100);
+  static const Duration notificationIn = Duration(milliseconds: 200);
+  static const Duration notificationOut = Duration(milliseconds: 150);
+
+  static const Curve panelCurve = Curves.easeOutCubic;
+  static const Curve tabCurve = Curves.easeOut;
+  static const Curve popupCurve = Curves.easeOutBack;
+}
+
+/// Dimension constants for shell layout.
+class ForgeDimensions {
+  // Panels
+  static const double leftPanelMinWidth = 180;
+  static const double leftPanelMaxWidth = 600;
+  static const double leftPanelDefaultWidth = 280;
+  static const double rightPanelMinWidth = 180;
+  static const double rightPanelMaxWidth = 600;
+  static const double rightPanelDefaultWidth = 280;
+  static const double bottomPanelMinHeight = 100;
+  static const double bottomPanelMaxHeight = 500;
+  static const double bottomPanelDefaultHeight = 200;
+  static const double middlePanelMinWidth = 200;
+
+  // Fixed elements
+  static const double titleBarHeight = 48;
+  static const double menuBarHeight = 32;
+  static const double statusBarHeight = 24;
+  static const double tabBarHeight = 36;
+  static const double sectionHeaderHeight = 32;
+  static const double sideTabBarCollapsed = 48;
+  static const double sideTabBarExpanded = 200;
+
+  // Interactive
+  static const double dividerHitTarget = 8;
+  static const double dividerVisual = 1;
+
+  // Icons
+  static const double iconTab = 20;
+  static const double iconToolbar = 18;
+}
+
 /// Root shell layout widget.
 ///
-/// Composes title bar, menu bar, side panels, middle editor area,
-/// bottom panel, and status bar.
+/// Layout structure per concept doc §2:
+/// ```
+/// Column:
+///   TitleBar
+///   MenuBar (optional)
+///   Expanded(
+///     Row:
+///       LeftPanel (with vertical icon strip)
+///       Column:
+///         MiddleEditorPanels
+///         BottomPanel (between left/right)
+///       RightPanel (with vertical icon strip)
+///   )
+///   StatusBar
+/// ```
 class ForgeShellScaffold extends StatefulWidget {
   final ForgeShellApi shell;
   final ForgeApplication application;
@@ -49,8 +109,8 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         Column(
           children: [
             _buildTitleBar(context),
+            // TODO: Add menu bar
             Expanded(child: _buildMainArea(context)),
-            _buildBottomPanel(context),
             ForgeStatusBarWidget(controller: widget.statusBarController),
           ],
         ),
@@ -60,13 +120,77 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   }
 
   Widget _buildTitleBar(BuildContext context) {
+    final theme = Theme.of(context);
     return Container(
-      height: 30,
-      color: Theme.of(context).colorScheme.surface,
-      alignment: Alignment.center,
-      child: Text(
-        widget.application.title,
-        style: Theme.of(context).textTheme.bodySmall,
+      height: ForgeDimensions.titleBarHeight,
+      color: theme.colorScheme.surface,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Row(
+        children: [
+          // Back/Forward navigation (per concept §2.1)
+          IconButton(
+            icon: Icon(Icons.arrow_back, size: ForgeDimensions.iconToolbar),
+            onPressed: null, // Disabled until component history is implemented
+            tooltip: 'Back',
+          ),
+          IconButton(
+            icon: Icon(Icons.arrow_forward, size: ForgeDimensions.iconToolbar),
+            onPressed: null,
+            tooltip: 'Forward',
+          ),
+          const SizedBox(width: 16),
+          // Application title / search field (per concept §2.1)
+          Expanded(
+            child: Center(
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 400),
+                height: 32,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Icon(
+                        Icons.search,
+                        size: 16,
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        widget.application.title,
+                        style: theme.textTheme.bodyMedium,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          // Application dropdown (per concept §2.1)
+          PopupMenuButton<String>(
+            tooltip: 'Switch Application',
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: widget.application.title,
+                child: Text(widget.application.title),
+              ),
+            ],
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(widget.application.title, style: theme.textTheme.bodySmall),
+                const Icon(Icons.arrow_drop_down, size: 18),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -80,20 +204,27 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
           builder: (context, rightConfig, _) {
             return Row(
               children: [
+                // Left Panel with vertical icon strip on LEFT edge
                 if (leftConfig.isVisible)
                   _buildSidePanel(
                     context,
                     width: leftConfig.size,
                     tabs: widget.application.layout.leftPanel.tabs,
+                    iconStripPosition: IconStripPosition.left,
                   ),
                 if (leftConfig.isVisible) const VerticalDivider(width: 1),
-                Expanded(child: _buildMiddleArea(context)),
+
+                // Middle area: editor panels + bottom panel
+                Expanded(child: _buildCenterColumn(context)),
+
+                // Right Panel with vertical icon strip on RIGHT edge
                 if (rightConfig.isVisible) const VerticalDivider(width: 1),
                 if (rightConfig.isVisible)
                   _buildSidePanel(
                     context,
                     width: rightConfig.size,
                     tabs: widget.application.layout.rightPanel.tabs,
+                    iconStripPosition: IconStripPosition.right,
                   ),
               ],
             );
@@ -103,17 +234,39 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     );
   }
 
+  /// Builds the center column containing middle panels and bottom panel.
+  /// Bottom panel is positioned between left/right panels per concept §2.5.
+  Widget _buildCenterColumn(BuildContext context) {
+    return ValueListenableBuilder<LayoutPanelConfig>(
+      valueListenable: _layout.bottomPanel,
+      builder: (context, bottomConfig, _) {
+        return Column(
+          children: [
+            // Middle editor panels
+            Expanded(child: _buildMiddleArea(context)),
+            // Bottom panel (between left/right, below middle)
+            if (bottomConfig.isVisible) _buildBottomPanel(context, bottomConfig),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildSidePanel(
     BuildContext context, {
     required double width,
     required List<PanelTabConfig> tabs,
+    required IconStripPosition iconStripPosition,
   }) {
     if (tabs.isEmpty) {
       return SizedBox(width: width);
     }
     return SizedBox(
       width: width,
-      child: ForgePanelWidget(tabs: tabs),
+      child: ForgeSidePanelWidget(
+        tabs: tabs,
+        iconStripPosition: iconStripPosition,
+      ),
     );
   }
 
@@ -189,23 +342,19 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     );
   }
 
-  Widget _buildBottomPanel(BuildContext context) {
-    return ValueListenableBuilder<LayoutPanelConfig>(
-      valueListenable: _layout.bottomPanel,
-      builder: (context, config, _) {
-        if (!config.isVisible) return const SizedBox.shrink();
-        final tabs = widget.application.layout.bottomPanel.tabs;
-        if (tabs.isEmpty) return const SizedBox.shrink();
-        return SizedBox(
-          height: config.size,
-          child: Column(
-            children: [
-              const Divider(height: 1),
-              Expanded(child: ForgePanelWidget(tabs: tabs)),
-            ],
-          ),
-        );
-      },
+  Widget _buildBottomPanel(BuildContext context, LayoutPanelConfig config) {
+    final tabs = widget.application.layout.bottomPanel.tabs;
+    if (tabs.isEmpty) return const SizedBox.shrink();
+
+    return SizedBox(
+      height: config.size,
+      child: Column(
+        children: [
+          const Divider(height: 1),
+          // Bottom panel uses horizontal tabs with icon+text
+          Expanded(child: ForgePanelWidget(tabs: tabs)),
+        ],
+      ),
     );
   }
 }
