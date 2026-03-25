@@ -6,6 +6,12 @@ export 'src/actions/forge_action.dart';
 export 'src/actions/forge_shortcut_binding.dart';
 export 'src/actions/status_bar_item.dart';
 
+// ── Adapters ──
+export 'src/adapters/forge_dart_editor.dart';
+export 'src/adapters/forge_md_editor.dart';
+export 'src/adapters/forge_yaml_editor.dart';
+export 'src/adapters/tom_forge_shell_module.dart';
+
 // ── Components ──
 export 'src/components/component_history_manager.dart';
 export 'src/components/forge_component.dart';

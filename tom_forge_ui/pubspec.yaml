@@ -13,6 +13,14 @@ dependencies:
     sdk: flutter
   tom_forge_core:
     path: ../tom_forge_core
+  tom_editors_shared:
+    path: ../tom_editors_shared
+  tom_md_editor:
+    path: ../tom_md_editor
+  tom_dart_editor:
+    path: ../tom_dart_editor
+  tom_yaml_editor:
+    path: ../tom_yaml_editor
 
 dev_dependencies:
   flutter_test:
