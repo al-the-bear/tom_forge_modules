@@ -56,3 +56,9 @@ export 'src/services/forge_terminal_manager.dart';
 export 'src/services/forge_undo_manager.dart';
 export 'src/services/forge_virtual_document_manager.dart';
 
+// ── Testing ──
+export 'src/testing/test_document.dart';
+export 'src/testing/test_module.dart';
+export 'src/testing/test_text_editor.dart';
+export 'src/testing/test_workspace.dart';
+
