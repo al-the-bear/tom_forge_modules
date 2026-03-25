@@ -1,7 +1,6 @@
 import 'package:tom_forge_core/tom_forge_core.dart';
 
 import '../components/forge_editor.dart';
-import 'forge_disposable.dart';
 
 /// Symbol kind for outline items.
 enum ForgeSymbolKind {

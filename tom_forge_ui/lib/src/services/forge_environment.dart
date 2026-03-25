@@ -1,5 +1,1 @@
-/// Environment utilities (app identity, external URI opening).
-abstract class ForgeEnvironment {
-  String get appName;
-  Future<void> openExternal(Uri uri);
-}
+export 'package:tom_forge_core/tom_forge_core.dart' show ForgeEnvironment;

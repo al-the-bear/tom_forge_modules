@@ -1,17 +1,1 @@
-/// Notification toast and dialog management.
-abstract class ForgeNotificationManager {
-  Future<String?> showInformation(
-    String message, {
-    List<String> actions = const [],
-  });
-
-  Future<String?> showWarning(
-    String message, {
-    List<String> actions = const [],
-  });
-
-  Future<String?> showError(
-    String message, {
-    List<String> actions = const [],
-  });
-}
+export 'package:tom_forge_core/tom_forge_core.dart' show ForgeNotificationManager;

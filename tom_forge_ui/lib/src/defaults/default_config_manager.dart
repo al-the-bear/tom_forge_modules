@@ -2,9 +2,6 @@ import 'dart:async';
 
 import 'package:tom_forge_core/tom_forge_core.dart';
 
-import '../model/forge_config.dart';
-import '../services/forge_config_manager.dart';
-
 /// Default implementation of [ForgeConfigManager].
 ///
 /// Stores configuration in-memory and notifies on changes.

@@ -1,15 +1,1 @@
-import 'forge_disposable.dart';
-
-/// Provides content for virtual document URIs.
-abstract class ForgeVirtualDocumentProvider {
-  Future<String> provideContent(Uri uri);
-  Stream<Uri> get onDidChange;
-}
-
-/// Registry for virtual document content providers.
-abstract class ForgeVirtualDocumentManager {
-  ForgeDisposable registerProvider(
-    String scheme,
-    ForgeVirtualDocumentProvider provider,
-  );
-}
+export 'package:tom_forge_core/tom_forge_core.dart' show ForgeVirtualDocumentProvider, ForgeVirtualDocumentManager;

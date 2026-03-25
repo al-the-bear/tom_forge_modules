@@ -1,8 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 
-import '../services/forge_diagnostic_manager.dart';
-
 /// Default implementation of [ForgeDiagnosticCollection].
 class DefaultDiagnosticCollection implements ForgeDiagnosticCollection {
   @override

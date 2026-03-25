@@ -5,14 +5,9 @@ import 'package:tom_forge_core/tom_forge_core.dart';
 import '../actions/forge_action.dart';
 import '../actions/forge_shortcut_binding.dart';
 import '../module/forge_module.dart';
-import '../services/forge_disposable.dart';
-import '../services/forge_environment.dart';
 import '../services/forge_file_decoration_manager.dart';
 import '../services/forge_module_storage.dart';
-import '../services/forge_secret_storage.dart';
 import '../services/forge_shortcut_manager.dart';
-import '../services/forge_terminal_manager.dart';
-import '../services/forge_virtual_document_manager.dart';
 
 // ── Terminal ──────────────────────────────────────────────────────────
 

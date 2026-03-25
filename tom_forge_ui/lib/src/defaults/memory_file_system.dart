@@ -4,8 +4,6 @@ import 'dart:io' show Directory, FileStat, FileSystemEntity, FileSystemEntityTyp
 
 import 'package:tom_forge_core/tom_forge_core.dart';
 
-import '../services/forge_file_system.dart';
-
 /// In-memory [FileStat] shim for [MemoryFileSystem].
 class MemoryFileStat implements FileStat {
   final int _size;

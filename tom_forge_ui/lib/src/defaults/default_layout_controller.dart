@@ -10,7 +10,6 @@ import '../adapters/forge_yaml_editor.dart';
 import '../components/forge_component.dart';
 import '../components/forge_editor.dart';
 import '../module/forge_module.dart';
-import '../services/forge_file_system.dart';
 import '../shell/forge_layout_controller.dart';
 import '../shell/forge_module_registry.dart';
 import 'default_system_state.dart';

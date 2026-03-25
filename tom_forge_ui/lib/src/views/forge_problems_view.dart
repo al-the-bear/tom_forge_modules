@@ -4,7 +4,6 @@ import 'package:tom_forge_core/tom_forge_core.dart';
 
 import '../components/forge_component.dart';
 import '../components/forge_view.dart';
-import '../services/forge_diagnostic_manager.dart';
 import '../shell/forge_layout_controller.dart';
 
 /// Problems panel showing diagnostics grouped by file.

@@ -2,8 +2,6 @@ import 'dart:async';
 
 import 'package:tom_forge_core/tom_forge_core.dart';
 
-import '../services/forge_progress_manager.dart';
-
 /// Default implementation of [ForgeProgressManager].
 ///
 /// Tracks active progress tasks and notifies listeners via streams.
