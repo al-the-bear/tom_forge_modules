@@ -1,0 +1,1235 @@
+Implement Tom Forge UI Test Application -- Complete Implementation
+
+CONTEXT
+
+Build a minimal demo IDE test application in tom_forge_ui_test that exercises the
+complete tom_forge_ui shell interface stack. The app uses an in-memory file system,
+concrete shell implementations, and wires up all three editor adapters (Markdown,
+Dart, YAML) with five views (Explorer, Problems, Output, Search, Outline).
+
+Read these documents fully before starting:
+- Specification: tom_forge/tom_forge_ui/doc/tom_forge_ui_testapp.md
+- Concept doc: tom_forge/tom_forge_ui/doc/forge_panel_shell_concept.md
+- Impl spec: tom_forge/tom_forge_ui/doc/forge_panel_shell_spec.md
+
+PRE-IMPLEMENTATION
+
+1. Commit current state of tom_forge before making changes
+2. Create todo list from tasks below
+3. Update tom_forge_ui_test/pubspec.yaml with path dependencies (see PUBSPEC section)
+
+
+PUBSPEC DEPENDENCIES
+
+Replace the dependencies section in tom_forge_ui_test/pubspec.yaml with:
+
+  dependencies:
+    flutter:
+      sdk: flutter
+    tom_forge_ui:
+      path: ../tom_forge_ui
+    tom_forge_core:
+      path: ../tom_forge_core
+    tom_editors_shared:
+      path: ../tom_editors_shared
+    tom_md_editor:
+      path: ../tom_md_editor
+    tom_dart_editor:
+      path: ../tom_dart_editor
+    tom_yaml_editor:
+      path: ../tom_yaml_editor
+
+Run flutter pub get after updating.
+
+
+TARGET DIRECTORY STRUCTURE
+
+tom_forge_ui_test/lib/
+  main.dart
+  src/
+    app.dart
+    shell/
+      test_shell_api.dart
+      test_layout_controller.dart
+      test_system_state.dart
+      test_module_registry.dart
+      test_status_bar.dart
+    services/
+      memory_file_system.dart
+      test_dialog_manager.dart
+      test_notification_manager.dart
+      test_diagnostic_manager.dart
+      test_output_manager.dart
+      test_search_manager.dart
+      test_clipboard.dart
+      test_config_manager.dart
+      test_progress_manager.dart
+      test_undo_manager.dart
+      test_outline_manager.dart
+      stub_services.dart
+    views/
+      file_explorer_view.dart
+      problems_view.dart
+      output_view.dart
+      search_view.dart
+      outline_view.dart
+    module/
+      test_app_module.dart
+    widgets/
+      shell_scaffold.dart
+      panel_widget.dart
+      editor_tab_bar.dart
+      status_bar_widget.dart
+      notification_overlay.dart
+    sample/
+      workspace_seed.dart
+
+
+========================================================================
+REFERENCE: ABSTRACT INTERFACES TO IMPLEMENT
+========================================================================
+
+The following are the COMPLETE abstract interfaces from tom_forge_ui that
+the test app must provide concrete implementations for. Use these as the
+authoritative contract -- every abstract method/getter must be implemented.
+
+------------------------------------------------------------------------
+ForgeShellApi (tom_forge_ui/lib/src/shell/forge_shell_api.dart)
+------------------------------------------------------------------------
+
+21 abstract getters that the concrete TestShellApi must provide:
+
+  ForgeSystemState get systemState
+  ForgeLayoutController get layout
+  ForgeStatusBarController get statusBar
+  ForgeFileSystem get fileSystem
+  ForgeModuleRegistry get modules
+  ForgeOutputChannelManager get output
+  ForgeDiagnosticManager get diagnostics
+  ForgeConfigManager get config
+  ForgeNotificationManager get notifications
+  ForgeProgressManager get progress
+  ForgeDialogManager get dialogs
+  ForgeTerminalManager get terminals
+  ForgeClipboard get clipboard
+  ForgeEnvironment get environment
+  ForgeModuleStorage get storage
+  ForgeUndoManager get undoManager
+  ForgeSecretStorage get secrets
+  ForgeFileDecorationManager get fileDecorations
+  ForgeVirtualDocumentManager get virtualDocuments
+  ForgeOutlineManager get outline
+  ForgeSearchManager get search
+
+------------------------------------------------------------------------
+ForgeLayoutController (tom_forge_ui/lib/src/shell/forge_layout_controller.dart)
+------------------------------------------------------------------------
+
+  void openPanel(ForgePanelLocation location)
+  void closePanel(ForgePanelLocation location)
+  void togglePanel(ForgePanelLocation location)
+  void focusComponent(ForgeComponent component)
+  void openFile(Uri uri, {int? middlePanelIndex})
+  void openEditor(ForgeEditor editor, Uri uri, {int? middlePanelIndex})
+  Future<void> openFileWith(Uri uri, {int? middlePanelIndex})
+  void splitMiddlePanel()
+  LayoutPanelConfig? getPanelConfig(ForgePanelLocation location)
+  int get activeMiddlePanelIndex
+  void revealInExplorer(Uri uri)
+
+Also uses LayoutPanelConfig:
+  class LayoutPanelConfig { double size; bool isVisible; }
+
+------------------------------------------------------------------------
+ForgeSystemState (tom_forge_ui/lib/src/shell/forge_system_state.dart)
+------------------------------------------------------------------------
+
+Focus:
+  ForgeComponent? get focusedComponent
+  bool get isFocusedComponentMain
+  ForgePanelLocation? get focusedPanelLocation
+
+Editors:
+  List<ForgeEditor> get openEditors
+  ForgeEditor? get activeEditor
+  List<ForgeEditor> get dirtyEditors
+  bool get hasUnsavedChanges
+
+Selection:
+  String? get focusedSelectedText
+  bool get hasTextSelection
+  List<Uri> get selectedExplorerItems
+  Uri? get hoveredExplorerItem
+
+Diagnostics:
+  DiagnosticSummary get diagnosticSummary
+  List<ForgeDiagnostic> get diagnostics
+
+Workspace:
+  String get workspaceRootPath
+
+Application:
+  ForgeApplication get activeApplication
+  List<ForgeApplication> get applications
+
+Layout:
+  Set<ForgePanelLocation> get visiblePanels
+  int get middlePanelCount
+  int get activeMiddlePanelIndex
+
+Window:
+  bool get isWindowFocused
+
+Search:
+  String get searchQuery
+  bool get isSearchActive
+
+Streams:
+  Stream<FocusChangeEvent> get onFocusChanged
+  Stream<DirtyStateEvent> get onDirtyStateChanged
+  Stream<SelectionChangeEvent> get onSelectionChanged
+  Stream<TextSelectionChangeEvent> get onTextSelectionChanged
+  Stream<DiagnosticChangeEvent> get onDiagnosticsChanged
+  Stream<EditorListChangeEvent> get onEditorsChanged
+  Stream<WindowFocusEvent> get onWindowFocusChanged
+  Stream<LayoutChangeEvent> get onLayoutChanged
+
+------------------------------------------------------------------------
+ForgeModuleRegistry (tom_forge_ui/lib/src/shell/forge_module_registry.dart)
+------------------------------------------------------------------------
+
+  T get<T extends ForgeModule>()
+  List<ForgeModule> get allModules
+
+------------------------------------------------------------------------
+ForgeStatusBarController (tom_forge_ui/lib/src/shell/forge_status_bar_controller.dart)
+------------------------------------------------------------------------
+
+  List<StatusBarItem> get items
+
+------------------------------------------------------------------------
+ForgeFileSystem (tom_forge_ui/lib/src/services/forge_file_system.dart)
+------------------------------------------------------------------------
+
+  Future<String> read(Uri uri)
+  Future<List<int>> readBytes(Uri uri)
+  Future<void> write(Uri uri, String content)
+  Future<void> save(Uri uri)
+  Future<void> delete(Uri uri)
+  Future<bool> exists(Uri uri)
+  Future<FileStat> stat(Uri uri)
+  Future<List<FileSystemEntity>> list(Uri directoryUri, {bool recursive = false})
+  Stream<FileSystemEvent> watch(Uri uri, {bool recursive = false})
+  Future<bool> applyWorkspaceEdit(ForgeWorkspaceEdit edit)
+  Stream<FileChangeEvent> get onDidChange
+  Stream<Uri> get onDidSave
+  Stream<WillSaveEvent> get onWillSave
+
+IMPORTANT: ForgeFileSystem references dart:io types (FileStat, FileSystemEntity,
+FileSystemEvent). The MemoryFileSystem must NOT use actual file I/O. Instead,
+create lightweight wrapper classes or avoid returning real FileStat/FileSystemEntity.
+See implementation guidance in the MemoryFileSystem section below.
+
+------------------------------------------------------------------------
+ForgeDiagnosticManager (tom_forge_ui/lib/src/services/forge_diagnostic_manager.dart)
+------------------------------------------------------------------------
+
+  ForgeDiagnosticCollection createCollection(String name)
+  List<ForgeDiagnostic> get all
+  List<ForgeDiagnostic> forUri(Uri uri)
+
+ForgeDiagnosticCollection:
+  String get name
+  void set(Uri uri, List<ForgeDiagnostic> diagnostics)
+  void delete(Uri uri)
+  void clear()
+  void dispose()
+
+------------------------------------------------------------------------
+ForgeOutputChannelManager (tom_forge_ui/lib/src/services/forge_output_channel_manager.dart)
+------------------------------------------------------------------------
+
+  ForgeOutputChannel create(String name)
+  ForgeOutputChannel? get(String name)
+  List<ForgeOutputChannel> get channels
+
+ForgeOutputChannel:
+  String get name
+  void append(String text)
+  void appendLine(String line)
+  void clear()
+  void show({bool preserveFocus = true})
+  void hide()
+  void dispose()
+
+------------------------------------------------------------------------
+ForgeSearchManager (tom_forge_ui/lib/src/services/forge_search_manager.dart)
+------------------------------------------------------------------------
+
+  Future<List<ForgeSearchResult>> search(
+    String query, {
+    bool isRegExp = false,
+    bool isCaseSensitive = false,
+    bool isWordMatch = false,
+    String? includePattern,
+    String? excludePattern,
+    int? maxResults,
+  })
+
+  Stream<ForgeSearchResult> searchStream(
+    String query, { ... same options ... })
+
+ForgeSearchResult: { Uri uri; List<ForgeSearchMatch> matches; }
+ForgeSearchMatch: { ForgeTextRange range; String lineText; }
+
+------------------------------------------------------------------------
+ForgeNotificationManager (tom_forge_ui/lib/src/services/forge_notification_manager.dart)
+------------------------------------------------------------------------
+
+  Future<String?> showInformation(String message, {List<String> actions = const []})
+  Future<String?> showWarning(String message, {List<String> actions = const []})
+  Future<String?> showError(String message, {List<String> actions = const []})
+
+------------------------------------------------------------------------
+ForgeDialogManager (tom_forge_ui/lib/src/services/forge_dialog_manager.dart)
+------------------------------------------------------------------------
+
+  Future<T?> showQuickPick<T>(List<ForgeQuickPickItem<T>> items, {String? placeholder, bool canSelectMany = false})
+  Future<String?> showInputBox({String? prompt, String? value, String? placeholder, String? Function(String)? validateInput})
+  Future<List<Uri>?> showOpenDialog({String? title, bool canSelectMany = false, bool canSelectFolders = false, List<FileFilter>? filters})
+  Future<Uri?> showSaveDialog({String? title, Uri? defaultUri, List<FileFilter>? filters})
+
+ForgeQuickPickItem<T>: { String label; String? description; String? detail; T value; bool picked; }
+FileFilter: { String name; List<String> extensions; }
+
+------------------------------------------------------------------------
+ForgeClipboard (tom_forge_ui/lib/src/services/forge_clipboard.dart)
+------------------------------------------------------------------------
+
+  Future<String> readText()
+  Future<void> writeText(String text)
+
+------------------------------------------------------------------------
+ForgeConfigManager (tom_forge_ui/lib/src/services/forge_config_manager.dart)
+------------------------------------------------------------------------
+
+  ForgeConfig get current
+  void update(void Function(ForgeConfig config) updater)
+  void resetToDefaults()
+  Stream<ConfigChangeEvent> get onDidChange
+
+------------------------------------------------------------------------
+ForgeProgressManager (tom_forge_ui/lib/src/services/forge_progress_manager.dart)
+------------------------------------------------------------------------
+
+  Future<T> withProgress<T>({
+    required String title,
+    required ForgeProgressLocation location,
+    required Future<T> Function(ForgeProgressReporter reporter) task,
+    bool cancellable = false,
+  })
+
+ForgeProgressReporter:
+  void report({int? increment, String? message})
+
+------------------------------------------------------------------------
+ForgeUndoManager (tom_forge_ui/lib/src/services/forge_undo_manager.dart)
+------------------------------------------------------------------------
+
+  Future<void> undo()
+  Future<void> redo()
+  ValueListenable<bool> get canUndo
+  ValueListenable<bool> get canRedo
+
+------------------------------------------------------------------------
+ForgeOutlineManager (tom_forge_ui/lib/src/services/forge_outline_manager.dart)
+------------------------------------------------------------------------
+
+  ForgeDisposable registerProvider(ForgeOutlineProvider provider)
+
+ForgeOutlineProvider:
+  bool canProvide(ForgeEditor editor)
+  Future<List<ForgeOutlineItem>> provideOutline(ForgeEditor editor)
+  Stream<void> get onDidChange
+
+ForgeOutlineItem:
+  String label
+  ForgeSymbolKind kind
+  String? detail
+  ForgeTextRange range
+  ForgeTextRange selectionRange
+  List<ForgeOutlineItem> children
+
+ForgeSymbolKind enum: file, module, namespace, package, classKind, method,
+  property, field, constructor, enumKind, interface, function, variable,
+  constant, string, number, boolean, array, object, key, nullKind,
+  enumMember, struct, event, operator, typeParameter, section
+
+------------------------------------------------------------------------
+ForgeTerminalManager (tom_forge_ui/lib/src/services/forge_terminal_manager.dart)
+------------------------------------------------------------------------
+
+  ForgeTerminal create({String? name, String? shellPath, String? cwd})
+  List<ForgeTerminal> get terminals
+  ForgeTerminal? get activeTerminal
+  Stream<ForgeTerminal> get onDidOpen
+  Stream<ForgeTerminal> get onDidClose
+  Stream<ForgeTerminal?> get onDidChangeActive
+
+ForgeTerminal:
+  String get name
+  void sendText(String text, {bool addNewLine = true})
+  void show({bool preserveFocus = true})
+  void dispose()
+
+------------------------------------------------------------------------
+ForgeSecretStorage (tom_forge_ui/lib/src/services/forge_secret_storage.dart)
+------------------------------------------------------------------------
+
+  Future<void> store(String key, String value)
+  Future<String?> get(String key)
+  Future<void> delete(String key)
+  Stream<SecretChangeEvent> get onDidChange
+
+------------------------------------------------------------------------
+ForgeEnvironment (tom_forge_ui/lib/src/services/forge_environment.dart)
+------------------------------------------------------------------------
+
+  String get appName
+  Future<void> openExternal(Uri uri)
+
+------------------------------------------------------------------------
+ForgeFileDecorationManager (tom_forge_ui/lib/src/services/forge_file_decoration_manager.dart)
+------------------------------------------------------------------------
+
+  ForgeDisposable registerProvider(ForgeFileDecorationProvider provider)
+
+ForgeFileDecorationProvider:
+  ForgeFileDecoration? provideDecoration(Uri uri)
+  Stream<Uri?> get onDidChange
+
+ForgeFileDecoration: { String? badge; String? tooltip; Color? color; bool propagate; }
+
+------------------------------------------------------------------------
+ForgeVirtualDocumentManager (tom_forge_ui/lib/src/services/forge_virtual_document_manager.dart)
+------------------------------------------------------------------------
+
+  ForgeDisposable registerProvider(String scheme, ForgeVirtualDocumentProvider provider)
+
+ForgeVirtualDocumentProvider:
+  Future<String> provideContent(Uri uri)
+  Stream<Uri> get onDidChange
+
+------------------------------------------------------------------------
+ForgeShortcutManager (tom_forge_ui/lib/src/services/forge_shortcut_manager.dart)
+------------------------------------------------------------------------
+
+  List<ForgeShortcutBinding> get allBindings
+  void rebind(ForgeAction action, ForgeShortcutKey key)
+  void resetToDefault(ForgeAction action)
+  ForgeShortcutBinding? conflictsWith(ForgeShortcutKey key)
+
+ForgeShortcutKey: { LogicalKeyboardKey key; bool primaryModifier; bool shift; bool alt; }
+ForgeShortcutBinding: { ForgeAction action; ForgeShortcutKey key; String? context; }
+
+------------------------------------------------------------------------
+ForgeModuleStorage (tom_forge_ui/lib/src/services/forge_module_storage.dart)
+------------------------------------------------------------------------
+
+  ForgeKeyValueStore forModule(ForgeModule module)
+
+ForgeKeyValueStore:
+  T? get<T>(String key)
+  Future<void> set(String key, Object? value)
+  Future<void> remove(String key)
+  List<String> get keys
+
+------------------------------------------------------------------------
+ForgeDisposable (tom_forge_ui/lib/src/services/forge_disposable.dart)
+------------------------------------------------------------------------
+
+  void dispose()
+
+
+========================================================================
+REFERENCE: MODEL CLASSES
+========================================================================
+
+ForgeApplication (tom_forge_ui/lib/src/model/forge_application.dart):
+  String title
+  IconData? icon
+  ApplicationLayout layout
+  bool isActive
+
+ApplicationLayout:
+  PanelConfig leftPanel
+  PanelConfig rightPanel
+  PanelConfig bottomPanel
+  List<MiddlePanelConfig> middlePanels
+
+PanelConfig: { double initialSize = 250; List<PanelTabConfig> tabs = const []; }
+PanelTabConfig: { String title; IconData icon; List<ForgeView> sections; }
+MiddlePanelConfig: { double flex = 1.0; List<MiddleTabConfig> tabs = const []; }
+MiddleTabConfig: { ForgeEditor editor; Uri? uri; }
+
+ForgeConfig (tom_forge_ui/lib/src/model/forge_config.dart):
+  AutoSaveConfig autoSave
+
+AutoSaveConfig: { bool enabled = true; Duration idleDelay = 1s; bool saveOnFocusLoss = true; }
+
+ForgeModule (tom_forge_ui/lib/src/module/forge_module.dart):
+  String get displayName
+  void activate(ForgeShellApi shell)
+  void deactivate()
+  List<ForgeEditor> get editors
+  List<ForgeView> get views
+  List<ForgeAction> get actions
+  List<ForgeShortcutBinding> get shortcuts
+  List<ForgeContextMenuContribution> get contextMenus  (default [])
+  List<StatusBarItem> get statusBarItems  (default [])
+
+ForgeAction (tom_forge_ui/lib/src/actions/forge_action.dart):
+  String id
+  String label
+  IconData? icon
+  ForgeMenuLocation menu
+  String? group
+  int priority
+  Future<Object?> Function(Map<String, Object> parameters) execute
+  bool Function() isEnabled
+  bool Function() isVisible
+  ForgeShortcutBinding? shortcut
+  Future<void> Function(Object undoInfo)? undo
+
+StatusBarItem (tom_forge_ui/lib/src/actions/status_bar_item.dart):
+  ValueListenable<String> text
+  IconData? icon
+  StatusBarAlignment alignment (left/center/right)
+  int priority
+  VoidCallback? onTap
+  String? tooltip
+  bool Function(ForgeSystemState state) isActive
+
+
+========================================================================
+REFERENCE: COMPONENT HIERARCHY
+========================================================================
+
+ForgeComponent (abstract):
+  ValueListenable<String> get title
+  ValueListenable<String?> get titleExtension
+  IconData get icon
+  bool get isEditor
+  ForgeComponentSizeHints get sizeHints
+  bool get supportsMultiRender (default true)
+  Widget buildMain(BuildContext context)
+  Widget buildCopy(BuildContext context)
+  List<ForgeAction> get actions (default [])
+  List<ForgeShortcutBinding> get shortcuts (default [])
+
+ForgeComponentSizeHints:
+  Size minSize = Size(120, 80)
+  Size preferredSize = Size(260, 200)
+  Size maxSize = Size(infinity, infinity)
+
+ForgeEditor (abstract, extends ForgeComponent):
+  bool get isEditor => true
+  Uri get uri
+  FileHandlingResult canHandle(Uri uri)
+  FileHandlingResult canHandleContent(Uri uri, List<int> bytes) => FileHandlingResult.accept
+  ValueListenable<bool> get isDirty
+  ComponentHistoryManager? get historyManager => null
+
+ForgeView (abstract, extends ForgeComponent):
+  bool get isEditor => false
+
+ForgeTextEditor (abstract, extends ForgeEditor):
+  ForgeDocument get document
+  ValueListenable<ForgeTextPosition> get cursorPosition
+  ValueListenable<ForgeTextRange?> get selection
+  ValueListenable<List<ForgeTextRange>> get selections
+  void setSelections(List<ForgeTextRange> ranges)
+  String get selectedText
+  bool get hasSelection
+  ValueListenable<ForgeTextRange> get visibleRange
+  void insertText(String text)
+  void replaceRange(ForgeTextRange range, String replacement)
+  void deleteRange(ForgeTextRange range)
+  void setCursorPosition(ForgeTextPosition position)
+  void setSelection(ForgeTextRange range)
+  void selectAll()
+  void revealPosition(ForgeTextPosition position)
+  void revealRange(ForgeTextRange range)
+  List<ForgeTextRange> findAll(Pattern pattern)
+  int replaceAll(Pattern pattern, String replacement)
+  ForgeTextEditorOptions get options
+  void updateOptions(ForgeTextEditorOptions options)
+  void setDecorations(ForgeDecorationType type, List<ForgeDecorationRange> ranges)
+  void clearDecorations(ForgeDecorationType type)
+
+ForgeSchemaEditor (abstract, extends ForgeEditor):
+  FileHandlingResult canHandle(Uri uri) => FileHandlingResult.inspect
+  FileHandlingResult canHandleContent(Uri uri, List<int> bytes)
+  String get schemaLabel
+
+
+========================================================================
+REFERENCE: CORE TYPES (tom_forge_core)
+========================================================================
+
+ForgeTextPosition: { int line; int column; }
+  const ForgeTextPosition.zero()
+
+ForgeTextRange: { ForgeTextPosition start; ForgeTextPosition end; }
+  const ForgeTextRange.empty()
+  bool get isEmpty
+
+ForgeSeverity enum: error, warning, info, hint
+
+ForgeDiagnostic:
+  Uri uri
+  ForgeTextRange range
+  String message
+  ForgeSeverity severity
+  String source
+  String? code
+
+DiagnosticSummary: { int errors; int warnings; int infos; int hints; int get total; }
+
+ForgeDocument (abstract):
+  Uri get uri
+  String get text
+  int get lineCount
+  String lineAt(int line)
+  String textInRange(ForgeTextRange range)
+  String get languageId
+  Encoding get encoding
+  int get version
+  bool get isUntitled
+  Stream<DocumentChangeEvent> get onDidChange
+
+DocumentChangeEvent: { List<ForgeTextRange> changes; ForgeDocument document; }
+
+FileHandlingResult enum: accept, reject, inspect
+
+ForgeTextEditorOptions: { int? tabSize; bool? insertSpaces; ForgeWordWrap? wordWrap; }
+
+ForgeDecorationType: { String key; int? backgroundColorValue; ForgeUnderlineStyle? underlineStyle; int? underlineColorValue; bool overviewRuler; int? overviewRulerColorValue; }
+
+ForgeDecorationRange: { ForgeTextRange range; String? hoverMessage; }
+
+ForgePanelLocation enum: left, right, bottom, middle
+LayoutChangeType enum: panelOpened, panelClosed, panelResized, middlePanelSplit, middlePanelMerged
+FileChangeType enum: created, modified, deleted
+SaveReason enum: manual, autoSave, focusLoss
+ForgeProgressLocation enum: statusBar, overlay
+
+Event classes:
+  FocusChangeEvent: { Object? previous; Object? current; }
+  DirtyStateEvent: { Object editor; bool isDirty; }
+  SelectionChangeEvent: { Object component; Object? selection; }
+  TextSelectionChangeEvent: { Object editor; ForgeTextRange? selection; }
+  DiagnosticChangeEvent: { List<Uri> uris; }
+  EditorListChangeEvent: { List<Object> opened; List<Object> closed; }
+  WindowFocusEvent: { bool focused; }
+  LayoutChangeEvent: { LayoutChangeType type; ForgePanelLocation? panel; }
+  FileChangeEvent: { Uri uri; FileChangeType type; }
+  WillSaveEvent: { Uri uri; String content; SaveReason reason; }
+  ConfigChangeEvent: { String key; Object? newValue; Object? oldValue; }
+  SecretChangeEvent: { String key; bool deleted; }
+
+ForgeWorkspaceEdit: { Map<Uri, List<ForgeTextEdit>> textEdits; List<ForgeFileOperation> fileOperations; }
+ForgeTextEdit: { ForgeTextRange range; String newText; }
+ForgeFileOperation (abstract)
+ForgeCreateFileOperation: { Uri uri; String? content; bool overwrite; }
+ForgeDeleteFileOperation: { Uri uri; bool recursive; }
+ForgeRenameFileOperation: { Uri oldUri; Uri newUri; bool overwrite; }
+
+
+========================================================================
+REFERENCE: EDITOR BRIDGE UTILITIES (tom_editors_shared)
+========================================================================
+
+ForgeDocumentAdapter (abstract, implements ForgeDocument):
+  Provides: _uri, _isDirtyNotifier, _changes stream, _version counter
+  markDirty() -- increments version, sets dirty
+  markClean() -- clears dirty
+  fireChange(List<ForgeTextRange> changes) -- fires onDidChange
+  dispose()
+
+PositionConverter:
+  PositionConverter(String text)
+  int get lineCount
+  ForgeTextPosition offsetToPosition(int offset)
+  int positionToOffset(ForgeTextPosition position)
+  String lineAt(int line)
+  String textInRange(ForgeTextRange range)
+
+ForgeValidationBridge:
+  static List<ForgeDiagnostic> convert(
+    List<ValidationError> errors, Uri uri,
+    ForgeTextRange Function(List<Object> path) pathToRange)
+
+
+========================================================================
+REFERENCE: EXISTING ADAPTERS (tom_forge_ui)
+========================================================================
+
+The test app uses the existing adapters from tom_forge_ui. These are already
+implemented and exported from the tom_forge_ui barrel. Do NOT reimplement them.
+
+ForgeMdEditor -- wraps MdEditorController as ForgeTextEditor
+  Constructor: ForgeMdEditor({required MdEditorController controller, required ForgeModule module, ForgeTextEditorOptions options})
+  Handles: .md, .markdown extensions
+  Widget: MdEditor(controller: controller)
+
+ForgeDartEditor -- wraps DartCodeController as ForgeTextEditor
+  Constructor: ForgeDartEditor({required DartCodeController controller, required ForgeModule module, List<CodeError> Function()? errorsProvider, ForgeTextEditorOptions options})
+  Handles: .dart extension
+  Widget: DartCodeEditor(controller: controller, errors: ..., onCursorChanged: ..., onSelectionChanged: ..., onVisibleRangeChanged: ...)
+
+ForgeYamlEditor -- wraps YamlEditorController as ForgeSchemaEditor
+  Constructor: ForgeYamlEditor({required YamlEditorController controller, required ForgeModule module})
+  Handles: .yaml, .yml extensions (via canHandleContent)
+  Widget: YamlSchemaEditor(controller: controller)
+
+TomForgeShellModule -- built-in module registering the three editors
+  registerMdEditor(ForgeMdEditor editor) -> ForgeMdEditor
+  registerDartEditor(ForgeDartEditor editor) -> ForgeDartEditor
+  registerYamlEditor(ForgeYamlEditor editor) -> ForgeYamlEditor
+
+ForgeTestDocument -- in-memory ForgeDocument for testing
+  ForgeTestDocument({Uri? uri, String content = ''})
+  insert(ForgeTextPosition pos, String text)
+  replace(ForgeTextRange range, String text)
+  findAll(Pattern pattern) -> List<ForgeTextRange>
+  replaceAll(Pattern pattern, String replacement) -> int
+  setContent(String content)
+  dispose()
+
+
+========================================================================
+IMPLEMENTATION TASKS
+========================================================================
+
+Phase 1: Core Shell Wiring (8 files)
+
+1. Create src/sample/workspace_seed.dart
+   Constants for sample file contents. 7 files total:
+   - /README.md (~40 lines markdown with headings, lists, code blocks)
+   - /pubspec.yaml (standard Dart pubspec)
+   - /lib/main.dart (~30 lines with main(), imports, runApp)
+   - /lib/src/app.dart (~50 lines with StatelessWidget class)
+   - /lib/src/utils.dart (~25 lines with utility functions)
+   - /test/app_test.dart (~20 lines with test group)
+   - /doc/architecture.md (~30 lines markdown with headings)
+   Provide a Map<String, String> constant mapping paths to contents.
+   Keep total content under 200 lines.
+
+2. Create src/services/memory_file_system.dart
+   Concrete ForgeFileSystem backed by Map<String, List<int>>.
+   IMPORTANT: ForgeFileSystem imports dart:io (FileStat, FileSystemEntity,
+   FileSystemEvent). Since this is an in-memory FS, you have two options:
+   a) Return real FileStat/FileSystemEntity objects where possible (using
+      memory-backed stubs), or
+   b) Provide a MemoryFileStat class and override only the stat() return.
+   The list() method can return empty list for directories or create
+   lightweight entities. The watch() method returns an empty stream.
+   The important methods are read/readBytes/write/save/delete/exists.
+   Seed from workspace_seed.dart on construction.
+   Fire onDidChange/onDidSave streams appropriately.
+
+3. Create src/shell/test_system_state.dart
+   Concrete ForgeSystemState. Use ValueNotifier internally for mutable state.
+   Use StreamController.broadcast() for all event streams.
+   Start with sensible defaults (empty lists, null where appropriate).
+   Create a ForgeApplication with title "Forge Test IDE".
+   Methods to update state should be callable from TestLayoutController
+   and other services.
+
+4. Create src/shell/test_layout_controller.dart
+   Concrete ForgeLayoutController with:
+   - Panel visibility and size state via ValueNotifiers
+   - MiddlePanelState and OpenEditorTab internal classes
+   - openFile(uri) resolves editor by extension, loads content from
+     MemoryFileSystem, creates controller, creates adapter, adds tab
+   - Needs reference to TestSystemState to update activeEditor/openEditors
+   - Needs reference to MemoryFileSystem to read file content
+   - Needs reference to registered modules (via ForgeModuleRegistry) to
+     find editors that canHandle the URI
+   Defaults: leftPanel=250px visible, rightPanel=220px visible,
+   bottomPanel=180px visible, 1 middle panel.
+
+5. Create src/shell/test_module_registry.dart
+   Simple Map<Type, ForgeModule> backing.
+
+6. Create src/shell/test_status_bar.dart
+   Collects StatusBarItem instances from registered modules.
+
+7. Create src/shell/test_shell_api.dart
+   Concrete ForgeShellApi aggregating all services.
+   Constructor takes all service instances.
+
+8. Create src/app.dart
+   ForgeTestApp StatelessWidget wrapping MaterialApp with dark theme.
+   Home widget is ShellScaffold (created in Phase 2).
+
+9. Create/update main.dart
+   Wiring sequence:
+   a) Create MemoryFileSystem and seed with workspace_seed
+   b) Create all service instances (diagnostic, output, search, etc.)
+   c) Create TestSystemState
+   d) Create TestLayoutController (needs systemState, fileSystem, modules ref)
+   e) Create TestShellApi aggregating everything
+   f) Create TomForgeShellModule, activate with shell API
+   g) Register ForgeMdEditor, ForgeDartEditor, ForgeYamlEditor on the module
+      (NOTE: controllers need to be created when files are opened, not at
+      startup. The module just registers the factory capability.)
+   h) Create TestAppModule (Phase 4), activate with shell API
+   i) Register both modules in TestModuleRegistry
+   j) Run ForgeTestApp
+
+Run dart analyze and fix any issues after this phase.
+
+Phase 2: File System and Explorer (4 files)
+
+10. Create src/views/file_explorer_view.dart
+    Extends ForgeView. Title "Explorer", icon Icons.folder_outlined.
+    Builds a tree view from MemoryFileSystem directory listing.
+    Directories are collapsible ExpansionTile widgets.
+    Files are ListTile widgets; single-click calls layout.openFile(uri).
+    File icons by extension: .md -> Icons.description, .dart -> Icons.code,
+    .yaml -> Icons.settings, default -> Icons.insert_drive_file.
+    Needs reference to MemoryFileSystem and layout controller.
+
+11. Create src/module/test_app_module.dart
+    Extends ForgeModule. displayName "Test App Views".
+    Views: [FileExplorerView, OutlineView, ProblemsView, OutputView, SearchView]
+    (create placeholder views for Phase 4 ones if needed).
+    Actions: file.save, file.saveAll, file.close, file.closeAll,
+    edit.undo, edit.redo, edit.findInFiles, view.toggleExplorer,
+    view.toggleOutline, view.toggleProblems, view.toggleOutput,
+    view.splitEditor, help.about.
+
+12. Create src/widgets/shell_scaffold.dart
+    Root layout composing panels.
+    Structure: Column -> TitleBar, MenuBar, Expanded(Row -> LeftPanel,
+    Divider, MiddleArea, Divider, RightPanel), BottomPanel, StatusBar.
+    Use ValueListenableBuilder on layout controller notifiers.
+    Panels are resizable via GestureDetector on dividers.
+
+13. Create src/widgets/panel_widget.dart
+    Reusable panel container with collapse/expand, resize handle, and
+    tab bar for switching between views.
+
+Run dart analyze and fix any issues after this phase.
+
+Phase 3: Editor Integration (2 files)
+
+14. Create src/widgets/editor_tab_bar.dart
+    Tab bar widget for middle panels. Shows open editor tabs with:
+    - File name label
+    - Dirty indicator (dot or italic)
+    - Close button (X) per tab
+    - Click to switch active tab
+    - Active tab highlight
+
+15. Update test_layout_controller.dart with editor lifecycle:
+    openFile(Uri) flow:
+    a) Check if URI is already open -> activate existing tab
+    b) Read content from MemoryFileSystem
+    c) Determine editor type by extension:
+       .md/.markdown -> create MdEditorController, create ForgeMdEditor
+       .dart -> create DartCodeController, create ForgeDartEditor
+       .yaml/.yml -> create YamlEditorController, create ForgeYamlEditor
+       other -> show raw text fallback
+    d) Add OpenEditorTab to active middle panel
+    e) Update systemState.activeEditor
+
+    closeEditor flow:
+    a) If dirty, show save dialog
+    b) Remove tab, dispose controller
+    c) Update systemState
+
+Run dart analyze and fix any issues after this phase.
+
+Phase 4: Views and Services (10 files)
+
+16. Create src/services/test_diagnostic_manager.dart
+    Concrete ForgeDiagnosticManager with TestDiagnosticCollection.
+    Collections stored in Map<String, TestDiagnosticCollection>.
+    TestDiagnosticCollection stores Map<Uri, List<ForgeDiagnostic>>.
+    Fires changes that TestSystemState picks up.
+
+17. Create src/services/test_output_manager.dart
+    Concrete ForgeOutputChannelManager. TestOutputChannel stores
+    List<String> lines. Exposes a ValueNotifier for UI rebuild.
+    Create a "Shell" channel at startup.
+
+18. Create src/services/test_search_manager.dart
+    Concrete ForgeSearchManager. search() scans all files in MemoryFileSystem.
+    For each file, split into lines, search each line for query matches.
+    Build ForgeSearchResult/ForgeSearchMatch results.
+    Support isRegExp, isCaseSensitive, isWordMatch flags.
+
+19. Create src/services/test_notification_manager.dart
+    Concrete ForgeNotificationManager. Pushes notifications to a
+    ValueNotifier<List<NotificationItem>>. Each notification has
+    message, severity, actions, auto-dismiss timer.
+
+20. Create src/services/test_outline_manager.dart
+    Concrete ForgeOutlineManager storing registered providers.
+    Exposes a ValueNotifier<List<ForgeOutlineItem>> that updates
+    when the active editor changes.
+
+21. Create src/views/problems_view.dart
+    Extends ForgeView. Shows diagnostics grouped by URI.
+    Each entry: severity icon, message, filename, line number.
+    Click navigates to the diagnostic location.
+
+22. Create src/views/output_view.dart
+    Extends ForgeView. Dropdown to select output channel.
+    Scrollable monospace text area for channel content.
+    Auto-scroll on new content. Clear button.
+
+23. Create src/views/search_view.dart
+    Extends ForgeView. Text input with search toggles
+    (case, word, regex). Results grouped by file with match highlights.
+    Click on result opens file at match location.
+
+24. Create src/views/outline_view.dart
+    Extends ForgeView. Tree of ForgeOutlineItem entries.
+    Updates when active editor changes. Click reveals item range.
+    Shows "No outline available" when empty.
+
+25. Create src/widgets/notification_overlay.dart
+    Overlay widget showing toast-style notifications.
+    Auto-dismiss after 4 seconds. Support action buttons.
+
+Run dart analyze and fix any issues after this phase.
+
+Phase 5: Actions, Status Bar, and Polish (8 files)
+
+26. Create src/widgets/status_bar_widget.dart
+    Height 24px. Segments:
+    Left: "Ln {line}, Col {col}" from active editor cursor
+    Left: "UTF-8" (static)
+    Center: "Markdown" / "Dart" / "YAML" from active editor type
+    Right: "{n} errors, {m} warnings" from diagnosticSummary
+    Right: module displayName
+
+27. Create src/services/test_dialog_manager.dart
+    showQuickPick -> SimpleDialog with selectable items
+    showInputBox -> AlertDialog with TextField
+    showOpenDialog / showSaveDialog -> simplified file picker from MemoryFileSystem
+
+28. Create src/services/test_clipboard.dart
+    Wraps Flutter Clipboard.getData / Clipboard.setData.
+
+29. Create src/services/test_config_manager.dart
+    Holds ForgeConfig. update() replaces config, fires onDidChange.
+    resetToDefaults() restores default ForgeConfig.
+
+30. Create src/services/test_progress_manager.dart
+    withProgress() runs the task while showing a progress indicator
+    via ValueNotifier. SimpleProgressReporter updates a double value.
+
+31. Create src/services/test_undo_manager.dart
+    Simple undo/redo stack with ValueNotifier<bool> for canUndo/canRedo.
+
+32. Create src/services/stub_services.dart
+    Minimal no-op implementations for:
+    - ForgeTerminalManager (create returns no-op terminal)
+    - ForgeSecretStorage (in-memory Map<String, String>)
+    - ForgeEnvironment (appName = 'Forge Test IDE', openExternal logs)
+    - ForgeFileDecorationManager (registerProvider returns no-op disposable)
+    - ForgeVirtualDocumentManager (registerProvider returns no-op disposable)
+    - ForgeShortcutManager (returns empty bindings)
+    - ForgeModuleStorage (in-memory Map<String, Map<String, Object>>)
+
+33. Wire all actions from TestAppModule to the actual service methods.
+    Ensure shortcut bindings work via Flutter Shortcuts/Actions widgets.
+
+Run dart analyze and fix any issues after this phase.
+
+
+========================================================================
+MEMORY FILE SYSTEM IMPLEMENTATION GUIDANCE
+========================================================================
+
+The ForgeFileSystem interface imports dart:io types. For the in-memory
+implementation:
+
+1. Store files as Map<String, List<int>> (path -> bytes)
+2. Store directories implicitly from file paths
+3. For read(uri) -> decode bytes to string
+4. For write(uri, content) -> encode string to bytes, store
+5. For stat(uri) -> This is complex because it returns dart:io FileStat.
+   Create a helper that returns FileStat using FileStat.statSync on a temp
+   path, or return a mock. Simplest: skip full stat support and return
+   a minimal FileStat-like if the platform allows constructing one.
+   Alternative: change the method signature awareness -- the test app is
+   the consumer, so if stat() throws UnsupportedError, the views can
+   handle it gracefully.
+6. For list(uri) -> Return a list of child paths as simple objects.
+   Again, FileSystemEntity is from dart:io. Build a shim or return
+   lightweight wrappers.
+7. For watch(uri) -> Return Stream.empty()
+8. For applyWorkspaceEdit -> Apply text edits and file operations to the
+   in-memory map.
+
+Pragmatic approach: The MemoryFileSystem is only used by our own views and
+layout controller. Views call read/write/exists/list. They do NOT need real
+FileStat or FileSystemEntity objects. So:
+- Implement a MemoryFileStat and MemoryFileSystemEntity if needed
+- Or have the file explorer just call a custom listFiles() method
+  on MemoryFileSystem that returns List<MemoryFileEntry> instead,
+  and have that be the working API for the explorer view.
+
+The test app is a self-contained demo. The abstract interface is the
+contract for production use. The test app can work around dart:io
+limitations pragmatically.
+
+
+========================================================================
+EDITOR CREATION PATTERN
+========================================================================
+
+When opening a file, the layout controller creates editor instances:
+
+For .md files:
+  final controller = MdEditorController();
+  controller.markdown = fileContent;
+  // controller.uri = uri;  // if MdEditorController supports it
+  final editor = ForgeMdEditor(
+    controller: controller,
+    module: shellModule,  // TomForgeShellModule instance
+  );
+
+For .dart files:
+  final controller = DartCodeController();
+  controller.userCode = fileContent;
+  // controller.uri = uri;  // if DartCodeController supports it
+  final editor = ForgeDartEditor(
+    controller: controller,
+    module: shellModule,
+  );
+
+For .yaml files:
+  final controller = YamlEditorController();
+  controller.yaml = fileContent;
+  // controller.uri = uri;  // if YamlEditorController supports it
+  final editor = ForgeYamlEditor(
+    controller: controller,
+    module: shellModule,
+  );
+
+Check each editor controller's API for the exact way to set initial content
+and URI. The adapters reference controller.uri, controller.markdown,
+controller.userCode, etc. Match those APIs.
+
+
+========================================================================
+SAMPLE WORKSPACE CONTENTS
+========================================================================
+
+README.md (suggested content):
+  # Sample Project
+  
+  A demo project for testing the Forge Shell.
+  
+  ## Getting Started
+  
+  This project demonstrates three editor types:
+  
+  - Markdown editing with live preview
+  - Dart code editing with syntax highlighting
+  - YAML schema editing with validation
+  
+  ## Architecture
+  
+  The project follows a standard Dart package structure:
+  
+  ```
+  lib/
+    main.dart       Entry point
+    src/
+      app.dart      Application widget
+      utils.dart    Utility functions
+  ```
+  
+  ## Features
+  
+  1. File explorer with tree navigation
+  2. Multiple editor tabs
+  3. Split editor panels
+  4. Diagnostic reporting
+  5. Workspace search
+  
+  ## License
+  
+  MIT License
+
+pubspec.yaml (suggested content):
+  name: sample_project
+  description: A sample Dart project for Forge Shell testing
+  version: 1.0.0
+  
+  environment:
+    sdk: ^3.0.0
+  
+  dependencies:
+    path: ^1.8.0
+  
+  dev_dependencies:
+    test: ^1.24.0
+
+lib/main.dart (suggested content):
+  import 'package:sample_project/src/app.dart';
+  
+  void main() {
+    final app = App();
+    app.run();
+    print('Application started');
+  }
+
+lib/src/app.dart (suggested content):
+  /// The main application class.
+  class App {
+    final String name;
+    final String version;
+    bool _isRunning = false;
+  
+    App({this.name = 'Sample', this.version = '1.0.0'});
+  
+    /// Start the application.
+    void run() {
+      _isRunning = true;
+      _initialize();
+      print('$name v$version is running');
+    }
+  
+    /// Stop the application.
+    void stop() {
+      _isRunning = false;
+      print('$name stopped');
+    }
+  
+    bool get isRunning => _isRunning;
+  
+    void _initialize() {
+      // Setup code here
+    }
+  }
+
+lib/src/utils.dart (suggested content):
+  /// Format a duration as a human-readable string.
+  String formatDuration(Duration duration) {
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60);
+    final seconds = duration.inSeconds.remainder(60);
+    return '${hours}h ${minutes}m ${seconds}s';
+  }
+  
+  /// Capitalize the first letter of a string.
+  String capitalize(String input) {
+    if (input.isEmpty) return input;
+    return input[0].toUpperCase() + input.substring(1);
+  }
+
+test/app_test.dart (suggested content):
+  import 'package:sample_project/src/app.dart';
+  
+  void main() {
+    // Test app creation
+    final app = App();
+    assert(app.name == 'Sample');
+    assert(!app.isRunning);
+  
+    // Test app lifecycle
+    app.run();
+    assert(app.isRunning);
+    app.stop();
+    assert(!app.isRunning);
+  
+    print('All tests passed');
+  }
+
+doc/architecture.md (suggested content):
+  # Architecture
+  
+  ## Overview
+  
+  This project uses a layered architecture:
+  
+  ### Application Layer
+  
+  The App class manages the application lifecycle.
+  
+  ### Utility Layer
+  
+  Common functions used across the application.
+  
+  ## Data Flow
+  
+  1. Entry point calls App.run()
+  2. App initializes subsystems
+  3. Main loop processes events
+  
+  ## Design Decisions
+  
+  - Keep dependencies minimal
+  - Use plain Dart (no framework)
+  - Follow Dart conventions
+
+
+========================================================================
+ACTIONS REFERENCE
+========================================================================
+
+These actions should be registered in TestAppModule and wired to their
+respective services:
+
+File menu:
+  file.save       Ctrl+S         Save active editor
+  file.saveAll    Ctrl+Shift+S   Save all dirty editors
+  file.close      Ctrl+W         Close active editor tab
+  file.closeAll   Ctrl+Shift+W   Close all editor tabs
+
+Edit menu:
+  edit.undo       Ctrl+Z         undoManager.undo()
+  edit.redo       Ctrl+Shift+Z   undoManager.redo()
+  edit.find       Ctrl+F         Focus editor find bar (if supported)
+  edit.findInFiles Ctrl+Shift+F  Focus Search view, show bottom panel
+
+View menu:
+  view.toggleExplorer  Ctrl+B          Toggle left panel
+  view.toggleOutline   Ctrl+Shift+O    Toggle right panel
+  view.toggleProblems  Ctrl+Shift+M    Toggle bottom, activate Problems
+  view.toggleOutput    Ctrl+Shift+U    Toggle bottom, activate Output
+  view.splitEditor     Ctrl+\          Split middle panel
+
+Help menu:
+  help.about           (none)          Show about dialog
+
+
+========================================================================
+QA REQUIREMENTS
+========================================================================
+
+- Run dart analyze after each phase
+- Fix ALL analyzer errors before proceeding to the next phase
+- The app must launch and display the shell scaffold after Phase 1
+- File explorer must show the sample workspace tree after Phase 2
+- Clicking files must open the correct editor type after Phase 3
+- All views must be functional after Phase 4
+- All actions and shortcuts must work after Phase 5
+- Commit each phase separately with descriptive message
+
+OUTPUT
+
+After completion, provide:
+1. List of files created/modified per phase
+2. Screenshots of the running app (if possible) or description of state
+3. Any deviations from spec with rationale
+4. Known limitations or TODO items for future work
