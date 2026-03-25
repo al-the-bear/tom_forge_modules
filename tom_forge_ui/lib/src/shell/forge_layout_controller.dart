@@ -1,0 +1,27 @@
+import 'package:tom_forge_core/tom_forge_core.dart';
+
+import '../components/forge_component.dart';
+import '../components/forge_editor.dart';
+
+/// Layout control — open/close panels, focus components, open files.
+abstract class ForgeLayoutController {
+  void openPanel(ForgePanelLocation location);
+  void closePanel(ForgePanelLocation location);
+  void togglePanel(ForgePanelLocation location);
+  void focusComponent(ForgeComponent component);
+  void openFile(Uri uri, {int? middlePanelIndex});
+  void openEditor(ForgeEditor editor, Uri uri, {int? middlePanelIndex});
+  Future<void> openFileWith(Uri uri, {int? middlePanelIndex});
+  void splitMiddlePanel();
+  LayoutPanelConfig? getPanelConfig(ForgePanelLocation location);
+  int get activeMiddlePanelIndex;
+  void revealInExplorer(Uri uri);
+}
+
+/// Simplified panel config returned from layout queries.
+class LayoutPanelConfig {
+  final double size;
+  final bool isVisible;
+
+  const LayoutPanelConfig({this.size = 250, this.isVisible = true});
+}

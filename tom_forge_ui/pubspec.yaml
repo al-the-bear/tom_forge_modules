@@ -11,6 +11,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  tom_forge_core:
+    path: ../tom_forge_core
 
 dev_dependencies:
   flutter_test:
