@@ -488,7 +488,7 @@ Commit: "Wire test app to shell defaults"
 
 
 ========================================================================
-FUTURE CONSIDERATION: tom_forge_core restructuring
+PART C Tasks: tom_forge_core restructuring
 ========================================================================
 
 Several service interfaces in tom_forge_ui are pure Dart (no Flutter
@@ -522,11 +522,14 @@ imports) and could move to tom_forge_core for non-Flutter consumers:
     ForgeAction       (IconData)
     StatusBarItem     (ValueListenable, IconData)
 
-This is a separate future task. When ready:
+
+How to proceed:
+
   1. Move pure-Dart interfaces to tom_forge_core
   2. Move pure-Dart default implementations alongside
   3. Have tom_forge_ui re-export from tom_forge_core for compatibility
   4. Keep Flutter-dependent types in tom_forge_ui
+  5. Create comprehensive tests for all non-UI code, so all code in tom_forge_core 
 
 
 ========================================================================
@@ -538,6 +541,7 @@ Phase 2 (tom_forge_ui):  Shell widgets                     A18-A22  5 files
 Phase 3 (tom_forge_ui):  Standard views                    A23-A27  5 files
 Phase 4 (tom_forge_ui):  Barrel update + QA                A28
 Phase 5 (tom_forge_ui_test): Pubspec + thin app wiring     B1-B4    4 files
+Phase 6 (tom_forge_core): Restructure code/libraries       Part C
 
 Total: 27 files in tom_forge_ui, 4 files in tom_forge_ui_test
 
