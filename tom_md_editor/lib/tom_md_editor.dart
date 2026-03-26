@@ -83,3 +83,7 @@ export 'src/widgets/renderers/md_mermaid_renderer.dart';
 
 // Syntax Highlighting
 export 'src/widgets/raw_editor/md_syntax_highlight_controller.dart';
+
+// Integration
+export 'src/integration/editor_trail.dart';
+export 'src/integration/md_text_context.dart';

@@ -69,6 +69,12 @@ export 'src/text_editing/integrations/dart_standalone_integration.dart';
 // Dart Editor Actions
 export 'src/text_editing/dart_editor_actions.dart';
 
+// Markdown Editor Actions
+export 'src/text_editing/md_editor_actions.dart';
+
+// Markdown Standalone Integration
+export 'src/text_editing/integrations/md_standalone_integration.dart';
+
 // Mermaid
 export 'src/mermaid/mermaid_webview.dart';
 

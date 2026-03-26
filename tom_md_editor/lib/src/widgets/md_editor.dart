@@ -1,12 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart';
 
 import '../controller/md_editor_controller.dart';
 import '../debug/md_editor_debug.dart';
 import '../events/md_events.dart';
+import '../integration/editor_trail.dart';
+import '../integration/md_text_context.dart';
 import '../models/md_section.dart';
 import '../plugins/md_content_plugin.dart';
 import '../plugins/md_default_plugins.dart';
@@ -47,6 +48,7 @@ class MdEditor extends StatefulWidget {
     super.key,
     this.markdown,
     this.controller,
+    this.integration,
     this.theme,
     this.settings,
     this.eventHandlers,
@@ -75,6 +77,16 @@ class MdEditor extends StatefulWidget {
 
   /// Controller managing document state. If null, one is created internally.
   final MdEditorController? controller;
+
+  /// Optional Forge editor integration for unified action handling.
+  ///
+  /// When provided (e.g. [ShellEditorIntegration] from the shell), the editor
+  /// delegates action registration, shortcut resolution, and context reporting
+  /// to this integration.
+  ///
+  /// When `null`, a [MdStandaloneIntegration] is created automatically in
+  /// [initState] with sensible defaults.
+  final ForgeEditorIntegration? integration;
 
   /// Visual theme. Defaults to [MdEditorTheme.dark].
   final MdEditorTheme? theme;
@@ -147,12 +159,20 @@ class _MdEditorState extends State<MdEditor> {
   MdEditorController? _internalController;
   Timer? _autoSaveTimer;
 
+  // Forge integration
+  late final ForgeEditorIntegration _integration;
+  late final MdTextContext _textContext;
+  late final bool _ownsIntegration;
+  Map<ShortcutActivator, Intent> _shortcuts = {};
+  String _lastSavedMarkdown = '';
+
   MdEditorController get _controller =>
       widget.controller ?? _internalController!;
 
   @override
   void initState() {
     super.initState();
+    trailEvent('initState start');
     _theme = widget.theme ?? MdEditorTheme.dark();
     _settings = _resolveSettings();
     _rawPosition = _settings.rawEditorPosition;
@@ -160,7 +180,10 @@ class _MdEditorState extends State<MdEditor> {
         createDefaultPluginRegistry(settings: _settings);
     _initController();
     _controller.addListener(_onControllerChanged);
+    _lastSavedMarkdown = _controller.markdown;
+    _setupIntegration();
     _loadDocument();
+    trailEvent('initState complete');
   }
 
   @override
@@ -199,9 +222,15 @@ class _MdEditorState extends State<MdEditor> {
 
   @override
   void dispose() {
+    trailEvent('dispose start');
     _controller.removeListener(_onControllerChanged);
     _autoSaveTimer?.cancel();
+    _textContext.dispose();
+    if (_ownsIntegration) {
+      _integration.dispose();
+    }
     _disposeInternalController();
+    trailEvent('dispose complete');
     super.dispose();
   }
 
@@ -252,51 +281,111 @@ class _MdEditorState extends State<MdEditor> {
     }
   }
 
+  // ── Forge integration setup ──
+
+  /// Set up the Forge editor integration and register all actions.
+  void _setupIntegration() {
+    trailEvent('_setupIntegration start');
+    try {
+      if (widget.integration != null) {
+        _integration = widget.integration!;
+        _ownsIntegration = false;
+      } else {
+        _integration = MdStandaloneIntegration(
+          controller: TextEditingController(),
+          focusNode: FocusNode(),
+        );
+        _ownsIntegration = true;
+      }
+
+      // Create text context for state discovery
+      _textContext = MdTextContext(
+        controller: _controller,
+        isDirtyFn: () => _controller.markdown != _lastSavedMarkdown,
+      );
+
+      // Register editor actions with the integration
+      _registerActions();
+
+      // Build the keyboard shortcut map
+      _buildShortcutMap();
+
+      trailEvent('_setupIntegration complete: '
+          '${_integration.supportedActions.length} actions, '
+          '${_shortcuts.length} shortcuts');
+    } catch (e) {
+      trailEvent('_setupIntegration error: $e');
+      rethrow;
+    }
+  }
+
+  /// Register standard editing and markdown-specific actions with the
+  /// integration.
+  void _registerActions() {
+    // Override standard undo/redo to use the controller's undo mechanism
+    _integration.registerAction(
+      StandardEditingActions.undoActionId,
+      () {
+        if (_controller.canUndo) _controller.undo();
+      },
+      isEnabled: () => _controller.canUndo,
+    );
+    _integration.registerAction(
+      StandardEditingActions.redoActionId,
+      () {
+        if (_controller.canRedo) _controller.redo();
+      },
+      isEnabled: () => _controller.canRedo,
+    );
+
+    // Save action
+    _integration.registerAction(
+      MdEditorActions.saveActionId,
+      _save,
+    );
+
+    // Search action
+    _integration.registerAction(
+      MdEditorActions.searchActionId,
+      () => setState(() => _showSearch = !_showSearch),
+    );
+  }
+
+  /// Build the keyboard shortcut map from registered actions and
+  /// markdown-specific shortcuts.
+  void _buildShortcutMap() {
+    _shortcuts = <ShortcutActivator, Intent>{};
+
+    // Primary shortcuts from all registered actions
+    for (final action in _integration.supportedActions) {
+      final key = _integration.getShortcutForAction(action.id);
+      if (key != null) {
+        _shortcuts[key.toActivator()] = _MdEditorActionIntent(action.id);
+      }
+    }
+
+    // Markdown-specific shortcuts (always registered regardless of
+    // whether handlers exist yet — handlers are added by the editor
+    // or by the shell at runtime).
+    for (final entry in MdEditorActions.primaryShortcuts.entries) {
+      _shortcuts[entry.value.toActivator()] =
+          _MdEditorActionIntent(entry.key);
+    }
+
+    // Alternative redo shortcut (Ctrl+Y)
+    _shortcuts[StandardEditingActions.redoAltShortcut.toActivator()] =
+        const _MdEditorActionIntent(StandardEditingActions.redoActionId);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Shortcuts(
-      shortcuts: <ShortcutActivator, Intent>{
-        const SingleActivator(LogicalKeyboardKey.keyZ, meta: true):
-            const _UndoIntent(),
-        const SingleActivator(LogicalKeyboardKey.keyZ, meta: true, shift: true):
-            const _RedoIntent(),
-        const SingleActivator(LogicalKeyboardKey.keyS, meta: true):
-            const _SaveIntent(),
-        const SingleActivator(LogicalKeyboardKey.keyF, meta: true):
-            const _SearchIntent(),
-        // Linux/Windows: use control instead of meta
-        const SingleActivator(LogicalKeyboardKey.keyZ, control: true):
-            const _UndoIntent(),
-        const SingleActivator(LogicalKeyboardKey.keyZ, control: true, shift: true):
-            const _RedoIntent(),
-        const SingleActivator(LogicalKeyboardKey.keyS, control: true):
-            const _SaveIntent(),
-        const SingleActivator(LogicalKeyboardKey.keyF, control: true):
-            const _SearchIntent(),
-      },
+      shortcuts: _shortcuts,
       child: Actions(
         actions: <Type, Action<Intent>>{
-          _UndoIntent: CallbackAction<_UndoIntent>(
-            onInvoke: (_) {
-              if (_controller.canUndo) _controller.undo();
-              return null;
-            },
-          ),
-          _RedoIntent: CallbackAction<_RedoIntent>(
-            onInvoke: (_) {
-              if (_controller.canRedo) _controller.redo();
-              return null;
-            },
-          ),
-          _SaveIntent: CallbackAction<_SaveIntent>(
-            onInvoke: (_) {
-              _save();
-              return null;
-            },
-          ),
-          _SearchIntent: CallbackAction<_SearchIntent>(
-            onInvoke: (_) {
-              setState(() => _showSearch = !_showSearch);
+          _MdEditorActionIntent: CallbackAction<_MdEditorActionIntent>(
+            onInvoke: (intent) {
+              _integration.executeAction(intent.actionId);
               return null;
             },
           ),
@@ -477,6 +566,8 @@ class _MdEditorState extends State<MdEditor> {
       if (widget.documentProvider != null) {
         await _controller.saveToProvider(widget.documentProvider!);
       }
+      _lastSavedMarkdown = _controller.markdown;
+      _textContext.notifyExternalChange();
       widget.onSave?.call();
     } catch (e, st) {
       MdEditorDebug.logger.error('Error saving document', e, st);
@@ -529,20 +620,10 @@ class MdViewer extends StatelessWidget {
   }
 }
 
-// ── Keyboard shortcut intents ──
+// ── Keyboard shortcut intent ──
 
-class _UndoIntent extends Intent {
-  const _UndoIntent();
-}
-
-class _RedoIntent extends Intent {
-  const _RedoIntent();
-}
-
-class _SaveIntent extends Intent {
-  const _SaveIntent();
-}
-
-class _SearchIntent extends Intent {
-  const _SearchIntent();
+/// Intent carrying a [ForgeAction] ID for the [Shortcuts]/[Actions] bridge.
+class _MdEditorActionIntent extends Intent {
+  final String actionId;
+  const _MdEditorActionIntent(this.actionId);
 }
