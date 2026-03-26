@@ -11,6 +11,9 @@
 /// - **Layout**: [DraggableSeparator], [SplitPanel]
 /// - **Search**: [SearchBox]
 /// - **Debug**: [EditorLogger]
+/// - **Forge Bridge**: [ForgeShortcutKey], [ForgeAction], [ForgeMenuLocation]
+/// - **Text Settings**: [ForgeTextSettings], [ForgeTextContext]
+/// - **Editor Integration**: [ForgeEditorIntegration], [StandardEditingActions]
 library;
 
 // Undo/Redo
@@ -48,6 +51,19 @@ export 'src/search/search_box.dart';
 
 // Debug
 export 'src/debug/editor_logger.dart';
+
+// Forge Bridge
+export 'src/forge_bridge/forge_shortcut_key.dart';
+export 'src/forge_bridge/forge_action.dart';
+
+// Text Editing (Forge Integration)
+export 'src/text_editing/forge_text_settings.dart';
+export 'src/text_editing/forge_text_context.dart';
+export 'src/text_editing/forge_editor_integration.dart';
+export 'src/text_editing/text_undo_entry.dart';
+export 'src/text_editing/standard_editing_actions.dart';
+export 'src/text_editing/forge_text_field.dart';
+export 'src/text_editing/integrations/base_standalone_integration.dart';
 
 // Mermaid
 export 'src/mermaid/mermaid_webview.dart';
