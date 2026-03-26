@@ -18,7 +18,7 @@ Success means:
 
 | Phase | Status | Notes |
 | --- | --- | --- |
-| Phase A | Completed (2026-03-26) | Implemented with tests in `tom_forge_ui`; staging package validation blocked by local SDK mismatch (tracked in session todo `wt-2`) |
+| Phase A | Completed (2026-03-26) | Implemented and verified in both `tom_forge_ui` and `tom_forge_ui_test` with analyzer/tests passing |
 | Phase B | Not Started | Planned |
 | Phase C | Not Started | Planned |
 | Phase D | Not Started | Planned |
@@ -106,9 +106,8 @@ Implementation evidence:
    `file.saveAll`, `file.close`, `edit.undo`, `edit.redo`) in
    `tom_forge_ui/lib/src/widgets/forge_menu_bar.dart`.
 3. Confirmed tests pass in `tom_forge_ui` after implementation.
-4. `tom_forge_ui_test` full validation is currently blocked by local SDK
-   mismatch (`^3.11.1` required, local Dart `3.11.0`), tracked as session todo
-   `wt-2`.
+4. Verified `tom_forge_ui_test` end-to-end package validation with
+   `flutter analyze` and `flutter test` passing after staging SDK alignment.
 
 ## Phase B: Shell UX and Command Reliability (tom_forge_ui)
 
