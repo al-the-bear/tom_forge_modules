@@ -84,4 +84,67 @@ void main() {
       ),
     );
   });
+
+  testWidgets('shell scaffold syncs updated preference text settings at runtime', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+
+    final preferences = ForgePreferencesService();
+    await preferences.load();
+
+    final navigatorKey = GlobalKey<NavigatorState>();
+    final shell = DefaultShellApi.withDefaults(
+      fileSystemSeed: const {},
+      appName: 'Phase C Runtime Sync Harness',
+      navigatorKey: navigatorKey,
+    );
+
+    final shellModule = TomForgeShellModule();
+    shellModule.activate(shell);
+    (shell.modules as DefaultModuleRegistry).register(shellModule);
+
+    final application = ForgeApplication(
+      title: 'Phase C Runtime Sync Harness',
+      layout: const ApplicationLayout(
+        leftPanel: PanelConfig(initialSize: 250, tabs: []),
+        rightPanel: PanelConfig(initialSize: 220, tabs: []),
+        bottomPanel: PanelConfig(initialSize: 180, tabs: []),
+        middlePanels: [MiddlePanelConfig()],
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ForgeShellScaffold(
+          shell: shell,
+          application: application,
+          layoutController: shell.layout as DefaultLayoutController,
+          systemState: shell.systemState as DefaultSystemState,
+          statusBarController: shell.statusBar,
+          notificationManager: shell.notifications as DefaultNotificationManager,
+          preferencesService: preferences,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    const updated = ForgeTextSettings(
+      fontFamily: 'JetBrains Mono',
+      fontSize: 15,
+      lineHeight: 1.45,
+      tabSize: 2,
+      insertSpaces: true,
+      showWhitespace: false,
+      wordWrap: true,
+      showLineNumbers: true,
+      highlightCurrentLine: true,
+      maxUndoHistory: 180,
+    );
+
+    preferences.setEditorTextSettings('md', updated);
+    await tester.pumpAndSettle();
+
+    expect(shell.getTextSettings('md'), equals(updated));
+  });
 }

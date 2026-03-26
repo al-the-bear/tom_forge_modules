@@ -20,7 +20,7 @@ Success means:
 | --- | --- | --- |
 | Phase A | Completed (2026-03-26) | Implemented and re-verified in both `tom_forge_ui` and `tom_forge_ui_test` with analyzer/tests passing (latest strict pass included integration-path test coverage) |
 | Phase B | Completed (2026-03-26) | Implemented and verified in `tom_forge_ui` and `tom_forge_ui_test`; command source unification, effective shortcut display, and platform-aware shell shortcuts are active |
-| Phase C | Completed (2026-03-26) | Implemented and verified; editor text settings are persisted per editor type, hydrated into shell runtime on startup, and synchronized from preferences updates |
+| Phase C | Completed (2026-03-26, strict re-verified) | Implemented and strictly re-verified; per-editor text settings persistence, startup hydration, and runtime synchronization validated across shell and staging app |
 | Phase D | Not Started | Planned |
 | Phase E | Not Started | Planned |
 
@@ -117,7 +117,7 @@ Implementation evidence:
 
 Objective: remove framework-level blockers for near-production operation.
 
-Status timeline: In-Progress -> Completed (2026-03-26)
+Status timeline: In-Progress -> Completed (2026-03-26, strict re-verification)
 
 Primary files:
 
@@ -205,10 +205,15 @@ Implementation evidence:
 4. Added and passed Phase C tests:
    1. `tom_forge_ui/test/services/forge_preferences_service_test.dart`
    2. `tom_forge_ui/test/widgets/phase_c_settings_persistence_test.dart`
+   3. Additional runtime-sync coverage in
+      `tom_forge_ui/test/widgets/phase_c_settings_persistence_test.dart`
+      verifies shell updates when preferences change after startup.
+5. Enabled `uses-material-design: true` in `tom_forge_ui/pubspec.yaml`
+   to align package configuration with Material icon usage in the IDE shell.
 
 Verification results (latest strict pass):
 
-1. `tom_forge_ui`: `dart analyze` clean, `flutter test` 53 passed.
+1. `tom_forge_ui`: `dart analyze` clean, `flutter test` 54 passed.
 2. `tom_forge_ui_test`: `flutter analyze` clean, `flutter test` 1 passed.
 
 ## Phase D: Expansion Cycles (More Modules/Editors)
