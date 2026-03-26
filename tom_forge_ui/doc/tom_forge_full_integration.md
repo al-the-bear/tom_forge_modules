@@ -18,7 +18,7 @@ Success means:
 
 | Phase | Status | Notes |
 | --- | --- | --- |
-| Phase A | Completed (2026-03-26) | Implemented and verified in both `tom_forge_ui` and `tom_forge_ui_test` with analyzer/tests passing |
+| Phase A | Completed (2026-03-26) | Implemented and re-verified in both `tom_forge_ui` and `tom_forge_ui_test` with analyzer/tests passing (latest strict pass included integration-path test coverage) |
 | Phase B | Not Started | Planned |
 | Phase C | Not Started | Planned |
 | Phase D | Not Started | Planned |
@@ -77,7 +77,7 @@ Current gaps for near-production readiness:
 
 Objective: make `tom_forge_ui_test` almost production for current scope.
 
-Status timeline: In-Progress -> Completed (2026-03-26)
+Status timeline: In-Progress -> Completed (2026-03-26, re-verified)
 
 Primary files:
 
@@ -108,6 +108,10 @@ Implementation evidence:
 3. Confirmed tests pass in `tom_forge_ui` after implementation.
 4. Verified `tom_forge_ui_test` end-to-end package validation with
    `flutter analyze` and `flutter test` passing after staging SDK alignment.
+5. Added and passed strict integration-path tests in
+   `tom_forge_ui/test/widgets/phase_a_shell_paths_test.dart` covering:
+   1. command palette command execution (`file.save`)
+   2. shell shortcut command execution (`file.save`)
 
 ## Phase B: Shell UX and Command Reliability (tom_forge_ui)
 
