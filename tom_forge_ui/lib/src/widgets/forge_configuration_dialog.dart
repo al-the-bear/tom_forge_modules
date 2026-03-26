@@ -107,51 +107,60 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
     }
   }
 
-  void _save() {
-    final prefs = widget.preferencesService;
+  Future<void> _save() async {
+    try {
+      final prefs = widget.preferencesService;
 
-    // Validate and save max recent
-    final maxRecent = int.tryParse(_maxRecentController.text.trim());
-    if (maxRecent == null || maxRecent < 1 || maxRecent > 50) {
-      setState(() => _errorMessage =
-          'Max recent workspaces must be a number between 1 and 50');
-      return;
-    }
-    prefs.maxRecentWorkspaces = maxRecent;
-
-    // Save config mode
-    if (_configMode == ForgeConfigMode.centralDirectory) {
-      final centralDir = _centralDirController.text.trim();
-      if (centralDir.isEmpty) {
-        setState(
-            () => _errorMessage = 'Please specify a central config directory');
+      // Validate and save max recent
+      final maxRecent = int.tryParse(_maxRecentController.text.trim());
+      if (maxRecent == null || maxRecent < 1 || maxRecent > 50) {
+        setState(() =>
+            _errorMessage = 'Max recent workspaces must be a number between 1 and 50');
         return;
       }
-      final dir = Directory(centralDir);
-      if (!dir.existsSync()) {
-        // Try to create it
-        try {
-          dir.createSync(recursive: true);
-        } catch (e) {
-          setState(() => _errorMessage = 'Cannot create directory: $e');
+      prefs.maxRecentWorkspaces = maxRecent;
+
+      // Save config mode
+      if (_configMode == ForgeConfigMode.centralDirectory) {
+        final centralDir = _centralDirController.text.trim();
+        if (centralDir.isEmpty) {
+          setState(
+              () => _errorMessage = 'Please specify a central config directory');
           return;
         }
+        final dir = Directory(centralDir);
+        if (!dir.existsSync()) {
+          // Try to create it
+          try {
+            dir.createSync(recursive: true);
+          } catch (e) {
+            setState(() => _errorMessage = 'Cannot create directory: $e');
+            return;
+          }
+        }
+        prefs.centralConfigDirectory = centralDir;
+      } else {
+        prefs.centralConfigDirectory = null;
       }
-      prefs.centralConfigDirectory = centralDir;
-    } else {
-      prefs.centralConfigDirectory = null;
-    }
 
-    prefs.save();
-
-    final shellApi = widget.shellApi;
-    if (shellApi != null) {
+      final shellApi = widget.shellApi;
       for (final entry in _editorSettings.entries) {
-        shellApi.setTextSettings(entry.key, entry.value);
+        prefs.setEditorTextSettings(entry.key, entry.value);
+        if (shellApi != null) {
+          shellApi.setTextSettings(entry.key, entry.value);
+        }
+      }
+
+      await prefs.save();
+
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() => _errorMessage = 'Failed to save settings: $error');
       }
     }
-
-    Navigator.of(context).pop();
   }
 
   @override

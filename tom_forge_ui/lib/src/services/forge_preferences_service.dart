@@ -3,26 +3,63 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
+import 'package:tom_editors_shared/tom_editors_shared.dart'
+  show ForgeTextDefaults, ForgeTextSettings;
 
 /// Service for managing persistent preferences.
 ///
 /// Uses SharedPreferences for platform-native storage.
 /// Handles startup preferences, recent workspaces, and configuration settings.
 class ForgePreferencesService extends ChangeNotifier {
+  static bool debugEnabled = false;
+
   static const _keyLastWorkspace = 'forge.startup.lastWorkspacePath';
   static const _keyConfigMode = 'forge.startup.configMode';
   static const _keyRememberSettings = 'forge.startup.rememberSettings';
   static const _keyRecentWorkspaces = 'forge.startup.recentWorkspaces';
   static const _keyMaxRecentWorkspaces = 'forge.startup.maxRecentWorkspaces';
   static const _keyConfigDirectory = 'forge.startup.configDirectory';
+  static const _keyEditorTextSettings = 'forge.editor.textSettings';
 
   SharedPreferences? _prefs;
   ForgeStartupPreferences _startupPreferences = ForgeStartupPreferences();
   int _maxRecentWorkspaces = 10;
   String? _centralConfigDirectory;
+  final Map<String, ForgeTextSettings> _editorTextSettings =
+      <String, ForgeTextSettings>{};
+  bool _isLoaded = false;
+
+  static void _log(String message) {
+    if (debugEnabled) {
+      debugPrint('[ForgePreferencesService] $message');
+    }
+  }
 
   /// The currently loaded startup preferences.
   ForgeStartupPreferences get startupPreferences => _startupPreferences;
+
+  /// Whether preferences were loaded at least once.
+  bool get isLoaded => _isLoaded;
+
+  /// Snapshot of all persisted editor settings keyed by editor type id.
+  Map<String, ForgeTextSettings> get editorTextSettings =>
+      Map<String, ForgeTextSettings>.unmodifiable(_editorTextSettings);
+
+  /// Reads text settings for the given editor type.
+  ForgeTextSettings getEditorTextSettings(String editorTypeId) {
+    return _editorTextSettings[editorTypeId] ?? const ForgeTextSettings();
+  }
+
+  /// Stores text settings for an editor type.
+  void setEditorTextSettings(String editorTypeId, ForgeTextSettings settings) {
+    final previous = _editorTextSettings[editorTypeId];
+    if (previous == settings) {
+      return;
+    }
+    _editorTextSettings[editorTypeId] = settings;
+    _log('updated editor settings for $editorTypeId');
+    notifyListeners();
+  }
 
   /// Maximum number of recent workspaces to track.
   int get maxRecentWorkspaces => _maxRecentWorkspaces;
@@ -67,19 +104,30 @@ class ForgePreferencesService extends ChangeNotifier {
 
   /// Loads preferences from persistent storage.
   Future<void> load() async {
-    _prefs = await SharedPreferences.getInstance();
+    try {
+      _prefs = await SharedPreferences.getInstance();
 
-    _startupPreferences = ForgeStartupPreferences(
-      lastWorkspacePath: _prefs!.getString(_keyLastWorkspace),
-      lastConfigMode: _prefs!.getString(_keyConfigMode),
-      rememberSettings: _prefs!.getBool(_keyRememberSettings) ?? true,
-      recentWorkspaces: _loadRecentWorkspaces(),
-    );
+      _startupPreferences = ForgeStartupPreferences(
+        lastWorkspacePath: _prefs!.getString(_keyLastWorkspace),
+        lastConfigMode: _prefs!.getString(_keyConfigMode),
+        rememberSettings: _prefs!.getBool(_keyRememberSettings) ?? true,
+        recentWorkspaces: _loadRecentWorkspaces(),
+      );
 
-    _maxRecentWorkspaces = _prefs!.getInt(_keyMaxRecentWorkspaces) ?? 10;
-    _centralConfigDirectory = _prefs!.getString(_keyConfigDirectory);
+      _maxRecentWorkspaces = _prefs!.getInt(_keyMaxRecentWorkspaces) ?? 10;
+      _centralConfigDirectory = _prefs!.getString(_keyConfigDirectory);
+      _editorTextSettings
+        ..clear()
+        ..addAll(_loadEditorTextSettings());
+      _isLoaded = true;
+      _log('loaded preferences with ${_editorTextSettings.length} editor settings entries');
 
-    notifyListeners();
+      notifyListeners();
+    } catch (error, stackTrace) {
+      debugPrint('[ForgePreferencesService] load failed: $error');
+      debugPrint('$stackTrace');
+      rethrow;
+    }
   }
 
   List<String> _loadRecentWorkspaces() {
@@ -99,32 +147,115 @@ class ForgePreferencesService extends ChangeNotifier {
 
   /// Saves all preferences to persistent storage.
   Future<void> save() async {
-    if (_prefs == null) {
-      await load();
-    }
+    try {
+      if (_prefs == null) {
+        await load();
+      }
 
-    if (_startupPreferences.lastWorkspacePath != null) {
-      await _prefs!.setString(
-          _keyLastWorkspace, _startupPreferences.lastWorkspacePath!);
-    } else {
-      await _prefs!.remove(_keyLastWorkspace);
-    }
+      if (_startupPreferences.lastWorkspacePath != null) {
+        await _prefs!.setString(
+            _keyLastWorkspace, _startupPreferences.lastWorkspacePath!);
+      } else {
+        await _prefs!.remove(_keyLastWorkspace);
+      }
 
-    if (_startupPreferences.lastConfigMode != null) {
-      await _prefs!.setString(
-          _keyConfigMode, _startupPreferences.lastConfigMode!);
-    } else {
-      await _prefs!.remove(_keyConfigMode);
-    }
+      if (_startupPreferences.lastConfigMode != null) {
+        await _prefs!.setString(
+            _keyConfigMode, _startupPreferences.lastConfigMode!);
+      } else {
+        await _prefs!.remove(_keyConfigMode);
+      }
 
-    await _prefs!.setBool(
-        _keyRememberSettings, _startupPreferences.rememberSettings);
-    await _saveRecentWorkspaces();
+      await _prefs!.setBool(
+          _keyRememberSettings, _startupPreferences.rememberSettings);
+      await _saveRecentWorkspaces();
+      await _saveEditorTextSettings();
+      _log('saved preferences with ${_editorTextSettings.length} editor settings entries');
+    } catch (error, stackTrace) {
+      debugPrint('[ForgePreferencesService] save failed: $error');
+      debugPrint('$stackTrace');
+      rethrow;
+    }
   }
 
   Future<void> _saveRecentWorkspaces() async {
     final jsonStr = jsonEncode(_startupPreferences.recentWorkspaces);
     await _prefs!.setString(_keyRecentWorkspaces, jsonStr);
+  }
+
+  Map<String, ForgeTextSettings> _loadEditorTextSettings() {
+    final jsonStr = _prefs!.getString(_keyEditorTextSettings);
+    if (jsonStr == null || jsonStr.trim().isEmpty) {
+      return <String, ForgeTextSettings>{};
+    }
+
+    try {
+      final decoded = jsonDecode(jsonStr);
+      if (decoded is! Map) {
+        return <String, ForgeTextSettings>{};
+      }
+
+      final result = <String, ForgeTextSettings>{};
+      for (final entry in decoded.entries) {
+        final key = entry.key;
+        final value = entry.value;
+        if (key is String && value is Map<String, dynamic>) {
+          result[key] = _textSettingsFromMap(value);
+        } else if (key is String && value is Map) {
+          result[key] = _textSettingsFromMap(Map<String, dynamic>.from(value));
+        }
+      }
+      return result;
+    } catch (error, stackTrace) {
+      debugPrint('[ForgePreferencesService] parse editor settings failed: $error');
+      debugPrint('$stackTrace');
+      return <String, ForgeTextSettings>{};
+    }
+  }
+
+  Future<void> _saveEditorTextSettings() async {
+    final serializable = <String, Map<String, dynamic>>{};
+    for (final entry in _editorTextSettings.entries) {
+      serializable[entry.key] = _textSettingsToMap(entry.value);
+    }
+    await _prefs!.setString(_keyEditorTextSettings, jsonEncode(serializable));
+  }
+
+  ForgeTextSettings _textSettingsFromMap(Map<String, dynamic> json) {
+    return ForgeTextSettings(
+      fontFamily:
+        (json['fontFamily'] as String?) ?? ForgeTextDefaults.defaultFontFamily,
+      uiFontFamily: json['uiFontFamily'] as String?,
+      fontSize:
+        (json['fontSize'] as num?)?.toDouble() ?? ForgeTextDefaults.defaultFontSize,
+      lineHeight: (json['lineHeight'] as num?)?.toDouble() ??
+        ForgeTextDefaults.defaultLineHeight,
+      tabSize:
+        (json['tabSize'] as num?)?.toInt() ?? ForgeTextDefaults.defaultTabSize,
+      insertSpaces: json['insertSpaces'] as bool? ?? true,
+      showWhitespace: json['showWhitespace'] as bool? ?? false,
+      wordWrap: json['wordWrap'] as bool? ?? true,
+      showLineNumbers: json['showLineNumbers'] as bool? ?? true,
+      highlightCurrentLine: json['highlightCurrentLine'] as bool? ?? true,
+      maxUndoHistory: (json['maxUndoHistory'] as num?)?.toInt() ??
+        ForgeTextDefaults.defaultMaxUndoHistory,
+    );
+  }
+
+  Map<String, dynamic> _textSettingsToMap(ForgeTextSettings settings) {
+    return <String, dynamic>{
+      'fontFamily': settings.fontFamily,
+      'uiFontFamily': settings.uiFontFamily,
+      'fontSize': settings.fontSize,
+      'lineHeight': settings.lineHeight,
+      'tabSize': settings.tabSize,
+      'insertSpaces': settings.insertSpaces,
+      'showWhitespace': settings.showWhitespace,
+      'wordWrap': settings.wordWrap,
+      'showLineNumbers': settings.showLineNumbers,
+      'highlightCurrentLine': settings.highlightCurrentLine,
+      'maxUndoHistory': settings.maxUndoHistory,
+    };
   }
 
   /// Adds a workspace to the recent list.

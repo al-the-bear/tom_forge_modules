@@ -115,10 +115,58 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
 
   DefaultLayoutController get _layout => widget.layoutController;
   bool _showCommandPalette = false;
+  late final ForgePreferencesService _preferences;
+
+  @override
+  void initState() {
+    super.initState();
+    _preferences = widget.preferencesService ?? ForgePreferencesService.instance;
+    _preferences.addListener(_onPreferencesChanged);
+    _initializePreferences();
+  }
+
+  @override
+  void dispose() {
+    _preferences.removeListener(_onPreferencesChanged);
+    super.dispose();
+  }
+
+  Future<void> _initializePreferences() async {
+    try {
+      if (!_preferences.isLoaded) {
+        await _preferences.load();
+      }
+      _applyPreferenceTextSettings();
+    } catch (error, stackTrace) {
+      debugPrint('[ForgeShellScaffold] initialize preferences failed: $error');
+      debugPrint('$stackTrace');
+    }
+  }
+
+  void _onPreferencesChanged() {
+    try {
+      _applyPreferenceTextSettings();
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (error, stackTrace) {
+      debugPrint('[ForgeShellScaffold] apply preferences failed: $error');
+      debugPrint('$stackTrace');
+    }
+  }
+
+  void _applyPreferenceTextSettings() {
+    final settings = _preferences.editorTextSettings;
+    for (final entry in settings.entries) {
+      widget.shell.setTextSettings(entry.key, entry.value);
+    }
+    if (debugEnabled) {
+      debugPrint('[ForgeShellScaffold] applied persisted settings: ${settings.length}');
+    }
+  }
 
   void _openSettings() {
-    final prefs = widget.preferencesService ?? ForgePreferencesService.instance;
-    ForgeConfigurationDialog.show(context, prefs, widget.shell);
+    ForgeConfigurationDialog.show(context, _preferences, widget.shell);
   }
 
   @override

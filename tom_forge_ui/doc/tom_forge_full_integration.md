@@ -20,7 +20,7 @@ Success means:
 | --- | --- | --- |
 | Phase A | Completed (2026-03-26) | Implemented and re-verified in both `tom_forge_ui` and `tom_forge_ui_test` with analyzer/tests passing (latest strict pass included integration-path test coverage) |
 | Phase B | Completed (2026-03-26) | Implemented and verified in `tom_forge_ui` and `tom_forge_ui_test`; command source unification, effective shortcut display, and platform-aware shell shortcuts are active |
-| Phase C | Not Started | Planned |
+| Phase C | Completed (2026-03-26) | Implemented and verified; editor text settings are persisted per editor type, hydrated into shell runtime on startup, and synchronized from preferences updates |
 | Phase D | Not Started | Planned |
 | Phase E | Not Started | Planned |
 
@@ -49,10 +49,9 @@ Already in place:
 
 Current gaps for near-production readiness:
 
-1. Settings persistence hardening (Phase C) is not completed yet.
-2. Expansion-cycle validation for additional modules/editors (Phase D) is not
+1. Expansion-cycle validation for additional modules/editors (Phase D) is not
    started yet.
-3. Promotion package (`tom_forge_app`) remains template-level until staged
+2. Promotion package (`tom_forge_app`) remains template-level until staged
    promotion work (Phase E).
 
 ## 4. Target Staging Architecture (tom_forge_ui_test)
@@ -170,6 +169,8 @@ Verification results (latest strict pass):
 
 Objective: make staging behavior durable across runs.
 
+Status timeline: In-Progress -> Completed (2026-03-26)
+
 Primary files:
 
 1. `tom_forge_ui/lib/src/widgets/forge_configuration_dialog.dart`
@@ -187,6 +188,28 @@ Acceptance criteria:
 1. Settings changes survive restart.
 2. Staging UI shows effective values after reload.
 3. Editor visuals and behavior are consistent with configured values.
+
+Implementation evidence:
+
+1. Added persistent editor text settings storage in
+   `tom_forge_ui/lib/src/services/forge_preferences_service.dart` using
+   shared preferences key `forge.editor.textSettings` with per-editor-type
+   serialization and round-trip loading.
+2. Added shell startup hydration and runtime synchronization from preferences in
+   `tom_forge_ui/lib/src/widgets/forge_shell_scaffold.dart` so persisted
+   settings are applied to shell APIs during initialization and on preference
+   updates.
+3. Updated settings dialog save flow in
+   `tom_forge_ui/lib/src/widgets/forge_configuration_dialog.dart` to persist
+   per-editor text settings via preferences and apply them to the active shell.
+4. Added and passed Phase C tests:
+   1. `tom_forge_ui/test/services/forge_preferences_service_test.dart`
+   2. `tom_forge_ui/test/widgets/phase_c_settings_persistence_test.dart`
+
+Verification results (latest strict pass):
+
+1. `tom_forge_ui`: `dart analyze` clean, `flutter test` 53 passed.
+2. `tom_forge_ui_test`: `flutter analyze` clean, `flutter test` 1 passed.
 
 ## Phase D: Expansion Cycles (More Modules/Editors)
 
@@ -289,9 +312,10 @@ This stage is done when:
 
 ## 9. Immediate Next Steps
 
-1. Begin Phase C implementation for settings persistence and restart
-   round-tripping.
-2. Add Phase C integration tests covering persistence and editor refresh.
-3. Execute one manual matrix pass focused on persistence and shortcut behavior.
-4. Start Phase D by integrating the next module/editor set in staging only.
-5. Defer `tom_forge_app` promotion until Phase C/D gates are green.
+1. Start Phase D by integrating the next module/editor set in staging only.
+2. Add Phase D integration tests for menu/palette/shortcut parity and
+   file-type opening behavior for the new module/editor set.
+3. Execute a full manual matrix pass including persistence and platform
+   shortcut validation after the new module/editor integration.
+4. Prepare a promotion packet for `tom_forge_app` only after Phase D gates are
+   green.
