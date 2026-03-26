@@ -2,8 +2,11 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:tom_editors_shared/tom_editors_shared.dart'
+  show ForgeTextSettings;
 
 import '../services/forge_preferences_service.dart';
+import '../shell/forge_shell_api.dart';
 
 /// Configuration mode for forge settings storage.
 enum ForgeConfigMode {
@@ -19,21 +22,27 @@ enum ForgeConfigMode {
 /// Allows changing the configuration directory mode and other global settings.
 class ForgeConfigurationDialog extends StatefulWidget {
   final ForgePreferencesService preferencesService;
+  final ForgeShellApi? shellApi;
 
   const ForgeConfigurationDialog({
     super.key,
     required this.preferencesService,
+    this.shellApi,
   });
 
   /// Shows the configuration dialog.
   static Future<void> show(
     BuildContext context,
     ForgePreferencesService preferencesService,
+    ForgeShellApi? shellApi,
   ) {
     return showDialog(
       context: context,
       builder: (context) =>
-          ForgeConfigurationDialog(preferencesService: preferencesService),
+          ForgeConfigurationDialog(
+            preferencesService: preferencesService,
+            shellApi: shellApi,
+          ),
     );
   }
 
@@ -48,6 +57,8 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
   late TextEditingController _maxRecentController;
   bool _isSelectingDirectory = false;
   String? _errorMessage;
+  final List<String> _editorTypeIds = ['md', 'dart', 'yaml'];
+  late Map<String, ForgeTextSettings> _editorSettings;
 
   @override
   void initState() {
@@ -60,6 +71,11 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
         TextEditingController(text: prefs.centralConfigDirectory ?? '');
     _maxRecentController =
         TextEditingController(text: prefs.maxRecentWorkspaces.toString());
+    _editorSettings = {
+      for (final typeId in _editorTypeIds)
+        typeId: widget.shellApi?.getTextSettings(typeId) ??
+            const ForgeTextSettings(),
+    };
   }
 
   @override
@@ -127,6 +143,14 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
     }
 
     prefs.save();
+
+    final shellApi = widget.shellApi;
+    if (shellApi != null) {
+      for (final entry in _editorSettings.entries) {
+        shellApi.setTextSettings(entry.key, entry.value);
+      }
+    }
+
     Navigator.of(context).pop();
   }
 
@@ -199,16 +223,28 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
               ),
             ),
             const SizedBox(height: 12),
-            _buildConfigModeOption(
-              value: ForgeConfigMode.workspaceLocal,
-              title: 'Workspace-local',
-              subtitle: 'Store settings in {workspace}/.forge/',
-            ),
-            const SizedBox(height: 8),
-            _buildConfigModeOption(
-              value: ForgeConfigMode.centralDirectory,
-              title: 'Central directory',
-              subtitle: 'Store settings in a shared location',
+            RadioGroup<ForgeConfigMode>(
+              groupValue: _configMode,
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => _configMode = value);
+                }
+              },
+              child: Column(
+                children: [
+                  _buildConfigModeOption(
+                    value: ForgeConfigMode.workspaceLocal,
+                    title: 'Workspace-local',
+                    subtitle: 'Store settings in {workspace}/.forge/',
+                  ),
+                  const SizedBox(height: 8),
+                  _buildConfigModeOption(
+                    value: ForgeConfigMode.centralDirectory,
+                    title: 'Central directory',
+                    subtitle: 'Store settings in a shared location',
+                  ),
+                ],
+              ),
             ),
             if (_configMode == ForgeConfigMode.centralDirectory) ...[
               const SizedBox(height: 12),
@@ -252,6 +288,15 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
                 ),
               ),
             ],
+            const SizedBox(height: 20),
+            Text(
+              'Editor Text Settings',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            ..._editorTypeIds.map(_buildEditorSettingsPanel),
             const SizedBox(height: 24),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
@@ -287,8 +332,6 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
           children: [
             Radio<ForgeConfigMode>(
               value: value,
-              groupValue: _configMode,
-              onChanged: (v) => setState(() => _configMode = v!),
             ),
             const SizedBox(width: 8),
             Expanded(
@@ -313,5 +356,101 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
         ),
       ),
     );
+  }
+
+  Widget _buildEditorSettingsPanel(String editorTypeId) {
+    final settings = _editorSettings[editorTypeId] ?? const ForgeTextSettings();
+
+    return Card(
+      margin: const EdgeInsets.only(top: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _editorTitle(editorTypeId),
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    initialValue: settings.fontFamily,
+                    decoration: const InputDecoration(
+                      labelText: 'Font Family',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (value) {
+                      setState(() {
+                        _editorSettings[editorTypeId] = settings.copyWith(
+                          fontFamily: value.trim().isEmpty ? settings.fontFamily : value.trim(),
+                        );
+                      });
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                SizedBox(
+                  width: 110,
+                  child: TextFormField(
+                    initialValue: settings.fontSize.toStringAsFixed(0),
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Font',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (value) {
+                      final parsed = double.tryParse(value.trim());
+                      if (parsed != null && parsed > 0) {
+                        setState(() {
+                          _editorSettings[editorTypeId] =
+                              settings.copyWith(fontSize: parsed);
+                        });
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                SizedBox(
+                  width: 90,
+                  child: TextFormField(
+                    initialValue: settings.tabSize.toString(),
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Tab',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (value) {
+                      final parsed = int.tryParse(value.trim());
+                      if (parsed != null && parsed > 0) {
+                        setState(() {
+                          _editorSettings[editorTypeId] =
+                              settings.copyWith(tabSize: parsed);
+                        });
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _editorTitle(String editorTypeId) {
+    switch (editorTypeId) {
+      case 'md':
+        return 'Markdown';
+      case 'dart':
+        return 'Dart';
+      case 'yaml':
+        return 'YAML';
+      default:
+        return editorTypeId;
+    }
   }
 }

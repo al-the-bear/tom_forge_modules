@@ -38,6 +38,7 @@ export 'src/shell/forge_system_state.dart';
 // ── Services ──
 export 'src/services/forge_clipboard.dart';
 export 'src/services/forge_config_manager.dart';
+export 'src/services/forge_action_registry.dart';
 export 'src/services/forge_dialog_manager.dart';
 export 'src/services/forge_diagnostic_manager.dart';
 export 'src/services/forge_disposable.dart';
@@ -65,6 +66,7 @@ export 'src/testing/test_workspace.dart';
 
 // ── Defaults ──
 export 'src/defaults/default_clipboard.dart';
+export 'src/defaults/default_action_registry.dart';
 export 'src/defaults/default_config_manager.dart';
 export 'src/defaults/default_diagnostic_manager.dart';
 export 'src/defaults/default_dialog_manager.dart';
@@ -83,6 +85,7 @@ export 'src/defaults/memory_file_system.dart';
 export 'src/defaults/real_file_system.dart';
 export 'src/defaults/real_search_manager.dart';
 export 'src/defaults/stub_services.dart';
+export 'src/integrations/shell_editor_integration.dart';
 
 // ── Widgets ──
 export 'src/widgets/forge_command_palette.dart';

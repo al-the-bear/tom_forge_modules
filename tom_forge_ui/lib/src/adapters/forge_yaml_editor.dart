@@ -3,11 +3,15 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
+import 'package:tom_editors_shared/tom_editors_shared.dart'
+  show TextEditingContextImpl;
 import 'package:tom_yaml_editor/tom_yaml_editor.dart';
 
 import '../components/forge_schema_editor.dart';
 import '../components/forge_component.dart';
+import '../integrations/shell_editor_integration.dart';
 import '../module/forge_module.dart';
+import 'tom_forge_shell_module.dart';
 
 /// Adapter that wraps [YamlEditorController] + [YamlSchemaEditor] as a
 /// [ForgeSchemaEditor].
@@ -16,6 +20,7 @@ class ForgeYamlEditor extends ForgeSchemaEditor {
   final ForgeModule _module;
   final _title = ValueNotifier<String>('YAML');
   final _titleExtension = ValueNotifier<String?>(null);
+  ShellEditorIntegration? _integration;
 
   ForgeYamlEditor({
     required this.controller,
@@ -50,7 +55,27 @@ class ForgeYamlEditor extends ForgeSchemaEditor {
 
   @override
   Widget buildMain(BuildContext context) {
-    return YamlSchemaEditor(controller: controller);
+    if (_module case final TomForgeShellModule shellModule) {
+      _integration ??= ShellEditorIntegration(
+        shellApi: shellModule.shellApi,
+        editorId: 'yaml-editor-${uri.hashCode}',
+        editorTypeId: 'yaml',
+      );
+      _integration!.onContextChanged(
+        TextEditingContextImpl.withValues(
+          text: controller.yamlText,
+          selections: const [TextSelection.collapsed(offset: 0)],
+          isDirty: controller.isDirtyNotifier.value,
+          canUndo: false,
+          canRedo: false,
+        ),
+      );
+    }
+
+    return YamlSchemaEditor(
+      controller: controller,
+      integration: _integration,
+    );
   }
 
   @override
@@ -96,6 +121,19 @@ class ForgeYamlEditor extends ForgeSchemaEditor {
   // ── Internal ──
 
   void _onControllerChanged() {
+    final integration = _integration;
+    if (integration != null) {
+      integration.onContextChanged(
+        TextEditingContextImpl.withValues(
+          text: controller.yamlText,
+          selections: const [TextSelection.collapsed(offset: 0)],
+          isDirty: controller.isDirtyNotifier.value,
+          canUndo: false,
+          canRedo: false,
+        ),
+      );
+    }
+
     if (controller.uri != null) {
       _title.value = controller.uri!.pathSegments.last;
     }
@@ -106,6 +144,7 @@ class ForgeYamlEditor extends ForgeSchemaEditor {
 
   /// Release listeners.
   void dispose() {
+    _integration?.dispose();
     controller.removeListener(_onControllerChanged);
     _title.dispose();
     _titleExtension.dispose();

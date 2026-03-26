@@ -7,4 +7,5 @@ abstract class ForgeShortcutManager {
   void rebind(ForgeAction action, ForgeShortcutKey key);
   void resetToDefault(ForgeAction action);
   ForgeShortcutBinding? conflictsWith(ForgeShortcutKey key);
+  ForgeShortcutBinding? getBinding(String actionId);
 }

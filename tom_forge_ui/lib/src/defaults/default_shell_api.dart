@@ -1,6 +1,10 @@
 import 'package:flutter/widgets.dart';
+import 'package:tom_editors_shared/tom_editors_shared.dart'
+  show ForgeTextSettings;
 
 import '../model/forge_config.dart';
+import '../actions/forge_action.dart';
+import '../services/forge_action_registry.dart';
 import '../services/forge_clipboard.dart';
 import '../services/forge_config_manager.dart';
 import '../services/forge_dialog_manager.dart';
@@ -15,6 +19,7 @@ import '../services/forge_output_channel_manager.dart';
 import '../services/forge_progress_manager.dart';
 import '../services/forge_search_manager.dart';
 import '../services/forge_secret_storage.dart';
+import '../services/forge_shortcut_manager.dart';
 import '../services/forge_terminal_manager.dart';
 import '../services/forge_undo_manager.dart';
 import '../services/forge_virtual_document_manager.dart';
@@ -24,6 +29,7 @@ import '../shell/forge_shell_api.dart';
 import '../shell/forge_status_bar_controller.dart';
 import '../shell/forge_system_state.dart';
 import 'default_clipboard.dart';
+import 'default_action_registry.dart';
 import 'default_config_manager.dart';
 import 'default_diagnostic_manager.dart';
 import 'default_dialog_manager.dart';
@@ -110,6 +116,14 @@ class DefaultShellApi implements ForgeShellApi {
   @override
   final ForgeSearchManager search;
 
+  @override
+  final ForgeActionRegistry actionRegistry;
+
+  @override
+  final ForgeShortcutManager shortcuts;
+
+  final Map<String, ForgeTextSettings> _editorTextSettings = {};
+
   DefaultShellApi({
     required this.systemState,
     required this.layout,
@@ -132,6 +146,8 @@ class DefaultShellApi implements ForgeShellApi {
     required this.virtualDocuments,
     required this.outline,
     required this.search,
+    required this.actionRegistry,
+    required this.shortcuts,
   });
 
   /// Creates a [DefaultShellApi] with all default implementations wired.
@@ -198,6 +214,8 @@ class DefaultShellApi implements ForgeShellApi {
     final outlineManager = DefaultOutlineManager();
     final terminalManager = DefaultTerminalManager();
     final storageService = DefaultModuleStorage();
+    final actionRegistry = DefaultActionRegistry();
+    final shortcutManager = DefaultShortcutManager();
     final environmentService = DefaultEnvironment();
     final secretStorage = DefaultSecretStorage();
     final fileDecorationManager = DefaultFileDecorationManager();
@@ -225,6 +243,45 @@ class DefaultShellApi implements ForgeShellApi {
       virtualDocuments: virtualDocumentManager,
       outline: outlineManager,
       search: searchManager,
+      actionRegistry: actionRegistry,
+      shortcuts: shortcutManager,
     );
+  }
+
+  @override
+  bool executeAction(String actionId) {
+    final action = actionRegistry.getAction(actionId);
+    if (action == null) {
+      return false;
+    }
+    if (!action.isEnabled()) {
+      return false;
+    }
+    action.execute({});
+    return true;
+  }
+
+  @override
+  bool isActionEnabled(String actionId) {
+    final action = actionRegistry.getAction(actionId);
+    return action?.isEnabled() ?? false;
+  }
+
+  @override
+  List<ForgeAction> getContextActionsFor(String editorId) {
+    return actionRegistry.allActions
+        .where((action) => action.showInContextMenu)
+        .where((action) => action.isVisible() && action.isEnabled())
+        .toList(growable: false);
+  }
+
+  @override
+  ForgeTextSettings getTextSettings(String editorTypeId) {
+    return _editorTextSettings[editorTypeId] ?? const ForgeTextSettings();
+  }
+
+  @override
+  void setTextSettings(String editorTypeId, ForgeTextSettings settings) {
+    _editorTextSettings[editorTypeId] = settings;
   }
 }

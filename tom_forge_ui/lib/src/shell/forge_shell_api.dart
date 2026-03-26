@@ -1,4 +1,5 @@
 import '../services/forge_clipboard.dart';
+import '../services/forge_action_registry.dart';
 import '../services/forge_config_manager.dart';
 import '../services/forge_dialog_manager.dart';
 import '../services/forge_diagnostic_manager.dart';
@@ -12,9 +13,13 @@ import '../services/forge_output_channel_manager.dart';
 import '../services/forge_progress_manager.dart';
 import '../services/forge_search_manager.dart';
 import '../services/forge_secret_storage.dart';
+import '../services/forge_shortcut_manager.dart';
 import '../services/forge_terminal_manager.dart';
 import '../services/forge_undo_manager.dart';
 import '../services/forge_virtual_document_manager.dart';
+import '../actions/forge_action.dart';
+import 'package:tom_editors_shared/tom_editors_shared.dart'
+  show ForgeTextSettings;
 import 'forge_layout_controller.dart';
 import 'forge_module_registry.dart';
 import 'forge_status_bar_controller.dart';
@@ -87,4 +92,25 @@ abstract class ForgeShellApi {
 
   /// Workspace-wide text search.
   ForgeSearchManager get search;
+
+  /// Global action registry shared by shell and editor integrations.
+  ForgeActionRegistry get actionRegistry;
+
+  /// Global shortcut registry with runtime rebinding support.
+  ForgeShortcutManager get shortcuts;
+
+  /// Execute an action by id if available and enabled.
+  bool executeAction(String actionId);
+
+  /// Check if an action is currently enabled.
+  bool isActionEnabled(String actionId);
+
+  /// Resolve context menu actions for an editor.
+  List<ForgeAction> getContextActionsFor(String editorId);
+
+  /// Reads text settings for an editor type (for example: md, dart, yaml).
+  ForgeTextSettings getTextSettings(String editorTypeId);
+
+  /// Updates text settings for an editor type.
+  void setTextSettings(String editorTypeId, ForgeTextSettings settings);
 }

@@ -112,7 +112,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
 
   void _openSettings() {
     final prefs = widget.preferencesService ?? ForgePreferencesService.instance;
-    ForgeConfigurationDialog.show(context, prefs);
+    ForgeConfigurationDialog.show(context, prefs, widget.shell);
   }
 
   @override

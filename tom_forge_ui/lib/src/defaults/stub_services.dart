@@ -167,6 +167,16 @@ class DefaultShortcutManager implements ForgeShortcutManager {
     }
     return null;
   }
+
+  @override
+  ForgeShortcutBinding? getBinding(String actionId) {
+    for (final binding in _bindings) {
+      if (binding.action.id == actionId) {
+        return binding;
+      }
+    }
+    return null;
+  }
 }
 
 // ── Module Storage ───────────────────────────────────────────────────

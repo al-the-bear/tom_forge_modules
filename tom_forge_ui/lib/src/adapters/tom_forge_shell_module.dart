@@ -17,18 +17,28 @@ import 'forge_yaml_editor.dart';
 /// ```
 class TomForgeShellModule extends ForgeModule {
   final List<ForgeEditor> _editors = [];
+  ForgeShellApi? _shell;
+
+  ForgeShellApi get shellApi {
+    final shell = _shell;
+    if (shell == null) {
+      throw StateError('TomForgeShellModule has not been activated yet.');
+    }
+    return shell;
+  }
 
   @override
   String get displayName => 'Tom Forge Editors';
 
   @override
   void activate(ForgeShellApi shell) {
-    // Shell reference available for future module-level operations.
+    _shell = shell;
   }
 
   @override
   void deactivate() {
     _editors.clear();
+    _shell = null;
   }
 
   /// Register a [ForgeMdEditor] adapter and return it.

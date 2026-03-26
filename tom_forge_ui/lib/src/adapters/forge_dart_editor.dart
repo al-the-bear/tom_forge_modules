@@ -8,7 +8,9 @@ import 'package:tom_dart_editor/tom_dart_editor.dart';
 
 import '../components/forge_text_editor.dart';
 import '../components/forge_component.dart';
+import '../integrations/shell_editor_integration.dart';
 import '../module/forge_module.dart';
+import 'tom_forge_shell_module.dart';
 
 /// Adapter that wraps [DartCodeController] + [DartCodeEditor] as a
 /// [ForgeTextEditor].
@@ -28,6 +30,7 @@ class ForgeDartEditor extends ForgeTextEditor {
   late PositionConverter _positionConverter;
   ForgeTextEditorOptions _options;
   String _lastCode = '';
+  ShellEditorIntegration? _integration;
 
   /// Decoration state.
   final Map<String, List<ForgeDecorationRange>> _decorationMap = {};
@@ -68,8 +71,16 @@ class ForgeDartEditor extends ForgeTextEditor {
 
   @override
   Widget buildMain(BuildContext context) {
+    if (_module case final TomForgeShellModule shellModule) {
+      _integration ??= ShellEditorIntegration(
+        shellApi: shellModule.shellApi,
+        editorId: 'dart-editor-${uri.hashCode}',
+        editorTypeId: 'dart',
+      );
+    }
     return DartCodeEditor(
       controller: controller,
+      integration: _integration,
       errors: errorsProvider?.call() ?? const [],
       onCursorChanged: _onCursorOffset,
       onSelectionChanged: _onSelectionRange,
@@ -267,6 +278,7 @@ class ForgeDartEditor extends ForgeTextEditor {
 
   /// Release listeners.
   void dispose() {
+    _integration?.dispose();
     controller.removeListener(_onControllerChanged);
     _title.dispose();
     _titleExtension.dispose();

@@ -1,4 +1,6 @@
 import 'package:tom_forge_core/tom_forge_core.dart';
+import 'package:tom_editors_shared/tom_editors_shared.dart'
+  show ForgeTextContext;
 
 import '../components/forge_component.dart';
 import '../components/forge_editor.dart';
@@ -60,4 +62,8 @@ abstract class ForgeSystemState {
   Stream<EditorListChangeEvent> get onEditorsChanged;
   Stream<WindowFocusEvent> get onWindowFocusChanged;
   Stream<LayoutChangeEvent> get onLayoutChanged;
+
+  // ── Editor Context Bridge ──
+  void updateEditorContext(String editorId, ForgeTextContext context);
+  ForgeTextContext? getEditorContext(String editorId);
 }

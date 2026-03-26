@@ -8,7 +8,9 @@ import 'package:tom_md_editor/tom_md_editor.dart';
 
 import '../components/forge_text_editor.dart';
 import '../components/forge_component.dart';
+import '../integrations/shell_editor_integration.dart';
 import '../module/forge_module.dart';
+import 'tom_forge_shell_module.dart';
 
 /// Adapter that wraps [MdEditorController] as a [ForgeTextEditor].
 class ForgeMdEditor extends ForgeTextEditor {
@@ -25,6 +27,7 @@ class ForgeMdEditor extends ForgeTextEditor {
 
   late final PositionConverter _positionConverter;
   ForgeTextEditorOptions _options;
+  ShellEditorIntegration? _integration;
 
   /// Decoration state.
   final Map<String, List<ForgeDecorationRange>> _decorationMap = {};
@@ -70,7 +73,17 @@ class ForgeMdEditor extends ForgeTextEditor {
 
   @override
   Widget buildMain(BuildContext context) {
-    return MdEditor(controller: controller);
+    if (_module case final TomForgeShellModule shellModule) {
+      _integration ??= ShellEditorIntegration(
+        shellApi: shellModule.shellApi,
+        editorId: 'md-editor-${uri.hashCode}',
+        editorTypeId: 'md',
+      );
+    }
+    return MdEditor(
+      controller: controller,
+      integration: _integration,
+    );
   }
 
   @override
@@ -285,6 +298,7 @@ class ForgeMdEditor extends ForgeTextEditor {
 
   /// Release listeners.
   void dispose() {
+    _integration?.dispose();
     controller.cursorPositionNotifier.removeListener(_onCursorChanged);
     controller.selectionNotifier.removeListener(_onSelectionChanged);
     controller.visibleRangeNotifier.removeListener(_onVisibleRangeChanged);

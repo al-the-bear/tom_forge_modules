@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
+import 'package:tom_editors_shared/tom_editors_shared.dart'
+  show ForgeTextContext;
 
 import '../components/forge_component.dart';
 import '../components/forge_editor.dart';
@@ -33,6 +35,7 @@ class DefaultSystemState implements ForgeSystemState {
       ValueNotifier<Set<ForgePanelLocation>>(Set.of(ForgePanelLocation.values));
   final _middlePanelCount = ValueNotifier<int>(1);
   final _activeMiddlePanelIndex = ValueNotifier<int>(0);
+  final Map<String, ForgeTextContext> _editorContexts = {};
 
   late ForgeApplication _activeApplication;
   List<ForgeApplication> _applications = [];
@@ -179,6 +182,16 @@ class DefaultSystemState implements ForgeSystemState {
 
   @override
   Stream<LayoutChangeEvent> get onLayoutChanged => _onLayoutChanged.stream;
+
+  @override
+  void updateEditorContext(String editorId, ForgeTextContext context) {
+    _editorContexts[editorId] = context;
+  }
+
+  @override
+  ForgeTextContext? getEditorContext(String editorId) {
+    return _editorContexts[editorId];
+  }
 
   // ── Setter methods for internal shell use ──
 
