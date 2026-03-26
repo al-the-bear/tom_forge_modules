@@ -14,7 +14,12 @@ import 'package:flutter/foundation.dart';
 ///
 /// When `true`, [trailEvent] prints timestamped messages to the console.
 /// Filter output with: `flutter run 2>&1 | grep '\[ME\]'`
-const bool kMdEditorIntegrationDebug = false;
+///
+/// Set to `true` at runtime to enable debug logging:
+/// ```dart
+/// kMdEditorIntegrationDebug = true;
+/// ```
+bool kMdEditorIntegrationDebug = false;
 
 /// Log a timestamped event to the console (no-op when
 /// [kMdEditorIntegrationDebug] is false).

@@ -162,6 +162,38 @@ void main() {
         action.execute({});
         expect(invoked, true);
       });
+
+      test('insertTable defaults showInContextMenu to true', () {
+        final action = MdEditorActions.insertTable();
+        expect(action.showInContextMenu, true);
+      });
+
+      test('insertLink defaults showInContextMenu to true', () {
+        final action = MdEditorActions.insertLink();
+        expect(action.showInContextMenu, true);
+      });
+
+      test('toggleBold defaults showInContextMenu to false', () {
+        final action = MdEditorActions.toggleBold();
+        expect(action.showInContextMenu, false);
+      });
+
+      test('showInContextMenu can be overridden', () {
+        final action = MdEditorActions.toggleBold(showInContextMenu: true);
+        expect(action.showInContextMenu, true);
+      });
+
+      test('contextMenuActions returns only actions with showInContextMenu', () {
+        final actions = MdEditorActions.contextMenuActions();
+        expect(actions.length, greaterThanOrEqualTo(2));
+        for (final action in actions) {
+          expect(action.showInContextMenu, true,
+              reason: '${action.id} should have showInContextMenu=true');
+        }
+        final ids = actions.map((a) => a.id).toSet();
+        expect(ids, contains(MdEditorActions.insertTableActionId));
+        expect(ids, contains(MdEditorActions.insertLinkActionId));
+      });
     });
 
     group('shortcut maps', () {

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:tom_editors_shared/tom_editors_shared.dart';
 
 import '../../constants/md_constants.dart';
 import '../../controller/md_editor_controller.dart';
@@ -29,6 +30,7 @@ class MdRawTextEditor extends StatefulWidget {
     this.onTogglePosition,
     this.onShowFullDocument,
     this.pluginRegistry,
+    this.integration,
   });
 
   final MdEditorController controller;
@@ -40,6 +42,12 @@ class MdRawTextEditor extends StatefulWidget {
 
   /// Plugin registry for the insert context menu. If null, no context menu.
   final MdPluginRegistry? pluginRegistry;
+
+  /// Optional Forge editor integration for context menu actions.
+  ///
+  /// When provided, actions with [ForgeAction.showInContextMenu] are
+  /// appended to the text field context menu.
+  final ForgeEditorIntegration? integration;
 
   @override
   State<MdRawTextEditor> createState() => _MdRawTextEditorState();
@@ -720,8 +728,8 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
   }
 
   /// Build the context menu for the text field, appending insert actions
-  /// from registered plugins and section operations to the default edit
-  /// actions.
+  /// from registered plugins, section operations, and integration context
+  /// menu actions to the default edit actions.
   Widget _contextMenuBuilder(
     BuildContext context,
     EditableTextState editableTextState,
@@ -753,6 +761,27 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
             }
           },
         ));
+      }
+    }
+
+    // Integration context menu actions.
+    final integration = widget.integration;
+    if (integration != null) {
+      final contextActions = integration.supportedActions
+          .where((a) => a.showInContextMenu)
+          .toList();
+      if (contextActions.isNotEmpty) {
+        for (final action in contextActions) {
+          extraItems.add(ContextMenuButtonItem(
+            label: action.label,
+            onPressed: action.isEnabled()
+                ? () {
+                    ContextMenuController.removeAny();
+                    integration.executeAction(action.id);
+                  }
+                : null,
+          ));
+        }
       }
     }
 

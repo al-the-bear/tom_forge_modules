@@ -104,11 +104,13 @@ class MdEditorActions {
   static ForgeAction toggleBold({
     bool Function()? onToggle,
     bool Function()? isEnabled,
+    bool showInContextMenu = false,
   }) {
     return ForgeAction.editing(
       id: toggleBoldActionId,
       label: 'Bold',
       shortcut: toggleBoldShortcut,
+      showInContextMenu: showInContextMenu,
       execute: onToggle ?? () => true,
       isEnabled: isEnabled ?? () => true,
     );
@@ -118,11 +120,13 @@ class MdEditorActions {
   static ForgeAction toggleItalic({
     bool Function()? onToggle,
     bool Function()? isEnabled,
+    bool showInContextMenu = false,
   }) {
     return ForgeAction.editing(
       id: toggleItalicActionId,
       label: 'Italic',
       shortcut: toggleItalicShortcut,
+      showInContextMenu: showInContextMenu,
       execute: onToggle ?? () => true,
       isEnabled: isEnabled ?? () => true,
     );
@@ -132,11 +136,13 @@ class MdEditorActions {
   static ForgeAction toggleCode({
     bool Function()? onToggle,
     bool Function()? isEnabled,
+    bool showInContextMenu = false,
   }) {
     return ForgeAction.editing(
       id: toggleCodeActionId,
       label: 'Inline Code',
       shortcut: toggleCodeShortcut,
+      showInContextMenu: showInContextMenu,
       execute: onToggle ?? () => true,
       isEnabled: isEnabled ?? () => true,
     );
@@ -146,11 +152,13 @@ class MdEditorActions {
   static ForgeAction insertLink({
     bool Function()? onInsert,
     bool Function()? isEnabled,
+    bool showInContextMenu = true,
   }) {
     return ForgeAction.editing(
       id: insertLinkActionId,
       label: 'Insert Link',
       shortcut: insertLinkShortcut,
+      showInContextMenu: showInContextMenu,
       execute: onInsert ?? () => true,
       isEnabled: isEnabled ?? () => true,
     );
@@ -160,11 +168,13 @@ class MdEditorActions {
   static ForgeAction insertTable({
     bool Function()? onInsert,
     bool Function()? isEnabled,
+    bool showInContextMenu = true,
   }) {
     return ForgeAction.editing(
       id: insertTableActionId,
       label: 'Insert Table',
       shortcut: insertTableShortcut,
+      showInContextMenu: showInContextMenu,
       execute: onInsert ?? () => true,
       isEnabled: isEnabled ?? () => true,
     );
@@ -174,11 +184,13 @@ class MdEditorActions {
   static ForgeAction insertHeading({
     bool Function()? onInsert,
     bool Function()? isEnabled,
+    bool showInContextMenu = false,
   }) {
     return ForgeAction.editing(
       id: insertHeadingActionId,
       label: 'Insert Heading',
       shortcut: insertHeadingShortcut,
+      showInContextMenu: showInContextMenu,
       execute: onInsert ?? () => true,
       isEnabled: isEnabled ?? () => true,
     );
@@ -188,11 +200,13 @@ class MdEditorActions {
   static ForgeAction toggleList({
     bool Function()? onToggle,
     bool Function()? isEnabled,
+    bool showInContextMenu = false,
   }) {
     return ForgeAction.editing(
       id: toggleListActionId,
       label: 'Toggle List',
       shortcut: toggleListShortcut,
+      showInContextMenu: showInContextMenu,
       execute: onToggle ?? () => true,
       isEnabled: isEnabled ?? () => true,
     );
@@ -202,11 +216,13 @@ class MdEditorActions {
   static ForgeAction save({
     bool Function()? onSave,
     bool Function()? isEnabled,
+    bool showInContextMenu = false,
   }) {
     return ForgeAction.editing(
       id: saveActionId,
       label: 'Save',
       shortcut: saveShortcut,
+      showInContextMenu: showInContextMenu,
       execute: onSave ?? () => true,
       isEnabled: isEnabled ?? () => true,
     );
@@ -216,11 +232,13 @@ class MdEditorActions {
   static ForgeAction search({
     bool Function()? onSearch,
     bool Function()? isEnabled,
+    bool showInContextMenu = false,
   }) {
     return ForgeAction.editing(
       id: searchActionId,
       label: 'Find',
       shortcut: searchShortcut,
+      showInContextMenu: showInContextMenu,
       execute: onSearch ?? () => true,
       isEnabled: isEnabled ?? () => true,
     );
@@ -245,4 +263,16 @@ class MdEditorActions {
   /// markdown actions at this time.
   static Map<String, List<ForgeShortcutKey>> get alternativeShortcuts =>
       const {};
+
+  // ── Context menu helpers ───────────────────────────────────────────────
+
+  /// Returns the list of default context menu actions.
+  ///
+  /// These are actions where `showInContextMenu` defaults to `true`.
+  /// Call this to get the default set; individual actions can be customized
+  /// by calling the factory methods with `showInContextMenu` overrides.
+  static List<ForgeAction> contextMenuActions() => [
+        insertTable(),
+        insertLink(),
+      ];
 }
