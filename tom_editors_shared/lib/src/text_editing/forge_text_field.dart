@@ -91,6 +91,9 @@ class ForgeTextField extends StatefulWidget {
   /// Text align.
   final TextAlign textAlign;
 
+  /// Text color override (applied to the text style from [textSettings]).
+  final Color? textColor;
+
   /// Focus node (if not provided, one will be created).
   final FocusNode? focusNode;
 
@@ -119,6 +122,7 @@ class ForgeTextField extends StatefulWidget {
     this.selectionControls,
     this.scrollController,
     this.textAlign = TextAlign.start,
+    this.textColor,
     this.focusNode,
     this.controller,
   });
@@ -239,7 +243,7 @@ class ForgeTextFieldState extends State<ForgeTextField> {
     return TextField(
       controller: _controller,
       focusNode: _focusNode,
-      style: _textSettings.toTextStyle(),
+      style: _textSettings.toTextStyle(color: widget.textColor),
       decoration: effectiveDecoration,
       expands: widget.expands,
       maxLines: widget.expands ? null : widget.maxLines,

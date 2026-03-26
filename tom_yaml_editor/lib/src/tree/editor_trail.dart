@@ -7,12 +7,15 @@ import 'package:flutter/foundation.dart';
 // FlutterError intercept used for freeze/hang diagnosis.
 // Set to false for production builds to remove all overhead.
 //
+// Non-const so it can be toggled at runtime (e.g. from tests
+// or debug UI).
+//
 // See: tom_forge/_copilot_guidelines/debug_mode.md
 // ============================================================
-const bool kYamlEditorDebug = true;
+bool kYamlEditorDebug = true;
 
 /// Set to false to disable heartbeat output while keeping other debug logs.
-const bool kYamlEditorHeartbeat = false;
+bool kYamlEditorHeartbeat = false;
 
 /// Lightweight event trail for freeze / hang diagnosis.
 ///

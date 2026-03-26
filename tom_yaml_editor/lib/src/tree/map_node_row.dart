@@ -102,6 +102,9 @@ class MapNodeRow extends StatefulWidget {
   /// Whether this row is a direct top-level map entry.
   final bool isTopLevel;
 
+  /// Optional integration actions to include in the context menu.
+  final List<ForgeAction>? integrationActions;
+
   const MapNodeRow({
     super.key,
     required this.node,
@@ -121,6 +124,7 @@ class MapNodeRow extends StatefulWidget {
     this.computedKeyWidth,
     this.isRoot = false,
     this.isTopLevel = false,
+    this.integrationActions,
   });
 
   @override
@@ -382,6 +386,7 @@ class _MapNodeRowState extends State<MapNodeRow> {
       position: globalPosition,
       theme: widget.theme,
       suggestedKeys: suggested,
+      integrationActions: widget.integrationActions,
       canRemove: !_data.isRequired,
       canInspect: _data.isContainer,
       canExpand: widget.canExpand,

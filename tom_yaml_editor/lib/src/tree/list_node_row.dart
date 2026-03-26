@@ -84,6 +84,9 @@ class ListNodeRow extends StatefulWidget {
   /// Toggle this node on double-click.
   final VoidCallback? onDoubleTapToggle;
 
+  /// Optional integration actions to include in the context menu.
+  final List<ForgeAction>? integrationActions;
+
   const ListNodeRow({
     super.key,
     required this.node,
@@ -100,6 +103,7 @@ class ListNodeRow extends StatefulWidget {
     this.onExpandAll,
     this.onCollapseAll,
     this.onDoubleTapToggle,
+    this.integrationActions,
   });
 
   @override
@@ -370,6 +374,7 @@ class _ListNodeRowState extends State<ListNodeRow> {
       theme: widget.theme,
       currentIndex: currentIndex,
       listLength: length,
+      integrationActions: widget.integrationActions,
       canExpand: widget.canExpand,
       isExpanded: widget.isExpanded,
       canExpandAll: widget.canExpand,

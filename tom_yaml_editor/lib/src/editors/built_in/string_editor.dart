@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tom_editors_shared/tom_editors_shared.dart';
 
 import '../../schema/yaml_schema.dart';
 import '../../yaml_editor_theme.dart';
@@ -104,19 +105,18 @@ class _StringEditorState extends State<StringEditor> {
 
     var borderColor = _patternValid ? colors.surface : colors.errorColor;
 
-    return TextField(
+    return ForgeTextField(
       controller: _textController,
-      onChanged: widget.readOnly ? null : _onChanged,
+      onTextChanged: widget.readOnly ? null : _onChanged,
       readOnly: widget.readOnly,
-      maxLines: null,
-      minLines: 1,
-      style: TextStyle(
+      textColor: colors.valueColor,
+      textSettings: ForgeTextSettings(
         fontFamily: fonts.valueFontFamily,
         fontSize: fonts.valueFontSize,
-        fontWeight: fonts.valueFontWeight,
-        color: colors.valueColor,
-        height: fonts.lineHeight,
+        lineHeight: fonts.lineHeight,
       ),
+      maxLines: null,
+      minLines: 1,
       decoration: InputDecoration(
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),

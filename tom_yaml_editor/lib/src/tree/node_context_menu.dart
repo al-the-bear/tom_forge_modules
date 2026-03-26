@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tom_editors_shared/tom_editors_shared.dart';
 
 import '../yaml_editor_theme.dart';
 import 'editor_trail.dart';
@@ -84,11 +85,14 @@ enum ListContextAction {
 /// Shows a context menu for a map entry node.
 ///
 /// Returns the selected [MapContextAction], or null if dismissed.
+/// Integration actions (from [ForgeEditorIntegration.supportedActions])
+/// are executed directly via `onTap` and return null.
 Future<MapContextAction?> showMapContextMenu({
   required BuildContext context,
   required Offset position,
   required YamlEditorTheme theme,
   required List<String> suggestedKeys,
+  List<ForgeAction>? integrationActions,
   bool canRemove = true,
   bool canInspect = false,
   bool canExpand = false,
@@ -208,6 +212,20 @@ Future<MapContextAction?> showMapContextMenu({
     ));
   }
 
+  // Integration actions (self-executing, return null when selected)
+  final filteredActions = integrationActions
+      ?.where((a) => a.showInContextMenu && a.isEnabled())
+      .toList();
+  if (filteredActions != null && filteredActions.isNotEmpty) {
+    items.add(const PopupMenuDivider(height: 4));
+    for (final action in filteredActions) {
+      items.add(_integrationMenuItem<MapContextAction>(
+        action: action,
+        color: theme.colors.keyColor,
+      ));
+    }
+  }
+
   if (items.isEmpty) return null;
 
   return showMenu<MapContextAction>(
@@ -225,12 +243,15 @@ Future<MapContextAction?> showMapContextMenu({
 /// Shows a context menu for a list item node.
 ///
 /// Returns the selected [ListContextAction], or null if dismissed.
+/// Integration actions (from [ForgeEditorIntegration.supportedActions])
+/// are executed directly via `onTap` and return null.
 Future<ListContextAction?> showListContextMenu({
   required BuildContext context,
   required Offset position,
   required YamlEditorTheme theme,
   required int currentIndex,
   required int listLength,
+  List<ForgeAction>? integrationActions,
   bool canExpand = false,
   bool isExpanded = false,
   bool canExpandAll = false,
@@ -346,6 +367,20 @@ Future<ListContextAction?> showListContextMenu({
       ],
   ];
 
+  // Integration actions (self-executing, return null when selected)
+  final filteredActions = integrationActions
+      ?.where((a) => a.showInContextMenu && a.isEnabled())
+      .toList();
+  if (filteredActions != null && filteredActions.isNotEmpty) {
+    items.add(const PopupMenuDivider(height: 4));
+    for (final action in filteredActions) {
+      items.add(_integrationMenuItem<ListContextAction>(
+        action: action,
+        color: theme.colors.keyColor,
+      ));
+    }
+  }
+
   return showMenu<ListContextAction>(
     context: context,
     position: RelativeRect.fromLTRB(
@@ -406,6 +441,34 @@ PopupMenuItem<T> _menuItem<T>({
             fontSize: 12,
             color: enabled ? null : Colors.grey,
           ),
+        ),
+      ],
+    ),
+  );
+}
+
+/// Creates a menu item for a [ForgeAction] that self-executes on tap.
+///
+/// Returns `null` value so the caller's enum-based handler ignores it.
+/// The action is executed via `onTap` before the menu closes.
+PopupMenuItem<T> _integrationMenuItem<T>({
+  required ForgeAction action,
+  Color? color,
+}) {
+  return PopupMenuItem<T>(
+    value: null as T,
+    height: 32,
+    onTap: () {
+      trailEvent('contextMenu: integration action ${action.id}');
+      action.execute({});
+    },
+    child: Row(
+      children: [
+        Icon(action.icon ?? Icons.play_arrow, size: 16, color: color),
+        const SizedBox(width: 8),
+        Text(
+          action.label,
+          style: const TextStyle(fontSize: 12),
         ),
       ],
     ),

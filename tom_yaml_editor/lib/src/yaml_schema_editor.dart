@@ -11,6 +11,7 @@ import 'editors/editor_registry.dart';
 import 'inspector/inspector_dialog.dart';
 import 'inspector/inspector_layouts.dart';
 import 'inspector/subtree_inspector.dart';
+import 'integration/yaml_standalone_integration.dart';
 import 'model/yaml_document_model.dart';
 import 'model/yaml_edit_operation.dart';
 import 'schema/schema_marker_generator.dart';
@@ -72,6 +73,13 @@ class YamlSchemaEditor extends StatefulWidget {
   /// Whether to highlight tree rows that have errors.
   final bool highlightErrorRows;
 
+  /// Optional integration with the Forge shell.
+  ///
+  /// When null, a [YamlStandaloneIntegration] is created automatically
+  /// with the editor's controller and theme-derived text settings.
+  /// When provided, the given integration is used directly.
+  final ForgeEditorIntegration? integration;
+
   const YamlSchemaEditor({
     super.key,
     required this.controller,
@@ -83,6 +91,7 @@ class YamlSchemaEditor extends StatefulWidget {
     this.inspectorMode = SubtreeInspectorMode.bottomSheet,
     this.errorListPosition,
     this.highlightErrorRows = false,
+    this.integration,
   }) : editorRegistry = editorRegistry ?? const EditorRegistry();
 
   @override
@@ -93,6 +102,12 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
   late TreeController<YamlTreeData> _treeController;
   late SchemaWalker? _schemaWalker;
   final FocusNode _focusNode = FocusNode();
+
+  /// The active Forge editor integration.
+  late ForgeEditorIntegration _integration;
+
+  /// Whether we own (created) the integration and must dispose it.
+  bool _ownsIntegration = false;
 
   /// Set of node IDs that the user has explicitly collapsed.
   ///
@@ -159,9 +174,59 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
         : null;
     _textDraft = widget.controller.yamlText;
     _treeController = TreeController<YamlTreeData>(roots: []);
+    _setupIntegration();
     _rebuildTree();
     widget.controller.addListener(_onControllerChanged);
     FocusManager.instance.addListener(_onPrimaryFocusChanged);
+  }
+
+  /// Sets up the Forge editor integration.
+  ///
+  /// If [widget.integration] is provided, uses it directly.
+  /// Otherwise creates a [YamlStandaloneIntegration] with theme-derived
+  /// text settings and registers YAML-specific actions.
+  void _setupIntegration() {
+    try {
+      if (widget.integration != null) {
+        _integration = widget.integration!;
+        _ownsIntegration = false;
+      } else {
+        final settings = YamlEditorDefaults.forgeTextSettingsFrom(widget.theme);
+        _integration = YamlStandaloneIntegration(
+          controller: widget.controller,
+          textSettings: settings,
+        );
+        _ownsIntegration = true;
+      }
+      _registerActions();
+      trailEvent('setupIntegration: done (owned=$_ownsIntegration)');
+    } catch (e) {
+      trailEvent('setupIntegration: THREW $e');
+    }
+  }
+
+  /// Registers YAML-specific actions with the integration.
+  void _registerActions() {
+    try {
+      _integration.registerAction(
+        YamlEditorActions.toggleTextModeActionId,
+        _toggleTextMode,
+        isEnabled: () => true,
+      );
+      _integration.registerAction(
+        StandardEditingActions.undoActionId,
+        () => widget.controller.undo(),
+        isEnabled: () => widget.controller.canUndo,
+      );
+      _integration.registerAction(
+        StandardEditingActions.redoActionId,
+        () => widget.controller.redo(),
+        isEnabled: () => widget.controller.canRedo,
+      );
+      trailEvent('registerActions: done');
+    } catch (e) {
+      trailEvent('registerActions: THREW $e');
+    }
   }
 
   @override
@@ -185,12 +250,27 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
         _textDraft = widget.controller.yamlText;
       }
 
+      // Re-setup integration for the new controller
+      if (_ownsIntegration) {
+        _integration.dispose();
+      }
+      _setupIntegration();
+
       _rebuildTree();
+    } else if (oldWidget.integration != widget.integration) {
+      // Integration changed without controller change
+      if (_ownsIntegration) {
+        _integration.dispose();
+      }
+      _setupIntegration();
     }
   }
 
   @override
   void dispose() {
+    if (_ownsIntegration) {
+      _integration.dispose();
+    }
     _heartbeat?.cancel();
     if (kYamlEditorDebug) {
       FlutterError.onError = _prevFlutterErrorHandler;
@@ -1008,6 +1088,11 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
       keyWidth = _computedKeyWidths[parentPath];
     }
 
+    // Collect context menu actions from the integration.
+    final contextActions = _integration.supportedActions
+        .where((a) => a.showInContextMenu)
+        .toList();
+
     // Validation tooltip wrapping
     var directErrors = data.directErrors;
     Widget content;
@@ -1021,6 +1106,7 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
           schemaWalker: _schemaWalker,
           theme: widget.theme,
           readOnly: widget.readOnly,
+          integrationActions: contextActions.isNotEmpty ? contextActions : null,
           onInspect: data.isContainer ? () => _openInspector(data.path) : null,
           canExpand: node.children.isNotEmpty,
           isExpanded: node.isExpanded,
@@ -1052,6 +1138,7 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
           isRoot: data.kind == YamlNodeKind.root,
           isTopLevel:
               data.kind == YamlNodeKind.mapEntry && data.path.length == 1,
+          integrationActions: contextActions.isNotEmpty ? contextActions : null,
           onInspect: data.isContainer ? () => _openInspector(data.path) : null,
           canExpand: node.children.isNotEmpty,
           isExpanded: node.isExpanded,

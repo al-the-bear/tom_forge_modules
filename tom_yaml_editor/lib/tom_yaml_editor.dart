@@ -98,6 +98,10 @@ export 'src/editors/built_in/string_editor.dart' show StringEditor;
 export 'src/editors/built_in/integer_editor.dart' show IntegerEditor;
 export 'src/editors/built_in/number_editor.dart' show NumberEditor;
 export 'src/editors/built_in/boolean_editor.dart' show BooleanEditor;
+
+// Editor integration (Phase 4)
+export 'src/integration/yaml_standalone_integration.dart'
+    show YamlStandaloneIntegration, YamlEditorDefaults;
 export 'src/editors/built_in/null_editor.dart' show NullEditor;
 export 'src/editors/built_in/enum_editor.dart' show EnumEditor;
 export 'src/editors/built_in/built_in_editor_factory.dart'
