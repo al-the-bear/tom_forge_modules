@@ -6,6 +6,12 @@ import '../defaults/default_system_state.dart';
 
 /// A VS Code-style menu bar with File | Edit | View | Help menus.
 class ForgeMenuBar extends StatelessWidget {
+  static const String _actionFileSave = 'file.save';
+  static const String _actionFileSaveAll = 'file.saveAll';
+  static const String _actionFileClose = 'file.close';
+  static const String _actionEditUndo = 'edit.undo';
+  static const String _actionEditRedo = 'edit.redo';
+
   final DefaultShellApi shellApi;
   final VoidCallback onCommandPalette;
   final VoidCallback? onSettings;
@@ -47,18 +53,18 @@ class ForgeMenuBar extends StatelessWidget {
               _MenuItem(
                 label: 'Save',
                 shortcut: '⌘S',
-                onTap: () => _executeAction('file.save'),
+                onTap: () => _executeAction(_actionFileSave),
               ),
               _MenuItem(
                 label: 'Save All',
                 shortcut: '⇧⌘S',
-                onTap: () => _executeAction('file.saveAll'),
+                onTap: () => _executeAction(_actionFileSaveAll),
               ),
               const _MenuDivider(),
               _MenuItem(
                 label: 'Close Editor',
                 shortcut: '⌘W',
-                onTap: () => _showNotImplemented(context, 'Close Editor'),
+                onTap: () => _executeAction(_actionFileClose),
               ),
               const _MenuDivider(),
               _MenuItem(
@@ -75,12 +81,12 @@ class ForgeMenuBar extends StatelessWidget {
               _MenuItem(
                 label: 'Undo',
                 shortcut: '⌘Z',
-                onTap: () => _showNotImplemented(context, 'Undo'),
+                onTap: () => _executeAction(_actionEditUndo),
               ),
               _MenuItem(
                 label: 'Redo',
                 shortcut: '⇧⌘Z',
-                onTap: () => _showNotImplemented(context, 'Redo'),
+                onTap: () => _executeAction(_actionEditRedo),
               ),
               const _MenuDivider(),
               _MenuItem(
@@ -181,12 +187,17 @@ class ForgeMenuBar extends StatelessWidget {
   }
 
   void _executeAction(String actionId) {
+    if (shellApi.executeAction(actionId)) {
+      return;
+    }
+
     for (final module in shellApi.modules.allModules) {
       final action = module.actions.where((a) => a.id == actionId).firstOrNull;
-      if (action != null) {
-        // Actions need a context but we don't have one here
-        return;
+      if (action == null || !action.isEnabled()) {
+        continue;
       }
+      action.execute({});
+      return;
     }
   }
 

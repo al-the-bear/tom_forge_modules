@@ -14,6 +14,16 @@ Success means:
 2. New modules/editors can be integrated there with low risk.
 3. Promotion to `tom_forge_app` is a controlled copy/move, not a redesign.
 
+## 1.1 Implementation Status
+
+| Phase | Status | Notes |
+| --- | --- | --- |
+| Phase A | Completed (2026-03-26) | Implemented with tests in `tom_forge_ui`; staging package validation blocked by local SDK mismatch (tracked in session todo `wt-2`) |
+| Phase B | Not Started | Planned |
+| Phase C | Not Started | Planned |
+| Phase D | Not Started | Planned |
+| Phase E | Not Started | Planned |
+
 ## 2. Strategy: Staged Promotion Model
 
 ## 2.1 Runtime Roles
@@ -67,6 +77,8 @@ Current gaps for near-production readiness:
 
 Objective: make `tom_forge_ui_test` almost production for current scope.
 
+Status timeline: In-Progress -> Completed (2026-03-26)
+
 Primary files:
 
 1. `tom_forge_ui_test/lib/main.dart`
@@ -85,6 +97,18 @@ Acceptance criteria:
 1. App boots to shell without placeholder-only critical paths.
 2. Core actions work from menu, command palette, and shortcuts.
 3. Opening `.md`, `.dart`, `.yaml`, `.yml` consistently selects correct editor.
+
+Implementation evidence:
+
+1. Added test-first coverage for menu command execution in
+   `tom_forge_ui/test/widgets/forge_menu_bar_test.dart`.
+2. Implemented real action dispatch for menu commands (`file.save`,
+   `file.saveAll`, `file.close`, `edit.undo`, `edit.redo`) in
+   `tom_forge_ui/lib/src/widgets/forge_menu_bar.dart`.
+3. Confirmed tests pass in `tom_forge_ui` after implementation.
+4. `tom_forge_ui_test` full validation is currently blocked by local SDK
+   mismatch (`^3.11.1` required, local Dart `3.11.0`), tracked as session todo
+   `wt-2`.
 
 ## Phase B: Shell UX and Command Reliability (tom_forge_ui)
 
