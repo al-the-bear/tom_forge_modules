@@ -1,0 +1,194 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:tom_forge_ui/tom_forge_ui.dart';
+
+void main() {
+  test('staging cycle opens .txt file with an editor', () async {
+    final harness = _PhaseDHarness.create();
+
+    harness.openTxtFile();
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+
+    final active = harness.shell.systemState.activeEditor;
+    expect(active, isNotNull);
+    expect(active, isA<ForgeMdEditor>());
+    expect(active!.uri.path, endsWith('notes.txt'));
+  });
+
+  testWidgets('command palette executes file.save in phase d cycle', (
+    WidgetTester tester,
+  ) async {
+    final harness = _PhaseDHarness.create();
+
+    await tester.pumpWidget(harness.buildPaletteApp());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save').first);
+    await tester.pumpAndSettle();
+
+    expect(harness.module.executedActionIds, contains('file.save'));
+  });
+
+  testWidgets('shortcut executes file.save in phase d cycle', (
+    WidgetTester tester,
+  ) async {
+    final harness = _PhaseDHarness.create();
+
+    await tester.pumpWidget(harness.buildShellApp());
+    await tester.pumpAndSettle();
+
+    final usesMeta = defaultTargetPlatform == TargetPlatform.macOS;
+    final modifier =
+        usesMeta ? LogicalKeyboardKey.metaLeft : LogicalKeyboardKey.controlLeft;
+    await tester.sendKeyDownEvent(modifier);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.keyS);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.keyS);
+    await tester.sendKeyUpEvent(modifier);
+    await tester.pumpAndSettle();
+
+    expect(harness.module.executedActionIds, contains('file.save'));
+  });
+
+  testWidgets('menu executes file.save in phase d cycle', (
+    WidgetTester tester,
+  ) async {
+    final harness = _PhaseDHarness.create();
+
+    await tester.pumpWidget(harness.buildMenuApp());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('File'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save').last);
+    await tester.pumpAndSettle();
+
+    expect(harness.module.executedActionIds, contains('file.save'));
+  });
+}
+
+class _PhaseDHarness {
+  _PhaseDHarness._({
+    required this.shell,
+    required this.module,
+    required this.application,
+  });
+
+  final DefaultShellApi shell;
+  final _PhaseDActionModule module;
+  final ForgeApplication application;
+
+  static _PhaseDHarness create() {
+    final navigatorKey = GlobalKey<NavigatorState>();
+    final shell = DefaultShellApi.withDefaults(
+      fileSystemSeed: const {
+        '/notes.txt': 'Phase D text document',
+      },
+      appName: 'Phase D Harness',
+      navigatorKey: navigatorKey,
+    );
+
+    final shellModule = TomForgeShellModule();
+    shellModule.activate(shell);
+
+    final module = _PhaseDActionModule(shell: shell);
+    module.activate(shell);
+
+    final registry = shell.modules as DefaultModuleRegistry;
+    registry.register(shellModule);
+    registry.register(module);
+
+    final application = ForgeApplication(
+      title: 'Phase D Harness',
+      layout: const ApplicationLayout(
+        leftPanel: PanelConfig(initialSize: 250, tabs: []),
+        rightPanel: PanelConfig(initialSize: 220, tabs: []),
+        bottomPanel: PanelConfig(initialSize: 180, tabs: []),
+        middlePanels: [MiddlePanelConfig()],
+      ),
+    );
+
+    return _PhaseDHarness._(
+      shell: shell,
+      module: module,
+      application: application,
+    );
+  }
+
+  void openTxtFile() {
+    shell.layout.openFile(Uri.parse('file:///notes.txt'));
+  }
+
+  Widget buildShellApp() {
+    return MaterialApp(
+      home: ForgeShellScaffold(
+        shell: shell,
+        application: application,
+        layoutController: shell.layout as DefaultLayoutController,
+        systemState: shell.systemState as DefaultSystemState,
+        statusBarController: shell.statusBar,
+        notificationManager: shell.notifications as DefaultNotificationManager,
+      ),
+    );
+  }
+
+  Widget buildPaletteApp() {
+    return MaterialApp(
+      home: Scaffold(
+        body: ForgeCommandPalette(
+          shellApi: shell,
+          onDismiss: () {},
+        ),
+      ),
+    );
+  }
+
+  Widget buildMenuApp() {
+    return MaterialApp(
+      home: Scaffold(
+        body: ForgeMenuBar(
+          shellApi: shell,
+          onCommandPalette: () {},
+        ),
+      ),
+    );
+  }
+}
+
+class _PhaseDActionModule extends ForgeModule {
+  _PhaseDActionModule({required this.shell});
+
+  final ForgeShellApi shell;
+  final List<String> executedActionIds = <String>[];
+
+  @override
+  String get displayName => 'Phase D Action Module';
+
+  @override
+  void activate(ForgeShellApi shell) {}
+
+  @override
+  void deactivate() {}
+
+  @override
+  List<ForgeEditor> get editors => const [];
+
+  @override
+  List<ForgeView> get views => const [];
+
+  @override
+  List<ForgeAction> get actions => <ForgeAction>[
+        ForgeAction(
+          id: 'file.save',
+          label: 'Save',
+          execute: (_) async {
+            executedActionIds.add('file.save');
+            return null;
+          },
+          isEnabled: () => true,
+          isVisible: () => true,
+        ),
+      ];
+
+  @override
+  List<ForgeShortcutBinding> get shortcuts => const [];
+}

@@ -19,6 +19,12 @@ import 'default_system_state.dart';
 /// Manages panel visibility/sizes and editor tab lifecycle.
 class DefaultLayoutController implements ForgeLayoutController {
   static bool debugEnabled = false;
+  static const String _extMarkdown = 'md';
+  static const String _extMarkdownAlt = 'markdown';
+  static const String _extDart = 'dart';
+  static const String _extYaml = 'yaml';
+  static const String _extYml = 'yml';
+  static const String _extText = 'txt';
 
   final DefaultSystemState _systemState;
   final ForgeFileSystem _fileSystem;
@@ -236,21 +242,27 @@ class DefaultLayoutController implements ForgeLayoutController {
     if (ownerModule == null) return null;
 
     switch (ext) {
-      case 'md':
-      case 'markdown':
+      case _extMarkdown:
+      case _extMarkdownAlt:
         final controller = MdEditorController(
           initialMarkdown: content,
           uri: uri,
         );
         return ForgeMdEditor(controller: controller, module: ownerModule);
-      case 'dart':
+      case _extText:
+        final controller = MdEditorController(
+          initialMarkdown: content,
+          uri: uri,
+        );
+        return ForgeMdEditor(controller: controller, module: ownerModule);
+      case _extDart:
         final controller = DartCodeController(
           initialCode: content,
           uri: uri,
         );
         return ForgeDartEditor(controller: controller, module: ownerModule);
-      case 'yaml':
-      case 'yml':
+      case _extYaml:
+      case _extYml:
         final controller = YamlEditorController(
           initialYaml: content,
           uri: uri,

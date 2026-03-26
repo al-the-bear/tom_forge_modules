@@ -21,7 +21,7 @@ Success means:
 | Phase A | Completed (2026-03-26) | Implemented and re-verified in both `tom_forge_ui` and `tom_forge_ui_test` with analyzer/tests passing (latest strict pass included integration-path test coverage) |
 | Phase B | Completed (2026-03-26) | Implemented and verified in `tom_forge_ui` and `tom_forge_ui_test`; command source unification, effective shortcut display, and platform-aware shell shortcuts are active |
 | Phase C | Completed (2026-03-26, final completion-audited) | Implemented and strictly re-verified; final full completion audit passed with analyzer/tests green in framework and staging app |
-| Phase D | Not Started | Planned |
+| Phase D | Completed (2026-03-26, first cycle) | First expansion cycle delivered in staging with .txt file-type support, parity tests for menu/palette/shortcut command paths, and strict analyzer/test gates passing |
 | Phase E | Not Started | Planned |
 
 ## 2. Strategy: Staged Promotion Model
@@ -49,8 +49,8 @@ Already in place:
 
 Current gaps for near-production readiness:
 
-1. Expansion-cycle validation for additional modules/editors (Phase D) is not
-   started yet.
+1. Additional expansion cycles for more modules/editors can continue under
+   Phase D as needed.
 2. Promotion package (`tom_forge_app`) remains template-level until staged
    promotion work (Phase E).
 
@@ -220,6 +220,8 @@ Verification results (latest strict pass):
 
 Objective: integrate additional modules/editors while staying near-production.
 
+Status timeline: In-Progress -> Completed (2026-03-26 first cycle)
+
 For each new module/editor:
 
 1. Add module to staging bootstrap.
@@ -233,6 +235,26 @@ Gate per cycle:
 1. No analyzer errors in affected packages.
 2. No command regression in menu/palette/shortcut matrix.
 3. No editor opening regression by file type.
+
+Implementation evidence (first cycle):
+
+1. Added `.txt` file-type editor dispatch in
+   `tom_forge_ui/lib/src/defaults/default_layout_controller.dart` by routing
+   plain-text files through the markdown-based editor adapter path.
+2. Added first-cycle Phase D integration tests in
+   `tom_forge_ui/test/widgets/phase_d_expansion_cycle_test.dart` covering:
+   1. file-type opening behavior for `.txt`
+   2. command execution parity for `file.save` through command palette,
+      keyboard shortcut, and menu paths
+3. Added staging workspace sample text file in
+   `tom_forge_ui_test/lib/src/workspace_seed.dart` and added staging
+   regression test coverage in `tom_forge_ui_test/test/widget_test.dart` for
+   `.txt` file opening.
+
+Verification results (latest strict pass):
+
+1. `tom_forge_ui`: `dart analyze` clean, `flutter test` 58 passed.
+2. `tom_forge_ui_test`: `flutter analyze` clean, `flutter test` 2 passed.
 
 ## Phase E: Promotion to tom_forge_app
 
@@ -317,10 +339,9 @@ This stage is done when:
 
 ## 9. Immediate Next Steps
 
-1. Start Phase D by integrating the next module/editor set in staging only.
-2. Add Phase D integration tests for menu/palette/shortcut parity and
-   file-type opening behavior for the new module/editor set.
-3. Execute a full manual matrix pass including persistence and platform
-   shortcut validation after the new module/editor integration.
-4. Prepare a promotion packet for `tom_forge_app` only after Phase D gates are
-   green.
+1. Execute another Phase D expansion cycle for the next module/editor set in
+   staging.
+2. Run the manual matrix (file-type opening, menu/palette/shortcut parity,
+   persistence, panel focus) after each new cycle.
+3. Start Phase E promotion planning only after required expansion cycles are
+   accepted.
