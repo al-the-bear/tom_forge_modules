@@ -58,10 +58,6 @@ class ForgeAction {
   /// Whether this action should appear in context menus.
   final bool showInContextMenu;
 
-  /// Legacy shortcut binding (deprecated, use [defaultShortcut]).
-  @Deprecated('Use defaultShortcut instead')
-  final ForgeShortcutBinding? shortcut;
-
   /// Optional undo handler. Called with the return value from [execute].
   final Future<void> Function(Object undoInfo)? undo;
 
@@ -77,7 +73,6 @@ class ForgeAction {
     required this.isVisible,
     this.defaultShortcut,
     this.showInContextMenu = false,
-    @Deprecated('Use defaultShortcut instead') this.shortcut,
     this.undo,
   });
 

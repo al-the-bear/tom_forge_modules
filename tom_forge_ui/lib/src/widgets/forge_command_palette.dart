@@ -47,7 +47,7 @@ class _ForgeCommandPaletteState extends State<ForgeCommandPalette> {
         commands.add(_CommandItem(
           id: action.id,
           label: action.label,
-          shortcut: _formatShortcut(action.shortcut),
+          shortcut: _formatShortcut(action.defaultShortcut),
           icon: action.icon ?? Icons.play_arrow,
           onExecute: () => action.execute({}),
         ));
@@ -88,10 +88,9 @@ class _ForgeCommandPaletteState extends State<ForgeCommandPalette> {
     _allCommands = commands;
   }
 
-  String? _formatShortcut(ForgeShortcutBinding? binding) {
-    if (binding == null) return null;
+  String? _formatShortcut(ForgeShortcutKey? key) {
+    if (key == null) return null;
 
-    final key = binding.key;
     final parts = <String>[];
     if (key.primaryModifier) parts.add('⌘');
     if (key.alt) parts.add('Alt');
