@@ -79,14 +79,19 @@ export 'src/defaults/default_status_bar_controller.dart';
 export 'src/defaults/default_system_state.dart';
 export 'src/defaults/default_undo_manager.dart';
 export 'src/defaults/memory_file_system.dart';
+export 'src/defaults/real_file_system.dart';
+export 'src/defaults/real_search_manager.dart';
 export 'src/defaults/stub_services.dart';
 
 // ── Widgets ──
+export 'src/widgets/forge_command_palette.dart';
 export 'src/widgets/forge_editor_tab_bar.dart';
+export 'src/widgets/forge_menu_bar.dart';
 export 'src/widgets/forge_notification_overlay.dart';
 export 'src/widgets/forge_panel_widget.dart';
 export 'src/widgets/forge_shell_scaffold.dart';
 export 'src/widgets/forge_status_bar_widget.dart';
+export 'src/widgets/workspace_folder_selector.dart';
 
 // ── Views ──
 export 'src/views/forge_file_explorer_view.dart';

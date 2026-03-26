@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:tom_forge_core/tom_forge_core.dart';
 
 import '../components/forge_editor.dart';
 import '../defaults/default_layout_controller.dart';
-import '../defaults/default_notification_manager.dart';
+import '../defaults/default_shell_api.dart';
 import '../defaults/default_system_state.dart';
 import '../model/forge_application.dart';
 import '../shell/forge_layout_controller.dart';
-import '../shell/forge_shell_api.dart';
 import '../shell/forge_status_bar_controller.dart';
+import 'forge_command_palette.dart';
 import 'forge_editor_tab_bar.dart';
+import 'forge_menu_bar.dart';
 import 'forge_notification_overlay.dart';
 import 'forge_panel_widget.dart';
 import 'forge_status_bar_widget.dart';
@@ -78,7 +81,7 @@ class ForgeDimensions {
 ///   StatusBar
 /// ```
 class ForgeShellScaffold extends StatefulWidget {
-  final ForgeShellApi shell;
+  final DefaultShellApi shell;
   final ForgeApplication application;
   final DefaultLayoutController layoutController;
   final DefaultSystemState systemState;
@@ -101,24 +104,140 @@ class ForgeShellScaffold extends StatefulWidget {
 
 class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   DefaultLayoutController get _layout => widget.layoutController;
+  bool _showCommandPalette = false;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      child: Stack(
-        children: [
-          Column(
-            children: [
-              _buildTitleBar(context),
-              // TODO: Add menu bar
-              Expanded(child: _buildMainArea(context)),
-              ForgeStatusBarWidget(controller: widget.statusBarController),
-            ],
+    return Shortcuts(
+      shortcuts: _buildShortcuts(),
+      child: Actions(
+        actions: _buildActions(),
+        child: Focus(
+          autofocus: true,
+          child: Material(
+            child: Stack(
+              children: [
+                Column(
+                  children: [
+                    _buildTitleBar(context),
+                    ForgeMenuBar(
+                      shellApi: widget.shell,
+                      onCommandPalette: _toggleCommandPalette,
+                    ),
+                    Expanded(child: _buildMainArea(context)),
+                    ForgeStatusBarWidget(controller: widget.statusBarController),
+                  ],
+                ),
+                ForgeNotificationOverlay(manager: widget.notificationManager),
+                if (_showCommandPalette)
+                  ForgeCommandPalette(
+                    shellApi: widget.shell,
+                    onDismiss: _toggleCommandPalette,
+                  ),
+              ],
+            ),
           ),
-          ForgeNotificationOverlay(manager: widget.notificationManager),
-        ],
+        ),
       ),
     );
+  }
+
+  Map<ShortcutActivator, Intent> _buildShortcuts() {
+    return {
+      // Command Palette: Cmd+P
+      const SingleActivator(LogicalKeyboardKey.keyP, meta: true):
+          const _CommandPaletteIntent(),
+      // Toggle Left Panel: Cmd+L
+      const SingleActivator(LogicalKeyboardKey.keyL, meta: true):
+          const _ToggleLeftPanelIntent(),
+      // Toggle Right Panel: Cmd+R
+      const SingleActivator(LogicalKeyboardKey.keyR, meta: true):
+          const _ToggleRightPanelIntent(),
+      // Focus Explorer: Cmd+1
+      const SingleActivator(LogicalKeyboardKey.digit1, meta: true):
+          const _FocusLeftPanelIntent(),
+      // Focus Editor: Cmd+2
+      const SingleActivator(LogicalKeyboardKey.digit2, meta: true):
+          const _FocusCenterIntent(),
+      // Focus Properties: Cmd+3
+      const SingleActivator(LogicalKeyboardKey.digit3, meta: true):
+          const _FocusRightPanelIntent(),
+      // Focus Bottom Panel: Cmd+4
+      const SingleActivator(LogicalKeyboardKey.digit4, meta: true):
+          const _FocusBottomPanelIntent(),
+      // Save: Cmd+S
+      const SingleActivator(LogicalKeyboardKey.keyS, meta: true):
+          const _SaveIntent(),
+    };
+  }
+
+  Map<Type, Action<Intent>> _buildActions() {
+    return {
+      _CommandPaletteIntent: CallbackAction<_CommandPaletteIntent>(
+        onInvoke: (_) {
+          _toggleCommandPalette();
+          return null;
+        },
+      ),
+      _ToggleLeftPanelIntent: CallbackAction<_ToggleLeftPanelIntent>(
+        onInvoke: (_) {
+          widget.shell.layout.togglePanel(ForgePanelLocation.left);
+          return null;
+        },
+      ),
+      _ToggleRightPanelIntent: CallbackAction<_ToggleRightPanelIntent>(
+        onInvoke: (_) {
+          widget.shell.layout.togglePanel(ForgePanelLocation.right);
+          return null;
+        },
+      ),
+      _FocusLeftPanelIntent: CallbackAction<_FocusLeftPanelIntent>(
+        onInvoke: (_) {
+          widget.systemState.setFocusedPanelLocation(ForgePanelLocation.left);
+          return null;
+        },
+      ),
+      _FocusCenterIntent: CallbackAction<_FocusCenterIntent>(
+        onInvoke: (_) {
+          widget.systemState.setFocusedPanelLocation(ForgePanelLocation.middle);
+          return null;
+        },
+      ),
+      _FocusRightPanelIntent: CallbackAction<_FocusRightPanelIntent>(
+        onInvoke: (_) {
+          widget.systemState.setFocusedPanelLocation(ForgePanelLocation.right);
+          return null;
+        },
+      ),
+      _FocusBottomPanelIntent: CallbackAction<_FocusBottomPanelIntent>(
+        onInvoke: (_) {
+          widget.systemState.setFocusedPanelLocation(ForgePanelLocation.bottom);
+          return null;
+        },
+      ),
+      _SaveIntent: CallbackAction<_SaveIntent>(
+        onInvoke: (_) {
+          _executeSave();
+          return null;
+        },
+      ),
+    };
+  }
+
+  void _toggleCommandPalette() {
+    setState(() => _showCommandPalette = !_showCommandPalette);
+  }
+
+  void _executeSave() {
+    for (final module in widget.shell.modules.allModules) {
+      final action = module.actions
+          .where((a) => a.id == 'file.save' || a.id == 'file.saveAll')
+          .firstOrNull;
+      if (action != null) {
+        action.execute({});
+        return;
+      }
+    }
   }
 
   Widget _buildTitleBar(BuildContext context) {
@@ -359,4 +478,38 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       ),
     );
   }
+}
+
+// ── Intents for keyboard shortcuts ──
+
+class _CommandPaletteIntent extends Intent {
+  const _CommandPaletteIntent();
+}
+
+class _ToggleLeftPanelIntent extends Intent {
+  const _ToggleLeftPanelIntent();
+}
+
+class _ToggleRightPanelIntent extends Intent {
+  const _ToggleRightPanelIntent();
+}
+
+class _FocusLeftPanelIntent extends Intent {
+  const _FocusLeftPanelIntent();
+}
+
+class _FocusCenterIntent extends Intent {
+  const _FocusCenterIntent();
+}
+
+class _FocusRightPanelIntent extends Intent {
+  const _FocusRightPanelIntent();
+}
+
+class _FocusBottomPanelIntent extends Intent {
+  const _FocusBottomPanelIntent();
+}
+
+class _SaveIntent extends Intent {
+  const _SaveIntent();
 }

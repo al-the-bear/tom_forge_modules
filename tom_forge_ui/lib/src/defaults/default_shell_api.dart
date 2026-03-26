@@ -38,6 +38,8 @@ import 'default_status_bar_controller.dart';
 import 'default_system_state.dart';
 import 'default_undo_manager.dart';
 import 'memory_file_system.dart';
+import 'real_file_system.dart';
+import 'real_search_manager.dart';
 import 'stub_services.dart';
 
 /// Default implementation of [ForgeShellApi].
@@ -143,12 +145,29 @@ class DefaultShellApi implements ForgeShellApi {
     required GlobalKey<NavigatorState> navigatorKey,
   }) {
     final memFs = MemoryFileSystem(seed: fileSystemSeed);
+    return DefaultShellApi.withDefaultsAndFileSystem(
+      fileSystem: memFs,
+      appName: appName,
+      navigatorKey: navigatorKey,
+    );
+  }
 
+  /// Creates a [DefaultShellApi] with a custom [ForgeFileSystem].
+  ///
+  /// Use this factory when you need a real file system or custom implementation.
+  /// [fileSystem] is the file system to use.
+  /// [appName] is used as the application config name.
+  /// [navigatorKey] enables dialog routing.
+  factory DefaultShellApi.withDefaultsAndFileSystem({
+    required ForgeFileSystem fileSystem,
+    required String appName,
+    required GlobalKey<NavigatorState> navigatorKey,
+  }) {
     final systemState = DefaultSystemState();
     final moduleRegistry = DefaultModuleRegistry();
     final layoutController = DefaultLayoutController(
       systemState: systemState,
-      fileSystem: memFs,
+      fileSystem: fileSystem,
       moduleRegistry: moduleRegistry,
     );
     final statusBarController = DefaultStatusBarController(
@@ -164,7 +183,18 @@ class DefaultShellApi implements ForgeShellApi {
     final dialogManager = DefaultDialogManager();
     final undoManager = DefaultUndoManager();
     final clipboardService = DefaultClipboard();
-    final searchManager = DefaultSearchManager(fileSystem: memFs);
+
+    // Choose search manager based on file system type
+    ForgeSearchManager searchManager;
+    if (fileSystem is MemoryFileSystem) {
+      searchManager = DefaultSearchManager(fileSystem: fileSystem);
+    } else if (fileSystem is RealFileSystem) {
+      searchManager = RealSearchManager(rootDirectory: fileSystem.rootDirectory);
+    } else {
+      // Fallback: create an empty MemoryFileSystem for search
+      searchManager = DefaultSearchManager(fileSystem: MemoryFileSystem(seed: {}));
+    }
+
     final outlineManager = DefaultOutlineManager();
     final terminalManager = DefaultTerminalManager();
     final storageService = DefaultModuleStorage();
@@ -177,7 +207,7 @@ class DefaultShellApi implements ForgeShellApi {
       systemState: systemState,
       layout: layoutController,
       statusBar: statusBarController,
-      fileSystem: memFs,
+      fileSystem: fileSystem,
       modules: moduleRegistry,
       output: outputManager,
       diagnostics: diagnosticManager,

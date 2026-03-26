@@ -276,6 +276,20 @@ class DefaultSystemState implements ForgeSystemState {
     _activeMiddlePanelIndex.value = index;
   }
 
+  /// Sets the focused panel location, ensuring it is visible.
+  void setFocusedPanelLocation(ForgePanelLocation location) {
+    // Update visible panels to include this location if not visible
+    if (!_visiblePanels.value.contains(location)) {
+      _visiblePanels.value = {..._visiblePanels.value, location};
+      _onLayoutChanged.add(LayoutChangeEvent(
+        type: LayoutChangeType.panelOpened,
+        panel: location,
+      ));
+    }
+    // Clear component focus when moving to a panel
+    _focusedComponent.value = null;
+  }
+
   void setWorkspaceRootPath(String path) {
     _workspaceRootPath = path;
   }
