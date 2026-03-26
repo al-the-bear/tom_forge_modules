@@ -20,7 +20,7 @@ Success means:
 | --- | --- | --- |
 | Phase A | Completed (2026-03-26) | Implemented and re-verified in both `tom_forge_ui` and `tom_forge_ui_test` with analyzer/tests passing (latest strict pass included integration-path test coverage) |
 | Phase B | Completed (2026-03-26) | Implemented and verified in `tom_forge_ui` and `tom_forge_ui_test`; command source unification, effective shortcut display, and platform-aware shell shortcuts are active |
-| Phase C | Completed (2026-03-26, strict re-verified) | Implemented and strictly re-verified; per-editor text settings persistence, startup hydration, and runtime synchronization validated across shell and staging app |
+| Phase C | Completed (2026-03-26, final completion-audited) | Implemented and strictly re-verified; final full completion audit passed with analyzer/tests green in framework and staging app |
 | Phase D | Not Started | Planned |
 | Phase E | Not Started | Planned |
 
@@ -169,7 +169,7 @@ Verification results (latest strict pass):
 
 Objective: make staging behavior durable across runs.
 
-Status timeline: In-Progress -> Completed (2026-03-26)
+Status timeline: In-Progress -> Completed (2026-03-26 final completion audit)
 
 Primary files:
 
