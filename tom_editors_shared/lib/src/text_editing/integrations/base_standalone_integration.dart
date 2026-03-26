@@ -44,6 +44,17 @@ class BaseStandaloneIntegration extends ForgeEditorIntegration
   /// Maximum undo history size.
   final int maxUndoStackSize;
 
+  /// Whether to automatically track text changes for undo/redo.
+  ///
+  /// When `true` (default), every text change detected from the controller
+  /// is pushed to the undo stack automatically.
+  ///
+  /// When `false`, the undo stack is not populated automatically. The host
+  /// editor must manage its own undo mechanism (e.g. debounced saving) and
+  /// register custom undo/redo handlers via [registerAction].
+  /// Text and selection change listeners are still notified regardless.
+  final bool enableAutoUndoTracking;
+
   // State
   ForgeTextSettings _textSettings;
   final List<TextUndoEntry> _undoStack = [];
@@ -63,6 +74,7 @@ class BaseStandaloneIntegration extends ForgeEditorIntegration
     required this.focusNode,
     ForgeTextSettings? textSettings,
     this.maxUndoStackSize = 100,
+    this.enableAutoUndoTracking = true,
   }) : _textSettings = textSettings ?? const ForgeTextSettings() {
     _previousText = controller.text;
     _previousSelection = controller.selection;
@@ -125,13 +137,15 @@ class BaseStandaloneIntegration extends ForgeEditorIntegration
     if (newText != _previousText) {
       _log('Text changed: ${_previousText.length} -> ${newText.length} chars');
 
-      // Add to undo stack
-      _addUndoEntry(TextUndoEntry(
-        oldText: _previousText,
-        newText: newText,
-        oldSelection: _previousSelection,
-        newSelection: newSelection,
-      ));
+      // Add to undo stack (only if auto-tracking is enabled)
+      if (enableAutoUndoTracking) {
+        _addUndoEntry(TextUndoEntry(
+          oldText: _previousText,
+          newText: newText,
+          oldSelection: _previousSelection,
+          newSelection: newSelection,
+        ));
+      }
 
       _previousText = newText;
 

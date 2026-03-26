@@ -36,6 +36,10 @@ library tom_dart_editor;
 export 'src/dart_code_editor.dart'
     show DartCodeEditor, DartCodeController, DartEditorSettings, CodeError;
 
+// Forge editor integration
+export 'src/dart_text_context.dart' show DartTextContext;
+export 'src/editor_trail.dart' show kDartEditorDebug, trailEvent;
+
 // Theme system
 export 'src/editor_theme.dart'
     show

@@ -88,6 +88,20 @@ abstract class ForgeEditorIntegration {
   /// Inserts text at the current cursor position (or replaces selection).
   void insertText(String text);
 
+  /// Registers an action [handler] for the given [actionId].
+  ///
+  /// If [isEnabled] is provided, it controls whether the action can be
+  /// invoked.  Re-registering the same [actionId] replaces the previous
+  /// handler.
+  void registerAction(
+    String actionId,
+    VoidCallback handler, {
+    bool Function()? isEnabled,
+  });
+
+  /// Unregisters the action with the given [actionId].
+  void unregisterAction(String actionId);
+
   /// Disposes resources held by this integration.
   void dispose();
 }
@@ -101,6 +115,7 @@ mixin StandardActionsMixin on ForgeEditorIntegration {
   final Map<String, bool Function()> _actionEnabledQueries = {};
 
   /// Register a standard action with its handler and enabled query.
+  @override
   void registerAction(
     String actionId,
     VoidCallback handler, {
@@ -114,6 +129,7 @@ mixin StandardActionsMixin on ForgeEditorIntegration {
   }
 
   /// Unregister an action.
+  @override
   void unregisterAction(String actionId) {
     _log('Unregistering action: $actionId');
     _actionHandlers.remove(actionId);

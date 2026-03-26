@@ -1,5 +1,9 @@
 /// Dart code editor widget v4 with syntax highlighting, bracket matching,
 /// error tooltips, and code completion.
+///
+/// Supports [ForgeEditorIntegration] for unified action handling and shell
+/// integration. When no integration is provided, a
+/// [DartStandaloneIntegration] is created automatically.
 library;
 
 import 'dart:async';
@@ -7,11 +11,13 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:tom_editors_shared/tom_editors_shared.dart';
 
+import 'dart_text_context.dart';
 import 'editor_theme.dart';
+import 'editor_trail.dart';
 import 'syntax_highlighter.dart';
 import 'completion_provider.dart';
-import 'completion_shortcuts.dart';
 import 'editor_diagnostics_utils.dart';
 
 export 'editor_theme.dart';
@@ -548,6 +554,10 @@ class DartEditorSettings {
 
 /// A customizable Dart code editor with syntax highlighting, bracket matching,
 /// error display, and code completion.
+///
+/// Supports integration with the Forge editor framework via
+/// [ForgeEditorIntegration]. When [integration] is not provided, a default
+/// [DartStandaloneIntegration] is created internally.
 class DartCodeEditor extends StatefulWidget {
   final DartCodeController controller;
   final List<CodeError> errors;
@@ -581,6 +591,16 @@ class DartCodeEditor extends StatefulWidget {
   /// Called when the visible line range changes due to scrolling.
   final ValueChanged<({int startLine, int endLine})>? onVisibleRangeChanged;
 
+  /// Optional Forge editor integration for unified action handling.
+  ///
+  /// When provided (e.g. [ShellEditorIntegration] from the shell), the editor
+  /// delegates action registration, shortcut resolution, and context reporting
+  /// to this integration.
+  ///
+  /// When `null`, a [DartStandaloneIntegration] is created automatically in
+  /// [initState] with sensible defaults.
+  final ForgeEditorIntegration? integration;
+
   DartCodeEditor({
     super.key,
     required this.controller,
@@ -595,6 +615,7 @@ class DartCodeEditor extends StatefulWidget {
     this.onVisibleRangeChanged,
     this.settings = const DartEditorSettings(),
     this.onSettingsChanged,
+    this.integration,
     DartEditorTheme? theme,
   }) : theme = theme ?? DartEditorTheme.dark();
 
@@ -608,6 +629,12 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
   late final ScrollController _gutterScrollController;
   late final FocusNode _focusNode;
   OverlayEntry? _tooltipOverlay;
+
+  // Forge integration
+  late final ForgeEditorIntegration _integration;
+  late final DartTextContext _textContext;
+  late final bool _ownsIntegration;
+  Map<ShortcutActivator, Intent> _shortcuts = {};
 
   // Completion state
   OverlayEntry? _completionOverlay;
@@ -635,6 +662,9 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
   // Parameter help state
   OverlayEntry? _parameterHelpOverlay;
 
+  // Debug heartbeat timer
+  Timer? _heartbeatTimer;
+
   // Key for the editor text-area widget (Expanded below toolbar, right of gutter).
   // Used to convert local text coordinates to correct global screen coordinates.
   final _editorKey = GlobalKey();
@@ -645,6 +675,8 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
   @override
   void initState() {
     super.initState();
+    trailEvent('initState start');
+
     _settings = widget.settings;
     _textController = _HighlightingTextController(
       theme: widget.theme,
@@ -662,14 +694,152 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
     // Initialize undo state
     _lastSavedText = widget.controller.userCode;
     _previousText = widget.controller.userCode;
+
+    // Set up Forge integration
+    _setupIntegration();
+
+    // Debug heartbeat
+    if (kDartEditorDebug) {
+      dartEditorPrevFlutterErrorHandler = FlutterError.onError;
+      FlutterError.onError = (details) {
+        trailEvent('FlutterError: ${details.exceptionAsString()}');
+        dartEditorPrevFlutterErrorHandler?.call(details);
+      };
+      _heartbeatTimer = Timer.periodic(
+        const Duration(seconds: 1),
+        (_) => trailEvent('heartbeat'),
+      );
+    }
+
+    trailEvent('initState complete');
+  }
+
+  /// Set up the Forge editor integration and register all actions.
+  void _setupIntegration() {
+    trailEvent('_setupIntegration start');
+    try {
+      if (widget.integration != null) {
+        _integration = widget.integration!;
+        _ownsIntegration = false;
+      } else {
+        _integration = DartStandaloneIntegration(
+          controller: _textController,
+          focusNode: _focusNode,
+        );
+        _ownsIntegration = true;
+      }
+
+      // Create text context for state discovery
+      _textContext = DartTextContext(
+        codeController: widget.controller,
+        textController: _textController,
+        isDirtyFn: () => _textController.text != _lastSavedText,
+        canUndoFn: () => _undoStack.isNotEmpty,
+        canRedoFn: () => _redoStack.isNotEmpty,
+      );
+
+      // Register editor actions with the integration
+      _registerActions();
+
+      // Build the keyboard shortcut map
+      _buildShortcutMap();
+
+      trailEvent('_setupIntegration complete: '
+          '${_integration.supportedActions.length} actions, '
+          '${_shortcuts.length} shortcuts');
+    } catch (e) {
+      trailEvent('_setupIntegration error: $e');
+      rethrow;
+    }
+  }
+
+  /// Register standard editing and Dart-specific actions with the integration.
+  void _registerActions() {
+    // Override standard undo/redo to use the editor's debounced mechanism
+    _integration.registerAction(
+      StandardEditingActions.undoActionId,
+      _undo,
+      isEnabled: () => _undoStack.isNotEmpty,
+    );
+    _integration.registerAction(
+      StandardEditingActions.redoActionId,
+      _redo,
+      isEnabled: () => _redoStack.isNotEmpty,
+    );
+
+    // Dart-specific actions
+    _integration.registerAction(
+      DartEditorActions.triggerCompletionActionId,
+      _triggerCompletion,
+      isEnabled: () => _settings.autoCompleteEnabled && !widget.readOnly,
+    );
+    _integration.registerAction(
+      DartEditorActions.openReferenceActionId,
+      _showApiReference,
+      isEnabled: () => widget.onCompletionRequest != null,
+    );
+    _integration.registerAction(
+      DartEditorActions.toggleCommentActionId,
+      _toggleComment,
+      isEnabled: () => !widget.readOnly,
+    );
+    _integration.registerAction(
+      DartEditorActions.deleteLineActionId,
+      _deleteLine,
+      isEnabled: () => !widget.readOnly,
+    );
+    _integration.registerAction(
+      DartEditorActions.duplicateLineActionId,
+      _duplicateLine,
+      isEnabled: () => !widget.readOnly,
+    );
+    _integration.registerAction(
+      DartEditorActions.moveLineUpActionId,
+      _moveLineUp,
+      isEnabled: () => !widget.readOnly,
+    );
+    _integration.registerAction(
+      DartEditorActions.moveLineDownActionId,
+      _moveLineDown,
+      isEnabled: () => !widget.readOnly,
+    );
+  }
+
+  /// Build the keyboard shortcut map from registered actions.
+  void _buildShortcutMap() {
+    _shortcuts = <ShortcutActivator, Intent>{};
+
+    // Primary shortcuts from all registered actions
+    for (final action in _integration.supportedActions) {
+      final key = _integration.getShortcutForAction(action.id);
+      if (key != null) {
+        _shortcuts[key.toActivator()] = _DartEditorActionIntent(action.id);
+      }
+    }
+
+    // Alternative shortcuts for trigger completion
+    for (final altKey in DartEditorActions.triggerCompletionAltShortcuts) {
+      _shortcuts[altKey.toActivator()] =
+          const _DartEditorActionIntent(DartEditorActions.triggerCompletionActionId);
+    }
+
+    // Alternative redo shortcut (Ctrl+Y)
+    _shortcuts[StandardEditingActions.redoAltShortcut.toActivator()] =
+        const _DartEditorActionIntent(StandardEditingActions.redoActionId);
   }
 
   @override
   void dispose() {
+    trailEvent('dispose start');
     _undoDebounceTimer?.cancel();
+    _heartbeatTimer?.cancel();
     _scrollController.removeListener(_syncScroll);
     _textController.removeListener(_onSelectionChanged);
     _focusNode.removeListener(_onFocusChanged);
+    _textContext.dispose();
+    if (_ownsIntegration) {
+      _integration.dispose();
+    }
     _textController.dispose();
     _scrollController.dispose();
     _gutterScrollController.dispose();
@@ -679,6 +849,10 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
     _hideCompletion();
     _hideParameterHelp();
     _hideApiReference();
+    if (kDartEditorDebug) {
+      FlutterError.onError = dartEditorPrevFlutterErrorHandler;
+    }
+    trailEvent('dispose complete');
     super.dispose();
   }
 
@@ -1333,6 +1507,192 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
     // No longer needed for overlay cleanup, but keep for compatibility
   }
 
+  // ── Line manipulation actions ──────────────────────────────────────────
+
+  /// Toggle line comment (add/remove `// ` prefix) on the current line.
+  void _toggleComment() {
+    trailEvent('toggleComment');
+    try {
+      final code = _textController.text;
+      final cursor = _textController.selection.baseOffset;
+      if (cursor < 0 || cursor > code.length) return;
+
+      final lineRange = _getLineRange(code, cursor);
+      final line = code.substring(lineRange.start, lineRange.end);
+      final trimmed = line.trimLeft();
+      final indent = line.length - trimmed.length;
+
+      String newLine;
+      if (trimmed.startsWith('// ')) {
+        // Remove comment
+        newLine = line.substring(0, indent) + trimmed.substring(3);
+      } else if (trimmed.startsWith('//')) {
+        // Remove comment without trailing space
+        newLine = line.substring(0, indent) + trimmed.substring(2);
+      } else {
+        // Add comment
+        newLine = '${line.substring(0, indent)}// $trimmed';
+      }
+
+      final newCode = code.substring(0, lineRange.start) +
+          newLine +
+          code.substring(lineRange.end);
+      final cursorDelta = newLine.length - line.length;
+
+      _textController.text = newCode;
+      _textController.selection = TextSelection.collapsed(
+        offset: (cursor + cursorDelta).clamp(0, newCode.length),
+      );
+      widget.controller.userCode = newCode;
+      widget.onChanged?.call(newCode);
+      _scheduleUndoSave(newCode);
+    } catch (e) {
+      trailEvent('toggleComment error: $e');
+    }
+  }
+
+  /// Delete the current line.
+  void _deleteLine() {
+    trailEvent('deleteLine');
+    try {
+      final code = _textController.text;
+      final cursor = _textController.selection.baseOffset;
+      if (cursor < 0 || cursor > code.length) return;
+
+      final lineRange = _getLineRange(code, cursor);
+      // Include the newline after the line, or before if it's the last line
+      int deleteStart = lineRange.start;
+      int deleteEnd = lineRange.end;
+      if (deleteEnd < code.length && code[deleteEnd] == '\n') {
+        deleteEnd++; // Include trailing newline
+      } else if (deleteStart > 0 && code[deleteStart - 1] == '\n') {
+        deleteStart--; // Include leading newline for last line
+      }
+
+      final newCode =
+          code.substring(0, deleteStart) + code.substring(deleteEnd);
+      final newCursor = deleteStart.clamp(0, newCode.length);
+
+      _textController.text = newCode;
+      _textController.selection = TextSelection.collapsed(offset: newCursor);
+      widget.controller.userCode = newCode;
+      widget.onChanged?.call(newCode);
+      _scheduleUndoSave(newCode);
+    } catch (e) {
+      trailEvent('deleteLine error: $e');
+    }
+  }
+
+  /// Duplicate the current line below.
+  void _duplicateLine() {
+    trailEvent('duplicateLine');
+    try {
+      final code = _textController.text;
+      final cursor = _textController.selection.baseOffset;
+      if (cursor < 0 || cursor > code.length) return;
+
+      final lineRange = _getLineRange(code, cursor);
+      final line = code.substring(lineRange.start, lineRange.end);
+      final columnOffset = cursor - lineRange.start;
+
+      final newCode =
+          '${code.substring(0, lineRange.end)}\n$line${code.substring(lineRange.end)}';
+      // Place cursor on the duplicated line at the same column
+      final newCursor = (lineRange.end + 1 + columnOffset)
+          .clamp(0, newCode.length);
+
+      _textController.text = newCode;
+      _textController.selection = TextSelection.collapsed(offset: newCursor);
+      widget.controller.userCode = newCode;
+      widget.onChanged?.call(newCode);
+      _scheduleUndoSave(newCode);
+    } catch (e) {
+      trailEvent('duplicateLine error: $e');
+    }
+  }
+
+  /// Move the current line up.
+  void _moveLineUp() {
+    trailEvent('moveLineUp');
+    try {
+      final code = _textController.text;
+      final cursor = _textController.selection.baseOffset;
+      if (cursor < 0 || cursor > code.length) return;
+
+      final currentRange = _getLineRange(code, cursor);
+      if (currentRange.start == 0) return; // Already at top
+
+      final prevRange = _getLineRange(code, currentRange.start - 1);
+      final currentLine =
+          code.substring(currentRange.start, currentRange.end);
+      final prevLine = code.substring(prevRange.start, prevRange.end);
+      final columnOffset = cursor - currentRange.start;
+
+      final newCode =
+          '${code.substring(0, prevRange.start)}$currentLine\n$prevLine${code.substring(currentRange.end)}';
+      final newCursor =
+          (prevRange.start + columnOffset).clamp(0, newCode.length);
+
+      _textController.text = newCode;
+      _textController.selection = TextSelection.collapsed(offset: newCursor);
+      widget.controller.userCode = newCode;
+      widget.onChanged?.call(newCode);
+      _scheduleUndoSave(newCode);
+    } catch (e) {
+      trailEvent('moveLineUp error: $e');
+    }
+  }
+
+  /// Move the current line down.
+  void _moveLineDown() {
+    trailEvent('moveLineDown');
+    try {
+      final code = _textController.text;
+      final cursor = _textController.selection.baseOffset;
+      if (cursor < 0 || cursor > code.length) return;
+
+      final currentRange = _getLineRange(code, cursor);
+      if (currentRange.end >= code.length) return; // Already at bottom
+
+      final nextRange = _getLineRange(code, currentRange.end + 1);
+      final currentLine =
+          code.substring(currentRange.start, currentRange.end);
+      final nextLine = code.substring(nextRange.start, nextRange.end);
+      final columnOffset = cursor - currentRange.start;
+
+      final newCode =
+          '${code.substring(0, currentRange.start)}$nextLine\n$currentLine${code.substring(nextRange.end)}';
+      final newCursor =
+          (currentRange.start + nextLine.length + 1 + columnOffset)
+              .clamp(0, newCode.length);
+
+      _textController.text = newCode;
+      _textController.selection = TextSelection.collapsed(offset: newCursor);
+      widget.controller.userCode = newCode;
+      widget.onChanged?.call(newCode);
+      _scheduleUndoSave(newCode);
+    } catch (e) {
+      trailEvent('moveLineDown error: $e');
+    }
+  }
+
+  /// Get the start and end offsets of the line containing [offset].
+  /// Returns a record with `start` at the first character and `end` at the
+  /// last character (before the newline, or end of text).
+  ({int start, int end}) _getLineRange(String text, int offset) {
+    final clamped = offset.clamp(0, text.length);
+    int start = clamped;
+    while (start > 0 && text[start - 1] != '\n') {
+      start--;
+    }
+    int end = clamped;
+    while (end < text.length && text[end] != '\n') {
+      end++;
+    }
+    return (start: start, end: end);
+  }
+
+
   void _showCompletion() {
     // Remove old overlay without clearing items
     _completionOverlay?.remove();
@@ -1454,36 +1814,6 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
       return KeyEventResult.ignored;
     }
 
-    final shortcutAction = CompletionShortcutResolver.resolve(
-      autoCompleteEnabled: _settings.autoCompleteEnabled,
-      isControlPressed: HardwareKeyboard.instance.isControlPressed,
-      isMetaPressed: HardwareKeyboard.instance.isMetaPressed,
-      isAltPressed: HardwareKeyboard.instance.isAltPressed,
-      isShiftPressed: HardwareKeyboard.instance.isShiftPressed,
-      isSpace: event.logicalKey == LogicalKeyboardKey.space,
-      isKeyI: event.logicalKey == LogicalKeyboardKey.keyI,
-      isKeyR: event.logicalKey == LogicalKeyboardKey.keyR,
-      isKeyZ: event.logicalKey == LogicalKeyboardKey.keyZ,
-      isKeyY: event.logicalKey == LogicalKeyboardKey.keyY,
-    );
-
-    switch (shortcutAction) {
-      case CompletionShortcutAction.triggerCompletion:
-        _triggerCompletion();
-        return KeyEventResult.handled;
-      case CompletionShortcutAction.openReference:
-        _showApiReference();
-        return KeyEventResult.handled;
-      case CompletionShortcutAction.undo:
-        _undo();
-        return KeyEventResult.handled;
-      case CompletionShortcutAction.redo:
-        _redo();
-        return KeyEventResult.handled;
-      case CompletionShortcutAction.none:
-        break;
-    }
-
     // Handle completion navigation when popup is open
     if (_completionOverlay != null) {
       if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
@@ -1563,12 +1893,26 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
         children: [
           if (_settings.showToolbar) _buildToolbar(),
           Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (_settings.showLineNumbers) _buildGutter(),
-                Expanded(key: _editorKey, child: _buildEditor()),
-              ],
+            child: Shortcuts(
+              shortcuts: _shortcuts,
+              child: Actions(
+                actions: <Type, Action<Intent>>{
+                  _DartEditorActionIntent:
+                      CallbackAction<_DartEditorActionIntent>(
+                    onInvoke: (intent) {
+                      _integration.executeAction(intent.actionId);
+                      return null;
+                    },
+                  ),
+                },
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (_settings.showLineNumbers) _buildGutter(),
+                    Expanded(key: _editorKey, child: _buildEditor()),
+                  ],
+                ),
+              ),
             ),
           ),
         ],
@@ -3298,6 +3642,12 @@ class _ApiReferencePopupState extends State<_ApiReferencePopup> {
       _ => widget.theme.editor.text.withValues(alpha: 0.7),
     };
   }
+}
+
+/// Intent carrying a [ForgeAction] ID for the [Shortcuts]/[Actions] bridge.
+class _DartEditorActionIntent extends Intent {
+  final String actionId;
+  const _DartEditorActionIntent(this.actionId);
 }
 
 // Legacy compatibility
