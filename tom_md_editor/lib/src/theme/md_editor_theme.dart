@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tom_editors_shared/tom_editors_shared.dart';
 
 /// Comprehensive basic theme for the markdown editor.
 ///
@@ -208,6 +209,23 @@ class MdBasicTheme {
       baseFontSize: baseFontSize ?? this.baseFontSize,
       fontFamily: fontFamily ?? this.fontFamily,
       monoFontFamily: monoFontFamily ?? this.monoFontFamily,
+    );
+  }
+
+  /// Converts the theme's typography settings into a [ForgeTextSettings]
+  /// instance for the integration layer.
+  ///
+  /// This bridges the MdEditor theme system to the unified Forge text
+  /// settings, ensuring the integration always reflects the active theme.
+  ForgeTextSettings toForgeTextSettings() {
+    return ForgeTextSettings(
+      fontFamily: fontFamily,
+      fontSize: baseFontSize,
+      lineHeight: lineHeight,
+      tabSize: MdEditorDefaults.defaultTabSize,
+      insertSpaces: true,
+      wordWrap: true,
+      showLineNumbers: false,
     );
   }
 }

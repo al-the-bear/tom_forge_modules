@@ -291,9 +291,12 @@ class _MdEditorState extends State<MdEditor> {
         _integration = widget.integration!;
         _ownsIntegration = false;
       } else {
+        // Map the current theme's typography to ForgeTextSettings
+        final textSettings = _theme.basic.toForgeTextSettings();
         _integration = MdStandaloneIntegration(
           controller: TextEditingController(),
           focusNode: FocusNode(),
+          textSettings: textSettings,
         );
         _ownsIntegration = true;
       }

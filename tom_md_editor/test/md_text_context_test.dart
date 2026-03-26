@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tom_editors_shared/tom_editors_shared.dart';
 import 'package:tom_md_editor/tom_md_editor.dart';
 
 void main() {
@@ -203,6 +204,33 @@ void main() {
         // Stream is closed, no more events
         await sub.cancel();
       });
+    });
+  });
+
+  group('MdBasicTheme.toForgeTextSettings', () {
+    test('maps default theme to ForgeTextSettings', () {
+      const theme = MdBasicTheme();
+      final settings = theme.toForgeTextSettings();
+
+      expect(settings.fontFamily, theme.fontFamily);
+      expect(settings.fontSize, theme.baseFontSize);
+      expect(settings.lineHeight, theme.lineHeight);
+      expect(settings.wordWrap, true);
+      expect(settings.showLineNumbers, false);
+      expect(settings.tabSize, MdEditorDefaults.defaultTabSize);
+    });
+
+    test('maps custom theme properties correctly', () {
+      const theme = MdBasicTheme(
+        fontFamily: 'Custom Font',
+        baseFontSize: 18.0,
+        lineHeight: 2.0,
+      );
+      final settings = theme.toForgeTextSettings();
+
+      expect(settings.fontFamily, 'Custom Font');
+      expect(settings.fontSize, 18.0);
+      expect(settings.lineHeight, 2.0);
     });
   });
 }
