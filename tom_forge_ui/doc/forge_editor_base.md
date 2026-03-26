@@ -1212,6 +1212,14 @@ This section provides a detailed, phased implementation plan for integrating the
 
 ### 16.1 Phase 1: Foundation in tom_editors_shared (Week 1)
 
+Status: Completed (validated 2026-03-26)
+
+Verification:
+
+- Package: `tom_editors_shared`
+- Analyzer: no issues
+- Tests: 216 passing
+
 #### 16.1.1 New Files to Create
 
 | File | Purpose | Dependencies |
@@ -1221,7 +1229,7 @@ This section provides a detailed, phased implementation plan for integrating the
 | `lib/src/text_editing/forge_editor_integration.dart` | Base integration interface | ForgeTextSettings, ForgeTextContext |
 | `lib/src/text_editing/forge_text_field.dart` | Wrapper widget for TextField | Integration, Settings |
 | `lib/src/text_editing/standard_editing_actions.dart` | Factory for Cut/Copy/Paste/Undo/Redo | ForgeAction (re-exported) |
-| `lib/src/text_editing/integrations/standalone_integration.dart` | Base standalone implementation | Integration interface |
+| `lib/src/text_editing/integrations/base_standalone_integration.dart` | Base standalone implementation | Integration interface |
 
 #### 16.1.2 Re-exports from tom_forge_ui
 
@@ -1300,6 +1308,14 @@ final _history = UndoHistory<TextUndoEntry>(maxDepth: 100);
 ---
 
 ### 16.2 Phase 2: tom_d4rt_editor / tom_dart_editor Adaptation (Week 2)
+
+Status: Completed (validated 2026-03-26)
+
+Verification:
+
+- Package: `tom_dart_editor`
+- Analyzer: no issues
+- Tests: 3 passing
 
 The Dart editor (`tom_dart_editor`) serves as the reference implementation since it has the most complex keyboard handling.
 
@@ -1431,6 +1447,14 @@ late final _defaultIntegration = DartStandaloneIntegration(
 ---
 
 ### 16.3 Phase 3: tom_md_editor Adaptation (Week 2-3)
+
+Status: Completed (validated 2026-03-26)
+
+Verification:
+
+- Package: `tom_md_editor`
+- Analyzer: no issues
+- Tests: 124 passing
 
 #### 16.3.1 Current State Analysis
 
@@ -1588,6 +1612,14 @@ class MdTextContext implements ForgeTextContext {
 
 ### 16.4 Phase 4: tom_yaml_editor Adaptation (Week 3)
 
+Status: Completed (validated 2026-03-26)
+
+Verification:
+
+- Package: `tom_yaml_editor`
+- Analyzer: no issues
+- Tests: 23 passing
+
 #### 16.4.1 Current State Analysis
 
 | Aspect | Current Implementation | Target |
@@ -1725,13 +1757,23 @@ ForgeActions are for operations that:
 
 ### 16.5 Phase 5: Shell Integration (Week 4)
 
+Status: Completed (2026-03-26)
+
+Verification:
+
+- Implemented in `tom_forge_ui/lib/src/integrations/shell_editor_integration.dart`
+- Adapter wiring completed in `forge_md_editor.dart`, `forge_dart_editor.dart`, `forge_yaml_editor.dart`
+- Settings dialog integration completed in `forge_configuration_dialog.dart`
+- Tests: `tom_forge_ui/test/integration/shell_editor_integration_test.dart` (5/5 pass)
+- Package validation: `flutter test` (44 pass), `dart analyze` (no issues)
+
 #### 16.5.1 ShellEditorIntegration Implementation
 
 Location: `tom_forge_ui/lib/src/integrations/shell_editor_integration.dart`
 
 See Section 13.3 for full implementation. Key features:
 
-1. Queries settings from `shellApi.config`
+1. Queries settings from `shellApi.getTextSettings(editorTypeId)`
 2. Registers actions with `shellApi.actionRegistry`
 3. Resolves shortcuts via `shellApi.shortcuts.getBinding()`
 4. Reports context changes to `shellApi.systemState`
@@ -1819,44 +1861,50 @@ class MdEditor implements EditorConfigurationProvider {
 | Context menu discovery | Shell provides module actions in editor context menu |
 | Settings persistence | Font changes in dialog apply to all editors |
 
+Validation snapshot (2026-03-26):
+
+- `tom_forge_ui`: analyzer clean, 44 tests passing
+- `shell_editor_integration_test.dart`: 5/5 passing
+- Cross-package validation completed for phases 1-5
+
 ---
 
 ### 16.7 Migration Checklist
 
 #### 16.7.1 Per-Editor Checklist
 
-- [ ] Add `ForgeEditorIntegration? integration` parameter
-- [ ] Create `{Editor}StandaloneIntegration` class
-- [ ] Register standard editing actions (cut/copy/paste/undo/redo)
-- [ ] Register editor-specific actions
-- [ ] Implement `ForgeTextContext`
-- [ ] Update keyboard shortcut handling
-- [ ] Update context menu to include integration actions
-- [ ] Map existing theme/font settings to `ForgeTextSettings`
-- [ ] Add backward compatibility defaults
-- [ ] Update tests
-- [ ] Update documentation
+- [x] Add `ForgeEditorIntegration? integration` parameter
+- [x] Create `{Editor}StandaloneIntegration` class
+- [x] Register standard editing actions (cut/copy/paste/undo/redo)
+- [x] Register editor-specific actions
+- [x] Implement `ForgeTextContext`
+- [x] Update keyboard shortcut handling
+- [x] Update context menu to include integration actions
+- [x] Map existing theme/font settings to `ForgeTextSettings`
+- [x] Add backward compatibility defaults
+- [x] Update tests
+- [x] Update documentation
 
 #### 16.7.2 Shell Integration Checklist
 
-- [ ] Create `ShellEditorIntegration` implementation
-- [ ] Update module adapters to create shell integration
-- [ ] Wire up shortcut rebinding
-- [ ] Add context menu action discovery
-- [ ] Add editor configuration to Settings dialog
-- [ ] Test shell/standalone mode switching
+- [x] Create `ShellEditorIntegration` implementation
+- [x] Update module adapters to create shell integration
+- [x] Wire up shortcut rebinding
+- [x] Add context menu action discovery
+- [x] Add editor configuration to Settings dialog
+- [x] Test shell/standalone mode switching
 
 ---
 
 ### 16.8 Timeline Summary
 
-| Week | Phase | Deliverables |
-|------|-------|--------------|
-| 1 | Foundation | ForgeTextSettings, ForgeTextContext, ForgeEditorIntegration, ForgeTextField, StandardEditingActions |
-| 2 | Dart Editor | DartStandaloneIntegration, migrate shortcuts, undo/redo bridge |
-| 2-3 | MD Editor | MdStandaloneIntegration, context menu integration |
-| 3 | YAML Editor | YamlStandaloneIntegration, embedded editor updates |
-| 4 | Shell Integration | ShellEditorIntegration, module adapters, settings dialog |
+| Week | Phase | Deliverables | Status |
+|------|-------|--------------|--------|
+| 1 | Foundation | ForgeTextSettings, ForgeTextContext, ForgeEditorIntegration, ForgeTextField, StandardEditingActions | Completed |
+| 2 | Dart Editor | DartStandaloneIntegration, migrate shortcuts, undo/redo bridge | Completed |
+| 2-3 | MD Editor | MdStandaloneIntegration, context menu integration | Completed |
+| 3 | YAML Editor | YamlStandaloneIntegration, embedded editor updates | Completed |
+| 4 | Shell Integration | ShellEditorIntegration, module adapters, settings dialog | Completed |
 
 ---
 
