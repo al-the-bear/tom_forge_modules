@@ -1203,3 +1203,669 @@ The Forge Editor Base provides:
 3. **Compatible with existing interfaces** — Uses existing `ForgeShortcutKey`, adapts to `ForgeAction`
 4. **Standalone keyboard shortcuts work** — Each standalone integration provides default shortcuts
 5. **Shell shortcuts are rebindable** — ShellEditorIntegration queries the shortcut manager
+
+---
+
+## 16. Implementation Plan
+
+This section provides a detailed, phased implementation plan for integrating the Forge Editor Base foundation across all editors.
+
+### 16.1 Phase 1: Foundation in tom_editors_shared (Week 1)
+
+#### 16.1.1 New Files to Create
+
+| File | Purpose | Dependencies |
+|------|---------|--------------|
+| `lib/src/text_editing/forge_text_settings.dart` | Unified font/display settings | None |
+| `lib/src/text_editing/forge_text_context.dart` | Text state interface for shell discovery | None |
+| `lib/src/text_editing/forge_editor_integration.dart` | Base integration interface | ForgeTextSettings, ForgeTextContext |
+| `lib/src/text_editing/forge_text_field.dart` | Wrapper widget for TextField | Integration, Settings |
+| `lib/src/text_editing/standard_editing_actions.dart` | Factory for Cut/Copy/Paste/Undo/Redo | ForgeAction (re-exported) |
+| `lib/src/text_editing/integrations/standalone_integration.dart` | Base standalone implementation | Integration interface |
+
+#### 16.1.2 Re-exports from tom_forge_ui
+
+Add to `tom_editors_shared.dart`:
+```dart
+// Re-export forge action types for standalone usage
+export 'package:tom_forge_ui/src/actions/forge_action.dart'
+    show ForgeAction, ForgeMenuLocation;
+export 'package:tom_forge_ui/src/actions/forge_shortcut_binding.dart'
+    show ForgeShortcutKey;
+```
+
+**Note:** This creates a dependency from tom_editors_shared → tom_forge_ui. If this is undesirable, the shared types (`ForgeShortcutKey`, `ForgeTextSettings`) should move to tom_editors_shared and tom_forge_ui should re-export them.
+
+#### 16.1.3 ForgeTextSettings Implementation
+
+Consolidate the overlapping settings from existing editors:
+
+| Source | Class | Fields to Preserve |
+|--------|-------|-------------------|
+| tom_dart_editor | `FontSettings` | fontFamily, fontSize |
+| tom_md_editor | `MdBasicTheme` | fontFamily, monoFontFamily, baseFontSize, lineHeight |
+| tom_yaml_editor | `YamlEditorFontSettings` | keyFontFamily, valueFontFamily, keyFontSize, valueFontSize |
+
+New unified class covers all use cases with sensible defaults.
+
+#### 16.1.4 ForgeEditorIntegration Tasks
+
+1. Define the abstract interface (see Section 13.1)
+2. Create `BaseStandaloneIntegration` with local undo stack
+3. Add `pushUndo(entry)` method for editors to record changes
+4. Implement shortcut resolution using `ForgeShortcutKey.toActivator()`
+
+#### 16.1.5 StandardEditingActions Factory
+
+```dart
+/// Creates standard editing actions for any text editor.
+List<ForgeAction> createStandardEditingActions({
+  required TextEditingController controller,
+  required FocusNode focusNode,
+  required bool Function() isReadOnly,
+  required ForgeEditorIntegration integration,
+}) {
+  return [
+    ForgeAction.editing(
+      id: 'edit.cut',
+      label: 'Cut',
+      shortcut: ForgeShortcutKey(key: LogicalKeyboardKey.keyX, primaryModifier: true),
+      showInContextMenu: true,
+      execute: () => _doCut(controller),
+      isEnabled: () => !isReadOnly() && controller.selection.isValid,
+    ),
+    // ... copy, paste, undo, redo, selectAll, deleteLine
+  ];
+}
+```
+
+#### 16.1.6 Integration with Existing UndoHistory
+
+The existing `UndoHistory<T>` in tom_editors_shared is generic. Standalone integrations should use it with a simple text-based entry:
+
+```dart
+class TextUndoEntry {
+  final String oldText;
+  final String newText;
+  final TextSelection? oldSelection;
+  final TextSelection? newSelection;
+  
+  TextUndoEntry({required this.oldText, required this.newText, this.oldSelection, this.newSelection});
+}
+
+// In standalone integration:
+final _history = UndoHistory<TextUndoEntry>(maxDepth: 100);
+```
+
+---
+
+### 16.2 Phase 2: tom_d4rt_editor / tom_dart_editor Adaptation (Week 2)
+
+The Dart editor (`tom_dart_editor`) serves as the reference implementation since it has the most complex keyboard handling.
+
+#### 16.2.1 Current State Analysis
+
+| Aspect | Current Implementation | Target |
+|--------|----------------------|--------|
+| Text widget | `TextField` with `_HighlightingTextController` | Keep, wrap in `ForgeTextField` |
+| Shortcut handling | `FocusNode.onKeyEvent` + `CompletionShortcutResolver` | Migrate to integration + `Shortcuts`/`Actions` |
+| Undo/Redo | Local `_undoStack` / `_redoStack` | Use integration's `UndoHistory` |
+| Theme | `DartEditorTheme.font: FontSettings` | Map to `ForgeTextSettings` |
+| Context menu | Default `TextField` behavior | Extend with custom actions |
+
+#### 16.2.2 Migration Steps
+
+**Step 1: Add integration parameter**
+
+```dart
+class DartCodeEditor extends StatefulWidget {
+  final DartCodeController controller;
+  final DartEditorTheme? theme;
+  final ForgeEditorIntegration? integration;  // NEW - optional for backward compat
+  // ...
+}
+```
+
+**Step 2: Create DartStandaloneIntegration**
+
+```dart
+class DartStandaloneIntegration extends BaseStandaloneIntegration {
+  DartStandaloneIntegration({
+    ForgeTextSettings? settings,
+  }) : super(
+    settings: settings ?? const ForgeTextSettings(
+      fontFamily: 'JetBrains Mono',
+      fontSize: 13.0,
+      tabSize: 2,
+      insertSpaces: true,
+    ),
+  );
+}
+```
+
+**Step 3: Migrate CompletionShortcutResolver to ForgeActions**
+
+| Current | New ForgeAction |
+|---------|----------------|
+| `CompletionShortcutAction.triggerCompletion` | `ForgeAction(id: 'dart.triggerCompletion', ...)` |
+| `CompletionShortcutAction.openReference` | `ForgeAction(id: 'dart.openReference', ...)` |
+| `CompletionShortcutAction.undo` | Standard `edit.undo` |
+| `CompletionShortcutAction.redo` | Standard `edit.redo` |
+
+**Step 4: Replace FocusNode.onKeyEvent**
+
+Move from:
+```dart
+_focusNode = FocusNode(onKeyEvent: _handleKeyEvent);
+```
+
+To:
+```dart
+Shortcuts(
+  shortcuts: integration.buildShortcutMap(),
+  child: Actions(
+    actions: integration.buildActionMap(),
+    child: TextField(...),
+  ),
+)
+```
+
+**Step 5: Wire up undo/redo**
+
+Replace local stacks with integration:
+```dart
+// Before:
+void _undo() {
+  if (_undoStack.isEmpty) return;
+  _redoStack.add(_textController.text);
+  _textController.text = _undoStack.removeLast();
+}
+
+// After:
+void _undo() {
+  integration.undo();
+}
+```
+
+**Step 6: Add ForgeTextContext implementation**
+
+```dart
+class DartTextContext implements ForgeTextContext {
+  final DartCodeController controller;
+  final TextEditingController textController;
+  
+  DartTextContext(this.controller, this.textController);
+  
+  @override
+  String get text => controller.userCode;
+  
+  @override
+  int get cursorOffset => textController.selection.baseOffset;
+  
+  @override
+  int get currentLine {
+    final offset = cursorOffset.clamp(0, text.length);
+    return '\n'.allMatches(text.substring(0, offset)).length;
+  }
+  
+  @override
+  bool get isDirty => controller.userCode != _lastSavedCode;
+  
+  // ... etc
+}
+```
+
+#### 16.2.3 Backward Compatibility
+
+Keep the editor functional without an integration parameter:
+
+```dart
+ForgeEditorIntegration get _integration =>
+    widget.integration ?? _defaultIntegration;
+
+late final _defaultIntegration = DartStandaloneIntegration(
+  settings: _settingsFromTheme(widget.theme),
+);
+```
+
+---
+
+### 16.3 Phase 3: tom_md_editor Adaptation (Week 2-3)
+
+#### 16.3.1 Current State Analysis
+
+| Aspect | Current Implementation | Target |
+|--------|----------------------|--------|
+| Main widget | `MdEditor` with `MdRawTextEditor` | Add integration parameter |
+| Shortcuts | `Shortcuts` + `Actions` in `MdEditor.build()` | Extract to integration |
+| Undo/Redo | `MdEditorController` with `UndoHistory<MdEditOperation>` | Keep, bridge to integration |
+| Context menu | Custom `contextMenuBuilder` in `MdRawTextEditor` | Extend with integration actions |
+| Theme | `MdEditorTheme.basic: MdBasicTheme` | Map to `ForgeTextSettings` |
+
+#### 16.3.2 Migration Steps
+
+**Step 1: Add integration parameter to MdEditor**
+
+```dart
+class MdEditor extends StatefulWidget {
+  final MdEditorController? controller;
+  final ForgeEditorIntegration? integration;  // NEW
+  // ...
+}
+```
+
+**Step 2: Create MdStandaloneIntegration**
+
+```dart
+class MdStandaloneIntegration extends BaseStandaloneIntegration {
+  final MdEditorController controller;
+  
+  MdStandaloneIntegration({
+    required this.controller,
+    ForgeTextSettings? settings,
+  }) : super(settings: settings ?? const ForgeTextSettings(
+    fontFamily: 'monospace',
+    fontSize: 14.0,
+    wordWrap: true,
+    lineHeight: 1.6,
+  ));
+  
+  @override
+  void undo() => controller.undo();
+  
+  @override
+  void redo() => controller.redo();
+  
+  @override
+  bool get canUndo => controller.canUndo;
+  
+  @override
+  bool get canRedo => controller.canRedo;
+}
+```
+
+**Step 3: Extract shortcuts from MdEditor.build()**
+
+Current inline shortcuts:
+```dart
+Shortcuts(
+  shortcuts: <ShortcutActivator, Intent>{
+    const SingleActivator(LogicalKeyboardKey.keyZ, meta: true): const _UndoIntent(),
+    // ...
+  },
+```
+
+Move to:
+```dart
+// In integration
+List<ForgeAction> get registeredActions => [
+  ForgeAction.editing(id: 'edit.undo', ...),
+  ForgeAction.editing(id: 'edit.redo', ...),
+  ForgeAction.editing(id: 'file.save', ...),
+  ForgeAction.editing(id: 'edit.find', ...),
+];
+```
+
+**Step 4: Add markdown-specific actions**
+
+```dart
+// In MdStandaloneIntegration.initActions()
+registerAction(ForgeAction.editing(
+  id: 'md.insertTable',
+  label: 'Insert Table',
+  shortcut: ForgeShortcutKey(key: LogicalKeyboardKey.keyT, alt: true),
+  showInContextMenu: true,
+  execute: () => _insertTable(),
+  isEnabled: () => !readOnly,
+));
+
+registerAction(ForgeAction.editing(
+  id: 'md.toggleBold',
+  label: 'Bold',
+  shortcut: ForgeShortcutKey(key: LogicalKeyboardKey.keyB, primaryModifier: true),
+  execute: () => _wrapSelection('**'),
+  isEnabled: () => !readOnly,
+));
+```
+
+**Step 5: Update MdRawTextEditor context menu**
+
+```dart
+// Current
+contextMenuBuilder: (context, editableTextState) {
+  // ... custom menu items
+}
+
+// Updated
+contextMenuBuilder: (context, editableTextState) {
+  final integrationActions = widget.integration?.getContextMenuActions() ?? [];
+  return AdaptiveTextSelectionToolbar.buttonItems(
+    anchors: editableTextState.contextMenuAnchors,
+    buttonItems: [
+      ...editableTextState.contextMenuButtonItems,
+      if (integrationActions.isNotEmpty) const ContextMenuButtonItem.divider(),
+      for (final action in integrationActions.where((a) => a.showInContextMenu))
+        ContextMenuButtonItem(
+          label: action.label,
+          onPressed: action.isEnabled() ? () {
+            action.execute({});
+            editableTextState.hideToolbar();
+          } : null,
+        ),
+    ],
+  );
+}
+```
+
+**Step 6: Implement ForgeTextContext**
+
+```dart
+class MdTextContext implements ForgeTextContext {
+  final MdEditorController controller;
+  
+  MdTextContext(this.controller);
+  
+  @override
+  String get text => controller.markdown;
+  
+  @override
+  int get cursorOffset => controller.cursorOffset;
+  
+  @override
+  bool get isDirty => controller.document.lastModified != null;
+  
+  @override
+  bool get canUndo => controller.canUndo;
+  
+  @override
+  bool get canRedo => controller.canRedo;
+  
+  // ...
+}
+```
+
+---
+
+### 16.4 Phase 4: tom_yaml_editor Adaptation (Week 3)
+
+#### 16.4.1 Current State Analysis
+
+| Aspect | Current Implementation | Target |
+|--------|----------------------|--------|
+| Main widget | `YamlSchemaEditor` (tree-based, not TextField) | Add integration for actions only |
+| Shortcuts | `KeyboardListener.onKeyEvent` in tree navigation | Preserve tree navigation, add action shortcuts |
+| Undo/Redo | `YamlEditorController` with `UndoHistory<YamlEditOperation>` | Keep, bridge to integration |
+| Context menu | Dialog-based `showMapContextMenu` / `showListContextMenu` | Extend with integration actions |
+| Text editing | Inline embedded editors per node | Use ForgeTextField for embedded editors |
+
+**Key difference:** YAML editor is tree-based, not a single text field. The integration applies to:
+1. Editor-wide actions (undo/redo, save)
+2. Embedded scalar editors (when editing string values inline)
+
+#### 16.4.2 Migration Steps
+
+**Step 1: Add integration parameter**
+
+```dart
+class YamlSchemaEditor extends StatefulWidget {
+  final YamlEditorController controller;
+  final ForgeEditorIntegration? integration;  // NEW
+  // ...
+}
+```
+
+**Step 2: Create YamlStandaloneIntegration**
+
+```dart
+class YamlStandaloneIntegration extends BaseStandaloneIntegration {
+  final YamlEditorController controller;
+  
+  YamlStandaloneIntegration({
+    required this.controller,
+    ForgeTextSettings? settings,
+  }) : super(settings: settings ?? const ForgeTextSettings(
+    fontFamily: 'monospace',
+    fontSize: 13.0,
+    tabSize: 2,
+  ));
+  
+  @override
+  void undo() => controller.undo();
+  
+  @override
+  void redo() => controller.redo();
+  
+  @override
+  bool get canUndo => controller.canUndo;
+  
+  @override
+  bool get canRedo => controller.canRedo;
+}
+```
+
+**Step 3: Register YAML-specific actions**
+
+```dart
+// Editor-wide actions
+registerAction(ForgeAction.editing(
+  id: 'yaml.addKey',
+  label: 'Add Key',
+  shortcut: ForgeShortcutKey(key: LogicalKeyboardKey.keyN, primaryModifier: true),
+  showInContextMenu: true,
+  execute: () => _showAddKeyDialog(),
+  isEnabled: () => !readOnly && selectedNode != null,
+));
+
+registerAction(ForgeAction.editing(
+  id: 'yaml.removeKey',
+  label: 'Remove Key',
+  shortcut: ForgeShortcutKey(key: LogicalKeyboardKey.delete, primaryModifier: true),
+  showInContextMenu: true,
+  execute: () => _removeSelectedKey(),
+  isEnabled: () => !readOnly && selectedNode?.canRemove ?? false,
+));
+
+registerAction(ForgeAction.editing(
+  id: 'yaml.toggleTextMode',
+  label: 'Toggle Text Mode',
+  shortcut: ForgeShortcutKey(key: LogicalKeyboardKey.keyT, primaryModifier: true),
+  execute: () => _toggleTextMode(),
+  isEnabled: () => true,
+));
+```
+
+**Step 4: Update context menus**
+
+In `showMapContextMenu` and `showListContextMenu`:
+
+```dart
+// Add integration actions to menu
+final integrationActions = integration?.getContextMenuActions() ?? [];
+for (final action in integrationActions.where((a) => a.showInContextMenu && a.isEnabled())) {
+  items.add(_menuItem(
+    value: _IntegrationAction(action),
+    icon: action.icon ?? Icons.play_arrow,
+    label: action.label,
+  ));
+}
+```
+
+**Step 5: Use ForgeTextField in embedded editors**
+
+Update the embedded string editors to use ForgeTextField:
+
+```dart
+// In StringEditor widget
+ForgeTextField(
+  controller: _textController,
+  integration: widget.integration ?? _defaultIntegration,
+  readOnly: widget.readOnly,
+  customActions: [
+    ForgeAction.editing(
+      id: 'yaml.commitEdit',
+      label: 'Commit',
+      shortcut: ForgeShortcutKey(key: LogicalKeyboardKey.enter),
+      execute: () => _commitValue(),
+      isEnabled: () => true,
+    ),
+  ],
+)
+```
+
+**Step 6: Preserve tree keyboard navigation**
+
+The YAML editor's tree navigation (arrow keys, Enter, Space, Escape, Tab) should remain in `KeyboardListener`, not be converted to ForgeActions. These are navigation, not actions.
+
+ForgeActions are for operations that:
+- Can appear in command palette
+- Can be rebound
+- Can appear in context menus
+
+---
+
+### 16.5 Phase 5: Shell Integration (Week 4)
+
+#### 16.5.1 ShellEditorIntegration Implementation
+
+Location: `tom_forge_ui/lib/src/integrations/shell_editor_integration.dart`
+
+See Section 13.3 for full implementation. Key features:
+
+1. Queries settings from `shellApi.config`
+2. Registers actions with `shellApi.actionRegistry`
+3. Resolves shortcuts via `shellApi.shortcuts.getBinding()`
+4. Reports context changes to `shellApi.systemState`
+5. Gets context menu actions from `shellApi.getContextActionsFor()`
+
+#### 16.5.2 Module Adapter Updates
+
+Each editor's Forge module adapter creates the shell integration:
+
+```dart
+// In MdModuleAdapter
+class MdForgeModule extends ForgeModule {
+  @override
+  ForgeComponent createEditor(Uri uri, ForgeShellApi shellApi) {
+    final controller = MdEditorController(uri: uri);
+    final integration = ShellEditorIntegration(
+      shellApi: shellApi,
+      editorId: 'md-editor-${uri.hashCode}',
+    );
+    
+    return MdEditorComponent(
+      controller: controller,
+      integration: integration,
+    );
+  }
+}
+```
+
+#### 16.5.3 Settings Dialog Integration
+
+Add editor configuration panels to `ForgeConfigurationDialog`:
+
+```dart
+// Each editor implements EditorConfigurationProvider
+class MdEditor implements EditorConfigurationProvider {
+  @override
+  String get editorTypeId => 'md';
+  
+  @override
+  String get configurationTitle => 'Markdown';
+  
+  @override
+  IconData get configurationIcon => Icons.description;
+  
+  @override
+  Widget buildConfigurationPanel(
+    BuildContext context,
+    ForgeTextSettings currentSettings,
+    ValueChanged<ForgeTextSettings> onSettingsChanged,
+  ) {
+    return MdConfigurationPanel(
+      settings: currentSettings,
+      onChanged: onSettingsChanged,
+    );
+  }
+}
+```
+
+---
+
+### 16.6 Testing Strategy
+
+#### 16.6.1 Unit Tests (tom_editors_shared)
+
+| Test File | Coverage |
+|-----------|----------|
+| `forge_text_settings_test.dart` | copyWith, toTextStyle, defaults |
+| `forge_editor_integration_test.dart` | Action registration, shortcut resolution |
+| `standard_editing_actions_test.dart` | Cut/copy/paste logic |
+| `forge_text_field_test.dart` | Widget integration |
+
+#### 16.6.2 Integration Tests (per editor)
+
+| Editor | Test Focus |
+|--------|------------|
+| tom_dart_editor | Undo/redo, completion shortcut, context menu |
+| tom_md_editor | Toolbar actions, section editing, undo/redo |
+| tom_yaml_editor | Tree actions, embedded editor actions |
+
+#### 16.6.3 Shell Integration Tests (tom_forge_ui)
+
+| Test | Scenario |
+|------|----------|
+| Shortcut rebinding | User rebinds Cmd+S, editor respects new binding |
+| Context menu discovery | Shell provides module actions in editor context menu |
+| Settings persistence | Font changes in dialog apply to all editors |
+
+---
+
+### 16.7 Migration Checklist
+
+#### 16.7.1 Per-Editor Checklist
+
+- [ ] Add `ForgeEditorIntegration? integration` parameter
+- [ ] Create `{Editor}StandaloneIntegration` class
+- [ ] Register standard editing actions (cut/copy/paste/undo/redo)
+- [ ] Register editor-specific actions
+- [ ] Implement `ForgeTextContext`
+- [ ] Update keyboard shortcut handling
+- [ ] Update context menu to include integration actions
+- [ ] Map existing theme/font settings to `ForgeTextSettings`
+- [ ] Add backward compatibility defaults
+- [ ] Update tests
+- [ ] Update documentation
+
+#### 16.7.2 Shell Integration Checklist
+
+- [ ] Create `ShellEditorIntegration` implementation
+- [ ] Update module adapters to create shell integration
+- [ ] Wire up shortcut rebinding
+- [ ] Add context menu action discovery
+- [ ] Add editor configuration to Settings dialog
+- [ ] Test shell/standalone mode switching
+
+---
+
+### 16.8 Timeline Summary
+
+| Week | Phase | Deliverables |
+|------|-------|--------------|
+| 1 | Foundation | ForgeTextSettings, ForgeTextContext, ForgeEditorIntegration, ForgeTextField, StandardEditingActions |
+| 2 | Dart Editor | DartStandaloneIntegration, migrate shortcuts, undo/redo bridge |
+| 2-3 | MD Editor | MdStandaloneIntegration, context menu integration |
+| 3 | YAML Editor | YamlStandaloneIntegration, embedded editor updates |
+| 4 | Shell Integration | ShellEditorIntegration, module adapters, settings dialog |
+
+---
+
+### 16.9 Risk Mitigation
+
+| Risk | Mitigation |
+|------|------------|
+| Breaking existing editor usage | Keep integration parameter optional with sensible defaults |
+| Performance regression from layered shortcuts | Profile before/after; optimize if needed |
+| Circular dependency (editors_shared ↔ forge_ui) | Move shared types to editors_shared if needed |
+| Inconsistent undo granularity between editors | Document expected granularity; provide integration hooks |
+| Complex context menu merging | Define clear precedence: editor actions → integration actions → shell actions |
