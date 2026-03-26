@@ -94,7 +94,7 @@ The unified foundation should live in **tom_editors_shared** since:
            │ uses                        │ uses
            ▼                             ▼
 ┌──────────────────────┐     ┌──────────────────────────────┐
-│  ForgeTextContext    │     │  ForgeEditingActions         │
+│  ForgeTextContext    │     │  ForgeAction (editing)       │
 │  (Selection, cursor, │     │  (Cut, Copy, Paste, Undo,    │
 │   document state)    │     │   Redo, Delete Line, etc.)   │
 └──────────────────────┘     └──────────────────────────────┘
@@ -148,69 +148,65 @@ abstract interface class ForgeTextContext {
 }
 ```
 
-#### 3.3.2 ForgeEditingAction
+#### 3.3.2 ForgeAction (Unified)
 
-A lightweight editing action for local editor operations. This is **intentionally simpler** than `ForgeAction` (which exists in tom_forge_ui for shell-level actions). The `ShellEditorIntegration` bridges these to full `ForgeAction` instances when needed.
+All actions — both shell-level and editor-level — use the **same `ForgeAction` class** from `tom_forge_ui/lib/src/actions/forge_action.dart`. This eliminates the need for a separate editing action type.
+
+For simple synchronous editing operations, use the `ForgeAction.editing()` factory:
 
 ```dart
-/// A lightweight editing action that can be bound to keyboard shortcuts.
-///
-/// Unlike ForgeAction (shell-level), this is synchronous and focused on
-/// immediate text editing operations. The shell integration bridges
-/// these to ForgeAction when running inside the shell.
-class ForgeEditingAction {
-  /// Unique identifier (e.g., 'edit.cut', 'edit.deleteLine', 'dart.openReference').
-  final String id;
+/// From tom_forge_ui - the unified action class.
+/// See forge_action.dart for full implementation.
 
-  /// Display label for menus.
-  final String label;
+// Simple editing action using factory constructor:
+ForgeAction.editing(
+  id: 'edit.cut',
+  label: 'Cut',
+  icon: Icons.cut,
+  shortcut: ForgeShortcutKey(key: LogicalKeyboardKey.keyX, primaryModifier: true),
+  showInContextMenu: true,
+  execute: () {
+    // synchronous cut logic
+    return true; // handled
+  },
+  isEnabled: () => controller.selection.isValid && !readOnly,
+)
 
-  /// Default keyboard shortcut (uses existing ForgeShortcutKey from tom_forge_ui).
-  /// Can be rebound by shell.
-  final ForgeShortcutKey? defaultShortcut;
-
-  /// Whether this action appears in context menus.
-  final bool showInContextMenu;
-
-  /// Action executor. Returns true if handled.
-  final bool Function() execute;
-
-  /// Whether the action is currently available.
-  final bool Function() isEnabled;
-
-  const ForgeEditingAction({
-    required this.id,
-    required this.label,
-    this.defaultShortcut,
-    this.showInContextMenu = false,
-    required this.execute,
-    required this.isEnabled,
-  });
-
-  /// Converts to a ForgeAction for shell integration.
-  ForgeAction toForgeAction({
-    ForgeMenuLocation menu = ForgeMenuLocation.edit,
-    IconData? icon,
-  }) => ForgeAction(
-    id: id,
-    label: label,
-    icon: icon,
-    menu: menu,
-    execute: (_) async {
-      execute();
-      return null;
-    },
-    isEnabled: isEnabled,
-    isVisible: () => true,
-    shortcut: defaultShortcut != null
-        ? ForgeShortcutBinding(
-            action: this as dynamic, // Will be replaced with actual action
-            key: defaultShortcut!,
-          )
-        : null,
-  );
-}
+// Full action with async execute and undo:
+ForgeAction(
+  id: 'file.save',
+  label: 'Save',
+  icon: Icons.save,
+  menu: ForgeMenuLocation.file,
+  defaultShortcut: ForgeShortcutKey(key: LogicalKeyboardKey.keyS, primaryModifier: true),
+  execute: (params) async {
+    final uri = params['uri'] as Uri?;
+    await fileSystem.save(uri);
+    return SaveUndoInfo(uri: uri, previousContent: content);
+  },
+  isEnabled: () => document.isDirty,
+  isVisible: () => true,
+  undo: (undoInfo) async {
+    final info = undoInfo as SaveUndoInfo;
+    await fileSystem.write(info.uri, info.previousContent);
+  },
+)
 ```
+
+**Key `ForgeAction` fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | `String` | Unique identifier (e.g., 'edit.cut', 'dart.openReference') |
+| `label` | `String` | Display label for menus |
+| `icon` | `IconData?` | Optional icon |
+| `menu` | `ForgeMenuLocation` | Where to show (file, edit, view, commandPalette, etc.) |
+| `defaultShortcut` | `ForgeShortcutKey?` | Default keyboard shortcut (rebindable) |
+| `showInContextMenu` | `bool` | Whether to show in context menus |
+| `execute` | `Future<Object?> Function(Map)` | Action handler |
+| `isEnabled` | `bool Function()` | Enable state |
+| `isVisible` | `bool Function()` | Visibility state |
+| `undo` | `Future<void> Function(Object)?` | Undo handler |
 
 #### 3.3.3 ForgeTextSettings
 
@@ -324,7 +320,7 @@ class ForgeTextField extends StatefulWidget {
 
   /// Additional actions beyond the defaults.
   /// These are merged with standard cut/copy/paste/undo/redo.
-  final List<ForgeEditingAction> customActions;
+  final List<ForgeAction> customActions;
 
   const ForgeTextField({
     super.key,
@@ -362,10 +358,10 @@ class _ForgeTextFieldState extends State<ForgeTextField> {
     // Register standard editing actions with the integration
     final controller = widget.controller;
     
-    widget.integration.registerAction(ForgeEditingAction(
+    widget.integration.registerAction(ForgeAction.editing(
       id: 'edit.cut',
       label: 'Cut',
-      defaultShortcut: ForgeShortcutKey(
+      shortcut: ForgeShortcutKey(
         key: LogicalKeyboardKey.keyX,
         primaryModifier: true,
       ),
@@ -579,11 +575,11 @@ final integration = MdStandaloneIntegration(
   ),
 );
 
-// Register custom actions
-integration.registerAction(ForgeEditingAction(
+// Register custom actions using ForgeAction.editing()
+integration.registerAction(ForgeAction.editing(
   id: 'md.insertTable',
   label: 'Insert Table',
-  defaultShortcut: ForgeShortcutKey(key: LogicalKeyboardKey.keyT, alt: true),
+  shortcut: ForgeShortcutKey(key: LogicalKeyboardKey.keyT, alt: true),
   showInContextMenu: true,
   execute: () => _insertTable(),
   isEnabled: () => !readOnly,
@@ -609,11 +605,11 @@ final integration = ShellEditorIntegration(
   editorId: 'md-editor-${document.id}',
 );
 
-// Register custom actions (will be bridged to shell's ForgeAction registry)
-integration.registerAction(ForgeEditingAction(
+// Register custom actions (same ForgeAction type used everywhere)
+integration.registerAction(ForgeAction.editing(
   id: 'md.insertTable',
   label: 'Insert Table',
-  defaultShortcut: ForgeShortcutKey(key: LogicalKeyboardKey.keyT, alt: true),
+  shortcut: ForgeShortcutKey(key: LogicalKeyboardKey.keyT, alt: true),
   showInContextMenu: true,
   execute: () => _insertTable(),
   isEnabled: () => !readOnly,
@@ -650,14 +646,14 @@ The **only difference** is which integration object is passed:
 
 1. Create `ForgeTextSettings` class
 2. Create `ForgeTextContext` interface
-3. Create `ForgeEditingAction` class (lightweight, sync)
-4. Create `ForgeEditorIntegration` interface
-5. Create standalone integrations:
+3. Create `ForgeEditorIntegration` interface
+4. Create standalone integrations:
    - `DartStandaloneIntegration`
    - `MdStandaloneIntegration`
    - `YamlStandaloneIntegration`
-6. Create `ForgeTextField` widget
-7. Create `StandardEditingActions` factory for Cut/Copy/Paste/Undo/Redo
+5. Create `ForgeTextField` widget
+6. Create `StandardEditingActions` factory for Cut/Copy/Paste/Undo/Redo
+7. Re-export `ForgeAction`, `ForgeShortcutKey` from tom_forge_ui
 
 ### 9.2 Phase 2: Update Editors
 
@@ -666,30 +662,33 @@ For each editor (MD, Dart, YAML):
 1. Add `ForgeEditorIntegration` parameter (required)
 2. Replace raw `TextField` usage with `ForgeTextField`
 3. Move editor-specific settings to standalone integration defaults
-4. Register editor-specific actions with integration
+4. Register editor-specific actions with integration (using `ForgeAction.editing()`)
 5. Remove manual keyboard shortcut handling (use integration)
 6. Implement `ForgeTextContext` for context discovery
 
 ### 9.3 Phase 3: Shell Integration (tom_forge_ui)
 
 1. Create `ShellEditorIntegration` implementation
-2. Bridge `ForgeEditingAction` to `ForgeAction` in registry
-3. Update module adapters to create `ShellEditorIntegration`
-4. Wire up shortcut rebinding via `ForgeShortcutManager`
-5. Add context menu action discovery
-6. Add editor configuration to Settings dialog
+2. Update module adapters to create `ShellEditorIntegration`
+3. Wire up shortcut rebinding via `ForgeShortcutManager`
+4. Add context menu action discovery
+5. Add editor configuration to Settings dialog
 
 ---
 
 ## 10. File Structure (Revised)
 
 ```
+tom_forge_ui/lib/src/
+  actions/
+    forge_action.dart                        # EXISTING - unified action class
+    forge_shortcut_binding.dart              # EXISTING - shortcut key
+
 tom_editors_shared/lib/src/
   text_editing/                              # NEW folder
     forge_text_field.dart                    # ForgeTextField widget
     forge_text_context.dart                  # ForgeTextContext interface
     forge_text_settings.dart                 # ForgeTextSettings class
-    forge_editing_action.dart                # ForgeEditingAction class
     forge_editor_integration.dart            # Base integration interface
     standard_editing_actions.dart            # Factory for Cut/Copy/Paste/Undo/Redo
     integrations/
@@ -700,7 +699,6 @@ tom_editors_shared/lib/src/
 tom_forge_ui/lib/src/
   integrations/
     shell_editor_integration.dart            # Shell integration implementation
-    editor_action_bridge.dart                # Bridges ForgeEditingAction to ForgeAction
 ```
 
 ---
@@ -788,7 +786,7 @@ class ForgeShortcutKey {
 }
 ```
 
-**ForgeAction vs ForgeEditingAction**: The existing `ForgeAction` is async with menu placement, visibility, and undo support. For text editing, we create a lightweight adapter that bridges to `ForgeAction` when integrated with the shell.
+**ForgeAction**: The existing `ForgeAction` now includes a `ForgeAction.editing()` factory for simple synchronous editing operations, plus `defaultShortcut` and `showInContextMenu` fields. This unifies shell-level and editor-level actions into a single type.
 
 ---
 
@@ -807,11 +805,11 @@ abstract interface class ForgeEditorIntegration {
   /// Get text display settings.
   ForgeTextSettings get textSettings;
 
-  /// Get the list of registered editing actions.
-  List<ForgeEditingAction> get registeredActions;
+  /// Get the list of registered actions.
+  List<ForgeAction> get registeredActions;
 
   /// Register a new action (typically at editor startup).
-  void registerAction(ForgeEditingAction action);
+  void registerAction(ForgeAction action);
 
   /// Execute an action by ID. Returns true if handled.
   bool executeAction(String actionId);
@@ -826,7 +824,7 @@ abstract interface class ForgeEditorIntegration {
   void onContextChanged(ForgeTextContext context);
 
   /// Get additional context menu actions.
-  List<ForgeEditingAction> getContextMenuActions();
+  List<ForgeAction> getContextMenuActions();
 
   /// Handle undo operation.
   void undo();
@@ -862,16 +860,16 @@ class DartStandaloneIntegration implements ForgeEditorIntegration {
   @override
   final ForgeTextSettings textSettings;
 
-  final List<ForgeEditingAction> _actions = [];
+  final List<ForgeAction> _actions = [];
   final List<_UndoEntry> _undoStack = [];
   final List<_UndoEntry> _redoStack = [];
 
   @override
-  List<ForgeEditingAction> get registeredActions =>
+  List<ForgeAction> get registeredActions =>
       List.unmodifiable(_actions);
 
   @override
-  void registerAction(ForgeEditingAction action) {
+  void registerAction(ForgeAction action) {
     _actions.add(action);
   }
 
@@ -882,14 +880,15 @@ class DartStandaloneIntegration implements ForgeEditorIntegration {
       orElse: () => throw StateError('Action not found: $actionId'),
     );
     if (action.isEnabled()) {
-      return action.execute();
+      action.execute({});
+      return true;
     }
     return false;
   }
 
   @override
   bool isActionEnabled(String actionId) {
-    final action = _actions.cast<ForgeEditingAction?>().firstWhere(
+    final action = _actions.cast<ForgeAction?>().firstWhere(
       (a) => a?.id == actionId,
       orElse: () => null,
     );
@@ -898,7 +897,7 @@ class DartStandaloneIntegration implements ForgeEditorIntegration {
 
   @override
   ForgeShortcutKey? getShortcutFor(String actionId) {
-    final action = _actions.cast<ForgeEditingAction?>().firstWhere(
+    final action = _actions.cast<ForgeAction?>().firstWhere(
       (a) => a?.id == actionId,
       orElse: () => null,
     );
@@ -911,7 +910,7 @@ class DartStandaloneIntegration implements ForgeEditorIntegration {
   }
 
   @override
-  List<ForgeEditingAction> getContextMenuActions() => const [];
+  List<ForgeAction> getContextMenuActions() => const [];
 
   @override
   void undo() {
@@ -996,7 +995,7 @@ class ShellEditorIntegration implements ForgeEditorIntegration {
 
   final ForgeShellApi _shellApi;
   final String _editorId;
-  final List<ForgeEditingAction> _editorActions = [];
+  final List<ForgeAction> _editorActions = [];
 
   @override
   ForgeTextSettings get textSettings {
@@ -1005,25 +1004,26 @@ class ShellEditorIntegration implements ForgeEditorIntegration {
   }
 
   @override
-  List<ForgeEditingAction> get registeredActions =>
+  List<ForgeAction> get registeredActions =>
       List.unmodifiable(_editorActions);
 
   @override
-  void registerAction(ForgeEditingAction action) {
+  void registerAction(ForgeAction action) {
     _editorActions.add(action);
-    // Also register with shell's action registry
-    _shellApi.actionRegistry.registerEditorAction(_editorId, action);
+    // Also register with shell's action registry (same type, no bridging needed)
+    _shellApi.actionRegistry.registerAction(action);
   }
 
   @override
   bool executeAction(String actionId) {
     // First check editor-specific actions
-    final editorAction = _editorActions.cast<ForgeEditingAction?>().firstWhere(
+    final editorAction = _editorActions.cast<ForgeAction?>().firstWhere(
       (a) => a?.id == actionId,
       orElse: () => null,
     );
     if (editorAction != null && editorAction.isEnabled()) {
-      return editorAction.execute();
+      editorAction.execute({});
+      return true;
     }
     // Fall back to shell-level action
     return _shellApi.executeAction(actionId);
@@ -1031,7 +1031,7 @@ class ShellEditorIntegration implements ForgeEditorIntegration {
 
   @override
   bool isActionEnabled(String actionId) {
-    final action = _editorActions.cast<ForgeEditingAction?>().firstWhere(
+    final action = _editorActions.cast<ForgeAction?>().firstWhere(
       (a) => a?.id == actionId,
       orElse: () => null,
     );
@@ -1051,7 +1051,7 @@ class ShellEditorIntegration implements ForgeEditorIntegration {
   }
 
   @override
-  List<ForgeEditingAction> getContextMenuActions() {
+  List<ForgeAction> getContextMenuActions() {
     // Query modules for applicable context actions
     return _shellApi.getContextActionsFor(_editorId);
   }
@@ -1155,14 +1155,18 @@ class _ActionIntent extends Intent {
 ## 14. File Structure (Revised)
 
 ```
+tom_forge_ui/lib/src/
+  actions/
+    forge_action.dart                    # EXISTING - unified action class (with editing() factory)
+    forge_shortcut_binding.dart          # EXISTING - shortcut key
+
 tom_editors_shared/lib/src/
   text_editing/                          # NEW folder
     forge_text_field.dart                # ForgeTextField widget
     forge_text_context.dart              # ForgeTextContext interface
     forge_text_settings.dart             # ForgeTextSettings class
-    forge_editing_action.dart            # ForgeEditingAction class
     forge_editor_integration.dart        # Base integration interface
-    standard_editing_actions.dart        # Default Cut/Copy/Paste/Undo/Redo
+    standard_editing_actions.dart        # Factory for Cut/Copy/Paste/Undo/Redo using ForgeAction
     integrations/
       dart_standalone_integration.dart
       md_standalone_integration.dart
