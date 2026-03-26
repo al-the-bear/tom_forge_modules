@@ -49,10 +49,11 @@ Already in place:
 
 Current gaps for near-production readiness:
 
-1. Menu actions still include placeholders in `ForgeMenuBar`.
-2. Command execution paths are not yet fully unified on registries.
-3. Top-level shortcut handling still contains platform assumptions.
-4. Promotion package (`tom_forge_app`) is still template-level.
+1. Settings persistence hardening (Phase C) is not completed yet.
+2. Expansion-cycle validation for additional modules/editors (Phase D) is not
+   started yet.
+3. Promotion package (`tom_forge_app`) remains template-level until staged
+   promotion work (Phase E).
 
 ## 4. Target Staging Architecture (tom_forge_ui_test)
 
@@ -288,8 +289,9 @@ This stage is done when:
 
 ## 9. Immediate Next Steps
 
-1. Finish menu command execution wiring in `tom_forge_ui`.
-2. Unify command palette source with action registry.
-3. Fix platform shortcut handling in shell scaffold.
-4. Run one full staging validation cycle in `tom_forge_ui_test`.
-5. Start adding next module/editor set in staging only.
+1. Begin Phase C implementation for settings persistence and restart
+   round-tripping.
+2. Add Phase C integration tests covering persistence and editor refresh.
+3. Execute one manual matrix pass focused on persistence and shortcut behavior.
+4. Start Phase D by integrating the next module/editor set in staging only.
+5. Defer `tom_forge_app` promotion until Phase C/D gates are green.
