@@ -1,5 +1,7 @@
 import '../module/forge_module.dart';
 import '../shell/forge_module_registry.dart';
+import '../services/forge_action_registry.dart';
+import '../services/forge_shortcut_manager.dart';
 
 /// Default implementation of [ForgeModuleRegistry].
 ///
@@ -7,11 +9,50 @@ import '../shell/forge_module_registry.dart';
 class DefaultModuleRegistry implements ForgeModuleRegistry {
   static bool debugEnabled = false;
 
+  DefaultModuleRegistry({
+    ForgeActionRegistry? actionRegistry,
+    ForgeShortcutManager? shortcutManager,
+  })  : _actionRegistry = actionRegistry,
+        _shortcutManager = shortcutManager;
+
   final Map<Type, ForgeModule> _modules = {};
+  final ForgeActionRegistry? _actionRegistry;
+  final ForgeShortcutManager? _shortcutManager;
 
   /// Register a module by its runtime type.
   void register(ForgeModule module) {
-    _modules[module.runtimeType] = module;
+    try {
+      final existing = _modules[module.runtimeType];
+      if (debugEnabled && existing != null) {
+        // ignore: avoid_print
+        print(
+          '[DefaultModuleRegistry] replacing module '
+          '${module.runtimeType} (${existing.displayName} -> ${module.displayName})',
+        );
+      }
+
+      _modules[module.runtimeType] = module;
+
+      final actionRegistry = _actionRegistry;
+      if (actionRegistry != null) {
+        for (final action in module.actions) {
+          actionRegistry.registerAction(action);
+        }
+      }
+
+      final shortcutManager = _shortcutManager;
+      if (shortcutManager != null) {
+        for (final binding in module.shortcuts) {
+          shortcutManager.rebind(binding.action, binding.key);
+        }
+      }
+    } catch (error, stackTrace) {
+      // ignore: avoid_print
+      print('[DefaultModuleRegistry] register failed: $error');
+      // ignore: avoid_print
+      print(stackTrace);
+      rethrow;
+      }
   }
 
   @override

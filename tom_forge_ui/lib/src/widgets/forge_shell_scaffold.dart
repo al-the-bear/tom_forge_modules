@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 
@@ -107,6 +108,11 @@ class ForgeShellScaffold extends StatefulWidget {
 }
 
 class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
+  static bool debugEnabled = false;
+
+  static const String _actionFileSave = 'file.save';
+  static const String _actionFileSaveAll = 'file.saveAll';
+
   DefaultLayoutController get _layout => widget.layoutController;
   bool _showCommandPalette = false;
 
@@ -153,32 +159,48 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   }
 
   Map<ShortcutActivator, Intent> _buildShortcuts() {
-    return {
-      // Command Palette: Cmd+P
-      const SingleActivator(LogicalKeyboardKey.keyP, meta: true):
-          const _CommandPaletteIntent(),
-      // Toggle Left Panel: Cmd+L
-      const SingleActivator(LogicalKeyboardKey.keyL, meta: true):
-          const _ToggleLeftPanelIntent(),
-      // Toggle Right Panel: Cmd+R
-      const SingleActivator(LogicalKeyboardKey.keyR, meta: true):
-          const _ToggleRightPanelIntent(),
-      // Focus Explorer: Cmd+1
-      const SingleActivator(LogicalKeyboardKey.digit1, meta: true):
-          const _FocusLeftPanelIntent(),
-      // Focus Editor: Cmd+2
-      const SingleActivator(LogicalKeyboardKey.digit2, meta: true):
-          const _FocusCenterIntent(),
-      // Focus Properties: Cmd+3
-      const SingleActivator(LogicalKeyboardKey.digit3, meta: true):
-          const _FocusRightPanelIntent(),
-      // Focus Bottom Panel: Cmd+4
-      const SingleActivator(LogicalKeyboardKey.digit4, meta: true):
-          const _FocusBottomPanelIntent(),
-      // Save: Cmd+S
-      const SingleActivator(LogicalKeyboardKey.keyS, meta: true):
-          const _SaveIntent(),
-    };
+    try {
+      final useMetaPrimary = defaultTargetPlatform == TargetPlatform.macOS;
+
+      SingleActivator primaryActivator(
+        LogicalKeyboardKey key, {
+        bool shift = false,
+      }) {
+        return SingleActivator(
+          key,
+          meta: useMetaPrimary,
+          control: !useMetaPrimary,
+          shift: shift,
+        );
+      }
+
+      final shortcuts = {
+        primaryActivator(LogicalKeyboardKey.keyP):
+            const _CommandPaletteIntent(),
+        primaryActivator(LogicalKeyboardKey.keyL):
+            const _ToggleLeftPanelIntent(),
+        primaryActivator(LogicalKeyboardKey.keyR):
+            const _ToggleRightPanelIntent(),
+        primaryActivator(LogicalKeyboardKey.digit1):
+            const _FocusLeftPanelIntent(),
+        primaryActivator(LogicalKeyboardKey.digit2): const _FocusCenterIntent(),
+        primaryActivator(LogicalKeyboardKey.digit3):
+            const _FocusRightPanelIntent(),
+        primaryActivator(LogicalKeyboardKey.digit4):
+            const _FocusBottomPanelIntent(),
+        primaryActivator(LogicalKeyboardKey.keyS): const _SaveIntent(),
+      };
+
+      if (debugEnabled) {
+        debugPrint('[ForgeShellScaffold] shortcut count: ${shortcuts.length}');
+      }
+
+      return shortcuts;
+    } catch (error, stackTrace) {
+      debugPrint('[ForgeShellScaffold] build shortcuts failed: $error');
+      debugPrint('$stackTrace');
+      rethrow;
+    }
   }
 
   Map<Type, Action<Intent>> _buildActions() {
@@ -239,14 +261,16 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   }
 
   void _executeSave() {
-    for (final module in widget.shell.modules.allModules) {
-      final action = module.actions
-          .where((a) => a.id == 'file.save' || a.id == 'file.saveAll')
-          .firstOrNull;
-      if (action != null) {
-        action.execute({});
+    try {
+      if (widget.shell.executeAction(_actionFileSave)) {
         return;
       }
+
+      widget.shell.executeAction(_actionFileSaveAll);
+    } catch (error, stackTrace) {
+      debugPrint('[ForgeShellScaffold] execute save failed: $error');
+      debugPrint('$stackTrace');
+      rethrow;
     }
   }
 

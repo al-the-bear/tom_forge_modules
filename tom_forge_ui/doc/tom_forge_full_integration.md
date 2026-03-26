@@ -19,7 +19,7 @@ Success means:
 | Phase | Status | Notes |
 | --- | --- | --- |
 | Phase A | Completed (2026-03-26) | Implemented and re-verified in both `tom_forge_ui` and `tom_forge_ui_test` with analyzer/tests passing (latest strict pass included integration-path test coverage) |
-| Phase B | Not Started | Planned |
+| Phase B | Completed (2026-03-26) | Implemented and verified in `tom_forge_ui` and `tom_forge_ui_test`; command source unification, effective shortcut display, and platform-aware shell shortcuts are active |
 | Phase C | Not Started | Planned |
 | Phase D | Not Started | Planned |
 | Phase E | Not Started | Planned |
@@ -117,6 +117,8 @@ Implementation evidence:
 
 Objective: remove framework-level blockers for near-production operation.
 
+Status timeline: In-Progress -> Completed (2026-03-26)
+
 Primary files:
 
 1. `tom_forge_ui/lib/src/widgets/forge_menu_bar.dart`
@@ -139,6 +141,29 @@ Acceptance criteria:
 2. Menu and palette execute identical command IDs.
 3. Shortcut labels match actual active bindings.
 4. Linux/macOS/Windows modifier behavior is correct.
+
+Implementation evidence:
+
+1. Replaced critical File/Edit placeholder menu paths with real action
+   dispatch in `tom_forge_ui/lib/src/widgets/forge_menu_bar.dart`.
+2. Unified command palette action source to shell action registry, with
+   deduped module-action fallback coverage in
+   `tom_forge_ui/lib/src/widgets/forge_command_palette.dart`.
+3. Command palette now shows effective shortcut bindings from shortcut manager
+   (runtime binding first, default shortcut second).
+4. Updated shell scaffold shortcuts to platform-aware primary modifier mapping
+   in `tom_forge_ui/lib/src/widgets/forge_shell_scaffold.dart`.
+5. Updated module registration wiring so module actions/shortcuts are published
+   into shell registries in `tom_forge_ui/lib/src/defaults/default_module_registry.dart`
+   and `tom_forge_ui/lib/src/defaults/default_shell_api.dart`.
+6. Added and passed new Phase B tests:
+   1. `tom_forge_ui/test/widgets/phase_b_command_palette_test.dart`
+   2. `tom_forge_ui/test/widgets/phase_b_shortcut_platform_test.dart`
+
+Verification results (latest strict pass):
+
+1. `tom_forge_ui`: `dart analyze` clean, `flutter test` 51 passed.
+2. `tom_forge_ui_test`: `flutter analyze` clean, `flutter test` 1 passed.
 
 ## Phase C: Settings and Persistence Hardening
 

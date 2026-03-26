@@ -6,9 +6,16 @@ import '../defaults/default_system_state.dart';
 
 /// A VS Code-style menu bar with File | Edit | View | Help menus.
 class ForgeMenuBar extends StatelessWidget {
+  static const String _actionFileNew = 'file.new';
+  static const String _actionFileOpenFolder = 'file.openFolder';
   static const String _actionFileSave = 'file.save';
   static const String _actionFileSaveAll = 'file.saveAll';
   static const String _actionFileClose = 'file.close';
+  static const String _actionEditCut = 'edit.cut';
+  static const String _actionEditCopy = 'edit.copy';
+  static const String _actionEditPaste = 'edit.paste';
+  static const String _actionEditFind = 'edit.find';
+  static const String _actionEditReplace = 'edit.replace';
   static const String _actionEditUndo = 'edit.undo';
   static const String _actionEditRedo = 'edit.redo';
 
@@ -42,29 +49,49 @@ class ForgeMenuBar extends StatelessWidget {
               _MenuItem(
                 label: 'New File',
                 shortcut: '⌘N',
-                onTap: () => _showNotImplemented(context, 'New File'),
+                onTap: () => _executeActionOrInform(
+                  context,
+                  _actionFileNew,
+                  'New File',
+                ),
               ),
               _MenuItem(
                 label: 'Open Folder...',
                 shortcut: '⌘O',
-                onTap: () => _showNotImplemented(context, 'Open Folder'),
+                onTap: () => _executeActionOrInform(
+                  context,
+                  _actionFileOpenFolder,
+                  'Open Folder',
+                ),
               ),
               const _MenuDivider(),
               _MenuItem(
                 label: 'Save',
                 shortcut: '⌘S',
-                onTap: () => _executeAction(_actionFileSave),
+                onTap: () => _executeActionOrInform(
+                  context,
+                  _actionFileSave,
+                  'Save',
+                ),
               ),
               _MenuItem(
                 label: 'Save All',
                 shortcut: '⇧⌘S',
-                onTap: () => _executeAction(_actionFileSaveAll),
+                onTap: () => _executeActionOrInform(
+                  context,
+                  _actionFileSaveAll,
+                  'Save All',
+                ),
               ),
               const _MenuDivider(),
               _MenuItem(
                 label: 'Close Editor',
                 shortcut: '⌘W',
-                onTap: () => _executeAction(_actionFileClose),
+                onTap: () => _executeActionOrInform(
+                  context,
+                  _actionFileClose,
+                  'Close Editor',
+                ),
               ),
               const _MenuDivider(),
               _MenuItem(
@@ -81,39 +108,67 @@ class ForgeMenuBar extends StatelessWidget {
               _MenuItem(
                 label: 'Undo',
                 shortcut: '⌘Z',
-                onTap: () => _executeAction(_actionEditUndo),
+                onTap: () => _executeActionOrInform(
+                  context,
+                  _actionEditUndo,
+                  'Undo',
+                ),
               ),
               _MenuItem(
                 label: 'Redo',
                 shortcut: '⇧⌘Z',
-                onTap: () => _executeAction(_actionEditRedo),
+                onTap: () => _executeActionOrInform(
+                  context,
+                  _actionEditRedo,
+                  'Redo',
+                ),
               ),
               const _MenuDivider(),
               _MenuItem(
                 label: 'Cut',
                 shortcut: '⌘X',
-                onTap: () => _showNotImplemented(context, 'Cut'),
+                onTap: () => _executeActionOrInform(
+                  context,
+                  _actionEditCut,
+                  'Cut',
+                ),
               ),
               _MenuItem(
                 label: 'Copy',
                 shortcut: '⌘C',
-                onTap: () => _showNotImplemented(context, 'Copy'),
+                onTap: () => _executeActionOrInform(
+                  context,
+                  _actionEditCopy,
+                  'Copy',
+                ),
               ),
               _MenuItem(
                 label: 'Paste',
                 shortcut: '⌘V',
-                onTap: () => _showNotImplemented(context, 'Paste'),
+                onTap: () => _executeActionOrInform(
+                  context,
+                  _actionEditPaste,
+                  'Paste',
+                ),
               ),
               const _MenuDivider(),
               _MenuItem(
                 label: 'Find',
                 shortcut: '⌘F',
-                onTap: () => _showNotImplemented(context, 'Find'),
+                onTap: () => _executeActionOrInform(
+                  context,
+                  _actionEditFind,
+                  'Find',
+                ),
               ),
               _MenuItem(
                 label: 'Replace',
                 shortcut: '⌥⌘F',
-                onTap: () => _showNotImplemented(context, 'Replace'),
+                onTap: () => _executeActionOrInform(
+                  context,
+                  _actionEditReplace,
+                  'Replace',
+                ),
               ),
             ],
             isDark: isDark,
@@ -186,19 +241,22 @@ class ForgeMenuBar extends StatelessWidget {
     );
   }
 
-  void _executeAction(String actionId) {
-    if (shellApi.executeAction(actionId)) {
+  void _executeActionOrInform(
+    BuildContext context,
+    String actionId,
+    String actionName,
+  ) {
+    final executed = shellApi.executeAction(actionId);
+    if (executed) {
       return;
     }
 
-    for (final module in shellApi.modules.allModules) {
-      final action = module.actions.where((a) => a.id == actionId).firstOrNull;
-      if (action == null || !action.isEnabled()) {
-        continue;
-      }
-      action.execute({});
-      return;
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$actionName is currently unavailable'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   void _showNotImplemented(BuildContext context, String feature) {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
@@ -26,10 +27,15 @@ void main() {
     await tester.pumpWidget(harness.buildShellApp());
     await tester.pumpAndSettle();
 
-    await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+    final usesMeta = defaultTargetPlatform == TargetPlatform.macOS;
+    final modifier = usesMeta
+      ? LogicalKeyboardKey.metaLeft
+      : LogicalKeyboardKey.controlLeft;
+
+    await tester.sendKeyDownEvent(modifier);
     await tester.sendKeyDownEvent(LogicalKeyboardKey.keyS);
     await tester.sendKeyUpEvent(LogicalKeyboardKey.keyS);
-    await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+    await tester.sendKeyUpEvent(modifier);
     await tester.pumpAndSettle();
 
     expect(harness.module.executedActionIds, contains('file.save'));

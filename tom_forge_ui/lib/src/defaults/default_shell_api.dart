@@ -180,7 +180,12 @@ class DefaultShellApi implements ForgeShellApi {
     required GlobalKey<NavigatorState> navigatorKey,
   }) {
     final systemState = DefaultSystemState();
-    final moduleRegistry = DefaultModuleRegistry();
+    final actionRegistry = DefaultActionRegistry();
+    final shortcutManager = DefaultShortcutManager();
+    final moduleRegistry = DefaultModuleRegistry(
+      actionRegistry: actionRegistry,
+      shortcutManager: shortcutManager,
+    );
     final layoutController = DefaultLayoutController(
       systemState: systemState,
       fileSystem: fileSystem,
@@ -214,8 +219,6 @@ class DefaultShellApi implements ForgeShellApi {
     final outlineManager = DefaultOutlineManager();
     final terminalManager = DefaultTerminalManager();
     final storageService = DefaultModuleStorage();
-    final actionRegistry = DefaultActionRegistry();
-    final shortcutManager = DefaultShortcutManager();
     final environmentService = DefaultEnvironment();
     final secretStorage = DefaultSecretStorage();
     final fileDecorationManager = DefaultFileDecorationManager();

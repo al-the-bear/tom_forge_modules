@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 
+import '../actions/forge_action.dart';
 import '../actions/forge_shortcut_binding.dart';
 import '../defaults/default_shell_api.dart';
 
@@ -9,6 +11,8 @@ import '../defaults/default_shell_api.dart';
 ///
 /// Shows a searchable list of available commands/actions.
 class ForgeCommandPalette extends StatefulWidget {
+  static bool debugEnabled = false;
+
   final DefaultShellApi shellApi;
   final VoidCallback onDismiss;
 
@@ -39,64 +43,117 @@ class _ForgeCommandPaletteState extends State<ForgeCommandPalette> {
   }
 
   void _buildCommandList() {
-    final commands = <_CommandItem>[];
+    try {
+      if (ForgeCommandPalette.debugEnabled) {
+        debugPrint('[ForgeCommandPalette] building command list');
+      }
 
-    // Get actions from all registered modules
-    for (final module in widget.shellApi.modules.allModules) {
-      for (final action in module.actions) {
-        commands.add(_CommandItem(
+      final commandsById = <String, _CommandItem>{};
+
+      void putAction(ForgeAction action) {
+        final effectiveKey =
+            widget.shellApi.shortcuts.getBinding(action.id)?.key ??
+                action.defaultShortcut;
+        commandsById[action.id] = _CommandItem(
           id: action.id,
           label: action.label,
-          shortcut: _formatShortcut(action.defaultShortcut),
+          shortcut: _formatShortcut(effectiveKey),
           icon: action.icon ?? Icons.play_arrow,
-          onExecute: () => action.execute({}),
-        ));
+          onExecute: () {
+            if (!widget.shellApi.executeAction(action.id)) {
+              action.execute({});
+            }
+          },
+        );
       }
+
+      for (final action in widget.shellApi.actionRegistry.allActions) {
+        putAction(action);
+      }
+
+      // Include module actions that may not yet be in registry.
+      for (final module in widget.shellApi.modules.allModules) {
+        for (final action in module.actions) {
+          commandsById.putIfAbsent(action.id, () {
+            final effectiveKey =
+                widget.shellApi.shortcuts.getBinding(action.id)?.key ??
+                    action.defaultShortcut;
+            return _CommandItem(
+              id: action.id,
+              label: action.label,
+              shortcut: _formatShortcut(effectiveKey),
+              icon: action.icon ?? Icons.play_arrow,
+              onExecute: () {
+                if (!widget.shellApi.executeAction(action.id)) {
+                  action.execute({});
+                }
+              },
+            );
+          });
+        }
+      }
+
+      // Add built-in commands
+      final commands = <_CommandItem>[
+        ...commandsById.values,
+        _CommandItem(
+          id: 'palette.close',
+          label: 'Close Command Palette',
+          shortcut: 'Escape',
+          icon: Icons.close,
+          onExecute: widget.onDismiss,
+        ),
+        _CommandItem(
+          id: 'view.toggleLeftPanel',
+          label: 'Toggle Left Panel',
+          shortcut: _primaryLabel(LogicalKeyboardKey.keyL),
+          icon: Icons.view_sidebar,
+          onExecute: () {
+            widget.shellApi.layout.togglePanel(ForgePanelLocation.left);
+            widget.onDismiss();
+          },
+        ),
+        _CommandItem(
+          id: 'view.toggleRightPanel',
+          label: 'Toggle Right Panel',
+          shortcut: _primaryLabel(LogicalKeyboardKey.keyR),
+          icon: Icons.view_sidebar_outlined,
+          onExecute: () {
+            widget.shellApi.layout.togglePanel(ForgePanelLocation.right);
+            widget.onDismiss();
+          },
+        ),
+      ];
+
+      _allCommands = commands;
+
+      if (ForgeCommandPalette.debugEnabled) {
+        debugPrint('[ForgeCommandPalette] command count: ${_allCommands.length}');
+      }
+    } catch (error, stackTrace) {
+      debugPrint('[ForgeCommandPalette] build list failed: $error');
+      debugPrint('$stackTrace');
+      rethrow;
     }
-
-    // Add built-in commands
-    commands.addAll([
-      _CommandItem(
-        id: 'palette.close',
-        label: 'Close Command Palette',
-        shortcut: 'Escape',
-        icon: Icons.close,
-        onExecute: widget.onDismiss,
-      ),
-      _CommandItem(
-        id: 'view.toggleLeftPanel',
-        label: 'Toggle Left Panel',
-        shortcut: '⌘L',
-        icon: Icons.view_sidebar,
-        onExecute: () {
-          widget.shellApi.layout.togglePanel(ForgePanelLocation.left);
-          widget.onDismiss();
-        },
-      ),
-      _CommandItem(
-        id: 'view.toggleRightPanel',
-        label: 'Toggle Right Panel',
-        shortcut: '⌘R',
-        icon: Icons.view_sidebar_outlined,
-        onExecute: () {
-          widget.shellApi.layout.togglePanel(ForgePanelLocation.right);
-          widget.onDismiss();
-        },
-      ),
-    ]);
-
-    _allCommands = commands;
   }
 
   String? _formatShortcut(ForgeShortcutKey? key) {
     if (key == null) return null;
 
     final parts = <String>[];
-    if (key.primaryModifier) parts.add('⌘');
+    if (key.primaryModifier) {
+      parts.add(defaultTargetPlatform == TargetPlatform.macOS ? '⌘' : 'Ctrl');
+    }
     if (key.alt) parts.add('Alt');
     if (key.shift) parts.add('Shift');
     parts.add(_formatKey(key.key));
     return parts.join('+');
+  }
+
+  String _primaryLabel(LogicalKeyboardKey key) {
+    final modifier =
+        defaultTargetPlatform == TargetPlatform.macOS ? '⌘' : 'Ctrl';
+    return '$modifier+${_formatKey(key)}';
   }
 
   String _formatKey(LogicalKeyboardKey key) {
