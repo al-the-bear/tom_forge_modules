@@ -2,295 +2,242 @@
 
 ## 1. Goal
 
-This document defines the steps required to run the full Tom Forge editor stack
-as an integrated shell application, not only as package-level components and
-tests.
+Build and validate an almost-production integrated shell runtime in
+`tom_forge_ui_test`, then promote it into `tom_forge_app` after additional
+modules/editors and review cycles.
+
+This document intentionally treats `tom_forge_ui_test` as the staging runtime.
 
 Success means:
 
-1. The real app entrypoint starts the Forge shell.
-2. The shell registers the editor module set and app module set.
-3. Menus, command palette, shortcuts, editor actions, and settings work through
-   shared shell services.
-4. The system behaves consistently on Linux/macOS/Windows.
+1. `tom_forge_ui_test` behaves like a production shell for core flows.
+2. New modules/editors can be integrated there with low risk.
+3. Promotion to `tom_forge_app` is a controlled copy/move, not a redesign.
 
-## 2. Current Status Snapshot
+## 2. Strategy: Staged Promotion Model
 
-The editor integration foundation is implemented and validated in
-`tom_forge_ui` and related editor packages. The main missing piece is full
-runtime wiring in the production app path.
+## 2.1 Runtime Roles
 
-Implemented:
+1. `tom_forge_ui`: shell framework and reusable integration infrastructure.
+2. `tom_forge_ui_test`: near-production staging app and integration proving
+   ground.
+3. `tom_forge_app`: final consumer app, promoted only after staging gates pass.
 
-1. `ShellEditorIntegration` and editor adapter wiring.
-2. Shared shell action/shortcut APIs in `ForgeShellApi` + defaults.
-3. Integration tests proving editor-shell bridge behavior.
+## 2.2 Why This Model
 
-Still missing for full runtime integration:
+1. Faster iteration while APIs and module set are still evolving.
+2. Safer integration of additional editors/modules before locking app runtime.
+3. Clear quality gates before promotion.
 
-1. `tom_forge_app/lib/main.dart` still uses Flutter template flow, not shell
-   bootstrap flow.
-2. Production app module composition equivalent to the test app module is not
-   yet wired in the real app path.
-3. `ForgeMenuBar` still contains placeholder actions and a non-executing
-   `_executeAction` path.
-4. Command sources are split (module action lists vs shell action registry).
-5. Top-level shell shortcuts are hard-coded for Meta key usage.
+## 3. Current Baseline
 
-## 3. Target Architecture
+Already in place:
 
-## 3.1 Runtime Boot Sequence
+1. `ShellEditorIntegration` wiring in editor adapters.
+2. Shared shell APIs for actions, shortcuts, settings, and editor context.
+3. Working shell bootstrap pattern in `tom_forge_ui_test`.
 
-1. Create shell API with real file system backing.
-2. Create and activate modules:
-   1. `TomForgeShellModule`
-   2. Application module (views/actions/status bar)
-3. Register modules in module registry.
-4. Build `ForgeApplication` layout from module-provided views.
-5. Start `ForgeShellScaffold` with the created shell and application layout.
+Current gaps for near-production readiness:
 
-## 3.2 Single Source of Truth
+1. Menu actions still include placeholders in `ForgeMenuBar`.
+2. Command execution paths are not yet fully unified on registries.
+3. Top-level shortcut handling still contains platform assumptions.
+4. Promotion package (`tom_forge_app`) is still template-level.
 
-All shell interactions should converge to these services:
+## 4. Target Staging Architecture (tom_forge_ui_test)
 
-1. `ForgeActionRegistry` for available commands/actions.
-2. `ForgeShortcutManager` for active key bindings.
-3. `ForgeSystemState` for active editor and editor context.
-4. `ForgeConfigManager` + text settings API for editor display settings.
+## 4.1 Boot Flow
 
-## 4. Implementation Steps
+1. Create shell with real file system backing.
+2. Activate/register `TomForgeShellModule`.
+3. Activate/register app module(s) for views/actions/status bar.
+4. Build `ForgeApplication` layout from modules.
+5. Start `ForgeShellScaffold`.
 
-## Phase 0: Bootstrap Production App (Highest Priority)
+## 4.2 Command and State Single Sources
 
-Objective: Make the real app start with `ForgeShellScaffold` and registered
-modules.
+1. Action source: `ForgeActionRegistry`.
+2. Shortcut source: `ForgeShortcutManager` effective bindings.
+3. Editor state source: `ForgeSystemState` active context.
+4. Settings source: shell config plus text settings APIs.
 
-Primary files:
+## 5. Implementation Plan
 
-1. `tom_forge_app/lib/main.dart`
-2. New app bootstrap file(s) under `tom_forge_app/lib/src/`
+## Phase A: Harden Staging Runtime in tom_forge_ui_test
 
-Tasks:
-
-1. Replace Flutter demo entrypoint with shell bootstrap flow.
-2. Instantiate `DefaultShellApi.withDefaultsAndFileSystem(...)` with real
-   workspace root.
-3. Activate and register `TomForgeShellModule`.
-4. Activate and register an application module for shell views/actions.
-5. Render `ForgeShellScaffold` as app home.
-
-Acceptance criteria:
-
-1. App launches directly into shell layout.
-2. Opening a markdown/dart/yaml file creates the correct adapter editor.
-3. No demo counter/home page remains in runtime path.
-
-## Phase 1: Production App Module Extraction
-
-Objective: Move test-harness shell app behavior into production module code.
+Objective: make `tom_forge_ui_test` almost production for current scope.
 
 Primary files:
 
-1. New module file in `tom_forge_app/lib/src/` (for example
-   `tom_forge_app_module.dart`).
-2. Optionally reuse or port logic from
-   `tom_forge_ui_test/lib/src/test_app_module.dart`.
+1. `tom_forge_ui_test/lib/main.dart`
+2. `tom_forge_ui_test/lib/src/app.dart`
+3. `tom_forge_ui_test/lib/src/test_app_module.dart`
 
 Tasks:
 
-1. Define views: Explorer, Search, Outline, Problems, Output.
-2. Define core actions: file save/save-all, close/close-all, undo/redo,
-   panel toggles.
-3. Define default shortcut bindings.
-4. Define status bar items and state listeners.
+1. Keep bootstrap path as canonical staging startup.
+2. Ensure all shell views are wired with stable layout defaults.
+3. Ensure save/save-all/close/undo/redo/panel actions are complete and usable.
+4. Extend module with new editors/modules as they are added.
 
 Acceptance criteria:
 
-1. Command palette contains production module actions.
-2. Status bar updates when active editor/diagnostics change.
-3. Actions can be executed from both command palette and menu.
+1. App boots to shell without placeholder-only critical paths.
+2. Core actions work from menu, command palette, and shortcuts.
+3. Opening `.md`, `.dart`, `.yaml`, `.yml` consistently selects correct editor.
 
-## Phase 2: Menu Wiring to Real Actions
+## Phase B: Shell UX and Command Reliability (tom_forge_ui)
 
-Objective: Remove menu placeholders and execute real shell actions.
+Objective: remove framework-level blockers for near-production operation.
 
 Primary files:
 
 1. `tom_forge_ui/lib/src/widgets/forge_menu_bar.dart`
+2. `tom_forge_ui/lib/src/widgets/forge_command_palette.dart`
+3. `tom_forge_ui/lib/src/widgets/forge_shell_scaffold.dart`
+4. `tom_forge_ui/lib/src/defaults/default_shell_api.dart`
+5. `tom_forge_ui/lib/src/defaults/default_module_registry.dart`
 
 Tasks:
 
-1. Replace `_showNotImplemented(...)` action entries with real action dispatch.
-2. Implement `_executeAction(String actionId)` via shell API action execution.
-3. Route editor commands (undo/redo/cut/copy/paste/find) through either:
-   1. focused editor integration action IDs, or
-   2. shell action registry entries with context checks.
-4. Keep user feedback for unavailable actions (disabled menu entries or
-   informative toast).
+1. Replace placeholder menu handlers with real action dispatch.
+2. Unify palette command source to action registry.
+3. Display shortcuts using effective runtime bindings.
+4. Make shell shortcut handling platform-accurate.
+5. Define duplicate action ID policy and conflict logging.
 
 Acceptance criteria:
 
-1. File/Edit/View menu operations execute where supported.
-2. Menu labels and enabled state reflect actual command availability.
-3. Placeholder-only menu items are removed or explicitly marked as deferred.
+1. No critical File/Edit/View action is placeholder-only.
+2. Menu and palette execute identical command IDs.
+3. Shortcut labels match actual active bindings.
+4. Linux/macOS/Windows modifier behavior is correct.
 
-## Phase 3: Command Palette and Registry Unification
+## Phase C: Settings and Persistence Hardening
 
-Objective: Use shell action registry as command source.
-
-Primary files:
-
-1. `tom_forge_ui/lib/src/widgets/forge_command_palette.dart`
-2. `tom_forge_ui/lib/src/defaults/default_shell_api.dart`
-3. `tom_forge_ui/lib/src/defaults/default_module_registry.dart`
-
-Tasks:
-
-1. Build palette list from `shellApi.actionRegistry` (plus optional built-ins).
-2. Use shortcut manager bindings to display effective shortcuts (not only
-   default shortcuts).
-3. Ensure module activation/registration publishes actions and shortcuts to
-   registries consistently.
-4. Prevent duplicate action IDs and define deterministic precedence.
-
-Acceptance criteria:
-
-1. Palette shows editor and shell actions consistently.
-2. Rebound shortcuts are reflected in palette labels.
-3. Executing a palette entry follows same execution path as menu shortcuts.
-
-## Phase 4: Platform-Accurate Shortcut Handling
-
-Objective: Make shell shortcuts correct on all desktop platforms.
-
-Primary files:
-
-1. `tom_forge_ui/lib/src/widgets/forge_shell_scaffold.dart`
-2. Shortcut utility/helper file(s) if needed.
-
-Tasks:
-
-1. Replace hard-coded `meta: true` activators with platform-aware primary
-   modifier handling.
-2. Align shell-level shortcut display and behavior with `ForgeShortcutKey`.
-3. Validate Linux Ctrl-based behavior, macOS Cmd-based behavior, and Windows
-   Ctrl-based behavior.
-
-Acceptance criteria:
-
-1. Same command IDs trigger correctly using expected platform modifiers.
-2. No Linux regression from Meta-only bindings.
-3. Shortcut docs and visible labels match runtime behavior.
-
-## Phase 5: Settings and Persistence Integration
-
-Objective: Make editor settings persist and round-trip through shell config.
+Objective: make staging behavior durable across runs.
 
 Primary files:
 
 1. `tom_forge_ui/lib/src/widgets/forge_configuration_dialog.dart`
 2. `tom_forge_ui/lib/src/services/forge_preferences_service.dart`
-3. Any app-level persistence bridge in `tom_forge_app`.
+3. `tom_forge_ui_test` persistence entrypoint code as needed
 
 Tasks:
 
-1. Ensure settings save path writes and reloads editor text settings.
-2. Ensure per-editor-type settings (`md`, `dart`, `yaml`) persist across app
-   restart.
-3. Ensure runtime updates propagate to active editor widgets.
+1. Persist editor text settings by editor type.
+2. Ensure values round-trip after restart.
+3. Ensure active editors refresh from updated settings consistently.
 
 Acceptance criteria:
 
-1. Changing settings updates open editors immediately or on documented reload.
-2. Restarting app preserves settings.
-3. Settings dialog values always match effective shell values.
+1. Settings changes survive restart.
+2. Staging UI shows effective values after reload.
+3. Editor visuals and behavior are consistent with configured values.
 
-## Phase 6: End-to-End Validation
+## Phase D: Expansion Cycles (More Modules/Editors)
 
-Objective: Verify full integrated behavior in runtime, not only unit tests.
+Objective: integrate additional modules/editors while staying near-production.
 
-Required checks:
+For each new module/editor:
 
-1. `dart analyze` for affected packages:
-   1. `tom_forge_ui`
-   2. `tom_forge_app`
-2. Relevant test runs:
-   1. `tom_forge_ui` integration tests
-   2. app/widget smoke tests for `tom_forge_app`
-3. Manual integration matrix:
-   1. Open files by extension (`.md`, `.dart`, `.yaml`, `.yml`)
-   2. Save/save-all flows
-   3. Menu and palette command parity
-   4. Shortcut behavior per platform
-   5. Settings persistence across restart
+1. Add module to staging bootstrap.
+2. Register actions and shortcuts in shell registries.
+3. Add panel/view integration in application layout.
+4. Add integration tests and smoke scenarios.
+5. Run analyzer + test suite before merging.
 
-Recommended command sequence:
+Gate per cycle:
+
+1. No analyzer errors in affected packages.
+2. No command regression in menu/palette/shortcut matrix.
+3. No editor opening regression by file type.
+
+## Phase E: Promotion to tom_forge_app
+
+Objective: promote proven staging runtime into production app package.
+
+Promotion approach:
+
+1. Copy bootstrap/module composition from `tom_forge_ui_test` to
+   `tom_forge_app` with minimal delta.
+2. Keep same command IDs, shortcut IDs, and layout model.
+3. Avoid introducing new behavior during promotion.
+
+Primary files:
+
+1. `tom_forge_app/lib/main.dart`
+2. New `tom_forge_app/lib/src/` runtime files derived from staging app/module
+
+Promotion gate checklist:
+
+1. At least two review cycles completed in staging after latest major module
+   additions.
+2. Manual integration matrix fully green.
+3. Staging regression tests stable across repeated runs.
+4. `tom_forge_app` analyze/tests green after port.
+
+## 6. Validation Plan
+
+## 6.1 Automated
+
+Run on every integration milestone:
 
 ```bash
 cd tom_forge/tom_forge_ui
 dart analyze
 flutter test
 
-cd ../tom_forge_app
+cd ../tom_forge_ui_test
+dart analyze
+flutter test
+```
+
+Run on promotion milestones:
+
+```bash
+cd tom_forge/tom_forge_app
 dart analyze
 flutter test
 flutter run
 ```
 
-## 5. Detailed Work Breakdown (Task Board)
+## 6.2 Manual Matrix
 
-## Sprint A (Bootstrap + module wiring)
+1. Open each supported file type and verify correct adapter.
+2. Execute save/save-all/close/undo/redo through:
+   1. menu
+   2. command palette
+   3. keyboard shortcut
+3. Verify panel toggles and focus routing.
+4. Verify settings persistence across restart.
+5. Verify platform shortcut behavior.
 
-1. Replace production main entrypoint with shell bootstrap.
-2. Introduce production app module and register it.
-3. Verify shell opens files and renders all panels.
+## 7. Risks and Controls
 
-## Sprint B (menu/palette/shortcuts)
+1. Risk: drift between staging and production runtime.
+   Control: promotion by copy/port with minimal behavioral delta.
+2. Risk: action duplication and command ambiguity.
+   Control: explicit action ID conventions and conflict checks.
+3. Risk: platform-specific shortcut regressions.
+   Control: platform test matrix and primary-modifier abstraction.
+4. Risk: frequent module expansion destabilizes shell UX.
+   Control: per-cycle gates and mandatory smoke checklist.
 
-1. Wire menu actions to real execution paths.
-2. Unify palette source with action registry.
-3. Implement platform-aware shortcut handling.
+## 8. Definition of Done for This Stage
 
-## Sprint C (settings + polish + E2E)
+This stage is done when:
 
-1. Complete settings persistence round-trip.
-2. Add regression tests for menu and palette command execution.
-3. Perform final analyzer/tests/manual validation.
+1. `tom_forge_ui_test` is accepted as almost production for integrated shell
+   behavior.
+2. Core shell UX paths are real (not placeholders) for required commands.
+3. Additional modules/editors can be integrated repeatedly without regressions.
+4. Promotion packet for `tom_forge_app` is ready and low risk.
 
-## 6. Risks and Mitigations
+## 9. Immediate Next Steps
 
-1. Risk: duplicate action IDs from shell + editor modules.
-   Mitigation: enforce ID namespace and collision logging.
-2. Risk: inconsistent shortcut display vs runtime behavior.
-   Mitigation: format labels from effective binding source only.
-3. Risk: editor-specific commands unavailable when no active editor.
-   Mitigation: strict enabled/visible guards and focus-aware dispatch.
-4. Risk: platform shortcut regressions.
-   Mitigation: add platform-specific shortcut tests and manual checklist.
-
-## 7. Definition of Done
-
-Full integration is complete when all conditions are true:
-
-1. Production app boots into `ForgeShellScaffold` with registered modules.
-2. Menu, palette, and keyboard shortcuts execute through unified shell action
-   infrastructure.
-3. Markdown, Dart, and YAML editors work in shell mode with context/action
-   integration.
-4. Settings persist and reapply correctly.
-5. Analyzer and tests pass in both `tom_forge_ui` and `tom_forge_app`.
-6. Manual integration matrix has no open blockers.
-
-## 8. Suggested Implementation Order
-
-Do the work in this exact sequence to reduce rework:
-
-1. Phase 0
-2. Phase 1
-3. Phase 2
-4. Phase 3
-5. Phase 4
-6. Phase 5
-7. Phase 6
-
-This order ensures runtime wiring is stable before command and UX refinement.
+1. Finish menu command execution wiring in `tom_forge_ui`.
+2. Unify command palette source with action registry.
+3. Fix platform shortcut handling in shell scaffold.
+4. Run one full staging validation cycle in `tom_forge_ui_test`.
+5. Start adding next module/editor set in staging only.
