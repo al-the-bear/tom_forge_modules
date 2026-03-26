@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 
+import '../services/forge_preferences_service.dart';
+
 /// A dialog for selecting a workspace folder.
 ///
 /// Returns the selected [Directory] or null if cancelled.
@@ -172,10 +174,12 @@ class _WorkspaceFolderSelectorState extends State<WorkspaceFolderSelector> {
 /// A full-screen welcome page for selecting a workspace.
 class WorkspaceWelcomePage extends StatefulWidget {
   final void Function(Directory directory) onFolderSelected;
+  final ForgePreferencesService? preferencesService;
 
   const WorkspaceWelcomePage({
     super.key,
     required this.onFolderSelected,
+    this.preferencesService,
   });
 
   @override
@@ -184,25 +188,27 @@ class WorkspaceWelcomePage extends StatefulWidget {
 
 class _WorkspaceWelcomePageState extends State<WorkspaceWelcomePage> {
   bool _isLoading = false;
+  bool _prefsLoaded = false;
+  late ForgePreferencesService _prefs;
   List<String> _recentFolders = [];
 
   @override
   void initState() {
     super.initState();
-    _loadRecentFolders();
+    _prefs = widget.preferencesService ?? ForgePreferencesService.instance;
+    _loadPreferences();
   }
 
-  void _loadRecentFolders() {
-    // In a real implementation, load from persistent storage
-    // For now, use some common paths
-    final home = Platform.environment['HOME'] ?? '/';
-    final candidates = [
-      '$home/Documents',
-      '$home/Desktop',
-      '$home/Projects',
-      '$home/Developer',
-    ];
-    _recentFolders = candidates.where((p) => Directory(p).existsSync()).toList();
+  Future<void> _loadPreferences() async {
+    await _prefs.load();
+    if (mounted) {
+      setState(() {
+        _prefsLoaded = true;
+        _recentFolders = _prefs.startupPreferences.recentWorkspaces
+            .where((p) => Directory(p).existsSync())
+            .toList();
+      });
+    }
   }
 
   Future<void> _browseFolder() async {
@@ -213,7 +219,8 @@ class _WorkspaceWelcomePageState extends State<WorkspaceWelcomePage> {
         dialogTitle: 'Select Workspace Folder',
       );
 
-      if (result != null) {
+      if (result != null && mounted) {
+        await _prefs.addRecentWorkspace(result);
         widget.onFolderSelected(Directory(result));
       }
     } finally {
@@ -221,6 +228,20 @@ class _WorkspaceWelcomePageState extends State<WorkspaceWelcomePage> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  Future<void> _selectFolder(String path) async {
+    await _prefs.addRecentWorkspace(path);
+    widget.onFolderSelected(Directory(path));
+  }
+
+  Future<void> _removeFromRecent(String path) async {
+    await _prefs.removeRecentWorkspace(path);
+    setState(() {
+      _recentFolders = _prefs.startupPreferences.recentWorkspaces
+          .where((p) => Directory(p).existsSync())
+          .toList();
+    });
   }
 
   @override
@@ -282,14 +303,28 @@ class _WorkspaceWelcomePageState extends State<WorkspaceWelcomePage> {
               // Recent folders
               if (_recentFolders.isNotEmpty) ...[
                 const SizedBox(height: 32),
-                Text(
-                  'Quick Access',
-                  style: theme.textTheme.titleLarge,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Quick Access',
+                      style: theme.textTheme.titleLarge,
+                    ),
+                    if (_prefsLoaded)
+                      Text(
+                        '(max ${_prefs.maxRecentWorkspaces})',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[500],
+                        ),
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 16),
                 ..._recentFolders.map((path) => _RecentFolderItem(
                       path: path,
-                      onTap: () => widget.onFolderSelected(Directory(path)),
+                      onTap: () => _selectFolder(path),
+                      onRemove: () => _removeFromRecent(path),
                       isDark: isDark,
                     )),
               ],
@@ -408,11 +443,13 @@ class _ActionButtonState extends State<_ActionButton> {
 class _RecentFolderItem extends StatefulWidget {
   final String path;
   final VoidCallback onTap;
+  final VoidCallback? onRemove;
   final bool isDark;
 
   const _RecentFolderItem({
     required this.path,
     required this.onTap,
+    this.onRemove,
     required this.isDark,
   });
 
@@ -473,6 +510,21 @@ class _RecentFolderItemState extends State<_RecentFolderItem> {
                   ],
                 ),
               ),
+              if (_isHovered && widget.onRemove != null)
+                IconButton(
+                  icon: Icon(
+                    Icons.close,
+                    size: 16,
+                    color: Colors.grey[500],
+                  ),
+                  onPressed: widget.onRemove,
+                  tooltip: 'Remove from Quick Access',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 24,
+                    minHeight: 24,
+                  ),
+                ),
             ],
           ),
         ),

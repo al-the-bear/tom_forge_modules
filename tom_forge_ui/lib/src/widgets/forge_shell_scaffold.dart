@@ -7,9 +7,11 @@ import '../defaults/default_layout_controller.dart';
 import '../defaults/default_shell_api.dart';
 import '../defaults/default_system_state.dart';
 import '../model/forge_application.dart';
+import '../services/forge_preferences_service.dart';
 import '../shell/forge_layout_controller.dart';
 import '../shell/forge_status_bar_controller.dart';
 import 'forge_command_palette.dart';
+import 'forge_configuration_dialog.dart';
 import 'forge_editor_tab_bar.dart';
 import 'forge_menu_bar.dart';
 import 'forge_notification_overlay.dart';
@@ -87,6 +89,7 @@ class ForgeShellScaffold extends StatefulWidget {
   final DefaultSystemState systemState;
   final ForgeStatusBarController statusBarController;
   final DefaultNotificationManager notificationManager;
+  final ForgePreferencesService? preferencesService;
 
   const ForgeShellScaffold({
     super.key,
@@ -96,6 +99,7 @@ class ForgeShellScaffold extends StatefulWidget {
     required this.systemState,
     required this.statusBarController,
     required this.notificationManager,
+    this.preferencesService,
   });
 
   @override
@@ -105,6 +109,11 @@ class ForgeShellScaffold extends StatefulWidget {
 class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   DefaultLayoutController get _layout => widget.layoutController;
   bool _showCommandPalette = false;
+
+  void _openSettings() {
+    final prefs = widget.preferencesService ?? ForgePreferencesService.instance;
+    ForgeConfigurationDialog.show(context, prefs);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -123,6 +132,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
                     ForgeMenuBar(
                       shellApi: widget.shell,
                       onCommandPalette: _toggleCommandPalette,
+                      onSettings: _openSettings,
                     ),
                     Expanded(child: _buildMainArea(context)),
                     ForgeStatusBarWidget(controller: widget.statusBarController),

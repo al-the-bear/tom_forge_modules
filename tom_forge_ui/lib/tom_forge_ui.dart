@@ -48,6 +48,7 @@ export 'src/services/forge_module_storage.dart';
 export 'src/services/forge_notification_manager.dart';
 export 'src/services/forge_outline_manager.dart';
 export 'src/services/forge_output_channel_manager.dart';
+export 'src/services/forge_preferences_service.dart';
 export 'src/services/forge_progress_manager.dart';
 export 'src/services/forge_search_manager.dart';
 export 'src/services/forge_secret_storage.dart';
@@ -85,6 +86,7 @@ export 'src/defaults/stub_services.dart';
 
 // ── Widgets ──
 export 'src/widgets/forge_command_palette.dart';
+export 'src/widgets/forge_configuration_dialog.dart';
 export 'src/widgets/forge_editor_tab_bar.dart';
 export 'src/widgets/forge_menu_bar.dart';
 export 'src/widgets/forge_notification_overlay.dart';

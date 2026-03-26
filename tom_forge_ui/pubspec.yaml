@@ -12,6 +12,7 @@ dependencies:
   flutter:
     sdk: flutter
   file_picker: ^8.0.0
+  shared_preferences: ^2.2.0
   tom_forge_core:
     path: ../tom_forge_core
   tom_editors_shared:

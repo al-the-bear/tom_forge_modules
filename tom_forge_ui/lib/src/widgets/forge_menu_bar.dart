@@ -8,11 +8,13 @@ import '../defaults/default_system_state.dart';
 class ForgeMenuBar extends StatelessWidget {
   final DefaultShellApi shellApi;
   final VoidCallback onCommandPalette;
+  final VoidCallback? onSettings;
 
   const ForgeMenuBar({
     super.key,
     required this.shellApi,
     required this.onCommandPalette,
+    this.onSettings,
   });
 
   DefaultSystemState get _systemState => shellApi.systemState as DefaultSystemState;
@@ -57,6 +59,12 @@ class ForgeMenuBar extends StatelessWidget {
                 label: 'Close Editor',
                 shortcut: '⌘W',
                 onTap: () => _showNotImplemented(context, 'Close Editor'),
+              ),
+              const _MenuDivider(),
+              _MenuItem(
+                label: 'Settings...',
+                shortcut: '⌘,',
+                onTap: onSettings ?? () => _showNotImplemented(context, 'Settings'),
               ),
             ],
             isDark: isDark,
