@@ -22,7 +22,7 @@ Success means:
 | Phase B | Completed (2026-03-26) | Implemented and verified in `tom_forge_ui` and `tom_forge_ui_test`; command source unification, effective shortcut display, and platform-aware shell shortcuts are active |
 | Phase C | Completed (2026-03-26, final completion-audited) | Implemented and strictly re-verified; final full completion audit passed with analyzer/tests green in framework and staging app |
 | Phase D | Completed (2026-03-26, final completion-audited) | First expansion cycle delivered in staging and passed a final strict completion audit with framework/staging analyzers and tests green |
-| Phase E | Not Started | Planned |
+| Phase E | Completed (2026-03-26) | Production app promotion completed with full bootstrap/module port and passing tests |
 
 ## 2. Strategy: Staged Promotion Model
 
@@ -260,6 +260,8 @@ Verification results (latest strict pass):
 
 Objective: promote proven staging runtime into production app package.
 
+Status timeline: In-Progress -> Completed (2026-03-26)
+
 Promotion approach:
 
 1. Copy bootstrap/module composition from `tom_forge_ui_test` to
@@ -279,6 +281,34 @@ Promotion gate checklist:
 2. Manual integration matrix fully green.
 3. Staging regression tests stable across repeated runs.
 4. `tom_forge_app` analyze/tests green after port.
+
+Implementation evidence:
+
+1. Ported bootstrap launcher from `tom_forge_ui_test/lib/main.dart` to
+   `tom_forge_app/lib/main.dart` with updated class naming (`ForgeLauncher`
+   vs `ForgeTestLauncher`) and app title (`Tom Forge` vs `Forge Test IDE`).
+2. Ported app widget from `tom_forge_ui_test/lib/src/app.dart` to
+   `tom_forge_app/lib/src/app.dart` with updated class naming (`ForgeApp`
+   vs `ForgeTestApp`).
+3. Ported module composition from `tom_forge_ui_test/lib/src/test_app_module.dart`
+   to `tom_forge_app/lib/src/forge_app_module.dart` with identical action IDs,
+   shortcut IDs, status bar items, and view configurations.
+4. Ported workspace seed from `tom_forge_ui_test/lib/src/workspace_seed.dart`
+   to `tom_forge_app/lib/src/workspace_seed.dart` (unchanged).
+5. Added Phase E promotion tests in
+   `tom_forge_app/test/phase_e_promotion_test.dart` verifying:
+   1. shell scaffold renders title bar
+   2. layout opens `.txt` file with markdown editor adapter
+   3. module actions include all required file/edit/view commands
+   4. module shortcuts bind all required key combinations
+   5. module views include all required panels
+   6. module status bar items include cursor and language indicators
+
+Verification results (latest strict pass):
+
+1. `tom_forge_ui`: `dart analyze` clean, `flutter test` 58 passed.
+2. `tom_forge_ui_test`: `flutter analyze` clean, `flutter test` 2 passed.
+3. `tom_forge_app`: `dart analyze` clean, `flutter test` 7 passed.
 
 ## 6. Validation Plan
 
