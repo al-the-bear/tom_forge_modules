@@ -3,7 +3,7 @@ import 'package:yaml_edit/yaml_edit.dart';
 
 import '../tree/editor_trail.dart';
 
-/// Convert a value to plain Dart objects (Map<String, ...>, List, scalars).
+/// Convert a value to plain Dart objects (`Map<String, ...>`, List, scalars).
 ///
 /// yaml_edit sometimes has issues when updating with values that contain
 /// YamlNode references or non-String map keys. This helper ensures values

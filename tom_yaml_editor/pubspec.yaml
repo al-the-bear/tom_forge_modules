@@ -4,6 +4,7 @@ description: >-
   embedded editors. Detects key suffixes like -dart, -markdown, -regex to embed
   specialized editors inline. Fully customizable theming and features.
 version: 0.1.0
+publish_to: none
 repository: https://github.com/dart-lang/sdk/tree/main/tom_editors/tom_yaml_editor
 
 environment:

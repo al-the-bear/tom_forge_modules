@@ -21,7 +21,7 @@ Success means:
 | Phase A | Completed (2026-03-26) | Implemented and re-verified in both `tom_forge_ui` and `tom_forge_ui_test` with analyzer/tests passing (latest strict pass included integration-path test coverage) |
 | Phase B | Completed (2026-03-26) | Implemented and verified in `tom_forge_ui` and `tom_forge_ui_test`; command source unification, effective shortcut display, and platform-aware shell shortcuts are active |
 | Phase C | Completed (2026-03-26, final completion-audited) | Implemented and strictly re-verified; final full completion audit passed with analyzer/tests green in framework and staging app |
-| Phase D | Completed (2026-03-26, first cycle) | First expansion cycle delivered in staging with .txt file-type support, parity tests for menu/palette/shortcut command paths, and strict analyzer/test gates passing |
+| Phase D | Completed (2026-03-26, final completion-audited) | First expansion cycle delivered in staging and passed a final strict completion audit with framework/staging analyzers and tests green |
 | Phase E | Not Started | Planned |
 
 ## 2. Strategy: Staged Promotion Model
@@ -220,7 +220,7 @@ Verification results (latest strict pass):
 
 Objective: integrate additional modules/editors while staying near-production.
 
-Status timeline: In-Progress -> Completed (2026-03-26 first cycle)
+Status timeline: In-Progress -> Completed (2026-03-26 final audit)
 
 For each new module/editor:
 
