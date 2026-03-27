@@ -437,25 +437,63 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
         widget.controller.markdown =
             source.replaceFirst(rawOriginal, newMarkdown);
       } else {
-        // For fenced blocks, the constructed rawOriginal may have whitespace
-        // differences vs the actual source. Use regex to find the block.
-        final escaped = RegExp.escape(editableContent.trim());
+        // For fenced blocks, use robust replacement that handles whitespace
+        // variations and special characters in the content.
         final lang = plugin.languages.isNotEmpty ? plugin.languages.first : '';
         if (lang.isNotEmpty) {
-          final pattern = RegExp(
-            '```$lang\\s*\\n\\s*$escaped\\s*\\n\\s*```',
-            dotAll: true,
+          final updated = _replaceFencedBlock(
+            source,
+            lang,
+            editableContent,
+            newMarkdown,
           );
-          final match = pattern.firstMatch(source);
-          if (match != null) {
-            widget.controller.markdown = source.replaceFirst(
-              match.group(0)!,
-              newMarkdown,
+          if (updated != null) {
+            widget.controller.markdown = updated;
+          } else {
+            MdEditorDebug.logger.warn(
+              'Could not find $lang block to replace',
             );
           }
         }
       }
     }
+  }
+
+  /// Find and replace a fenced code block by language and content match.
+  ///
+  /// This handles whitespace variations and special characters that would
+  /// break simple regex-based matching.
+  String? _replaceFencedBlock(
+    String source,
+    String language,
+    String originalContent,
+    String replacement,
+  ) {
+    // Pattern to find all fenced blocks of this language.
+    // Captures: (1) opener with language, (2) content, (3) closer.
+    final pattern = RegExp(
+      r'(```' + RegExp.escape(language) + r'[ \t]*\n)([\s\S]*?)(\n```)',
+      multiLine: true,
+    );
+
+    final normalizedOriginal = _normalizeContent(originalContent);
+
+    for (final match in pattern.allMatches(source)) {
+      final blockContent = match.group(2) ?? '';
+      if (_normalizeContent(blockContent) == normalizedOriginal) {
+        // Found the matching block — replace it.
+        return source.replaceRange(match.start, match.end, replacement);
+      }
+    }
+    return null;
+  }
+
+  /// Normalize content for comparison: trim and normalize line endings.
+  String _normalizeContent(String content) {
+    return content
+        .replaceAll('\r\n', '\n')
+        .replaceAll('\r', '\n')
+        .trim();
   }
 
 
@@ -610,23 +648,50 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
           return;
         }
 
-        // Fallback for whitespace variations in fenced blocks.
-        final escaped = RegExp.escape(code.trim());
-        final langPart = currentLanguage == null
-            ? r'[ \t]*'
-            : '${RegExp.escape(currentLanguage)}[ \\t]*';
-        final pattern = RegExp(
-          '```$langPart\\n\\s*$escaped\\s*\\n```',
-          dotAll: true,
-        );
-        final match = pattern.firstMatch(source);
-        if (match != null) {
-          widget.controller.markdown = source.replaceFirst(match.group(0)!, newFence);
+        // Fallback: use robust replacement for whitespace variations.
+        final lang = currentLanguage ?? '';
+        if (lang.isNotEmpty) {
+          final updated = _replaceFencedBlock(source, lang, code, newFence);
+          if (updated != null) {
+            widget.controller.markdown = updated;
+            return;
+          }
+        }
+
+        // Final fallback for blocks without language: match any unlabeled block.
+        if (lang.isEmpty) {
+          final updated = _replaceUnlabeledFencedBlock(source, code, newFence);
+          if (updated != null) {
+            widget.controller.markdown = updated;
+          }
         }
       } catch (e, st) {
         MdEditorDebug.logger.error('Error opening code editor', e, st);
       }
     }();
+  }
+
+  /// Find and replace an unlabeled fenced code block by content match.
+  String? _replaceUnlabeledFencedBlock(
+    String source,
+    String originalContent,
+    String replacement,
+  ) {
+    // Pattern for unlabeled fenced blocks (``` with no language).
+    final pattern = RegExp(
+      r'(```[ \t]*\n)([\s\S]*?)(\n```)',
+      multiLine: true,
+    );
+
+    final normalizedOriginal = _normalizeContent(originalContent);
+
+    for (final match in pattern.allMatches(source)) {
+      final blockContent = match.group(2) ?? '';
+      if (_normalizeContent(blockContent) == normalizedOriginal) {
+        return source.replaceRange(match.start, match.end, replacement);
+      }
+    }
+    return null;
   }
 
   void _onHeadingTapped(int level, String text) {

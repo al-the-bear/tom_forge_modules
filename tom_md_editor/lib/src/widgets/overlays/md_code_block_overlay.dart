@@ -132,20 +132,25 @@ class _MdCodeBlockOverlayState extends State<MdCodeBlockOverlay> {
           borderRadius: BorderRadius.circular(basic.borderRadius),
           border: Border.all(color: basic.codeBorder),
         ),
-        child: CodeTheme(
-          data: CodeThemeData(styles: MdCodeHighlighting.buildTheme(basic)),
-          child: CodeField(
-            controller: _codeController,
-            maxLines: null,
-            expands: false,
-            textStyle: basic.codeStyle,
-            background: basic.codeBackground,
-            lineNumberStyle: LineNumberStyle(
-              textStyle: TextStyle(
-                color: basic.textMuted,
-                fontSize: basic.baseFontSize * 0.8,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(basic.borderRadius),
+          child: SingleChildScrollView(
+            child: CodeTheme(
+              data: CodeThemeData(styles: MdCodeHighlighting.buildTheme(basic)),
+              child: CodeField(
+                controller: _codeController,
+                maxLines: null,
+                expands: false,
+                textStyle: basic.codeStyle,
+                background: basic.codeBackground,
+                lineNumberStyle: LineNumberStyle(
+                  textStyle: TextStyle(
+                    color: basic.textMuted,
+                    fontSize: basic.baseFontSize * 0.8,
+                  ),
+                  width: 44,
+                ),
               ),
-              width: 44,
             ),
           ),
         ),
