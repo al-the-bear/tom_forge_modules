@@ -82,16 +82,15 @@ class _MermaidWebViewState extends State<MermaidWebView> {
 
   /// Whether flutter_inappwebview is supported on this platform.
   ///
-  /// flutter_inappwebview supports: Android, iOS, macOS, Windows, Web.
-  /// Linux is NOT supported — we show a fallback UI there.
+  /// flutter_inappwebview supports: Android, iOS, macOS, Windows, Linux, Web.
+  /// Note: Linux support requires WPE WebKit to be installed on the system.
   static bool get _isWebViewSupported {
     if (kIsWeb) return true;
-    // flutter_inappwebview does not support Linux desktop.
-    // See: https://pub.dev/packages/flutter_inappwebview
     return Platform.isAndroid ||
         Platform.isIOS ||
         Platform.isMacOS ||
-        Platform.isWindows;
+        Platform.isWindows ||
+        Platform.isLinux;
   }
 
   @override

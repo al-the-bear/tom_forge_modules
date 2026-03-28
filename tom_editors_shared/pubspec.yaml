@@ -15,7 +15,8 @@ dependencies:
     sdk: flutter
   tom_forge_core:
     path: ../tom_forge_core
-  flutter_inappwebview: ^6.1.5
+  flutter_inappwebview:
+    path: ../../tom_ai/xternal/tom_flutter_inappwebview/flutter_inappwebview
 
 dev_dependencies:
   flutter_test:
