@@ -1,10 +1,10 @@
 import 'dart:convert';
+import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
-import 'package:webview_flutter/webview_flutter.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 /// Mermaid theme options matching the official mermaid.js themes.
 enum MermaidTheme {
@@ -70,7 +70,7 @@ class MermaidWebView extends StatefulWidget {
 }
 
 class _MermaidWebViewState extends State<MermaidWebView> {
-  WebViewController? _controller;
+  InAppWebViewController? _controller;
   double _height = 200;
   bool _loading = true;
   bool _pageReady = false;
@@ -79,6 +79,20 @@ class _MermaidWebViewState extends State<MermaidWebView> {
 
   /// Cached mermaid.min.js source loaded once from the bundled asset.
   static String? _mermaidJs;
+
+  /// Whether flutter_inappwebview is supported on this platform.
+  ///
+  /// flutter_inappwebview supports: Android, iOS, macOS, Windows, Web.
+  /// Linux is NOT supported — we show a fallback UI there.
+  static bool get _isWebViewSupported {
+    if (kIsWeb) return true;
+    // flutter_inappwebview does not support Linux desktop.
+    // See: https://pub.dev/packages/flutter_inappwebview
+    return Platform.isAndroid ||
+        Platform.isIOS ||
+        Platform.isMacOS ||
+        Platform.isWindows;
+  }
 
   @override
   void initState() {
@@ -110,46 +124,35 @@ class _MermaidWebViewState extends State<MermaidWebView> {
         '#${r.toRadixString(16).padLeft(2, '0')}'
         '${g.toRadixString(16).padLeft(2, '0')}'
         '${b.toRadixString(16).padLeft(2, '0')}';
-    _controller!.runJavaScript('document.body.style.background=${jsonEncode(hex)};');
+    _controller!.evaluateJavascript(
+      source: 'document.body.style.background=${jsonEncode(hex)};',
+    );
   }
 
   Future<void> _initWebView() async {
+    if (!_isWebViewSupported) {
+      if (mounted) {
+        setState(() {
+          _platformAvailable = false;
+          _loading = false;
+        });
+      }
+      return;
+    }
+
     try {
       // Load mermaid.js from bundled asset once and cache it.
       _mermaidJs ??= await rootBundle.loadString(
         'packages/tom_editors_shared/assets/js/mermaid.min.js',
       );
 
-      final controller = WebViewController()
-        ..setJavaScriptMode(JavaScriptMode.unrestricted)
-        ..addJavaScriptChannel(
-          'MermaidChannel',
-          onMessageReceived: _onMessage,
-        )
-        ..setNavigationDelegate(NavigationDelegate(
-          onPageFinished: (_) {
-            _pageReady = true;
-            _renderDiagram();
-          },
-        ));
-
-      // setBackgroundColor is not implemented on macOS WKWebView —
-      // ignore the error so the WebView still initialises.
-      try {
-        controller
-            .setBackgroundColor(widget.backgroundColor ?? Colors.white);
-      } catch (_) {
-        // Silently ignored; the HTML body background handles the color.
+      if (mounted) {
+        setState(() {
+          // Mark that initialization is ready for the build phase.
+        });
       }
-
-      // Assign the controller before loading HTML so that
-      // onPageFinished → _renderDiagram can use it immediately.
-      _controller = controller;
-      if (mounted) setState(() {});
-
-      await controller.loadHtmlString(_buildHtml(_mermaidJs!));
     } catch (e, st) {
-      // WebView platform not available (e.g. in tests) or asset missing.
+      // Asset missing or other error.
       debugPrint('[MermaidWebView] init failed: $e\n$st');
       if (mounted) {
         setState(() {
@@ -160,10 +163,30 @@ class _MermaidWebViewState extends State<MermaidWebView> {
     }
   }
 
-  void _onMessage(JavaScriptMessage message) {
+  void _onWebViewCreated(InAppWebViewController controller) {
+    _controller = controller;
+
+    // Add JavaScript handler for messages from the diagram.
+    controller.addJavaScriptHandler(
+      handlerName: 'MermaidChannel',
+      callback: (args) {
+        if (args.isNotEmpty) {
+          _onMessage(args[0].toString());
+        }
+        return null;
+      },
+    );
+  }
+
+  void _onLoadStop(InAppWebViewController controller, WebUri? url) {
+    _pageReady = true;
+    _renderDiagram();
+  }
+
+  void _onMessage(String message) {
     Map<String, dynamic> data;
     try {
-      data = jsonDecode(message.message) as Map<String, dynamic>;
+      data = jsonDecode(message) as Map<String, dynamic>;
     } catch (_) {
       return;
     }
@@ -213,8 +236,8 @@ class _MermaidWebViewState extends State<MermaidWebView> {
     // preventing injection of arbitrary JS through diagram source.
     final escapedSource = jsonEncode(widget.source);
     final themeName = widget.theme.jsName;
-    _controller!.runJavaScript(
-      'renderMermaid($escapedSource, ${jsonEncode(themeName)});',
+    _controller!.evaluateJavascript(
+      source: 'renderMermaid($escapedSource, ${jsonEncode(themeName)});',
     );
   }
 
@@ -331,7 +354,7 @@ function measureDiagram(c){
 
 function postRendered(c,isGantt,renderTheme){
   var m=measureDiagram(c);
-  MermaidChannel.postMessage(JSON.stringify({
+  window.flutter_inappwebview.callHandler('MermaidChannel',JSON.stringify({
     type:'rendered',
     width:Math.max(32,m.width+16),
     height:Math.max(32,m.height+16),
@@ -428,7 +451,7 @@ async function renderMermaid(source,theme,attempt){
   }catch(e){
     c.innerHTML='<div class="error">'+
       (e.message||String(e)).replace(/</g,'&lt;')+'</div>';
-    MermaidChannel.postMessage(JSON.stringify({
+    window.flutter_inappwebview.callHandler('MermaidChannel',JSON.stringify({
       type:'error',
       message:e.message||String(e)
     }));
@@ -440,7 +463,7 @@ document.addEventListener('wheel',function(e){
   var dy=e.deltaY;
   if(e.deltaMode===1)dy*=16;
   if(e.deltaMode===2)dy*=window.innerHeight;
-  MermaidChannel.postMessage(JSON.stringify({type:'scroll',deltaX:e.deltaX,deltaY:dy}));
+  window.flutter_inappwebview.callHandler('MermaidChannel',JSON.stringify({type:'scroll',deltaX:e.deltaX,deltaY:dy}));
 },{passive:false,capture:true});
 </script>
 </body></html>''';
@@ -452,8 +475,8 @@ document.addEventListener('wheel',function(e){
       return _buildErrorFallback();
     }
 
-    // Controller not yet ready (async init in progress) — show loading.
-    if (_controller == null) {
+    // Mermaid.js not loaded yet — show loading.
+    if (_mermaidJs == null) {
       return SizedBox(
         width: double.infinity,
         height: widget.minHeight,
@@ -467,23 +490,41 @@ document.addEventListener('wheel',function(e){
       );
     }
 
+    final bgColor = widget.backgroundColor ?? Colors.white;
+
     return SizedBox(
       width: double.infinity,
       height: _height,
       child: Stack(
         children: [
-          WebViewWidget(
-            controller: _controller!,
-            gestureRecognizers: const <Factory<
-                OneSequenceGestureRecognizer>>{},
+          InAppWebView(
+            initialData: InAppWebViewInitialData(
+              data: _buildHtml(_mermaidJs!),
+              mimeType: 'text/html',
+              encoding: 'utf-8',
+            ),
+            initialSettings: InAppWebViewSettings(
+              javaScriptEnabled: true,
+              transparentBackground: true,
+              disableHorizontalScroll: true,
+              disableVerticalScroll: true,
+              supportZoom: false,
+            ),
+            onWebViewCreated: _onWebViewCreated,
+            onLoadStop: _onLoadStop,
           ),
 
           if (_loading)
-            const Center(
-              child: SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(strokeWidth: 2),
+            Positioned.fill(
+              child: Container(
+                color: bgColor.withValues(alpha: 0.8),
+                child: const Center(
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
               ),
             ),
         ],
@@ -492,11 +533,19 @@ document.addEventListener('wheel',function(e){
   }
 
   Widget _buildErrorFallback() {
+    final isLinux = !kIsWeb && Platform.isLinux;
+    final title = isLinux
+        ? 'Mermaid preview unavailable on Linux'
+        : (_error != null ? 'Diagram render failed' : 'WebView unavailable');
+    final subtitle = isLinux
+        ? 'WebView is not supported on Linux desktop'
+        : _error;
+
     return Container(
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: Colors.grey.shade300),
       ),
       child: Column(
@@ -505,27 +554,50 @@ document.addEventListener('wheel',function(e){
         children: [
           Row(
             children: [
-              Icon(Icons.warning_amber_rounded,
-                  size: 16, color: Colors.orange.shade700),
-              const SizedBox(width: 6),
-              Text(
-                'Diagram render failed',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade700,
-                  fontWeight: FontWeight.w500,
+              Icon(
+                isLinux ? Icons.desktop_windows : Icons.warning_amber_rounded,
+                size: 16,
+                color: isLinux ? Colors.blue.shade600 : Colors.orange.shade700,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade700,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
             ],
           ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.grey.shade500,
+              ),
+            ),
+          ],
           const SizedBox(height: 8),
-          SelectableText(
-            widget.source,
-            style: TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 12,
-              color: Colors.grey.shade600,
-              height: 1.4,
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: SelectableText(
+              widget.source,
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 11,
+                color: Colors.grey.shade700,
+                height: 1.4,
+              ),
             ),
           ),
         ],
