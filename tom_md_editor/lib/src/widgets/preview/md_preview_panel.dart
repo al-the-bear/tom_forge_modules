@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_highlight/flutter_highlight.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:tom_doc_specs/tom_doc_specs.dart' as specs;
 import 'package:tom_editors_shared/tom_editors_shared.dart';
@@ -503,6 +506,59 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
     String? title,
     String? alt,
   ) {
+    final uriString = uri.toString();
+    final lower = uriString.toLowerCase();
+    final isSvg = lower.endsWith('.svg');
+
+    Widget brokenImage() {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: basic.surfaceVariant,
+          borderRadius: BorderRadius.circular(basic.borderRadius),
+          border: Border.all(color: basic.border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.broken_image, size: 20, color: basic.textMuted),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                alt?.isNotEmpty == true ? alt! : 'Image failed to load',
+                style: TextStyle(
+                  color: basic.textMuted,
+                  fontStyle: FontStyle.italic,
+                  fontSize: basic.baseFontSize * 0.9,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    Widget imageWidget;
+    if (isSvg) {
+      if (uri.hasScheme && (uri.scheme == 'http' || uri.scheme == 'https')) {
+        imageWidget = SvgPicture.network(uriString);
+      } else if (uri.hasScheme && uri.scheme == 'file' && !kIsWeb) {
+        imageWidget = SvgPicture.file(File.fromUri(uri));
+      } else {
+        final assetPath = uriString.startsWith('/') ? uriString.substring(1) : uriString;
+        imageWidget = SvgPicture.asset(assetPath);
+      }
+    } else {
+      if (uri.hasScheme && (uri.scheme == 'http' || uri.scheme == 'https')) {
+        imageWidget = Image.network(uriString, errorBuilder: (context, error, stack) => brokenImage());
+      } else if (uri.hasScheme && uri.scheme == 'file' && !kIsWeb) {
+        imageWidget = Image.file(File.fromUri(uri), errorBuilder: (context, error, stack) => brokenImage());
+      } else {
+        final assetPath = uriString.startsWith('/') ? uriString.substring(1) : uriString;
+        imageWidget = Image.asset(assetPath, errorBuilder: (context, error, stack) => brokenImage());
+      }
+    }
+
     return Padding(
       padding: EdgeInsets.symmetric(vertical: basic.paragraphSpacing / 2),
       child: Column(
@@ -511,38 +567,7 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(basic.borderRadius),
-            child: Image.network(
-              uri.toString(),
-              errorBuilder: (context, error, stack) {
-                return Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: basic.surfaceVariant,
-                    borderRadius: BorderRadius.circular(basic.borderRadius),
-                    border: Border.all(color: basic.border),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.broken_image, size: 20, color: basic.textMuted),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          alt?.isNotEmpty == true
-                              ? alt!
-                              : 'Image failed to load',
-                          style: TextStyle(
-                            color: basic.textMuted,
-                            fontStyle: FontStyle.italic,
-                            fontSize: basic.baseFontSize * 0.9,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
+            child: imageWidget,
           ),
           if (alt != null && alt.isNotEmpty)
             Padding(

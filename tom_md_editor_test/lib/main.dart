@@ -1405,6 +1405,32 @@ Inline math: $E=mc^2$.
 
 ## Mermaid Diagrams
 
+## Render Probes
+
+### SVG Asset Probe (local file)
+
+![Local SVG Probe](assets/render_probe.svg)
+
+### Simple HTML Probe (raw HTML)
+
+<div style="padding:12px; border:2px solid #38bdf8; border-radius:10px; background:#111827; color:#e5e7eb; font-family:Arial, Helvetica, sans-serif;">
+  <strong>HTML Probe Box</strong><br/>
+  This block is raw HTML in markdown. If styled border/background/text appear,
+  basic HTML rendering is working.
+</div>
+
+### Mermaid WebView SVG Probe (inside WebView)
+
+```mermaid
+%%svg-probe
+```
+
+### Mermaid WebView HTML Probe (inside WebView)
+
+```mermaid
+%%html-probe
+```
+
 ### Flowchart
 
 ```mermaid

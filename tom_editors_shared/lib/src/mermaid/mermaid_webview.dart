@@ -71,6 +71,8 @@ class MermaidWebView extends StatefulWidget {
 
 class _MermaidWebViewState extends State<MermaidWebView> {
   InAppWebViewController? _controller;
+  InAppWebViewInitialData? _initialData;
+  late final Key _webViewKey = UniqueKey();
   double _height = 200;
   bool _loading = true;
   bool _pageReady = false;
@@ -145,6 +147,14 @@ class _MermaidWebViewState extends State<MermaidWebView> {
         'packages/tom_editors_shared/assets/js/mermaid.min.js',
       );
 
+      // Keep a stable initialData instance so platform-view updates don't
+      // repeatedly call loadData while the page is still loading.
+      _initialData ??= InAppWebViewInitialData(
+        data: _buildHtml(_mermaidJs!),
+        mimeType: 'text/html',
+        encoding: 'utf-8',
+      );
+
       if (mounted) {
         setState(() {
           // Mark that initialization is ready for the build phase.
@@ -179,6 +189,7 @@ class _MermaidWebViewState extends State<MermaidWebView> {
 
   void _onLoadStop(InAppWebViewController controller, WebUri? url) {
     _pageReady = true;
+    debugPrint('[MermaidWebView] onLoadStop url=$url');
     _renderDiagram();
   }
 
@@ -193,6 +204,7 @@ class _MermaidWebViewState extends State<MermaidWebView> {
     if (type == null) return;
 
     if (type == 'rendered') {
+      debugPrint('[MermaidWebView] message=rendered payload=$data');
       final height = (data['height'] as num).toDouble();
       if (mounted) {
         setState(() {
@@ -203,6 +215,7 @@ class _MermaidWebViewState extends State<MermaidWebView> {
       }
     } else if (type == 'error') {
       final msg = data['message'] as String;
+      debugPrint('[MermaidWebView] message=error error=$msg');
       if (mounted) {
         setState(() {
           _loading = false;
@@ -227,10 +240,15 @@ class _MermaidWebViewState extends State<MermaidWebView> {
 
   void _renderDiagram() {
     if (!_pageReady || _controller == null) return;
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    debugPrint(
+      '[MermaidWebView] render start theme=${widget.theme.jsName} sourceLen=${widget.source.length}',
+    );
+    if (!_loading || _error != null) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     // JSON-encode the source to safely pass it into JavaScript,
     // preventing injection of arbitrary JS through diagram source.
     final escapedSource = jsonEncode(widget.source);
@@ -319,27 +337,31 @@ function parseViewBox(svg){
   return {w:Math.max(0,p[2]),h:Math.max(0,p[3]),text:vb};
 }
 
+function finite(v){
+  return Number.isFinite(v)?v:0;
+}
+
 function measureDiagram(c){
   var s=c.querySelector('svg');
   var r=s?s.getBoundingClientRect():{width:0,height:0};
   var vb=parseViewBox(s);
-  var sw=Math.ceil(s?Number(s.getAttribute('width')||0):0);
-  var sh=Math.ceil(s?Number(s.getAttribute('height')||0):0);
+  var sw=Math.ceil(finite(s?Number(s.getAttribute('width')||0):0));
+  var sh=Math.ceil(finite(s?Number(s.getAttribute('height')||0):0));
   var width=Math.max(
-    Math.ceil(r.width||0),
-    vb.w,
+    Math.ceil(finite(r.width||0)),
+    finite(vb.w),
     sw,
-    Math.ceil(c.scrollWidth||0),
-    Math.ceil(document.body.scrollWidth||0),
-    Math.ceil(document.documentElement.scrollWidth||0)
+    Math.ceil(finite(c.scrollWidth||0)),
+    Math.ceil(finite(document.body.scrollWidth||0)),
+    Math.ceil(finite(document.documentElement.scrollWidth||0))
   );
   var height=Math.max(
-    Math.ceil(r.height||0),
-    vb.h,
+    Math.ceil(finite(r.height||0)),
+    finite(vb.h),
     sh,
-    Math.ceil(c.scrollHeight||0),
-    Math.ceil(document.body.scrollHeight||0),
-    Math.ceil(document.documentElement.scrollHeight||0)
+    Math.ceil(finite(c.scrollHeight||0)),
+    Math.ceil(finite(document.body.scrollHeight||0)),
+    Math.ceil(finite(document.documentElement.scrollHeight||0))
   );
   return {
     svg:s,
@@ -371,6 +393,34 @@ function postRendered(c,isGantt,renderTheme){
 async function renderMermaid(source,theme,attempt){
   attempt=attempt||0;
   const c=document.getElementById('diagram');
+  const src=(source||'').trim();
+
+  // Explicit probes rendered inside the same WebView surface used for Mermaid.
+  if(src.startsWith('%%svg-probe')){
+    c.innerHTML='<svg xmlns="http://www.w3.org/2000/svg" width="680" height="220" viewBox="0 0 680 220">'
+      +'<defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#1f2937"/><stop offset="100%" stop-color="#0b1220"/></linearGradient></defs>'
+      +'<rect x="0" y="0" width="680" height="220" fill="url(#bg)"/>'
+      +'<rect x="20" y="20" width="640" height="180" rx="14" ry="14" fill="#111827" stroke="#38bdf8" stroke-width="2"/>'
+      +'<circle cx="70" cy="90" r="28" fill="#22c55e"/>'
+      +'<circle cx="145" cy="90" r="28" fill="#f59e0b"/>'
+      +'<circle cx="220" cy="90" r="28" fill="#ef4444"/>'
+      +'<text x="270" y="84" fill="#e5e7eb" font-size="30" font-family="Arial, Helvetica, sans-serif" font-weight="700">In-WebView SVG Probe</text>'
+      +'<text x="270" y="120" fill="#cbd5e1" font-size="18" font-family="Arial, Helvetica, sans-serif">If visible, SVG inside Mermaid WebView works.</text>'
+      +'</svg>';
+    await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+    postRendered(c,false,'probe');
+    return;
+  }
+
+  if(src.startsWith('%%html-probe')){
+    c.innerHTML='<div style="padding:12px;border:2px solid #38bdf8;border-radius:10px;background:#111827;color:#e5e7eb;font-family:Arial,Helvetica,sans-serif;">'
+      +'<strong>In-WebView HTML Probe</strong><br/>This block is rendered inside Mermaid WebView.'
+      +'</div>';
+    await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+    postRendered(c,false,'probe');
+    return;
+  }
+
   const isDark=(theme==='dark');
   // Toggle body class so the <head> CSS dark overrides activate.
   document.body.className=isDark?'dark':'';
@@ -475,7 +525,7 @@ document.addEventListener('wheel',function(e){
     }
 
     // Mermaid.js not loaded yet — show loading.
-    if (_mermaidJs == null) {
+    if (_mermaidJs == null || _initialData == null) {
       return SizedBox(
         width: double.infinity,
         height: widget.minHeight,
@@ -497,20 +547,22 @@ document.addEventListener('wheel',function(e){
       child: Stack(
         children: [
           InAppWebView(
-            initialData: InAppWebViewInitialData(
-              data: _buildHtml(_mermaidJs!),
-              mimeType: 'text/html',
-              encoding: 'utf-8',
-            ),
+            key: _webViewKey,
+            initialData: _initialData!,
             initialSettings: InAppWebViewSettings(
               javaScriptEnabled: true,
-              transparentBackground: true,
+              transparentBackground: false,
               disableHorizontalScroll: true,
               disableVerticalScroll: true,
               supportZoom: false,
             ),
             onWebViewCreated: _onWebViewCreated,
             onLoadStop: _onLoadStop,
+            onConsoleMessage: (controller, consoleMessage) {
+              debugPrint(
+                '[MermaidWebView][JS] ${consoleMessage.messageLevel}: ${consoleMessage.message}',
+              );
+            },
           ),
 
           if (_loading)
