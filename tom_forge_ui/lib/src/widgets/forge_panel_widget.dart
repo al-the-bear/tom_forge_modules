@@ -17,11 +17,15 @@ enum IconStripPosition { left, right }
 class ForgeSidePanelWidget extends StatefulWidget {
   final List<PanelTabConfig> tabs;
   final IconStripPosition iconStripPosition;
+  final bool showConfigTab;
+  final VoidCallback? onConfigTap;
 
   const ForgeSidePanelWidget({
     super.key,
     required this.tabs,
     required this.iconStripPosition,
+    this.showConfigTab = false,
+    this.onConfigTap,
   });
 
   @override
@@ -63,15 +67,17 @@ class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
           // Add tab button
           _buildAddTabButton(context),
           // Divider before config tab (per concept §2.2)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: Divider(
-              height: 1,
-              color: theme.colorScheme.outlineVariant,
+          if (widget.showConfigTab) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Divider(
+                height: 1,
+                color: theme.colorScheme.outlineVariant,
+              ),
             ),
-          ),
-          // Configuration tab (pinned at bottom, per concept §2.2)
-          _buildConfigTab(context),
+            // Configuration tab (pinned at bottom, per concept §2.2)
+            _buildConfigTab(context),
+          ],
         ],
       ),
     );
@@ -144,9 +150,7 @@ class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
     return Tooltip(
       message: 'Configuration',
       child: InkWell(
-        onTap: () {
-          // TODO: Show configuration panel
-        },
+        onTap: widget.onConfigTap,
         child: SizedBox(
           width: ForgeDimensions.sideTabBarCollapsed,
           height: ForgeDimensions.sideTabBarCollapsed,

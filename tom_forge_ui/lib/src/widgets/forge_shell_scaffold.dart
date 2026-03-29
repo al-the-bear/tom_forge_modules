@@ -323,6 +323,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   }
 
   Widget _buildTitleBar(BuildContext context) {
+    const navClusterWidth = 112.0;
     final theme = Theme.of(context);
     return Container(
       height: ForgeDimensions.titleBarHeight,
@@ -331,68 +332,81 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       child: Row(
         children: [
           // Back/Forward navigation (per concept §2.1)
-          IconButton(
-            icon: Icon(Icons.arrow_back, size: ForgeDimensions.iconToolbar),
-            onPressed: null, // Disabled until component history is implemented
-            tooltip: 'Back',
-          ),
-          IconButton(
-            icon: Icon(Icons.arrow_forward, size: ForgeDimensions.iconToolbar),
-            onPressed: null,
-            tooltip: 'Forward',
-          ),
-          const SizedBox(width: 16),
-          // Application title / search field (per concept §2.1)
-          Expanded(
-            child: Center(
-              child: Container(
-                constraints: const BoxConstraints(maxWidth: 400),
-                height: 32,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Icon(
-                        Icons.search,
-                        size: 16,
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                      ),
-                    ),
-                    Expanded(
-                      child: Text(
-                        widget.application.title,
-                        style: theme.textTheme.bodyMedium,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          // Application dropdown (per concept §2.1)
-          PopupMenuButton<String>(
-            tooltip: 'Switch Application',
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                value: widget.application.title,
-                child: Text(widget.application.title),
-              ),
-            ],
+          SizedBox(
+            width: navClusterWidth,
             child: Row(
-              mainAxisSize: MainAxisSize.min,
               children: [
-                Text(widget.application.title, style: theme.textTheme.bodySmall),
-                const Icon(Icons.arrow_drop_down, size: 18),
+                IconButton(
+                  icon: Icon(Icons.arrow_back, size: ForgeDimensions.iconToolbar),
+                  onPressed: null, // Disabled until component history is implemented
+                  tooltip: 'Back',
+                ),
+                IconButton(
+                  icon: Icon(Icons.arrow_forward, size: ForgeDimensions.iconToolbar),
+                  onPressed: null,
+                  tooltip: 'Forward',
+                ),
               ],
             ),
           ),
+          // Center cluster: search field + application switcher.
+          Expanded(
+            child: Align(
+              alignment: Alignment.center,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    constraints: const BoxConstraints(maxWidth: 400),
+                    width: 400,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: Icon(
+                            Icons.search,
+                            size: 16,
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            widget.application.title,
+                            style: theme.textTheme.bodyMedium,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  PopupMenuButton<String>(
+                    tooltip: 'Switch Application',
+                    itemBuilder: (context) => [
+                      PopupMenuItem(
+                        value: widget.application.title,
+                        child: Text(widget.application.title),
+                      ),
+                    ],
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(widget.application.title, style: theme.textTheme.bodySmall),
+                        const Icon(Icons.arrow_drop_down, size: 18),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Keep center cluster visually centered by mirroring nav width.
+          const SizedBox(width: navClusterWidth),
         ],
       ),
     );
@@ -414,6 +428,8 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
                     width: leftConfig.size,
                     tabs: widget.application.layout.leftPanel.tabs,
                     iconStripPosition: IconStripPosition.left,
+                    showConfigTab: true,
+                    onConfigTap: _openSettings,
                   ),
                 if (leftConfig.isVisible) const VerticalDivider(width: 1),
 
@@ -428,6 +444,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
                     width: rightConfig.size,
                     tabs: widget.application.layout.rightPanel.tabs,
                     iconStripPosition: IconStripPosition.right,
+                    showConfigTab: false,
                   ),
               ],
             );
@@ -460,6 +477,8 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     required double width,
     required List<PanelTabConfig> tabs,
     required IconStripPosition iconStripPosition,
+    bool showConfigTab = false,
+    VoidCallback? onConfigTap,
   }) {
     if (tabs.isEmpty) {
       return SizedBox(width: width);
@@ -469,6 +488,8 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       child: ForgeSidePanelWidget(
         tabs: tabs,
         iconStripPosition: iconStripPosition,
+        showConfigTab: showConfigTab,
+        onConfigTap: onConfigTap,
       ),
     );
   }

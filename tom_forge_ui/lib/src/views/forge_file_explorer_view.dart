@@ -123,8 +123,7 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
                 }
               });
             } else {
-              widget.layoutController
-                  .openFile(Uri.parse('file://${node.path}'));
+              widget.layoutController.openFile(Uri.file(node.path));
             }
           },
           child: Padding(
