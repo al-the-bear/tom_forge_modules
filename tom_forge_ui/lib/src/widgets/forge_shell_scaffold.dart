@@ -432,13 +432,19 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
                     onConfigTap: _openSettings,
                     configurationPanelBuilder: _buildConfigurationPanel,
                   ),
-                if (leftConfig.isVisible) const VerticalDivider(width: 1),
+                if (leftConfig.isVisible)
+                  _buildVerticalResizeHandle(
+                    onDragDelta: _resizeLeftPanel,
+                  ),
 
                 // Middle area: editor panels + bottom panel
                 Expanded(child: _buildCenterColumn(context)),
 
                 // Right Panel with vertical icon strip on RIGHT edge
-                if (rightConfig.isVisible) const VerticalDivider(width: 1),
+                if (rightConfig.isVisible)
+                  _buildVerticalResizeHandle(
+                    onDragDelta: _resizeRightPanel,
+                  ),
                 if (rightConfig.isVisible)
                   _buildSidePanel(
                     context,
@@ -466,10 +472,77 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
             // Middle editor panels
             Expanded(child: _buildMiddleArea(context)),
             // Bottom panel (between left/right, below middle)
+            if (bottomConfig.isVisible)
+              _buildHorizontalResizeHandle(
+                onDragDelta: _resizeBottomPanel,
+              ),
             if (bottomConfig.isVisible) _buildBottomPanel(context, bottomConfig),
           ],
         );
       },
+    );
+  }
+
+  void _resizeLeftPanel(double deltaX) {
+    final current = _layout.leftPanel.value;
+    final nextSize = (current.size + deltaX).clamp(
+      ForgeDimensions.leftPanelMinWidth,
+      ForgeDimensions.leftPanelMaxWidth,
+    );
+    _layout.setPanelSize(ForgePanelLocation.left, nextSize);
+  }
+
+  void _resizeRightPanel(double deltaX) {
+    final current = _layout.rightPanel.value;
+    final nextSize = (current.size - deltaX).clamp(
+      ForgeDimensions.rightPanelMinWidth,
+      ForgeDimensions.rightPanelMaxWidth,
+    );
+    _layout.setPanelSize(ForgePanelLocation.right, nextSize);
+  }
+
+  void _resizeBottomPanel(double deltaY) {
+    final current = _layout.bottomPanel.value;
+    final nextSize = (current.size - deltaY).clamp(
+      ForgeDimensions.bottomPanelMinHeight,
+      ForgeDimensions.bottomPanelMaxHeight,
+    );
+    _layout.setPanelSize(ForgePanelLocation.bottom, nextSize);
+  }
+
+  Widget _buildVerticalResizeHandle({
+    required ValueChanged<double> onDragDelta,
+  }) {
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onHorizontalDragUpdate: (details) => onDragDelta(details.delta.dx),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.resizeColumn,
+        child: const SizedBox(
+          width: ForgeDimensions.dividerHitTarget,
+          child: Center(
+            child: VerticalDivider(width: ForgeDimensions.dividerVisual),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHorizontalResizeHandle({
+    required ValueChanged<double> onDragDelta,
+  }) {
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onVerticalDragUpdate: (details) => onDragDelta(details.delta.dy),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.resizeRow,
+        child: const SizedBox(
+          height: ForgeDimensions.dividerHitTarget,
+          child: Center(
+            child: Divider(height: ForgeDimensions.dividerVisual),
+          ),
+        ),
+      ),
     );
   }
 
@@ -644,13 +717,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
 
     return SizedBox(
       height: config.size,
-      child: Column(
-        children: [
-          const Divider(height: 1),
-          // Bottom panel uses horizontal tabs with icon+text
-          Expanded(child: ForgePanelWidget(tabs: tabs)),
-        ],
-      ),
+      // Bottom panel is docked below the editor region; top resize handle
+      // is rendered by _buildCenterColumn to keep panel boundaries explicit.
+      child: ForgePanelWidget(tabs: tabs),
     );
   }
 }

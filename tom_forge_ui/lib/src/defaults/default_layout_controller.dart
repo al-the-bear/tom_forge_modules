@@ -217,6 +217,16 @@ class DefaultLayoutController implements ForgeLayoutController {
     _systemState.setVisiblePanels(panels);
   }
 
+  void setPanelSize(ForgePanelLocation location, double size) {
+    final notifier = _panelNotifier(location);
+    if (notifier == null) return;
+    final current = notifier.value;
+    notifier.value = LayoutPanelConfig(
+      size: size,
+      isVisible: current.isVisible,
+    );
+  }
+
   ValueNotifier<LayoutPanelConfig>? _panelNotifier(
       ForgePanelLocation location) {
     switch (location) {
