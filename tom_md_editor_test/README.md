@@ -1,17 +1,28 @@
 # tom_md_editor_test
 
-A new Flutter project.
+Integration test app for `tom_md_editor`, including Mermaid WebView rendering.
 
-## Getting Started
+## Run
 
-This project is a starting point for a Flutter application.
+```bash
+flutter pub get
+flutter run --debug
+```
 
-A few resources to get you started if this is your first Flutter project:
+## Linux WebView Rendering Notes
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+- The local Linux `flutter_inappwebview` fork now defaults to software rendering.
+- You should not need `FLUTTER_INAPPWEBVIEW_LINUX_DISABLE_GL=1` anymore.
+- To explicitly test hardware mode, run with:
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```bash
+FLUTTER_INAPPWEBVIEW_LINUX_FORCE_GL=1 flutter run --debug
+```
+
+## Diagnostics
+
+To confirm selected rendering mode, filter startup logs for plugin mode lines:
+
+```bash
+flutter run --debug 2>&1 | grep -E "software rendering|hardware rendering|CustomPlatformView: using (pixel buffer|GL texture)"
+```

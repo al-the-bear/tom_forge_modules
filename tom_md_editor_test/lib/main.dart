@@ -16,6 +16,13 @@ const _kPrefixCaseStyle = 'prefix_case_style';
 
 void main() {
   MdEditorDebug.enabled = true;
+  if (Platform.isLinux) {
+    // Linux WebView defaults to software rendering in the local plugin fork.
+    debugPrint(
+      '[tom_md_editor_test] Linux WebView defaults to software rendering. '
+      'Set FLUTTER_INAPPWEBVIEW_LINUX_FORCE_GL=1 to force hardware mode for diagnostics.',
+    );
+  }
   runApp(const MdEditorDemoApp());
 }
 
