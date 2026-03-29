@@ -19,6 +19,7 @@ class ForgeSidePanelWidget extends StatefulWidget {
   final IconStripPosition iconStripPosition;
   final bool showConfigTab;
   final VoidCallback? onConfigTap;
+  final WidgetBuilder? configurationPanelBuilder;
 
   const ForgeSidePanelWidget({
     super.key,
@@ -26,6 +27,7 @@ class ForgeSidePanelWidget extends StatefulWidget {
     required this.iconStripPosition,
     this.showConfigTab = false,
     this.onConfigTap,
+    this.configurationPanelBuilder,
   });
 
   @override
@@ -34,16 +36,25 @@ class ForgeSidePanelWidget extends StatefulWidget {
 
 class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
   int _activeTabIndex = 0;
+  bool _showConfigPanel = false;
 
   @override
   Widget build(BuildContext context) {
-    if (widget.tabs.isEmpty) return const SizedBox.expand();
+    if (widget.tabs.isEmpty && !widget.showConfigTab) {
+      return const SizedBox.expand();
+    }
 
-    final activeTab =
-        widget.tabs[_activeTabIndex.clamp(0, widget.tabs.length - 1)];
+    final hasTabs = widget.tabs.isNotEmpty;
+    final activeTab = hasTabs
+        ? widget.tabs[_activeTabIndex.clamp(0, widget.tabs.length - 1)]
+        : null;
 
     final iconStrip = _buildVerticalIconStrip(context);
-    final content = Expanded(child: _buildContent(context, activeTab));
+    final content = Expanded(
+      child: _showConfigPanel
+          ? _buildConfigurationPanel(context)
+          : _buildContent(context, activeTab),
+    );
 
     // Position icon strip on left or right edge
     return Row(
@@ -91,7 +102,10 @@ class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
       message: tab.title,
       waitDuration: const Duration(milliseconds: 500),
       child: InkWell(
-        onTap: () => setState(() => _activeTabIndex = index),
+        onTap: () => setState(() {
+          _activeTabIndex = index;
+          _showConfigPanel = false;
+        }),
         child: Container(
           width: ForgeDimensions.sideTabBarCollapsed,
           height: ForgeDimensions.sideTabBarCollapsed,
@@ -150,21 +164,44 @@ class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
     return Tooltip(
       message: 'Configuration',
       child: InkWell(
-        onTap: widget.onConfigTap,
+        onTap: () {
+          setState(() {
+            _showConfigPanel = true;
+          });
+          if (widget.configurationPanelBuilder == null) {
+            widget.onConfigTap?.call();
+          }
+        },
         child: SizedBox(
           width: ForgeDimensions.sideTabBarCollapsed,
           height: ForgeDimensions.sideTabBarCollapsed,
           child: Icon(
             Icons.settings,
             size: ForgeDimensions.iconTab,
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+            color: _showConfigPanel
+                ? theme.colorScheme.primary
+                : theme.colorScheme.onSurface.withValues(alpha: 0.6),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildContent(BuildContext context, PanelTabConfig tab) {
+  Widget _buildContent(BuildContext context, PanelTabConfig? tab) {
+    if (tab == null) {
+      return Center(
+        child: Text(
+          'No tabs available',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.4),
+              ),
+        ),
+      );
+    }
+
     if (tab.sections.isEmpty) {
       return Center(
         child: Text(
@@ -181,6 +218,24 @@ class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
 
     // Accordeon layout: stack views vertically with collapsible sections
     return _AccordeonLayout(sections: tab.sections);
+  }
+
+  Widget _buildConfigurationPanel(BuildContext context) {
+    final builder = widget.configurationPanelBuilder;
+    if (builder != null) {
+      return builder(context);
+    }
+    return Center(
+      child: Text(
+        'No configuration panel available',
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context)
+                  .colorScheme
+                  .onSurface
+                  .withValues(alpha: 0.4),
+            ),
+      ),
+    );
   }
 }
 

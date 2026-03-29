@@ -105,7 +105,15 @@ class RealFileSystem implements ForgeFileSystem {
     }
 
     final entities = <FileSystemEntity>[];
-    await for (final entity in dir.list(recursive: recursive)) {
+    final stream = dir.list(
+      recursive: recursive,
+      followLinks: false,
+    ).handleError((Object error) {
+      // Ignore inaccessible sub-paths so explorer can still render
+      // all readable files in the workspace tree.
+    }, test: (error) => error is FileSystemException);
+
+    await for (final entity in stream) {
       // Skip hidden files and .git directories
       final name = entity.path.split('/').last;
       if (name.startsWith('.')) continue;

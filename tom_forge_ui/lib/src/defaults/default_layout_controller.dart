@@ -276,7 +276,13 @@ class DefaultLayoutController implements ForgeLayoutController {
             }
           }
         }
-        return null;
+        // Fallback to a plain text-capable editor when no specialized editor
+        // is registered for the current file type.
+        final controller = MdEditorController(
+          initialMarkdown: content,
+          uri: uri,
+        );
+        return ForgeMdEditor(controller: controller, module: ownerModule);
     }
   }
 

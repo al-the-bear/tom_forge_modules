@@ -430,6 +430,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
                     iconStripPosition: IconStripPosition.left,
                     showConfigTab: true,
                     onConfigTap: _openSettings,
+                    configurationPanelBuilder: _buildConfigurationPanel,
                   ),
                 if (leftConfig.isVisible) const VerticalDivider(width: 1),
 
@@ -479,8 +480,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     required IconStripPosition iconStripPosition,
     bool showConfigTab = false,
     VoidCallback? onConfigTap,
+    WidgetBuilder? configurationPanelBuilder,
   }) {
-    if (tabs.isEmpty) {
+    if (tabs.isEmpty && !showConfigTab) {
       return SizedBox(width: width);
     }
     return SizedBox(
@@ -490,6 +492,76 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         iconStripPosition: iconStripPosition,
         showConfigTab: showConfigTab,
         onConfigTap: onConfigTap,
+        configurationPanelBuilder: configurationPanelBuilder,
+      ),
+    );
+  }
+
+  Widget _buildConfigurationPanel(BuildContext context) {
+    final theme = Theme.of(context);
+
+    Widget buildPanelToggle({
+      required String label,
+      required ValueListenable<LayoutPanelConfig> config,
+      required ForgePanelLocation location,
+    }) {
+      return ValueListenableBuilder<LayoutPanelConfig>(
+        valueListenable: config,
+        builder: (context, panelConfig, _) {
+          return SwitchListTile(
+            title: Text(label),
+            value: panelConfig.isVisible,
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            onChanged: (nextValue) {
+              if (nextValue != panelConfig.isVisible) {
+                _layout.togglePanel(location);
+              }
+            },
+          );
+        },
+      );
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Configuration', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 8),
+          Text(
+            'Panel visibility and editor settings.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+            ),
+          ),
+          const SizedBox(height: 12),
+          buildPanelToggle(
+            label: 'Show left panel',
+            config: _layout.leftPanel,
+            location: ForgePanelLocation.left,
+          ),
+          buildPanelToggle(
+            label: 'Show right panel',
+            config: _layout.rightPanel,
+            location: ForgePanelLocation.right,
+          ),
+          buildPanelToggle(
+            label: 'Show bottom panel',
+            config: _layout.bottomPanel,
+            location: ForgePanelLocation.bottom,
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              onPressed: _openSettings,
+              icon: const Icon(Icons.tune),
+              label: const Text('Open Full Settings'),
+            ),
+          ),
+        ],
       ),
     );
   }
