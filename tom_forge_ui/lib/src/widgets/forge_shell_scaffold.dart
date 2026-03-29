@@ -770,18 +770,29 @@ class _ResizeHandleState extends State<_ResizeHandle> {
         ? activeColor
         : (_isHovering ? hoverColor : idleColor);
 
+    final gripThickness = _isDragging
+        ? 5.0
+        : (_isHovering ? 3.0 : 1.0);
+
     final grip = isVerticalDivider
-        ? Container(
-            width: ForgeDimensions.dividerVisual,
-            height: 32,
+        ? AnimatedContainer(
+            duration: const Duration(milliseconds: 120),
+            curve: Curves.easeOut,
+            margin: EdgeInsets.symmetric(
+              horizontal:
+                  (ForgeDimensions.dividerHitTarget - gripThickness) / 2,
+            ),
             decoration: BoxDecoration(
               color: gripColor,
               borderRadius: BorderRadius.circular(2),
             ),
           )
-        : Container(
-            width: 32,
-            height: ForgeDimensions.dividerVisual,
+        : AnimatedContainer(
+            duration: const Duration(milliseconds: 120),
+            curve: Curves.easeOut,
+            margin: EdgeInsets.symmetric(
+              vertical: (ForgeDimensions.dividerHitTarget - gripThickness) / 2,
+            ),
             decoration: BoxDecoration(
               color: gripColor,
               borderRadius: BorderRadius.circular(2),
@@ -826,7 +837,7 @@ class _ResizeHandleState extends State<_ResizeHandle> {
         child: SizedBox(
           width: isVerticalDivider ? ForgeDimensions.dividerHitTarget : null,
           height: isVerticalDivider ? null : ForgeDimensions.dividerHitTarget,
-          child: Center(child: grip),
+          child: grip,
         ),
       ),
     );
