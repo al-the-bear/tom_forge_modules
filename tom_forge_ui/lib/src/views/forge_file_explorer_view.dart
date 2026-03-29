@@ -69,8 +69,11 @@ class _FileExplorerContent extends StatefulWidget {
 }
 
 class _FileExplorerContentState extends State<_FileExplorerContent> {
-  List<FileSystemEntity> _entries = [];
+  List<FileSystemEntity> _rootEntries = [];
+  final Map<String, List<FileSystemEntity>> _directoryChildren = {};
+  final Set<String> _loadingDirectories = {};
   final Set<String> _expandedDirs = {};
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -80,57 +83,118 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
 
   Future<void> _loadEntries() async {
     try {
-      final entries =
-          await widget.fileSystem.list(widget.rootUri, recursive: true);
+      final entries = await widget.fileSystem.list(
+        widget.rootUri,
+        recursive: false,
+      );
       if (mounted) {
-        setState(() => _entries = entries);
+        setState(() {
+          _rootEntries = _sortEntries(entries);
+          _errorMessage = null;
+        });
       }
     } catch (e) {
-      // Silently handle.
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Failed to read workspace files.';
+        });
+      }
+    }
+  }
+
+  Future<void> _loadDirectoryChildren(String directoryPath) async {
+    if (_loadingDirectories.contains(directoryPath)) {
+      return;
+    }
+
+    setState(() => _loadingDirectories.add(directoryPath));
+    try {
+      final entries = await widget.fileSystem.list(
+        Uri.file(directoryPath),
+        recursive: false,
+      );
+      if (mounted) {
+        setState(() {
+          _directoryChildren[directoryPath] = _sortEntries(entries);
+          _errorMessage = null;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _directoryChildren[directoryPath] = const [];
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _loadingDirectories.remove(directoryPath));
+      }
+    }
+  }
+
+  Future<void> _toggleDirectory(String path, bool isExpanded) async {
+    if (isExpanded) {
+      setState(() => _expandedDirs.remove(path));
+      return;
+    }
+
+    setState(() => _expandedDirs.add(path));
+    if (!_directoryChildren.containsKey(path)) {
+      await _loadDirectoryChildren(path);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_entries.isEmpty) {
+    if (_errorMessage != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Text(
+            _errorMessage!,
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+
+    if (_rootEntries.isEmpty) {
       return const Center(child: Text('No files'));
     }
 
-    final tree = _buildTree(_entries);
     return ListView(
       padding: const EdgeInsets.symmetric(vertical: 2),
       children: [
-        for (final node in tree) _buildNode(context, node, 0),
+        for (final entry in _rootEntries) _buildEntry(context, entry, 0),
       ],
     );
   }
 
-  Widget _buildNode(BuildContext context, _TreeNode node, int depth) {
+  Widget _buildEntry(BuildContext context, FileSystemEntity entry, int depth) {
     final theme = Theme.of(context);
-    final isExpanded = _expandedDirs.contains(node.path);
+    final isDirectory = entry is Directory;
+    final path = entry.path;
+    final name = _nameForPath(path);
+    final isExpanded = _expandedDirs.contains(path);
+    final childEntries = _directoryChildren[path] ?? const <FileSystemEntity>[];
+    final isLoading = _loadingDirectories.contains(path);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         InkWell(
-          onTap: () {
-            if (node.isDirectory) {
-              setState(() {
-                if (isExpanded) {
-                  _expandedDirs.remove(node.path);
-                } else {
-                  _expandedDirs.add(node.path);
-                }
-              });
+          onTap: () async {
+            if (isDirectory) {
+              await _toggleDirectory(path, isExpanded);
             } else {
-              widget.layoutController.openFile(Uri.file(node.path));
+              widget.layoutController.openFile(Uri.file(path));
             }
           },
           child: Padding(
             padding: EdgeInsets.only(left: 8.0 + depth * 16.0, top: 2, bottom: 2),
             child: Row(
               children: [
-                if (node.isDirectory)
+                if (isDirectory)
                   Icon(
                     isExpanded
                         ? Icons.keyboard_arrow_down
@@ -141,33 +205,63 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
                   const SizedBox(width: 16),
                 const SizedBox(width: 2),
                 Icon(
-                  node.isDirectory
+                  isDirectory
                       ? (isExpanded
                           ? Icons.folder_open_outlined
                           : Icons.folder_outlined)
-                      : _iconForExtension(node.name),
+                      : _iconForExtension(name),
                   size: 16,
-                  color: node.isDirectory
+                  color: isDirectory
                       ? Colors.amber
                       : theme.colorScheme.onSurface,
                 ),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    node.name,
+                    name,
                     style: theme.textTheme.bodySmall,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                if (isDirectory && isLoading)
+                  SizedBox(
+                    width: 12,
+                    height: 12,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.5,
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
               ],
             ),
           ),
         ),
-        if (node.isDirectory && isExpanded)
-          for (final child in node.children)
-            _buildNode(context, child, depth + 1),
+        if (isDirectory && isExpanded)
+          for (final child in childEntries)
+            _buildEntry(context, child, depth + 1),
       ],
     );
+  }
+
+  List<FileSystemEntity> _sortEntries(List<FileSystemEntity> entries) {
+    final sorted = List<FileSystemEntity>.of(entries);
+    sorted.sort((a, b) {
+      final aIsDir = a is Directory;
+      final bIsDir = b is Directory;
+      if (aIsDir != bIsDir) {
+        return aIsDir ? -1 : 1;
+      }
+      return _nameForPath(a.path).compareTo(_nameForPath(b.path));
+    });
+    return sorted;
+  }
+
+  String _nameForPath(String path) {
+    final parts = path.split('/').where((segment) => segment.isNotEmpty);
+    if (parts.isEmpty) {
+      return path;
+    }
+    return parts.last;
   }
 
   IconData _iconForExtension(String name) {
@@ -181,58 +275,4 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
       _ => Icons.insert_drive_file_outlined,
     };
   }
-
-  List<_TreeNode> _buildTree(List<FileSystemEntity> entities) {
-    final Map<String, _TreeNode> nodes = {};
-    final roots = <_TreeNode>[];
-
-    // Sort: directories first, then alphabetical.
-    final sorted = List.of(entities)
-      ..sort((a, b) {
-        final aIsDir = a.path.endsWith('/') ||
-            entities.any((e) =>
-                e.path.startsWith('${a.path}/') && e.path != a.path);
-        final bIsDir = b.path.endsWith('/') ||
-            entities.any((e) =>
-                e.path.startsWith('${b.path}/') && e.path != b.path);
-        if (aIsDir != bIsDir) return aIsDir ? -1 : 1;
-        return a.path.compareTo(b.path);
-      });
-
-    for (final entity in sorted) {
-      final path = entity.path;
-      final name = path.split('/').where((s) => s.isNotEmpty).last;
-      final isDir = entity is Directory ||
-          entities.any((e) =>
-              e.path.startsWith('$path/') && e.path != path);
-      final node = _TreeNode(path: path, name: name, isDirectory: isDir);
-      nodes[path] = node;
-
-      // Find parent.
-      final parentPath = path.contains('/')
-          ? path.substring(0, path.lastIndexOf('/'))
-          : '';
-      final parent = nodes[parentPath];
-      if (parent != null) {
-        parent.children.add(node);
-      } else {
-        roots.add(node);
-      }
-    }
-
-    return roots;
-  }
-}
-
-class _TreeNode {
-  final String path;
-  final String name;
-  final bool isDirectory;
-  final List<_TreeNode> children = [];
-
-  _TreeNode({
-    required this.path,
-    required this.name,
-    required this.isDirectory,
-  });
 }
