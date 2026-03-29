@@ -58,8 +58,8 @@ class ForgeDimensions {
   static const double sideTabBarExpanded = 200;
 
   // Interactive
-  static const double dividerHitTarget = 8;
-  static const double dividerVisual = 1;
+  static const double dividerHitTarget = 14;
+  static const double dividerVisual = 2;
 
   // Icons
   static const double iconTab = 20;
@@ -513,36 +513,18 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   Widget _buildVerticalResizeHandle({
     required ValueChanged<double> onDragDelta,
   }) {
-    return GestureDetector(
-      behavior: HitTestBehavior.translucent,
-      onHorizontalDragUpdate: (details) => onDragDelta(details.delta.dx),
-      child: MouseRegion(
-        cursor: SystemMouseCursors.resizeColumn,
-        child: const SizedBox(
-          width: ForgeDimensions.dividerHitTarget,
-          child: Center(
-            child: VerticalDivider(width: ForgeDimensions.dividerVisual),
-          ),
-        ),
-      ),
+    return _ResizeHandle(
+      axis: Axis.horizontal,
+      onDragDelta: onDragDelta,
     );
   }
 
   Widget _buildHorizontalResizeHandle({
     required ValueChanged<double> onDragDelta,
   }) {
-    return GestureDetector(
-      behavior: HitTestBehavior.translucent,
-      onVerticalDragUpdate: (details) => onDragDelta(details.delta.dy),
-      child: MouseRegion(
-        cursor: SystemMouseCursors.resizeRow,
-        child: const SizedBox(
-          height: ForgeDimensions.dividerHitTarget,
-          child: Center(
-            child: Divider(height: ForgeDimensions.dividerVisual),
-          ),
-        ),
-      ),
+    return _ResizeHandle(
+      axis: Axis.vertical,
+      onDragDelta: onDragDelta,
     );
   }
 
@@ -756,4 +738,97 @@ class _FocusBottomPanelIntent extends Intent {
 
 class _SaveIntent extends Intent {
   const _SaveIntent();
+}
+
+class _ResizeHandle extends StatefulWidget {
+  const _ResizeHandle({
+    required this.axis,
+    required this.onDragDelta,
+  });
+
+  final Axis axis;
+  final ValueChanged<double> onDragDelta;
+
+  @override
+  State<_ResizeHandle> createState() => _ResizeHandleState();
+}
+
+class _ResizeHandleState extends State<_ResizeHandle> {
+  bool _isHovering = false;
+  bool _isDragging = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isVerticalDivider = widget.axis == Axis.horizontal;
+
+    final activeColor = theme.colorScheme.primary.withValues(alpha: 0.9);
+    final hoverColor = theme.colorScheme.primary.withValues(alpha: 0.45);
+    final idleColor = theme.colorScheme.outlineVariant.withValues(alpha: 0.9);
+
+    final gripColor = _isDragging
+        ? activeColor
+        : (_isHovering ? hoverColor : idleColor);
+
+    final grip = isVerticalDivider
+        ? Container(
+            width: ForgeDimensions.dividerVisual,
+            height: 32,
+            decoration: BoxDecoration(
+              color: gripColor,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          )
+        : Container(
+            width: 32,
+            height: ForgeDimensions.dividerVisual,
+            decoration: BoxDecoration(
+              color: gripColor,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          );
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onHorizontalDragStart: isVerticalDivider
+          ? (_) => setState(() => _isDragging = true)
+          : null,
+      onHorizontalDragUpdate: isVerticalDivider
+          ? (details) => widget.onDragDelta(details.delta.dx)
+          : null,
+      onHorizontalDragEnd: isVerticalDivider
+          ? (_) => setState(() => _isDragging = false)
+          : null,
+      onHorizontalDragCancel: isVerticalDivider
+          ? () => setState(() => _isDragging = false)
+          : null,
+      onVerticalDragStart: !isVerticalDivider
+          ? (_) => setState(() => _isDragging = true)
+          : null,
+      onVerticalDragUpdate: !isVerticalDivider
+          ? (details) => widget.onDragDelta(details.delta.dy)
+          : null,
+      onVerticalDragEnd: !isVerticalDivider
+          ? (_) => setState(() => _isDragging = false)
+          : null,
+      onVerticalDragCancel: !isVerticalDivider
+          ? () => setState(() => _isDragging = false)
+          : null,
+      child: MouseRegion(
+        cursor: isVerticalDivider
+            ? SystemMouseCursors.resizeColumn
+            : SystemMouseCursors.resizeRow,
+        onEnter: (_) => setState(() => _isHovering = true),
+        onExit: (_) => setState(() {
+          _isHovering = false;
+          _isDragging = false;
+        }),
+        child: SizedBox(
+          width: isVerticalDivider ? ForgeDimensions.dividerHitTarget : null,
+          height: isVerticalDivider ? null : ForgeDimensions.dividerHitTarget,
+          child: Center(child: grip),
+        ),
+      ),
+    );
+  }
 }

@@ -83,6 +83,10 @@ class ForgeMdEditor extends ForgeTextEditor {
     return MdEditor(
       controller: controller,
       integration: _integration,
+      settings: MdEditorSettings.standard().copyWith(
+        autoHideEditor: false,
+        rawEditorPosition: RawEditorPosition.below,
+      ),
     );
   }
 
