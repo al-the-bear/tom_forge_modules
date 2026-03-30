@@ -222,11 +222,22 @@ This section is intended to cover menu bar, command palette, title-bar search en
 ## 12. Actions and Shortcut Framework
 This section is intended to cover action registration, enable/visible state logic, shortcut binding/effective shortcut display, platform-specific modifier behavior, and conflict handling. Include checks at Forge action/shortcut manager level and per-module/per-component action sets.
 
-- [ ] Section completed (finished on ...)
+- [x] Section completed (finished on 2026-03-30T06:19:17+02:00)
 
 | category | per module? | per component? | to be implemented in modules? | shell implementation done? | implemented on |
 |---|---|---|---|---|---|
-| | | | | | |
+| Action model is object-based (no string-ID routing) with explicit menu location and optional shortcut | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` action model section |
+| Action execution pipeline supports undo object return and undo callback integration | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` action + undo manager sections |
+| Dynamic action state evaluation (`isEnabled`, `isVisible`) is re-evaluated against system state | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` state-evaluated actions |
+| Actions from modules/components are collected into shell command/menu surfaces | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` and architecture modules |
+| Shortcut bindings are collected centrally from modules/components | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` shortcut manager section |
+| Shortcut conflict detection is supported and explicitly surfaced | no | no | no | yes | documented in `forge_panel_shell_concept.md` (`conflictsWith`) and `forge_panel_shell_spec.md` (`SH001`) |
+| Runtime shortcut rebinding and reset-to-default are supported | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` (`rebind`, `resetToDefault`) |
+| Effective shortcut display source comes from `ForgeShortcutManager` bindings | no | no | no | yes | documented in `tom_forge_full_integration.md` Phase B evidence |
+| Platform-specific primary-modifier shortcut behavior is required (Cmd vs Ctrl) | no | no | no | yes | documented in `forge_panel_shell_concept.md` shortcut model and `tom_forge_full_integration.md` |
+| Two-key trigger-menu shortcut system is defined (Shift+Cmd/Ctrl+key popup) | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` section 11.5 |
+| Duplicate action ID policy/conflict logging is part of framework hardening | yes | no | yes | yes | documented in `tom_forge_full_integration.md` Phase B objectives |
+| Implementation/test evidence includes `ForgeShortcutManager` tests, platform shortcut tests, and parity matrix requirements | yes | no | yes | yes | documented in `forge_panel_shell_spec.md` service tests and `tom_forge_full_integration.md` |
 
 ## 13. Focus Management and Accessibility
 This section is intended to cover keyboard navigation order, focus visibility, focus trapping in modal surfaces, screen-reader semantics, and hit-target usability. Include checks for shell accessibility baseline and per component/module accessibility conformance.
