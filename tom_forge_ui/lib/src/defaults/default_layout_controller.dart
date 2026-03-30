@@ -36,6 +36,9 @@ class DefaultLayoutController implements ForgeLayoutController {
   final ForgeModuleRegistry _moduleRegistry;
   final DefaultVirtualDocumentManager? _virtualDocuments;
 
+  /// Late-bound diagnostic manager for emitting editor fallback diagnostics.
+  ForgeDiagnosticManager? diagnosticManager;
+
   final ValueNotifier<LayoutPanelConfig> _leftPanel;
   final ValueNotifier<LayoutPanelConfig> _rightPanel;
   final ValueNotifier<LayoutPanelConfig> _bottomPanel;
@@ -420,6 +423,7 @@ class DefaultLayoutController implements ForgeLayoutController {
       default:
         // Fallback to plain text editor when no specialized editor
         // is registered for the current file type.
+        _emitFallbackDiagnostic(uri, ext);
         return ForgePlainTextEditor.fromContent(
           content: content,
           uri: uri,
@@ -436,6 +440,24 @@ class DefaultLayoutController implements ForgeLayoutController {
         ForgeTextPosition(line: line, column: column ?? 0),
       );
     }
+  }
+
+  /// Emit an ED002 diagnostic when falling back to the plain-text editor
+  /// because no specialised editor matched the file extension.
+  void _emitFallbackDiagnostic(Uri uri, String ext) {
+    final dm = diagnosticManager;
+    if (dm == null) return;
+    final collection = dm.createCollection('editor-fallback');
+    collection.set(uri, [
+      ForgeDiagnostic(
+        uri: uri,
+        range: const ForgeTextRange.empty(),
+        message: 'No editor registered for ".$ext" — opened as plain text',
+        severity: ForgeSeverity.info,
+        source: 'forge-shell',
+        code: ForgeErrorCodes.edNoEditor,
+      ),
+    ]);
   }
 
   /// Serializes current layout state to a JSON-compatible map.

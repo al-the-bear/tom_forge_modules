@@ -38,14 +38,11 @@ class DefaultModuleRegistry implements ForgeModuleRegistry {
   DefaultModuleRegistry({
     ForgeActionRegistry? actionRegistry,
     ForgeShortcutManager? shortcutManager,
-    ForgeDiagnosticManager? diagnosticManager,
-    ForgeNotificationManager? notificationManager,
-    ForgeOutputChannelManager? outputManager,
+    this.diagnosticManager,
+    this.notificationManager,
+    this.outputManager,
   })  : _actionRegistry = actionRegistry,
-        _shortcutManager = shortcutManager,
-        diagnosticManager = diagnosticManager,
-        notificationManager = notificationManager,
-        outputManager = outputManager;
+        _shortcutManager = shortcutManager;
 
   final Map<Type, ForgeModule> _modules = {};
   final Map<Type, ModuleState> _moduleStates = {};
