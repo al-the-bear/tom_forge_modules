@@ -14,6 +14,7 @@ import '../components/forge_text_editor.dart';
 import '../defaults/default_layout_controller.dart';
 import '../defaults/default_shell_api.dart';
 import '../defaults/default_system_state.dart';
+import '../defaults/default_workspace_state_manager.dart';
 import '../model/forge_application.dart';
 import '../services/forge_preferences_service.dart';
 import '../shell/forge_layout_controller.dart';
@@ -113,6 +114,10 @@ class ForgeShellScaffold extends StatefulWidget {
   final DefaultNotificationManager notificationManager;
   final ForgePreferencesService? preferencesService;
 
+  /// Callback invoked when the user requests to switch to a different application.
+  /// The parent widget should handle rebuilding the scaffold with the new application.
+  final void Function(ForgeApplication)? onApplicationSwitch;
+
   const ForgeShellScaffold({
     super.key,
     required this.shell,
@@ -122,6 +127,7 @@ class ForgeShellScaffold extends StatefulWidget {
     required this.statusBarController,
     required this.notificationManager,
     this.preferencesService,
+    this.onApplicationSwitch,
   });
 
   @override
@@ -477,6 +483,18 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         }
       }
       wsState.saveLayoutState(layoutData);
+
+      // Save per-application state to .forge/state/apps/
+      if (wsState is DefaultWorkspaceStateManager) {
+        final activeUri = widget.systemState.activeEditor?.uri;
+        final appState = <String, dynamic>{
+          'openEditors': openUris,
+          'activeEditor': activeUri?.toString(),
+          'layout': layoutData,
+        };
+        wsState.saveApplicationState(widget.application.title, appState);
+        wsState.saveActiveApplicationTitle(widget.application.title);
+      }
     } catch (e) {
       debugPrint('[ForgeShellScaffold] save workspace state failed: $e');
     }
@@ -946,17 +964,47 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  PopupMenuButton<String>(
+                  PopupMenuButton<ForgeApplication>(
                     tooltip: 'Switch Application',
-                    itemBuilder: (context) => [
-                      PopupMenuItem(
-                        value: widget.application.title,
-                        child: Text(widget.application.title),
-                      ),
-                    ],
+                    onSelected: (app) {
+                      if (app != widget.application) {
+                        widget.systemState.setActiveApplication(app);
+                        widget.onApplicationSwitch?.call(app);
+                      }
+                    },
+                    itemBuilder: (context) {
+                      final apps = widget.systemState.applications;
+                      return apps.map((app) {
+                        final isActive = app == widget.application;
+                        return PopupMenuItem<ForgeApplication>(
+                          value: app,
+                          child: Row(
+                            children: [
+                              if (app.icon != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: Icon(app.icon, size: 16),
+                                ),
+                              Expanded(child: Text(app.title)),
+                              if (isActive)
+                                Icon(
+                                  Icons.check,
+                                  size: 16,
+                                  color: theme.colorScheme.primary,
+                                ),
+                            ],
+                          ),
+                        );
+                      }).toList();
+                    },
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        if (widget.application.icon != null)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 4),
+                            child: Icon(widget.application.icon, size: 14),
+                          ),
                         Text(widget.application.title, style: theme.textTheme.bodySmall),
                         const Icon(Icons.arrow_drop_down, size: 18),
                       ],

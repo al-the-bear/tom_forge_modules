@@ -3,6 +3,7 @@ import '../actions/forge_shortcut_binding.dart';
 import '../actions/status_bar_item.dart';
 import '../components/forge_editor.dart';
 import '../components/forge_view.dart';
+import '../model/forge_application.dart';
 import '../shell/forge_shell_api.dart';
 
 /// Registration interface for shell modules.
@@ -36,4 +37,11 @@ abstract class ForgeModule {
 
   /// Status bar items this module contributes.
   List<StatusBarItem> get statusBarItems => [];
+
+  /// Pre-configured applications this module provides.
+  ///
+  /// Modules can expose ready-to-use applications with pre-defined layouts
+  /// that reference the module's views and editors. This allows modules
+  /// to provide complete working environments.
+  List<ForgeApplication> get applications => [];
 }

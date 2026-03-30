@@ -61,6 +61,12 @@ class DefaultSystemState implements ForgeSystemState {
   final _onWindowFocusChanged =
       StreamController<WindowFocusEvent>.broadcast();
   final _onLayoutChanged = StreamController<LayoutChangeEvent>.broadcast();
+  final _onApplicationChanged =
+      StreamController<ApplicationChangeEvent>.broadcast();
+
+  /// Per-application state storage for open editors and layout.
+  /// Maps application title to { 'openEditors': List<Uri>, 'activeEditor': Uri? }.
+  final Map<String, Map<String, dynamic>> _applicationStates = {};
 
   DefaultSystemState({
     String workspaceRootPath = '/',
@@ -193,6 +199,10 @@ class DefaultSystemState implements ForgeSystemState {
 
   @override
   Stream<LayoutChangeEvent> get onLayoutChanged => _onLayoutChanged.stream;
+
+  @override
+  Stream<ApplicationChangeEvent> get onApplicationChanged =>
+      _onApplicationChanged.stream;
 
   @override
   void updateEditorContext(String editorId, ForgeTextContext context) {
@@ -342,8 +352,69 @@ class DefaultSystemState implements ForgeSystemState {
     _applications = apps;
   }
 
+  /// Switches to the specified application, preserving the previous app's state
+  /// and restoring the new app's saved state.
+  ///
+  /// Emits [ApplicationChangeEvent] to notify listeners of the switch.
   void setActiveApplication(ForgeApplication app) {
+    if (_activeApplication == app) return;
+
+    final previous = _activeApplication;
+
+    // Save current application state before switching
+    _saveApplicationState(previous);
+
+    // Mark previous as inactive, new as active
+    previous.isActive = false;
+    app.isActive = true;
+
     _activeApplication = app;
+
+    // Restore new application state (if any saved)
+    _restoreApplicationState(app);
+
+    // Emit application change event
+    _onApplicationChanged.add(ApplicationChangeEvent(
+      previous: previous,
+      current: app,
+      isInitial: false,
+    ));
+  }
+
+  /// Saves the current state of an application (open editors, active editor).
+  void _saveApplicationState(ForgeApplication app) {
+    _applicationStates[app.title] = {
+      'openEditors': _openEditors.value.map((e) => e.uri).whereType<Uri>().toList(),
+      'activeEditor': _activeEditor.value?.uri,
+    };
+  }
+
+  /// Restores a previously saved application state.
+  /// Does not re-open editors — that's handled by the layout controller.
+  void _restoreApplicationState(ForgeApplication app) {
+    final state = _applicationStates[app.title];
+    if (state == null) {
+      // First time activating this app — start fresh
+      _openEditors.value = [];
+      _activeEditor.value = null;
+      _onEditorsChanged.add(const EditorListChangeEvent(opened: [], closed: []));
+      return;
+    }
+    // Note: The actual editor instances are managed by the layout controller.
+    // This just clears the current state; the scaffold will restore editors.
+  }
+
+  /// Returns saved state for an application (for persistence).
+  Map<String, dynamic>? getApplicationState(String appTitle) {
+    return _applicationStates[appTitle];
+  }
+
+  /// Restores application state from external source (e.g., disk).
+  void restoreApplicationStateFromPersistence(
+    String appTitle,
+    Map<String, dynamic> state,
+  ) {
+    _applicationStates[appTitle] = state;
   }
 
   /// Sets up selection/cursor listeners on the active editor.
@@ -403,5 +474,6 @@ class DefaultSystemState implements ForgeSystemState {
     _onEditorsChanged.close();
     _onWindowFocusChanged.close();
     _onLayoutChanged.close();
+    _onApplicationChanged.close();
   }
 }

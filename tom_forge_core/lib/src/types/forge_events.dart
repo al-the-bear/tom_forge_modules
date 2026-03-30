@@ -135,3 +135,21 @@ class SecretChangeEvent {
 
   const SecretChangeEvent({required this.key, required this.deleted});
 }
+
+/// Event fired when the active application changes.
+class ApplicationChangeEvent {
+  /// The previously active application (null if first activation).
+  final Object? previous;
+
+  /// The newly active application.
+  final Object current;
+
+  /// Whether this is the initial activation (no previous app).
+  final bool isInitial;
+
+  const ApplicationChangeEvent({
+    this.previous,
+    required this.current,
+    this.isInitial = false,
+  });
+}

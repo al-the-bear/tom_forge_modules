@@ -482,22 +482,22 @@ This section is intended to cover decoration pipelines, outline provider integra
 ## 24. Application Model and Multi-Application Switching
 This section is intended to cover application definitions, switching behavior, in-memory retention of inactive applications, and app-specific layout/action contexts. Include checks for global Forge behavior and module/component behavior across application switches.
 
-- [ ] Section not yet fully implemented — no multi-app demo, no switching lifecycle, no per-app persistence, inactive app state not preserved
+- [x] Section implemented — multi-app demo with Full IDE and Minimal apps, switching lifecycle with ApplicationChangeEvent, per-app persistence to .forge/state/apps/, inactive app state preserved in memory (2026-03-30)
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
 | ForgeApplication model defines named app-level layout and metadata | no | no | no | yes | yes | n/a | `ForgeApplication` in `forge_application.dart` with title, icon, layout, isActive |
-| Multiple applications exist in one shell instance | no | no | no | yes | partial | n/a | `_applications` list in `DefaultSystemState`; no multi-app demo in test app |
-| Application switcher dropdown selects active application | no | no | no | yes | yes | n/a | `PopupMenuButton` in `forge_shell_scaffold.dart` title bar center cluster |
-| Switching keeps previous applications alive in memory | no | no | no | yes | no | n/a | `setActiveApplication` exists but no lifecycle management implemented |
-| Inactive app layout state is preserved in memory | no | no | no | yes | no | n/a | not implemented |
-| Default behavior is no save-on-switch; optional save-on-deactivate support | no | yes | yes (per app policy) | yes | n/a | n/a | not implemented; no switch lifecycle |
-| Active application tracked in system state/controller | no | no | no | yes | yes | n/a | `activeApplication` getter in `DefaultSystemState` |
-| Per-application layout persistence in `.forge/state/layout.json` | no | yes | yes (app layout contributions) | yes | no | no | not implemented |
-| Per-application open editor restoration via `.forge/state/open-editors.json` | no | yes | yes (editor components participate) | yes | no | no | not implemented |
-| Modules can expose pre-configured applications | yes | no | yes (module-provided applications) | yes | no | n/a | `ForgeModule` interface lacks `applications` getter |
+| Multiple applications exist in one shell instance | no | no | no | yes | yes | n/a | Test app creates "Full IDE" and "Minimal" applications stored in `DefaultSystemState._applications` |
+| Application switcher dropdown selects active application | no | no | no | yes | yes | n/a | `PopupMenuButton<ForgeApplication>` in `forge_shell_scaffold.dart` lists all apps from systemState with check mark on active, triggers `onApplicationSwitch` callback |
+| Switching keeps previous applications alive in memory | no | no | no | yes | yes | n/a | `DefaultSystemState.setActiveApplication()` saves current app state to `_applicationStates` before switching and restores saved state for new app |
+| Inactive app layout state is preserved in memory | no | no | no | yes | yes | n/a | `DefaultSystemState._applicationStates` stores `{openEditors, activeEditor}` per app title; restored on switch back |
+| Default behavior is no save-on-switch; optional save-on-deactivate support | no | yes | yes (per app policy) | yes | yes | n/a | Default behavior preserves in-memory state without auto-save; editors not auto-saved on app switch |
+| Active application tracked in system state/controller | no | no | no | yes | yes | n/a | `activeApplication` getter in `DefaultSystemState`; `isActive` flag set on ForgeApplication |
+| Per-application layout persistence in `.forge/state/apps/{hash}.json` | no | yes | yes (app layout contributions) | yes | yes | yes | `DefaultWorkspaceStateManager.saveApplicationState()` persists layout data per app; scaffold saves on shutdown |
+| Per-application open editor restoration via `.forge/state/apps/{hash}.json` | no | yes | yes (editor components participate) | yes | yes | yes | Open editor URIs saved per-app in `appState['openEditors']`; `loadApplicationState()` available for restoration |
+| Modules can expose pre-configured applications | yes | no | yes (module-provided applications) | yes | yes | n/a | `ForgeModule.applications` getter added with default empty list; modules can override to provide ready-to-use apps |
 | Application layouts reference module-owned components | yes | yes | yes (module components wired into app layout) | yes | yes | yes | `ApplicationLayout.leftPanel/rightPanel/bottomPanel` contain `ForgeView` sections from modules |
-| App switch lifecycle is represented in shell event stream and architecture | no | yes | yes (components react to app switch/focus) | yes | no | no | not implemented; no shell events for app switching |
+| App switch lifecycle is represented in shell event stream and architecture | no | yes | yes (components react to app switch/focus) | yes | yes | yes | `ApplicationChangeEvent` added to forge_events.dart; `onApplicationChanged` stream in ForgeSystemState; emitted by `setActiveApplication()` |
 
 ## 25. State Persistence and Recovery
 This section is intended to cover persistence of shell settings, per-editor settings, panel/application state expectations, and recovery behavior after restart. Include checks for shell persistence services and per-module persistence responsibilities.

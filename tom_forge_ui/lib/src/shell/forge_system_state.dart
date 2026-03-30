@@ -62,6 +62,7 @@ abstract class ForgeSystemState {
   Stream<EditorListChangeEvent> get onEditorsChanged;
   Stream<WindowFocusEvent> get onWindowFocusChanged;
   Stream<LayoutChangeEvent> get onLayoutChanged;
+  Stream<ApplicationChangeEvent> get onApplicationChanged;
 
   // ── Editor Context Bridge ──
   void updateEditorContext(String editorId, ForgeTextContext context);

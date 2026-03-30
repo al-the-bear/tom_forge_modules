@@ -292,6 +292,81 @@ class DefaultWorkspaceStateManager implements ForgeWorkspaceStateManager {
     return true;
   }
 
+  // ── Per-application state ──
+
+  /// Saves the state of an application (open editors, active editor, layout).
+  ///
+  /// Stores in `.forge/state/apps/{app-hash}.json`.
+  Future<void> saveApplicationState(
+    String appTitle,
+    Map<String, dynamic> state,
+  ) async {
+    _ensureInitialized();
+    await Directory('$_forgeDir/state/apps').create(recursive: true);
+    final hash = _stringHash(appTitle);
+    final file = File('$_forgeDir/state/apps/$hash.json');
+    state['_appTitle'] = appTitle;
+    await file.writeAsString(_encodeJson(state));
+    _log('saved application state for "$appTitle"');
+  }
+
+  /// Loads the saved state of an application.
+  Future<Map<String, dynamic>?> loadApplicationState(String appTitle) async {
+    _ensureInitialized();
+    final hash = _stringHash(appTitle);
+    final file = File('$_forgeDir/state/apps/$hash.json');
+    if (!await file.exists()) return null;
+    try {
+      final data = jsonDecode(await file.readAsString());
+      return data is Map<String, dynamic> ? data : null;
+    } catch (e) {
+      _log('load application state failed for "$appTitle": $e');
+      return null;
+    }
+  }
+
+  /// Returns a list of all saved application titles.
+  Future<List<String>> listSavedApplications() async {
+    _ensureInitialized();
+    final dir = Directory('$_forgeDir/state/apps');
+    if (!await dir.exists()) return [];
+
+    final apps = <String>[];
+    await for (final entity in dir.list()) {
+      if (entity is File && entity.path.endsWith('.json')) {
+        try {
+          final data = jsonDecode(await entity.readAsString());
+          if (data is Map<String, dynamic> && data['_appTitle'] is String) {
+            apps.add(data['_appTitle'] as String);
+          }
+        } catch (_) {}
+      }
+    }
+    return apps;
+  }
+
+  /// Saves the current active application title for restoration on next launch.
+  Future<void> saveActiveApplicationTitle(String appTitle) async {
+    _ensureInitialized();
+    final file = File('$_forgeDir/state/active-app.txt');
+    await file.writeAsString(appTitle);
+    _log('saved active application: "$appTitle"');
+  }
+
+  /// Loads the last active application title.
+  Future<String?> loadActiveApplicationTitle() async {
+    _ensureInitialized();
+    final file = File('$_forgeDir/state/active-app.txt');
+    if (!await file.exists()) return null;
+    try {
+      final title = await file.readAsString();
+      return title.trim().isNotEmpty ? title.trim() : null;
+    } catch (e) {
+      _log('load active application title failed: $e');
+      return null;
+    }
+  }
+
   @override
   void dispose() {
     _forgeDir = null;
@@ -313,6 +388,13 @@ class DefaultWorkspaceStateManager implements ForgeWorkspaceStateManager {
     // external crypto dependency. Uses the full URI string hashed in
     // two overlapping windows for collision resistance.
     final s = uri.toString();
+    final h1 = s.hashCode.toUnsigned(32).toRadixString(16).padLeft(8, '0');
+    final h2 =
+        s.split('').reversed.join().hashCode.toUnsigned(32).toRadixString(16).padLeft(8, '0');
+    return '$h1$h2';
+  }
+
+  String _stringHash(String s) {
     final h1 = s.hashCode.toUnsigned(32).toRadixString(16).padLeft(8, '0');
     final h2 =
         s.split('').reversed.join().hashCode.toUnsigned(32).toRadixString(16).padLeft(8, '0');
