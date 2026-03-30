@@ -48,10 +48,12 @@ class DefaultModuleRegistry implements ForgeModuleRegistry {
       }
     } catch (error, stackTrace) {
       // ignore: avoid_print
-      print('[DefaultModuleRegistry] register failed: $error');
+      print('[DefaultModuleRegistry] register failed for '
+          '${module.displayName}: $error');
       // ignore: avoid_print
       print(stackTrace);
-      rethrow;
+      // Isolation boundary: log and continue so one failing module
+      // does not prevent other modules from registering.
       }
   }
 

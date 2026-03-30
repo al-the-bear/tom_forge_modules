@@ -62,7 +62,7 @@ This section is intended to cover workspace root handling, file-system scope, `.
 ## 3. Module Integration and Ownership Boundaries
 This section is intended to cover module contracts, registration, module-provided views/editors/actions/shortcuts, and module-to-shell ownership boundaries. Include checks for shell-level module orchestration and per-module conformance.
 
-- [ ] Section implemented
+- [x] Section implemented (completed on 2025-07-23)
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -73,9 +73,9 @@ This section is intended to cover module contracts, registration, module-provide
 | Module integration is compile-time and type-safe (no dynamic loading/marketplace sandbox) | yes | no | yes | yes | yes | n/a | modules are instantiated in `main.dart` and registered statically |
 | Module cross-references are type-safe (`modules.get<T>()`) | yes | no | yes | yes | yes | partial | `DefaultModuleRegistry.get<T>()` implemented; used in `forge_yaml_editor.dart` for `TomForgeShellModule` access |
 | Module activation order uses declaration order during startup | yes | no | yes (module dependency-safe design) | yes | yes | n/a | `main.dart` shows `TomForgeShellModule.activate()` then `TestAppModule.activate()` in sequence |
-| Module deactivation order is reverse declaration order at shutdown | yes | no | yes | yes | no | n/a | `ForgeModule.deactivate()` defined but no reverse-order shutdown logic implemented |
+| Module deactivation order is reverse declaration order at shutdown | yes | no | yes | yes | yes | n/a | `DefaultModuleRegistry.deactivateAll()` iterates reversed, with try-catch per module; called from `DefaultShellApi.dispose()` |
 | Module contributions are published to shell registries (actions/shortcuts/views/editors) | yes | yes | yes | yes | yes | yes | `DefaultModuleRegistry.register()` calls `actionRegistry.registerAction()` and `shortcutManager.rebind()` |
-| Module failure isolation boundary (one failing module must not crash shell) | yes | no | yes (defensive module code) | yes | no | n/a | `DefaultModuleRegistry.register()` rethrows errors; no isolation boundary |
+| Module failure isolation boundary (one failing module must not crash shell) | yes | no | yes (defensive module code) | yes | yes | n/a | `DefaultModuleRegistry.register()` catches and logs errors without rethrowing; `deactivateAll()` also catches per-module |
 | Module declaration order influences editor resolution priority | yes | yes | yes | yes | yes | yes | `DefaultLayoutController` iterates `_moduleRegistry.allModules` to find matching editor |
 | Module integration acceptance includes required actions/shortcuts/views/status items | yes | yes | yes | yes | yes | yes | `TestAppModule` demonstrates all: views, actions, shortcuts, statusBarItems contributions |
 
