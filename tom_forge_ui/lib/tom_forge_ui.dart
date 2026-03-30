@@ -97,6 +97,7 @@ export 'src/defaults/stub_services.dart';
 export 'src/integrations/shell_editor_integration.dart';
 
 // ── Widgets ──
+export 'src/widgets/forge_chord_overlay.dart';
 export 'src/widgets/forge_command_palette.dart';
 export 'src/widgets/forge_configuration_dialog.dart';
 export 'src/widgets/forge_drag_data.dart';

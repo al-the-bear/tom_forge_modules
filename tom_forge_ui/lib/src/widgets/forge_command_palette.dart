@@ -51,13 +51,14 @@ class _ForgeCommandPaletteState extends State<ForgeCommandPalette> {
       final commandsById = <String, _CommandItem>{};
 
       void putAction(ForgeAction action) {
-        final effectiveKey =
-            widget.shellApi.shortcuts.getBinding(action.id)?.key ??
-                action.defaultShortcut;
+        final binding = widget.shellApi.shortcuts.getBinding(action.id);
+        final shortcutText = binding != null
+            ? binding.displayString
+            : _formatShortcut(action.defaultShortcut);
         commandsById[action.id] = _CommandItem(
           id: action.id,
           label: action.label,
-          shortcut: _formatShortcut(effectiveKey),
+          shortcut: shortcutText,
           icon: action.icon ?? Icons.play_arrow,
           onExecute: () {
             if (!widget.shellApi.executeAction(action.id)) {
@@ -75,13 +76,14 @@ class _ForgeCommandPaletteState extends State<ForgeCommandPalette> {
       for (final module in widget.shellApi.modules.allModules) {
         for (final action in module.actions) {
           commandsById.putIfAbsent(action.id, () {
-            final effectiveKey =
-                widget.shellApi.shortcuts.getBinding(action.id)?.key ??
-                    action.defaultShortcut;
+            final binding = widget.shellApi.shortcuts.getBinding(action.id);
+            final shortcutText = binding != null
+                ? binding.displayString
+                : _formatShortcut(action.defaultShortcut);
             return _CommandItem(
               id: action.id,
               label: action.label,
-              shortcut: _formatShortcut(effectiveKey),
+              shortcut: shortcutText,
               icon: action.icon ?? Icons.play_arrow,
               onExecute: () {
                 if (!widget.shellApi.executeAction(action.id)) {

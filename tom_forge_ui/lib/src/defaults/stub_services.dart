@@ -168,12 +168,21 @@ class DefaultTerminal implements ForgeTerminal {
 
 // ── Shortcuts ────────────────────────────────────────────────────────
 
-/// Default implementation of [ForgeShortcutManager].
+/// Default implementation of [ForgeShortcutManager] with chord support.
 class DefaultShortcutManager implements ForgeShortcutManager {
   static bool debugEnabled = false;
 
+  /// Timeout before a pending chord is automatically cancelled.
+  static const Duration chordTimeout = Duration(seconds: 2);
+
   final List<ForgeShortcutBinding> _bindings = [];
   final Map<String, ForgeShortcutKey> _defaults = {};
+
+  // Chord state.
+  ForgeShortcutKey? _pendingFirstKey;
+  Timer? _chordTimer;
+  final StreamController<ForgeChordEvent> _chordController =
+      StreamController<ForgeChordEvent>.broadcast();
 
   /// Set up initial bindings from modules.
   void loadBindings(List<ForgeShortcutBinding> bindings) {
@@ -187,6 +196,87 @@ class DefaultShortcutManager implements ForgeShortcutManager {
 
   @override
   List<ForgeShortcutBinding> get allBindings => List.unmodifiable(_bindings);
+
+  @override
+  List<ForgeShortcutBinding> get chordBindings =>
+      _bindings.where((b) => b.isChord).toList(growable: false);
+
+  @override
+  bool get isChordPending => _pendingFirstKey != null;
+
+  @override
+  ForgeShortcutKey? get pendingChordFirstKey => _pendingFirstKey;
+
+  @override
+  List<ForgeShortcutBinding> get pendingChordCompletions {
+    if (_pendingFirstKey == null) return const [];
+    return _bindings
+        .where((b) => b.isChord && b.chord!.firstKey == _pendingFirstKey)
+        .toList(growable: false);
+  }
+
+  @override
+  Stream<ForgeChordEvent> get onChordStateChanged => _chordController.stream;
+
+  @override
+  ForgeShortcutBinding? handleKeyForChord(ForgeShortcutKey key) {
+    if (_pendingFirstKey != null) {
+      // We're waiting for the second key.
+      _chordTimer?.cancel();
+      _chordTimer = null;
+
+      // Look for a chord that matches first + second.
+      for (final binding in _bindings) {
+        if (binding.isChord &&
+            binding.chord!.firstKey == _pendingFirstKey &&
+            binding.chord!.secondKey == key) {
+          _pendingFirstKey = null;
+          _chordController.add(ForgeChordEvent(
+            state: ForgeChordState.completed,
+            executedBinding: binding,
+          ));
+          return binding;
+        }
+      }
+
+      // No match — cancel the chord.
+      cancelChord();
+      return null;
+    }
+
+    // Not in chord mode — check if this key starts a chord.
+    final startsChord = _bindings.any(
+      (b) => b.isChord && b.chord!.firstKey == key,
+    );
+    if (startsChord) {
+      _pendingFirstKey = key;
+      final completions = pendingChordCompletions;
+      _chordController.add(ForgeChordEvent(
+        state: ForgeChordState.entered,
+        firstKey: key,
+        completions: completions,
+      ));
+
+      // Auto-cancel after timeout.
+      _chordTimer?.cancel();
+      _chordTimer = Timer(chordTimeout, cancelChord);
+      return null;
+    }
+
+    return null;
+  }
+
+  @override
+  void cancelChord() {
+    if (_pendingFirstKey != null) {
+      _pendingFirstKey = null;
+      _chordTimer?.cancel();
+      _chordTimer = null;
+      _chordController.add(const ForgeChordEvent(
+        state: ForgeChordState.cancelled,
+      ));
+    }
+  }
 
   @override
   void rebind(ForgeAction action, ForgeShortcutKey key) {
@@ -229,6 +319,12 @@ class DefaultShortcutManager implements ForgeShortcutManager {
       }
     }
     return null;
+  }
+
+  /// Dispose resources.
+  void dispose() {
+    _chordTimer?.cancel();
+    _chordController.close();
   }
 }
 

@@ -29,6 +29,12 @@ class ForgeShellTheme extends ThemeExtension<ForgeShellTheme> {
   /// Status bar background.
   final Color statusBarBackground;
 
+  /// Chord popup overlay background.
+  final Color chordPopupBackground;
+
+  /// Chord popup text/foreground color.
+  final Color chordPopupForeground;
+
   const ForgeShellTheme({
     required this.panelSurface,
     required this.panelDivider,
@@ -38,6 +44,8 @@ class ForgeShellTheme extends ThemeExtension<ForgeShellTheme> {
     required this.dropZoneInvalid,
     required this.sectionHeader,
     required this.statusBarBackground,
+    required this.chordPopupBackground,
+    required this.chordPopupForeground,
   });
 
   /// Dark theme variant (default).
@@ -50,6 +58,8 @@ class ForgeShellTheme extends ThemeExtension<ForgeShellTheme> {
         dropZoneInvalid: Color(0x55CC3333),
         sectionHeader: Color(0xFF252526),
         statusBarBackground: Color(0xFF007ACC),
+        chordPopupBackground: Color(0xFF252526),
+        chordPopupForeground: Color(0xFFCCCCCC),
       );
 
   /// Light theme variant.
@@ -62,6 +72,8 @@ class ForgeShellTheme extends ThemeExtension<ForgeShellTheme> {
         dropZoneInvalid: Color(0x55CC3333),
         sectionHeader: Color(0xFFE7E7E7),
         statusBarBackground: Color(0xFF005FB8),
+        chordPopupBackground: Color(0xFFFFFFFF),
+        chordPopupForeground: Color(0xFF333333),
       );
 
   /// High-contrast theme variant.
@@ -77,6 +89,8 @@ class ForgeShellTheme extends ThemeExtension<ForgeShellTheme> {
         dropZoneInvalid: Color(0x66FF0000),
         sectionHeader: Color(0xFF1A1A1A),
         statusBarBackground: Color(0xFF00BFFF),
+        chordPopupBackground: Color(0xFF1A1A1A),
+        chordPopupForeground: Color(0xFFFFFFFF),
       );
 
   /// Returns the appropriate shell theme for the given [ThemeMode].
@@ -101,6 +115,8 @@ class ForgeShellTheme extends ThemeExtension<ForgeShellTheme> {
     Color? dropZoneInvalid,
     Color? sectionHeader,
     Color? statusBarBackground,
+    Color? chordPopupBackground,
+    Color? chordPopupForeground,
   }) {
     return ForgeShellTheme(
       panelSurface: panelSurface ?? this.panelSurface,
@@ -111,6 +127,8 @@ class ForgeShellTheme extends ThemeExtension<ForgeShellTheme> {
       dropZoneInvalid: dropZoneInvalid ?? this.dropZoneInvalid,
       sectionHeader: sectionHeader ?? this.sectionHeader,
       statusBarBackground: statusBarBackground ?? this.statusBarBackground,
+      chordPopupBackground: chordPopupBackground ?? this.chordPopupBackground,
+      chordPopupForeground: chordPopupForeground ?? this.chordPopupForeground,
     );
   }
 
@@ -128,6 +146,10 @@ class ForgeShellTheme extends ThemeExtension<ForgeShellTheme> {
       sectionHeader: Color.lerp(sectionHeader, other.sectionHeader, t)!,
       statusBarBackground:
           Color.lerp(statusBarBackground, other.statusBarBackground, t)!,
+      chordPopupBackground:
+          Color.lerp(chordPopupBackground, other.chordPopupBackground, t)!,
+      chordPopupForeground:
+          Color.lerp(chordPopupForeground, other.chordPopupForeground, t)!,
     );
   }
 }

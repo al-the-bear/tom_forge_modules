@@ -19,6 +19,9 @@ import '../model/forge_application.dart';
 import '../services/forge_preferences_service.dart';
 import '../shell/forge_layout_controller.dart';
 import '../shell/forge_status_bar_controller.dart';
+import '../actions/forge_shortcut_binding.dart';
+import '../services/forge_shortcut_manager.dart';
+import 'forge_chord_overlay.dart';
 import 'forge_command_palette.dart';
 import 'forge_configuration_dialog.dart';
 import 'forge_drag_data.dart';
@@ -150,6 +153,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   StreamSubscription<DirtyStateEvent>? _dirtyStateSubscription;
   StreamSubscription<WindowFocusEvent>? _windowFocusSubscription;
   StreamSubscription<ConfigChangeEvent>? _configChangeSubscription;
+  StreamSubscription<ForgeChordEvent>? _chordSubscription;
   Timer? _autoSaveTimer;
 
   /// Flex factors for middle editor panels (1.0 per panel by default).
@@ -166,6 +170,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     _listenForEditorChanges();
     _listenForAutoSave();
     _listenForConfigChanges();
+    _listenForChordCompletions();
   }
 
   @override
@@ -176,6 +181,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     _dirtyStateSubscription?.cancel();
     _windowFocusSubscription?.cancel();
     _configChangeSubscription?.cancel();
+    _chordSubscription?.cancel();
     _preferences.removeListener(_onPreferencesChanged);
     _saveAllEditorStates();
     _saveLayoutState();
@@ -659,68 +665,150 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     ForgeConfigurationDialog.show(context, _preferences, widget.shell);
   }
 
+  /// Listens for chord completions to execute the bound action.
+  void _listenForChordCompletions() {
+    _chordSubscription =
+        widget.shell.shortcuts.onChordStateChanged.listen((event) {
+      if (event.state == ForgeChordState.completed &&
+          event.executedBinding != null) {
+        widget.shell.executeAction(event.executedBinding!.action.id);
+      }
+    });
+  }
+
+  /// Converts a [KeyEvent] to a [ForgeShortcutKey] for chord matching.
+  ForgeShortcutKey? _keyEventToShortcutKey(KeyEvent event) {
+    if (event is! KeyDownEvent) return null;
+    final key = event.logicalKey;
+    // Ignore bare modifier presses.
+    if (key == LogicalKeyboardKey.controlLeft ||
+        key == LogicalKeyboardKey.controlRight ||
+        key == LogicalKeyboardKey.metaLeft ||
+        key == LogicalKeyboardKey.metaRight ||
+        key == LogicalKeyboardKey.shiftLeft ||
+        key == LogicalKeyboardKey.shiftRight ||
+        key == LogicalKeyboardKey.altLeft ||
+        key == LogicalKeyboardKey.altRight) {
+      return null;
+    }
+    final pressed = HardwareKeyboard.instance.logicalKeysPressed;
+    final useMeta =
+        !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
+    final hasPrimary = useMeta
+        ? pressed.contains(LogicalKeyboardKey.metaLeft) ||
+            pressed.contains(LogicalKeyboardKey.metaRight)
+        : pressed.contains(LogicalKeyboardKey.controlLeft) ||
+            pressed.contains(LogicalKeyboardKey.controlRight);
+    final hasShift = pressed.contains(LogicalKeyboardKey.shiftLeft) ||
+        pressed.contains(LogicalKeyboardKey.shiftRight);
+    final hasAlt = pressed.contains(LogicalKeyboardKey.altLeft) ||
+        pressed.contains(LogicalKeyboardKey.altRight);
+    return ForgeShortcutKey(
+      key: key,
+      primaryModifier: hasPrimary,
+      shift: hasShift,
+      alt: hasAlt,
+    );
+  }
+
+  /// Key event handler that intercepts chord shortcut sequences.
+  ///
+  /// Returns [KeyEventResult.handled] when a chord is in progress or
+  /// completed, preventing the normal [Shortcuts] widget from processing
+  /// the event.
+  KeyEventResult _handleChordKeyEvent(FocusNode node, KeyEvent event) {
+    // Cancel chord on Escape.
+    if (event is KeyDownEvent &&
+        event.logicalKey == LogicalKeyboardKey.escape) {
+      if (widget.shell.shortcuts.isChordPending) {
+        widget.shell.shortcuts.cancelChord();
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    }
+
+    final shortcutKey = _keyEventToShortcutKey(event);
+    if (shortcutKey == null) return KeyEventResult.ignored;
+
+    final result = widget.shell.shortcuts.handleKeyForChord(shortcutKey);
+    if (result != null) {
+      // Chord completed — event consumed (action executed via listener).
+      return KeyEventResult.handled;
+    }
+    if (widget.shell.shortcuts.isChordPending) {
+      // First key of chord matched — consume event to prevent normal dispatch.
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
   /// Whether to use the native platform menu bar (macOS desktop).
   bool get _usePlatformMenu =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
 
   @override
   Widget build(BuildContext context) {
-    Widget body = Shortcuts(
-      shortcuts: _buildShortcuts(),
-      child: Actions(
-        actions: _buildActions(),
-        child: Focus(
-          autofocus: true,
-          child: Material(
-            child: Stack(
-              children: [
-                Column(
-                  children: [
-                    _buildTitleBar(context),
-                    // On macOS desktop, the menu is in the native menu bar.
-                    if (!_usePlatformMenu)
-                      ForgeMenuBar(
-                        shellApi: widget.shell,
-                        onCommandPalette: _toggleCommandPalette,
-                        onSettings: _openSettings,
-                        currentThemeMode: _preferences.themeMode,
-                        onThemeModeChanged: (mode) {
-                          _preferences.themeMode = mode;
-                        },
+    Widget body = Focus(
+      onKeyEvent: _handleChordKeyEvent,
+      child: Shortcuts(
+        shortcuts: _buildShortcuts(),
+        child: Actions(
+          actions: _buildActions(),
+          child: Focus(
+            autofocus: true,
+            child: Material(
+              child: Stack(
+                children: [
+                  Column(
+                    children: [
+                      _buildTitleBar(context),
+                      // On macOS desktop, the menu is in the native menu bar.
+                      if (!_usePlatformMenu)
+                        ForgeMenuBar(
+                          shellApi: widget.shell,
+                          onCommandPalette: _toggleCommandPalette,
+                          onSettings: _openSettings,
+                          currentThemeMode: _preferences.themeMode,
+                          onThemeModeChanged: (mode) {
+                            _preferences.themeMode = mode;
+                          },
+                        ),
+                      Expanded(child: _buildMainArea(context)),
+                      ForgeStatusBarWidget(
+                        controller: widget.statusBarController,
+                        systemState: widget.systemState,
+                        progressManager: widget.shell.progress,
                       ),
-                    Expanded(child: _buildMainArea(context)),
-                    ForgeStatusBarWidget(
-                      controller: widget.statusBarController,
-                      systemState: widget.systemState,
-                      progressManager: widget.shell.progress,
-                    ),
-                  ],
-                ),
-                ForgeNotificationOverlay(manager: widget.notificationManager),
-                // Open With dialog when multiple editors can handle a file.
-                ValueListenableBuilder<(Uri, List<ForgeEditor>)?>(
-                  valueListenable: _layout.pendingEditorChoice,
-                  builder: (context, choice, _) {
-                    if (choice == null) return const SizedBox.shrink();
-                    final (uri, editors) = choice;
-                    return ForgeOpenWithDialog(
-                      uri: uri,
-                      editors: editors,
-                      onEditorSelected: (editor) {
-                        _layout.resolveEditorChoice(editor, uri);
-                      },
-                      onCancel: () {
-                        _layout.pendingEditorChoice.value = null;
-                      },
-                    );
-                  },
-                ),
-                if (_showCommandPalette)
-                  ForgeCommandPalette(
-                    shellApi: widget.shell,
-                    onDismiss: _toggleCommandPalette,
+                    ],
                   ),
-              ],
+                  ForgeNotificationOverlay(manager: widget.notificationManager),
+                  // Chord shortcut overlay (shows available second keys).
+                  ForgeChordOverlay(shortcutManager: widget.shell.shortcuts),
+                  // Open With dialog when multiple editors can handle a file.
+                  ValueListenableBuilder<(Uri, List<ForgeEditor>)?>(
+                    valueListenable: _layout.pendingEditorChoice,
+                    builder: (context, choice, _) {
+                      if (choice == null) return const SizedBox.shrink();
+                      final (uri, editors) = choice;
+                      return ForgeOpenWithDialog(
+                        uri: uri,
+                        editors: editors,
+                        onEditorSelected: (editor) {
+                          _layout.resolveEditorChoice(editor, uri);
+                        },
+                        onCancel: () {
+                          _layout.pendingEditorChoice.value = null;
+                        },
+                      );
+                    },
+                  ),
+                  if (_showCommandPalette)
+                    ForgeCommandPalette(
+                      shellApi: widget.shell,
+                      onDismiss: _toggleCommandPalette,
+                    ),
+                ],
+              ),
             ),
           ),
         ),
