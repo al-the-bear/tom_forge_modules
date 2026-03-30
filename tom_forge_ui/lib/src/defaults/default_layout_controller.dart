@@ -10,10 +10,10 @@ import '../adapters/forge_dart_editor.dart';
 import '../adapters/forge_md_editor.dart';
 import '../adapters/forge_plain_text_editor.dart';
 import '../adapters/forge_yaml_editor.dart';
+import '../adapters/tom_forge_shell_module.dart';
 import '../components/forge_component.dart';
 import '../components/forge_editor.dart';
 import '../components/forge_text_editor.dart';
-import '../module/forge_module.dart';
 import '../shell/forge_layout_controller.dart';
 import '../shell/forge_module_registry.dart';
 import 'default_system_state.dart';
@@ -425,13 +425,6 @@ class DefaultLayoutController implements ForgeLayoutController {
   Future<ForgeEditor?> _createEditor(Uri uri, String content) async {
     final ext = uri.path.split('.').last.toLowerCase();
 
-    ForgeModule? ownerModule;
-    for (final module in _moduleRegistry.allModules) {
-      ownerModule = module;
-      break;
-    }
-    if (ownerModule == null) return null;
-
     // Phase 1: Check if any module editor explicitly accepts this URI.
     final inspectEditors = <ForgeEditor>[];
     for (final module in _moduleRegistry.allModules) {
@@ -455,6 +448,14 @@ class DefaultLayoutController implements ForgeLayoutController {
         }
       }
     }
+
+    // Resolve owner module: prefer TomForgeShellModule for built-in editor
+    // types, fall back to the first registered module.
+    final ownerModule = _moduleRegistry.allModules
+            .whereType<TomForgeShellModule>()
+            .firstOrNull ??
+        _moduleRegistry.allModules.firstOrNull;
+    if (ownerModule == null) return null;
 
     // Phase 3: Default creation for known extensions.
     switch (ext) {

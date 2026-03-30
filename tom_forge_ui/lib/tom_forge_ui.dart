@@ -26,6 +26,10 @@ export 'src/components/forge_visual_editor.dart';
 export 'src/model/forge_application.dart';
 export 'src/model/forge_config.dart';
 
+// ── Providers ──
+export 'src/providers/dart_outline_provider.dart';
+export 'src/providers/modified_file_decoration_provider.dart';
+
 // ── Module ──
 export 'src/module/forge_module.dart';
 
