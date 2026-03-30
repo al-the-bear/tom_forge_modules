@@ -422,22 +422,22 @@ This section is intended to cover `ForgeEditor`/`ForgeTextEditor`/`ForgeDocument
 ## 21. Text Settings, Context Discovery, and Configuration Injection
 This section is intended to cover `ForgeTextSettings`, context discovery (`ForgeTextContext`), per-editor-type settings, and runtime settings propagation. Include checks for shell persistence/injection and per-editor adaptation behavior.
 
-- [ ] Section completed (finished on 2026-03-30T06:35:12+02:00)
+- [x] Section completed (finished on 2026-03-30T09:13:34+02:00)
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
-| Text editor option contract is standardized through `ForgeTextEditorOptions` in base API | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` `ForgeTextEditor` options API |
-| Per-editor runtime option mutation is defined (`updateOptions`) for live settings propagation | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` and `forge_panel_shell_spec.md` |
-| Editor adaptation requires mapping existing editor settings to `ForgeTextEditorOptions` | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_spec.md` integration gaps (`MdEditorSettings`, `DartEditorTheme`) |
-| Configuration service is part of shell runtime (`ForgeConfigManager`) and accessible to modules | yes | no | yes | yes | no | no | documented in `forge_panel_shell_concept.md` shell API services |
-| Config manager supports structured updates and typed module config lookup (`update`, `getModuleConfig`) | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` `ForgeConfigManager` contract |
-| Config change propagation is event-driven (`ConfigChangeEvent`, `onDidChange`) after persistence | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` and `forge_panel_shell_spec.md` event ordering |
-| Shell startup configuration flow includes async config load and restoration of persisted config | no | no | no | yes | no | no | documented in `forge_panel_shell_spec.md` startup sequence |
-| Editor text settings persistence is defined per editor type via preferences key `forge.editor.textSettings` | no | yes | yes | yes | no | no | documented in `tom_forge_full_integration.md` settings persistence notes |
-| Runtime injection path applies persisted per-editor text settings into active shell at startup and on preference changes | no | yes | yes | yes | no | no | documented in `tom_forge_full_integration.md` startup hydration/runtime sync evidence |
-| Settings source layering is defined (shell config + text settings APIs) | yes | yes | yes | yes | no | no | documented in `tom_forge_full_integration.md` phase objective notes |
-| Test/runtime config implementations include config update notifications (`TestConfigManager.update` + `onDidChange`) | yes | no | yes | yes | no | no | documented in `tom_forge_ui_testapp.md` config manager behavior |
-| Configuration tab/file-types views provide operator-facing context for per-editor defaults and resolver settings | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` configuration sections |
+| Text editor option contract is standardized through `ForgeTextEditorOptions` in base API | yes | yes | yes | yes | yes | yes | `ForgeTextEditorOptions` is defined in core and exposed through `ForgeTextEditor.options/updateOptions`; md/dart forge adapters implement it |
+| Per-editor runtime option mutation is defined (`updateOptions`) for live settings propagation | yes | yes | yes | yes | partial | partial | runtime mutation methods exist in md/dart adapters, but current implementation stores options without applying them to underlying editor widgets |
+| Editor adaptation requires mapping existing editor settings to `ForgeTextEditorOptions` | yes | yes | yes | yes | no | no | existing adaptation maps theme/editor settings to `ForgeTextSettings` (md/yaml), not to `ForgeTextEditorOptions` |
+| Configuration service is part of shell runtime (`ForgeConfigManager`) and accessible to modules | yes | no | yes | yes | yes | no | `ForgeShellApi.config` is present and wired to `DefaultConfigManager` in `DefaultShellApi.withDefaultsAndFileSystem` |
+| Config manager supports structured updates and typed module config lookup (`update`, `getModuleConfig`) | yes | yes | yes | yes | partial | no | `update` exists on `ForgeConfigManager`, but typed `getModuleConfig` API is not present in current core config manager contract |
+| Config change propagation is event-driven (`ConfigChangeEvent`, `onDidChange`) after persistence | yes | yes | yes | yes | partial | no | `DefaultConfigManager` emits `ConfigChangeEvent` on update/reset through `onDidChange`, but persistence-coupled propagation is not implemented in this path |
+| Shell startup configuration flow includes async config load and restoration of persisted config | no | no | no | yes | partial | partial | `ForgeShellScaffold` asynchronously loads preferences on startup and applies persisted editor settings into shell state |
+| Editor text settings persistence is defined per editor type via preferences key `forge.editor.textSettings` | no | yes | yes | yes | yes | partial | `ForgePreferencesService` persists per-type settings under `forge.editor.textSettings`; persistence tests validate round-trip behavior |
+| Runtime injection path applies persisted per-editor text settings into active shell at startup and on preference changes | no | yes | yes | yes | yes | partial | scaffold startup + listener apply persisted settings via `shell.setTextSettings`; widget tests verify startup hydration and runtime sync |
+| Settings source layering is defined (shell config + text settings APIs) | yes | yes | yes | yes | partial | partial | both shell config manager and per-editor text settings APIs exist, with preference service feeding shell text settings |
+| Test/runtime config implementations include config update notifications (`TestConfigManager.update` + `onDidChange`) | yes | no | yes | yes | partial | no | runtime has `DefaultConfigManager.update` + `onDidChange`, but no concrete `TestConfigManager` implementation is present in scanned code |
+| Configuration tab/file-types views provide operator-facing context for per-editor defaults and resolver settings | yes | yes | yes | yes | partial | no | configuration UI exposes per-editor text settings controls, but no file-types/resolver view is implemented in the current UI code |
 
 ## 22. Undo/Redo, Dirty State, and Save Lifecycle
 This section is intended to cover undo/redo behavior, dirty tracking semantics, save/save-all/will-save/did-save event flow, and consistency across editors. Include checks for shell-level state handling and per-editor implementation consistency.
