@@ -282,11 +282,22 @@ This section is intended to cover shell theming hooks, color/contrast expectatio
 ## 15. Dialogs, Notifications, and User Prompts
 This section is intended to cover quick-pick/input dialogs, open/save dialogs, toast notifications, and user confirmation flows. Include checks for shell service behavior and module/component usage patterns.
 
-- [ ] Section completed (finished on ...)
+- [x] Section completed (finished on 2026-03-30T06:25:19+02:00)
 
 | category | per module? | per component? | to be implemented in modules? | shell implementation done? | implemented on |
 |---|---|---|---|---|---|
-| | | | | | |
+| Dialog, notification, and progress services are first-class shell APIs (`dialogs`, `notifications`, `progress`) | yes | no | yes | yes | documented in `forge_panel_shell_concept.md` `ForgeShellApi` service surface |
+| Action flow supports user-driven dialogs for input/selection/file operations via dialog manager | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` action execution notes (`ForgeDialogManager`) |
+| Quick pick interaction is defined (`showQuickPick`) for selection prompts | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` dialog API and `tom_forge_ui_testapp.md` test dialog behavior |
+| Input prompt interaction is defined (`showInputBox`) for text-based user input | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` dialog API and usage example |
+| Open/save file dialog flows are defined (`showOpenDialog`, `showSaveDialog`) | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` dialog API and `tom_forge_ui_testapp.md` simplified picker implementation |
+| "Open with" resolver prompt is defined with primary + additional editor options | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` open-with workflow and shell dialog behavior |
+| Startup dialog flow is specified (workspace/config selection, remembered defaults, CLI bypass) | no | no | no | yes | documented in `forge_panel_shell_concept.md` startup dialog section |
+| Notification API supports info/warning/error message channels and optional user actions | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` notification API and `tom_forge_ui_testapp.md` action button behavior |
+| Toast lifecycle/visual behavior is specified (appear/dismiss timing, overlay pattern, auto-dismiss) | no | yes | yes | yes | documented in `forge_panel_shell_spec.md` notification timing and `tom_forge_ui_testapp.md` `NotificationOverlay` behavior |
+| Error and recovery prompts are defined for file and save conflicts (modal, retry/cancel, merge options) | yes | yes | yes | yes | documented in `forge_panel_shell_spec.md` error scenario table and save conflict flow |
+| Dirty-close confirmation prompts (save / don't save / cancel) are explicitly required | yes | yes | yes | yes | documented in `forge_panel_shell_spec.md` close flow and `tom_forge_ui_testapp.md` close-dirty behavior |
+| Test coverage expectations exist for dialog/notification/progress managers | yes | no | yes | yes | documented in `forge_panel_shell_spec.md` test matrix and `tom_forge_ui_testapp.md` service list |
 
 ## 16. Explorer and Workspace Search
 This section is intended to cover file explorer loading behavior, path handling, reveal/open flows, search query execution, search result navigation, and large-workspace responsiveness. Include checks at shell service level and per-module view behavior.
