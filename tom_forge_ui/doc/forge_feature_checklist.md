@@ -502,22 +502,22 @@ This section is intended to cover decoration pipelines, outline provider integra
 ## 25. State Persistence and Recovery
 This section is intended to cover persistence of shell settings, per-editor settings, panel/application state expectations, and recovery behavior after restart. Include checks for shell persistence services and per-module persistence responsibilities.
 
-- [ ] Section completed (finished on 2026-03-30T06:43:16+02:00)
+- [x] Section completed (finished on 2026-03-30T10:35:54+02:00)
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
-| Workspace state storage model is defined under `<workspace>/.forge/` (layout, open editors, revisions, undo history) | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` `.forge/` workspace state model |
-| Startup recovery sequence restores config and state (`.forge/config.json`, `.forge/state/layout.json`, `.forge/state/open-editors.json`) | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` startup sequence |
-| Configuration is merged from code defaults plus persisted overrides at startup | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` baseline + persisted overlay model |
-| Configuration changes persist to `.forge/config.json` and support reset to code defaults | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` config persistence and reset behavior |
-| Layout persistence is per application with save/load flow in `.forge/state/layout.json` | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` and `forge_panel_shell_spec.md` layout persistence format/tests |
-| Open editor restoration is explicitly modeled through `.forge/state/open-editors.json` | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` editor restore flow |
-| Last-opened applications are restored on next launch | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` launch restoration behavior |
-| Per-module persistent key-value storage is exposed via `ForgeModuleStorage` | yes | no | yes | yes | no | no | documented in `forge_panel_shell_concept.md` and `forge_panel_shell_spec.md` module storage contracts/tests |
-| Split/local persistence mode is defined with workspace state always local to workspace `.forge/` | yes | no | yes | yes | no | no | documented in `forge_panel_shell_concept.md` local vs split configuration directories |
-| File revision persistence and non-destructive restore workflow are part of recovery model | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` revisions and restore behavior |
-| Undo history persistence format is specified (`.forge/undo/{uri-hash}.json`) | no | yes | yes | yes | no | no | documented in `forge_panel_shell_spec.md` state persistence formats |
-| Current test app baseline still declares restart persistence as not yet implemented (gap for integration completion) | yes | yes | yes | no | no | no | documented in `tom_forge_ui_testapp.md` current-state notes and `tom_forge_full_integration.md` persistence TODOs |
+| Workspace state storage model is defined under `<workspace>/.forge/` (layout, open editors, revisions, undo history) | yes | yes | yes | yes | no | no | documented model only; no runtime `.forge/state/*` persistence implementation found in shell/layout code |
+| Startup recovery sequence restores config and state (`.forge/config.json`, `.forge/state/layout.json`, `.forge/state/open-editors.json`) | yes | yes | yes | yes | no | no | `ForgeShellScaffold` restores preference text settings only; no startup restore path for `.forge/config.json`/layout/open-editors |
+| Configuration is merged from code defaults plus persisted overrides at startup | yes | yes | yes | yes | partial | partial | `ForgePreferencesService` merges persisted editor text settings with `ForgeTextDefaults` and `ForgeShellScaffold` applies them at startup |
+| Configuration changes persist to `.forge/config.json` and support reset to code defaults | yes | yes | yes | yes | partial | no | `DefaultConfigManager.resetToDefaults()` exists, but no `.forge/config.json` persistence path is implemented |
+| Layout persistence is per application with save/load flow in `.forge/state/layout.json` | yes | yes | yes | yes | no | no | `DefaultLayoutController` manages in-memory panel/editor state only; no layout save/load to disk |
+| Open editor restoration is explicitly modeled through `.forge/state/open-editors.json` | yes | yes | yes | yes | no | no | open editors are tracked in runtime `DefaultSystemState`, with no persisted restore file flow |
+| Last-opened applications are restored on next launch | yes | yes | yes | yes | no | no | startup preferences keep recent workspaces, but test launcher rebuilds a fresh static app layout each launch |
+| Per-module persistent key-value storage is exposed via `ForgeModuleStorage` | yes | no | yes | yes | partial | no | `ForgeModuleStorage` service is exposed via shell API, but default store is in-memory (`DefaultKeyValueStore`) and not editor-wired |
+| Split/local persistence mode is defined with workspace state always local to workspace `.forge/` | yes | no | yes | yes | partial | no | `ForgePreferencesService` supports central vs workspace config directory selection, but workspace state persistence itself is not implemented |
+| File revision persistence and non-destructive restore workflow are part of recovery model | yes | yes | yes | yes | no | no | no file revision persistence/restore runtime implementation found in scanned shell/core/editor code |
+| Undo history persistence format is specified (`.forge/undo/{uri-hash}.json`) | no | yes | yes | yes | no | no | undo manager is runtime-only; no persisted `.forge/undo/*` storage implementation found |
+| Current test app baseline still declares restart persistence as not yet implemented (gap for integration completion) | yes | yes | yes | no | yes | no | `tom_forge_ui_test/lib/main.dart` always constructs a fresh shell/layout and does not restore previous session state |
 
 ## 26. Error Handling and Recovery Patterns
 This section is intended to cover error classification, user-facing recovery feedback, fallback behavior, and non-fatal degradation patterns. Include checks for shell-level resilience and per-module/component error hygiene.
