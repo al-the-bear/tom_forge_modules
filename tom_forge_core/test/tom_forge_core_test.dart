@@ -628,6 +628,42 @@ void main() {
       final ch = DefaultOutputChannel('myChannel');
       expect(ch.name, 'myChannel');
     });
+
+    test('ring buffer enforces maxLines', () {
+      final ch = DefaultOutputChannel('test', maxLines: 5);
+      for (var i = 0; i < 10; i++) {
+        ch.appendLine('line $i');
+      }
+      expect(ch.lines, hasLength(5));
+      // Oldest lines (0-4) should be discarded.
+      expect(ch.lines.first.text, 'line 5');
+      expect(ch.lines.last.text, 'line 9');
+    });
+
+    test('contentsWithTimestamps includes timestamps', () {
+      final ch = DefaultOutputChannel('test');
+      ch.appendLine('hello');
+      final ts = ch.contentsWithTimestamps;
+      // Should contain a [HH:MM:SS] prefix.
+      expect(ts, matches(RegExp(r'\[\d{2}:\d{2}:\d{2}\] hello')));
+    });
+
+    test('lines list stores metadata', () {
+      final ch = DefaultOutputChannel('test');
+      ch.appendLine('line one');
+      expect(ch.lines, hasLength(1));
+      expect(ch.lines.first.text, 'line one');
+      expect(ch.lines.first.hasNewline, isTrue);
+      expect(ch.lines.first.timestamp, isA<DateTime>());
+    });
+
+    test('append vs appendLine newline flag', () {
+      final ch = DefaultOutputChannel('test');
+      ch.append('no-nl');
+      ch.appendLine('with-nl');
+      expect(ch.lines[0].hasNewline, isFalse);
+      expect(ch.lines[1].hasNewline, isTrue);
+    });
   });
 
   // ─── DefaultSearchManager ─────────────────────────────────

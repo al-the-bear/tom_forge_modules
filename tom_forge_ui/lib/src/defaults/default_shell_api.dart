@@ -231,6 +231,12 @@ class DefaultShellApi implements ForgeShellApi {
     final fileDecorationManager = DefaultFileDecorationManager();
     final virtualDocumentManager = DefaultVirtualDocumentManager();
 
+    // Auto-bridge: sync diagnostics from manager into system state so
+    // status-bar items, event streams, and summary counters stay current.
+    diagnosticManager.allNotifier.addListener(() {
+      systemState.setDiagnostics(diagnosticManager.allNotifier.value);
+    });
+
     return DefaultShellApi(
       systemState: systemState,
       layout: layoutController,

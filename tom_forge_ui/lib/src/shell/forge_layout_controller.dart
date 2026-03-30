@@ -9,7 +9,7 @@ abstract class ForgeLayoutController {
   void closePanel(ForgePanelLocation location);
   void togglePanel(ForgePanelLocation location);
   void focusComponent(ForgeComponent component);
-  void openFile(Uri uri, {int? middlePanelIndex});
+  void openFile(Uri uri, {int? middlePanelIndex, int? line, int? column});
   void openEditor(ForgeEditor editor, Uri uri, {int? middlePanelIndex});
   Future<void> openFileWith(Uri uri, {int? middlePanelIndex});
   void splitMiddlePanel();

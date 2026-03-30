@@ -9,6 +9,7 @@ import '../adapters/forge_md_editor.dart';
 import '../adapters/forge_yaml_editor.dart';
 import '../components/forge_component.dart';
 import '../components/forge_editor.dart';
+import '../components/forge_text_editor.dart';
 import '../module/forge_module.dart';
 import '../shell/forge_layout_controller.dart';
 import '../shell/forge_module_registry.dart';
@@ -85,11 +86,13 @@ class DefaultLayoutController implements ForgeLayoutController {
   }
 
   @override
-  void openFile(Uri uri, {int? middlePanelIndex}) {
+  void openFile(Uri uri, {int? middlePanelIndex, int? line, int? column}) {
     // Check if already open.
     final existing = _systemState.openEditors.where((e) => e.uri == uri);
     if (existing.isNotEmpty) {
-      _systemState.setActiveEditor(existing.first);
+      final editor = existing.first;
+      _systemState.setActiveEditor(editor);
+      _navigateEditorTo(editor, line: line, column: column);
       return;
     }
 
@@ -103,6 +106,7 @@ class DefaultLayoutController implements ForgeLayoutController {
         return;
       }
       _addEditorToPanel(editor, panelIdx: middlePanelIndex);
+      _navigateEditorTo(editor, line: line, column: column);
     }).catchError((Object e) {
       if (debugEnabled) {
         // ignore: avoid_print
@@ -399,6 +403,16 @@ class DefaultLayoutController implements ForgeLayoutController {
           uri: uri,
         );
         return ForgeMdEditor(controller: controller, module: ownerModule);
+    }
+  }
+
+  /// Navigate an editor to a specific line/column if supported.
+  void _navigateEditorTo(ForgeEditor editor, {int? line, int? column}) {
+    if (line == null) return;
+    if (editor is ForgeTextEditor) {
+      editor.setCursorPosition(
+        ForgeTextPosition(line: line, column: column ?? 0),
+      );
     }
   }
 
