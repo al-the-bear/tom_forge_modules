@@ -23,7 +23,7 @@
 ## 1. Shell Architecture and Lifecycle
 This section is intended to cover the top-level Forge shell runtime model: startup, module activation/deactivation, shell service wiring, and lifecycle guarantees. Include checks at Forge level and per integrated module that depends on shell lifecycle hooks.
 
-- [x] Section completed (finished on 2026-03-30T09:15:00+02:00)
+- [ ] Section implemented
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -42,7 +42,7 @@ This section is intended to cover the top-level Forge shell runtime model: start
 ## 2. Workspace Model and File/Revision Boundaries
 This section is intended to cover workspace root handling, file-system scope, `.forge/` state/revision boundaries, and workspace-level assumptions. Include checks for core Forge behavior and module/component behavior when operating on workspace data.
 
-- [x] Section completed (finished on 2025-07-18T09:45:00+02:00)
+- [ ] Section implemented
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -59,30 +59,10 @@ This section is intended to cover workspace root handling, file-system scope, `.
 | Workspace `.forge` should be suggested for `.gitignore` | no | no | no | yes | no | n/a | not implemented |
 | Test app workspace boundary uses seeded `MemoryFileSystem` virtual root | yes | yes | yes (module views/editors in test app) | yes (test app scope) | yes | yes | `DefaultShellApi.withDefaults(fileSystemSeed:...)` creates `MemoryFileSystem` |
 
-## 3. Application Model and Multi-Application Switching
-This section is intended to cover application definitions, switching behavior, in-memory retention of inactive applications, and app-specific layout/action contexts. Include checks for global Forge behavior and module/component behavior across application switches.
-
-- [x] Section completed (finished on 2025-07-18T10:02:00+02:00)
-
-| category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
-|---|---|---|---|---|---|---|---|
-| ForgeApplication model defines named app-level layout and metadata | no | no | no | yes | yes | n/a | `ForgeApplication` in `forge_application.dart` with title, icon, layout, isActive |
-| Multiple applications exist in one shell instance | no | no | no | yes | partial | n/a | `_applications` list in `DefaultSystemState`; no multi-app demo in test app |
-| Application switcher dropdown selects active application | no | no | no | yes | yes | n/a | `PopupMenuButton` in `forge_shell_scaffold.dart` title bar center cluster |
-| Switching keeps previous applications alive in memory | no | no | no | yes | no | n/a | `setActiveApplication` exists but no lifecycle management implemented |
-| Inactive app layout state is preserved in memory | no | no | no | yes | no | n/a | not implemented |
-| Default behavior is no save-on-switch; optional save-on-deactivate support | no | yes | yes (per app policy) | yes | n/a | n/a | not implemented; no switch lifecycle |
-| Active application tracked in system state/controller | no | no | no | yes | yes | n/a | `activeApplication` getter in `DefaultSystemState` |
-| Per-application layout persistence in `.forge/state/layout.json` | no | yes | yes (app layout contributions) | yes | no | no | not implemented |
-| Per-application open editor restoration via `.forge/state/open-editors.json` | no | yes | yes (editor components participate) | yes | no | no | not implemented |
-| Modules can expose pre-configured applications | yes | no | yes (module-provided applications) | yes | no | n/a | `ForgeModule` interface lacks `applications` getter |
-| Application layouts reference module-owned components | yes | yes | yes (module components wired into app layout) | yes | yes | yes | `ApplicationLayout.leftPanel/rightPanel/bottomPanel` contain `ForgeView` sections from modules |
-| App switch lifecycle is represented in shell event stream and architecture | no | yes | yes (components react to app switch/focus) | yes | no | no | not implemented; no shell events for app switching |
-
-## 4. Module Integration and Ownership Boundaries
+## 3. Module Integration and Ownership Boundaries
 This section is intended to cover module contracts, registration, module-provided views/editors/actions/shortcuts, and module-to-shell ownership boundaries. Include checks for shell-level module orchestration and per-module conformance.
 
-- [x] Section completed (finished on 2025-07-18T10:15:00+02:00)
+- [ ] Section implemented
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -99,10 +79,10 @@ This section is intended to cover module contracts, registration, module-provide
 | Module declaration order influences editor resolution priority | yes | yes | yes | yes | yes | yes | `DefaultLayoutController` iterates `_moduleRegistry.allModules` to find matching editor |
 | Module integration acceptance includes required actions/shortcuts/views/status items | yes | yes | yes | yes | yes | yes | `TestAppModule` demonstrates all: views, actions, shortcuts, statusBarItems contributions |
 
-## 5. Component Model (Views and Editors)
+## 4. Component Model (Views and Editors)
 This section is intended to cover component contracts (`title`, `icon`, `buildMain`, `buildCopy`, size hints), view vs editor semantics, and component identity. Include checks at shell level and per component implementation in each module.
 
-- [x] Section completed (finished on 2025-07-18T10:25:00+02:00)
+- [ ] Section implemented
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -119,10 +99,10 @@ This section is intended to cover component contracts (`title`, `icon`, `buildMa
 | Module contribution surfaces expose typed `List<ForgeEditor>` and `List<ForgeView>` | yes | no | yes | yes | yes | yes | `ForgeModule` interface has `editors` and `views` getters returning typed lists |
 | Integration scenario evidence validates editor/view component behavior by file type | yes | yes | yes | yes | yes | yes | File explorer opens .dart/.md/.yaml in appropriate editors via `canHandle` resolution |
 
-## 6. Layout Topology and Panel Composition
+## 5. Layout Topology and Panel Composition
 This section is intended to cover title bar, menu bar, left/right/middle/bottom panel structure, and status bar composition. Include checks for the Forge shell layout engine and per-module panel content integration.
 
-- [x] Section completed (finished on 2025-07-18T10:35:00+02:00)
+- [ ] Section implemented
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -139,10 +119,10 @@ This section is intended to cover title bar, menu bar, left/right/middle/bottom 
 | Platform composition rule: menu bar native placement differs on macOS vs Windows/Linux | no | no | no | yes | no | n/a | not implemented; menu bar always in-app widget (not native) |
 | Implementation evidence: test app shell scaffold and panel/status widgets provide open/close/resize composition behavior | yes | yes | yes | yes | yes | yes | `ForgeShellScaffold` in test app with panel toggles, resize handles, status bar |
 
-## 7. Panel Resizing and Splitter Behavior
+## 6. Panel Resizing and Splitter Behavior
 This section is intended to cover draggable splitters, min/max constraints, hover/drag affordances, and resize persistence expectations. Include checks for shell splitter mechanics and module/component behavior under panel size changes.
 
-- [x] Section completed (finished on 2026-03-30T13:45:00+02:00)
+- [ ] Section implemented
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -159,10 +139,10 @@ This section is intended to cover draggable splitters, min/max constraints, hove
 | Implementation evidence in test app uses explicit drag-handle dividers and resizable/collapsible panels | yes | yes | yes | yes | yes | n/a | test app has left/right/bottom panels with `_ResizeHandle` dividers and toggleable visibility |
 | Test-app scope notes that restart persistence is intentionally not implemented there (while core concept specifies persistence) | no | no | no | yes (scope-specific) | yes | n/a | persistence not implemented (matches test-app non-goals documentation) |
 
-## 8. Tab Systems and Editor/View Tab UX
+## 7. Tab Systems and Editor/View Tab UX
 This section is intended to cover tab creation, activation, close behavior, hover feedback, dirty indicators, and tab overflow behavior in middle and auxiliary panels. Include checks for shell tab controls and per-component tab title/state updates.
 
-- [x] Section completed (finished on 2026-03-30T13:50:00+02:00)
+- [ ] Section implemented
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -179,10 +159,10 @@ This section is intended to cover tab creation, activation, close behavior, hove
 | Drag-tab UX supports moving tabs across panels and split-editor scenarios | no | yes | yes | yes | no | no | not implemented; no `Draggable`/`DragTarget` in tab bar |
 | Implementation evidence includes dedicated tab widgets and tab-management controller logic | yes | yes | yes | yes | yes | yes | `ForgeEditorTabBar` widget; `DefaultLayoutController` with `closeEditor`, `openFile`, `splitMiddlePanel` |
 
-## 9. Accordeon Section Behavior
+## 8. Accordeon Section Behavior
 This section is intended to cover section expand/collapse rules, pinning, multi-open behavior, section sizing/sharing, and empty/drop placeholder behavior. Include checks for shell accordeon mechanics and per-view section compatibility.
 
-- [x] Section completed (finished on 2026-03-30T13:55:00+02:00)
+- [ ] Section implemented
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -199,10 +179,10 @@ This section is intended to cover section expand/collapse rules, pinning, multi-
 | Accordeon keyboard controls are specified (`Up/Down`, `Enter/Space`) | no | no | no | yes | no | no | no keyboard navigation for accordeon (only for command palette) |
 | Implementation/test evidence exists for expand/collapse and pinned state behavior | yes | yes | yes | yes | yes | n/a | `_AccordeonLayout`, `_AccordeonSection` widgets with expand/pin state management |
 
-## 10. Drag-and-Drop Layout Operations
+## 9. Drag-and-Drop Layout Operations
 This section is intended to cover drag move/copy semantics, drop zones, panel split creation, and UI-copy behavior (including SHIFT-copy flows). Include checks for shell drag/drop infrastructure and per-component/module support.
 
-- [x] Section completed (finished on 2026-03-30T14:00:00+02:00)
+- [ ] Section implemented
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -219,30 +199,10 @@ This section is intended to cover drag move/copy semantics, drop zones, panel sp
 | Drop-zone color semantics are explicitly themed (`highlight`, `valid`, `invalid`) | no | no | no | yes | no | no | not implemented (constants may exist but no widgets use them) |
 | Implementation/test evidence covers move and copy (`moveComponent`, `copyComponent`) and split flows | yes | yes | yes | yes | partial | n/a | `splitMiddlePanel` exists; no `moveComponent`/`copyComponent` found in lib |
 
-## 11. Navigation and Command Surfaces
-This section is intended to cover menu bar, command palette, title-bar search entry behavior, back/forward navigation hooks, and command parity across entry points. Include checks for shell command routing and per-module command exposure.
-
-- [x] Section completed (finished on 2026-03-30T16:45:00+02:00)
-
-| category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
-|---|---|---|---|---|---|---|---|
-| Title-bar search field doubles as quick command/search entry surface | no | no | no | yes | partial | n/a | `_buildTitleBar` has search icon + text container but displays app title only; not functional search field |
-| Command palette is a first-class global entry point (`F1`, `Cmd+P`) | no | no | no | yes | yes | n/a | `ForgeCommandPalette` fully implemented with search/filter/keyboard nav; `Cmd+P`/`Ctrl+P` bound; F1 not bound |
-| Menu bar is fixed top-level structure with module/component-populated entries | yes | yes | yes | yes | partial | n/a | `ForgeMenuBar` implemented with File/Edit/View/Help; modules do not dynamically populate menu entries |
-| Cross-platform menu surface behavior is defined (macOS system menu, Windows/Linux in-window) | no | no | no | yes | partial | n/a | In-window menu only; no macOS system menu integration |
-| `Go` surface includes navigation actions (go-to targets and back/forward) | yes | yes | yes | yes | no | no | No "Go" menu exists; back/forward only in title bar (disabled buttons) |
-| Back/forward navigation hooks are delegated through focused component history manager | yes | yes | yes | yes | partial | n/a | `ComponentHistoryManager` interface exists; title bar has disabled back/forward buttons; not wired to components |
-| Command execution routes through action objects with dynamic visibility/enabled state | yes | yes | yes | yes | yes | n/a | `ForgeAction` model with `ForgeActionRegistry`, `executeAction` pipeline works |
-| Dialog-driven command UX supports quick pick/input/file picker flows | yes | yes | yes | yes | yes | n/a | `DefaultDialogManager` with `showQuickPick`, `showInputBox`, `onOpenDialog`, `onSaveDialog` callbacks |
-| Explicit "Open with" command surface available from context menu and command palette | yes | yes | yes | yes | partial | n/a | `openFileWith()` API exists in layout controller; no explicit "Open With" entry in context menu or palette |
-| Command parity objective across menu, palette, and shortcuts is required | yes | yes | yes | yes | partial | n/a | Actions shared via registry; menu has hardcoded entries; palette dynamically populated from registry |
-| Implementation evidence: menu handlers switched from placeholders to real action dispatch | yes | no | yes | yes | yes | n/a | `_executeActionOrInform` calls `shellApi.executeAction` with real action IDs |
-| Implementation evidence: command palette source unified to action registry with fallback dedupe | yes | no | yes | yes | yes | n/a | `ForgeCommandPalette._buildCommandList` iterates `actionRegistry.allActions` and module actions |
-
-## 12. Actions and Shortcut Framework
+## 10. Actions and Shortcut Framework
 This section is intended to cover action registration, enable/visible state logic, shortcut binding/effective shortcut display, platform-specific modifier behavior, and conflict handling. Include checks at Forge action/shortcut manager level and per-module/per-component action sets.
 
-- [x] Section completed (finished on 2026-03-30T16:50:00+02:00)
+- [ ] Section implemented
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -259,10 +219,30 @@ This section is intended to cover action registration, enable/visible state logi
 | Duplicate action ID policy/conflict logging is part of framework hardening | yes | no | yes | yes | no | no | `DefaultActionRegistry` silently overwrites on duplicate ID; no logging or warning |
 | Implementation/test evidence includes `ForgeShortcutManager` tests, platform shortcut tests, and parity matrix requirements | yes | no | yes | yes | partial | n/a | `forge_shortcut_key_test.dart` exists; `forge_action_test.dart` covers shortcuts; no dedicated ShortcutManager test file |
 
-## 13. Focus Management and Accessibility
+## 11. Navigation and Command Surfaces
+This section is intended to cover menu bar, command palette, title-bar search entry behavior, back/forward navigation hooks, and command parity across entry points. Include checks for shell command routing and per-module command exposure.
+
+- [ ] Section implemented
+
+| category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
+|---|---|---|---|---|---|---|---|
+| Title-bar search field doubles as quick command/search entry surface | no | no | no | yes | partial | n/a | `_buildTitleBar` has search icon + text container but displays app title only; not functional search field |
+| Command palette is a first-class global entry point (`F1`, `Cmd+P`) | no | no | no | yes | yes | n/a | `ForgeCommandPalette` fully implemented with search/filter/keyboard nav; `Cmd+P`/`Ctrl+P` bound; F1 not bound |
+| Menu bar is fixed top-level structure with module/component-populated entries | yes | yes | yes | yes | partial | n/a | `ForgeMenuBar` implemented with File/Edit/View/Help; modules do not dynamically populate menu entries |
+| Cross-platform menu surface behavior is defined (macOS system menu, Windows/Linux in-window) | no | no | no | yes | partial | n/a | In-window menu only; no macOS system menu integration |
+| `Go` surface includes navigation actions (go-to targets and back/forward) | yes | yes | yes | yes | no | no | No "Go" menu exists; back/forward only in title bar (disabled buttons) |
+| Back/forward navigation hooks are delegated through focused component history manager | yes | yes | yes | yes | partial | n/a | `ComponentHistoryManager` interface exists; title bar has disabled back/forward buttons; not wired to components |
+| Command execution routes through action objects with dynamic visibility/enabled state | yes | yes | yes | yes | yes | n/a | `ForgeAction` model with `ForgeActionRegistry`, `executeAction` pipeline works |
+| Dialog-driven command UX supports quick pick/input/file picker flows | yes | yes | yes | yes | yes | n/a | `DefaultDialogManager` with `showQuickPick`, `showInputBox`, `onOpenDialog`, `onSaveDialog` callbacks |
+| Explicit "Open with" command surface available from context menu and command palette | yes | yes | yes | yes | partial | n/a | `openFileWith()` API exists in layout controller; no explicit "Open With" entry in context menu or palette |
+| Command parity objective across menu, palette, and shortcuts is required | yes | yes | yes | yes | partial | n/a | Actions shared via registry; menu has hardcoded entries; palette dynamically populated from registry |
+| Implementation evidence: menu handlers switched from placeholders to real action dispatch | yes | no | yes | yes | yes | n/a | `_executeActionOrInform` calls `shellApi.executeAction` with real action IDs |
+| Implementation evidence: command palette source unified to action registry with fallback dedupe | yes | no | yes | yes | yes | n/a | `ForgeCommandPalette._buildCommandList` iterates `actionRegistry.allActions` and module actions |
+
+## 12. Focus Management and Accessibility
 This section is intended to cover keyboard navigation order, focus visibility, focus trapping in modal surfaces, screen-reader semantics, and hit-target usability. Include checks for shell accessibility baseline and per component/module accessibility conformance.
 
-- [x] Section completed (finished on 2026-03-30T17:00:00+02:00)
+- [ ] Section implemented
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -279,10 +259,10 @@ This section is intended to cover keyboard navigation order, focus visibility, f
 | Accessibility baseline includes keyboard navigation + screen-reader support in shell requirements | yes | yes | yes | yes | partial | partial | Keyboard shortcuts for panels/palette work; editors have FocusNode; no screen-reader roles for shell chrome |
 | Integration/test evidence includes high-contrast widget tests and parity validation checkpoints | yes | no | yes | yes | no | no | No high-contrast or accessibility tests found |
 
-## 14. Theme, Visual Language, and Interaction Feedback
+## 13. Theme, Visual Language, and Interaction Feedback
 This section is intended to cover shell theming hooks, color/contrast expectations, active/hover/drag visual states, and consistency of feedback patterns. Include checks for global Forge theming and per-module/component visual integration.
 
-- [x] Section completed (finished on 2026-03-30T17:20:00+02:00)
+- [ ] Section implemented
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -299,10 +279,10 @@ This section is intended to cover shell theming hooks, color/contrast expectatio
 | Status bar visual feedback supports context-sensitive active/inactive item visibility (`isActive`) | yes | yes | yes | yes | yes | partial | `StatusBarItem.isActive(ForgeSystemState)` function; `ForgeStatusBarWidget` renders left/center/right items; `ForgeStatusBarController` aggregates from modules; test app creates sample items; md_editor has own `MdEditorStatusBar`; shell `isActive` filtering not visually applied in widget build |
 | Theme and visual-language implementation evidence includes golden tests for default/dark/high-contrast shells | no | no | no | yes | no | no | documented in `forge_panel_shell_spec.md` golden tests (`shell_default`, `shell_dark`, `shell_high_contrast`) |
 
-## 15. Dialogs, Notifications, and User Prompts
+## 14. Dialogs, Notifications, and User Prompts
 This section is intended to cover quick-pick/input dialogs, open/save dialogs, toast notifications, and user confirmation flows. Include checks for shell service behavior and module/component usage patterns.
 
-- [x] Section completed (finished on 2026-03-30T17:35:00+02:00)
+- [ ] Section implemented
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -319,10 +299,10 @@ This section is intended to cover quick-pick/input dialogs, open/save dialogs, t
 | Dirty-close confirmation prompts (save / don't save / cancel) are explicitly required | yes | yes | yes | yes | no | no | `DefaultLayoutController.closeEditor/closeAllEditors` closes directly; no save/don't-save/cancel confirmation path |
 | Test coverage expectations exist for dialog/notification/progress managers | yes | no | yes | yes | partial | no | widget tests instantiate scaffold with `DefaultNotificationManager`; no dedicated dialog/progress manager behavior tests in scanned packages |
 
-## 16. Explorer and Workspace Search
+## 15. Explorer and Workspace Search
 This section is intended to cover file explorer loading behavior, path handling, reveal/open flows, search query execution, search result navigation, and large-workspace responsiveness. Include checks at shell service level and per-module view behavior.
 
-- [x] Section completed (finished on 2026-03-30T17:48:00+02:00)
+- [ ] Section implemented
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -339,10 +319,10 @@ This section is intended to cover file explorer loading behavior, path handling,
 | Large-workspace responsiveness strategies exist for search (debounce, indexing, result cache with LRU eviction) | no | no | no | yes | no | no | documented in `forge_panel_shell_spec.md` performance strategies (`searchDebounce`, search index, search results cache) |
 | Test coverage expectations include `ForgeSearchManager` service tests and explorer/open-file E2E flows | yes | yes | yes | yes | partial | partial | `tom_forge_core_test.dart` includes `DefaultSearchManager` unit tests (`search`, `searchStream`, filters); UI tests cover open-file flows, but no dedicated explorer E2E flow found |
 
-## 17. Diagnostics, Problems, and Output Channels
+## 16. Diagnostics, Problems, and Output Channels
 This section is intended to cover diagnostic collection lifecycle, problem presentation, output channel behavior, and synchronization with editor/system state. Include checks for shell managers and per-module diagnostic/output producers.
 
-- [x] Section completed (finished on 2026-03-30T17:58:00+02:00)
+- [ ] Section implemented
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -359,10 +339,10 @@ This section is intended to cover diagnostic collection lifecycle, problem prese
 | Error/reporting flows integrate output logging with diagnostic emission for the same failure path | yes | yes | yes | yes | no | no | no code path found that emits diagnostics and output log entries together for the same failure scenario |
 | Test coverage expectations include diagnostic manager, output channel manager, and Problems-view integration tests | yes | no | yes | yes | partial | no | `tom_forge_core_test.dart` covers `DefaultDiagnosticManager` and `DefaultOutputChannelManager`; no dedicated `ForgeProblemsView` integration tests found |
 
-## 18. Status Bar and Context Signaling
+## 17. Status Bar and Context Signaling
 This section is intended to cover status bar item contribution, placement, update cadence, and context-sensitive values (cursor/language/diagnostics/etc.). Include checks for shell aggregation and per-module/component status item quality.
 
-- [x] Section completed (finished on 2026-03-30T18:08:00+02:00)
+- [ ] Section implemented
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -379,10 +359,10 @@ This section is intended to cover status bar item contribution, placement, updat
 | Integration evidence requires module status items for cursor/language indicators | yes | yes | yes | yes | yes | partial | `TestAppModule` registers cursor + language status items and shell renders them; language is editor-driven, cursor currently not synchronized from editor context |
 | Test coverage expectations include dedicated status bar controller tests and widget segments | yes | no | yes | yes | no | no | no `status_bar_test.dart` or dedicated status bar widget/controller tests found in repository test folders |
 
-## 19. Terminal, Process, and Runtime Tooling Integration
+## 18. Terminal, Process, and Runtime Tooling Integration
 This section is intended to cover terminal manager behavior, terminal lifecycle events, process/output integration, and module usage of runtime tooling services. Include checks for shell terminal infrastructure and module-level runtime interactions.
 
-- [x] Section completed (finished on 2026-03-30T18:18:00+02:00)
+- [ ] Section implemented
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -399,10 +379,10 @@ This section is intended to cover terminal manager behavior, terminal lifecycle 
 | Execution-monitor runtime surface is defined for live process/execution signaling | yes | yes | yes | yes | no | no | no execution monitor module/service implementation found in scanned packages |
 | Test coverage expectations include terminal manager service tests and long-running-command scenarios | yes | no | yes | yes | no | no | no `terminal_manager_test.dart` or long-running terminal scenario tests found in repository test folders |
 
-## 20. Editor Base Contracts and Text Editing Core
+## 19. Editor Base Contracts and Text Editing Core
 This section is intended to cover `ForgeEditor`/`ForgeTextEditor`/`ForgeDocument` contracts, text operations, selection/cursor/visible range reporting, and editor integration bridge behavior. Include checks for shared Forge editor base and each integrated editor module.
 
-- [x] Section completed (finished on 2026-03-30T09:08:45+02:00)
+- [ ] Section implemented
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -419,10 +399,10 @@ This section is intended to cover `ForgeEditor`/`ForgeTextEditor`/`ForgeDocument
 | Bridge/integration path includes shared `ForgeDocumentAdapter` for existing editors | yes | yes | yes | yes | partial | no | shared `ForgeDocumentAdapter` exists in `tom_editors_shared`, but current forge adapters use local `ForgeDocument` wrappers instead of this bridge base |
 | System-state integration ties editor base contracts to `activeEditor`, `dirtyEditors`, and selection-change events | yes | yes | yes | yes | partial | partial | active editor + editor context wiring is present (`DefaultSystemState`, `ShellEditorIntegration`), while dirty/selection event streams are not fully emitted through runtime flows |
 
-## 21. Text Settings, Context Discovery, and Configuration Injection
+## 20. Text Settings, Context Discovery, and Configuration Injection
 This section is intended to cover `ForgeTextSettings`, context discovery (`ForgeTextContext`), per-editor-type settings, and runtime settings propagation. Include checks for shell persistence/injection and per-editor adaptation behavior.
 
-- [x] Section completed (finished on 2026-03-30T09:13:34+02:00)
+- [ ] Section implemented
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -439,10 +419,10 @@ This section is intended to cover `ForgeTextSettings`, context discovery (`Forge
 | Test/runtime config implementations include config update notifications (`TestConfigManager.update` + `onDidChange`) | yes | no | yes | yes | partial | no | runtime has `DefaultConfigManager.update` + `onDidChange`, but no concrete `TestConfigManager` implementation is present in scanned code |
 | Configuration tab/file-types views provide operator-facing context for per-editor defaults and resolver settings | yes | yes | yes | yes | partial | no | configuration UI exposes per-editor text settings controls, but no file-types/resolver view is implemented in the current UI code |
 
-## 22. Undo/Redo, Dirty State, and Save Lifecycle
+## 21. Undo/Redo, Dirty State, and Save Lifecycle
 This section is intended to cover undo/redo behavior, dirty tracking semantics, save/save-all/will-save/did-save event flow, and consistency across editors. Include checks for shell-level state handling and per-editor implementation consistency.
 
-- [x] Section completed (finished on 2026-03-30T09:16:49+02:00)
+- [ ] Section implemented
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -459,10 +439,10 @@ This section is intended to cover undo/redo behavior, dirty tracking semantics, 
 | Save path creates revision snapshots and clears dirty state when persisted content changes | yes | yes | yes | yes | no | no | save implementations emit lifecycle streams but do not create revision snapshots or clear adapter dirty states as part of save flow |
 | Test coverage expectations include undo manager tests plus dirty/save regression checks | yes | no | yes | yes | partial | no | core test suite covers undo manager and save streams; limited dirty-state checks exist in UI integration tests, but no dedicated dirty/save lifecycle regression suite |
 
-## 23. File Type Resolution and Fallback Opening
+## 22. File Type Resolution and Fallback Opening
 This section is intended to cover `canHandle`/`canHandleContent` resolution, editor selection by URI/content, unknown-type fallback behavior, and file-open error handling. Include checks for shell resolver behavior and per-editor/module resolver contributions.
 
-- [x] Section completed (finished on 2026-03-30T09:20:15+02:00)
+- [ ] Section implemented
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -479,10 +459,10 @@ This section is intended to cover `canHandle`/`canHandleContent` resolution, edi
 | Integration expectations include implementing missing `canHandle/canHandleContent` gaps in editor adapters | yes | yes | yes | yes | partial | partial | md/dart adapters implement URI-based `canHandle` and YAML implements `canHandleContent`; content-phase integration remains incomplete in resolver flow |
 | Test expectations include Open-with behavior verification and resolver path checks | yes | no | yes | yes | partial | no | integration tests verify adapter `canHandle` resolution, but no dedicated Open-with/content-inspection path tests found |
 
-## 24. Advanced Data Services (Decorations, Outline, Virtual Documents, Workspace Edits)
+## 23. Advanced Data Services (Decorations, Outline, Virtual Documents, Workspace Edits)
 This section is intended to cover decoration pipelines, outline provider integration, virtual document providers, and multi-file workspace edit application. Include checks for shell service APIs and per-module/component usage coverage.
 
-- [x] Section completed (finished on 2026-03-30T10:30:30+02:00)
+- [ ] Section implemented
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -499,10 +479,30 @@ This section is intended to cover decoration pipelines, outline provider integra
 | Integration expectations include adapting existing editors to generalized decoration APIs | yes | yes | yes | yes | partial | partial | md/dart adapters are wired to generalized decoration APIs; equivalent generalized integration is not present across all editor modules |
 | Test coverage expectations include dedicated tests for file decorations, virtual documents, and outline managers | yes | no | yes | yes | no | no | no dedicated manager test suites for file decoration, virtual document, or outline services were found in scanned test packages |
 
+## 24. Application Model and Multi-Application Switching
+This section is intended to cover application definitions, switching behavior, in-memory retention of inactive applications, and app-specific layout/action contexts. Include checks for global Forge behavior and module/component behavior across application switches.
+
+- [ ] Section implemented
+
+| category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
+|---|---|---|---|---|---|---|---|
+| ForgeApplication model defines named app-level layout and metadata | no | no | no | yes | yes | n/a | `ForgeApplication` in `forge_application.dart` with title, icon, layout, isActive |
+| Multiple applications exist in one shell instance | no | no | no | yes | partial | n/a | `_applications` list in `DefaultSystemState`; no multi-app demo in test app |
+| Application switcher dropdown selects active application | no | no | no | yes | yes | n/a | `PopupMenuButton` in `forge_shell_scaffold.dart` title bar center cluster |
+| Switching keeps previous applications alive in memory | no | no | no | yes | no | n/a | `setActiveApplication` exists but no lifecycle management implemented |
+| Inactive app layout state is preserved in memory | no | no | no | yes | no | n/a | not implemented |
+| Default behavior is no save-on-switch; optional save-on-deactivate support | no | yes | yes (per app policy) | yes | n/a | n/a | not implemented; no switch lifecycle |
+| Active application tracked in system state/controller | no | no | no | yes | yes | n/a | `activeApplication` getter in `DefaultSystemState` |
+| Per-application layout persistence in `.forge/state/layout.json` | no | yes | yes (app layout contributions) | yes | no | no | not implemented |
+| Per-application open editor restoration via `.forge/state/open-editors.json` | no | yes | yes (editor components participate) | yes | no | no | not implemented |
+| Modules can expose pre-configured applications | yes | no | yes (module-provided applications) | yes | no | n/a | `ForgeModule` interface lacks `applications` getter |
+| Application layouts reference module-owned components | yes | yes | yes (module components wired into app layout) | yes | yes | yes | `ApplicationLayout.leftPanel/rightPanel/bottomPanel` contain `ForgeView` sections from modules |
+| App switch lifecycle is represented in shell event stream and architecture | no | yes | yes (components react to app switch/focus) | yes | no | no | not implemented; no shell events for app switching |
+
 ## 25. State Persistence and Recovery
 This section is intended to cover persistence of shell settings, per-editor settings, panel/application state expectations, and recovery behavior after restart. Include checks for shell persistence services and per-module persistence responsibilities.
 
-- [x] Section completed (finished on 2026-03-30T10:35:54+02:00)
+- [ ] Section implemented
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -522,7 +522,7 @@ This section is intended to cover persistence of shell settings, per-editor sett
 ## 26. Error Handling and Recovery Patterns
 This section is intended to cover error classification, user-facing recovery feedback, fallback behavior, and non-fatal degradation patterns. Include checks for shell-level resilience and per-module/component error hygiene.
 
-- [x] Section completed (finished on 2026-03-30T10:41:24+02:00)
+- [ ] Section implemented
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -542,7 +542,7 @@ This section is intended to cover error classification, user-facing recovery fee
 ## 27. Performance and Scalability
 This section is intended to cover responsiveness budgets, lazy loading/virtualization strategy, expensive-operation isolation, and large-workspace behavior. Include checks for shell infrastructure and per-module/component performance hotspots.
 
-- [x] Section completed (finished on 2026-03-30T10:46:06+02:00)
+- [ ] Section implemented
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -562,7 +562,7 @@ This section is intended to cover responsiveness budgets, lazy loading/virtualiz
 ## 28. Testing and Quality Gates
 This section is intended to cover unit/widget/integration/E2E test expectations, analyzer/test gates, regression scope, and promotion criteria from staging to production app. Include checks for framework-level quality gates and per-module/component test coverage.
 
-- [x] Section completed (finished on 2026-03-30T10:49:39+02:00)
+- [ ] Section implemented
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -582,7 +582,7 @@ This section is intended to cover unit/widget/integration/E2E test expectations,
 ## 29. Feature Matrix by Scope (Forge vs Module vs Component)
 This section is intended to provide a cross-cutting checklist matrix for every feature area, explicitly separating: (a) Forge core responsibility, (b) module-level implementation responsibility, and (c) component-level behavior responsibility.
 
-- [x] Section completed (finished on 2026-03-30T11:04:56+02:00)
+- [ ] Section implemented
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
