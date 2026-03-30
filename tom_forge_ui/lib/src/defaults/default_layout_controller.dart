@@ -36,6 +36,12 @@ class DefaultLayoutController implements ForgeLayoutController {
   final ValueNotifier<List<List<ForgeEditor>>> _middlePanels;
   final ValueNotifier<int> _activeMiddlePanelIndex;
 
+  /// Pending "Open With" editor candidates. The shell can observe this to show
+  /// a chooser dialog. The first element is the URI, followed by the candidate
+  /// editors.
+  final ValueNotifier<(Uri, List<ForgeEditor>)?> pendingEditorChoice =
+      ValueNotifier(null);
+
   DefaultLayoutController({
     required DefaultSystemState systemState,
     required ForgeFileSystem fileSystem,
@@ -87,8 +93,8 @@ class DefaultLayoutController implements ForgeLayoutController {
       return;
     }
 
-    _fileSystem.read(uri).then((content) {
-      final editor = _createEditor(uri, content);
+    _fileSystem.read(uri).then((content) async {
+      final editor = await _createEditor(uri, content);
       if (editor == null) {
         if (debugEnabled) {
           // ignore: avoid_print
@@ -96,16 +102,7 @@ class DefaultLayoutController implements ForgeLayoutController {
         }
         return;
       }
-
-      _systemState.addOpenEditor(editor);
-      _systemState.setActiveEditor(editor);
-
-      final panelIdx = middlePanelIndex ?? _activeMiddlePanelIndex.value;
-      final panels = List<List<ForgeEditor>>.from(_middlePanels.value);
-      if (panelIdx < panels.length) {
-        panels[panelIdx] = [...panels[panelIdx], editor];
-      }
-      _middlePanels.value = panels;
+      _addEditorToPanel(editor, panelIdx: middlePanelIndex);
     }).catchError((Object e) {
       if (debugEnabled) {
         // ignore: avoid_print
@@ -133,8 +130,43 @@ class DefaultLayoutController implements ForgeLayoutController {
 
   @override
   Future<void> openFileWith(Uri uri, {int? middlePanelIndex}) async {
-    // Resolve editor from modules and open.
-    openFile(uri, middlePanelIndex: middlePanelIndex);
+    // Collect all editors that can handle this URI.
+    final candidates = <ForgeEditor>[];
+    for (final module in _moduleRegistry.allModules) {
+      for (final editor in module.editors) {
+        final result = editor.canHandle(uri);
+        if (result == FileHandlingResult.accept) {
+          candidates.add(editor);
+        } else if (result == FileHandlingResult.inspect) {
+          // Phase 2: check content.
+          try {
+            final bytes = await _fileSystem.readBytes(uri);
+            if (editor.canHandleContent(uri, bytes) ==
+                FileHandlingResult.accept) {
+              candidates.add(editor);
+            }
+          } catch (_) {
+            // Skip editors that fail content inspection.
+          }
+        }
+      }
+    }
+
+    if (candidates.length <= 1) {
+      // Zero or one: just open normally.
+      openFile(uri, middlePanelIndex: middlePanelIndex);
+      return;
+    }
+
+    // Multiple candidates — surface the choice for the shell UI.
+    pendingEditorChoice.value = (uri, candidates);
+  }
+
+  /// Resolve a pending "Open With" choice by opening the selected editor.
+  void resolveEditorChoice(ForgeEditor editor, Uri uri,
+      {int? middlePanelIndex}) {
+    pendingEditorChoice.value = null;
+    openEditor(editor, uri, middlePanelIndex: middlePanelIndex);
   }
 
   @override
@@ -283,7 +315,20 @@ class DefaultLayoutController implements ForgeLayoutController {
     }
   }
 
-  ForgeEditor? _createEditor(Uri uri, String content) {
+  /// Add an editor to the active (or specified) middle panel.
+  void _addEditorToPanel(ForgeEditor editor, {int? panelIdx}) {
+    _systemState.addOpenEditor(editor);
+    _systemState.setActiveEditor(editor);
+
+    final idx = panelIdx ?? _activeMiddlePanelIndex.value;
+    final panels = List<List<ForgeEditor>>.from(_middlePanels.value);
+    if (idx < panels.length) {
+      panels[idx] = [...panels[idx], editor];
+    }
+    _middlePanels.value = panels;
+  }
+
+  Future<ForgeEditor?> _createEditor(Uri uri, String content) async {
     final ext = uri.path.split('.').last.toLowerCase();
 
     ForgeModule? ownerModule;
@@ -321,13 +366,32 @@ class DefaultLayoutController implements ForgeLayoutController {
         );
         return ForgeYamlEditor(controller: controller, module: ownerModule);
       default:
+        // Phase 1: collect editors that accept or want to inspect.
+        final acceptEditors = <ForgeEditor>[];
+        final inspectEditors = <ForgeEditor>[];
         for (final module in _moduleRegistry.allModules) {
           for (final editor in module.editors) {
-            if (editor.canHandle(uri) == FileHandlingResult.accept) {
+            final result = editor.canHandle(uri);
+            if (result == FileHandlingResult.accept) {
+              acceptEditors.add(editor);
+            } else if (result == FileHandlingResult.inspect) {
+              inspectEditors.add(editor);
+            }
+          }
+        }
+        if (acceptEditors.isNotEmpty) return acceptEditors.first;
+
+        // Phase 2: read bytes and let inspecting editors decide.
+        if (inspectEditors.isNotEmpty) {
+          final bytes = await _fileSystem.readBytes(uri);
+          for (final editor in inspectEditors) {
+            if (editor.canHandleContent(uri, bytes) ==
+                FileHandlingResult.accept) {
               return editor;
             }
           }
         }
+
         // Fallback to a plain text-capable editor when no specialized editor
         // is registered for the current file type.
         final controller = MdEditorController(
@@ -345,5 +409,6 @@ class DefaultLayoutController implements ForgeLayoutController {
     _bottomPanel.dispose();
     _middlePanels.dispose();
     _activeMiddlePanelIndex.dispose();
+    pendingEditorChoice.dispose();
   }
 }

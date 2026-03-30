@@ -117,6 +117,9 @@ class DefaultSystemState implements ForgeSystemState {
   @override
   List<Uri> get selectedExplorerItems => _selectedExplorerItems.value;
 
+  ValueListenable<List<Uri>> get selectedExplorerItemsListenable =>
+      _selectedExplorerItems;
+
   @override
   Uri? get hoveredExplorerItem => _hoveredExplorerItem.value;
 
