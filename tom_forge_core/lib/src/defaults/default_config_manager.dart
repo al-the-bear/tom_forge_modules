@@ -9,6 +9,7 @@ class DefaultConfigManager implements ForgeConfigManager {
   static bool debugEnabled = false;
 
   ForgeConfig _current;
+  final Map<String, Object> _moduleConfigs = {};
   final StreamController<ConfigChangeEvent> _changeController =
       StreamController<ConfigChangeEvent>.broadcast();
 
@@ -35,8 +36,22 @@ class DefaultConfigManager implements ForgeConfigManager {
   }
 
   @override
+  T? getModuleConfig<T>(String moduleId) {
+    final config = _moduleConfigs[moduleId];
+    if (config == null) return null;
+    return config as T;
+  }
+
+  @override
+  void setModuleConfig<T>(String moduleId, T config) {
+    _moduleConfigs[moduleId] = config as Object;
+    _changeController.add(ConfigChangeEvent(key: 'module.$moduleId'));
+  }
+
+  @override
   void resetToDefaults() {
     _current = const ForgeConfig();
+    _moduleConfigs.clear();
     _changeController.add(const ConfigChangeEvent(key: ''));
   }
 

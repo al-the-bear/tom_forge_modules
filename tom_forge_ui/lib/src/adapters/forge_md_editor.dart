@@ -86,14 +86,29 @@ class ForgeMdEditor extends ForgeTextEditor {
         editorTypeId: 'md',
       );
     }
+    // Build theme with applied options.
+    final theme = _buildThemeFromOptions();
     return MdEditor(
       controller: controller,
       integration: _integration,
+      theme: theme,
       settings: MdEditorSettings.standard().copyWith(
         autoHideEditor: false,
         rawEditorPosition: RawEditorPosition.below,
       ),
     );
+  }
+
+  /// Builds an [MdEditorTheme] applying current [_options] to the base theme.
+  MdEditorTheme _buildThemeFromOptions() {
+    const baseTheme = MdBasicTheme();
+    final basic = MdBasicTheme(
+      fontFamily: _options.fontFamily ?? baseTheme.fontFamily,
+      monoFontFamily: _options.fontFamily ?? baseTheme.monoFontFamily,
+      baseFontSize: _options.fontSize ?? baseTheme.baseFontSize,
+      lineHeight: _options.lineHeight ?? baseTheme.lineHeight,
+    );
+    return MdEditorTheme(basic: basic);
   }
 
   @override

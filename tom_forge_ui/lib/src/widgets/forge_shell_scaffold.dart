@@ -207,6 +207,11 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
             wordWrap: settings.wordWrap
                 ? ForgeWordWrap.on
                 : ForgeWordWrap.off,
+            fontFamily: settings.fontFamily,
+            fontSize: settings.fontSize,
+            lineHeight: settings.lineHeight,
+            showLineNumbers: settings.showLineNumbers,
+            highlightCurrentLine: settings.highlightCurrentLine,
           ));
         }
       }

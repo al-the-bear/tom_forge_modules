@@ -66,3 +66,4 @@ export 'src/defaults/default_progress_manager.dart';
 export 'src/defaults/default_search_manager.dart';
 export 'src/defaults/default_undo_manager.dart';
 export 'src/defaults/memory_file_system.dart';
+export 'src/defaults/test_config_manager.dart';

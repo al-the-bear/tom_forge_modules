@@ -84,14 +84,28 @@ class ForgeDartEditor extends ForgeTextEditor {
         editorTypeId: 'dart',
       );
     }
+    // Build theme with applied options.
+    final theme = _buildThemeFromOptions();
     return DartCodeEditor(
       controller: controller,
       integration: _integration,
+      theme: theme,
       errors: errorsProvider?.call() ?? const [],
       onCursorChanged: _onCursorOffset,
       onSelectionChanged: _onSelectionRange,
       onVisibleRangeChanged: _onVisibleRangeLines,
     );
+  }
+
+  /// Builds a [DartEditorTheme] applying current [_options] to the base theme.
+  DartEditorTheme _buildThemeFromOptions() {
+    final base = DartEditorTheme.dark();
+    final font = base.font.copyWith(
+      fontFamily: _options.fontFamily ?? base.font.fontFamily,
+      fontSize: _options.fontSize ?? base.font.fontSize,
+      lineHeight: _options.lineHeight ?? base.font.lineHeight,
+    );
+    return base.copyWith(font: font);
   }
 
   @override

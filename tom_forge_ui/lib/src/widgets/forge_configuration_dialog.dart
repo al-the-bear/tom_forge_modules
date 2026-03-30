@@ -60,6 +60,20 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
   final List<String> _editorTypeIds = ['md', 'dart', 'yaml'];
   late Map<String, ForgeTextSettings> _editorSettings;
 
+  /// File extension to editor type mapping.
+  late Map<String, String> _fileTypeDefaults;
+
+  /// Default file type mappings.
+  static const _defaultFileTypeMappings = {
+    '.md': 'md',
+    '.markdown': 'md',
+    '.dart': 'dart',
+    '.yaml': 'yaml',
+    '.yml': 'yaml',
+    '.json': 'yaml', // YAML editor can handle JSON
+    '.txt': 'md',    // Plain text uses Markdown editor
+  };
+
   @override
   void initState() {
     super.initState();
@@ -76,6 +90,8 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
         typeId: widget.shellApi?.getTextSettings(typeId) ??
             const ForgeTextSettings(),
     };
+    // Load file type defaults from prefs or use defaults.
+    _fileTypeDefaults = Map.from(_defaultFileTypeMappings);
   }
 
   @override
@@ -306,6 +322,8 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
             ),
             const SizedBox(height: 8),
             ..._editorTypeIds.map(_buildEditorSettingsPanel),
+            const SizedBox(height: 20),
+            _buildFileTypesSection(theme),
             const SizedBox(height: 24),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
@@ -461,5 +479,82 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
       default:
         return editorTypeId;
     }
+  }
+
+  Widget _buildFileTypesSection(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'File Type Associations',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Configure which editor opens each file type by default.',
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey[500],
+          ),
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              children: _fileTypeDefaults.entries.map((entry) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 100,
+                        child: Text(
+                          entry.key,
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      const Icon(Icons.arrow_forward, size: 16),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          initialValue: entry.value,
+                          decoration: const InputDecoration(
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            isDense: true,
+                          ),
+                          items: _editorTypeIds.map((id) {
+                            return DropdownMenuItem(
+                              value: id,
+                              child: Text(_editorTitle(id)),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            if (value != null) {
+                              setState(() {
+                                _fileTypeDefaults[entry.key] = value;
+                              });
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
