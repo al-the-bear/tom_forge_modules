@@ -402,22 +402,22 @@ This section is intended to cover terminal manager behavior, terminal lifecycle 
 ## 20. Editor Base Contracts and Text Editing Core
 This section is intended to cover `ForgeEditor`/`ForgeTextEditor`/`ForgeDocument` contracts, text operations, selection/cursor/visible range reporting, and editor integration bridge behavior. Include checks for shared Forge editor base and each integrated editor module.
 
-- [ ] Section completed (finished on 2026-03-30T06:33:43+02:00)
+- [x] Section completed (finished on 2026-03-30T09:08:45+02:00)
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
-| Base editor contract (`ForgeEditor`) defines URI identity and file-resolution hooks | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` `ForgeEditor` contract |
-| Two-phase file resolution (`canHandle` + `canHandleContent`) is part of core editor opening model | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` resolution flow and `forge_panel_shell_spec.md` open flow |
-| Text editor base (`ForgeTextEditor`) requires document + cursor/selection observables | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` `ForgeTextEditor` API |
-| Multi-selection contract is explicit (`selections`, `setSelections`) | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` text editor API and `forge_panel_shell_spec.md` test editor implementation |
-| Visible-range reporting is a required text-core primitive (`visibleRange`) | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` and `forge_panel_shell_spec.md` |
-| Core text mutation operations are defined (`insertText`, `replaceRange`, `deleteRange`) | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` text operations and `forge_panel_shell_spec.md` test implementation |
-| Cursor/selection control and navigation operations are defined (`setCursorPosition`, `setSelection`, `revealPosition`, `revealRange`) | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` text editor API |
-| In-editor query/search primitives are part of text core (`findAll`) | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` and `forge_panel_shell_spec.md` |
-| Document contract (`ForgeDocument`) includes text extraction, language id, encoding, and change model | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` `ForgeDocument`/`TextRange`/`TextPosition` |
-| Text editor options pipeline is standardized (`ForgeTextEditorOptions`, `updateOptions`) | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` and `forge_panel_shell_spec.md` adapter mapping notes |
-| Bridge/integration path includes shared `ForgeDocumentAdapter` for existing editors | yes | yes | yes | yes | no | no | documented in `tom_forge_ui_testapp.md` package layout and `forge_panel_shell_spec.md` integration section |
-| System-state integration ties editor base contracts to `activeEditor`, `dirtyEditors`, and selection-change events | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` system state/events and `tom_forge_ui_testapp.md` state behavior |
+| Base editor contract (`ForgeEditor`) defines URI identity and file-resolution hooks | yes | yes | yes | yes | yes | partial | `ForgeEditor` defines URI + `canHandle`/`canHandleContent`; adapters implement URI handling (`forge_editor.dart`, `forge_md_editor.dart`, `forge_dart_editor.dart`, `forge_yaml_editor.dart`), but default open path still hard-switches known extensions before generic resolver |
+| Two-phase file resolution (`canHandle` + `canHandleContent`) is part of core editor opening model | yes | yes | yes | yes | partial | no | contract supports phase-2 inspection (`ForgeEditor`, `ForgeSchemaEditor`, `ForgeYamlEditor.canHandleContent`), but `DefaultLayoutController._createEditor` does not execute `canHandleContent` in open flow |
+| Text editor base (`ForgeTextEditor`) requires document + cursor/selection observables | yes | yes | yes | yes | yes | yes | `ForgeTextEditor` contract implemented by `ForgeMdEditor` and `ForgeDartEditor` with document/cursor/selection/visible range notifiers |
+| Multi-selection contract is explicit (`selections`, `setSelections`) | yes | yes | yes | yes | partial | partial | APIs are implemented, but adapters currently reduce multi-selection to first range (`setSelections` delegates to `setSelection`) |
+| Visible-range reporting is a required text-core primitive (`visibleRange`) | yes | yes | yes | yes | yes | yes | `ForgeMdEditor` and `ForgeDartEditor` expose and update `visibleRange` from underlying editor callbacks/notifiers |
+| Core text mutation operations are defined (`insertText`, `replaceRange`, `deleteRange`) | yes | yes | yes | yes | yes | yes | text mutation APIs implemented in `ForgeMdEditor` and `ForgeDartEditor` and verified in integration tests |
+| Cursor/selection control and navigation operations are defined (`setCursorPosition`, `setSelection`, `revealPosition`, `revealRange`) | yes | yes | yes | yes | partial | partial | operations exist in adapters, but markdown selection control is constrained by underlying controller API (cursor-driven selection fallback) |
+| In-editor query/search primitives are part of text core (`findAll`) | yes | yes | yes | yes | yes | yes | `findAll` implemented in both text adapters using pattern matching over controller text |
+| Document contract (`ForgeDocument`) includes text extraction, language id, encoding, and change model | yes | yes | yes | yes | partial | partial | core `ForgeDocument` contract exists; adapter-backed documents expose text/language/encoding but currently return static version and empty change stream |
+| Text editor options pipeline is standardized (`ForgeTextEditorOptions`, `updateOptions`) | yes | yes | yes | yes | yes | yes | standardized options type exists in core and is implemented in both text adapters via `options` + `updateOptions` |
+| Bridge/integration path includes shared `ForgeDocumentAdapter` for existing editors | yes | yes | yes | yes | partial | no | shared `ForgeDocumentAdapter` exists in `tom_editors_shared`, but current forge adapters use local `ForgeDocument` wrappers instead of this bridge base |
+| System-state integration ties editor base contracts to `activeEditor`, `dirtyEditors`, and selection-change events | yes | yes | yes | yes | partial | partial | active editor + editor context wiring is present (`DefaultSystemState`, `ShellEditorIntegration`), while dirty/selection event streams are not fully emitted through runtime flows |
 
 ## 21. Text Settings, Context Discovery, and Configuration Injection
 This section is intended to cover `ForgeTextSettings`, context discovery (`ForgeTextContext`), per-editor-type settings, and runtime settings propagation. Include checks for shell persistence/injection and per-editor adaptation behavior.
