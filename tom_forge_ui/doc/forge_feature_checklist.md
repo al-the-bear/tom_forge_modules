@@ -33,7 +33,7 @@ This section is intended to cover the top-level Forge shell runtime model: start
 | Shell collects module contributions (actions/views/editors/shortcuts) | yes | yes | yes (modules/components contribute) | yes | yes | yes | documented in `forge_panel_shell_spec.md` (section 7.1) and `tom_forge_full_integration.md` (section 4.2, Phase B) |
 | Boot flow wiring (file system + shell module + app module + application layout + scaffold) | yes | no | yes (app modules) | yes | yes | yes | completed 2026-03-26 in `tom_forge_full_integration.md` (section 4.1, Phase A/E) |
 | Shell service single-source wiring (`ForgeActionRegistry`, `ForgeShortcutManager`, `ForgeSystemState`, settings) | yes | yes | yes (module actions/shortcuts) | yes | yes | yes | completed 2026-03-26 in `tom_forge_full_integration.md` (section 4.2, Phase B/C) |
-| Startup hydration and runtime preference synchronization | yes | yes | yes (module/editor settings consumers) | yes | yes | yes | prefs loaded in scaffold initState, stored to shell, propagated to open editors via `_propagateSettingsToActiveEditors()` |
+| Startup hydration and runtime preference synchronization | yes | yes | yes (module/editor settings consumers) | yes | yes | partial | prefs loaded in scaffold initState, stored to shell, propagated to open editors via `_propagateSettingsToActiveEditors()`; however adapters' `updateOptions` only stores values without applying to underlying editor widgets |
 | Layout/editor state restoration before running | yes | yes | yes (editor state adapters) | yes | yes | yes | panel sizes/visibility and open editor URIs restored from `ForgePreferencesService` in scaffold `_restoreLayoutState()` |
 | Graceful shutdown flow (dirty prompts, cancellable shutdown, save state) | yes | yes | yes (module/editor dirty + save handlers) | yes | yes | yes | scaffold `dispose()` saves layout state via `_saveLayoutState()`, then calls `shell.dispose()` which deactivates modules and disposes services |
 | Reverse-order module deactivation during shutdown (`module.deactivate()`) | yes | no | yes (each module implements deactivation) | yes | yes | yes | `DefaultModuleRegistry.deactivateAll()` iterates reversed, `TestAppModule.deactivate()` cancels subscriptions and disposes notifiers |
@@ -92,7 +92,7 @@ This section is intended to cover component contracts (`title`, `icon`, `buildMa
 | View vs editor closability semantics are different by design | no | yes | yes | yes | yes | n/a | `isEditor` returns true for editors (closable), false for views; `forge_view.dart`, `forge_editor.dart` |
 | Component identity model: editors by `Uri`, views by Dart `Type` | no | yes | yes | yes | yes | yes | Editors have `Uri get uri`; views are singletons by type (one Explorer, one Outline, etc.) |
 | Multi-render model: shared data state with per-copy UI state | no | yes | yes | yes | yes | partial | `supportsMultiRender` exists; `buildCopy` delegates to `buildMain`; `copyComponent` in layout controller adds same editor to different panel for shared data / independent UI |
-| UI copy lifecycle: main component + additional UI copies, shift-drag copy behavior | no | yes | yes | yes | partial | no | `copyComponent` and `moveComponent` implemented in `DefaultLayoutController`; shift-drag gesture detection in tab bar not yet wired |
+| UI copy lifecycle: main component + additional UI copies, shift-drag copy behavior | no | yes | yes | yes | yes | yes | `copyComponent` and `moveComponent` in `DefaultLayoutController`; SHIFT detection in tab bar `onAcceptWithDetails` calls `copyComponent` when SHIFT held at drop time |
 | File-opening editor resolution uses `canHandle(uri)` then `canHandleContent(uri, bytes)` | yes | yes | yes | yes | yes | yes | Both methods in `ForgeEditor`; `DefaultLayoutController` iterates modules calling `canHandle` |
 | Schema editor specialization: `canHandle` returns `inspect`, decision in `canHandleContent` | yes | yes | yes | yes | partial | partial | `canHandleContent` exists but yaml/dart editors don't use `inspect` flow; always accept by extension |
 | Concrete component contract evidence in test module (`ForgeTestTextEditor` title/icon/uri/canHandle) | yes | yes | yes | yes | yes | yes | `ForgeMdEditor`, `ForgeDartEditor`, `ForgeYamlEditor` all implement full contract |
@@ -262,7 +262,7 @@ This section is intended to cover keyboard navigation order, focus visibility, f
 ## 13. Theme, Visual Language, and Interaction Feedback
 This section is intended to cover shell theming hooks, color/contrast expectations, active/hover/drag visual states, and consistency of feedback patterns. Include checks for global Forge theming and per-module/component visual integration.
 
-- [x] Section implemented (completed on 2025-07-24)
+- [ ] Section not yet fully implemented — isActive filtering not applied in status bar widget, theme mode not persisted, no View>Appearance entry, no high-contrast variant
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -276,7 +276,7 @@ This section is intended to cover shell theming hooks, color/contrast expectatio
 | Drop-zone highlight style is theme-bound (`dropZoneHighlight` token and opacity rules) | no | yes | yes | yes | partial | partial | `ForgeAnimations.dropZoneFade` constant exists (100ms); md_editor drop targets use `theme.accent` border; no dedicated `dropZoneHighlight` shell-level token; editor-level only |
 | Severity-driven visual feedback for diagnostics is standardized (background tint, border, icon) | yes | yes | yes | yes | yes | yes | `DiagnosticColors` class with `.dark()`/`.light()` (error/warning/info/hint colors); `severityColor` + squiggly underline painter in `dart_code_editor.dart`; `_severityColor` tint in `md_quick_fix_menu.dart` |
 | Highlight feedback patterns are defined for search/selection/decorations in editor and explorer contexts | yes | yes | yes | yes | yes | yes | `EditorColors.selection` in dart editor (dark `#264F78`, light `#ADD6FF`); `MdBasicTheme.selection` in md_search_panel and tree_view; `YamlEditorThemeColors.selectionColor` in yaml tree nodes; `TreeTheme.selectionColor` in shared tree_view |
-| Status bar visual feedback supports context-sensitive active/inactive item visibility (`isActive`) | yes | yes | yes | yes | yes | partial | `StatusBarItem.isActive(ForgeSystemState)` function; `ForgeStatusBarWidget` renders left/center/right items; `ForgeStatusBarController` aggregates from modules; test app creates sample items; md_editor has own `MdEditorStatusBar`; shell `isActive` filtering not visually applied in widget build |
+| Status bar visual feedback supports context-sensitive active/inactive item visibility (`isActive`) | yes | yes | yes | yes | partial | no | `StatusBarItem.isActive(ForgeSystemState)` callback exists but `ForgeStatusBarWidget` never calls `isActive` — all items render unconditionally regardless of system state |
 | Theme and visual-language implementation evidence includes golden tests for default/dark/high-contrast shells | no | no | no | yes | no | no | documented in `forge_panel_shell_spec.md` golden tests (`shell_default`, `shell_dark`, `shell_high_contrast`) |
 
 ## 14. Dialogs, Notifications, and User Prompts
@@ -302,7 +302,7 @@ This section is intended to cover quick-pick/input dialogs, open/save dialogs, t
 ## 15. Explorer and Workspace Search
 This section is intended to cover file explorer loading behavior, path handling, reveal/open flows, search query execution, search result navigation, and large-workspace responsiveness. Include checks at shell service level and per-module view behavior.
 
-- [x] Section implemented (completed on 2025-07-24)
+- [ ] Section not yet fully implemented — explorer doesn't set hover/selection on system state, two-phase resolution (canHandleContent) never invoked, file decorations not consumed, search query not synced to system state
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -310,7 +310,7 @@ This section is intended to cover file explorer loading behavior, path handling,
 | Explorer supports workspace file tree operations (open/rename/delete) and double-click open behavior | yes | yes | yes | yes | partial | partial | `ForgeFileExplorerView` loads tree and opens files on tap through `layoutController.openFile`; no rename/delete actions and no double-click handler |
 | Explorer selection/hover state is exposed in system state for context-driven behaviors | yes | yes | yes | yes | partial | no | `DefaultSystemState` exposes `selectedExplorerItems` and `hoveredExplorerItem` with setters; explorer view does not set hover/selection state on interaction |
 | Layout API includes explicit reveal flow (`revealInExplorer`) for navigation synchronization | yes | yes | yes | yes | yes | no | `DefaultLayoutController.revealInExplorer` implemented and sets selected explorer items; no usage sites found |
-| File opening/resolution uses two-phase URI + content inspection (`canHandle`, `canHandleContent`) | yes | yes | yes | yes | partial | partial | `openFile` reads file content and resolves editor by extension/`canHandle`; `ForgeYamlEditor.canHandleContent` exists but layout resolver does not call `canHandleContent` |
+| File opening/resolution uses two-phase URI + content inspection (`canHandle`, `canHandleContent`) | yes | yes | yes | yes | partial | no | `openFile` resolves by extension switch + `canHandle` only; `canHandleContent` exists on `ForgeEditor`/`ForgeYamlEditor` but is never invoked in the runtime open flow |
 | "Open with" flow is part of resolver behavior for ambiguous matches | yes | yes | yes | yes | no | no | `openFileWith` currently delegates directly to `openFile`; no resolver prompt/selection flow implemented |
 | Search service API supports programmatic workspace queries and streaming (`search`, `searchStream`) | yes | yes | yes | yes | yes | partial | `ForgeSearchManager` + `DefaultSearchManager`/`RealSearchManager` implement `search` and `searchStream`; UI currently uses `search` path only |
 | Search UI behavior includes grouped-by-file results, match highlighting, click-to-navigate, and result count | yes | yes | yes | yes | partial | partial | `ForgeSearchView` groups by file and opens files on match click; no explicit match-highlighting rendering and no result-count display |
@@ -322,7 +322,7 @@ This section is intended to cover file explorer loading behavior, path handling,
 ## 16. Diagnostics, Problems, and Output Channels
 This section is intended to cover diagnostic collection lifecycle, problem presentation, output channel behavior, and synchronization with editor/system state. Include checks for shell managers and per-module diagnostic/output producers.
 
-- [x] Section implemented (completed on 2025-07-24)
+- [ ] Section not yet fully implemented — DiagnosticManager does not auto-bridge to SystemState, no output auto-scroll, problems view lacks line/column navigation, no diagnostic collection usage by modules
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -330,11 +330,11 @@ This section is intended to cover diagnostic collection lifecycle, problem prese
 | Problems and Output are first-class shell views (aggregated diagnostics + channel logs) | yes | yes | yes | yes | yes | partial | `TestAppModule` registers `ForgeProblemsView` and `ForgeOutputView`; views are mounted in bottom panel tabs (`Problems`, `Output`) |
 | Diagnostic lifecycle supports named collections via `createCollection` for producer isolation | yes | yes | yes | yes | partial | no | `DefaultDiagnosticManager.createCollection` and `DefaultDiagnosticCollection` exist; no module usage of `createCollection` found in scanned UI/editor packages |
 | Diagnostic CRUD and URI-scoped queries are defined (`all`, `forUri`, `set`, `delete`, `clear`) | yes | yes | yes | yes | yes | no | `ForgeDiagnosticManager`/`ForgeDiagnosticCollection` APIs plus `DefaultDiagnosticManager` + collection implement `all`, `forUri`, `set`, `delete`, `clear` |
-| System state synchronization includes aggregated diagnostic summary and diagnostics-changed events | yes | yes | yes | yes | partial | no | `DefaultSystemState` maintains `diagnosticSummary`, `diagnostics`, `onDiagnosticsChanged`, and `setDiagnostics`; no automatic bridge from `DefaultDiagnosticManager` into `DefaultSystemState` |
+| System state synchronization includes aggregated diagnostic summary and diagnostics-changed events | yes | yes | yes | yes | partial | no | `DefaultSystemState` maintains `diagnosticSummary`, `diagnostics`, `onDiagnosticsChanged`, and `setDiagnostics`; but there is no automatic bridge — `DefaultDiagnosticManager` does not call `setDiagnostics` on `DefaultSystemState` |
 | Problems presentation supports severity-rich entries and click-to-navigate to source | no | yes | yes | yes | partial | partial | `ForgeProblemsView` shows severity icons/colors and click opens file via `layoutController.openFile(diag.uri)`; no line/column jump into editor location |
 | Output channel manager supports channel lifecycle and write operations (`create/get/list`, `append`, `appendLine`, `clear`) | yes | yes | yes | yes | yes | no | `DefaultOutputChannelManager` and `DefaultOutputChannel` implement lifecycle and write/clear operations |
 | Output view supports channel selection, scrollable logs, and timestamped/readable channel output | yes | yes | yes | yes | partial | no | `ForgeOutputView` supports channel dropdown + scrollable monospace logs; no timestamp rendering in channel output |
-| Output UX behavior defines auto-scroll strategy and preserves user position when not at bottom | no | yes | yes | yes | no | no | `ForgeOutputView` has `ScrollController` but no auto-scroll/preserve-position logic implemented |
+| Output UX behavior defines auto-scroll strategy and preserves user position when not at bottom | no | yes | yes | yes | no | no | `ForgeOutputView` has `ScrollController` but no auto-scroll or preserve-position logic; contrast with `ForgeTerminalView` which does auto-scroll after commands |
 | Throughput and retention constraints are defined for output channels (ring buffer with line limits) | no | no | no | yes | no | no | documented in `forge_panel_shell_spec.md` output channel limits/performance table |
 | Error/reporting flows integrate output logging with diagnostic emission for the same failure path | yes | yes | yes | yes | no | no | no code path found that emits diagnostics and output log entries together for the same failure scenario |
 | Test coverage expectations include diagnostic manager, output channel manager, and Problems-view integration tests | yes | no | yes | yes | partial | no | `tom_forge_core_test.dart` covers `DefaultDiagnosticManager` and `DefaultOutputChannelManager`; no dedicated `ForgeProblemsView` integration tests found |
@@ -342,7 +342,7 @@ This section is intended to cover diagnostic collection lifecycle, problem prese
 ## 17. Status Bar and Context Signaling
 This section is intended to cover status bar item contribution, placement, update cadence, and context-sensitive values (cursor/language/diagnostics/etc.). Include checks for shell aggregation and per-module/component status item quality.
 
-- [x] Section implemented (completed on 2025-07-24)
+- [ ] Section not yet fully implemented — ForgeStatusBarWidget never filters by isActive(), cursor status item is never updated from editor context, no status-bar progress rendering
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -353,8 +353,8 @@ This section is intended to cover status bar item contribution, placement, updat
 | Placement model is explicit by alignment zones (`left`, `center`, `right`) | yes | yes | yes | yes | yes | no | `StatusBarAlignment` enum + `ForgeStatusBarWidget` segments left/center/right zones |
 | Ordering within each alignment zone is controlled by item priority | yes | yes | yes | yes | yes | no | `DefaultStatusBarController` and `ForgeStatusBarWidget` sort by `priority` |
 | Status items can be interactive (tap handler for context actions such as language switch) | yes | yes | yes | yes | partial | no | `StatusBarItem.onTap` exists and widget wraps items in `GestureDetector`; test module items do not provide tap actions |
-| Context-signaling data sources include active editor cursor, language mode, encoding, and diagnostic summary | yes | yes | yes | yes | partial | partial | test module contributes cursor/language/encoding/diagnostic items; language + diagnostics update from shell state, cursor/encoding remain static placeholders |
-| Dynamic visibility and content updates track focus/editor changes and system-state transitions | yes | yes | yes | yes | partial | partial | test module listens to `onEditorsChanged` and `onDiagnosticsChanged`; no focus/selection-driven cursor updates and no widget-level `isActive` filtering |
+| Context-signaling data sources include active editor cursor, language mode, encoding, and diagnostic summary | yes | yes | yes | yes | partial | no | test module contributes cursor/language/encoding/diagnostic items; language + diagnostics update from shell state events; cursor status item is initialized but never actually updated from editor cursor position; encoding remains static |
+| Dynamic visibility and content updates track focus/editor changes and system-state transitions | yes | yes | yes | yes | partial | no | test module listens to `onEditorsChanged` and `onDiagnosticsChanged`; no focus/selection-driven cursor updates; `ForgeStatusBarWidget` does not call `isActive` to filter items based on system state |
 | Progress can signal in status bar region (or overlay), including high-contrast static-update mode | yes | no | yes | yes | partial | no | `ForgeProgressLocation` includes `statusBar`/`overlay` and progress manager accepts location; no status-bar progress rendering or high-contrast static mode implementation |
 | Integration evidence requires module status items for cursor/language indicators | yes | yes | yes | yes | yes | partial | `TestAppModule` registers cursor + language status items and shell renders them; language is editor-driven, cursor currently not synchronized from editor context |
 | Test coverage expectations include dedicated status bar controller tests and widget segments | yes | no | yes | yes | no | no | no `status_bar_test.dart` or dedicated status bar widget/controller tests found in repository test folders |
@@ -362,7 +362,7 @@ This section is intended to cover status bar item contribution, placement, updat
 ## 18. Terminal, Process, and Runtime Tooling Integration
 This section is intended to cover terminal manager behavior, terminal lifecycle events, process/output integration, and module usage of runtime tooling services. Include checks for shell terminal infrastructure and module-level runtime interactions.
 
-- [x] Section implemented (completed on 2025-07-24)
+- [ ] Section not yet fully implemented — terminal backend is stub-only (no PTY), lifecycle events not wired, ForgeTerminalView exists but is not registered in test app bottom panel
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -382,7 +382,7 @@ This section is intended to cover terminal manager behavior, terminal lifecycle 
 ## 19. Editor Base Contracts and Text Editing Core
 This section is intended to cover `ForgeEditor`/`ForgeTextEditor`/`ForgeDocument` contracts, text operations, selection/cursor/visible range reporting, and editor integration bridge behavior. Include checks for shared Forge editor base and each integrated editor module.
 
-- [x] Section implemented (completed on 2025-07-24)
+- [ ] Section not yet fully implemented — canHandleContent never called in open flow, ForgeDocument.onDidChange returns Stream.empty(), ForgeDocumentAdapter unused, onDirtyStateChanged never emitted
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -394,20 +394,20 @@ This section is intended to cover `ForgeEditor`/`ForgeTextEditor`/`ForgeDocument
 | Core text mutation operations are defined (`insertText`, `replaceRange`, `deleteRange`) | yes | yes | yes | yes | yes | yes | text mutation APIs implemented in `ForgeMdEditor` and `ForgeDartEditor` and verified in integration tests |
 | Cursor/selection control and navigation operations are defined (`setCursorPosition`, `setSelection`, `revealPosition`, `revealRange`) | yes | yes | yes | yes | partial | partial | operations exist in adapters, but markdown selection control is constrained by underlying controller API (cursor-driven selection fallback) |
 | In-editor query/search primitives are part of text core (`findAll`) | yes | yes | yes | yes | yes | yes | `findAll` implemented in both text adapters using pattern matching over controller text |
-| Document contract (`ForgeDocument`) includes text extraction, language id, encoding, and change model | yes | yes | yes | yes | partial | partial | core `ForgeDocument` contract exists; adapter-backed documents expose text/language/encoding but currently return static version and empty change stream |
+| Document contract (`ForgeDocument`) includes text extraction, language id, encoding, and change model | yes | yes | yes | yes | partial | no | core `ForgeDocument` contract exists; adapter-backed documents expose text/language/encoding but `onDidChange` returns `Stream.empty()` in both md and dart adapters; shared `ForgeDocumentAdapter` with real StreamController exists in tom_editors_shared but is unused |
 | Text editor options pipeline is standardized (`ForgeTextEditorOptions`, `updateOptions`) | yes | yes | yes | yes | yes | yes | standardized options type exists in core and is implemented in both text adapters via `options` + `updateOptions` |
 | Bridge/integration path includes shared `ForgeDocumentAdapter` for existing editors | yes | yes | yes | yes | partial | no | shared `ForgeDocumentAdapter` exists in `tom_editors_shared`, but current forge adapters use local `ForgeDocument` wrappers instead of this bridge base |
-| System-state integration ties editor base contracts to `activeEditor`, `dirtyEditors`, and selection-change events | yes | yes | yes | yes | partial | partial | active editor + editor context wiring is present (`DefaultSystemState`, `ShellEditorIntegration`), while dirty/selection event streams are not fully emitted through runtime flows |
+| System-state integration ties editor base contracts to `activeEditor`, `dirtyEditors`, and selection-change events | yes | yes | yes | yes | partial | no | `activeEditor` tracking works via `DefaultSystemState`; `dirtyEditors` ValueNotifier updates; but `onDirtyStateChanged` stream `.add()` is never called and selection-change events are not bridged from editors to system state |
 
 ## 20. Text Settings, Context Discovery, and Configuration Injection
 This section is intended to cover `ForgeTextSettings`, context discovery (`ForgeTextContext`), per-editor-type settings, and runtime settings propagation. Include checks for shell persistence/injection and per-editor adaptation behavior.
 
-- [x] Section implemented (completed on 2025-07-24)
+- [ ] Section not yet fully implemented — updateOptions stores but does not apply to underlying editor widgets, no typed getModuleConfig API, editor adaptation maps to ForgeTextSettings not ForgeTextEditorOptions
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
 | Text editor option contract is standardized through `ForgeTextEditorOptions` in base API | yes | yes | yes | yes | yes | yes | `ForgeTextEditorOptions` is defined in core and exposed through `ForgeTextEditor.options/updateOptions`; md/dart forge adapters implement it |
-| Per-editor runtime option mutation is defined (`updateOptions`) for live settings propagation | yes | yes | yes | yes | partial | partial | runtime mutation methods exist in md/dart adapters, but current implementation stores options without applying them to underlying editor widgets |
+| Per-editor runtime option mutation is defined (`updateOptions`) for live settings propagation | yes | yes | yes | yes | partial | no | `updateOptions` in md/dart adapters only stores `_options = options` without propagating to underlying editor widgets; shell calls `_propagateSettingsToActiveEditors()` but the stored options are never applied |
 | Editor adaptation requires mapping existing editor settings to `ForgeTextEditorOptions` | yes | yes | yes | yes | no | no | existing adaptation maps theme/editor settings to `ForgeTextSettings` (md/yaml), not to `ForgeTextEditorOptions` |
 | Configuration service is part of shell runtime (`ForgeConfigManager`) and accessible to modules | yes | no | yes | yes | yes | no | `ForgeShellApi.config` is present and wired to `DefaultConfigManager` in `DefaultShellApi.withDefaultsAndFileSystem` |
 | Config manager supports structured updates and typed module config lookup (`update`, `getModuleConfig`) | yes | yes | yes | yes | partial | no | `update` exists on `ForgeConfigManager`, but typed `getModuleConfig` API is not present in current core config manager contract |
@@ -422,12 +422,12 @@ This section is intended to cover `ForgeTextSettings`, context discovery (`Forge
 ## 21. Undo/Redo, Dirty State, and Save Lifecycle
 This section is intended to cover undo/redo behavior, dirty tracking semantics, save/save-all/will-save/did-save event flow, and consistency across editors. Include checks for shell-level state handling and per-editor implementation consistency.
 
-- [x] Section implemented (completed on 2025-07-24)
+- [ ] Section not yet fully implemented — onDirtyStateChanged stream never emitted (.add() never called), save lifecycle streams not wired to editor dirty state, no .forge/undo persistence
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
 | Editor base contract includes dirty-state observables (`isDirty`) shared across editor types | yes | yes | yes | yes | yes | yes | `ForgeEditor` requires `isDirty`; md/dart/yaml adapters expose dirty listenables (`forge_editor.dart`, `forge_md_editor.dart`, `forge_dart_editor.dart`, `forge_yaml_editor.dart`) |
-| System state tracks dirty editors and publishes dirty-state change events | yes | yes | yes | yes | partial | partial | `DefaultSystemState` tracks `dirtyEditors` and exposes `onDirtyStateChanged`, but no runtime emission for dirty events is implemented (`_onDirtyStateChanged.add` not used) |
+| System state tracks dirty editors and publishes dirty-state change events | yes | yes | yes | yes | partial | no | `DefaultSystemState` tracks `dirtyEditors` ValueNotifier and exposes `onDirtyStateChanged` stream, but `.add()` is never called anywhere — the stream is permanently empty |
 | Save lifecycle streams are defined (`onWillSave`, `onDidSave`) for pre/post-save integration | yes | yes | yes | yes | yes | no | `ForgeFileSystem` contract and real/memory implementations expose `onWillSave` and `onDidSave`; stream tests exist in core, but editor dirty lifecycle is not wired to these streams |
 | Save reasons are classified (`manual`, `autoSave`, `focusLoss`) for lifecycle semantics | yes | yes | yes | yes | yes | no | `SaveReason` enum includes all three reasons; current save implementations emit `SaveReason.manual` only |
 | Auto-save and revisioning settings are configurable at shell-level defaults | yes | yes | yes | yes | partial | no | `ForgeConfig` includes `AutoSaveConfig` defaults, but no implemented revisioning settings/runtime revision management found in scanned code |
@@ -442,12 +442,12 @@ This section is intended to cover undo/redo behavior, dirty tracking semantics, 
 ## 22. File Type Resolution and Fallback Opening
 This section is intended to cover `canHandle`/`canHandleContent` resolution, editor selection by URI/content, unknown-type fallback behavior, and file-open error handling. Include checks for shell resolver behavior and per-editor/module resolver contributions.
 
-- [x] Section implemented (completed on 2025-07-24)
+- [ ] Section not yet fully implemented — canHandleContent phase-2 never invoked in runtime open flow, no Open-with chooser UI, no File Types override
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
 | File-type resolution is contract-driven at editor level (`canHandle`, `canHandleContent`) | yes | yes | yes | yes | yes | partial | core/editor contracts define both phases and adapters implement `canHandle`; runtime resolver wiring currently uses `canHandle` only |
-| Resolver is explicitly two-phase (URI-first, content-inspection second) | yes | yes | yes | yes | partial | no | `ForgeEditor` + `ForgeSchemaEditor` define two phases and YAML adapter implements content inspection, but layout open flow does not call `canHandleContent` |
+| Resolver is explicitly two-phase (URI-first, content-inspection second) | yes | yes | yes | yes | partial | no | `ForgeEditor` + `ForgeSchemaEditor` define two phases and YAML adapter implements content inspection, but `DefaultLayoutController._createEditor` resolves by extension switch only — `canHandleContent` is never called |
 | Decision result model is standardized (`accept`, `reject`, `inspect`) | yes | yes | yes | yes | yes | partial | standardized `FileHandlingResult` enum exists in core and is used by editors/resolver checks, with runtime primarily consuming `accept` |
 | Schema/content-sensitive editors use `inspect` and Phase-2 acceptance rules | yes | yes | yes | yes | partial | no | `ForgeSchemaEditor.canHandle` returns `inspect` and `ForgeYamlEditor.canHandleContent` implements phase-2 rules, but no phase-2 runtime invocation found |
 | Resolver priority defaults to module declaration order for accepted editors | yes | yes | yes | yes | yes | partial | fallback resolver iterates modules and editors in declaration order and selects first `accept` for non hard-mapped extensions |
@@ -462,7 +462,7 @@ This section is intended to cover `canHandle`/`canHandleContent` resolution, edi
 ## 23. Advanced Data Services (Decorations, Outline, Virtual Documents, Workspace Edits)
 This section is intended to cover decoration pipelines, outline provider integration, virtual document providers, and multi-file workspace edit application. Include checks for shell service APIs and per-module/component usage coverage.
 
-- [x] Section implemented (completed on 2025-07-24)
+- [ ] Section not yet fully implemented — file decorations not consumed in explorer, virtual document providers not consumed at runtime, outline onDidChange not wired to refresh, workspace edits not consumed by editors
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -482,7 +482,7 @@ This section is intended to cover decoration pipelines, outline provider integra
 ## 24. Application Model and Multi-Application Switching
 This section is intended to cover application definitions, switching behavior, in-memory retention of inactive applications, and app-specific layout/action contexts. Include checks for global Forge behavior and module/component behavior across application switches.
 
-- [x] Section implemented (completed on 2025-07-24)
+- [ ] Section not yet fully implemented — no multi-app demo, no switching lifecycle, no per-app persistence, inactive app state not preserved
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -502,12 +502,12 @@ This section is intended to cover application definitions, switching behavior, i
 ## 25. State Persistence and Recovery
 This section is intended to cover persistence of shell settings, per-editor settings, panel/application state expectations, and recovery behavior after restart. Include checks for shell persistence services and per-module persistence responsibilities.
 
-- [x] Section implemented (completed on 2025-07-24)
+- [ ] Section not yet fully implemented — DefaultWorkspaceStateManager has real I/O code but .forge/state/ persistence not fully wired at runtime, no layout.json/open-editors.json restore, no undo persistence
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
-| Workspace state storage model is defined under `<workspace>/.forge/` (layout, open editors, revisions, undo history) | yes | yes | yes | yes | no | no | documented model only; no runtime `.forge/state/*` persistence implementation found in shell/layout code |
-| Startup recovery sequence restores config and state (`.forge/config.json`, `.forge/state/layout.json`, `.forge/state/open-editors.json`) | yes | yes | yes | yes | no | no | `ForgeShellScaffold` restores preference text settings only; no startup restore path for `.forge/config.json`/layout/open-editors |
+| Workspace state storage model is defined under `<workspace>/.forge/` (layout, open editors, revisions, undo history) | yes | yes | yes | yes | partial | no | `DefaultWorkspaceStateManager` exists with real I/O for `.forge/state/*` files (saveLayoutState, saveOpenEditors, etc.) and scaffold calls `_saveWorkspaceState()` on shutdown; but not wired to editor state adapters for per-editor persistence |
+| Startup recovery sequence restores config and state (`.forge/config.json`, `.forge/state/layout.json`, `.forge/state/open-editors.json`) | yes | yes | yes | yes | partial | partial | `ForgeShellScaffold._restoreLayoutState()` restores panel sizes, visibility, and re-opens previously open editors from preferences; `.forge/config.json` and `.forge/state/` file restore paths not wired at startup |
 | Configuration is merged from code defaults plus persisted overrides at startup | yes | yes | yes | yes | partial | partial | `ForgePreferencesService` merges persisted editor text settings with `ForgeTextDefaults` and `ForgeShellScaffold` applies them at startup |
 | Configuration changes persist to `.forge/config.json` and support reset to code defaults | yes | yes | yes | yes | partial | no | `DefaultConfigManager.resetToDefaults()` exists, but no `.forge/config.json` persistence path is implemented |
 | Layout persistence is per application with save/load flow in `.forge/state/layout.json` | yes | yes | yes | yes | no | no | `DefaultLayoutController` manages in-memory panel/editor state only; no layout save/load to disk |
@@ -522,7 +522,7 @@ This section is intended to cover persistence of shell settings, per-editor sett
 ## 26. Error Handling and Recovery Patterns
 This section is intended to cover error classification, user-facing recovery feedback, fallback behavior, and non-fatal degradation patterns. Include checks for shell-level resilience and per-module/component error hygiene.
 
-- [x] Section implemented (completed on 2025-07-24)
+- [ ] Section not yet fully implemented — error patterns documented but mostly not implemented in runtime code, no retry utility, no diagnostic code taxonomy, no module failure isolation test
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -542,7 +542,7 @@ This section is intended to cover error classification, user-facing recovery fee
 ## 27. Performance and Scalability
 This section is intended to cover responsiveness budgets, lazy loading/virtualization strategy, expensive-operation isolation, and large-workspace behavior. Include checks for shell infrastructure and per-module/component performance hotspots.
 
-- [x] Section implemented (completed on 2025-07-24)
+- [ ] Section not yet fully implemented — documented targets only, no LRU editor closure, no watcher consolidation, no search cache, no budget monitoring
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -562,7 +562,7 @@ This section is intended to cover responsiveness budgets, lazy loading/virtualiz
 ## 28. Testing and Quality Gates
 This section is intended to cover unit/widget/integration/E2E test expectations, analyzer/test gates, regression scope, and promotion criteria from staging to production app. Include checks for framework-level quality gates and per-module/component test coverage.
 
-- [x] Section implemented (completed on 2025-07-24)
+- [ ] Section not yet fully implemented — test strategy documented but coverage targets not met, no golden tests, limited widget interaction tests, no promotion gate passes
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -582,7 +582,7 @@ This section is intended to cover unit/widget/integration/E2E test expectations,
 ## 29. Feature Matrix by Scope (Forge vs Module vs Component)
 This section is intended to provide a cross-cutting checklist matrix for every feature area, explicitly separating: (a) Forge core responsibility, (b) module-level implementation responsibility, and (c) component-level behavior responsibility.
 
-- [x] Section implemented (completed on 2025-07-24)
+- [ ] Section not yet fully implemented — cross-cutting documentation exists but most rows show partial implementation with significant runtime wiring gaps
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
