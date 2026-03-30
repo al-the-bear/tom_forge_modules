@@ -542,22 +542,22 @@ This section is intended to cover error classification, user-facing recovery fee
 ## 27. Performance and Scalability
 This section is intended to cover responsiveness budgets, lazy loading/virtualization strategy, expensive-operation isolation, and large-workspace behavior. Include checks for shell infrastructure and per-module/component performance hotspots.
 
-- [ ] Section completed (finished on 2026-03-30T06:46:24+02:00)
+- [x] Section completed (finished on 2026-03-30T10:46:06+02:00)
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
-| Performance strategy section defines explicit contracts for memory, lazy loading, and virtualization | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_spec.md` Performance Strategies overview |
-| Open-editor scalability target is defined with LRU closure policy for least-recently-focused editors | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_spec.md` capacity table |
-| File-watcher scalability target is defined (1000 paths) with consolidation to parent directories | yes | no | yes | yes | no | no | documented in `forge_panel_shell_spec.md` capacity table |
-| Search cache memory budget is defined (50MB) with LRU eviction strategy | yes | no | yes | yes | no | no | documented in `forge_panel_shell_spec.md` cache limits and implementation notes |
-| Image preview cache memory budget is defined (100MB) with LRU eviction strategy | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_spec.md` capacity table |
-| Runtime budget monitoring contract exists (`usage`, `budget`, high-usage signaling, forced eviction) | yes | no | yes | yes | no | no | documented in `forge_panel_shell_spec.md` memory budget interfaces |
-| Expensive computations (outline/diagnostics/symbols) are isolated behind generation-based caching | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_spec.md` generation cache pattern |
-| Autosave responsiveness is controlled via debounce (default 1000ms, configurable) | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_spec.md` debounce policy |
-| File watcher responsiveness uses batch + throttle with explicit 50ms window | yes | no | yes | yes | no | no | documented in `forge_panel_shell_spec.md` throttle configuration |
-| Diagnostic subsystem includes explicit scalability expectation for large sets (10K diagnostics) | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_spec.md` service matrix |
-| File-system service acknowledges concurrent-access and multi-file-operation performance constraints | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_spec.md` `ForgeFileSystem` service matrix |
-| Multi-application shell model keeps apps alive in memory; this is an intentional performance tradeoff requiring resource management | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` multi-application memory behavior |
+| Performance strategy section defines explicit contracts for memory, lazy loading, and virtualization | yes | yes | yes | yes | partial | no | runtime shows selective lazy behavior (explorer folder expansion) but no implemented global performance contract in shell/services |
+| Open-editor scalability target is defined with LRU closure policy for least-recently-focused editors | yes | yes | yes | yes | no | no | `DefaultLayoutController` tracks open editors but has no LRU close policy or least-recently-focused eviction |
+| File-watcher scalability target is defined (1000 paths) with consolidation to parent directories | yes | no | yes | yes | no | no | `RealFileSystem.watch` directly delegates to `Directory.watch`/`File.watch` with no path-consolidation strategy |
+| Search cache memory budget is defined (50MB) with LRU eviction strategy | yes | no | yes | yes | no | no | `RealSearchManager` performs direct scans and returns results without a bounded/LRU cache |
+| Image preview cache memory budget is defined (100MB) with LRU eviction strategy | yes | yes | yes | yes | no | no | no explicit image-preview cache budget or LRU image eviction layer found in scanned runtime/editor packages |
+| Runtime budget monitoring contract exists (`usage`, `budget`, high-usage signaling, forced eviction) | yes | no | yes | yes | no | no | no runtime budget telemetry/threshold signaling/forced eviction implementation found |
+| Expensive computations (outline/diagnostics/symbols) are isolated behind generation-based caching | yes | yes | yes | yes | partial | partial | editor-side caches/debounce exist (`SummaryBackedDartAnalysisAdapter` cached driver/completions, YAML cached validation errors), but no generation-based shared shell cache |
+| Autosave responsiveness is controlled via debounce (default 1000ms, configurable) | yes | yes | yes | yes | partial | partial | markdown editor supports configurable autosave debounce (`autoSaveDebounce`), but default differs and behavior is not uniformly wired across all editors |
+| File watcher responsiveness uses batch + throttle with explicit 50ms window | yes | no | yes | yes | no | no | file watch streams are direct pass-through; no batch/throttle window implementation found |
+| Diagnostic subsystem includes explicit scalability expectation for large sets (10K diagnostics) | yes | yes | yes | yes | no | no | diagnostics manager and Problems view aggregate/display diagnostics but no 10K-target scalability handling is implemented |
+| File-system service acknowledges concurrent-access and multi-file-operation performance constraints | yes | yes | yes | yes | partial | no | multi-file workspace edit exists, but execution is sequential/best-effort and no concurrency/perf control strategy is implemented |
+| Multi-application shell model keeps apps alive in memory; this is an intentional performance tradeoff requiring resource management | yes | yes | yes | yes | partial | no | system state tracks `applications` and active application, while shell UI exposes only a single-item app switcher and no resource-management policy |
 
 ## 28. Testing and Quality Gates
 This section is intended to cover unit/widget/integration/E2E test expectations, analyzer/test gates, regression scope, and promotion criteria from staging to production app. Include checks for framework-level quality gates and per-module/component test coverage.
