@@ -216,6 +216,13 @@ class DefaultShellApi implements ForgeShellApi {
       initial: const ForgeConfig(),
     );
     final notificationManager = DefaultNotificationManager();
+
+    // Late-wire error-reporting services into the module registry so
+    // activation/deactivation failures are reported to diagnostics,
+    // notifications, and the output channel.
+    moduleRegistry.diagnosticManager = diagnosticManager;
+    moduleRegistry.notificationManager = notificationManager;
+    moduleRegistry.outputManager = outputManager;
     final progressManager = DefaultProgressManager();
     final dialogManager = DefaultDialogManager();
     final undoManager = DefaultUndoManager();

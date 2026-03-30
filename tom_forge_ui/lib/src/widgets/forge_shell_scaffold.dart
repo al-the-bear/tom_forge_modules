@@ -341,7 +341,8 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     final wsState = widget.shell.workspaceState;
     if (!wsState.isInitialized) return;
 
-    // Restore config from .forge/config.json.
+    // Restore config from .forge/config.json. On parse failure, notify
+    // the user and continue with default configuration (CF001).
     try {
       final configData = await wsState.loadConfig();
       if (configData != null) {
@@ -354,6 +355,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       if (debugEnabled) {
         debugPrint('[ForgeShellScaffold] restore config failed: $e');
       }
+      widget.shell.notifications.showWarning(
+        'Configuration could not be loaded — using defaults. ($e)',
+      );
     }
 
     if (wsState is! DefaultWorkspaceStateManager) return;
@@ -1046,7 +1050,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     } catch (error, stackTrace) {
       debugPrint('[ForgeShellScaffold] execute save failed: $error');
       debugPrint('$stackTrace');
-      rethrow;
+      widget.shell.notifications.showError(
+        'Save failed: $error',
+      );
     }
   }
 

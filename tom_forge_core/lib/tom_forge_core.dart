@@ -29,6 +29,7 @@ export 'src/types/file_handling_result.dart';
 export 'src/types/text_editor_options.dart';
 export 'src/types/decoration_types.dart';
 export 'src/types/forge_enums.dart';
+export 'src/types/forge_error_codes.dart';
 export 'src/types/forge_events.dart';
 export 'src/types/workspace_edit.dart';
 export 'src/types/forge_listenable.dart';
@@ -58,6 +59,7 @@ export 'src/services/forge_virtual_document_manager.dart';
 
 // Default implementations (pure-Dart)
 export 'src/defaults/default_config_manager.dart';
+export 'src/defaults/forge_retry_policy.dart';
 export 'src/defaults/default_diagnostic_manager.dart';
 export 'src/defaults/default_execution_monitor.dart';
 export 'src/defaults/default_notification_manager.dart';
