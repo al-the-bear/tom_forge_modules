@@ -62,11 +62,22 @@ This section is intended to cover application definitions, switching behavior, i
 ## 4. Module Integration and Ownership Boundaries
 This section is intended to cover module contracts, registration, module-provided views/editors/actions/shortcuts, and module-to-shell ownership boundaries. Include checks for shell-level module orchestration and per-module conformance.
 
-- [ ] Section completed (finished on ...)
+- [x] Section completed (finished on 2026-03-30T06:03:41+02:00)
 
 | category | per module? | per component? | to be implemented in modules? | shell implementation done? | implemented on |
 |---|---|---|---|---|---|
-| | | | | | |
+| Module contract defines lifecycle and contributions (`activate/deactivate`, editors, views, actions, shortcuts) | yes | no | yes | yes | documented in `forge_panel_shell_concept.md` (`ForgeModule` contract) |
+| Components are owned by exactly one module | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` ownership rules |
+| Shell discovers components through configured modules (no global component registry) | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` design notes |
+| Shell module ownership boundary: built-in views belong to `TomForgeShellModule` | yes | yes | yes (for custom module boundaries) | yes | documented in `forge_panel_shell_concept.md` module notes |
+| Module integration is compile-time and type-safe (no dynamic loading/marketplace sandbox) | yes | no | yes | yes | documented in `forge_panel_shell_concept.md` architecture principles |
+| Module cross-references are type-safe (`modules.get<T>()`) | yes | no | yes | yes | documented in `forge_panel_shell_concept.md` shell API section |
+| Module activation order uses declaration order during startup | yes | no | yes (module dependency-safe design) | yes | documented in `forge_panel_shell_concept.md` lifecycle and `forge_panel_shell_spec.md` event ordering |
+| Module deactivation order is reverse declaration order at shutdown | yes | no | yes | yes | documented in `forge_panel_shell_concept.md` lifecycle and `forge_panel_shell_spec.md` event ordering |
+| Module contributions are published to shell registries (actions/shortcuts/views/editors) | yes | yes | yes | yes | implemented evidence in `tom_forge_full_integration.md` Phase B and shell lifecycle docs |
+| Module failure isolation boundary (one failing module must not crash shell) | yes | no | yes (defensive module code) | yes | documented in `forge_panel_shell_spec.md` module error handling |
+| Module declaration order influences editor resolution priority | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` file resolution notes |
+| Module integration acceptance includes required actions/shortcuts/views/status items | yes | yes | yes | yes | documented in `tom_forge_full_integration.md` Phase E acceptance evidence |
 
 ## 5. Component Model (Views and Editors)
 This section is intended to cover component contracts (`title`, `icon`, `buildMain`, `buildCopy`, size hints), view vs editor semantics, and component identity. Include checks at shell level and per component implementation in each module.
