@@ -57,6 +57,7 @@ export 'src/services/forge_shortcut_manager.dart';
 export 'src/services/forge_terminal_manager.dart';
 export 'src/services/forge_undo_manager.dart';
 export 'src/services/forge_virtual_document_manager.dart';
+export 'src/services/forge_workspace_state_manager.dart';
 
 // ── Testing ──
 export 'src/testing/test_document.dart';
@@ -81,6 +82,7 @@ export 'src/defaults/default_shell_api.dart';
 export 'src/defaults/default_status_bar_controller.dart';
 export 'src/defaults/default_system_state.dart';
 export 'src/defaults/default_undo_manager.dart';
+export 'src/defaults/default_workspace_state_manager.dart';
 export 'src/defaults/memory_file_system.dart';
 export 'src/defaults/real_file_system.dart';
 export 'src/defaults/real_search_manager.dart';

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -120,6 +122,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   DefaultLayoutController get _layout => widget.layoutController;
   bool _showCommandPalette = false;
   late final ForgePreferencesService _preferences;
+  StreamSubscription<Uri>? _saveSubscription;
 
   @override
   void initState() {
@@ -127,12 +130,15 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     _preferences = widget.preferencesService ?? ForgePreferencesService.instance;
     _preferences.addListener(_onPreferencesChanged);
     _initializePreferences();
+    _listenForSaveRevisions();
   }
 
   @override
   void dispose() {
+    _saveSubscription?.cancel();
     _preferences.removeListener(_onPreferencesChanged);
     _saveLayoutState();
+    _saveWorkspaceState();
     widget.shell.dispose();
     super.dispose();
   }
@@ -276,6 +282,52 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       if (loc.name == name) return loc;
     }
     return null;
+  }
+
+  /// Listens for file save events and creates revision snapshots.
+  void _listenForSaveRevisions() {
+    final wsState = widget.shell.workspaceState;
+    if (!wsState.isInitialized) return;
+    _saveSubscription = widget.shell.fileSystem.onDidSave.listen((uri) async {
+      try {
+        final content = await widget.shell.fileSystem.read(uri);
+        await wsState.createRevision(uri, content);
+        await wsState.pruneRevisions(uri);
+      } catch (e) {
+        if (debugEnabled) {
+          debugPrint('[ForgeShellScaffold] revision on save failed: $e');
+        }
+      }
+    });
+  }
+
+  /// Saves workspace state (layout + open editors) to `.forge/` on shutdown.
+  void _saveWorkspaceState() {
+    final wsState = widget.shell.workspaceState;
+    if (!wsState.isInitialized) return;
+    try {
+      // Save open editor URIs to .forge/state/open-editors.json
+      final openUris = widget.systemState.openEditors
+          .map((e) => e.uri.toString())
+          .toList();
+      wsState.saveOpenEditors(openUris);
+
+      // Save layout state to .forge/state/layout.json
+      final layoutData = <String, dynamic>{};
+      for (final location in ForgePanelLocation.values) {
+        if (location == ForgePanelLocation.middle) continue;
+        final config = _layout.getPanelConfig(location);
+        if (config != null) {
+          layoutData[location.name] = {
+            'size': config.size,
+            'isVisible': config.isVisible,
+          };
+        }
+      }
+      wsState.saveLayoutState(layoutData);
+    } catch (e) {
+      debugPrint('[ForgeShellScaffold] save workspace state failed: $e');
+    }
   }
 
   void _openSettings() {

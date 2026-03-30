@@ -23,6 +23,7 @@ import '../services/forge_shortcut_manager.dart';
 import '../services/forge_terminal_manager.dart';
 import '../services/forge_undo_manager.dart';
 import '../services/forge_virtual_document_manager.dart';
+import '../services/forge_workspace_state_manager.dart';
 import '../shell/forge_layout_controller.dart';
 import '../shell/forge_module_registry.dart';
 import '../shell/forge_shell_api.dart';
@@ -43,6 +44,7 @@ import 'default_search_manager.dart';
 import 'default_status_bar_controller.dart';
 import 'default_system_state.dart';
 import 'default_undo_manager.dart';
+import 'default_workspace_state_manager.dart';
 import 'memory_file_system.dart';
 import 'real_file_system.dart';
 import 'real_search_manager.dart';
@@ -122,6 +124,9 @@ class DefaultShellApi implements ForgeShellApi {
   @override
   final ForgeShortcutManager shortcuts;
 
+  /// Workspace-scoped state manager for `.forge/` directory.
+  final ForgeWorkspaceStateManager workspaceState;
+
   final Map<String, ForgeTextSettings> _editorTextSettings = {};
 
   DefaultShellApi({
@@ -148,7 +153,8 @@ class DefaultShellApi implements ForgeShellApi {
     required this.search,
     required this.actionRegistry,
     required this.shortcuts,
-  });
+    ForgeWorkspaceStateManager? workspaceState,
+  }) : workspaceState = workspaceState ?? DefaultWorkspaceStateManager();
 
   /// Creates a [DefaultShellApi] with all default implementations wired.
   ///
@@ -297,6 +303,7 @@ class DefaultShellApi implements ForgeShellApi {
     if (registry is DefaultModuleRegistry) {
       registry.deactivateAll();
     }
+    workspaceState.dispose();
     final layoutCtrl = layout;
     if (layoutCtrl is DefaultLayoutController) {
       layoutCtrl.dispose();
