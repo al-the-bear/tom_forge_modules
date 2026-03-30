@@ -522,21 +522,21 @@ This section is intended to cover persistence of shell settings, per-editor sett
 ## 26. Error Handling and Recovery Patterns
 This section is intended to cover error classification, user-facing recovery feedback, fallback behavior, and non-fatal degradation patterns. Include checks for shell-level resilience and per-module/component error hygiene.
 
-- [ ] Section completed (finished on 2026-03-30T06:44:56+02:00)
+- [x] Section completed (finished on 2026-03-30T10:41:24+02:00)
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
-| Error scenarios are explicitly classified with severity and user-facing recovery guidance (error/warning + retry/fallback/edit/manual actions) | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_spec.md` error handling patterns table |
-| File I/O failures define explicit UX patterns (modal/toast) and recovery actions (retry/cancel) | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_spec.md` read/write/delete error rows |
+| Error scenarios are explicitly classified with severity and user-facing recovery guidance (error/warning + retry/fallback/edit/manual actions) | yes | yes | yes | yes | partial | partial | documented in `forge_panel_shell_spec.md` error handling patterns table |
+| File I/O failures define explicit UX patterns (modal/toast) and recovery actions (retry/cancel) | yes | yes | yes | yes | partial | no | documented in `forge_panel_shell_spec.md` read/write/delete error rows |
 | Network timeout path specifies non-fatal behavior with status indication and auto-retry policy | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_spec.md` timeout handling (`Auto-retry 3x`) |
 | Module activation failures are isolated so one failing module does not crash the shell | yes | no | yes | yes | no | no | documented in `forge_panel_shell_spec.md` module isolation and activation failure flow |
 | Module failure recovery includes diagnostics emission, module error-state marking, and user notification | yes | no | yes | yes | no | no | documented in `forge_panel_shell_spec.md` `ForgeDiagnostic`, `ModuleState.error`, and notification calls |
-| Retry utility contract exists with retryable-error typing and custom retry predicate hooks | yes | no | yes | yes | no | no | documented in `forge_panel_shell_spec.md` `executeWithRetry`, `retryableErrors`, `shouldRetry` |
-| Configuration parse failures define fallback-to-defaults behavior with user guidance | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_spec.md` config parse error recovery |
+| Retry utility contract exists with retryable-error typing and custom retry predicate hooks | yes | no | yes | yes | partial | no | documented in `forge_panel_shell_spec.md` `executeWithRetry`, `retryableErrors`, `shouldRetry` |
+| Configuration parse failures define fallback-to-defaults behavior with user guidance | yes | yes | yes | yes | partial | partial | documented in `forge_panel_shell_spec.md` config parse error recovery |
 | Standardized diagnostic code taxonomy exists for module/config/editor/UI failures (`MD*`, `CF*`, `ED*`, `UI*`) | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_spec.md` diagnostic code table |
-| Problems view aggregates diagnostics from providers and supports click-to-navigate/filtering | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` `ForgeDiagnosticManager` + Problems view contract |
-| Notification service exposes info/warning/error channels with action-capable APIs for recovery prompts | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` `ForgeNotificationManager` API |
-| Non-fatal fallback rendering for unsupported editor cases is defined (read-only text fallback) | yes | yes | yes | yes | no | no | documented in `tom_forge_ui_testapp.md` editor fallback behavior |
+| Problems view aggregates diagnostics from providers and supports click-to-navigate/filtering | yes | yes | yes | yes | partial | partial | documented in `forge_panel_shell_concept.md` `ForgeDiagnosticManager` + Problems view contract |
+| Notification service exposes info/warning/error channels with action-capable APIs for recovery prompts | yes | yes | yes | yes | yes | partial | documented in `forge_panel_shell_concept.md` `ForgeNotificationManager` API |
+| Non-fatal fallback rendering for unsupported editor cases is defined (read-only text fallback) | yes | yes | yes | yes | partial | partial | documented in `tom_forge_ui_testapp.md` editor fallback behavior |
 | Test expectations include explicit module error scenario validation (toast + Problems entry while other modules keep working) | yes | no | yes | yes | no | no | documented in `forge_panel_shell_spec.md` scenario matrix |
 
 ## 27. Performance and Scalability
