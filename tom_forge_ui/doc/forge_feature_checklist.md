@@ -102,11 +102,22 @@ This section is intended to cover component contracts (`title`, `icon`, `buildMa
 ## 6. Layout Topology and Panel Composition
 This section is intended to cover title bar, menu bar, left/right/middle/bottom panel structure, and status bar composition. Include checks for the Forge shell layout engine and per-module panel content integration.
 
-- [ ] Section completed (finished on ...)
+- [x] Section completed (finished on 2026-03-30T06:06:58+02:00)
 
 | category | per module? | per component? | to be implemented in modules? | shell implementation done? | implemented on |
 |---|---|---|---|---|---|
-| | | | | | |
+| Top-level shell frame includes title bar, menu bar, panel areas, and status bar | no | no | no | yes | documented in `forge_panel_shell_concept.md` shell structure |
+| Left panel topology: full-height side panel with vertical icon-strip tabs and accordeon content | no | yes | yes | yes | documented in `forge_panel_shell_concept.md` left panel section |
+| Right panel mirrors left panel topology (icon strip + accordeon tabs) | no | yes | yes | yes | documented in `forge_panel_shell_concept.md` right panel section |
+| Middle topology supports 1-4 editor panels with per-panel editor tab bars | no | yes | yes | yes | documented in `forge_panel_shell_concept.md` middle panel section and architecture map |
+| Bottom topology spans between side panels and uses tab bar + accordeon sections | no | yes | yes | yes | documented in `forge_panel_shell_concept.md` bottom panel section |
+| Configuration tab topology is fixed/pinned at bottom of left icon strip | no | no | no | yes | documented in `forge_panel_shell_concept.md` configuration tab rules |
+| Side/bottom panels share accordeon section-hosting composition model | no | yes | yes | yes | documented in `forge_panel_shell_concept.md` accordeon layout description |
+| Panel composition supports drag flows: accordeon reordering, tab moves between side/bottom, middle drop zones for split/add tab | no | yes | yes | yes | documented in `forge_panel_shell_concept.md` drag behavior sections |
+| Menu bar composition is fixed top-level structure populated from shell/modules/components | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` menu bar section |
+| Status bar composition aggregates dynamic items and progress indicators | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` status/progress sections |
+| Platform composition rule: menu bar native placement differs on macOS vs Windows/Linux | no | no | no | yes | documented in `forge_panel_shell_concept.md` platform menu behavior |
+| Implementation evidence: test app shell scaffold and panel/status widgets provide open/close/resize composition behavior | yes | yes | yes | yes | documented in `tom_forge_ui_testapp.md` deliverables/files and `tom_forge_full_integration.md` Phase E evidence |
 
 ## 7. Panel Resizing and Splitter Behavior
 This section is intended to cover draggable splitters, min/max constraints, hover/drag affordances, and resize persistence expectations. Include checks for shell splitter mechanics and module/component behavior under panel size changes.
