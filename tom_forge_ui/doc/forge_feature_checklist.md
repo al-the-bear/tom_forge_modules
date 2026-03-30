@@ -302,11 +302,22 @@ This section is intended to cover quick-pick/input dialogs, open/save dialogs, t
 ## 16. Explorer and Workspace Search
 This section is intended to cover file explorer loading behavior, path handling, reveal/open flows, search query execution, search result navigation, and large-workspace responsiveness. Include checks at shell service level and per-module view behavior.
 
-- [ ] Section completed (finished on ...)
+- [x] Section completed (finished on 2026-03-30T06:27:06+02:00)
 
 | category | per module? | per component? | to be implemented in modules? | shell implementation done? | implemented on |
 |---|---|---|---|---|---|
-| | | | | | |
+| Explorer and Search are defined as shell module views with explicit responsibilities | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` shell module table (`shellModule.explorer`, `shellModule.search`) |
+| Explorer supports workspace file tree operations (open/rename/delete) and double-click open behavior | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` explorer view description |
+| Explorer selection/hover state is exposed in system state for context-driven behaviors | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` (`selectedExplorerItems`, `hoveredExplorerItem`) |
+| Layout API includes explicit reveal flow (`revealInExplorer`) for navigation synchronization | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` layout API and `tom_forge_ui_testapp.md` layout behavior |
+| File opening/resolution uses two-phase URI + content inspection (`canHandle`, `canHandleContent`) | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` file resolution flow and `tom_forge_ui_testapp.md` open-file controller behavior |
+| "Open with" flow is part of resolver behavior for ambiguous matches | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` Open with section and `forge_panel_shell_spec.md` flow notes |
+| Search service API supports programmatic workspace queries and streaming (`search`, `searchStream`) | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` `ForgeSearchManager` and `tom_forge_ui_testapp.md` `TestSearchManager` |
+| Search UI behavior includes grouped-by-file results, match highlighting, click-to-navigate, and result count | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` search view description and `tom_forge_ui_testapp.md` search view behavior |
+| Search context is tracked in system state (`searchQuery`, search active state) | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` search system-state fields |
+| Explorer visual feedback supports file decorations via `ForgeFileDecorationManager` | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` explorer + file decoration manager references |
+| Large-workspace responsiveness strategies exist for search (debounce, indexing, result cache with LRU eviction) | no | no | no | yes | documented in `forge_panel_shell_spec.md` performance strategies (`searchDebounce`, search index, search results cache) |
+| Test coverage expectations include `ForgeSearchManager` service tests and explorer/open-file E2E flows | yes | yes | yes | yes | documented in `forge_panel_shell_spec.md` service test matrix and `tom_forge_ui_testapp.md` deliverables |
 
 ## 17. Diagnostics, Problems, and Output Channels
 This section is intended to cover diagnostic collection lifecycle, problem presentation, output channel behavior, and synchronization with editor/system state. Include checks for shell managers and per-module diagnostic/output producers.
