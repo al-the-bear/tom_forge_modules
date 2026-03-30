@@ -262,11 +262,22 @@ This section is intended to cover keyboard navigation order, focus visibility, f
 ## 14. Theme, Visual Language, and Interaction Feedback
 This section is intended to cover shell theming hooks, color/contrast expectations, active/hover/drag visual states, and consistency of feedback patterns. Include checks for global Forge theming and per-module/component visual integration.
 
-- [ ] Section completed (finished on ...)
+- [x] Section completed (finished on 2026-03-30T06:23:31+02:00)
 
 | category | per module? | per component? | to be implemented in modules? | shell implementation done? | implemented on |
 |---|---|---|---|---|---|
-| | | | | | |
+| Shell theme is exposed as a dedicated extension (`ForgeShellTheme`) with shell-level visual tokens | yes | no | yes | yes | documented in `forge_panel_shell_spec.md` theme extension section and `forge_panel_shell_concept.md` parity matrix |
+| Theme configuration is part of persisted shell/application settings (`ThemeConfig theme`) | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` settings model (`ThemeConfig`) |
+| Appearance controls are part of command/navigation surface (`View` menu includes appearance) | no | no | no | yes | documented in `forge_panel_shell_concept.md` command surfaces (`View` row) |
+| Light/dark/high-contrast theme variants are explicitly defined and expected | no | yes | yes | yes | documented in `forge_panel_shell_spec.md` (`ForgeShellTheme.light/dark/highContrast`) |
+| High-contrast mode changes visual behavior and reduces motion (0ms animations, static progress) | no | yes | yes | yes | documented in `forge_panel_shell_spec.md` high-contrast behavior rules |
+| Animation timing/curve system is standardized for panel, tab, popup, toast, and feedback transitions | yes | yes | yes | yes | documented in `forge_panel_shell_spec.md` animation table and constants |
+| Drag feedback is explicitly styled (semi-transparent proxy, cursor change to grabbing, drop-zone timing) | no | yes | yes | yes | documented in `forge_panel_shell_spec.md` drag-and-drop visual behavior |
+| Drop-zone highlight style is theme-bound (`dropZoneHighlight` token and opacity rules) | no | yes | yes | yes | documented in `forge_panel_shell_spec.md` theme tokens + drag highlight behavior |
+| Severity-driven visual feedback for diagnostics is standardized (background tint, border, icon) | yes | yes | yes | yes | documented in `forge_panel_shell_spec.md` diagnostic visual treatment |
+| Highlight feedback patterns are defined for search/selection/decorations in editor and explorer contexts | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` decorations/search highlighting and `tom_forge_ui_testapp.md` selection highlighting |
+| Status bar visual feedback supports context-sensitive active/inactive item visibility (`isActive`) | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` status bar item model and integration notes |
+| Theme and visual-language implementation evidence includes golden tests for default/dark/high-contrast shells | no | no | no | yes | documented in `forge_panel_shell_spec.md` golden tests (`shell_default`, `shell_dark`, `shell_high_contrast`) |
 
 ## 15. Dialogs, Notifications, and User Prompts
 This section is intended to cover quick-pick/input dialogs, open/save dialogs, toast notifications, and user confirmation flows. Include checks for shell service behavior and module/component usage patterns.
