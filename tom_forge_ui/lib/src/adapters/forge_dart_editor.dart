@@ -106,6 +106,51 @@ class ForgeDartEditor extends ForgeTextEditor {
   @override
   ValueListenable<bool> get isDirty => _isDirty;
 
+  @override
+  Map<String, dynamic>? saveState() {
+    final cursor = _cursorPos.value;
+    final sel = _selection.value;
+    final visible = _visibleRange.value;
+    return {
+      'cursorLine': cursor.line,
+      'cursorColumn': cursor.column,
+      if (sel != null) 'selection': {
+        'startLine': sel.start.line,
+        'startColumn': sel.start.column,
+        'endLine': sel.end.line,
+        'endColumn': sel.end.column,
+      },
+      'visibleStartLine': visible.start.line,
+      'visibleEndLine': visible.end.line,
+    };
+  }
+
+  @override
+  void restoreState(Map<String, dynamic> state) {
+    final line = state['cursorLine'] as int?;
+    final col = state['cursorColumn'] as int?;
+    if (line != null && col != null) {
+      setCursorPosition(ForgeTextPosition(line: line, column: col));
+    }
+    final selMap = state['selection'] as Map<String, dynamic>?;
+    if (selMap != null) {
+      setSelection(ForgeTextRange(
+        start: ForgeTextPosition(
+          line: selMap['startLine'] as int,
+          column: selMap['startColumn'] as int,
+        ),
+        end: ForgeTextPosition(
+          line: selMap['endLine'] as int,
+          column: selMap['endColumn'] as int,
+        ),
+      ));
+    }
+    final visStartLine = state['visibleStartLine'] as int?;
+    if (visStartLine != null) {
+      revealPosition(ForgeTextPosition(line: visStartLine, column: 0));
+    }
+  }
+
   // ── ForgeTextEditor ──
 
   @override

@@ -17,6 +17,7 @@ import '../services/forge_shortcut_manager.dart';
 import '../services/forge_terminal_manager.dart';
 import '../services/forge_undo_manager.dart';
 import '../services/forge_virtual_document_manager.dart';
+import '../services/forge_workspace_state_manager.dart';
 import '../actions/forge_action.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart'
   show ForgeTextSettings;
@@ -98,6 +99,9 @@ abstract class ForgeShellApi {
 
   /// Global shortcut registry with runtime rebinding support.
   ForgeShortcutManager get shortcuts;
+
+  /// Workspace-scoped state manager for `.forge/` directory.
+  ForgeWorkspaceStateManager get workspaceState;
 
   /// Execute an action by id if available and enabled.
   bool executeAction(String actionId);

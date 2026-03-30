@@ -25,6 +25,19 @@ abstract class ForgeEditor extends ForgeComponent {
   /// Whether this editor has unsaved changes.
   ValueListenable<bool> get isDirty;
 
+  /// Serialize editor state (cursor position, scroll, selections, etc.)
+  /// for persistence to `.forge/state/editors/`.
+  ///
+  /// Returns a JSON-encodable map, or `null` if the editor doesn't support
+  /// state persistence.
+  Map<String, dynamic>? saveState() => null;
+
+  /// Restore previously persisted editor state.
+  ///
+  /// Called after the editor is opened with state loaded from
+  /// `.forge/state/editors/`.
+  void restoreState(Map<String, dynamic> state) {}
+
   /// History manager for back/forward navigation. Null if unsupported.
   ComponentHistoryManager? get historyManager => null;
 }

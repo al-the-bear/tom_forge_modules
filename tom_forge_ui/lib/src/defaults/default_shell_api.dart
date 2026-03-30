@@ -124,7 +124,7 @@ class DefaultShellApi implements ForgeShellApi {
   @override
   final ForgeShortcutManager shortcuts;
 
-  /// Workspace-scoped state manager for `.forge/` directory.
+  @override
   final ForgeWorkspaceStateManager workspaceState;
 
   final Map<String, ForgeTextSettings> _editorTextSettings = {};

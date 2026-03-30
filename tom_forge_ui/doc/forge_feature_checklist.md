@@ -42,21 +42,21 @@ This section is intended to cover the top-level Forge shell runtime model: start
 ## 2. Workspace Model and File/Revision Boundaries
 This section is intended to cover workspace root handling, file-system scope, `.forge/` state/revision boundaries, and workspace-level assumptions. Include checks for core Forge behavior and module/component behavior when operating on workspace data.
 
-- [ ] Section implemented
+- [x] Section implemented (completed on 2025-07-23)
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
 | Workspace root is the primary runtime boundary (`workspaceRoot`/`workspaceRootUri`) | no | no | no | yes | yes | yes | `DefaultSystemState.workspaceRootPath`, `TestAppModule`/`ForgeAppModule` receive `workspaceRootUri`, file explorer uses root |
-| `.forge` workspace folder stores state and revisions in workspace scope | no | no | no | yes | no | no | documented only; `.forge` folder not created at runtime |
-| Workspace state stays local in both config modes (never in `~/.forge`) | no | no | no | yes | partial | n/a | `ForgePreferencesService.getConfigDirectory()` returns `.forge` path but not exercised |
+| `.forge` workspace folder stores state and revisions in workspace scope | no | no | no | yes | yes | yes | `DefaultWorkspaceStateManager.initialize()` creates `.forge/` with `state/`, `revisions/`, `undo/` sub-dirs; wired in test app `main.dart` and scaffold lifecycle |
+| Workspace state stays local in both config modes (never in `~/.forge`) | no | no | no | yes | yes | n/a | `DefaultWorkspaceStateManager` always uses `{workspaceRoot}/.forge/`; `ForgePreferencesService` uses `getConfigDirectory()` for preferences only |
 | Config mode split (`local` vs `split`) separates config location from workspace state | no | no | no | yes | yes | n/a | `ForgeConfigMode` enum and `ForgeConfigurationDialog` implemented |
-| Startup workspace detection and selection (remembered path, walk-up `.forge`, CWD fallback) | no | no | no | yes | partial | n/a | `lastWorkspacePath` remembered; walk-up `.forge` detection not implemented |
-| Standard workspace state files (`state/layout.json`, `state/open-editors.json`, `state/editors/{uri-hash}.json`) | no | yes | yes (editor state adapters) | yes | no | no | not implemented; layout state in memory only |
-| Revision snapshots under `.forge/revisions/{uri-hash}/` with content snapshots | no | yes | yes (components triggering saves) | yes | no | no | not implemented |
-| Undo history persisted under `.forge/undo/{uri-hash}/` boundary | no | yes | yes (editor undo producers) | yes | no | no | in-memory `UndoHistory` only; no persistence |
+| Startup workspace detection and selection (remembered path, walk-up `.forge`, CWD fallback) | no | no | no | yes | yes | n/a | `DefaultWorkspaceStateManager.detectWorkspaceRoot()` walks up 20 levels; test app `main.dart` uses detected root with CWD fallback |
+| Standard workspace state files (`state/layout.json`, `state/open-editors.json`, `state/editors/{uri-hash}.json`) | no | yes | yes (editor state adapters) | yes | yes | yes | `DefaultWorkspaceStateManager` persists all three; scaffold saves layout+editors on shutdown; per-editor state saved/restored on editor close/open via `_listenForEditorChanges()` |
+| Revision snapshots under `.forge/revisions/{uri-hash}/` with content snapshots | no | yes | yes (components triggering saves) | yes | yes | partial | `DefaultWorkspaceStateManager.createRevision()` with manifest tracking; scaffold `_listenForSaveRevisions()` listens to `onDidSave`; wired=partial because editor saves bypass `ForgeFileSystem` (external packages use `dart:io` directly) |
+| Undo history persisted under `.forge/undo/{uri-hash}/` boundary | no | yes | yes (editor undo producers) | yes | partial | no | `DefaultWorkspaceStateManager.saveUndoHistory()`/`loadUndoHistory()` implemented with `.forge/undo/` directory; not wired because `UndoEntry` stores function callbacks that cannot be serialized |
 | All file operations are routed through `ForgeFileSystem` (read/write/save/list/watch/edit) | yes | yes | yes (module/component file workflows) | yes | yes | partial | `ForgeFileSystem` interface with `RealFileSystem`/`MemoryFileSystem`; file explorer uses it |
-| Revisioning behavior on save (dedupe identical saves, prune old revisions) | no | yes | yes (save semantics in components) | yes | no | no | not implemented |
-| Workspace `.forge` should be suggested for `.gitignore` | no | no | no | yes | no | n/a | not implemented |
+| Revisioning behavior on save (dedupe identical saves, prune old revisions) | no | yes | yes (save semantics in components) | yes | yes | partial | `DefaultWorkspaceStateManager.createRevision()` deduplicates identical saves; `pruneRevisions()` keeps max 50 per file; scaffold calls both on `onDidSave`; wired=partial because editor saves bypass `ForgeFileSystem` |
+| Workspace `.forge` should be suggested for `.gitignore` | no | no | no | yes | yes | n/a | `DefaultWorkspaceStateManager.suggestGitignore()` appends `.forge/` to `.gitignore` if missing; called in test app `main.dart` at startup |
 | Test app workspace boundary uses seeded `MemoryFileSystem` virtual root | yes | yes | yes (module views/editors in test app) | yes (test app scope) | yes | yes | `DefaultShellApi.withDefaults(fileSystemSeed:...)` creates `MemoryFileSystem` |
 
 ## 3. Module Integration and Ownership Boundaries

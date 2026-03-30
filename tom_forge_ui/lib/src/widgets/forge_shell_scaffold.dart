@@ -123,6 +123,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   bool _showCommandPalette = false;
   late final ForgePreferencesService _preferences;
   StreamSubscription<Uri>? _saveSubscription;
+  StreamSubscription<EditorListChangeEvent>? _editorChangeSubscription;
 
   @override
   void initState() {
@@ -131,12 +132,15 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     _preferences.addListener(_onPreferencesChanged);
     _initializePreferences();
     _listenForSaveRevisions();
+    _listenForEditorChanges();
   }
 
   @override
   void dispose() {
     _saveSubscription?.cancel();
+    _editorChangeSubscription?.cancel();
     _preferences.removeListener(_onPreferencesChanged);
+    _saveAllEditorStates();
     _saveLayoutState();
     _saveWorkspaceState();
     widget.shell.dispose();
@@ -299,6 +303,65 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         }
       }
     });
+  }
+
+  /// Listens for editor open/close events to save/restore per-editor state.
+  void _listenForEditorChanges() {
+    final wsState = widget.shell.workspaceState;
+    if (!wsState.isInitialized) return;
+    _editorChangeSubscription =
+        widget.systemState.onEditorsChanged.listen((event) async {
+      // Save state for editors being closed.
+      for (final closed in event.closed) {
+        if (closed is ForgeEditor) {
+          try {
+            final state = closed.saveState();
+            if (state != null) {
+              await wsState.saveEditorState(closed.uri, state);
+            }
+          } catch (e) {
+            if (debugEnabled) {
+              debugPrint(
+                  '[ForgeShellScaffold] save editor state failed: $e');
+            }
+          }
+        }
+      }
+      // Restore state for editors being opened.
+      for (final opened in event.opened) {
+        if (opened is ForgeEditor) {
+          try {
+            final state = await wsState.loadEditorState(opened.uri);
+            if (state != null) {
+              opened.restoreState(state);
+            }
+          } catch (e) {
+            if (debugEnabled) {
+              debugPrint(
+                  '[ForgeShellScaffold] restore editor state failed: $e');
+            }
+          }
+        }
+      }
+    });
+  }
+
+  /// Saves all open editor states to `.forge/state/editors/` on shutdown.
+  void _saveAllEditorStates() {
+    final wsState = widget.shell.workspaceState;
+    if (!wsState.isInitialized) return;
+    for (final editor in widget.systemState.openEditors) {
+      try {
+        final state = editor.saveState();
+        if (state != null) {
+          wsState.saveEditorState(editor.uri, state);
+        }
+      } catch (e) {
+        if (debugEnabled) {
+          debugPrint('[ForgeShellScaffold] save editor state failed: $e');
+        }
+      }
+    }
   }
 
   /// Saves workspace state (layout + open editors) to `.forge/` on shutdown.
