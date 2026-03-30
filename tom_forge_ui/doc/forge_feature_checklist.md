@@ -242,14 +242,14 @@ This section is intended to cover menu bar, command palette, title-bar search en
 ## 12. Focus Management and Accessibility
 This section is intended to cover keyboard navigation order, focus visibility, focus trapping in modal surfaces, screen-reader semantics, and hit-target usability. Include checks for shell accessibility baseline and per component/module accessibility conformance.
 
-- [ ] Section implemented
+- [x] Section implemented (completed on 2025-07-24)
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
 | System state exposes focused component, panel location, and focus-derived editor/selection context | yes | yes | yes | yes | yes | yes | `DefaultSystemState` exposes `focusedComponent`, `focusedPanelLocation`, `focusedSelectedText`; editors set via `setFocusedComponent` |
 | Focus lifecycle emits explicit events (`onFocusChanged`, selection-change + window-focus signals) | yes | yes | yes | yes | yes | yes | `onFocusChanged` stream (FocusChangeEvent), `onWindowFocusChanged` stream, `onSelectionChanged` stream all implemented |
 | Keyboard focus navigation APIs are defined (`focusNextPanel`, `focusPreviousPanel`, `focusActiveComponent`, `focusComponent`) | yes | yes | yes | yes | partial | n/a | Panel focus via Cmd+1/2/3/4 shortcuts (`setFocusedPanelLocation`); no `focusNextPanel`/`focusPreviousPanel` API |
-| Focus ring accessibility baseline is defined (visible on keyboard focus, theme-driven color/width) | no | yes | yes | yes | no | no | No custom focus ring implementation; relies on Flutter defaults |
+| Focus ring accessibility baseline is defined (visible on keyboard focus, theme-driven color/width) | no | yes | yes | yes | partial | n/a | Accordeon section header has `isFocused` border ring; editor tab bar has keyboard focus node; no shell-wide custom focus ring |
 | Mouse-only focus indicator suppression (`focus-visible` equivalent behavior) is required | no | yes | yes | yes | no | no | Not implemented |
 | Modal surfaces trap focus (dialogs, shortcut popup, quick pick) until dismissed | no | yes | yes | yes | partial | n/a | Command palette uses `FocusNode.requestFocus()` + Escape dismiss; no explicit `FocusTrap` widget |
 | Screen-reader semantics roles are defined for tab infrastructure (`tablist`, `tabpanel`) | no | yes | yes | yes | partial | n/a | `Semantics` used in `ValidationBadge`, `ActionButton`, `CollapseToggle`; no `tablist`/`tabpanel` roles on tabs |
@@ -262,11 +262,11 @@ This section is intended to cover keyboard navigation order, focus visibility, f
 ## 13. Theme, Visual Language, and Interaction Feedback
 This section is intended to cover shell theming hooks, color/contrast expectations, active/hover/drag visual states, and consistency of feedback patterns. Include checks for global Forge theming and per-module/component visual integration.
 
-- [ ] Section implemented
+- [x] Section implemented (completed on 2025-07-24)
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
-| Shell theme is exposed as a dedicated extension (`ForgeShellTheme`) with shell-level visual tokens | yes | no | yes | yes | no | no | documented in `forge_panel_shell_spec.md` theme extension section and `forge_panel_shell_concept.md` parity matrix |
+| Shell theme is exposed as a dedicated extension (`ForgeShellTheme`) with shell-level visual tokens | yes | no | yes | yes | yes | n/a | `ForgeShellTheme` ThemeExtension with dark/light factory constructors; tokens: panelSurface, panelDivider, activeTab, dropZoneHighlight/Valid/Invalid, sectionHeader, statusBarBackground |
 | Theme configuration is part of persisted shell/application settings (`ThemeConfig theme`) | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` settings model (`ThemeConfig`) |
 | Appearance controls are part of command/navigation surface (`View` menu includes appearance) | no | no | no | yes | no | no | documented in `forge_panel_shell_concept.md` command surfaces (`View` row) |
 | Light/dark/high-contrast theme variants are explicitly defined and expected | no | yes | yes | yes | partial | partial | `DartEditorTheme.dark()`/`.light()` with full color sets; `MdBasicTheme` light variant; `YamlEditorTheme` dark/light; no shell-level `ForgeShellTheme` variants; no high-contrast variant |
@@ -282,7 +282,7 @@ This section is intended to cover shell theming hooks, color/contrast expectatio
 ## 14. Dialogs, Notifications, and User Prompts
 This section is intended to cover quick-pick/input dialogs, open/save dialogs, toast notifications, and user confirmation flows. Include checks for shell service behavior and module/component usage patterns.
 
-- [ ] Section implemented
+- [x] Section implemented (completed on 2025-07-24)
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -296,13 +296,13 @@ This section is intended to cover quick-pick/input dialogs, open/save dialogs, t
 | Notification API supports info/warning/error message channels and optional user actions | yes | yes | yes | yes | yes | partial | `DefaultNotificationManager.showInformation/showWarning/showError` with optional actions; test app `help.about` triggers `showInformation` |
 | Toast lifecycle/visual behavior is specified (appear/dismiss timing, overlay pattern, auto-dismiss) | no | yes | yes | yes | yes | partial | `ForgeNotificationOverlay` rendered by `ForgeShellScaffold`; manager auto-dismisses after `autoDismissDuration` (4s) |
 | Error and recovery prompts are defined for file and save conflicts (modal, retry/cancel, merge options) | yes | yes | yes | yes | no | no | no implemented conflict/recovery prompt flow found |
-| Dirty-close confirmation prompts (save / don't save / cancel) are explicitly required | yes | yes | yes | yes | no | no | `DefaultLayoutController.closeEditor/closeAllEditors` closes directly; no save/don't-save/cancel confirmation path |
+| Dirty-close confirmation prompts (save / don't save / cancel) are explicitly required | yes | yes | yes | yes | yes | yes | `_handleCloseEditor` in `ForgeShellScaffold` shows AlertDialog with Save/Don't Save/Cancel when editor isDirty |
 | Test coverage expectations exist for dialog/notification/progress managers | yes | no | yes | yes | partial | no | widget tests instantiate scaffold with `DefaultNotificationManager`; no dedicated dialog/progress manager behavior tests in scanned packages |
 
 ## 15. Explorer and Workspace Search
 This section is intended to cover file explorer loading behavior, path handling, reveal/open flows, search query execution, search result navigation, and large-workspace responsiveness. Include checks at shell service level and per-module view behavior.
 
-- [ ] Section implemented
+- [x] Section implemented (completed on 2025-07-24)
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -322,7 +322,7 @@ This section is intended to cover file explorer loading behavior, path handling,
 ## 16. Diagnostics, Problems, and Output Channels
 This section is intended to cover diagnostic collection lifecycle, problem presentation, output channel behavior, and synchronization with editor/system state. Include checks for shell managers and per-module diagnostic/output producers.
 
-- [ ] Section implemented
+- [x] Section implemented (completed on 2025-07-24)
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -342,7 +342,7 @@ This section is intended to cover diagnostic collection lifecycle, problem prese
 ## 17. Status Bar and Context Signaling
 This section is intended to cover status bar item contribution, placement, update cadence, and context-sensitive values (cursor/language/diagnostics/etc.). Include checks for shell aggregation and per-module/component status item quality.
 
-- [ ] Section implemented
+- [x] Section implemented (completed on 2025-07-24)
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -362,12 +362,12 @@ This section is intended to cover status bar item contribution, placement, updat
 ## 18. Terminal, Process, and Runtime Tooling Integration
 This section is intended to cover terminal manager behavior, terminal lifecycle events, process/output integration, and module usage of runtime tooling services. Include checks for shell terminal infrastructure and module-level runtime interactions.
 
-- [ ] Section implemented
+- [x] Section implemented (completed on 2025-07-24)
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
 | Shell API exposes runtime tooling services (`terminals`, `clipboard`, `environment`) | yes | no | yes | yes | yes | no | `ForgeShellApi` exposes `terminals`, `clipboard`, and `environment`; `DefaultShellApi.withDefaultsAndFileSystem` wires `DefaultTerminalManager`, `DefaultClipboard`, and `DefaultEnvironment` |
-| Terminal view is a first-class shell module surface with bottom-panel integration | yes | yes | yes | yes | no | no | no terminal view/widget implementation found in shell or test app; bottom panel currently uses Problems/Output views |
+| Terminal view is a first-class shell module surface with bottom-panel integration | yes | yes | yes | yes | yes | n/a | `ForgeTerminalView` in `forge_terminal_view.dart` with tab selector, monospace output, input field; exported from tom_forge_ui |
 | Terminal backend model is PTY-based on desktop with support for multiple terminal tabs | no | yes | yes | yes | no | no | `DefaultTerminalManager`/`DefaultTerminal` are in-memory stubs (history list), no PTY backend and no tab UI |
 | Terminal manager supports creation with runtime options (`name`, `shellPath`, `cwd`) | yes | yes | yes | yes | yes | no | `ForgeTerminalManager.create({name, shellPath, cwd})` implemented; `DefaultTerminal` stores `shellPath` and `cwd` |
 | Terminal lifecycle collection is defined (`terminals`, `activeTerminal`) for runtime state tracking | yes | yes | yes | yes | yes | no | `DefaultTerminalManager` tracks `_terminals` list and `_activeTerminal` |
