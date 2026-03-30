@@ -901,7 +901,7 @@ void main() {
     late DefaultDiagnosticManager mgr;
 
     setUp(() {
-      mgr = DefaultDiagnosticManager();
+      mgr = DefaultDiagnosticManager(refreshDebounce: Duration.zero);
     });
 
     tearDown(() {

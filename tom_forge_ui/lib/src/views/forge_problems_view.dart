@@ -219,13 +219,49 @@ class _ProblemsContentState extends State<_ProblemsContent> {
       grouped.putIfAbsent(diag.uri, () => []).add(diag);
     }
 
-    return ListView(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+    // Flatten into a list of display items for virtualized rendering.
+    // Each item is either a file header or a diagnostic row.
+    final items = <_DiagListItem>[];
+    for (final entry in grouped.entries) {
+      items.add(_DiagListItem.header(entry.key, entry.value.length));
+      for (final diag in entry.value) {
+        items.add(_DiagListItem.diagnostic(diag));
+      }
+    }
+
+    // Show truncation warning for very large diagnostic sets.
+    const scalabilityLimit = 10000;
+    final truncated = items.length > scalabilityLimit;
+    final displayItems =
+        truncated ? items.take(scalabilityLimit).toList() : items;
+
+    return Column(
       children: [
-        for (final entry in grouped.entries) ...[
-          _buildFileHeader(context, entry.key, entry.value.length),
-          for (final diag in entry.value) _buildDiagnostic(context, diag),
-        ],
+        if (truncated)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            color: Colors.orange.withValues(alpha: 0.15),
+            child: Text(
+              'Showing $scalabilityLimit of ${items.length} items. '
+              'Use filters to narrow results.',
+              style: Theme.of(context).textTheme.labelSmall,
+            ),
+          ),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            itemCount: displayItems.length,
+            itemExtent: null,
+            itemBuilder: (context, index) {
+              final item = displayItems[index];
+              if (item.isHeader) {
+                return _buildFileHeader(
+                    context, item.uri!, item.headerCount!);
+              }
+              return _buildDiagnostic(context, item.diagnostic!);
+            },
+          ),
+        ),
       ],
     );
   }
@@ -316,4 +352,26 @@ class _ProblemsContentState extends State<_ProblemsContent> {
       ),
     );
   }
+}
+
+/// Display item for the virtualized problems list.
+/// Either a file header or a diagnostic row.
+class _DiagListItem {
+  final bool isHeader;
+  final Uri? uri;
+  final int? headerCount;
+  final ForgeDiagnostic? diagnostic;
+
+  _DiagListItem._({
+    required this.isHeader,
+    this.uri,
+    this.headerCount,
+    this.diagnostic,
+  });
+
+  factory _DiagListItem.header(Uri uri, int count) =>
+      _DiagListItem._(isHeader: true, uri: uri, headerCount: count);
+
+  factory _DiagListItem.diagnostic(ForgeDiagnostic diag) =>
+      _DiagListItem._(isHeader: false, diagnostic: diag);
 }

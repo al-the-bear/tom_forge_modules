@@ -171,12 +171,14 @@ class DefaultShellApi implements ForgeShellApi {
     required Map<String, String> fileSystemSeed,
     required String appName,
     required GlobalKey<NavigatorState> navigatorKey,
+    ForgeConfig initialConfig = const ForgeConfig(),
   }) {
     final memFs = MemoryFileSystem(seed: fileSystemSeed);
     return DefaultShellApi.withDefaultsAndFileSystem(
       fileSystem: memFs,
       appName: appName,
       navigatorKey: navigatorKey,
+      initialConfig: initialConfig,
     );
   }
 
@@ -192,6 +194,7 @@ class DefaultShellApi implements ForgeShellApi {
     required GlobalKey<NavigatorState> navigatorKey,
     ForgeWorkspaceStateManager? workspaceState,
     ForgeModuleStorage? storage,
+    ForgeConfig initialConfig = const ForgeConfig(),
   }) {
     final systemState = DefaultSystemState();
     final actionRegistry = DefaultActionRegistry();
@@ -210,10 +213,12 @@ class DefaultShellApi implements ForgeShellApi {
     final statusBarController = DefaultStatusBarController(
       registry: moduleRegistry,
     );
-    final diagnosticManager = DefaultDiagnosticManager();
+    final diagnosticManager = DefaultDiagnosticManager(
+      refreshDebounce: initialConfig.performance.diagnosticDebounceWindow,
+    );
     final outputManager = DefaultOutputChannelManager();
     final configManager = DefaultConfigManager(
-      initial: const ForgeConfig(),
+      initial: initialConfig,
     );
     final notificationManager = DefaultNotificationManager();
 
@@ -375,6 +380,10 @@ class DefaultShellApi implements ForgeShellApi {
     final state = systemState;
     if (state is DefaultSystemState) {
       state.dispose();
+    }
+    final diag = diagnostics;
+    if (diag is DefaultDiagnosticManager) {
+      diag.dispose();
     }
   }
 }

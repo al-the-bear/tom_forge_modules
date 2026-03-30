@@ -5,13 +5,49 @@ import 'package:tom_forge_core/tom_forge_core.dart';
 /// Default implementation of [ForgeSearchManager].
 ///
 /// Searches across the in-memory file system entries.
+/// Caches search results in an LRU cache bounded by [maxCacheEntries]
+/// and [maxCacheSizeBytes]. Cache is invalidated when the file system
+/// emits change events.
 class DefaultSearchManager implements ForgeSearchManager {
   static bool debugEnabled = false;
 
   final MemoryFileSystem _fileSystem;
 
-  DefaultSearchManager({required MemoryFileSystem fileSystem})
-      : _fileSystem = fileSystem;
+  /// LRU cache for search results, keyed by query fingerprint.
+  final LruCache<String, List<ForgeSearchResult>> _cache;
+
+  DefaultSearchManager({
+    required MemoryFileSystem fileSystem,
+    int maxCacheEntries = 200,
+    int maxCacheSizeBytes = 50 * 1024 * 1024,
+  })  : _fileSystem = fileSystem,
+        _cache = LruCache(
+          maxEntries: maxCacheEntries,
+          maxSizeBytes: maxCacheSizeBytes,
+          sizeOf: (_, results) => results.fold<int>(
+            0,
+            (sum, r) =>
+                sum +
+                r.matches.fold<int>(
+                    0, (ms, m) => ms + m.lineText.length * 2),
+          ),
+        );
+
+  /// Clear the search result cache.
+  void clearCache() => _cache.clear();
+
+  /// Build a cache key from the search parameters.
+  String _cacheKey(
+    String query, {
+    required bool isRegExp,
+    required bool isCaseSensitive,
+    required bool isWordMatch,
+    String? includePattern,
+    String? excludePattern,
+    int? maxResults,
+  }) =>
+      '$query|$isRegExp|$isCaseSensitive|$isWordMatch|'
+      '$includePattern|$excludePattern|$maxResults';
 
   @override
   Future<List<ForgeSearchResult>> search(
@@ -24,6 +60,19 @@ class DefaultSearchManager implements ForgeSearchManager {
     int? maxResults,
   }) async {
     try {
+      final key = _cacheKey(
+        query,
+        isRegExp: isRegExp,
+        isCaseSensitive: isCaseSensitive,
+        isWordMatch: isWordMatch,
+        includePattern: includePattern,
+        excludePattern: excludePattern,
+        maxResults: maxResults,
+      );
+
+      final cached = _cache.get(key);
+      if (cached != null) return cached;
+
       final results = <ForgeSearchResult>[];
       final pattern = _buildPattern(
         query,
@@ -43,6 +92,8 @@ class DefaultSearchManager implements ForgeSearchManager {
           if (maxResults != null && results.length >= maxResults) break;
         }
       }
+
+      _cache.put(key, results);
       return results;
     } catch (e) {
       if (debugEnabled) {

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:tom_forge_core/tom_forge_core.dart';
 
 /// Default implementation of [ForgeDiagnosticCollection].
@@ -48,7 +50,9 @@ class DefaultDiagnosticCollection implements ForgeDiagnosticCollection {
 /// Default implementation of [ForgeDiagnosticManager].
 ///
 /// Manages multiple [DefaultDiagnosticCollection]s and aggregates
-/// diagnostics for queries.
+/// diagnostics for queries. Uses generation-based caching for per-URI
+/// queries and debounced refresh for the aggregate list to handle
+/// rapid updates efficiently (scalable to 10K+ diagnostics).
 class DefaultDiagnosticManager implements ForgeDiagnosticManager {
   static bool debugEnabled = false;
 
@@ -56,11 +60,25 @@ class DefaultDiagnosticManager implements ForgeDiagnosticManager {
   final ForgeValueNotifier<List<ForgeDiagnostic>> _allNotifier =
       ForgeValueNotifier([]);
 
+  /// Generation-based cache for per-URI diagnostic queries.
+  final GenerationCache<Uri, List<ForgeDiagnostic>> _uriCache =
+      GenerationCache();
+
+  /// Debounce timer for batching rapid diagnostic updates.
+  Timer? _refreshTimer;
+
+  /// Debounce window for refresh coalescing.
+  final Duration refreshDebounce;
+
+  DefaultDiagnosticManager({
+    this.refreshDebounce = const Duration(milliseconds: 100),
+  });
+
   @override
   ForgeDiagnosticCollection createCollection(String name) {
     final collection = DefaultDiagnosticCollection(
       name: name,
-      onChanged: _refresh,
+      onChanged: _scheduleRefresh,
     );
     _collections.add(collection);
     return collection;
@@ -71,6 +89,10 @@ class DefaultDiagnosticManager implements ForgeDiagnosticManager {
 
   @override
   List<ForgeDiagnostic> forUri(Uri uri) {
+    // Use generation cache for per-URI lookups.
+    final cached = _uriCache.get(uri);
+    if (cached != null) return cached;
+
     final result = <ForgeDiagnostic>[];
     for (final collection in _collections) {
       final diags = collection.diagnosticsByUri[uri];
@@ -78,11 +100,27 @@ class DefaultDiagnosticManager implements ForgeDiagnosticManager {
         result.addAll(diags);
       }
     }
+    _uriCache.put(uri, result);
     return result;
   }
 
   /// Notifier for reactive UI updates.
   ForgeValueListenable<List<ForgeDiagnostic>> get allNotifier => _allNotifier;
+
+  /// Schedule a debounced refresh. Rapid-fire collection changes are
+  /// coalesced into a single list rebuild.
+  ///
+  /// When [refreshDebounce] is [Duration.zero], the refresh runs
+  /// synchronously (useful for tests and small workspaces).
+  void _scheduleRefresh() {
+    _uriCache.invalidateAll();
+    if (refreshDebounce == Duration.zero) {
+      _refresh();
+      return;
+    }
+    _refreshTimer?.cancel();
+    _refreshTimer = Timer(refreshDebounce, _refresh);
+  }
 
   void _refresh() {
     final result = <ForgeDiagnostic>[];
@@ -98,6 +136,7 @@ class DefaultDiagnosticManager implements ForgeDiagnosticManager {
 
   /// Dispose resources.
   void dispose() {
+    _refreshTimer?.cancel();
     _allNotifier.dispose();
   }
 }

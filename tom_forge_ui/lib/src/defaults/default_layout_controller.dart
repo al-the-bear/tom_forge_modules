@@ -22,6 +22,9 @@ import 'stub_services.dart';
 /// Default implementation of [ForgeLayoutController].
 ///
 /// Manages panel visibility/sizes and editor tab lifecycle.
+/// Includes LRU-based editor eviction: when the number of open editors
+/// exceeds [maxOpenEditors], the least-recently-focused non-dirty editor
+/// is automatically closed.
 class DefaultLayoutController implements ForgeLayoutController {
   static bool debugEnabled = false;
   static const String _extMarkdown = 'md';
@@ -35,6 +38,12 @@ class DefaultLayoutController implements ForgeLayoutController {
   final ForgeFileSystem _fileSystem;
   final ForgeModuleRegistry _moduleRegistry;
   final DefaultVirtualDocumentManager? _virtualDocuments;
+
+  /// Maximum open editors before LRU eviction kicks in.
+  final int maxOpenEditors;
+
+  /// Tracks the last-focused timestamp per editor for LRU ordering.
+  final Map<ForgeEditor, DateTime> _editorLastFocused = {};
 
   /// Late-bound diagnostic manager for emitting editor fallback diagnostics.
   ForgeDiagnosticManager? diagnosticManager;
@@ -59,6 +68,7 @@ class DefaultLayoutController implements ForgeLayoutController {
     double leftSize = 250,
     double rightSize = 220,
     double bottomSize = 180,
+    this.maxOpenEditors = 20,
   })  : _systemState = systemState,
         _fileSystem = fileSystem,
         _moduleRegistry = moduleRegistry,
@@ -93,6 +103,9 @@ class DefaultLayoutController implements ForgeLayoutController {
   @override
   void focusComponent(ForgeComponent component) {
     _systemState.setFocusedComponent(component);
+    if (component is ForgeEditor) {
+      _editorLastFocused[component] = DateTime.now();
+    }
   }
 
   @override
@@ -150,10 +163,12 @@ class DefaultLayoutController implements ForgeLayoutController {
   void openEditor(ForgeEditor editor, Uri uri, {int? middlePanelIndex}) {
     if (_systemState.openEditors.contains(editor)) {
       _systemState.setActiveEditor(editor);
+      _editorLastFocused[editor] = DateTime.now();
       return;
     }
     _systemState.addOpenEditor(editor);
     _systemState.setActiveEditor(editor);
+    _editorLastFocused[editor] = DateTime.now();
 
     final panelIdx = middlePanelIndex ?? _activeMiddlePanelIndex.value;
     final panels = List<List<ForgeEditor>>.from(_middlePanels.value);
@@ -161,6 +176,8 @@ class DefaultLayoutController implements ForgeLayoutController {
       panels[panelIdx] = [...panels[panelIdx], editor];
     }
     _middlePanels.value = panels;
+
+    _evictLruEditors();
   }
 
   @override
@@ -271,6 +288,7 @@ class DefaultLayoutController implements ForgeLayoutController {
   /// Close a specific editor.
   void closeEditor(ForgeEditor editor) {
     _systemState.removeOpenEditor(editor);
+    _editorLastFocused.remove(editor);
     final panels = List<List<ForgeEditor>>.from(_middlePanels.value);
     for (var i = 0; i < panels.length; i++) {
       panels[i] = panels[i].where((e) => e != editor).toList();
@@ -288,6 +306,7 @@ class DefaultLayoutController implements ForgeLayoutController {
     for (final editor in List.of(_systemState.openEditors)) {
       _systemState.removeOpenEditor(editor);
     }
+    _editorLastFocused.clear();
     _middlePanels.value = [[]];
     _systemState.setMiddlePanelCount(1);
     _systemState.updateDirtyEditors();
@@ -351,9 +370,13 @@ class DefaultLayoutController implements ForgeLayoutController {
   }
 
   /// Add an editor to the active (or specified) middle panel.
+  ///
+  /// If the number of open editors exceeds [maxOpenEditors], the
+  /// least-recently-focused non-dirty editor is automatically closed.
   void _addEditorToPanel(ForgeEditor editor, {int? panelIdx}) {
     _systemState.addOpenEditor(editor);
     _systemState.setActiveEditor(editor);
+    _editorLastFocused[editor] = DateTime.now();
 
     final idx = panelIdx ?? _activeMiddlePanelIndex.value;
     final panels = List<List<ForgeEditor>>.from(_middlePanels.value);
@@ -361,6 +384,42 @@ class DefaultLayoutController implements ForgeLayoutController {
       panels[idx] = [...panels[idx], editor];
     }
     _middlePanels.value = panels;
+
+    _evictLruEditors();
+  }
+
+  /// Evict least-recently-focused non-dirty editors until the count
+  /// is within [maxOpenEditors].
+  void _evictLruEditors() {
+    while (_systemState.openEditors.length > maxOpenEditors) {
+      final candidate = _findLruCandidate();
+      if (candidate == null) break; // All remaining editors are dirty.
+      if (debugEnabled) {
+        // ignore: avoid_print
+        print('[DefaultLayoutController] LRU evicting: ${candidate.uri}');
+      }
+      closeEditor(candidate);
+    }
+  }
+
+  /// Find the least-recently-focused non-dirty editor that is not the
+  /// currently active editor.
+  ForgeEditor? _findLruCandidate() {
+    final active = _systemState.activeEditor;
+    ForgeEditor? oldest;
+    DateTime? oldestTime;
+
+    for (final editor in _systemState.openEditors) {
+      if (editor == active) continue;
+      if (editor.isDirty.value) continue;
+
+      final focusTime = _editorLastFocused[editor] ?? DateTime(2000);
+      if (oldestTime == null || focusTime.isBefore(oldestTime)) {
+        oldestTime = focusTime;
+        oldest = editor;
+      }
+    }
+    return oldest;
   }
 
   Future<ForgeEditor?> _createEditor(Uri uri, String content) async {

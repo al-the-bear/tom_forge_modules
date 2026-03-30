@@ -1,3 +1,5 @@
+import '../services/forge_performance_contract.dart';
+
 /// Auto-save configuration.
 class AutoSaveConfig {
   final bool enabled;
@@ -14,9 +16,11 @@ class AutoSaveConfig {
 /// Top-level forge configuration.
 class ForgeConfig {
   final AutoSaveConfig autoSave;
+  final ForgePerformanceConfig performance;
 
   const ForgeConfig({
     this.autoSave = const AutoSaveConfig(),
+    this.performance = const ForgePerformanceConfig(),
   });
 }
 

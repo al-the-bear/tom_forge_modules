@@ -56,6 +56,7 @@ export 'src/services/forge_secret_storage.dart';
 export 'src/services/forge_terminal_manager.dart';
 export 'src/services/forge_undo_manager.dart';
 export 'src/services/forge_virtual_document_manager.dart';
+export 'src/services/forge_performance_contract.dart';
 
 // Default implementations (pure-Dart)
 export 'src/defaults/default_config_manager.dart';
@@ -69,3 +70,7 @@ export 'src/defaults/default_search_manager.dart';
 export 'src/defaults/default_undo_manager.dart';
 export 'src/defaults/memory_file_system.dart';
 export 'src/defaults/test_config_manager.dart';
+export 'src/defaults/lru_cache.dart';
+export 'src/defaults/event_batcher.dart';
+export 'src/defaults/generation_cache.dart';
+export 'src/defaults/image_preview_cache.dart';

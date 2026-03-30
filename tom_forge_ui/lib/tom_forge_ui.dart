@@ -88,6 +88,7 @@ export 'src/defaults/memory_file_system.dart';
 export 'src/defaults/persistent_module_storage.dart';
 export 'src/defaults/real_file_system.dart';
 export 'src/defaults/real_search_manager.dart';
+export 'src/defaults/shell_autosave_controller.dart';
 export 'src/defaults/stub_services.dart';
 export 'src/integrations/shell_editor_integration.dart';
 

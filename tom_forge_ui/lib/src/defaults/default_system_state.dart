@@ -68,9 +68,17 @@ class DefaultSystemState implements ForgeSystemState {
   /// Maps application title to { 'openEditors': List<Uri>, 'activeEditor': Uri? }.
   final Map<String, Map<String, dynamic>> _applicationStates = {};
 
+  /// Tracks last-active timestamp per application for resource management.
+  final Map<String, DateTime> _applicationLastActive = {};
+
+  /// Maximum number of application states kept in memory before
+  /// least-recently-active states are evicted.
+  final int maxApplicationStates;
+
   DefaultSystemState({
     String workspaceRootPath = '/',
     ForgeApplication? initialApplication,
+    this.maxApplicationStates = 10,
   }) : _workspaceRootPath = workspaceRootPath {
     _activeApplication = initialApplication ??
         ForgeApplication(title: 'Default', isActive: true);
@@ -356,6 +364,8 @@ class DefaultSystemState implements ForgeSystemState {
   /// and restoring the new app's saved state.
   ///
   /// Emits [ApplicationChangeEvent] to notify listeners of the switch.
+  /// When the number of stored application states exceeds
+  /// [maxApplicationStates], the least-recently-active state is evicted.
   void setActiveApplication(ForgeApplication app) {
     if (_activeApplication == app) return;
 
@@ -363,15 +373,20 @@ class DefaultSystemState implements ForgeSystemState {
 
     // Save current application state before switching
     _saveApplicationState(previous);
+    _applicationLastActive[previous.title] = DateTime.now();
 
     // Mark previous as inactive, new as active
     previous.isActive = false;
     app.isActive = true;
 
     _activeApplication = app;
+    _applicationLastActive[app.title] = DateTime.now();
 
     // Restore new application state (if any saved)
     _restoreApplicationState(app);
+
+    // Evict least-recently-active application states if over limit.
+    _evictStaleApplicationStates();
 
     // Emit application change event
     _onApplicationChanged.add(ApplicationChangeEvent(
@@ -379,6 +394,28 @@ class DefaultSystemState implements ForgeSystemState {
       current: app,
       isInitial: false,
     ));
+  }
+
+  /// Evicts the least-recently-active application state entries when
+  /// the stored count exceeds [maxApplicationStates].
+  void _evictStaleApplicationStates() {
+    while (_applicationStates.length > maxApplicationStates) {
+      // Find the oldest non-active application.
+      String? oldest;
+      DateTime? oldestTime;
+      for (final title in _applicationStates.keys) {
+        if (title == _activeApplication.title) continue;
+        final lastActive =
+            _applicationLastActive[title] ?? DateTime(2000);
+        if (oldestTime == null || lastActive.isBefore(oldestTime)) {
+          oldestTime = lastActive;
+          oldest = title;
+        }
+      }
+      if (oldest == null) break;
+      _applicationStates.remove(oldest);
+      _applicationLastActive.remove(oldest);
+    }
   }
 
   /// Saves the current state of an application (open editors, active editor).

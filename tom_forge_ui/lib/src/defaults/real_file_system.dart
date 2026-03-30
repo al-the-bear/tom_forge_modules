@@ -6,13 +6,75 @@ import 'package:tom_forge_core/tom_forge_core.dart';
 /// Real file system implementation backed by dart:io.
 ///
 /// Provides access to the actual file system on disk.
+/// Includes:
+/// - **Watcher consolidation**: When the number of active watch paths
+///   exceeds [maxWatcherPaths], individual watchers are consolidated
+///   into recursive parent-directory watchers.
+/// - **Event batching**: File-system events are batched within a
+///   configurable window (default 50ms) to avoid UI thrashing.
+/// - **Concurrent-access control**: Limits the number of parallel
+///   file-system operations via a simple semaphore.
 class RealFileSystem implements ForgeFileSystem {
   final Directory rootDirectory;
   final _changeController = StreamController<FileChangeEvent>.broadcast();
   final _saveController = StreamController<Uri>.broadcast();
   final _willSaveController = StreamController<WillSaveEvent>.broadcast();
 
-  RealFileSystem({required this.rootDirectory});
+  /// Maximum individual watcher paths before consolidation.
+  final int maxWatcherPaths;
+
+  /// Batching window for file-system events.
+  final Duration watcherBatchWindow;
+
+  /// Maximum concurrent file-system operations.
+  final int maxConcurrentFileOps;
+
+  /// Active individual watcher subscriptions, keyed by URI string.
+  final Map<String, StreamSubscription<FileSystemEvent>> _watchers = {};
+
+  /// Consolidated parent-directory watcher (active when threshold exceeded).
+  StreamSubscription<FileSystemEvent>? _consolidatedWatcher;
+
+  /// Event batcher for file-system watch events.
+  late final EventBatcher<FileSystemEvent> _eventBatcher;
+
+  /// Whether watcher consolidation is currently active.
+  bool _isConsolidated = false;
+
+  /// Simple semaphore for concurrent file-system operations.
+  int _activeOps = 0;
+  final List<Completer<void>> _opsQueue = [];
+
+  RealFileSystem({
+    required this.rootDirectory,
+    this.maxWatcherPaths = 1000,
+    this.watcherBatchWindow = const Duration(milliseconds: 50),
+    this.maxConcurrentFileOps = 10,
+  }) {
+    _eventBatcher = EventBatcher<FileSystemEvent>(
+      window: watcherBatchWindow,
+    );
+  }
+
+  /// Acquire a concurrency slot. Waits if at capacity.
+  Future<void> _acquireSlot() async {
+    if (_activeOps < maxConcurrentFileOps) {
+      _activeOps++;
+      return;
+    }
+    final completer = Completer<void>();
+    _opsQueue.add(completer);
+    await completer.future;
+    _activeOps++;
+  }
+
+  /// Release a concurrency slot, unblocking queued operations.
+  void _releaseSlot() {
+    _activeOps--;
+    if (_opsQueue.isNotEmpty) {
+      _opsQueue.removeAt(0).complete();
+    }
+  }
 
   String _resolvePath(Uri uri) {
     // Handle file:// URIs
@@ -29,24 +91,39 @@ class RealFileSystem implements ForgeFileSystem {
 
   @override
   Future<String> read(Uri uri) async {
-    final file = File(_resolvePath(uri));
-    return file.readAsString();
+    await _acquireSlot();
+    try {
+      final file = File(_resolvePath(uri));
+      return await file.readAsString();
+    } finally {
+      _releaseSlot();
+    }
   }
 
   @override
   Future<List<int>> readBytes(Uri uri) async {
-    final file = File(_resolvePath(uri));
-    return file.readAsBytes();
+    await _acquireSlot();
+    try {
+      final file = File(_resolvePath(uri));
+      return await file.readAsBytes();
+    } finally {
+      _releaseSlot();
+    }
   }
 
   @override
   Future<void> write(Uri uri, String content) async {
-    final file = File(_resolvePath(uri));
-    await file.writeAsString(content);
-    _changeController.add(FileChangeEvent(
-      uri: uri,
-      type: FileChangeType.modified,
-    ));
+    await _acquireSlot();
+    try {
+      final file = File(_resolvePath(uri));
+      await file.writeAsString(content);
+      _changeController.add(FileChangeEvent(
+        uri: uri,
+        type: FileChangeType.modified,
+      ));
+    } finally {
+      _releaseSlot();
+    }
   }
 
   @override
@@ -138,13 +215,74 @@ class RealFileSystem implements ForgeFileSystem {
     final dir = Directory(path);
     final file = File(path);
 
-    if (dir.existsSync()) {
-      return dir.watch(recursive: recursive);
-    } else if (file.existsSync()) {
-      return file.watch();
+    // If already consolidated, filter from the root watcher.
+    if (_isConsolidated) {
+      return _eventBatcher.batched
+          .expand((batch) => batch)
+          .where((event) => event.path.startsWith(path));
     }
 
-    return const Stream.empty();
+    Stream<FileSystemEvent> raw;
+    if (dir.existsSync()) {
+      raw = dir.watch(recursive: recursive);
+    } else if (file.existsSync()) {
+      raw = file.watch();
+    } else {
+      return const Stream.empty();
+    }
+
+    // Track this watcher.
+    final key = uri.toString();
+    final controller = StreamController<FileSystemEvent>.broadcast(
+      onCancel: () {
+        _watchers.remove(key)?.cancel();
+        // De-consolidate if we drop below threshold.
+        if (_isConsolidated &&
+            _watchers.length < maxWatcherPaths) {
+          _deconsolidate();
+        }
+      },
+    );
+
+    final sub = raw.listen(
+      (event) {
+        _eventBatcher.add(event);
+        controller.add(event);
+      },
+      onError: controller.addError,
+      onDone: controller.close,
+    );
+    _watchers[key] = sub;
+
+    // Consolidate if threshold exceeded.
+    if (_watchers.length > maxWatcherPaths && !_isConsolidated) {
+      _consolidate();
+    }
+
+    return controller.stream;
+  }
+
+  /// Consolidate all individual watchers into a single recursive
+  /// root-directory watcher.
+  void _consolidate() {
+    _isConsolidated = true;
+    // Cancel all individual subscriptions.
+    for (final sub in _watchers.values) {
+      sub.cancel();
+    }
+    _watchers.clear();
+    // Start a single recursive watcher on the root.
+    _consolidatedWatcher = rootDirectory
+        .watch(recursive: true)
+        .listen((event) => _eventBatcher.add(event));
+  }
+
+  /// Switch back to per-path watchers when the watcher count drops
+  /// below threshold.
+  void _deconsolidate() {
+    _isConsolidated = false;
+    _consolidatedWatcher?.cancel();
+    _consolidatedWatcher = null;
   }
 
   @override
@@ -299,6 +437,12 @@ class RealFileSystem implements ForgeFileSystem {
   Stream<WillSaveEvent> get onWillSave => _willSaveController.stream;
 
   void dispose() {
+    for (final sub in _watchers.values) {
+      sub.cancel();
+    }
+    _watchers.clear();
+    _consolidatedWatcher?.cancel();
+    _eventBatcher.dispose();
     _changeController.close();
     _saveController.close();
     _willSaveController.close();

@@ -6,10 +6,44 @@ import 'package:tom_forge_core/tom_forge_core.dart';
 /// Search manager implementation that uses a real file system.
 ///
 /// Performs text search across files in the workspace directory.
+/// Caches search results in an LRU cache bounded by entry count and
+/// estimated size. Cache is keyed by query parameters.
 class RealSearchManager implements ForgeSearchManager {
   final Directory rootDirectory;
 
-  RealSearchManager({required this.rootDirectory});
+  /// LRU cache for search results, keyed by query fingerprint.
+  final LruCache<String, List<ForgeSearchResult>> _cache;
+
+  RealSearchManager({
+    required this.rootDirectory,
+    int maxCacheEntries = 200,
+    int maxCacheSizeBytes = 50 * 1024 * 1024,
+  }) : _cache = LruCache(
+          maxEntries: maxCacheEntries,
+          maxSizeBytes: maxCacheSizeBytes,
+          sizeOf: (_, results) => results.fold<int>(
+            0,
+            (sum, r) =>
+                sum +
+                r.matches.fold<int>(
+                    0, (ms, m) => ms + m.lineText.length * 2),
+          ),
+        );
+
+  /// Clear the search result cache.
+  void clearCache() => _cache.clear();
+
+  String _cacheKey(
+    String query, {
+    required bool isRegExp,
+    required bool isCaseSensitive,
+    required bool isWordMatch,
+    String? includePattern,
+    String? excludePattern,
+    int? maxResults,
+  }) =>
+      '$query|$isRegExp|$isCaseSensitive|$isWordMatch|'
+      '$includePattern|$excludePattern|$maxResults';
 
   @override
   Future<List<ForgeSearchResult>> search(
@@ -21,6 +55,19 @@ class RealSearchManager implements ForgeSearchManager {
     String? excludePattern,
     int? maxResults,
   }) async {
+    final key = _cacheKey(
+      query,
+      isRegExp: isRegExp,
+      isCaseSensitive: isCaseSensitive,
+      isWordMatch: isWordMatch,
+      includePattern: includePattern,
+      excludePattern: excludePattern,
+      maxResults: maxResults,
+    );
+
+    final cached = _cache.get(key);
+    if (cached != null) return cached;
+
     final results = <ForgeSearchResult>[];
     final pattern = _buildPattern(
       query,
@@ -38,6 +85,7 @@ class RealSearchManager implements ForgeSearchManager {
       maxResults: maxResults,
     );
 
+    _cache.put(key, results);
     return results;
   }
 
