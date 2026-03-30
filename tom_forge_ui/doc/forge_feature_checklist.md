@@ -302,22 +302,22 @@ This section is intended to cover shell theming hooks, color/contrast expectatio
 ## 15. Dialogs, Notifications, and User Prompts
 This section is intended to cover quick-pick/input dialogs, open/save dialogs, toast notifications, and user confirmation flows. Include checks for shell service behavior and module/component usage patterns.
 
-- [ ] Section completed (finished on 2026-03-30T06:25:19+02:00)
+- [x] Section completed (finished on 2026-03-30T17:35:00+02:00)
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
-| Dialog, notification, and progress services are first-class shell APIs (`dialogs`, `notifications`, `progress`) | yes | no | yes | yes | no | no | documented in `forge_panel_shell_concept.md` `ForgeShellApi` service surface |
-| Action flow supports user-driven dialogs for input/selection/file operations via dialog manager | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` action execution notes (`ForgeDialogManager`) |
-| Quick pick interaction is defined (`showQuickPick`) for selection prompts | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` dialog API and `tom_forge_ui_testapp.md` test dialog behavior |
-| Input prompt interaction is defined (`showInputBox`) for text-based user input | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` dialog API and usage example |
-| Open/save file dialog flows are defined (`showOpenDialog`, `showSaveDialog`) | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` dialog API and `tom_forge_ui_testapp.md` simplified picker implementation |
-| "Open with" resolver prompt is defined with primary + additional editor options | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` open-with workflow and shell dialog behavior |
-| Startup dialog flow is specified (workspace/config selection, remembered defaults, CLI bypass) | no | no | no | yes | no | no | documented in `forge_panel_shell_concept.md` startup dialog section |
-| Notification API supports info/warning/error message channels and optional user actions | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` notification API and `tom_forge_ui_testapp.md` action button behavior |
-| Toast lifecycle/visual behavior is specified (appear/dismiss timing, overlay pattern, auto-dismiss) | no | yes | yes | yes | no | no | documented in `forge_panel_shell_spec.md` notification timing and `tom_forge_ui_testapp.md` `NotificationOverlay` behavior |
-| Error and recovery prompts are defined for file and save conflicts (modal, retry/cancel, merge options) | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_spec.md` error scenario table and save conflict flow |
-| Dirty-close confirmation prompts (save / don't save / cancel) are explicitly required | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_spec.md` close flow and `tom_forge_ui_testapp.md` close-dirty behavior |
-| Test coverage expectations exist for dialog/notification/progress managers | yes | no | yes | yes | no | no | documented in `forge_panel_shell_spec.md` test matrix and `tom_forge_ui_testapp.md` service list |
+| Dialog, notification, and progress services are first-class shell APIs (`dialogs`, `notifications`, `progress`) | yes | no | yes | yes | yes | partial | `ForgeShellApi` exposes `dialogs`/`notifications`/`progress`; `DefaultShellApi.create` wires `DefaultDialogManager`, `DefaultNotificationManager`, and `DefaultProgressManager` |
+| Action flow supports user-driven dialogs for input/selection/file operations via dialog manager | yes | yes | yes | yes | no | no | `ForgeAction` execution exists but no actions call `shell.dialogs.*`; dialog manager callback hooks are unassigned |
+| Quick pick interaction is defined (`showQuickPick`) for selection prompts | yes | yes | yes | yes | partial | no | `DefaultDialogManager.showQuickPick` implemented with callback hook and fallback return (`items.first.value`) |
+| Input prompt interaction is defined (`showInputBox`) for text-based user input | yes | yes | yes | yes | partial | no | `DefaultDialogManager.showInputBox` implemented with callback hook and fallback return (`value`) |
+| Open/save file dialog flows are defined (`showOpenDialog`, `showSaveDialog`) | yes | yes | yes | yes | partial | no | `DefaultDialogManager.showOpenDialog`/`showSaveDialog` implemented with callback hooks; no widget-layer binding found |
+| "Open with" resolver prompt is defined with primary + additional editor options | yes | yes | yes | yes | no | no | only `ForgeSchemaEditor.schemaLabel` mentions "Open with"; no resolver prompt flow implementation found |
+| Startup dialog flow is specified (workspace/config selection, remembered defaults, CLI bypass) | no | no | no | yes | partial | no | `WorkspaceWelcomePage` + `WorkspaceFolderSelector` implemented; persisted recent workspaces via `ForgePreferencesService`; no CLI bypass flow |
+| Notification API supports info/warning/error message channels and optional user actions | yes | yes | yes | yes | yes | partial | `DefaultNotificationManager.showInformation/showWarning/showError` with optional actions; test app `help.about` triggers `showInformation` |
+| Toast lifecycle/visual behavior is specified (appear/dismiss timing, overlay pattern, auto-dismiss) | no | yes | yes | yes | yes | partial | `ForgeNotificationOverlay` rendered by `ForgeShellScaffold`; manager auto-dismisses after `autoDismissDuration` (4s) |
+| Error and recovery prompts are defined for file and save conflicts (modal, retry/cancel, merge options) | yes | yes | yes | yes | no | no | no implemented conflict/recovery prompt flow found |
+| Dirty-close confirmation prompts (save / don't save / cancel) are explicitly required | yes | yes | yes | yes | no | no | `DefaultLayoutController.closeEditor/closeAllEditors` closes directly; no save/don't-save/cancel confirmation path |
+| Test coverage expectations exist for dialog/notification/progress managers | yes | no | yes | yes | partial | no | widget tests instantiate scaffold with `DefaultNotificationManager`; no dedicated dialog/progress manager behavior tests in scanned packages |
 
 ## 16. Explorer and Workspace Search
 This section is intended to cover file explorer loading behavior, path handling, reveal/open flows, search query execution, search result navigation, and large-workspace responsiveness. Include checks at shell service level and per-module view behavior.
