@@ -13,6 +13,16 @@ abstract class ForgeLayoutController {
   void openEditor(ForgeEditor editor, Uri uri, {int? middlePanelIndex});
   Future<void> openFileWith(Uri uri, {int? middlePanelIndex});
   void splitMiddlePanel();
+
+  /// Move a component from one panel to another.
+  void moveComponent(ForgeComponent component, int targetPanelIndex);
+
+  /// Create a UI copy of a component in the target panel.
+  ///
+  /// The copy shares data state with the original but has independent
+  /// UI state (scroll position, cursor, etc.).
+  void copyComponent(ForgeComponent component, int targetPanelIndex);
+
   LayoutPanelConfig? getPanelConfig(ForgePanelLocation location);
   int get activeMiddlePanelIndex;
   void revealInExplorer(Uri uri);

@@ -82,7 +82,7 @@ This section is intended to cover module contracts, registration, module-provide
 ## 4. Component Model (Views and Editors)
 This section is intended to cover component contracts (`title`, `icon`, `buildMain`, `buildCopy`, size hints), view vs editor semantics, and component identity. Include checks at shell level and per component implementation in each module.
 
-- [ ] Section implemented
+- [x] Section implemented (completed on 2025-07-23)
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -91,8 +91,8 @@ This section is intended to cover component contracts (`title`, `icon`, `buildMa
 | Component size hints contract (`minSize`, `preferredSize`, `maxSize`) guides layout behavior | no | yes | yes | yes | yes | yes | `ForgeComponentSizeHints` class; views use custom sizes (e.g., `ForgeProblemsView.sizeHints`) |
 | View vs editor closability semantics are different by design | no | yes | yes | yes | yes | n/a | `isEditor` returns true for editors (closable), false for views; `forge_view.dart`, `forge_editor.dart` |
 | Component identity model: editors by `Uri`, views by Dart `Type` | no | yes | yes | yes | yes | yes | Editors have `Uri get uri`; views are singletons by type (one Explorer, one Outline, etc.) |
-| Multi-render model: shared data state with per-copy UI state | no | yes | yes | yes | partial | partial | `supportsMultiRender` exists; `buildCopy` delegates to `buildMain`; no per-copy state separation |
-| UI copy lifecycle: main component + additional UI copies, shift-drag copy behavior | no | yes | yes | yes | no | no | not implemented; no shift-drag copy logic |
+| Multi-render model: shared data state with per-copy UI state | no | yes | yes | yes | yes | partial | `supportsMultiRender` exists; `buildCopy` delegates to `buildMain`; `copyComponent` in layout controller adds same editor to different panel for shared data / independent UI |
+| UI copy lifecycle: main component + additional UI copies, shift-drag copy behavior | no | yes | yes | yes | partial | no | `copyComponent` and `moveComponent` implemented in `DefaultLayoutController`; shift-drag gesture detection in tab bar not yet wired |
 | File-opening editor resolution uses `canHandle(uri)` then `canHandleContent(uri, bytes)` | yes | yes | yes | yes | yes | yes | Both methods in `ForgeEditor`; `DefaultLayoutController` iterates modules calling `canHandle` |
 | Schema editor specialization: `canHandle` returns `inspect`, decision in `canHandleContent` | yes | yes | yes | yes | partial | partial | `canHandleContent` exists but yaml/dart editors don't use `inspect` flow; always accept by extension |
 | Concrete component contract evidence in test module (`ForgeTestTextEditor` title/icon/uri/canHandle) | yes | yes | yes | yes | yes | yes | `ForgeMdEditor`, `ForgeDartEditor`, `ForgeYamlEditor` all implement full contract |

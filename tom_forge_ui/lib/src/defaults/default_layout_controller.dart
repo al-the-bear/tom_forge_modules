@@ -159,6 +159,46 @@ class DefaultLayoutController implements ForgeLayoutController {
     _systemState.setSelectedExplorerItems([uri]);
   }
 
+  @override
+  void moveComponent(ForgeComponent component, int targetPanelIndex) {
+    if (component is! ForgeEditor) return;
+    final panels = List<List<ForgeEditor>>.from(_middlePanels.value);
+    // Remove from current panel.
+    for (var i = 0; i < panels.length; i++) {
+      panels[i] = panels[i].where((e) => e != component).toList();
+    }
+    // Add to target panel.
+    while (panels.length <= targetPanelIndex) {
+      panels.add([]);
+    }
+    panels[targetPanelIndex].add(component);
+    // Clean up empty trailing panels.
+    while (panels.length > 1 && panels.last.isEmpty) {
+      panels.removeLast();
+    }
+    _middlePanels.value = panels;
+    _systemState.setMiddlePanelCount(panels.length);
+    _activeMiddlePanelIndex.value =
+        targetPanelIndex.clamp(0, panels.length - 1);
+  }
+
+  @override
+  void copyComponent(ForgeComponent component, int targetPanelIndex) {
+    if (component is! ForgeEditor) return;
+    if (!component.supportsMultiRender) return;
+    final panels = List<List<ForgeEditor>>.from(_middlePanels.value);
+    while (panels.length <= targetPanelIndex) {
+      panels.add([]);
+    }
+    // The same editor instance is added to the target panel.
+    // `buildCopy(context)` provides an independent UI rendering.
+    panels[targetPanelIndex].add(component);
+    _middlePanels.value = panels;
+    _systemState.setMiddlePanelCount(panels.length);
+    _activeMiddlePanelIndex.value =
+        targetPanelIndex.clamp(0, panels.length - 1);
+  }
+
   /// Close a specific editor.
   void closeEditor(ForgeEditor editor) {
     _systemState.removeOpenEditor(editor);
