@@ -147,6 +147,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   StreamSubscription<EditorListChangeEvent>? _editorChangeSubscription;
   StreamSubscription<DirtyStateEvent>? _dirtyStateSubscription;
   StreamSubscription<WindowFocusEvent>? _windowFocusSubscription;
+  StreamSubscription<ConfigChangeEvent>? _configChangeSubscription;
   Timer? _autoSaveTimer;
 
   /// Flex factors for middle editor panels (1.0 per panel by default).
@@ -162,6 +163,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     _listenForSaveRevisions();
     _listenForEditorChanges();
     _listenForAutoSave();
+    _listenForConfigChanges();
   }
 
   @override
@@ -171,6 +173,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     _editorChangeSubscription?.cancel();
     _dirtyStateSubscription?.cancel();
     _windowFocusSubscription?.cancel();
+    _configChangeSubscription?.cancel();
     _preferences.removeListener(_onPreferencesChanged);
     _saveAllEditorStates();
     _saveLayoutState();
@@ -185,7 +188,8 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         await _preferences.load();
       }
       _applyPreferenceTextSettings();
-      _restoreLayoutState();
+      await _restoreLayoutState();
+      await _restoreWorkspaceState();
     } catch (error, stackTrace) {
       debugPrint('[ForgeShellScaffold] initialize preferences failed: $error');
       debugPrint('$stackTrace');
@@ -251,10 +255,47 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     }
   }
 
-  /// Restores panel sizes, visibility, and previously-open editors from prefs.
-  void _restoreLayoutState() {
-    final sizes = _preferences.layoutPanelSizes;
-    final visibility = _preferences.layoutPanelVisibility;
+  /// Restores panel sizes, visibility, and previously-open editors.
+  ///
+  /// Tries SharedPreferences first, then falls back to `.forge/state/`
+  /// files for workspace-scoped recovery.
+  Future<void> _restoreLayoutState() async {
+    var sizes = _preferences.layoutPanelSizes;
+    var visibility = _preferences.layoutPanelVisibility;
+    var editorUris = _preferences.layoutOpenEditors;
+
+    // Fall back to .forge/state/ if preferences are empty.
+    final wsState = widget.shell.workspaceState;
+    if (sizes.isEmpty && visibility.isEmpty && wsState.isInitialized) {
+      try {
+        final layoutData = await wsState.loadLayoutState();
+        if (layoutData != null) {
+          for (final entry in layoutData.entries) {
+            if (entry.value is Map<String, dynamic>) {
+              final panel = entry.value as Map<String, dynamic>;
+              final size = panel['size'];
+              final isVisible = panel['isVisible'];
+              if (size is num) sizes[entry.key] = size.toDouble();
+              if (isVisible is bool) visibility[entry.key] = isVisible;
+            }
+          }
+        }
+      } catch (e) {
+        if (debugEnabled) {
+          debugPrint('[ForgeShellScaffold] load .forge/ layout failed: $e');
+        }
+      }
+    }
+
+    if (editorUris.isEmpty && wsState.isInitialized) {
+      try {
+        editorUris = await wsState.loadOpenEditors();
+      } catch (e) {
+        if (debugEnabled) {
+          debugPrint('[ForgeShellScaffold] load .forge/ editors failed: $e');
+        }
+      }
+    }
 
     for (final entry in sizes.entries) {
       final location = _panelLocationFromName(entry.key);
@@ -273,7 +314,6 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       }
     }
 
-    final editorUris = _preferences.layoutOpenEditors;
     for (final uriStr in editorUris) {
       try {
         _layout.openFile(Uri.parse(uriStr));
@@ -290,6 +330,87 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         '${sizes.length} sizes, ${visibility.length} visibility, '
         '${editorUris.length} editors',
       );
+    }
+  }
+
+  /// Restores workspace state from `.forge/state/` files on startup.
+  ///
+  /// Loads per-application state (layout, open editors, active editor)
+  /// when the workspace state manager is initialized.
+  Future<void> _restoreWorkspaceState() async {
+    final wsState = widget.shell.workspaceState;
+    if (!wsState.isInitialized) return;
+
+    // Restore config from .forge/config.json.
+    try {
+      final configData = await wsState.loadConfig();
+      if (configData != null) {
+        final configManager = widget.shell.config;
+        if (configManager is DefaultConfigManager) {
+          configManager.loadFromJson(configData);
+        }
+      }
+    } catch (e) {
+      if (debugEnabled) {
+        debugPrint('[ForgeShellScaffold] restore config failed: $e');
+      }
+    }
+
+    if (wsState is! DefaultWorkspaceStateManager) return;
+
+    try {
+      final appState = await wsState.loadApplicationState(
+        widget.application.title,
+      );
+      if (appState == null) return;
+
+      // Restore per-app layout if we didn't already restore from preferences.
+      final layout = appState['layout'];
+      if (layout is Map<String, dynamic> &&
+          _preferences.layoutPanelSizes.isEmpty) {
+        for (final entry in layout.entries) {
+          if (entry.value is Map<String, dynamic>) {
+            final panel = entry.value as Map<String, dynamic>;
+            final size = panel['size'];
+            final isVisible = panel['isVisible'];
+            final location = _panelLocationFromName(entry.key);
+            if (location != null) {
+              if (size is num) _layout.setPanelSize(location, size.toDouble());
+              if (isVisible is bool) {
+                if (isVisible) {
+                  _layout.openPanel(location);
+                } else {
+                  _layout.closePanel(location);
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Restore active editor if we have one saved.
+      final activeEditorStr = appState['activeEditor'];
+      if (activeEditorStr is String && activeEditorStr.isNotEmpty) {
+        try {
+          final activeUri = Uri.parse(activeEditorStr);
+          // If the editor is already open, just activate it.
+          final existing = widget.systemState.openEditors
+              .where((e) => e.uri == activeUri)
+              .firstOrNull;
+          if (existing != null) {
+            widget.systemState.setActiveEditor(existing);
+          }
+        } catch (_) {}
+      }
+
+      if (debugEnabled) {
+        debugPrint('[ForgeShellScaffold] restored workspace state for '
+            '"${widget.application.title}"');
+      }
+    } catch (e) {
+      if (debugEnabled) {
+        debugPrint('[ForgeShellScaffold] restore workspace state failed: $e');
+      }
     }
   }
 
@@ -376,6 +497,11 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
             if (state != null) {
               opened.restoreState(state);
             }
+            // Restore undo history metadata.
+            final undoEntries = await wsState.loadUndoHistory(opened.uri);
+            if (undoEntries.isNotEmpty) {
+              opened.restoreUndoHistoryMetadata(undoEntries);
+            }
           } catch (e) {
             if (debugEnabled) {
               debugPrint(
@@ -441,6 +567,24 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     }
   }
 
+  /// Listens for config changes and persists to `.forge/config.json`.
+  void _listenForConfigChanges() {
+    final wsState = widget.shell.workspaceState;
+    if (!wsState.isInitialized) return;
+    final configManager = widget.shell.config;
+    _configChangeSubscription = configManager.onDidChange.listen((_) async {
+      try {
+        if (configManager is DefaultConfigManager) {
+          await wsState.saveConfig(configManager.toJson());
+        }
+      } catch (e) {
+        if (debugEnabled) {
+          debugPrint('[ForgeShellScaffold] save config failed: $e');
+        }
+      }
+    });
+  }
+
   /// Saves all open editor states to `.forge/state/editors/` on shutdown.
   void _saveAllEditorStates() {
     final wsState = widget.shell.workspaceState;
@@ -450,6 +594,11 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         final state = editor.saveState();
         if (state != null) {
           wsState.saveEditorState(editor.uri, state);
+        }
+        // Persist undo history metadata for this editor.
+        final undoEntries = editor.getUndoHistoryMetadata();
+        if (undoEntries != null && undoEntries.isNotEmpty) {
+          wsState.saveUndoHistory(editor.uri, undoEntries);
         }
       } catch (e) {
         if (debugEnabled) {

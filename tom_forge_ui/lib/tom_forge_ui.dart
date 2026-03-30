@@ -85,6 +85,7 @@ export 'src/defaults/default_system_state.dart';
 export 'src/defaults/default_undo_manager.dart';
 export 'src/defaults/default_workspace_state_manager.dart';
 export 'src/defaults/memory_file_system.dart';
+export 'src/defaults/persistent_module_storage.dart';
 export 'src/defaults/real_file_system.dart';
 export 'src/defaults/real_search_manager.dart';
 export 'src/defaults/stub_services.dart';

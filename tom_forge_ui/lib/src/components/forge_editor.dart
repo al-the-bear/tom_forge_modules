@@ -48,6 +48,21 @@ abstract class ForgeEditor extends ForgeComponent {
   /// `.forge/state/editors/`.
   void restoreState(Map<String, dynamic> state) {}
 
+  /// Set the content of this editor programmatically.
+  ///
+  /// Used for non-destructive file restore from revisions.
+  void setContent(String content) {}
+
+  /// Returns serializable undo history metadata for persistence
+  /// to `.forge/undo/{uri-hash}.json`.
+  ///
+  /// Each entry is a JSON-encodable map with at least a `label` key.
+  /// Returns null if this editor doesn't support undo persistence.
+  List<Map<String, dynamic>>? getUndoHistoryMetadata() => null;
+
+  /// Restores undo history metadata loaded from `.forge/undo/`.
+  void restoreUndoHistoryMetadata(List<Map<String, dynamic>> entries) {}
+
   /// History manager for back/forward navigation. Null if unsupported.
   ComponentHistoryManager? get historyManager => null;
 }

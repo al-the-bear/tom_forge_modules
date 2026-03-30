@@ -191,6 +191,7 @@ class DefaultShellApi implements ForgeShellApi {
     required String appName,
     required GlobalKey<NavigatorState> navigatorKey,
     ForgeWorkspaceStateManager? workspaceState,
+    ForgeModuleStorage? storage,
   }) {
     final systemState = DefaultSystemState();
     final actionRegistry = DefaultActionRegistry();
@@ -233,7 +234,7 @@ class DefaultShellApi implements ForgeShellApi {
 
     final outlineManager = DefaultOutlineManager();
     final terminalManager = DefaultTerminalManager();
-    final storageService = DefaultModuleStorage();
+    final storageService = storage ?? DefaultModuleStorage();
     final environmentService = DefaultEnvironment();
     final executionMonitor = DefaultExecutionMonitor();
     final secretStorage = DefaultSecretStorage();
@@ -309,6 +310,40 @@ class DefaultShellApi implements ForgeShellApi {
   @override
   void setTextSettings(String editorTypeId, ForgeTextSettings settings) {
     _editorTextSettings[editorTypeId] = settings;
+  }
+
+  /// Restores a file from a revision snapshot.
+  ///
+  /// Writes the revision content to the file system and re-opens the file
+  /// in the editor. The replaced content is itself snapshotted as a revision
+  /// before overwriting, enabling non-destructive restore.
+  Future<bool> restoreFileFromRevision(Uri fileUri, String revisionId) async {
+    if (!workspaceState.isInitialized) return false;
+    final content = await workspaceState.readRevision(fileUri, revisionId);
+    if (content == null) return false;
+
+    // Snapshot current content before overwriting.
+    try {
+      final currentContent = await fileSystem.read(fileUri);
+      await workspaceState.createRevision(fileUri, currentContent);
+    } catch (_) {
+      // If we can't snapshot current content, proceed anyway.
+    }
+
+    await fileSystem.write(fileUri, content);
+    await fileSystem.save(fileUri);
+
+    // Refresh open editor if present.
+    final existing = (systemState as DefaultSystemState)
+        .openEditors
+        .where((e) => e.uri == fileUri)
+        .firstOrNull;
+    if (existing != null) {
+      existing.setContent(content);
+      existing.markClean();
+    }
+
+    return true;
   }
 
   /// Disposes all services that own resources.

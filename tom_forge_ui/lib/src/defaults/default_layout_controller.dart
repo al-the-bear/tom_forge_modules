@@ -438,6 +438,83 @@ class DefaultLayoutController implements ForgeLayoutController {
     }
   }
 
+  /// Serializes current layout state to a JSON-compatible map.
+  ///
+  /// Captures panel sizes, visibility, active middle panel index,
+  /// and open editor URIs per panel.
+  Map<String, dynamic> toLayoutSnapshot() {
+    return {
+      'panels': {
+        'left': {
+          'size': _leftPanel.value.size,
+          'isVisible': _leftPanel.value.isVisible,
+        },
+        'right': {
+          'size': _rightPanel.value.size,
+          'isVisible': _rightPanel.value.isVisible,
+        },
+        'bottom': {
+          'size': _bottomPanel.value.size,
+          'isVisible': _bottomPanel.value.isVisible,
+        },
+      },
+      'activeMiddlePanelIndex': _activeMiddlePanelIndex.value,
+      'middlePanels': _middlePanels.value
+          .map((panel) => panel.map((e) => e.uri.toString()).toList())
+          .toList(),
+    };
+  }
+
+  /// Restores layout state from a snapshot created by [toLayoutSnapshot].
+  ///
+  /// Panel sizes and visibility are restored immediately; editors are
+  /// re-opened via [openFile].
+  void loadLayoutSnapshot(Map<String, dynamic> snapshot) {
+    final panels = snapshot['panels'];
+    if (panels is Map<String, dynamic>) {
+      for (final entry in panels.entries) {
+        final location = ForgePanelLocation.values
+            .where((l) => l.name == entry.key)
+            .firstOrNull;
+        if (location == null || location == ForgePanelLocation.middle) continue;
+        final data = entry.value;
+        if (data is Map<String, dynamic>) {
+          final size = data['size'];
+          final isVisible = data['isVisible'];
+          if (size is num) setPanelSize(location, size.toDouble());
+          if (isVisible is bool) {
+            if (isVisible) {
+              openPanel(location);
+            } else {
+              closePanel(location);
+            }
+          }
+        }
+      }
+    }
+
+    final activeIdx = snapshot['activeMiddlePanelIndex'];
+    if (activeIdx is int) {
+      _activeMiddlePanelIndex.value = activeIdx;
+    }
+
+    final middlePanelUris = snapshot['middlePanels'];
+    if (middlePanelUris is List) {
+      for (var i = 0; i < middlePanelUris.length; i++) {
+        final panelUris = middlePanelUris[i];
+        if (panelUris is List) {
+          for (final uriStr in panelUris) {
+            if (uriStr is String) {
+              try {
+                openFile(Uri.parse(uriStr), middlePanelIndex: i);
+              } catch (_) {}
+            }
+          }
+        }
+      }
+    }
+  }
+
   /// Dispose notifiers.
   void dispose() {
     _leftPanel.dispose();

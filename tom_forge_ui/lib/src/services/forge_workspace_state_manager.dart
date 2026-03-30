@@ -77,6 +77,14 @@ abstract class ForgeWorkspaceStateManager {
   /// Load undo entries for a file.
   Future<List<Map<String, dynamic>>> loadUndoHistory(Uri fileUri);
 
+  // ── Configuration ──
+
+  /// Save configuration data to `.forge/config.json`.
+  Future<void> saveConfig(Map<String, dynamic> configData);
+
+  /// Load configuration data from `.forge/config.json`.
+  Future<Map<String, dynamic>?> loadConfig();
+
   // ── Gitignore ──
 
   /// Check whether `.forge` is listed in the workspace `.gitignore`.

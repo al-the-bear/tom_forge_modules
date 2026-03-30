@@ -55,6 +55,37 @@ class DefaultConfigManager implements ForgeConfigManager {
     _changeController.add(const ConfigChangeEvent(key: ''));
   }
 
+  /// Serializes the current configuration state to a JSON-compatible map.
+  ///
+  /// Includes only module configs that are serializable (Map or List).
+  Map<String, dynamic> toJson() {
+    final moduleJson = <String, dynamic>{};
+    for (final entry in _moduleConfigs.entries) {
+      final value = entry.value;
+      if (value is Map || value is List || value is String || value is num || value is bool) {
+        moduleJson[entry.key] = value;
+      }
+    }
+    return {
+      'moduleConfigs': moduleJson,
+    };
+  }
+
+  /// Restores configuration state from a JSON map.
+  ///
+  /// Module configs are merged on top of defaults.
+  void loadFromJson(Map<String, dynamic> json) {
+    final moduleJson = json['moduleConfigs'];
+    if (moduleJson is Map<String, dynamic>) {
+      for (final entry in moduleJson.entries) {
+        if (entry.value is Object) {
+          _moduleConfigs[entry.key] = entry.value!;
+        }
+      }
+    }
+    _changeController.add(const ConfigChangeEvent(key: ''));
+  }
+
   @override
   Stream<ConfigChangeEvent> get onDidChange => _changeController.stream;
 

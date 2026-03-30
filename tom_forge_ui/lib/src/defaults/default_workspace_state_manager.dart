@@ -261,6 +261,30 @@ class DefaultWorkspaceStateManager implements ForgeWorkspaceStateManager {
     return [];
   }
 
+  // ── Configuration ──
+
+  @override
+  Future<void> saveConfig(Map<String, dynamic> configData) async {
+    _ensureInitialized();
+    final file = File('$_forgeDir/config.json');
+    await file.writeAsString(_encodeJson(configData));
+    _log('saved config');
+  }
+
+  @override
+  Future<Map<String, dynamic>?> loadConfig() async {
+    _ensureInitialized();
+    final file = File('$_forgeDir/config.json');
+    if (!await file.exists()) return null;
+    try {
+      final data = jsonDecode(await file.readAsString());
+      return data is Map<String, dynamic> ? data : null;
+    } catch (e) {
+      _log('load config failed: $e');
+      return null;
+    }
+  }
+
   // ── Gitignore ──
 
   @override
