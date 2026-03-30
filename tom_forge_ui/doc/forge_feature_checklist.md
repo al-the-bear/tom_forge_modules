@@ -42,11 +42,22 @@ This section is intended to cover workspace root handling, file-system scope, `.
 ## 3. Application Model and Multi-Application Switching
 This section is intended to cover application definitions, switching behavior, in-memory retention of inactive applications, and app-specific layout/action contexts. Include checks for global Forge behavior and module/component behavior across application switches.
 
-- [ ] Section completed (finished on ...)
+- [x] Section completed (finished on 2026-03-30T06:02:09+02:00)
 
 | category | per module? | per component? | to be implemented in modules? | shell implementation done? | implemented on |
 |---|---|---|---|---|---|
-| | | | | | |
+| ForgeApplication model defines named app-level layout and metadata | no | no | no | yes | documented in `forge_panel_shell_concept.md` (`ForgeApplication` model) |
+| Multiple applications exist in one shell instance | no | no | no | yes | documented in `forge_panel_shell_concept.md` (single window, multi-application) |
+| Application switcher dropdown selects active application | no | no | no | yes | documented in `forge_panel_shell_concept.md` (title bar/application dropdown) |
+| Switching keeps previous applications alive in memory | no | no | no | yes | documented in `forge_panel_shell_concept.md` (switch behavior) |
+| Inactive app layout state is preserved in memory | no | no | no | yes | documented in `forge_panel_shell_concept.md` (`preserveLayoutInMemory`, switch behavior) |
+| Default behavior is no save-on-switch; optional save-on-deactivate support | no | yes | yes (per app policy) | yes | documented in `forge_panel_shell_concept.md` (application switching notes) |
+| Active application tracked in system state/controller | no | no | no | yes | documented in `forge_panel_shell_concept.md` (`activeApplication`, `ForgeShellController`) |
+| Per-application layout persistence in `.forge/state/layout.json` | no | yes | yes (app layout contributions) | yes | documented in `forge_panel_shell_concept.md` (persistence sections) |
+| Per-application open editor restoration via `.forge/state/open-editors.json` | no | yes | yes (editor components participate) | yes | documented in `forge_panel_shell_concept.md` startup flow |
+| Modules can expose pre-configured applications | yes | no | yes (module-provided applications) | yes | documented in `forge_panel_shell_concept.md` (module-provided application layouts) |
+| Application layouts reference module-owned components | yes | yes | yes (module components wired into app layout) | yes | documented in `forge_panel_shell_concept.md` design note on application structure |
+| App switch lifecycle is represented in shell event stream and architecture | no | yes | yes (components react to app switch/focus) | yes | documented in `forge_panel_shell_concept.md` (events and focus/app switch behaviors) |
 
 ## 4. Module Integration and Ownership Boundaries
 This section is intended to cover module contracts, registration, module-provided views/editors/actions/shortcuts, and module-to-shell ownership boundaries. Include checks for shell-level module orchestration and per-module conformance.
