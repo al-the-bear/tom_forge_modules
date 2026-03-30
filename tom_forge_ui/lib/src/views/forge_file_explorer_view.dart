@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show Directory, File, FileSystemEntity;
 
 import 'package:flutter/foundation.dart';
@@ -89,6 +90,7 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
   Uri? _selectedUri;
   Uri? _hoveredUri;
   String? _errorMessage;
+  StreamSubscription<Uri?>? _decorationSubscription;
 
   @override
   void initState() {
@@ -97,13 +99,22 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
     // Listen for reveal-in-explorer triggers from system state.
     widget.systemState?.selectedExplorerItemsListenable
         .addListener(_onSystemStateChanged);
+    // Listen for decoration changes to refresh display.
+    _decorationSubscription =
+        widget.fileDecorationManager?.onDidChange.listen(_onDecorationChanged);
   }
 
   @override
   void dispose() {
+    _decorationSubscription?.cancel();
     widget.systemState?.selectedExplorerItemsListenable
         .removeListener(_onSystemStateChanged);
     super.dispose();
+  }
+
+  void _onDecorationChanged(Uri? uri) {
+    // Rebuild to reflect updated decorations.
+    if (mounted) setState(() {});
   }
 
   void _onSystemStateChanged() {

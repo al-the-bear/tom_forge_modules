@@ -149,7 +149,57 @@ class RealFileSystem implements ForgeFileSystem {
 
   @override
   Future<bool> applyWorkspaceEdit(ForgeWorkspaceEdit edit) async {
+    // Atomic implementation: backup → apply → rollback on failure.
+    final backups = <Uri, String>{};
+    final createdFiles = <Uri>[];
+    final deletedBackups = <Uri, String>{};
+    final renamedFiles = <(Uri, Uri)>[];
+
     try {
+      // Phase 1: Backup existing files that will be text-edited.
+      for (final uri in edit.textEdits.keys) {
+        if (await exists(uri)) {
+          backups[uri] = await read(uri);
+        }
+      }
+
+      // Phase 2: Apply file operations (create, delete, rename).
+      for (final op in edit.fileOperations) {
+        switch (op) {
+          case ForgeCreateFileOperation(:final uri, :final content, :final overwrite):
+            if (await exists(uri) && !overwrite) {
+              throw StateError('File already exists: ${uri.toFilePath()}');
+            }
+            await write(uri, content ?? '');
+            createdFiles.add(uri);
+          case ForgeDeleteFileOperation(:final uri, :final recursive):
+            if (await exists(uri)) {
+              deletedBackups[uri] = await read(uri);
+              final file = File(uri.toFilePath());
+              await file.delete(recursive: recursive);
+              _changeController.add(FileChangeEvent(
+                uri: uri,
+                type: FileChangeType.deleted,
+              ));
+            }
+          case ForgeRenameFileOperation(:final oldUri, :final newUri, :final overwrite):
+            if (!await exists(oldUri)) {
+              throw StateError('Source file not found: ${oldUri.toFilePath()}');
+            }
+            if (await exists(newUri) && !overwrite) {
+              throw StateError('Target file already exists: ${newUri.toFilePath()}');
+            }
+            final file = File(oldUri.toFilePath());
+            await file.rename(newUri.toFilePath());
+            renamedFiles.add((oldUri, newUri));
+            _changeController.add(FileChangeEvent(
+              uri: newUri,
+              type: FileChangeType.created,
+            ));
+        }
+      }
+
+      // Phase 3: Apply text edits.
       for (final entry in edit.textEdits.entries) {
         final uri = entry.key;
         final edits = entry.value;
@@ -200,6 +250,41 @@ class RealFileSystem implements ForgeFileSystem {
       }
       return true;
     } catch (e) {
+      // Rollback: restore backups, remove created files, restore deleted files.
+      for (final entry in backups.entries) {
+        try {
+          await write(entry.key, entry.value);
+        } catch (_) {
+          // Best effort rollback.
+        }
+      }
+      for (final uri in createdFiles) {
+        try {
+          final file = File(uri.toFilePath());
+          if (await file.exists()) {
+            await file.delete();
+          }
+        } catch (_) {
+          // Best effort rollback.
+        }
+      }
+      for (final entry in deletedBackups.entries) {
+        try {
+          await write(entry.key, entry.value);
+        } catch (_) {
+          // Best effort rollback.
+        }
+      }
+      for (final (oldUri, newUri) in renamedFiles) {
+        try {
+          final file = File(newUri.toFilePath());
+          if (await file.exists()) {
+            await file.rename(oldUri.toFilePath());
+          }
+        } catch (_) {
+          // Best effort rollback.
+        }
+      }
       return false;
     }
   }

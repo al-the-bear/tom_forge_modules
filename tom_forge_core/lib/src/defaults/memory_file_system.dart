@@ -250,7 +250,73 @@ class MemoryFileSystem implements ForgeFileSystem {
 
   @override
   Future<bool> applyWorkspaceEdit(ForgeWorkspaceEdit edit) async {
+    // Atomic implementation: backup → apply → rollback on failure.
+    final backups = <String, List<int>?>{};
+    final createdPaths = <String>[];
+    final deletedBackups = <String, List<int>>{};
+    final renamedPaths = <(String, String)>[];
+
     try {
+      // Phase 1: Backup existing files that will be text-edited.
+      for (final uri in edit.textEdits.keys) {
+        final key = uri.path;
+        if (_files.containsKey(key)) {
+          backups[key] = List.of(_files[key]!);
+        }
+      }
+
+      // Phase 2: Apply file operations first (create, delete, rename).
+      for (final op in edit.fileOperations) {
+        switch (op) {
+          case ForgeCreateFileOperation(:final uri, :final content, :final overwrite):
+            final key = uri.path;
+            if (_files.containsKey(key) && !overwrite) {
+              throw StateError('File already exists: $key');
+            }
+            _files[key] = utf8.encode(content ?? '');
+            createdPaths.add(key);
+            _changeController.add(FileChangeEvent(
+              uri: uri,
+              type: FileChangeType.created,
+            ));
+          case ForgeDeleteFileOperation(:final uri, :final recursive):
+            final key = uri.path;
+            if (_files.containsKey(key)) {
+              deletedBackups[key] = List.of(_files[key]!);
+              _files.remove(key);
+              _changeController.add(FileChangeEvent(
+                uri: uri,
+                type: FileChangeType.deleted,
+              ));
+            } else if (recursive) {
+              // Delete all files under the directory path.
+              final toDelete = _files.keys
+                  .where((p) => p.startsWith('$key/'))
+                  .toList();
+              for (final p in toDelete) {
+                deletedBackups[p] = List.of(_files[p]!);
+                _files.remove(p);
+              }
+            }
+          case ForgeRenameFileOperation(:final oldUri, :final newUri, :final overwrite):
+            final oldKey = oldUri.path;
+            final newKey = newUri.path;
+            if (!_files.containsKey(oldKey)) {
+              throw StateError('Source file not found: $oldKey');
+            }
+            if (_files.containsKey(newKey) && !overwrite) {
+              throw StateError('Target file already exists: $newKey');
+            }
+            _files[newKey] = _files.remove(oldKey)!;
+            renamedPaths.add((oldKey, newKey));
+            _changeController.add(FileChangeEvent(
+              uri: newUri,
+              type: FileChangeType.created,
+            ));
+        }
+      }
+
+      // Phase 3: Apply text edits.
       for (final entry in edit.textEdits.entries) {
         final uri = entry.key;
         final edits = entry.value;
@@ -291,9 +357,26 @@ class MemoryFileSystem implements ForgeFileSystem {
       }
       return true;
     } catch (e) {
+      // Rollback: restore backups, remove created files, restore deleted files.
+      for (final entry in backups.entries) {
+        if (entry.value != null) {
+          _files[entry.key] = entry.value!;
+        }
+      }
+      for (final key in createdPaths) {
+        _files.remove(key);
+      }
+      for (final entry in deletedBackups.entries) {
+        _files[entry.key] = entry.value;
+      }
+      for (final (oldKey, newKey) in renamedPaths) {
+        if (_files.containsKey(newKey)) {
+          _files[oldKey] = _files.remove(newKey)!;
+        }
+      }
       if (debugEnabled) {
         // ignore: avoid_print
-        print('[MemoryFileSystem] applyWorkspaceEdit error: $e');
+        print('[MemoryFileSystem] applyWorkspaceEdit error (rolled back): $e');
       }
       return false;
     }

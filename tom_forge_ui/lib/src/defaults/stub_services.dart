@@ -334,13 +334,37 @@ class DefaultSecretStorage implements ForgeSecretStorage {
 // ── File Decorations ─────────────────────────────────────────────────
 
 /// Default implementation of [ForgeFileDecorationManager].
+///
+/// Aggregates decoration providers and exposes a merged [onDidChange] stream
+/// that fires when any registered provider signals invalidation.
 class DefaultFileDecorationManager implements ForgeFileDecorationManager {
   final List<ForgeFileDecorationProvider> _providers = [];
+  final Map<ForgeFileDecorationProvider, StreamSubscription<Uri?>>
+      _subscriptions = {};
+  final StreamController<Uri?> _changeController =
+      StreamController<Uri?>.broadcast();
+
+  /// Fires when any provider signals decoration invalidation.
+  ///
+  /// The [Uri] indicates which resource changed, or `null` if all should
+  /// be re-evaluated.
+  Stream<Uri?> get onDidChange => _changeController.stream;
 
   @override
   ForgeDisposable registerProvider(ForgeFileDecorationProvider provider) {
     _providers.add(provider);
-    return _SimpleDisposable(() => _providers.remove(provider));
+    // Subscribe to provider's change stream and forward events.
+    final sub = provider.onDidChange.listen(_changeController.add);
+    _subscriptions[provider] = sub;
+    // Signal a full refresh when a new provider is added.
+    _changeController.add(null);
+    return _SimpleDisposable(() {
+      _subscriptions[provider]?.cancel();
+      _subscriptions.remove(provider);
+      _providers.remove(provider);
+      // Signal refresh when provider is removed.
+      _changeController.add(null);
+    });
   }
 
   /// Get all decorations for a URI.
@@ -355,13 +379,34 @@ class DefaultFileDecorationManager implements ForgeFileDecorationManager {
   /// All registered providers.
   List<ForgeFileDecorationProvider> get providers =>
       List.unmodifiable(_providers);
+
+  /// Release resources.
+  void dispose() {
+    for (final sub in _subscriptions.values) {
+      sub.cancel();
+    }
+    _subscriptions.clear();
+    _changeController.close();
+  }
 }
 
 // ── Virtual Documents ────────────────────────────────────────────────
 
 /// Default implementation of [ForgeVirtualDocumentManager].
+///
+/// Aggregates virtual document providers and exposes a merged [onDidChange]
+/// stream that fires when any registered provider signals content invalidation.
 class DefaultVirtualDocumentManager implements ForgeVirtualDocumentManager {
   final Map<String, ForgeVirtualDocumentProvider> _providers = {};
+  final Map<String, StreamSubscription<Uri>> _subscriptions = {};
+  final StreamController<Uri> _changeController =
+      StreamController<Uri>.broadcast();
+
+  /// Fires when any provider signals content invalidation.
+  Stream<Uri> get onDidChange => _changeController.stream;
+
+  /// All registered scheme names.
+  Set<String> get registeredSchemes => _providers.keys.toSet();
 
   @override
   ForgeDisposable registerProvider(
@@ -369,8 +414,18 @@ class DefaultVirtualDocumentManager implements ForgeVirtualDocumentManager {
     ForgeVirtualDocumentProvider provider,
   ) {
     _providers[scheme] = provider;
-    return _SimpleDisposable(() => _providers.remove(scheme));
+    // Subscribe to provider's change stream and forward events.
+    final sub = provider.onDidChange.listen(_changeController.add);
+    _subscriptions[scheme] = sub;
+    return _SimpleDisposable(() {
+      _subscriptions[scheme]?.cancel();
+      _subscriptions.remove(scheme);
+      _providers.remove(scheme);
+    });
   }
+
+  /// Check if a scheme has a registered provider.
+  bool hasProvider(String scheme) => _providers.containsKey(scheme);
 
   /// Resolve content for a virtual URI.
   Future<String?> resolveContent(Uri uri) async {
@@ -379,6 +434,15 @@ class DefaultVirtualDocumentManager implements ForgeVirtualDocumentManager {
       return await provider.provideContent(uri);
     }
     return null;
+  }
+
+  /// Release resources.
+  void dispose() {
+    for (final sub in _subscriptions.values) {
+      sub.cancel();
+    }
+    _subscriptions.clear();
+    _changeController.close();
   }
 }
 

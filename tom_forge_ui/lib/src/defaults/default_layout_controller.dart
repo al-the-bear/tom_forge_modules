@@ -17,6 +17,7 @@ import '../module/forge_module.dart';
 import '../shell/forge_layout_controller.dart';
 import '../shell/forge_module_registry.dart';
 import 'default_system_state.dart';
+import 'stub_services.dart';
 
 /// Default implementation of [ForgeLayoutController].
 ///
@@ -33,6 +34,7 @@ class DefaultLayoutController implements ForgeLayoutController {
   final DefaultSystemState _systemState;
   final ForgeFileSystem _fileSystem;
   final ForgeModuleRegistry _moduleRegistry;
+  final DefaultVirtualDocumentManager? _virtualDocuments;
 
   final ValueNotifier<LayoutPanelConfig> _leftPanel;
   final ValueNotifier<LayoutPanelConfig> _rightPanel;
@@ -50,12 +52,14 @@ class DefaultLayoutController implements ForgeLayoutController {
     required DefaultSystemState systemState,
     required ForgeFileSystem fileSystem,
     required ForgeModuleRegistry moduleRegistry,
+    DefaultVirtualDocumentManager? virtualDocuments,
     double leftSize = 250,
     double rightSize = 220,
     double bottomSize = 180,
   })  : _systemState = systemState,
         _fileSystem = fileSystem,
         _moduleRegistry = moduleRegistry,
+        _virtualDocuments = virtualDocuments,
         _leftPanel = ValueNotifier(
             LayoutPanelConfig(size: leftSize, isVisible: true)),
         _rightPanel = ValueNotifier(
@@ -99,7 +103,15 @@ class DefaultLayoutController implements ForgeLayoutController {
       return;
     }
 
-    _fileSystem.read(uri).then((content) async {
+    // Resolve content from virtual document provider or file system.
+    _resolveContent(uri).then((content) async {
+      if (content == null) {
+        if (debugEnabled) {
+          // ignore: avoid_print
+          print('[DefaultLayoutController] Cannot read content for: $uri');
+        }
+        return;
+      }
       final editor = await _createEditor(uri, content);
       if (editor == null) {
         if (debugEnabled) {
@@ -116,6 +128,19 @@ class DefaultLayoutController implements ForgeLayoutController {
         print('[DefaultLayoutController] openFile error: $e');
       }
     });
+  }
+
+  /// Resolve content for a URI, trying virtual document providers first
+  /// for non-file schemes, then falling back to file system.
+  Future<String?> _resolveContent(Uri uri) async {
+    // Check if a virtual document provider handles this scheme.
+    if (_virtualDocuments != null &&
+        uri.scheme != 'file' &&
+        _virtualDocuments.hasProvider(uri.scheme)) {
+      return await _virtualDocuments.resolveContent(uri);
+    }
+    // Fall back to file system.
+    return await _fileSystem.read(uri);
   }
 
   @override

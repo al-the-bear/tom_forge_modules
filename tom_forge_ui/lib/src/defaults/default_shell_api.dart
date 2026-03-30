@@ -199,10 +199,12 @@ class DefaultShellApi implements ForgeShellApi {
       actionRegistry: actionRegistry,
       shortcutManager: shortcutManager,
     );
+    final virtualDocumentManager = DefaultVirtualDocumentManager();
     final layoutController = DefaultLayoutController(
       systemState: systemState,
       fileSystem: fileSystem,
       moduleRegistry: moduleRegistry,
+      virtualDocuments: virtualDocumentManager,
     );
     final statusBarController = DefaultStatusBarController(
       registry: moduleRegistry,
@@ -236,7 +238,6 @@ class DefaultShellApi implements ForgeShellApi {
     final executionMonitor = DefaultExecutionMonitor();
     final secretStorage = DefaultSecretStorage();
     final fileDecorationManager = DefaultFileDecorationManager();
-    final virtualDocumentManager = DefaultVirtualDocumentManager();
 
     // Auto-bridge: sync diagnostics from manager into system state so
     // status-bar items, event streams, and summary counters stay current.

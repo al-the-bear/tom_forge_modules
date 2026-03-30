@@ -67,19 +67,24 @@ class _OutlineContent extends StatefulWidget {
 
 class _OutlineContentState extends State<_OutlineContent> {
   List<ForgeOutlineItem> _items = [];
-  StreamSubscription<EditorListChangeEvent>? _subscription;
+  StreamSubscription<EditorListChangeEvent>? _editorSubscription;
+  StreamSubscription<void>? _outlineChangeSubscription;
 
   @override
   void initState() {
     super.initState();
     _loadOutline();
-    _subscription =
+    _editorSubscription =
         widget.systemState.onEditorsChanged.listen((_) => _loadOutline());
+    // Listen for outline provider content changes.
+    _outlineChangeSubscription =
+        widget.outlineManager.onDidChange.listen((_) => _loadOutline());
   }
 
   @override
   void dispose() {
-    _subscription?.cancel();
+    _editorSubscription?.cancel();
+    _outlineChangeSubscription?.cancel();
     super.dispose();
   }
 
