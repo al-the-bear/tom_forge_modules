@@ -14,6 +14,13 @@ abstract class ForgeLayoutController {
   Future<void> openFileWith(Uri uri, {int? middlePanelIndex});
   void splitMiddlePanel();
 
+  /// Split and insert a new panel at [position] containing [editor].
+  ///
+  /// Removes the editor from its current panel, creates a new panel at
+  /// the given position index, and places the editor there. Respects
+  /// the maximum panel count (4).
+  void splitAndInsertPanel(int position, ForgeEditor editor);
+
   /// Move a component from one panel to another.
   void moveComponent(ForgeComponent component, int targetPanelIndex);
 

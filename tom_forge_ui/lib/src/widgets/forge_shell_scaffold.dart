@@ -21,6 +21,8 @@ import '../shell/forge_layout_controller.dart';
 import '../shell/forge_status_bar_controller.dart';
 import 'forge_command_palette.dart';
 import 'forge_configuration_dialog.dart';
+import 'forge_drag_data.dart';
+import 'forge_drop_zone_overlay.dart';
 import 'forge_editor_tab_bar.dart';
 import 'forge_menu_bar.dart';
 import 'forge_notification_overlay.dart';
@@ -1192,6 +1194,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
                     width: leftConfig.size,
                     tabs: widget.application.layout.leftPanel.tabs,
                     iconStripPosition: IconStripPosition.left,
+                    panelArea: PanelArea.left,
                     showConfigTab: true,
                     onConfigTap: _openSettings,
                     configurationPanelBuilder: _buildConfigurationPanel,
@@ -1223,6 +1226,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
                     width: rightConfig.size,
                     tabs: widget.application.layout.rightPanel.tabs,
                     iconStripPosition: IconStripPosition.right,
+                    panelArea: PanelArea.right,
                     showConfigTab: false,
                   ),
               ],
@@ -1335,6 +1339,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     required double width,
     required List<PanelTabConfig> tabs,
     required IconStripPosition iconStripPosition,
+    required PanelArea panelArea,
     bool showConfigTab = false,
     VoidCallback? onConfigTap,
     WidgetBuilder? configurationPanelBuilder,
@@ -1350,6 +1355,8 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         showConfigTab: showConfigTab,
         onConfigTap: onConfigTap,
         configurationPanelBuilder: configurationPanelBuilder,
+        panelArea: panelArea,
+        onTabDropped: (data) => _handlePanelTabDrop(data, panelArea),
       ),
     );
   }
@@ -1484,8 +1491,15 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     required bool isActive,
     required int panelIndex,
   }) {
+    final panelCount = _layout.middlePanels.value.length;
+
     if (editors.isEmpty) {
-      return const SizedBox.expand();
+      return EmptyPanelDropTarget(
+        panelIndex: panelIndex,
+        onDrop: (data, position, {bool isCopy = false}) {
+          _handleDropZone(data, position, panelIndex, isCopy: isCopy);
+        },
+      );
     }
     return ValueListenableBuilder<ForgeEditor?>(
       valueListenable: widget.systemState.activeEditorListenable,
@@ -1493,35 +1507,99 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         final currentEditor =
             editors.contains(activeEditor) ? activeEditor : editors.last;
 
-        return Column(
-          children: [
-            ForgeEditorTabBar(
-              editors: editors,
-              activeEditor: currentEditor,
-              panelIndex: panelIndex,
-              onSelect: (editor) {
-                setState(() {
-                  _layout.setActiveMiddlePanelIndex(panelIndex);
+        return EditorDropZoneOverlay(
+          panelIndex: panelIndex,
+          canSplit: panelCount < 4,
+          onDrop: (data, position, {bool isCopy = false}) {
+            _handleDropZone(data, position, panelIndex, isCopy: isCopy);
+          },
+          child: Column(
+            children: [
+              ForgeEditorTabBar(
+                editors: editors,
+                activeEditor: currentEditor,
+                panelIndex: panelIndex,
+                onSelect: (editor) {
+                  setState(() {
+                    _layout.setActiveMiddlePanelIndex(panelIndex);
+                    widget.systemState.setActiveEditor(editor);
+                  });
+                },
+                onClose: (editor) => _handleCloseEditor(editor),
+                onEditorDropped: (editor, {bool isCopy = false}) {
+                  if (isCopy) {
+                    _layout.copyComponent(editor, panelIndex);
+                  } else {
+                    _layout.moveComponent(editor, panelIndex);
+                  }
                   widget.systemState.setActiveEditor(editor);
-                });
-              },
-              onClose: (editor) => _handleCloseEditor(editor),
-              onEditorDropped: (editor, {bool isCopy = false}) {
-                if (isCopy) {
-                  _layout.copyComponent(editor, panelIndex);
-                } else {
-                  _layout.moveComponent(editor, panelIndex);
-                }
-                widget.systemState.setActiveEditor(editor);
-              },
-            ),
-            Expanded(
-              child: currentEditor?.buildMain(context) ?? const SizedBox.expand(),
-            ),
-          ],
+                },
+              ),
+              Expanded(
+                child: currentEditor?.buildMain(context) ??
+                    const SizedBox.expand(),
+              ),
+            ],
+          ),
         );
       },
     );
+  }
+
+  /// Handles drop zone actions for editor panels (center/left/right split).
+  void _handleDropZone(
+    TabDragData data,
+    DropPosition position,
+    int panelIndex, {
+    bool isCopy = false,
+  }) {
+    switch (position) {
+      case DropPosition.center:
+        if (isCopy) {
+          _layout.copyComponent(data.editor, panelIndex);
+        } else {
+          _layout.moveComponent(data.editor, panelIndex);
+        }
+      case DropPosition.left:
+        _layout.splitAndInsertPanel(panelIndex, data.editor);
+      case DropPosition.right:
+        _layout.splitAndInsertPanel(panelIndex + 1, data.editor);
+    }
+    widget.systemState.setActiveEditor(data.editor);
+  }
+
+  /// Handles a tab being dropped from one panel area to another.
+  ///
+  /// This enables moving tabs between left, right, and bottom panels
+  /// (Section 9, Row 7: side/bottom tabs moved between panels).
+  void _handlePanelTabDrop(PanelTabDragData data, PanelArea targetArea) {
+    if (data.sourceArea == targetArea) return;
+
+    final layout = widget.application.layout;
+
+    // Resolve source panel tabs.
+    final sourceTabs = switch (data.sourceArea) {
+      PanelArea.left => layout.leftPanel.tabs,
+      PanelArea.right => layout.rightPanel.tabs,
+      PanelArea.bottom => layout.bottomPanel.tabs,
+    };
+
+    // Resolve target panel tabs.
+    final targetTabs = switch (targetArea) {
+      PanelArea.left => layout.leftPanel.tabs,
+      PanelArea.right => layout.rightPanel.tabs,
+      PanelArea.bottom => layout.bottomPanel.tabs,
+    };
+
+    // Validate index.
+    if (data.tabIndex < 0 || data.tabIndex >= sourceTabs.length) return;
+
+    // Move the tab config from source to target.
+    final tab = sourceTabs.removeAt(data.tabIndex);
+    targetTabs.add(tab);
+
+    // Trigger rebuild.
+    setState(() {});
   }
 
   /// Handles editor close with dirty-state check.
@@ -1581,7 +1659,11 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       height: config.size,
       // Bottom panel is docked below the editor region; top resize handle
       // is rendered by _buildCenterColumn to keep panel boundaries explicit.
-      child: ForgePanelWidget(tabs: tabs),
+      child: ForgePanelWidget(
+        tabs: tabs,
+        panelArea: PanelArea.bottom,
+        onTabDropped: (data) => _handlePanelTabDrop(data, PanelArea.bottom),
+      ),
     );
   }
 }

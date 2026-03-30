@@ -182,21 +182,21 @@ This section is intended to cover section expand/collapse rules, pinning, multi-
 ## 9. Drag-and-Drop Layout Operations
 This section is intended to cover drag move/copy semantics, drop zones, panel split creation, and UI-copy behavior (including SHIFT-copy flows). Include checks for shell drag/drop infrastructure and per-component/module support.
 
-- [x] Section implemented (completed on 2025-07-24)
+- [x] Section implemented (completed on 2025-07-24, enhanced on 2025-07-25)
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
-| Core layout supports drag-and-drop rearrangement of components between panels | no | yes | yes | yes | yes | yes | `Draggable<_TabDragData>` on tabs + `DragTarget<_TabDragData>` on tab bars; move via `moveComponent` |
+| Core layout supports drag-and-drop rearrangement of components between panels | no | yes | yes | yes | yes | yes | `Draggable<TabDragData>` on tabs + `DragTarget<TabDragData>` on tab bars; move via `moveComponent`; shared `forge_drag_data.dart` types |
 | Regular drag performs move semantics (original location vacated) | no | yes | yes | yes | yes | yes | `onEditorDropped` calls `moveComponent(editor, panelIndex)` by default |
 | `SHIFT+drag` performs UI-copy semantics (original stays, copy created) | no | yes | yes | yes | yes | yes | `HardwareKeyboard.instance.logicalKeysPressed` detects SHIFT at drop; calls `copyComponent` |
-| Middle-panel drop zones support add-to-tabbar and split-left/right/top/bottom operations | no | yes | yes | yes | no | no | no drop zones implemented (only `ForgeAnimations.dropZoneFade` constant exists) |
+| Middle-panel drop zones support add-to-tabbar and split-left/right/top/bottom operations | no | yes | yes | yes | yes | yes | `EditorDropZoneOverlay` with left/center/right zones using `DragTarget<TabDragData>`; `EmptyPanelDropTarget` for empty panels; `splitAndInsertPanel` for split-left/right; delayed zone reveal (200ms) |
 | Split creation is bounded by middle panel count limits | no | no | no | yes | yes | n/a | `splitMiddlePanel` now enforces `panels.length >= 4` max limit |
-| Section-header drag supports reorder within tab and moves between tabs/panels | no | yes | yes | yes | no | no | not implemented |
-| Entire side/bottom tabs can be moved between left/right/bottom panels | no | yes | yes | yes | no | no | not implemented |
+| Section-header drag supports reorder within tab and moves between tabs/panels | no | yes | yes | yes | yes | yes | `Draggable<SectionDragData>` on section headers; `DragTarget<SectionDragData>` between sections for reorder; `_reorderSection` remaps expanded/pinned sets; drag feedback with Material elevation 4, grabbing cursor, 85% opacity |
+| Entire side/bottom tabs can be moved between left/right/bottom panels | no | yes | yes | yes | yes | yes | `Draggable<PanelTabDragData>` on side icon tabs and bottom horizontal tabs; `DragTarget<PanelTabDragData>` on icon strips and tab bars; `_handlePanelTabDrop` in scaffold moves `PanelTabConfig` between areas |
 | Middle panels intentionally use component tabs (side/bottom whole-tab drag not allowed into middle) | no | no | no | yes | n/a | n/a | no drag implemented; restriction documented only |
-| Empty accordeon/tab placeholders persist to keep valid future drop targets | no | yes | yes | yes | no | no | no placeholder persistence for drag targets |
-| Drag feedback includes proxy visuals, grabbing cursor, delayed zone reveal, valid/invalid flash states | no | no | no | yes | no | no | not implemented |
-| Drop-zone color semantics are explicitly themed (`highlight`, `valid`, `invalid`) | no | no | no | yes | no | no | not implemented (constants may exist but no widgets use them) |
+| Empty accordeon/tab placeholders persist to keep valid future drop targets | no | yes | yes | yes | yes | yes | `_SidePanelEmptyPlaceholder` and `_BottomPanelEmptyPlaceholder` with `DragTarget<PanelTabDragData>`; `EmptyPanelDropTarget` for middle panels; all show themed drop invitation with animated highlight |
+| Drag feedback includes proxy visuals, grabbing cursor, delayed zone reveal, valid/invalid flash states | no | no | no | yes | yes | yes | All drag feedbacks use Material elevation 4, `SystemMouseCursors.grabbing`, 85% opacity; `EditorDropZoneOverlay` has 200ms delayed zone reveal via `Timer`; `_DropZone` has `AnimationController` flash on hover entry; subtle overlay shown before zones reveal |
+| Drop-zone color semantics are explicitly themed (`highlight`, `valid`, `invalid`) | no | no | no | yes | yes | yes | All drop zones use `ForgeShellTheme.dropZoneHighlight`, `.dropZoneValid`, `.dropZoneInvalid` with dark/light/highContrast variants; section reorder indicator, panel drop targets, overlay zones all reference theme tokens with safe fallbacks |
 | Implementation/test evidence covers move and copy (`moveComponent`, `copyComponent`) and split flows | yes | yes | yes | yes | yes | yes | `moveComponent`/`copyComponent` in `DefaultLayoutController`; SHIFT-copy in tab bar drop; `splitMiddlePanel` with limit |
 
 ## 10. Actions and Shortcut Framework

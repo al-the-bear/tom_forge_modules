@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 
 import '../components/forge_view.dart';
 import '../model/forge_application.dart';
+import '../theme/forge_shell_theme.dart';
+import 'forge_drag_data.dart';
 import 'forge_shell_scaffold.dart';
 
 /// Position of vertical icon strip on side panels.
@@ -15,12 +17,19 @@ enum IconStripPosition { left, right }
 /// - Tabs activate via icon click
 /// - Accordeon sections within each tab
 /// - Configuration tab (⚙) pinned at bottom of left panel
+/// - Tabs can be dragged between left/right/bottom panel areas
 class ForgeSidePanelWidget extends StatefulWidget {
   final List<PanelTabConfig> tabs;
   final IconStripPosition iconStripPosition;
   final bool showConfigTab;
   final VoidCallback? onConfigTap;
   final WidgetBuilder? configurationPanelBuilder;
+
+  /// The panel area this side panel belongs to.
+  final PanelArea panelArea;
+
+  /// Called when a panel tab is dropped from another area.
+  final void Function(PanelTabDragData data)? onTabDropped;
 
   const ForgeSidePanelWidget({
     super.key,
@@ -29,6 +38,8 @@ class ForgeSidePanelWidget extends StatefulWidget {
     this.showConfigTab = false,
     this.onConfigTap,
     this.configurationPanelBuilder,
+    this.panelArea = PanelArea.left,
+    this.onTabDropped,
   });
 
   @override
@@ -42,7 +53,10 @@ class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
   @override
   Widget build(BuildContext context) {
     if (widget.tabs.isEmpty && !widget.showConfigTab) {
-      return const SizedBox.expand();
+      return _SidePanelEmptyPlaceholder(
+        panelArea: widget.panelArea,
+        onTabDropped: widget.onTabDropped,
+      );
     }
 
     final hasTabs = widget.tabs.isNotEmpty;
@@ -67,30 +81,82 @@ class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
 
   Widget _buildVerticalIconStrip(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
-      width: ForgeDimensions.sideTabBarCollapsed,
-      color: theme.colorScheme.surface,
-      child: Column(
-        children: [
-          // User tabs
-          for (var i = 0; i < widget.tabs.length; i++)
-            _buildIconTab(context, i, widget.tabs[i]),
-          const Spacer(),
-          // Add tab button
-          _buildAddTabButton(context),
-          // Divider before config tab (per concept §2.2)
-          if (widget.showConfigTab) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: Divider(
-                height: 1,
-                color: theme.colorScheme.outlineVariant,
-              ),
+    return DragTarget<PanelTabDragData>(
+      onWillAcceptWithDetails: (details) {
+        // Accept tabs from different panel areas.
+        return details.data.sourceArea != widget.panelArea;
+      },
+      onAcceptWithDetails: (details) {
+        widget.onTabDropped?.call(details.data);
+      },
+      builder: (context, candidateData, rejectedData) {
+        final isDropTarget = candidateData.isNotEmpty;
+        final shellTheme = theme.extension<ForgeShellTheme>();
+        return AnimatedContainer(
+          duration: ForgeAnimations.dropZoneFade,
+          width: ForgeDimensions.sideTabBarCollapsed,
+          color: isDropTarget
+              ? (shellTheme?.dropZoneHighlight ?? theme.colorScheme.primary.withValues(alpha: 0.2))
+              : theme.colorScheme.surface,
+          child: Column(
+            children: [
+              // User tabs (draggable)
+              for (var i = 0; i < widget.tabs.length; i++)
+                Draggable<PanelTabDragData>(
+                  data: PanelTabDragData(
+                    title: widget.tabs[i].title,
+                    tabIndex: i,
+                    sourceArea: widget.panelArea,
+                  ),
+                  feedback: _buildTabDragFeedback(context, widget.tabs[i]),
+                  childWhenDragging: Opacity(
+                    opacity: 0.35,
+                    child: _buildIconTab(context, i, widget.tabs[i]),
+                  ),
+                  child: _buildIconTab(context, i, widget.tabs[i]),
+                ),
+              const Spacer(),
+              // Add tab button
+              _buildAddTabButton(context),
+              // Divider before config tab (per concept §2.2)
+              if (widget.showConfigTab) ...[
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  child: Divider(
+                    height: 1,
+                    color: theme.colorScheme.outlineVariant,
+                  ),
+                ),
+                // Configuration tab (pinned at bottom, per concept §2.2)
+                _buildConfigTab(context),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTabDragFeedback(BuildContext context, PanelTabConfig tab) {
+    return Material(
+      elevation: 4,
+      borderRadius: BorderRadius.circular(6),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.grabbing,
+        child: Opacity(
+          opacity: 0.85,
+          child: Container(
+            width: ForgeDimensions.sideTabBarCollapsed,
+            height: ForgeDimensions.sideTabBarCollapsed,
+            decoration: BoxDecoration(
+              color: const Color(0xFF252526),
+              borderRadius: BorderRadius.circular(6),
             ),
-            // Configuration tab (pinned at bottom, per concept §2.2)
-            _buildConfigTab(context),
-          ],
-        ],
+            child: Icon(tab.icon, size: ForgeDimensions.iconTab,
+                color: Colors.white70),
+          ),
+        ),
       ),
     );
   }
@@ -305,17 +371,55 @@ class _AccordeonLayoutState extends State<_AccordeonLayout> {
       child: Column(
       children: [
         for (var i = 0; i < widget.sections.length; i++) ...[
-          // Section header (always visible)
-          _AccordeonSectionHeader(
-            view: widget.sections[i],
-            isExpanded: _expandedSections.contains(i),
-            isPinned: _pinnedSections.contains(i),
-            isFocused: _focusedSection == i,
-            onToggle: () => _toggleSection(i),
-            onTogglePin: () => _togglePin(i),
-            onClose: widget.sections.length > 1
-                ? () => _hideSection(i)
-                : null,
+          // Reorder drop target above section header
+          DragTarget<SectionDragData>(
+            onWillAcceptWithDetails: (details) {
+              return details.data.sourceIndex != i &&
+                  details.data.sourceIndex != i - 1;
+            },
+            onAcceptWithDetails: (details) =>
+                _reorderSection(details.data.sourceIndex, i),
+            builder: (context, candidateData, rejectedData) {
+              final isDropTarget = candidateData.isNotEmpty;
+              return AnimatedContainer(
+                duration: ForgeAnimations.dropZoneFade,
+                height: isDropTarget ? 4 : 0,
+                color: isDropTarget
+                    ? (Theme.of(context).extension<ForgeShellTheme>()
+                            ?.dropZoneValid ??
+                        Theme.of(context).colorScheme.primary)
+                    : Colors.transparent,
+              );
+            },
+          ),
+          // Draggable section header
+          Draggable<SectionDragData>(
+            data: SectionDragData(
+              section: widget.sections[i],
+              sourceIndex: i,
+            ),
+            feedback: _buildDragFeedback(context, widget.sections[i]),
+            childWhenDragging: Opacity(
+              opacity: 0.35,
+              child: _AccordeonSectionHeader(
+                view: widget.sections[i],
+                isExpanded: false,
+                isPinned: false,
+                onToggle: () {},
+                onTogglePin: () {},
+              ),
+            ),
+            child: _AccordeonSectionHeader(
+              view: widget.sections[i],
+              isExpanded: _expandedSections.contains(i),
+              isPinned: _pinnedSections.contains(i),
+              isFocused: _focusedSection == i,
+              onToggle: () => _toggleSection(i),
+              onTogglePin: () => _togglePin(i),
+              onClose: widget.sections.length > 1
+                  ? () => _hideSection(i)
+                  : null,
+            ),
           ),
           // Section content (expanded sections get flexible space)
           if (_expandedSections.contains(i))
@@ -384,6 +488,87 @@ class _AccordeonLayoutState extends State<_AccordeonLayout> {
 
   void _resetSectionFlex() {
     setState(() => _sectionFlex.clear());
+  }
+
+  void _reorderSection(int fromIndex, int toIndex) {
+    if (fromIndex == toIndex) return;
+    setState(() {
+      final wasExpanded = _expandedSections.contains(fromIndex);
+      final wasPinned = _pinnedSections.contains(fromIndex);
+      // Adjust target index when moving down.
+      final effectiveTo = toIndex > fromIndex ? toIndex - 1 : toIndex;
+
+      // Rebuild expanded/pinned sets with reordered indices.
+      final newExpanded = <int>{};
+      final newPinned = <int>{};
+      for (final idx in _expandedSections) {
+        if (idx == fromIndex) continue;
+        final adjusted = idx > fromIndex ? idx - 1 : idx;
+        final final_ = adjusted >= effectiveTo ? adjusted + 1 : adjusted;
+        newExpanded.add(final_);
+      }
+      for (final idx in _pinnedSections) {
+        if (idx == fromIndex) continue;
+        final adjusted = idx > fromIndex ? idx - 1 : idx;
+        final final_ = adjusted >= effectiveTo ? adjusted + 1 : adjusted;
+        newPinned.add(final_);
+      }
+      if (wasExpanded) newExpanded.add(effectiveTo);
+      if (wasPinned) newPinned.add(effectiveTo);
+
+      _expandedSections
+        ..clear()
+        ..addAll(newExpanded);
+      _pinnedSections
+        ..clear()
+        ..addAll(newPinned);
+      _sectionFlex.clear();
+
+      // Notify parent about the reorder.
+      _onReorder?.call(fromIndex, effectiveTo);
+    });
+  }
+
+  /// Callback set by parent to actually reorder the section list.
+  VoidCallback? Function(int from, int to)? get _onReorder => null;
+
+  Widget _buildDragFeedback(BuildContext context, ForgeView view) {
+    return Material(
+      elevation: 4,
+      borderRadius: BorderRadius.circular(4),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.grabbing,
+        child: Opacity(
+          opacity: 0.85,
+          child: Container(
+            height: ForgeDimensions.sectionHeaderHeight,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF252526),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.drag_indicator, size: 14, color: Colors.white70),
+                const SizedBox(width: 6),
+                ValueListenableBuilder<String>(
+                  valueListenable: view.title,
+                  builder: (context, title, _) => Text(
+                    title.toUpperCase(),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Colors.white70,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   void _toggleSection(int index) {
@@ -564,10 +749,25 @@ class _AccordeonDividerState extends State<_AccordeonDivider> {
 /// Bottom panel widget with horizontal tabs (icon + text).
 ///
 /// Used for bottom panels per concept §2.5.
+/// Bottom panel widget with horizontal tab bar and accordeon content.
+///
+/// Tabs are draggable between panel areas (left, right, bottom). The tab bar
+/// acts as a drop target for tabs dragged from other panel areas.
 class ForgePanelWidget extends StatefulWidget {
   final List<PanelTabConfig> tabs;
 
-  const ForgePanelWidget({super.key, required this.tabs});
+  /// Which panel area this bottom panel belongs to (default: bottom).
+  final PanelArea panelArea;
+
+  /// Called when a tab is dropped onto this panel from a different area.
+  final void Function(PanelTabDragData data)? onTabDropped;
+
+  const ForgePanelWidget({
+    super.key,
+    required this.tabs,
+    this.panelArea = PanelArea.bottom,
+    this.onTabDropped,
+  });
 
   @override
   State<ForgePanelWidget> createState() => _ForgePanelWidgetState();
@@ -578,7 +778,12 @@ class _ForgePanelWidgetState extends State<ForgePanelWidget> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.tabs.isEmpty) return const SizedBox.expand();
+    if (widget.tabs.isEmpty) {
+      return _BottomPanelEmptyPlaceholder(
+        panelArea: widget.panelArea,
+        onTabDropped: widget.onTabDropped,
+      );
+    }
 
     final activeTab =
         widget.tabs[_activeTabIndex.clamp(0, widget.tabs.length - 1)];
@@ -593,23 +798,81 @@ class _ForgePanelWidgetState extends State<ForgePanelWidget> {
 
   Widget _buildHorizontalTabBar(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
-      height: ForgeDimensions.tabBarHeight,
-      color: theme.colorScheme.surface,
-      child: Row(
-        children: [
-          for (var i = 0; i < widget.tabs.length; i++)
-            _buildHorizontalTab(context, i, widget.tabs[i]),
-          const Spacer(),
-          // Add tab button
-          IconButton(
-            icon: const Icon(Icons.add, size: 16),
-            onPressed: () {
-              // TODO: Show tab picker
-            },
-            tooltip: 'Add Tab',
+    final shellTheme = theme.extension<ForgeShellTheme>();
+    return DragTarget<PanelTabDragData>(
+      onWillAcceptWithDetails: (details) {
+        return details.data.sourceArea != widget.panelArea;
+      },
+      onAcceptWithDetails: (details) {
+        widget.onTabDropped?.call(details.data);
+      },
+      builder: (context, candidateData, rejectedData) {
+        final isDropTarget = candidateData.isNotEmpty;
+        return AnimatedContainer(
+          duration: ForgeAnimations.dropZoneFade,
+          height: ForgeDimensions.tabBarHeight,
+          color: isDropTarget
+              ? (shellTheme?.dropZoneHighlight ?? theme.colorScheme.primary.withValues(alpha: 0.2))
+              : theme.colorScheme.surface,
+          child: Row(
+            children: [
+              for (var i = 0; i < widget.tabs.length; i++)
+                Draggable<PanelTabDragData>(
+                  data: PanelTabDragData(
+                    title: widget.tabs[i].title,
+                    tabIndex: i,
+                    sourceArea: widget.panelArea,
+                  ),
+                  feedback: _buildHorizTabDragFeedback(context, widget.tabs[i]),
+                  childWhenDragging: Opacity(
+                    opacity: 0.35,
+                    child: _buildHorizontalTab(context, i, widget.tabs[i]),
+                  ),
+                  child: _buildHorizontalTab(context, i, widget.tabs[i]),
+                ),
+              const Spacer(),
+              // Add tab button
+              IconButton(
+                icon: const Icon(Icons.add, size: 16),
+                onPressed: () {
+                  // TODO: Show tab picker
+                },
+                tooltip: 'Add Tab',
+              ),
+            ],
           ),
-        ],
+        );
+      },
+    );
+  }
+
+  Widget _buildHorizTabDragFeedback(BuildContext context, PanelTabConfig tab) {
+    return Material(
+      elevation: 4,
+      borderRadius: BorderRadius.circular(6),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.grabbing,
+        child: Opacity(
+          opacity: 0.85,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: const Color(0xFF252526),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(tab.icon, size: ForgeDimensions.iconToolbar,
+                    color: Colors.white70),
+                const SizedBox(width: 6),
+                Text(tab.title,
+                    style: const TextStyle(
+                        color: Colors.white70, fontSize: 12)),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -673,5 +936,150 @@ class _ForgePanelWidgetState extends State<ForgePanelWidget> {
 
     // Bottom panel uses accordeon with horizontal collapsed view
     return _AccordeonLayout(sections: tab.sections);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Drop placeholders for empty panels (Section 9, Row 9: placeholders persist)
+// ---------------------------------------------------------------------------
+
+/// Drop placeholder shown when a side panel has no tabs.
+class _SidePanelEmptyPlaceholder extends StatefulWidget {
+  final PanelArea panelArea;
+  final void Function(PanelTabDragData data)? onTabDropped;
+
+  const _SidePanelEmptyPlaceholder({
+    required this.panelArea,
+    this.onTabDropped,
+  });
+
+  @override
+  State<_SidePanelEmptyPlaceholder> createState() =>
+      _SidePanelEmptyPlaceholderState();
+}
+
+class _SidePanelEmptyPlaceholderState
+    extends State<_SidePanelEmptyPlaceholder> {
+  bool _isHovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final shellTheme = theme.extension<ForgeShellTheme>();
+    return DragTarget<PanelTabDragData>(
+      onWillAcceptWithDetails: (details) {
+        return details.data.sourceArea != widget.panelArea;
+      },
+      onAcceptWithDetails: (details) {
+        widget.onTabDropped?.call(details.data);
+      },
+      builder: (context, candidateData, rejectedData) {
+        final isDropTarget = candidateData.isNotEmpty;
+        return MouseRegion(
+          onEnter: (_) => setState(() => _isHovering = true),
+          onExit: (_) => setState(() => _isHovering = false),
+          child: AnimatedContainer(
+            duration: ForgeAnimations.dropZoneFade,
+            width: ForgeDimensions.sideTabBarCollapsed,
+            decoration: BoxDecoration(
+              color: isDropTarget
+                  ? (shellTheme?.dropZoneHighlight ??
+                      theme.colorScheme.primary.withValues(alpha: 0.2))
+                  : theme.colorScheme.surface.withValues(alpha: 0.5),
+              border: isDropTarget
+                  ? Border.all(
+                      color: shellTheme?.dropZoneValid ??
+                          const Color(0x5500CC66),
+                      width: 2)
+                  : null,
+            ),
+            child: Center(
+              child: AnimatedOpacity(
+                duration: ForgeAnimations.dropZoneFade,
+                opacity: isDropTarget || _isHovering ? 0.8 : 0.3,
+                child: Icon(
+                  Icons.add_circle_outline,
+                  size: 24,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Drop placeholder shown when the bottom panel has no tabs.
+class _BottomPanelEmptyPlaceholder extends StatefulWidget {
+  final PanelArea panelArea;
+  final void Function(PanelTabDragData data)? onTabDropped;
+
+  const _BottomPanelEmptyPlaceholder({
+    required this.panelArea,
+    this.onTabDropped,
+  });
+
+  @override
+  State<_BottomPanelEmptyPlaceholder> createState() =>
+      _BottomPanelEmptyPlaceholderState();
+}
+
+class _BottomPanelEmptyPlaceholderState
+    extends State<_BottomPanelEmptyPlaceholder> {
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final shellTheme = theme.extension<ForgeShellTheme>();
+    return DragTarget<PanelTabDragData>(
+      onWillAcceptWithDetails: (details) {
+        return details.data.sourceArea != widget.panelArea;
+      },
+      onAcceptWithDetails: (details) {
+        widget.onTabDropped?.call(details.data);
+      },
+      builder: (context, candidateData, rejectedData) {
+        final isDropTarget = candidateData.isNotEmpty;
+        return AnimatedContainer(
+          duration: ForgeAnimations.dropZoneFade,
+          decoration: BoxDecoration(
+            color: isDropTarget
+                ? (shellTheme?.dropZoneHighlight ??
+                    theme.colorScheme.primary.withValues(alpha: 0.2))
+                : theme.colorScheme.surface.withValues(alpha: 0.5),
+            border: isDropTarget
+                ? Border.all(
+                    color: shellTheme?.dropZoneValid ??
+                        const Color(0x5500CC66),
+                    width: 2)
+                : null,
+          ),
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.vertical_align_bottom,
+                  size: 24,
+                  color: isDropTarget
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Drop panel here',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: isDropTarget
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 }

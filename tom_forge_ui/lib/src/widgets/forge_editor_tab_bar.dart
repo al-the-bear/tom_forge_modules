@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../components/forge_editor.dart';
 import '../theme/forge_shell_theme.dart';
+import 'forge_drag_data.dart';
 import 'forge_shell_scaffold.dart';
 
 /// Callback for when a tab is dropped onto this tab bar from another panel.
@@ -84,7 +85,7 @@ class _ForgeEditorTabBarState extends State<ForgeEditorTabBar> {
       child: KeyboardListener(
         focusNode: _focusNode,
         onKeyEvent: _handleKeyEvent,
-        child: DragTarget<_TabDragData>(
+        child: DragTarget<TabDragData>(
       onWillAcceptWithDetails: (details) {
         // Accept drops from different panels only.
         if (details.data.sourcePanelIndex == widget.panelIndex) return false;
@@ -258,8 +259,8 @@ class _ForgeEditorTabBarState extends State<ForgeEditorTabBar> {
     return Semantics(
       selected: isActive,
       label: editor.title.value,
-      child: Draggable<_TabDragData>(
-      data: _TabDragData(editor: editor, sourcePanelIndex: widget.panelIndex),
+      child: Draggable<TabDragData>(
+      data: TabDragData(editor: editor, sourcePanelIndex: widget.panelIndex),
       feedback: MouseRegion(
         cursor: SystemMouseCursors.grabbing,
         child: Material(
@@ -299,12 +300,4 @@ class _ForgeEditorTabBarState extends State<ForgeEditorTabBar> {
       ),
     );
   }
-}
-
-/// Data transferred during tab drag operations.
-class _TabDragData {
-  final ForgeEditor editor;
-  final int sourcePanelIndex;
-
-  const _TabDragData({required this.editor, required this.sourcePanelIndex});
 }

@@ -233,6 +233,26 @@ class DefaultLayoutController implements ForgeLayoutController {
   }
 
   @override
+  void splitAndInsertPanel(int position, ForgeEditor editor) {
+    final panels = List<List<ForgeEditor>>.from(_middlePanels.value);
+    if (panels.length >= 4) return;
+    // Remove editor from its current panel.
+    for (var i = 0; i < panels.length; i++) {
+      panels[i] = panels[i].where((e) => e != editor).toList();
+    }
+    // Insert a new panel at the requested position.
+    final insertAt = position.clamp(0, panels.length);
+    panels.insert(insertAt, [editor]);
+    // Clean up empty trailing panels.
+    while (panels.length > 1 && panels.last.isEmpty) {
+      panels.removeLast();
+    }
+    _middlePanels.value = panels;
+    _activeMiddlePanelIndex.value = insertAt.clamp(0, panels.length - 1);
+    _systemState.setMiddlePanelCount(panels.length);
+  }
+
+  @override
   LayoutPanelConfig? getPanelConfig(ForgePanelLocation location) {
     return _panelNotifier(location)?.value;
   }
