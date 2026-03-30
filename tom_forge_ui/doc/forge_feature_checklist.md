@@ -462,22 +462,22 @@ This section is intended to cover undo/redo behavior, dirty tracking semantics, 
 ## 23. File Type Resolution and Fallback Opening
 This section is intended to cover `canHandle`/`canHandleContent` resolution, editor selection by URI/content, unknown-type fallback behavior, and file-open error handling. Include checks for shell resolver behavior and per-editor/module resolver contributions.
 
-- [ ] Section completed (finished on 2026-03-30T06:38:44+02:00)
+- [x] Section completed (finished on 2026-03-30T09:20:15+02:00)
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
-| File-type resolution is contract-driven at editor level (`canHandle`, `canHandleContent`) | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` `ForgeEditor`/`ForgeSchemaEditor` contracts |
-| Resolver is explicitly two-phase (URI-first, content-inspection second) | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` resolution process and helper functions |
-| Decision result model is standardized (`accept`, `reject`, `inspect`) | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` `FileHandlingResult` enum |
-| Schema/content-sensitive editors use `inspect` and Phase-2 acceptance rules | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` schema editor behavior |
-| Resolver priority defaults to module declaration order for accepted editors | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` resolution priority notes |
-| User-facing override path exists in File Types configuration and Open-with defaults | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` configuration/File Types references |
-| Explicit Open-with operation is supported via layout API (`openFileWith`) | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` layout API |
-| Open-with UI separates URI-accepted editors and content-inspected additional options | no | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` Open-with section |
-| No-match/error path is defined (`ED002: No editor available for {uri}`) | no | no | no | yes | no | no | documented in `forge_panel_shell_spec.md` error code table |
-| Unknown/unsupported file fallback is defined in runtime test app (read-only text fallback) | no | yes | yes | yes | no | no | documented in `tom_forge_ui_testapp.md` file-open fallback behavior |
-| Integration expectations include implementing missing `canHandle/canHandleContent` gaps in editor adapters | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_spec.md` integration checklist tables |
-| Test expectations include Open-with behavior verification and resolver path checks | yes | no | yes | yes | no | no | documented in `forge_panel_shell_spec.md` TODO/tests and `tom_forge_ui_testapp.md` resolver workflow |
+| File-type resolution is contract-driven at editor level (`canHandle`, `canHandleContent`) | yes | yes | yes | yes | yes | partial | core/editor contracts define both phases and adapters implement `canHandle`; runtime resolver wiring currently uses `canHandle` only |
+| Resolver is explicitly two-phase (URI-first, content-inspection second) | yes | yes | yes | yes | partial | no | `ForgeEditor` + `ForgeSchemaEditor` define two phases and YAML adapter implements content inspection, but layout open flow does not call `canHandleContent` |
+| Decision result model is standardized (`accept`, `reject`, `inspect`) | yes | yes | yes | yes | yes | partial | standardized `FileHandlingResult` enum exists in core and is used by editors/resolver checks, with runtime primarily consuming `accept` |
+| Schema/content-sensitive editors use `inspect` and Phase-2 acceptance rules | yes | yes | yes | yes | partial | no | `ForgeSchemaEditor.canHandle` returns `inspect` and `ForgeYamlEditor.canHandleContent` implements phase-2 rules, but no phase-2 runtime invocation found |
+| Resolver priority defaults to module declaration order for accepted editors | yes | yes | yes | yes | yes | partial | fallback resolver iterates modules and editors in declaration order and selects first `accept` for non hard-mapped extensions |
+| User-facing override path exists in File Types configuration and Open-with defaults | yes | yes | yes | yes | no | no | no File Types/default-editor override implementation found in current UI/runtime code |
+| Explicit Open-with operation is supported via layout API (`openFileWith`) | yes | yes | yes | yes | yes | partial | `ForgeLayoutController` and `DefaultLayoutController.openFileWith` exist, but current implementation delegates directly to `openFile` |
+| Open-with UI separates URI-accepted editors and content-inspected additional options | no | yes | yes | yes | no | no | no Open-with chooser UI implementation found in scanned shell widgets |
+| No-match/error path is defined (`ED002: No editor available for {uri}`) | no | no | no | yes | partial | no | runtime has debug/no-editor handling only (`[DefaultLayoutController] No editor for: $uri`) and not a surfaced `ED002` error path |
+| Unknown/unsupported file fallback is defined in runtime test app (read-only text fallback) | no | yes | yes | yes | partial | partial | runtime fallback opens unknown types with `ForgeMdEditor` in layout controller, but not as explicit read-only fallback behavior |
+| Integration expectations include implementing missing `canHandle/canHandleContent` gaps in editor adapters | yes | yes | yes | yes | partial | partial | md/dart adapters implement URI-based `canHandle` and YAML implements `canHandleContent`; content-phase integration remains incomplete in resolver flow |
+| Test expectations include Open-with behavior verification and resolver path checks | yes | no | yes | yes | partial | no | integration tests verify adapter `canHandle` resolution, but no dedicated Open-with/content-inspection path tests found |
 
 ## 24. Advanced Data Services (Decorations, Outline, Virtual Documents, Workspace Edits)
 This section is intended to cover decoration pipelines, outline provider integration, virtual document providers, and multi-file workspace edit application. Include checks for shell service APIs and per-module/component usage coverage.
