@@ -442,22 +442,22 @@ This section is intended to cover `ForgeTextSettings`, context discovery (`Forge
 ## 22. Undo/Redo, Dirty State, and Save Lifecycle
 This section is intended to cover undo/redo behavior, dirty tracking semantics, save/save-all/will-save/did-save event flow, and consistency across editors. Include checks for shell-level state handling and per-editor implementation consistency.
 
-- [ ] Section completed (finished on 2026-03-30T06:37:03+02:00)
+- [x] Section completed (finished on 2026-03-30T09:16:49+02:00)
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
-| Editor base contract includes dirty-state observables (`isDirty`) shared across editor types | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` editor contracts and `forge_panel_shell_spec.md` implementations |
-| System state tracks dirty editors and publishes dirty-state change events | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` (`dirtyEditors`, `onDirtyStateChanged`) |
-| Save lifecycle streams are defined (`onWillSave`, `onDidSave`) for pre/post-save integration | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` file system events and `tom_forge_ui_testapp.md` save behavior |
-| Save reasons are classified (`manual`, `autoSave`, `focusLoss`) for lifecycle semantics | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` `SaveReason` |
-| Auto-save and revisioning settings are configurable at shell-level defaults | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` configuration model |
-| Save-all workflow is defined against current dirty editor set | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` save-all example and `tom_forge_ui_testapp.md` command mapping |
-| Dirty-close flow requires explicit user decision (save / discard / cancel) | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_spec.md` close flow and `tom_forge_ui_testapp.md` close behavior |
-| Undo manager is a first-class shell service (`ForgeUndoManager`) with availability semantics | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` undo manager API |
-| Undo/redo operations are exposed and validated (`undo`, `redo`, can-undo/can-redo) | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` undo API and `tom_forge_ui_testapp.md` command map |
-| Undo/redo persistence and revision artifacts are defined under `.forge/undo` and `.forge/revisions` | no | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` storage structure and `forge_panel_shell_spec.md` schemas |
-| Save path creates revision snapshots and clears dirty state when persisted content changes | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_spec.md` save sequence/tests |
-| Test coverage expectations include undo manager tests plus dirty/save regression checks | yes | no | yes | yes | no | no | documented in `forge_panel_shell_spec.md` (`undo_manager_test.dart`, dirty/save tests) and `tom_forge_ui_testapp.md` |
+| Editor base contract includes dirty-state observables (`isDirty`) shared across editor types | yes | yes | yes | yes | yes | yes | `ForgeEditor` requires `isDirty`; md/dart/yaml adapters expose dirty listenables (`forge_editor.dart`, `forge_md_editor.dart`, `forge_dart_editor.dart`, `forge_yaml_editor.dart`) |
+| System state tracks dirty editors and publishes dirty-state change events | yes | yes | yes | yes | partial | partial | `DefaultSystemState` tracks `dirtyEditors` and exposes `onDirtyStateChanged`, but no runtime emission for dirty events is implemented (`_onDirtyStateChanged.add` not used) |
+| Save lifecycle streams are defined (`onWillSave`, `onDidSave`) for pre/post-save integration | yes | yes | yes | yes | yes | no | `ForgeFileSystem` contract and real/memory implementations expose `onWillSave` and `onDidSave`; stream tests exist in core, but editor dirty lifecycle is not wired to these streams |
+| Save reasons are classified (`manual`, `autoSave`, `focusLoss`) for lifecycle semantics | yes | yes | yes | yes | yes | no | `SaveReason` enum includes all three reasons; current save implementations emit `SaveReason.manual` only |
+| Auto-save and revisioning settings are configurable at shell-level defaults | yes | yes | yes | yes | partial | no | `ForgeConfig` includes `AutoSaveConfig` defaults, but no implemented revisioning settings/runtime revision management found in scanned code |
+| Save-all workflow is defined against current dirty editor set | yes | yes | yes | yes | partial | partial | save-all action iterates `systemState.dirtyEditors` in runtime module and shell UI triggers `file.saveAll`, but dirty set refresh is limited |
+| Dirty-close flow requires explicit user decision (save / discard / cancel) | yes | yes | yes | yes | no | no | close actions call `closeEditor/closeAllEditors` directly with no save/discard/cancel decision dialog in runtime code |
+| Undo manager is a first-class shell service (`ForgeUndoManager`) with availability semantics | yes | yes | yes | yes | yes | partial | shell API exposes `undoManager` and default implementation provides `canUndo/canRedo`; runtime actions are wired, but editor histories are not fully bridged into shell undo manager |
+| Undo/redo operations are exposed and validated (`undo`, `redo`, can-undo/can-redo) | yes | yes | yes | yes | yes | partial | `DefaultUndoManager` implements operations and core tests validate behavior; runtime menu/actions invoke shell undo/redo, with partial editor integration |
+| Undo/redo persistence and revision artifacts are defined under `.forge/undo` and `.forge/revisions` | no | yes | yes | yes | no | no | no code paths for `.forge/undo` or `.forge/revisions` persistence were found in scanned runtime/core packages |
+| Save path creates revision snapshots and clears dirty state when persisted content changes | yes | yes | yes | yes | no | no | save implementations emit lifecycle streams but do not create revision snapshots or clear adapter dirty states as part of save flow |
+| Test coverage expectations include undo manager tests plus dirty/save regression checks | yes | no | yes | yes | partial | no | core test suite covers undo manager and save streams; limited dirty-state checks exist in UI integration tests, but no dedicated dirty/save lifecycle regression suite |
 
 ## 23. File Type Resolution and Fallback Opening
 This section is intended to cover `canHandle`/`canHandleContent` resolution, editor selection by URI/content, unknown-type fallback behavior, and file-open error handling. Include checks for shell resolver behavior and per-editor/module resolver contributions.
