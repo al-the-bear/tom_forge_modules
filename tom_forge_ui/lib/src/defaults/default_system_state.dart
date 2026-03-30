@@ -37,6 +37,12 @@ class DefaultSystemState implements ForgeSystemState {
   final _activeMiddlePanelIndex = ValueNotifier<int>(0);
   final Map<String, ForgeTextContext> _editorContexts = {};
 
+  /// Tracks dirty-state listeners attached to open editors.
+  final Map<ForgeEditor, VoidCallback> _editorDirtyListeners = {};
+
+  /// Cleanup callback for selection listener on active editor.
+  VoidCallback? _selectionCleanup;
+
   late ForgeApplication _activeApplication;
   List<ForgeApplication> _applications = [];
   String _workspaceRootPath;
@@ -210,21 +216,41 @@ class DefaultSystemState implements ForgeSystemState {
   }
 
   void setActiveEditor(ForgeEditor? editor) {
+    _cleanupSelectionListener();
     _activeEditor.value = editor;
     if (editor != null) {
       setFocusedComponent(editor);
+      _setupSelectionListener(editor);
     }
   }
 
   void addOpenEditor(ForgeEditor editor) {
     _openEditors.value = [..._openEditors.value, editor];
     _onEditorsChanged.add(EditorListChangeEvent(opened: [editor]));
+
+    // Track dirty state changes for this editor.
+    void dirtyChanged() {
+      updateDirtyEditors();
+      _onDirtyStateChanged.add(DirtyStateEvent(
+        editor: editor,
+        isDirty: editor.isDirty.value,
+      ));
+    }
+    _editorDirtyListeners[editor] = dirtyChanged;
+    editor.isDirty.addListener(dirtyChanged);
   }
 
   void removeOpenEditor(ForgeEditor editor) {
     _openEditors.value =
         _openEditors.value.where((e) => e != editor).toList();
     _onEditorsChanged.add(EditorListChangeEvent(closed: [editor]));
+
+    // Clean up dirty-state listener.
+    final listener = _editorDirtyListeners.remove(editor);
+    if (listener != null) {
+      editor.isDirty.removeListener(listener);
+    }
+
     if (_activeEditor.value == editor) {
       _activeEditor.value =
           _openEditors.value.isNotEmpty ? _openEditors.value.last : null;
@@ -320,8 +346,41 @@ class DefaultSystemState implements ForgeSystemState {
     _activeApplication = app;
   }
 
+  /// Sets up selection/cursor listeners on the active editor.
+  void _setupSelectionListener(ForgeEditor editor) {
+    if (editor is ForgeTextEditor) {
+      void onSelChanged() {
+        final sel = editor.selection.value;
+        _onSelectionChanged.add(SelectionChangeEvent(
+          component: editor,
+          selection: sel,
+        ));
+        _onTextSelectionChanged.add(TextSelectionChangeEvent(
+          editor: editor,
+          selection: sel,
+        ));
+      }
+      editor.selection.addListener(onSelChanged);
+      _selectionCleanup = () {
+        editor.selection.removeListener(onSelChanged);
+      };
+    }
+  }
+
+  /// Removes selection listener from the previously active editor.
+  void _cleanupSelectionListener() {
+    _selectionCleanup?.call();
+    _selectionCleanup = null;
+  }
+
   /// Dispose all controllers and notifiers.
   void dispose() {
+    _cleanupSelectionListener();
+    // Clean up all dirty-state listeners.
+    for (final entry in _editorDirtyListeners.entries) {
+      entry.key.isDirty.removeListener(entry.value);
+    }
+    _editorDirtyListeners.clear();
     _focusedComponent.dispose();
     _openEditors.dispose();
     _activeEditor.dispose();

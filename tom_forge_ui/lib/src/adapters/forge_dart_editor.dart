@@ -28,6 +28,7 @@ class ForgeDartEditor extends ForgeTextEditor {
   final _visibleRange = ValueNotifier<ForgeTextRange>(const ForgeTextRange.empty());
 
   late PositionConverter _positionConverter;
+  late final _DartForgeDocument _document;
   ForgeTextEditorOptions _options;
   String _lastCode = '';
   ShellEditorIntegration? _integration;
@@ -44,6 +45,11 @@ class ForgeDartEditor extends ForgeTextEditor {
         _options = options {
     _lastCode = controller.userCode;
     _positionConverter = PositionConverter(_lastCode);
+    _document = _DartForgeDocument(
+      controller.uri ?? Uri.parse('untitled:dart'),
+      controller,
+      _positionConverter,
+    );
 
     controller.addListener(_onControllerChanged);
 
@@ -154,8 +160,7 @@ class ForgeDartEditor extends ForgeTextEditor {
   // ── ForgeTextEditor ──
 
   @override
-  ForgeDocument get document =>
-      _DartForgeDocument(controller, _positionConverter);
+  ForgeDocument get document => _document;
 
   @override
   ValueListenable<ForgeTextPosition> get cursorPosition => _cursorPos;
@@ -168,8 +173,12 @@ class ForgeDartEditor extends ForgeTextEditor {
 
   @override
   void setSelections(List<ForgeTextRange> ranges) {
+    _selections.value = List.unmodifiable(ranges);
     if (ranges.isNotEmpty) {
-      setSelection(ranges.first);
+      // Set primary selection without calling setSelection (which would overwrite selections).
+      _selection.value = ranges.first;
+    } else {
+      _selection.value = null;
     }
   }
 
@@ -315,6 +324,8 @@ class ForgeDartEditor extends ForgeTextEditor {
       _lastCode = code;
       _positionConverter = PositionConverter(code);
       _isDirty.value = true;
+      _document.updateConverter(_positionConverter);
+      _document.notifyContentChanged();
     }
     if (controller.uri != null) {
       _title.value = controller.uri!.pathSegments.last;
@@ -324,6 +335,7 @@ class ForgeDartEditor extends ForgeTextEditor {
   /// Release listeners.
   void dispose() {
     _integration?.dispose();
+    _document.dispose();
     controller.removeListener(_onControllerChanged);
     _title.dispose();
     _titleExtension.dispose();
@@ -335,15 +347,24 @@ class ForgeDartEditor extends ForgeTextEditor {
   }
 }
 
-/// Lightweight [ForgeDocument] backed by [DartCodeController].
-class _DartForgeDocument implements ForgeDocument {
+/// [ForgeDocument] backed by [DartCodeController] using [ForgeDocumentAdapter]
+/// for version tracking, dirty state, and change event broadcasting.
+class _DartForgeDocument extends ForgeDocumentAdapter {
   final DartCodeController _controller;
-  final PositionConverter _converter;
+  PositionConverter _converter;
 
-  _DartForgeDocument(this._controller, this._converter);
+  _DartForgeDocument(super.uri, this._controller, this._converter);
 
-  @override
-  Uri get uri => _controller.uri ?? Uri.parse('untitled:dart');
+  /// Update the position converter after content changes.
+  void updateConverter(PositionConverter converter) {
+    _converter = converter;
+  }
+
+  /// Notify that the document content has changed.
+  void notifyContentChanged() {
+    markDirty();
+    fireChange([]);
+  }
 
   @override
   String get text => _controller.userCode;
@@ -364,11 +385,5 @@ class _DartForgeDocument implements ForgeDocument {
   Encoding get encoding => utf8;
 
   @override
-  int get version => 0;
-
-  @override
   bool get isUntitled => _controller.uri == null;
-
-  @override
-  Stream<DocumentChangeEvent> get onDidChange => const Stream.empty();
 }

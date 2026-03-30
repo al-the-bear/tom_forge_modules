@@ -25,7 +25,8 @@ class ForgeMdEditor extends ForgeTextEditor {
   final _visibleRange =
       ValueNotifier<ForgeTextRange>(const ForgeTextRange.empty());
 
-  late final PositionConverter _positionConverter;
+  late PositionConverter _positionConverter;
+  late final _MdForgeDocument _document;
   ForgeTextEditorOptions _options;
   ShellEditorIntegration? _integration;
 
@@ -39,6 +40,11 @@ class ForgeMdEditor extends ForgeTextEditor {
   })  : _module = module,
         _options = options {
     _positionConverter = PositionConverter(controller.markdown);
+    _document = _MdForgeDocument(
+      controller.uri ?? Uri.parse('untitled:markdown'),
+      controller,
+      _positionConverter,
+    );
 
     // Observe cursor.
     controller.cursorPositionNotifier.addListener(_onCursorChanged);
@@ -156,7 +162,7 @@ class ForgeMdEditor extends ForgeTextEditor {
   // ── ForgeTextEditor ──
 
   @override
-  ForgeDocument get document => _MdForgeDocument(controller, _positionConverter);
+  ForgeDocument get document => _document;
 
   @override
   ValueListenable<ForgeTextPosition> get cursorPosition => _cursorPos;
@@ -169,8 +175,13 @@ class ForgeMdEditor extends ForgeTextEditor {
 
   @override
   void setSelections(List<ForgeTextRange> ranges) {
+    _selections.value = List.unmodifiable(ranges);
     if (ranges.isNotEmpty) {
-      setSelection(ranges.first);
+      // Set primary selection without calling setSelection (which would overwrite selections).
+      _selection.value = ranges.first;
+      setCursorPosition(ranges.first.start);
+    } else {
+      _selection.value = null;
     }
   }
 
@@ -225,8 +236,10 @@ class ForgeMdEditor extends ForgeTextEditor {
   @override
   void setSelection(ForgeTextRange range) {
     // MdEditorController doesn't have native selection API,
-    // so we set cursor to selection start.
+    // so we position the cursor and update the ValueNotifier.
     setCursorPosition(range.start);
+    _selection.value = range;
+    _selections.value = [range];
   }
 
   @override
@@ -340,6 +353,8 @@ class ForgeMdEditor extends ForgeTextEditor {
   void _onContentChanged() {
     _positionConverter = PositionConverter(controller.markdown);
     _isDirty.value = controller.canUndo;
+    _document.updateConverter(_positionConverter);
+    _document.notifyContentChanged();
     if (controller.uri != null) {
       _title.value = controller.uri!.pathSegments.last;
     }
@@ -348,6 +363,7 @@ class ForgeMdEditor extends ForgeTextEditor {
   /// Release listeners.
   void dispose() {
     _integration?.dispose();
+    _document.dispose();
     controller.cursorPositionNotifier.removeListener(_onCursorChanged);
     controller.selectionNotifier.removeListener(_onSelectionChanged);
     controller.visibleRangeNotifier.removeListener(_onVisibleRangeChanged);
@@ -362,15 +378,24 @@ class ForgeMdEditor extends ForgeTextEditor {
   }
 }
 
-/// Lightweight [ForgeDocument] backed by [MdEditorController].
-class _MdForgeDocument implements ForgeDocument {
+/// [ForgeDocument] backed by [MdEditorController] using [ForgeDocumentAdapter]
+/// for version tracking, dirty state, and change event broadcasting.
+class _MdForgeDocument extends ForgeDocumentAdapter {
   final MdEditorController _controller;
-  final PositionConverter _converter;
+  PositionConverter _converter;
 
-  _MdForgeDocument(this._controller, this._converter);
+  _MdForgeDocument(super.uri, this._controller, this._converter);
 
-  @override
-  Uri get uri => _controller.uri ?? Uri.parse('untitled:markdown');
+  /// Update the position converter after content changes.
+  void updateConverter(PositionConverter converter) {
+    _converter = converter;
+  }
+
+  /// Notify that the document content has changed.
+  void notifyContentChanged() {
+    markDirty();
+    fireChange([]);
+  }
 
   @override
   String get text => _controller.markdown;
@@ -391,11 +416,5 @@ class _MdForgeDocument implements ForgeDocument {
   Encoding get encoding => utf8;
 
   @override
-  int get version => 0;
-
-  @override
   bool get isUntitled => _controller.uri == null;
-
-  @override
-  Stream<DocumentChangeEvent> get onDidChange => const Stream.empty();
 }

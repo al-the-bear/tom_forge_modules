@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_md_editor/tom_md_editor.dart';
@@ -342,14 +344,34 @@ class DefaultLayoutController implements ForgeLayoutController {
     }
     if (ownerModule == null) return null;
 
+    // Phase 1: Check if any module editor explicitly accepts this URI.
+    final inspectEditors = <ForgeEditor>[];
+    for (final module in _moduleRegistry.allModules) {
+      for (final editor in module.editors) {
+        final result = editor.canHandle(uri);
+        if (result == FileHandlingResult.accept) {
+          return editor;
+        } else if (result == FileHandlingResult.inspect) {
+          inspectEditors.add(editor);
+        }
+      }
+    }
+
+    // Phase 2: Let inspecting editors examine file content.
+    if (inspectEditors.isNotEmpty) {
+      final bytes = utf8.encode(content);
+      for (final editor in inspectEditors) {
+        if (editor.canHandleContent(uri, bytes) ==
+            FileHandlingResult.accept) {
+          return editor;
+        }
+      }
+    }
+
+    // Phase 3: Default creation for known extensions.
     switch (ext) {
       case _extMarkdown:
       case _extMarkdownAlt:
-        final controller = MdEditorController(
-          initialMarkdown: content,
-          uri: uri,
-        );
-        return ForgeMdEditor(controller: controller, module: ownerModule);
       case _extText:
         final controller = MdEditorController(
           initialMarkdown: content,
@@ -370,32 +392,6 @@ class DefaultLayoutController implements ForgeLayoutController {
         );
         return ForgeYamlEditor(controller: controller, module: ownerModule);
       default:
-        // Phase 1: collect editors that accept or want to inspect.
-        final acceptEditors = <ForgeEditor>[];
-        final inspectEditors = <ForgeEditor>[];
-        for (final module in _moduleRegistry.allModules) {
-          for (final editor in module.editors) {
-            final result = editor.canHandle(uri);
-            if (result == FileHandlingResult.accept) {
-              acceptEditors.add(editor);
-            } else if (result == FileHandlingResult.inspect) {
-              inspectEditors.add(editor);
-            }
-          }
-        }
-        if (acceptEditors.isNotEmpty) return acceptEditors.first;
-
-        // Phase 2: read bytes and let inspecting editors decide.
-        if (inspectEditors.isNotEmpty) {
-          final bytes = await _fileSystem.readBytes(uri);
-          for (final editor in inspectEditors) {
-            if (editor.canHandleContent(uri, bytes) ==
-                FileHandlingResult.accept) {
-              return editor;
-            }
-          }
-        }
-
         // Fallback to a plain text-capable editor when no specialized editor
         // is registered for the current file type.
         final controller = MdEditorController(
