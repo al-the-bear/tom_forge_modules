@@ -442,11 +442,22 @@ This section is intended to cover undo/redo behavior, dirty tracking semantics, 
 ## 23. File Type Resolution and Fallback Opening
 This section is intended to cover `canHandle`/`canHandleContent` resolution, editor selection by URI/content, unknown-type fallback behavior, and file-open error handling. Include checks for shell resolver behavior and per-editor/module resolver contributions.
 
-- [ ] Section completed (finished on ...)
+- [x] Section completed (finished on 2026-03-30T06:38:44+02:00)
 
 | category | per module? | per component? | to be implemented in modules? | shell implementation done? | implemented on |
 |---|---|---|---|---|---|
-| | | | | | |
+| File-type resolution is contract-driven at editor level (`canHandle`, `canHandleContent`) | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` `ForgeEditor`/`ForgeSchemaEditor` contracts |
+| Resolver is explicitly two-phase (URI-first, content-inspection second) | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` resolution process and helper functions |
+| Decision result model is standardized (`accept`, `reject`, `inspect`) | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` `FileHandlingResult` enum |
+| Schema/content-sensitive editors use `inspect` and Phase-2 acceptance rules | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` schema editor behavior |
+| Resolver priority defaults to module declaration order for accepted editors | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` resolution priority notes |
+| User-facing override path exists in File Types configuration and Open-with defaults | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` configuration/File Types references |
+| Explicit Open-with operation is supported via layout API (`openFileWith`) | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` layout API |
+| Open-with UI separates URI-accepted editors and content-inspected additional options | no | yes | yes | yes | documented in `forge_panel_shell_concept.md` Open-with section |
+| No-match/error path is defined (`ED002: No editor available for {uri}`) | no | no | no | yes | documented in `forge_panel_shell_spec.md` error code table |
+| Unknown/unsupported file fallback is defined in runtime test app (read-only text fallback) | no | yes | yes | yes | documented in `tom_forge_ui_testapp.md` file-open fallback behavior |
+| Integration expectations include implementing missing `canHandle/canHandleContent` gaps in editor adapters | yes | yes | yes | yes | documented in `forge_panel_shell_spec.md` integration checklist tables |
+| Test expectations include Open-with behavior verification and resolver path checks | yes | no | yes | yes | documented in `forge_panel_shell_spec.md` TODO/tests and `tom_forge_ui_testapp.md` resolver workflow |
 
 ## 24. Advanced Data Services (Decorations, Outline, Virtual Documents, Workspace Edits)
 This section is intended to cover decoration pipelines, outline provider integration, virtual document providers, and multi-file workspace edit application. Include checks for shell service APIs and per-module/component usage coverage.
