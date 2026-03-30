@@ -3,11 +3,21 @@
 ## 1. Shell Architecture and Lifecycle
 This section is intended to cover the top-level Forge shell runtime model: startup, module activation/deactivation, shell service wiring, and lifecycle guarantees. Include checks at Forge level and per integrated module that depends on shell lifecycle hooks.
 
-- [ ] Section completed (finished on ...)
+- [x] Section completed (finished on 2026-03-30T05:53:06+02:00)
 
 | category | per module? | per component? | to be implemented in modules? | shell implementation done? | implemented on |
 |---|---|---|---|---|---|
-| | | | | | |
+| Shell startup sequence (`constructor` -> `initState` -> `ready`) | no | no | no | yes | documented in `forge_panel_shell_spec.md` (section 7.1) |
+| Module registration into shell registry during startup | yes | no | yes (module instantiation/registration) | yes | documented in `forge_panel_shell_spec.md` (section 7.1) and `tom_forge_ui_testapp.md` (section 3.2) |
+| Sequential module activation in dependency order (`module.activate(api)`) | yes | no | yes (each module implements activation) | yes | documented in `forge_panel_shell_spec.md` (section 7.1) and `forge_panel_shell_concept.md` (module lifecycle) |
+| Shell collects module contributions (actions/views/editors/shortcuts) | yes | yes | yes (modules/components contribute) | yes | documented in `forge_panel_shell_spec.md` (section 7.1) and `tom_forge_full_integration.md` (section 4.2, Phase B) |
+| Boot flow wiring (file system + shell module + app module + application layout + scaffold) | yes | no | yes (app modules) | yes | completed 2026-03-26 in `tom_forge_full_integration.md` (section 4.1, Phase A/E) |
+| Shell service single-source wiring (`ForgeActionRegistry`, `ForgeShortcutManager`, `ForgeSystemState`, settings) | yes | yes | yes (module actions/shortcuts) | yes | completed 2026-03-26 in `tom_forge_full_integration.md` (section 4.2, Phase B/C) |
+| Startup hydration and runtime preference synchronization | yes | yes | yes (module/editor settings consumers) | yes | completed 2026-03-26 in `tom_forge_full_integration.md` (Phase C) |
+| Layout/editor state restoration before running | yes | yes | yes (editor state adapters) | yes | documented in `forge_panel_shell_spec.md` (section 7.1) |
+| Graceful shutdown flow (dirty prompts, cancellable shutdown, save state) | yes | yes | yes (module/editor dirty + save handlers) | yes | documented in `forge_panel_shell_spec.md` (section 7.1) |
+| Reverse-order module deactivation during shutdown (`module.deactivate()`) | yes | no | yes (each module implements deactivation) | yes | documented in `forge_panel_shell_spec.md` (section 7.1) and `forge_panel_shell_concept.md` |
+| Startup boundary: modules registered at startup (no hot-load/unload flow in test app) | yes | no | no | yes (current scope) | documented in `tom_forge_ui_testapp.md` (non-goals + module structure) |
 
 ## 2. Workspace Model and File/Revision Boundaries
 This section is intended to cover workspace root handling, file-system scope, `.forge/` state/revision boundaries, and workspace-level assumptions. Include checks for core Forge behavior and module/component behavior when operating on workspace data.
