@@ -82,11 +82,22 @@ This section is intended to cover module contracts, registration, module-provide
 ## 5. Component Model (Views and Editors)
 This section is intended to cover component contracts (`title`, `icon`, `buildMain`, `buildCopy`, size hints), view vs editor semantics, and component identity. Include checks at shell level and per component implementation in each module.
 
-- [ ] Section completed (finished on ...)
+- [x] Section completed (finished on 2026-03-30T06:05:16+02:00)
 
 | category | per module? | per component? | to be implemented in modules? | shell implementation done? | implemented on |
 |---|---|---|---|---|---|
-| | | | | | |
+| Core `ForgeComponent` contract: observable `title`, optional `titleExtension`, `icon`, `isEditor`, `sizeHints`, `supportsMultiRender` | no | yes | yes | yes | documented in `forge_panel_shell_concept.md` component interface |
+| Rendering contract split: `buildMain(context)` vs `buildCopy(context)` | no | yes | yes | yes | documented in `forge_panel_shell_concept.md` (`ForgeComponent`) |
+| Component size hints contract (`minSize`, `preferredSize`, `maxSize`) guides layout behavior | no | yes | yes | yes | documented in `forge_panel_shell_concept.md` size hints section |
+| View vs editor closability semantics are different by design | no | yes | yes | yes | documented in `forge_panel_shell_concept.md` editor/view comparison table |
+| Component identity model: editors by `Uri`, views by Dart `Type` | no | yes | yes | yes | documented in `forge_panel_shell_concept.md` identity rules |
+| Multi-render model: shared data state with per-copy UI state | no | yes | yes | yes | documented in `forge_panel_shell_concept.md` multi-render section |
+| UI copy lifecycle: main component + additional UI copies, shift-drag copy behavior | no | yes | yes | yes | documented in `forge_panel_shell_concept.md` copy semantics |
+| File-opening editor resolution uses `canHandle(uri)` then `canHandleContent(uri, bytes)` | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` and `forge_panel_shell_spec.md` editor lifecycle |
+| Schema editor specialization: `canHandle` returns `inspect`, decision in `canHandleContent` | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` schema editor contract and `forge_panel_shell_spec.md` examples |
+| Concrete component contract evidence in test module (`ForgeTestTextEditor` title/icon/uri/canHandle) | yes | yes | yes | yes | documented in `forge_panel_shell_spec.md` section 10.3 |
+| Module contribution surfaces expose typed `List<ForgeEditor>` and `List<ForgeView>` | yes | no | yes | yes | documented in `forge_panel_shell_concept.md` (`ForgeModule`) and `forge_panel_shell_spec.md` test module |
+| Integration scenario evidence validates editor/view component behavior by file type | yes | yes | yes | yes | documented in `forge_panel_shell_spec.md` section 11 integration scenarios and `tom_forge_ui_testapp.md` |
 
 ## 6. Layout Topology and Panel Composition
 This section is intended to cover title bar, menu bar, left/right/middle/bottom panel structure, and status bar composition. Include checks for the Forge shell layout engine and per-module panel content integration.
