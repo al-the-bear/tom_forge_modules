@@ -182,11 +182,22 @@ This section is intended to cover section expand/collapse rules, pinning, multi-
 ## 10. Drag-and-Drop Layout Operations
 This section is intended to cover drag move/copy semantics, drop zones, panel split creation, and UI-copy behavior (including SHIFT-copy flows). Include checks for shell drag/drop infrastructure and per-component/module support.
 
-- [ ] Section completed (finished on ...)
+- [x] Section completed (finished on 2026-03-30T06:16:42+02:00)
 
 | category | per module? | per component? | to be implemented in modules? | shell implementation done? | implemented on |
 |---|---|---|---|---|---|
-| | | | | | |
+| Core layout supports drag-and-drop rearrangement of components between panels | no | yes | yes | yes | documented in `forge_panel_shell_concept.md` drag-and-drop layout section |
+| Regular drag performs move semantics (original location vacated) | no | yes | yes | yes | documented in `forge_panel_shell_concept.md` move behavior |
+| `SHIFT+drag` performs UI-copy semantics (original stays, copy created) | no | yes | yes | yes | documented in `forge_panel_shell_concept.md` and `forge_panel_shell_spec.md` |
+| Middle-panel drop zones support add-to-tabbar and split-left/right/top/bottom operations | no | yes | yes | yes | documented in `forge_panel_shell_concept.md` middle drop-zone rules |
+| Split creation is bounded by middle panel count limits | no | no | no | yes | documented in `forge_panel_shell_concept.md` middle panel constraints and test app split behavior |
+| Section-header drag supports reorder within tab and moves between tabs/panels | no | yes | yes | yes | documented in `forge_panel_shell_concept.md` move/reorder rules |
+| Entire side/bottom tabs can be moved between left/right/bottom panels | no | yes | yes | yes | documented in `forge_panel_shell_concept.md` tab move rules |
+| Middle panels intentionally use component tabs (side/bottom whole-tab drag not allowed into middle) | no | no | no | yes | documented in `forge_panel_shell_concept.md` restriction notes |
+| Empty accordeon/tab placeholders persist to keep valid future drop targets | no | yes | yes | yes | documented in `forge_panel_shell_concept.md` empty placeholder behavior |
+| Drag feedback includes proxy visuals, grabbing cursor, delayed zone reveal, valid/invalid flash states | no | no | no | yes | documented in `forge_panel_shell_spec.md` drag/drop interaction specs |
+| Drop-zone color semantics are explicitly themed (`highlight`, `valid`, `invalid`) | no | no | no | yes | documented in `forge_panel_shell_spec.md` color tokens |
+| Implementation/test evidence covers move and copy (`moveComponent`, `copyComponent`) and split flows | yes | yes | yes | yes | documented in `forge_panel_shell_spec.md` `drag_drop_test.dart` and split tests, plus `tom_forge_ui_testapp.md` split controller behavior |
 
 ## 11. Navigation and Command Surfaces
 This section is intended to cover menu bar, command palette, title-bar search entry behavior, back/forward navigation hooks, and command parity across entry points. Include checks for shell command routing and per-module command exposure.
