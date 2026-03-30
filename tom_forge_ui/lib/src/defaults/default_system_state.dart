@@ -88,6 +88,8 @@ class DefaultSystemState implements ForgeSystemState {
   @override
   ForgeEditor? get activeEditor => _activeEditor.value;
 
+  ValueListenable<ForgeEditor?> get activeEditorListenable => _activeEditor;
+
   @override
   List<ForgeEditor> get dirtyEditors => _dirtyEditors.value;
 

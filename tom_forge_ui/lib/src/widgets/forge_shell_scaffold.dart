@@ -671,25 +671,31 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     if (editors.isEmpty) {
       return const SizedBox.expand();
     }
-    final activeEditor = widget.systemState.activeEditor;
-    final currentEditor =
-        editors.contains(activeEditor) ? activeEditor : editors.last;
+    return ValueListenableBuilder<ForgeEditor?>(
+      valueListenable: widget.systemState.activeEditorListenable,
+      builder: (context, activeEditor, _) {
+        final currentEditor =
+            editors.contains(activeEditor) ? activeEditor : editors.last;
 
-    return Column(
-      children: [
-        ForgeEditorTabBar(
-          editors: editors,
-          activeEditor: currentEditor,
-          onSelect: (editor) {
-            _layout.setActiveMiddlePanelIndex(panelIndex);
-            widget.systemState.setActiveEditor(editor);
-          },
-          onClose: (editor) => _layout.closeEditor(editor),
-        ),
-        Expanded(
-          child: currentEditor?.buildMain(context) ?? const SizedBox.expand(),
-        ),
-      ],
+        return Column(
+          children: [
+            ForgeEditorTabBar(
+              editors: editors,
+              activeEditor: currentEditor,
+              onSelect: (editor) {
+                setState(() {
+                  _layout.setActiveMiddlePanelIndex(panelIndex);
+                  widget.systemState.setActiveEditor(editor);
+                });
+              },
+              onClose: (editor) => _layout.closeEditor(editor),
+            ),
+            Expanded(
+              child: currentEditor?.buildMain(context) ?? const SizedBox.expand(),
+            ),
+          ],
+        );
+      },
     );
   }
 
