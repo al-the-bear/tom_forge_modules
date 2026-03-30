@@ -397,9 +397,13 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     ForgeConfigurationDialog.show(context, _preferences, widget.shell);
   }
 
+  /// Whether to use the native platform menu bar (macOS desktop).
+  bool get _usePlatformMenu =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
+
   @override
   Widget build(BuildContext context) {
-    return Shortcuts(
+    Widget body = Shortcuts(
       shortcuts: _buildShortcuts(),
       child: Actions(
         actions: _buildActions(),
@@ -411,11 +415,13 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
                 Column(
                   children: [
                     _buildTitleBar(context),
-                    ForgeMenuBar(
-                      shellApi: widget.shell,
-                      onCommandPalette: _toggleCommandPalette,
-                      onSettings: _openSettings,
-                    ),
+                    // On macOS desktop, the menu is in the native menu bar.
+                    if (!_usePlatformMenu)
+                      ForgeMenuBar(
+                        shellApi: widget.shell,
+                        onCommandPalette: _toggleCommandPalette,
+                        onSettings: _openSettings,
+                      ),
                     Expanded(child: _buildMainArea(context)),
                     ForgeStatusBarWidget(controller: widget.statusBarController),
                   ],
@@ -432,6 +438,185 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         ),
       ),
     );
+
+    // Wrap with native platform menu bar on macOS desktop.
+    if (_usePlatformMenu) {
+      body = PlatformMenuBar(
+        menus: _buildPlatformMenus(),
+        child: body,
+      );
+    }
+
+    return body;
+  }
+
+  /// Build native platform menu items for macOS.
+  List<PlatformMenuItem> _buildPlatformMenus() {
+    return [
+      PlatformMenu(
+        label: 'File',
+        menus: [
+          PlatformMenuItem(
+            label: 'New File',
+            shortcut: const SingleActivator(
+              LogicalKeyboardKey.keyN,
+              meta: true,
+            ),
+            onSelected: () => widget.shell.executeAction('file.new'),
+          ),
+          PlatformMenuItem(
+            label: 'Open Folder...',
+            shortcut: const SingleActivator(
+              LogicalKeyboardKey.keyO,
+              meta: true,
+            ),
+            onSelected: () => widget.shell.executeAction('file.openFolder'),
+          ),
+          const PlatformMenuItemGroup(members: []),
+          PlatformMenuItem(
+            label: 'Save',
+            shortcut: const SingleActivator(
+              LogicalKeyboardKey.keyS,
+              meta: true,
+            ),
+            onSelected: () => widget.shell.executeAction('file.save'),
+          ),
+          PlatformMenuItem(
+            label: 'Save All',
+            shortcut: const SingleActivator(
+              LogicalKeyboardKey.keyS,
+              meta: true,
+              shift: true,
+            ),
+            onSelected: () => widget.shell.executeAction('file.saveAll'),
+          ),
+          const PlatformMenuItemGroup(members: []),
+          PlatformMenuItem(
+            label: 'Close Editor',
+            shortcut: const SingleActivator(
+              LogicalKeyboardKey.keyW,
+              meta: true,
+            ),
+            onSelected: () => widget.shell.executeAction('file.close'),
+          ),
+          const PlatformMenuItemGroup(members: []),
+          PlatformMenuItem(
+            label: 'Settings...',
+            shortcut: const SingleActivator(
+              LogicalKeyboardKey.comma,
+              meta: true,
+            ),
+            onSelected: _openSettings,
+          ),
+        ],
+      ),
+      PlatformMenu(
+        label: 'Edit',
+        menus: [
+          PlatformMenuItem(
+            label: 'Undo',
+            shortcut: const SingleActivator(
+              LogicalKeyboardKey.keyZ,
+              meta: true,
+            ),
+            onSelected: () => widget.shell.executeAction('edit.undo'),
+          ),
+          PlatformMenuItem(
+            label: 'Redo',
+            shortcut: const SingleActivator(
+              LogicalKeyboardKey.keyZ,
+              meta: true,
+              shift: true,
+            ),
+            onSelected: () => widget.shell.executeAction('edit.redo'),
+          ),
+          const PlatformMenuItemGroup(members: []),
+          PlatformMenuItem(
+            label: 'Cut',
+            shortcut: const SingleActivator(
+              LogicalKeyboardKey.keyX,
+              meta: true,
+            ),
+            onSelected: () => widget.shell.executeAction('edit.cut'),
+          ),
+          PlatformMenuItem(
+            label: 'Copy',
+            shortcut: const SingleActivator(
+              LogicalKeyboardKey.keyC,
+              meta: true,
+            ),
+            onSelected: () => widget.shell.executeAction('edit.copy'),
+          ),
+          PlatformMenuItem(
+            label: 'Paste',
+            shortcut: const SingleActivator(
+              LogicalKeyboardKey.keyV,
+              meta: true,
+            ),
+            onSelected: () => widget.shell.executeAction('edit.paste'),
+          ),
+          const PlatformMenuItemGroup(members: []),
+          PlatformMenuItem(
+            label: 'Find',
+            shortcut: const SingleActivator(
+              LogicalKeyboardKey.keyF,
+              meta: true,
+            ),
+            onSelected: () => widget.shell.executeAction('edit.find'),
+          ),
+          PlatformMenuItem(
+            label: 'Replace',
+            shortcut: const SingleActivator(
+              LogicalKeyboardKey.keyF,
+              meta: true,
+              alt: true,
+            ),
+            onSelected: () => widget.shell.executeAction('edit.replace'),
+          ),
+        ],
+      ),
+      PlatformMenu(
+        label: 'View',
+        menus: [
+          PlatformMenuItem(
+            label: 'Command Palette...',
+            shortcut: const SingleActivator(
+              LogicalKeyboardKey.keyP,
+              meta: true,
+            ),
+            onSelected: _toggleCommandPalette,
+          ),
+          const PlatformMenuItemGroup(members: []),
+          PlatformMenuItem(
+            label: 'Toggle Left Panel',
+            shortcut: const SingleActivator(
+              LogicalKeyboardKey.keyL,
+              meta: true,
+            ),
+            onSelected: () =>
+                widget.shell.layout.togglePanel(ForgePanelLocation.left),
+          ),
+          PlatformMenuItem(
+            label: 'Toggle Right Panel',
+            shortcut: const SingleActivator(
+              LogicalKeyboardKey.keyR,
+              meta: true,
+            ),
+            onSelected: () =>
+                widget.shell.layout.togglePanel(ForgePanelLocation.right),
+          ),
+        ],
+      ),
+      PlatformMenu(
+        label: 'Help',
+        menus: [
+          PlatformMenuItem(
+            label: 'About Tom Forge',
+            onSelected: () {},
+          ),
+        ],
+      ),
+    ];
   }
 
   Map<ShortcutActivator, Intent> _buildShortcuts() {
@@ -910,6 +1095,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
             ForgeEditorTabBar(
               editors: editors,
               activeEditor: currentEditor,
+              panelIndex: panelIndex,
               onSelect: (editor) {
                 setState(() {
                   _layout.setActiveMiddlePanelIndex(panelIndex);
@@ -917,6 +1103,10 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
                 });
               },
               onClose: (editor) => _layout.closeEditor(editor),
+              onEditorDropped: (editor) {
+                _layout.moveComponent(editor, panelIndex);
+                widget.systemState.setActiveEditor(editor);
+              },
             ),
             Expanded(
               child: currentEditor?.buildMain(context) ?? const SizedBox.expand(),

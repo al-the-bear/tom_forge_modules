@@ -102,7 +102,7 @@ This section is intended to cover component contracts (`title`, `icon`, `buildMa
 ## 5. Layout Topology and Panel Composition
 This section is intended to cover title bar, menu bar, left/right/middle/bottom panel structure, and status bar composition. Include checks for the Forge shell layout engine and per-module panel content integration.
 
-- [ ] Section implemented
+- [x] Section implemented (completed on 2025-07-23)
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -113,10 +113,10 @@ This section is intended to cover title bar, menu bar, left/right/middle/bottom 
 | Bottom topology spans between side panels and uses tab bar + accordeon sections | no | yes | yes | yes | yes | yes | `_buildBottomPanel` uses `ForgePanelWidget` between side panels |
 | Configuration tab topology is fixed/pinned at bottom of left icon strip | no | no | no | yes | yes | n/a | `ForgeSidePanelWidget.showConfigTab` and `_buildConfigTab` implement pinned config tab |
 | Side/bottom panels share accordeon section-hosting composition model | no | yes | yes | yes | yes | yes | `_AccordeonLayout` and `_AccordeonSection` used by all side/bottom panels |
-| Panel composition supports drag flows: accordeon reordering, tab moves between side/bottom, middle drop zones for split/add tab | no | yes | yes | yes | no | no | not implemented; no drag/drop between panels |
+| Panel composition supports drag flows: accordeon reordering, tab moves between side/bottom, middle drop zones for split/add tab | no | yes | yes | yes | partial | partial | `ForgeEditorTabBar` supports `Draggable`/`DragTarget` for cross-panel tab moves; `onEditorDropped` calls `moveComponent`; accordeon reorder and side/bottom tab drag not yet implemented |
 | Menu bar composition is fixed top-level structure populated from shell/modules/components | yes | yes | yes | yes | yes | yes | `ForgeMenuBar` with File/Edit/View/Help menus, actions from `ForgeActionRegistry` |
 | Status bar composition aggregates dynamic items and progress indicators | yes | yes | yes | yes | yes | yes | `ForgeStatusBarWidget` + `DefaultStatusBarController`; modules contribute `StatusBarItem`s |
-| Platform composition rule: menu bar native placement differs on macOS vs Windows/Linux | no | no | no | yes | no | n/a | not implemented; menu bar always in-app widget (not native) |
+| Platform composition rule: menu bar native placement differs on macOS vs Windows/Linux | no | no | no | yes | yes | n/a | `ForgeShellScaffold._usePlatformMenu` checks macOS desktop; wraps with `PlatformMenuBar` and hides custom `ForgeMenuBar`; `_buildPlatformMenus()` mirrors File/Edit/View/Help entries |
 | Implementation evidence: test app shell scaffold and panel/status widgets provide open/close/resize composition behavior | yes | yes | yes | yes | yes | yes | `ForgeShellScaffold` in test app with panel toggles, resize handles, status bar |
 
 ## 6. Panel Resizing and Splitter Behavior
