@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart'
@@ -23,6 +24,7 @@ class ForgePreferencesService extends ChangeNotifier {
   static const _keyLayoutPanelSizes = 'forge.layout.panelSizes';
   static const _keyLayoutPanelVisibility = 'forge.layout.panelVisibility';
   static const _keyLayoutOpenEditors = 'forge.layout.openEditors';
+  static const _keyThemeMode = 'forge.appearance.themeMode';
 
   SharedPreferences? _prefs;
   ForgeStartupPreferences _startupPreferences = ForgeStartupPreferences();
@@ -33,6 +35,7 @@ class ForgePreferencesService extends ChangeNotifier {
   final Map<String, double> _layoutPanelSizes = <String, double>{};
   final Map<String, bool> _layoutPanelVisibility = <String, bool>{};
   List<String> _layoutOpenEditors = <String>[];
+  ThemeMode _themeMode = ThemeMode.dark;
   bool _isLoaded = false;
 
   static void _log(String message) {
@@ -93,6 +96,18 @@ class ForgePreferencesService extends ChangeNotifier {
   /// Sets the list of open editor URIs to persist.
   void setLayoutOpenEditors(List<String> editorUris) {
     _layoutOpenEditors = List<String>.from(editorUris);
+  }
+
+  /// The persisted theme mode (dark, light, or system).
+  ThemeMode get themeMode => _themeMode;
+
+  /// Sets and persists the theme mode.
+  set themeMode(ThemeMode value) {
+    if (_themeMode != value) {
+      _themeMode = value;
+      _prefs?.setString(_keyThemeMode, value.name);
+      notifyListeners();
+    }
   }
 
   /// Maximum number of recent workspaces to track.
@@ -160,6 +175,7 @@ class ForgePreferencesService extends ChangeNotifier {
         ..clear()
         ..addAll(_loadLayoutPanelVisibility());
       _layoutOpenEditors = _loadLayoutOpenEditors();
+      _themeMode = _loadThemeMode();
       _isLoaded = true;
       _log('loaded preferences with ${_editorTextSettings.length} editor settings entries');
 
@@ -214,6 +230,7 @@ class ForgePreferencesService extends ChangeNotifier {
       await _saveLayoutPanelSizes();
       await _saveLayoutPanelVisibility();
       await _saveLayoutOpenEditors();
+      await _prefs!.setString(_keyThemeMode, _themeMode.name);
       _log('saved preferences with ${_editorTextSettings.length} editor settings entries');
     } catch (error, stackTrace) {
       debugPrint('[ForgePreferencesService] save failed: $error');

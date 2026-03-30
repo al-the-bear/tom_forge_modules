@@ -40,7 +40,7 @@ class ForgeShellTheme extends ThemeExtension<ForgeShellTheme> {
     required this.statusBarBackground,
   });
 
-  /// Dark theme variant.
+  /// Dark theme variant (default).
   factory ForgeShellTheme.dark() => const ForgeShellTheme(
         panelSurface: Color(0xFF1E1E1E),
         panelDivider: Color(0xFF3C3C3C),
@@ -63,6 +63,33 @@ class ForgeShellTheme extends ThemeExtension<ForgeShellTheme> {
         sectionHeader: Color(0xFFE7E7E7),
         statusBarBackground: Color(0xFF005FB8),
       );
+
+  /// High-contrast theme variant.
+  ///
+  /// Uses strong borders, saturated colors, and maximum contrast for
+  /// accessibility. Intended for users who require enhanced visibility.
+  factory ForgeShellTheme.highContrast() => const ForgeShellTheme(
+        panelSurface: Color(0xFF000000),
+        panelDivider: Color(0xFFFFFFFF),
+        activeTab: Color(0xFF00BFFF),
+        dropZoneHighlight: Color(0x6600BFFF),
+        dropZoneValid: Color(0x6600FF00),
+        dropZoneInvalid: Color(0x66FF0000),
+        sectionHeader: Color(0xFF1A1A1A),
+        statusBarBackground: Color(0xFF00BFFF),
+      );
+
+  /// Returns the appropriate shell theme for the given [ThemeMode].
+  static ForgeShellTheme forMode(ThemeMode mode) {
+    switch (mode) {
+      case ThemeMode.light:
+        return ForgeShellTheme.light();
+      case ThemeMode.dark:
+        return ForgeShellTheme.dark();
+      case ThemeMode.system:
+        return ForgeShellTheme.dark();
+    }
+  }
 
   @override
   ForgeShellTheme copyWith({
