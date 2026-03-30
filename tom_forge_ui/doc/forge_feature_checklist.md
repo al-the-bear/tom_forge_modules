@@ -242,11 +242,22 @@ This section is intended to cover action registration, enable/visible state logi
 ## 13. Focus Management and Accessibility
 This section is intended to cover keyboard navigation order, focus visibility, focus trapping in modal surfaces, screen-reader semantics, and hit-target usability. Include checks for shell accessibility baseline and per component/module accessibility conformance.
 
-- [ ] Section completed (finished on ...)
+- [x] Section completed (finished on 2026-03-30T06:21:41+02:00)
 
 | category | per module? | per component? | to be implemented in modules? | shell implementation done? | implemented on |
 |---|---|---|---|---|---|
-| | | | | | |
+| System state exposes focused component, panel location, and focus-derived editor/selection context | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` (`ForgeSystemState` focus fields) |
+| Focus lifecycle emits explicit events (`onFocusChanged`, selection-change + window-focus signals) | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` focus event API |
+| Keyboard focus navigation APIs are defined (`focusNextPanel`, `focusPreviousPanel`, `focusActiveComponent`, `focusComponent`) | yes | yes | yes | yes | documented in `forge_panel_shell_spec.md` `ForgeFocusManager` contract |
+| Focus ring accessibility baseline is defined (visible on keyboard focus, theme-driven color/width) | no | yes | yes | yes | documented in `forge_panel_shell_spec.md` accessibility implementation + theme tokens |
+| Mouse-only focus indicator suppression (`focus-visible` equivalent behavior) is required | no | yes | yes | yes | documented in `forge_panel_shell_spec.md` focus-ring behavior rules |
+| Modal surfaces trap focus (dialogs, shortcut popup, quick pick) until dismissed | no | yes | yes | yes | documented in `forge_panel_shell_spec.md` focus-trap requirements |
+| Screen-reader semantics roles are defined for tab infrastructure (`tablist`, `tabpanel`) | no | yes | yes | yes | documented in `forge_panel_shell_spec.md` accessibility constants |
+| Accessibility announcement pipeline is defined with polite/assertive modes via `SemanticsService` | yes | yes | yes | yes | documented in `forge_panel_shell_spec.md` (`announce`, `announceUrgent`) |
+| Hit-target usability baseline is specified for splitters (8px interaction zone) | no | yes | yes | yes | documented in `forge_panel_shell_spec.md` design token table |
+| High-contrast theme support is required as shell-level accessibility baseline | yes | yes | yes | yes | documented in `forge_panel_shell_spec.md` high-contrast section and test reference |
+| Accessibility baseline includes keyboard navigation + screen-reader support in shell requirements | yes | yes | yes | yes | documented in `forge_panel_shell_spec.md` non-functional requirements and `forge_panel_shell_concept.md` scope notes |
+| Integration/test evidence includes high-contrast widget tests and parity validation checkpoints | yes | no | yes | yes | documented in `forge_panel_shell_spec.md` (`high contrast` test) and `tom_forge_full_integration.md` validation cadence |
 
 ## 14. Theme, Visual Language, and Interaction Feedback
 This section is intended to cover shell theming hooks, color/contrast expectations, active/hover/drag visual states, and consistency of feedback patterns. Include checks for global Forge theming and per-module/component visual integration.
