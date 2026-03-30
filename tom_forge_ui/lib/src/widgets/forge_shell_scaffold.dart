@@ -7,6 +7,7 @@ import 'package:tom_forge_core/tom_forge_core.dart';
 
 import '../adapters/forge_dart_editor.dart';
 import '../adapters/forge_md_editor.dart';
+import '../adapters/forge_plain_text_editor.dart';
 import '../adapters/forge_yaml_editor.dart';
 import '../components/forge_editor.dart';
 import '../components/forge_text_editor.dart';
@@ -22,6 +23,7 @@ import 'forge_configuration_dialog.dart';
 import 'forge_editor_tab_bar.dart';
 import 'forge_menu_bar.dart';
 import 'forge_notification_overlay.dart';
+import 'forge_open_with_dialog.dart';
 import 'forge_panel_widget.dart';
 import 'forge_status_bar_widget.dart';
 
@@ -229,6 +231,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     if (editor is ForgeMdEditor) return 'md';
     if (editor is ForgeDartEditor) return 'dart';
     if (editor is ForgeYamlEditor) return 'yaml';
+    if (editor is ForgePlainTextEditor) return 'plaintext';
     return null;
   }
 
@@ -521,6 +524,24 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
                   ],
                 ),
                 ForgeNotificationOverlay(manager: widget.notificationManager),
+                // Open With dialog when multiple editors can handle a file.
+                ValueListenableBuilder<(Uri, List<ForgeEditor>)?>(
+                  valueListenable: _layout.pendingEditorChoice,
+                  builder: (context, choice, _) {
+                    if (choice == null) return const SizedBox.shrink();
+                    final (uri, editors) = choice;
+                    return ForgeOpenWithDialog(
+                      uri: uri,
+                      editors: editors,
+                      onEditorSelected: (editor) {
+                        _layout.resolveEditorChoice(editor, uri);
+                      },
+                      onCancel: () {
+                        _layout.pendingEditorChoice.value = null;
+                      },
+                    );
+                  },
+                ),
                 if (_showCommandPalette)
                   ForgeCommandPalette(
                     shellApi: widget.shell,

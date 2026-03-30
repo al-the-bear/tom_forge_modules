@@ -9,6 +9,7 @@ export 'src/actions/status_bar_item.dart';
 // ── Adapters ──
 export 'src/adapters/forge_dart_editor.dart';
 export 'src/adapters/forge_md_editor.dart';
+export 'src/adapters/forge_plain_text_editor.dart';
 export 'src/adapters/forge_yaml_editor.dart';
 export 'src/adapters/tom_forge_shell_module.dart';
 
@@ -95,6 +96,7 @@ export 'src/widgets/forge_configuration_dialog.dart';
 export 'src/widgets/forge_editor_tab_bar.dart';
 export 'src/widgets/forge_menu_bar.dart';
 export 'src/widgets/forge_notification_overlay.dart';
+export 'src/widgets/forge_open_with_dialog.dart';
 export 'src/widgets/forge_panel_widget.dart';
 export 'src/widgets/forge_shell_scaffold.dart';
 export 'src/widgets/forge_status_bar_widget.dart';

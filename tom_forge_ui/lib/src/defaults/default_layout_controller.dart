@@ -8,6 +8,7 @@ import 'package:tom_yaml_editor/tom_yaml_editor.dart';
 
 import '../adapters/forge_dart_editor.dart';
 import '../adapters/forge_md_editor.dart';
+import '../adapters/forge_plain_text_editor.dart';
 import '../adapters/forge_yaml_editor.dart';
 import '../components/forge_component.dart';
 import '../components/forge_editor.dart';
@@ -392,13 +393,13 @@ class DefaultLayoutController implements ForgeLayoutController {
         );
         return ForgeYamlEditor(controller: controller, module: ownerModule);
       default:
-        // Fallback to a plain text-capable editor when no specialized editor
+        // Fallback to plain text editor when no specialized editor
         // is registered for the current file type.
-        final controller = MdEditorController(
-          initialMarkdown: content,
+        return ForgePlainTextEditor.fromContent(
+          content: content,
           uri: uri,
+          module: ownerModule,
         );
-        return ForgeMdEditor(controller: controller, module: ownerModule);
     }
   }
 
