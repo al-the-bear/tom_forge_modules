@@ -202,11 +202,22 @@ This section is intended to cover drag move/copy semantics, drop zones, panel sp
 ## 11. Navigation and Command Surfaces
 This section is intended to cover menu bar, command palette, title-bar search entry behavior, back/forward navigation hooks, and command parity across entry points. Include checks for shell command routing and per-module command exposure.
 
-- [ ] Section completed (finished on ...)
+- [x] Section completed (finished on 2026-03-30T06:17:54+02:00)
 
 | category | per module? | per component? | to be implemented in modules? | shell implementation done? | implemented on |
 |---|---|---|---|---|---|
-| | | | | | |
+| Title-bar search field doubles as quick command/search entry surface | no | no | no | yes | documented in `forge_panel_shell_concept.md` title bar/search field behavior |
+| Command palette is a first-class global entry point (`F1`, `Cmd+P`) | no | no | no | yes | documented in `forge_panel_shell_concept.md` and `forge_panel_shell_spec.md` |
+| Menu bar is fixed top-level structure with module/component-populated entries | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` menu structure section |
+| Cross-platform menu surface behavior is defined (macOS system menu, Windows/Linux in-window) | no | no | no | yes | documented in `forge_panel_shell_concept.md` platform behavior |
+| `Go` surface includes navigation actions (go-to targets and back/forward) | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` menu table |
+| Back/forward navigation hooks are delegated through focused component history manager | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` history manager section |
+| Command execution routes through action objects with dynamic visibility/enabled state | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` action execution/state evaluation |
+| Dialog-driven command UX supports quick pick/input/file picker flows | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` `ForgeDialogManager` usage |
+| Explicit "Open with" command surface available from context menu and command palette | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` Open With flow |
+| Command parity objective across menu, palette, and shortcuts is required | yes | yes | yes | yes | documented in `tom_forge_full_integration.md` acceptance and manual matrix |
+| Implementation evidence: menu handlers switched from placeholders to real action dispatch | yes | no | yes | yes | documented in `tom_forge_full_integration.md` Phase B implementation evidence |
+| Implementation evidence: command palette source unified to action registry with fallback dedupe | yes | no | yes | yes | documented in `tom_forge_full_integration.md` command-source unification notes |
 
 ## 12. Actions and Shortcut Framework
 This section is intended to cover action registration, enable/visible state logic, shortcut binding/effective shortcut display, platform-specific modifier behavior, and conflict handling. Include checks at Forge action/shortcut manager level and per-module/per-component action sets.
