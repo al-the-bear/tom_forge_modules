@@ -162,11 +162,22 @@ This section is intended to cover tab creation, activation, close behavior, hove
 ## 9. Accordeon Section Behavior
 This section is intended to cover section expand/collapse rules, pinning, multi-open behavior, section sizing/sharing, and empty/drop placeholder behavior. Include checks for shell accordeon mechanics and per-view section compatibility.
 
-- [ ] Section completed (finished on ...)
+- [x] Section completed (finished on 2026-03-30T06:11:30+02:00)
 
 | category | per module? | per component? | to be implemented in modules? | shell implementation done? | implemented on |
 |---|---|---|---|---|---|
-| | | | | | |
+| Accordeon is the section container model for left/right/bottom panel tabs | no | yes | yes | yes | documented in `forge_panel_shell_concept.md` panel topology |
+| Section open/closed presentation is defined (triangle direction and title orientation) | no | no | no | yes | documented in `forge_panel_shell_concept.md` accordeon section rules |
+| Default mutual exclusivity: opening one section collapses others in same tab | no | yes | yes | yes | documented in `forge_panel_shell_concept.md` behavior table |
+| Pinning enables multi-open behavior in a tab | no | yes | yes | yes | documented in `forge_panel_shell_concept.md` behavior table |
+| Pinned-open sections share available space with size-hint awareness | no | yes | yes | yes | documented in `forge_panel_shell_concept.md` space distribution + size-hints |
+| Manual separator dragging between pinned-open sections is supported | no | yes | yes | yes | documented in `forge_panel_shell_concept.md` separator-drag behavior |
+| Single-section tabs are always open and non-collapsible | no | yes | yes | yes | documented in `forge_panel_shell_concept.md` single-section rule |
+| Empty sections must render placeholders for drag/drop targets | no | yes | yes | yes | documented in `forge_panel_shell_concept.md` empty-sections rule |
+| Empty accordeon tabs persist as placeholders when sections are moved away | no | yes | yes | yes | documented in `forge_panel_shell_concept.md` drag/reorder behavior |
+| Section-header controls (pin and close placement) are standardized | no | yes | yes | yes | documented in `forge_panel_shell_concept.md` tab/header controls |
+| Accordeon keyboard controls are specified (`Up/Down`, `Enter/Space`) | no | no | no | yes | documented in `forge_panel_shell_spec.md` keyboard table |
+| Implementation/test evidence exists for expand/collapse and pinned state behavior | yes | yes | yes | yes | documented in `forge_panel_shell_spec.md` `accordeon_section_test.dart` and `tom_forge_ui_testapp.md` panel widget docs |
 
 ## 10. Drag-and-Drop Layout Operations
 This section is intended to cover drag move/copy semantics, drop zones, panel split creation, and UI-copy behavior (including SHIFT-copy flows). Include checks for shell drag/drop infrastructure and per-component/module support.
