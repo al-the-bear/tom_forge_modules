@@ -562,22 +562,22 @@ This section is intended to cover responsiveness budgets, lazy loading/virtualiz
 ## 28. Testing and Quality Gates
 This section is intended to cover unit/widget/integration/E2E test expectations, analyzer/test gates, regression scope, and promotion criteria from staging to production app. Include checks for framework-level quality gates and per-module/component test coverage.
 
-- [ ] Section not yet fully implemented — test strategy documented but coverage targets not met, no golden tests, limited widget interaction tests, no promotion gate passes
+- [x] Section implemented — test strategy with layer enum, coverage targets, golden tests, service/widget/integration tests, quality gates, promotion/merge/milestone gates, and staging runtime contract
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
-| Test strategy explicitly spans unit, widget, integration, E2E, and golden layers | yes | yes | yes | yes | partial | partial | documented in `forge_panel_shell_spec.md` Test Strategy matrix |
-| Coverage targets are defined per test layer (unit 90%+, widget 80%+, integration 70%+) | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_spec.md` coverage target table |
-| Golden regression testing is part of quality gates (`matchesGoldenFile` for key screens/themes) | no | yes | yes | yes | no | no | documented in `forge_panel_shell_spec.md` golden examples |
-| Service-level unit tests are specified for persistence, diagnostics, notifications, undo, config, and module storage | yes | yes | yes | yes | partial | partial | documented in `forge_panel_shell_spec.md` service test mapping |
-| Widget-level interaction tests are specified for accordeon behavior and drag-drop workflows | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_spec.md` widget test examples |
-| Integration tests are specified for end-to-end file-save and shell-path scenarios | yes | yes | yes | yes | partial | partial | documented in `forge_panel_shell_spec.md` integration examples and `tom_forge_full_integration.md` phase tests |
-| Staging quality gate requires analyzer and test passes in framework and staging runtime packages | yes | no | yes | yes | partial | no | documented in `tom_forge_full_integration.md` strict pass verification results |
-| Expansion-cycle merge gate requires no analyzer errors and no command/editor regressions | yes | yes | yes | yes | partial | partial | documented in `tom_forge_full_integration.md` Phase D acceptance criteria |
-| Promotion gate checklist is explicitly defined before staging-to-production port | yes | no | yes | yes | no | no | documented in `tom_forge_full_integration.md` promotion gate checklist |
-| Promotion criteria include repeated staging regression stability and integration-matrix readiness | yes | yes | yes | yes | no | no | documented in `tom_forge_full_integration.md` checklist and risk controls |
-| Milestone command gates define mandatory `dart analyze`/`flutter test` runs for integration and promotion | yes | no | yes | yes | no | no | documented in `tom_forge_full_integration.md` runbook commands |
-| Test app acts as near-production staging runtime used to validate shell interfaces and integrated behavior before promotion | yes | yes | yes | yes | yes | partial | documented in `tom_forge_ui_testapp.md` goals and `tom_forge_full_integration.md` staging architecture |
+| Test strategy explicitly spans unit, widget, integration, E2E, and golden layers | yes | yes | yes | yes | yes | yes | `ForgeTestLayer` enum in `forge_quality_gate.dart` |
+| Coverage targets are defined per test layer (unit 90%+, widget 80%+, integration 70%+) | yes | yes | yes | yes | yes | yes | `ForgeCoverageTargets` in `forge_quality_gate.dart` |
+| Golden regression testing is part of quality gates (`matchesGoldenFile` for key screens/themes) | no | yes | yes | yes | yes | yes | 4 golden tests in `shell_golden_test.dart` (dark/light/high-contrast/status-bar) |
+| Service-level unit tests are specified for persistence, diagnostics, notifications, undo, config, and module storage | yes | yes | yes | yes | yes | yes | 64 tests in `service_unit_tests.dart` covering all 7 default services |
+| Widget-level interaction tests are specified for accordeon behavior and drag-drop workflows | yes | yes | yes | yes | yes | yes | 8 accordion tests + 9 tab bar tests in `accordeon_interaction_test.dart` and `tab_bar_interaction_test.dart` |
+| Integration tests are specified for end-to-end file-save and shell-path scenarios | yes | yes | yes | yes | yes | yes | 11 tests in `file_save_integration_test.dart` (file lifecycle + shell path) |
+| Staging quality gate requires analyzer and test passes in framework and staging runtime packages | yes | no | yes | yes | yes | yes | `ForgeQualityGate` in `forge_quality_gate.dart` with aggregated gate result |
+| Expansion-cycle merge gate requires no analyzer errors and no command/editor regressions | yes | yes | yes | yes | yes | yes | `ForgeMergeGate` in `forge_quality_gate.dart` with 5 merge criteria |
+| Promotion gate checklist is explicitly defined before staging-to-production port | yes | no | yes | yes | yes | yes | `ForgePromotionGate` in `forge_quality_gate.dart` with 8 promotion criteria |
+| Promotion criteria include repeated staging regression stability and integration-matrix readiness | yes | yes | yes | yes | yes | yes | `ForgePromotionGate.evaluate()` checks all 8 criteria including regression stability |
+| Milestone command gates define mandatory `dart analyze`/`flutter test` runs for integration and promotion | yes | no | yes | yes | yes | yes | `ForgeMilestoneGate` in `forge_quality_gate.dart` with per-package analyze+test gates |
+| Test app acts as near-production staging runtime used to validate shell interfaces and integrated behavior before promotion | yes | yes | yes | yes | yes | yes | `ForgeStagingRuntimeContract` in `forge_quality_gate.dart` with 5 staging verification criteria |
 
 ## 29. Feature Matrix by Scope (Forge vs Module vs Component)
 This section is intended to provide a cross-cutting checklist matrix for every feature area, explicitly separating: (a) Forge core responsibility, (b) module-level implementation responsibility, and (c) component-level behavior responsibility.

@@ -57,6 +57,7 @@ export 'src/services/forge_terminal_manager.dart';
 export 'src/services/forge_undo_manager.dart';
 export 'src/services/forge_virtual_document_manager.dart';
 export 'src/services/forge_performance_contract.dart';
+export 'src/services/forge_quality_gate.dart';
 
 // Default implementations (pure-Dart)
 export 'src/defaults/default_config_manager.dart';
