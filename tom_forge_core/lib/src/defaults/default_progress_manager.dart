@@ -45,6 +45,7 @@ class DefaultProgressManager implements ForgeProgressManager {
   }
 
   /// Stream of progress events for widget layer consumption.
+  @override
   Stream<ProgressEvent> get onProgress => _eventController.stream;
 
   /// Dispose resources.
@@ -64,13 +65,4 @@ class DefaultProgressReporter implements ForgeProgressReporter {
   void report({int? increment, String? message}) {
     onReport(increment, message);
   }
-}
-
-/// Event emitted during progress tracking.
-class ProgressEvent {
-  final String title;
-  final int? increment;
-  final String? message;
-
-  const ProgressEvent({required this.title, this.increment, this.message});
 }

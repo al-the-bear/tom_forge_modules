@@ -450,6 +450,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
                     ForgeStatusBarWidget(
                       controller: widget.statusBarController,
                       systemState: widget.systemState,
+                      progressManager: widget.shell.progress,
                     ),
                   ],
                 ),
