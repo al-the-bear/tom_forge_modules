@@ -184,6 +184,7 @@ class DefaultShellApi implements ForgeShellApi {
     required ForgeFileSystem fileSystem,
     required String appName,
     required GlobalKey<NavigatorState> navigatorKey,
+    ForgeWorkspaceStateManager? workspaceState,
   }) {
     final systemState = DefaultSystemState();
     final actionRegistry = DefaultActionRegistry();
@@ -254,6 +255,7 @@ class DefaultShellApi implements ForgeShellApi {
       search: searchManager,
       actionRegistry: actionRegistry,
       shortcuts: shortcutManager,
+      workspaceState: workspaceState,
     );
   }
 

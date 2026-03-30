@@ -1,5 +1,3 @@
-import '../components/forge_editor.dart';
-
 /// Manages workspace-scoped persistent state under the `.forge/` directory.
 ///
 /// Responsibilities:
