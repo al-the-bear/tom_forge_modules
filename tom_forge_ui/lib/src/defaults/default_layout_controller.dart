@@ -140,6 +140,8 @@ class DefaultLayoutController implements ForgeLayoutController {
   @override
   void splitMiddlePanel() {
     final panels = List<List<ForgeEditor>>.from(_middlePanels.value);
+    // Limit to 4 middle panels maximum.
+    if (panels.length >= 4) return;
     panels.add([]);
     _middlePanels.value = panels;
     _activeMiddlePanelIndex.value = panels.length - 1;

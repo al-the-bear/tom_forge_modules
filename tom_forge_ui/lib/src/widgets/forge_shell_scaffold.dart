@@ -1159,8 +1159,12 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
                 });
               },
               onClose: (editor) => _handleCloseEditor(editor),
-              onEditorDropped: (editor) {
-                _layout.moveComponent(editor, panelIndex);
+              onEditorDropped: (editor, {bool isCopy = false}) {
+                if (isCopy) {
+                  _layout.copyComponent(editor, panelIndex);
+                } else {
+                  _layout.moveComponent(editor, panelIndex);
+                }
                 widget.systemState.setActiveEditor(editor);
               },
             ),

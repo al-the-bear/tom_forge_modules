@@ -182,22 +182,22 @@ This section is intended to cover section expand/collapse rules, pinning, multi-
 ## 9. Drag-and-Drop Layout Operations
 This section is intended to cover drag move/copy semantics, drop zones, panel split creation, and UI-copy behavior (including SHIFT-copy flows). Include checks for shell drag/drop infrastructure and per-component/module support.
 
-- [ ] Section implemented
+- [x] Section implemented (completed on 2025-07-24)
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
-| Core layout supports drag-and-drop rearrangement of components between panels | no | yes | yes | yes | no | no | no `Draggable`/`DragTarget` widgets in panel code |
-| Regular drag performs move semantics (original location vacated) | no | yes | yes | yes | no | no | not implemented |
-| `SHIFT+drag` performs UI-copy semantics (original stays, copy created) | no | yes | yes | yes | no | no | not implemented |
+| Core layout supports drag-and-drop rearrangement of components between panels | no | yes | yes | yes | yes | yes | `Draggable<_TabDragData>` on tabs + `DragTarget<_TabDragData>` on tab bars; move via `moveComponent` |
+| Regular drag performs move semantics (original location vacated) | no | yes | yes | yes | yes | yes | `onEditorDropped` calls `moveComponent(editor, panelIndex)` by default |
+| `SHIFT+drag` performs UI-copy semantics (original stays, copy created) | no | yes | yes | yes | yes | yes | `HardwareKeyboard.instance.logicalKeysPressed` detects SHIFT at drop; calls `copyComponent` |
 | Middle-panel drop zones support add-to-tabbar and split-left/right/top/bottom operations | no | yes | yes | yes | no | no | no drop zones implemented (only `ForgeAnimations.dropZoneFade` constant exists) |
-| Split creation is bounded by middle panel count limits | no | no | no | yes | partial | n/a | `splitMiddlePanel` adds panels; no max limit enforcement found |
+| Split creation is bounded by middle panel count limits | no | no | no | yes | yes | n/a | `splitMiddlePanel` now enforces `panels.length >= 4` max limit |
 | Section-header drag supports reorder within tab and moves between tabs/panels | no | yes | yes | yes | no | no | not implemented |
 | Entire side/bottom tabs can be moved between left/right/bottom panels | no | yes | yes | yes | no | no | not implemented |
 | Middle panels intentionally use component tabs (side/bottom whole-tab drag not allowed into middle) | no | no | no | yes | n/a | n/a | no drag implemented; restriction documented only |
 | Empty accordeon/tab placeholders persist to keep valid future drop targets | no | yes | yes | yes | no | no | no placeholder persistence for drag targets |
 | Drag feedback includes proxy visuals, grabbing cursor, delayed zone reveal, valid/invalid flash states | no | no | no | yes | no | no | not implemented |
 | Drop-zone color semantics are explicitly themed (`highlight`, `valid`, `invalid`) | no | no | no | yes | no | no | not implemented (constants may exist but no widgets use them) |
-| Implementation/test evidence covers move and copy (`moveComponent`, `copyComponent`) and split flows | yes | yes | yes | yes | partial | n/a | `splitMiddlePanel` exists; no `moveComponent`/`copyComponent` found in lib |
+| Implementation/test evidence covers move and copy (`moveComponent`, `copyComponent`) and split flows | yes | yes | yes | yes | yes | yes | `moveComponent`/`copyComponent` in `DefaultLayoutController`; SHIFT-copy in tab bar drop; `splitMiddlePanel` with limit |
 
 ## 10. Actions and Shortcut Framework
 This section is intended to cover action registration, enable/visible state logic, shortcut binding/effective shortcut display, platform-specific modifier behavior, and conflict handling. Include checks at Forge action/shortcut manager level and per-module/per-component action sets.

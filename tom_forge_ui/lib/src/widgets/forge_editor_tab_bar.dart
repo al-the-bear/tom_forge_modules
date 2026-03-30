@@ -4,7 +4,8 @@ import 'package:flutter/services.dart';
 import '../components/forge_editor.dart';
 
 /// Callback for when a tab is dropped onto this tab bar from another panel.
-typedef EditorDropCallback = void Function(ForgeEditor editor);
+/// [isCopy] is true when SHIFT was held during the drop (copy semantics).
+typedef EditorDropCallback = void Function(ForgeEditor editor, {bool isCopy});
 
 /// Tab bar for the editor area.
 ///
@@ -91,7 +92,11 @@ class _ForgeEditorTabBarState extends State<ForgeEditorTabBar> {
       onLeave: (_) => setState(() => _isDragOver = false),
       onAcceptWithDetails: (details) {
         setState(() => _isDragOver = false);
-        widget.onEditorDropped?.call(details.data.editor);
+        final isCopy = HardwareKeyboard.instance.logicalKeysPressed
+            .contains(LogicalKeyboardKey.shiftLeft) ||
+            HardwareKeyboard.instance.logicalKeysPressed
+            .contains(LogicalKeyboardKey.shiftRight);
+        widget.onEditorDropped?.call(details.data.editor, isCopy: isCopy);
       },
       builder: (context, candidateData, rejectedData) {
         return Container(
