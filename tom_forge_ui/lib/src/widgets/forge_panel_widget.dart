@@ -254,6 +254,10 @@ class _AccordeonLayout extends StatefulWidget {
 class _AccordeonLayoutState extends State<_AccordeonLayout> {
   final Set<int> _expandedSections = {0}; // First section open by default
   final Set<int> _pinnedSections = {};
+  /// Flex factors for expanded sections (default 1.0 each).
+  final Map<int, double> _sectionFlex = {};
+
+  double _flexFor(int index) => _sectionFlex[index] ?? 1.0;
 
   @override
   Widget build(BuildContext context) {
@@ -262,22 +266,72 @@ class _AccordeonLayoutState extends State<_AccordeonLayout> {
       return widget.sections.first.buildMain(context);
     }
 
-    return ListView.builder(
-      itemCount: widget.sections.length,
-      itemBuilder: (context, index) {
-        final view = widget.sections[index];
-        final isExpanded = _expandedSections.contains(index);
-        final isPinned = _pinnedSections.contains(index);
+    final expandedIndices =
+        List.generate(widget.sections.length, (i) => i)
+            .where(_expandedSections.contains)
+            .toList();
 
-        return _AccordeonSection(
-          view: view,
-          isExpanded: isExpanded,
-          isPinned: isPinned,
-          onToggle: () => _toggleSection(index),
-          onTogglePin: () => _togglePin(index),
-        );
-      },
+    return Column(
+      children: [
+        for (var i = 0; i < widget.sections.length; i++) ...[
+          // Section header (always visible)
+          _AccordeonSectionHeader(
+            view: widget.sections[i],
+            isExpanded: _expandedSections.contains(i),
+            isPinned: _pinnedSections.contains(i),
+            onToggle: () => _toggleSection(i),
+            onTogglePin: () => _togglePin(i),
+          ),
+          // Section content (expanded sections get flexible space)
+          if (_expandedSections.contains(i))
+            Flexible(
+              flex: (_flexFor(i) * 1000).round(),
+              child: widget.sections[i].buildMain(context),
+            ),
+          // Drag divider between adjacent expanded sections
+          if (_expandedSections.contains(i) &&
+              _hasNextExpandedSection(i, expandedIndices))
+            _AccordeonDivider(
+              onDragDelta: (delta) => _resizeSections(
+                i,
+                _nextExpandedSection(i, expandedIndices)!,
+                delta,
+              ),
+              onDoubleTap: () => _resetSectionFlex(),
+            ),
+        ],
+      ],
     );
+  }
+
+  bool _hasNextExpandedSection(int current, List<int> expandedIndices) {
+    final currentPos = expandedIndices.indexOf(current);
+    return currentPos >= 0 && currentPos < expandedIndices.length - 1;
+  }
+
+  int? _nextExpandedSection(int current, List<int> expandedIndices) {
+    final currentPos = expandedIndices.indexOf(current);
+    if (currentPos >= 0 && currentPos < expandedIndices.length - 1) {
+      return expandedIndices[currentPos + 1];
+    }
+    return null;
+  }
+
+  void _resizeSections(int topIdx, int bottomIdx, double delta) {
+    const minFlex = 0.15;
+    final topFlex = _flexFor(topIdx);
+    final bottomFlex = _flexFor(bottomIdx);
+    final totalFlex = topFlex + bottomFlex;
+    final flexDelta = delta / 200.0;
+    final newTop = (topFlex + flexDelta).clamp(minFlex, totalFlex - minFlex);
+    setState(() {
+      _sectionFlex[topIdx] = newTop;
+      _sectionFlex[bottomIdx] = totalFlex - newTop;
+    });
+  }
+
+  void _resetSectionFlex() {
+    setState(() => _sectionFlex.clear());
   }
 
   void _toggleSection(int index) {
@@ -308,14 +362,14 @@ class _AccordeonLayoutState extends State<_AccordeonLayout> {
   }
 }
 
-class _AccordeonSection extends StatelessWidget {
+class _AccordeonSectionHeader extends StatelessWidget {
   final ForgeView view;
   final bool isExpanded;
   final bool isPinned;
   final VoidCallback onToggle;
   final VoidCallback onTogglePin;
 
-  const _AccordeonSection({
+  const _AccordeonSectionHeader({
     required this.view,
     required this.isExpanded,
     required this.isPinned,
@@ -327,68 +381,106 @@ class _AccordeonSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Section header with triangle icon and title
-        InkWell(
-          onTap: onToggle,
-          child: Container(
-            height: ForgeDimensions.sectionHeaderHeight,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            color: theme.colorScheme.surfaceContainerHighest,
-            child: Row(
-              children: [
-                // Triangle icon (down when expanded, right when collapsed)
-                Icon(
-                  isExpanded
-                      ? Icons.arrow_drop_down
-                      : Icons.arrow_right,
-                  size: 18,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+    return InkWell(
+      onTap: onToggle,
+      child: Container(
+        height: ForgeDimensions.sectionHeaderHeight,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        color: theme.colorScheme.surfaceContainerHighest,
+        child: Row(
+          children: [
+            // Triangle icon (down when expanded, right when collapsed)
+            Icon(
+              isExpanded
+                  ? Icons.arrow_drop_down
+                  : Icons.arrow_right,
+              size: 18,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+            ),
+            // Title
+            Expanded(
+              child: ValueListenableBuilder<String>(
+                valueListenable: view.title,
+                builder: (context, title, _) => Text(
+                  title.toUpperCase(),
+                  style: theme.textTheme.labelSmall,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                // Title
-                Expanded(
-                  child: ValueListenableBuilder<String>(
-                    valueListenable: view.title,
-                    builder: (context, title, _) => Text(
-                      title.toUpperCase(),
-                      style: theme.textTheme.labelSmall,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ),
-                // Pin button
-                IconButton(
-                  icon: Icon(
-                    isPinned ? Icons.push_pin : Icons.push_pin_outlined,
-                    size: 14,
-                  ),
-                  padding: EdgeInsets.zero,
-                  constraints:
-                      const BoxConstraints(minWidth: 24, minHeight: 24),
-                  onPressed: onTogglePin,
-                  tooltip: isPinned ? 'Unpin' : 'Pin',
-                  color: isPinned
-                      ? theme.colorScheme.primary
-                      : theme.colorScheme.onSurface.withValues(alpha: 0.4),
-                ),
-              ],
+              ),
+            ),
+            // Pin button
+            IconButton(
+              icon: Icon(
+                isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+                size: 14,
+              ),
+              padding: EdgeInsets.zero,
+              constraints:
+                  const BoxConstraints(minWidth: 24, minHeight: 24),
+              onPressed: onTogglePin,
+              tooltip: isPinned ? 'Unpin' : 'Pin',
+              color: isPinned
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.onSurface.withValues(alpha: 0.4),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Draggable divider between pinned-open accordeon sections.
+class _AccordeonDivider extends StatefulWidget {
+  final ValueChanged<double> onDragDelta;
+  final VoidCallback? onDoubleTap;
+
+  const _AccordeonDivider({
+    required this.onDragDelta,
+    this.onDoubleTap,
+  });
+
+  @override
+  State<_AccordeonDivider> createState() => _AccordeonDividerState();
+}
+
+class _AccordeonDividerState extends State<_AccordeonDivider> {
+  bool _isHovering = false;
+  bool _isDragging = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final activeColor = theme.colorScheme.primary.withValues(alpha: 0.9);
+    final hoverColor = theme.colorScheme.primary.withValues(alpha: 0.45);
+    final idleColor = theme.colorScheme.outlineVariant.withValues(alpha: 0.5);
+    final color = _isDragging ? activeColor : (_isHovering ? hoverColor : idleColor);
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onDoubleTap: widget.onDoubleTap,
+      onVerticalDragStart: (_) => setState(() => _isDragging = true),
+      onVerticalDragUpdate: (d) => widget.onDragDelta(d.delta.dy),
+      onVerticalDragEnd: (_) => setState(() => _isDragging = false),
+      onVerticalDragCancel: () => setState(() => _isDragging = false),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.resizeRow,
+        onEnter: (_) => setState(() => _isHovering = true),
+        onExit: (_) => setState(() {
+          _isHovering = false;
+          _isDragging = false;
+        }),
+        child: SizedBox(
+          height: 8,
+          child: Center(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 120),
+              height: _isDragging ? 3.0 : (_isHovering ? 2.0 : 1.0),
+              color: color,
             ),
           ),
         ),
-        // Section content (only when expanded)
-        if (isExpanded)
-          AnimatedSize(
-            duration: ForgeAnimations.panelTransition,
-            curve: ForgeAnimations.panelCurve,
-            child: SizedBox(
-              height: 200, // Default section height; could be configurable
-              child: view.buildMain(context),
-            ),
-          ),
-      ],
+      ),
     );
   }
 }

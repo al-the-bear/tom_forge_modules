@@ -125,6 +125,10 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   StreamSubscription<Uri>? _saveSubscription;
   StreamSubscription<EditorListChangeEvent>? _editorChangeSubscription;
 
+  /// Flex factors for middle editor panels (1.0 per panel by default).
+  /// Adjusted during drag-resize of middle panel dividers.
+  List<double> _middlePanelFlex = [];
+
   @override
   void initState() {
     super.initState();
@@ -848,6 +852,10 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
                 if (leftConfig.isVisible)
                   _buildVerticalResizeHandle(
                     onDragDelta: _resizeLeftPanel,
+                    onDoubleTap: () => _layout.setPanelSize(
+                      ForgePanelLocation.left,
+                      ForgeDimensions.leftPanelDefaultWidth,
+                    ),
                   ),
 
                 // Middle area: editor panels + bottom panel
@@ -857,6 +865,10 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
                 if (rightConfig.isVisible)
                   _buildVerticalResizeHandle(
                     onDragDelta: _resizeRightPanel,
+                    onDoubleTap: () => _layout.setPanelSize(
+                      ForgePanelLocation.right,
+                      ForgeDimensions.rightPanelDefaultWidth,
+                    ),
                   ),
                 if (rightConfig.isVisible)
                   _buildSidePanel(
@@ -888,6 +900,10 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
             if (bottomConfig.isVisible)
               _buildHorizontalResizeHandle(
                 onDragDelta: _resizeBottomPanel,
+                onDoubleTap: () => _layout.setPanelSize(
+                  ForgePanelLocation.bottom,
+                  ForgeDimensions.bottomPanelDefaultHeight,
+                ),
               ),
             if (bottomConfig.isVisible) _buildBottomPanel(context, bottomConfig),
           ],
@@ -923,21 +939,47 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     _layout.setPanelSize(ForgePanelLocation.bottom, nextSize);
   }
 
+  /// Resize middle panels by adjusting flex factors of adjacent panels.
+  void _resizeMiddlePanelDivider(int leftIdx, int rightIdx, double delta) {
+    if (leftIdx < 0 || rightIdx >= _middlePanelFlex.length) return;
+    const minFlex = 0.15;
+    final totalFlex = _middlePanelFlex[leftIdx] + _middlePanelFlex[rightIdx];
+    // Convert pixel delta to flex delta (rough: assume equal share baseline).
+    final flexDelta = delta / 300.0;
+    var newLeft = (_middlePanelFlex[leftIdx] + flexDelta).clamp(minFlex, totalFlex - minFlex);
+    var newRight = totalFlex - newLeft;
+    setState(() {
+      _middlePanelFlex[leftIdx] = newLeft;
+      _middlePanelFlex[rightIdx] = newRight;
+    });
+  }
+
+  /// Reset all middle panel flex factors to equal distribution.
+  void _resetMiddlePanelFlex() {
+    setState(() {
+      _middlePanelFlex = List.filled(_middlePanelFlex.length, 1.0);
+    });
+  }
+
   Widget _buildVerticalResizeHandle({
     required ValueChanged<double> onDragDelta,
+    VoidCallback? onDoubleTap,
   }) {
     return _ResizeHandle(
       axis: Axis.horizontal,
       onDragDelta: onDragDelta,
+      onDoubleTap: onDoubleTap,
     );
   }
 
   Widget _buildHorizontalResizeHandle({
     required ValueChanged<double> onDragDelta,
+    VoidCallback? onDoubleTap,
   }) {
     return _ResizeHandle(
       axis: Axis.vertical,
       onDragDelta: onDragDelta,
+      onDoubleTap: onDoubleTap,
     );
   }
 
@@ -1054,11 +1096,25 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
                 ),
               );
             }
+            // Ensure flex list matches panel count.
+            while (_middlePanelFlex.length < panels.length) {
+              _middlePanelFlex.add(1.0);
+            }
+            if (_middlePanelFlex.length > panels.length) {
+              _middlePanelFlex = _middlePanelFlex.sublist(0, panels.length);
+            }
             return Row(
               children: [
                 for (var i = 0; i < panels.length; i++) ...[
-                  if (i > 0) const VerticalDivider(width: 1),
-                  Expanded(
+                  if (i > 0)
+                    _ResizeHandle(
+                      axis: Axis.horizontal,
+                      onDragDelta: (delta) =>
+                          _resizeMiddlePanelDivider(i - 1, i, delta),
+                      onDoubleTap: () => _resetMiddlePanelFlex(),
+                    ),
+                  Flexible(
+                    flex: (_middlePanelFlex[i] * 1000).round(),
                     child: _buildEditorPanel(
                       context,
                       editors: panels[i],
@@ -1168,10 +1224,12 @@ class _ResizeHandle extends StatefulWidget {
   const _ResizeHandle({
     required this.axis,
     required this.onDragDelta,
+    this.onDoubleTap,
   });
 
   final Axis axis;
   final ValueChanged<double> onDragDelta;
+  final VoidCallback? onDoubleTap;
 
   @override
   State<_ResizeHandle> createState() => _ResizeHandleState();
@@ -1225,6 +1283,7 @@ class _ResizeHandleState extends State<_ResizeHandle> {
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
+      onDoubleTap: widget.onDoubleTap,
       onHorizontalDragStart: isVerticalDivider
           ? (_) => setState(() => _isDragging = true)
           : null,

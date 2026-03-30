@@ -122,18 +122,18 @@ This section is intended to cover title bar, menu bar, left/right/middle/bottom 
 ## 6. Panel Resizing and Splitter Behavior
 This section is intended to cover draggable splitters, min/max constraints, hover/drag affordances, and resize persistence expectations. Include checks for shell splitter mechanics and module/component behavior under panel size changes.
 
-- [ ] Section implemented
+- [x] Section implemented (completed on 2025-07-23)
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
 | Left panel width is user-adjustable via dedicated drag handle | no | no | no | yes | yes | n/a | `_ResizeHandle` in `forge_shell_scaffold.dart` with `_resizeLeftPanel` |
 | Right panel width is user-adjustable via dedicated drag handle | no | no | no | yes | yes | n/a | `_ResizeHandle` in `forge_shell_scaffold.dart` with `_resizeRightPanel` |
 | Bottom panel height is user-adjustable via top-edge drag handle | no | no | no | yes | yes | n/a | `_ResizeHandle` in `forge_shell_scaffold.dart` with `_resizeBottomPanel` |
-| Middle area supports multiple panels separated by draggable dividers | no | no | no | yes | partial | n/a | multiple panels via `middlePanels` but `VerticalDivider(width: 1)` is static, not draggable |
-| Resizing is real-time during drag (no animation), with reset animation on double-click | no | no | no | yes | partial | n/a | real-time drag works via `onDragUpdate`; double-click reset not implemented |
+| Middle area supports multiple panels separated by draggable dividers | no | no | no | yes | yes | n/a | `_buildMiddleArea` uses flex-based layout with `_ResizeHandle` dividers between panels; `_resizeMiddlePanelDivider` adjusts per-panel flex weights |
+| Resizing is real-time during drag (no animation), with reset animation on double-click | no | no | no | yes | yes | n/a | real-time drag via `onDragDelta`; `onDoubleTap` resets to defaults on all resize handles (left/right/bottom/middle panels) |
 | Minimum size constraints exist (for example middle panel minimum width) | no | yes | yes (component/module layouts must respect bounds) | yes | yes | n/a | `ForgeDimensions` defines min/max for left/right/bottom panels; `.clamp()` in resize methods |
 | Splitter hit target and visual thickness are explicitly defined | no | no | no | yes | yes | n/a | `ForgeDimensions.dividerHitTarget=14`, `dividerVisual=2`; `_ResizeHandle` uses these constants |
-| Accordeon section splitters support manual separator drag when sections are pinned open | no | yes | yes | yes | no | no | accordeon sections have fixed `height: 200`; no drag resize between sections |
+| Accordeon section splitters support manual separator drag when sections are pinned open | no | yes | yes | yes | yes | n/a | `_AccordeonDivider` between expanded sections; `_resizeSections` adjusts flex weights; double-tap resets; replaces fixed `height: 200` with flexible layout |
 | Layout controller is responsible for resize bounds and restore behavior | yes | no | yes (module interactions via layout API) | yes | yes | n/a | `DefaultLayoutController.setPanelSize` with `.clamp()` to enforce bounds |
 | Panel size and layout changes persist through layout persistence in core shell architecture | no | no | no | yes | no | n/a | no persistence; sizes reset on app restart |
 | Implementation evidence in test app uses explicit drag-handle dividers and resizable/collapsible panels | yes | yes | yes | yes | yes | n/a | test app has left/right/bottom panels with `_ResizeHandle` dividers and toggleable visibility |
