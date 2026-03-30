@@ -55,6 +55,36 @@ class DefaultModuleRegistry implements ForgeModuleRegistry {
       }
   }
 
+  /// Deactivates all registered modules in reverse registration order.
+  ///
+  /// Called during shell shutdown to give each module a chance to release
+  /// resources. Exceptions during deactivation are caught and logged so
+  /// that one failing module does not prevent the remaining modules from
+  /// being deactivated.
+  void deactivateAll() {
+    final reversed = _modules.values.toList().reversed;
+    for (final module in reversed) {
+      try {
+        if (debugEnabled) {
+          // ignore: avoid_print
+          print(
+            '[DefaultModuleRegistry] deactivating ${module.displayName}',
+          );
+        }
+        module.deactivate();
+      } catch (error, stackTrace) {
+        // ignore: avoid_print
+        print(
+          '[DefaultModuleRegistry] deactivate failed for '
+          '${module.displayName}: $error',
+        );
+        // ignore: avoid_print
+        print(stackTrace);
+      }
+    }
+    _modules.clear();
+  }
+
   @override
   T get<T extends ForgeModule>() {
     final module = _modules.values.whereType<T>().firstOrNull;

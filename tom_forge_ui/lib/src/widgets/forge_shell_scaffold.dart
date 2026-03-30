@@ -3,7 +3,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 
+import '../adapters/forge_dart_editor.dart';
+import '../adapters/forge_md_editor.dart';
+import '../adapters/forge_yaml_editor.dart';
 import '../components/forge_editor.dart';
+import '../components/forge_text_editor.dart';
 import '../defaults/default_layout_controller.dart';
 import '../defaults/default_shell_api.dart';
 import '../defaults/default_system_state.dart';
@@ -128,6 +132,8 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   @override
   void dispose() {
     _preferences.removeListener(_onPreferencesChanged);
+    _saveLayoutState();
+    widget.shell.dispose();
     super.dispose();
   }
 
@@ -137,6 +143,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         await _preferences.load();
       }
       _applyPreferenceTextSettings();
+      _restoreLayoutState();
     } catch (error, stackTrace) {
       debugPrint('[ForgeShellScaffold] initialize preferences failed: $error');
       debugPrint('$stackTrace');
@@ -146,6 +153,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   void _onPreferencesChanged() {
     try {
       _applyPreferenceTextSettings();
+      _propagateSettingsToActiveEditors();
       if (mounted) {
         setState(() {});
       }
@@ -153,6 +161,33 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       debugPrint('[ForgeShellScaffold] apply preferences failed: $error');
       debugPrint('$stackTrace');
     }
+  }
+
+  /// Pushes current text settings from the shell to any open text editors,
+  /// converting [ForgeTextSettings] to [ForgeTextEditorOptions].
+  void _propagateSettingsToActiveEditors() {
+    for (final editor in widget.systemState.openEditors) {
+      if (editor is ForgeTextEditor) {
+        final typeId = _editorTypeId(editor);
+        if (typeId != null) {
+          final settings = widget.shell.getTextSettings(typeId);
+          editor.updateOptions(ForgeTextEditorOptions(
+            tabSize: settings.tabSize,
+            insertSpaces: settings.insertSpaces,
+            wordWrap: settings.wordWrap
+                ? ForgeWordWrap.on
+                : ForgeWordWrap.off,
+          ));
+        }
+      }
+    }
+  }
+
+  String? _editorTypeId(ForgeEditor editor) {
+    if (editor is ForgeMdEditor) return 'md';
+    if (editor is ForgeDartEditor) return 'dart';
+    if (editor is ForgeYamlEditor) return 'yaml';
+    return null;
   }
 
   void _applyPreferenceTextSettings() {
@@ -163,6 +198,84 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     if (debugEnabled) {
       debugPrint('[ForgeShellScaffold] applied persisted settings: ${settings.length}');
     }
+  }
+
+  /// Restores panel sizes, visibility, and previously-open editors from prefs.
+  void _restoreLayoutState() {
+    final sizes = _preferences.layoutPanelSizes;
+    final visibility = _preferences.layoutPanelVisibility;
+
+    for (final entry in sizes.entries) {
+      final location = _panelLocationFromName(entry.key);
+      if (location != null) {
+        _layout.setPanelSize(location, entry.value);
+      }
+    }
+    for (final entry in visibility.entries) {
+      final location = _panelLocationFromName(entry.key);
+      if (location != null) {
+        if (entry.value) {
+          _layout.openPanel(location);
+        } else {
+          _layout.closePanel(location);
+        }
+      }
+    }
+
+    final editorUris = _preferences.layoutOpenEditors;
+    for (final uriStr in editorUris) {
+      try {
+        _layout.openFile(Uri.parse(uriStr));
+      } catch (e) {
+        if (debugEnabled) {
+          debugPrint('[ForgeShellScaffold] restore editor failed for $uriStr: $e');
+        }
+      }
+    }
+
+    if (debugEnabled) {
+      debugPrint(
+        '[ForgeShellScaffold] restored layout: '
+        '${sizes.length} sizes, ${visibility.length} visibility, '
+        '${editorUris.length} editors',
+      );
+    }
+  }
+
+  /// Persists current panel sizes, visibility, and open editor URIs.
+  void _saveLayoutState() {
+    try {
+      for (final location in ForgePanelLocation.values) {
+        if (location == ForgePanelLocation.middle) continue;
+        final config = _layout.getPanelConfig(location);
+        if (config != null) {
+          final name = location.name;
+          _preferences.setLayoutPanelSize(name, config.size);
+          _preferences.setLayoutPanelVisibility(name, config.isVisible);
+        }
+      }
+
+      final openUris = widget.systemState.openEditors
+          .map((e) => e.uri.toString())
+          .toList();
+      _preferences.setLayoutOpenEditors(openUris);
+
+      _preferences.save();
+
+      if (debugEnabled) {
+        debugPrint('[ForgeShellScaffold] saved layout state');
+      }
+    } catch (error, stackTrace) {
+      debugPrint('[ForgeShellScaffold] save layout state failed: $error');
+      debugPrint('$stackTrace');
+    }
+  }
+
+  ForgePanelLocation? _panelLocationFromName(String name) {
+    for (final loc in ForgePanelLocation.values) {
+      if (loc.name == name) return loc;
+    }
+    return null;
   }
 
   void _openSettings() {

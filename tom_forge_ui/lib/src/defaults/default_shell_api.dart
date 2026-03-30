@@ -287,4 +287,23 @@ class DefaultShellApi implements ForgeShellApi {
   void setTextSettings(String editorTypeId, ForgeTextSettings settings) {
     _editorTextSettings[editorTypeId] = settings;
   }
+
+  /// Disposes all services that own resources.
+  ///
+  /// Sequence: deactivate modules (reverse order), then dispose layout
+  /// and system state. Called from the scaffold's shutdown flow.
+  void dispose() {
+    final registry = modules;
+    if (registry is DefaultModuleRegistry) {
+      registry.deactivateAll();
+    }
+    final layoutCtrl = layout;
+    if (layoutCtrl is DefaultLayoutController) {
+      layoutCtrl.dispose();
+    }
+    final state = systemState;
+    if (state is DefaultSystemState) {
+      state.dispose();
+    }
+  }
 }

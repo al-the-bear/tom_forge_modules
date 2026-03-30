@@ -20,6 +20,9 @@ class ForgePreferencesService extends ChangeNotifier {
   static const _keyMaxRecentWorkspaces = 'forge.startup.maxRecentWorkspaces';
   static const _keyConfigDirectory = 'forge.startup.configDirectory';
   static const _keyEditorTextSettings = 'forge.editor.textSettings';
+  static const _keyLayoutPanelSizes = 'forge.layout.panelSizes';
+  static const _keyLayoutPanelVisibility = 'forge.layout.panelVisibility';
+  static const _keyLayoutOpenEditors = 'forge.layout.openEditors';
 
   SharedPreferences? _prefs;
   ForgeStartupPreferences _startupPreferences = ForgeStartupPreferences();
@@ -27,6 +30,9 @@ class ForgePreferencesService extends ChangeNotifier {
   String? _centralConfigDirectory;
   final Map<String, ForgeTextSettings> _editorTextSettings =
       <String, ForgeTextSettings>{};
+  final Map<String, double> _layoutPanelSizes = <String, double>{};
+  final Map<String, bool> _layoutPanelVisibility = <String, bool>{};
+  List<String> _layoutOpenEditors = <String>[];
   bool _isLoaded = false;
 
   static void _log(String message) {
@@ -59,6 +65,34 @@ class ForgePreferencesService extends ChangeNotifier {
     _editorTextSettings[editorTypeId] = settings;
     _log('updated editor settings for $editorTypeId');
     notifyListeners();
+  }
+
+  // ── Layout state persistence ──
+
+  /// Panel sizes keyed by panel location name (left, right, bottom).
+  Map<String, double> get layoutPanelSizes =>
+      Map<String, double>.unmodifiable(_layoutPanelSizes);
+
+  /// Sets a panel size by location name.
+  void setLayoutPanelSize(String panelName, double size) {
+    _layoutPanelSizes[panelName] = size;
+  }
+
+  /// Panel visibility keyed by panel location name.
+  Map<String, bool> get layoutPanelVisibility =>
+      Map<String, bool>.unmodifiable(_layoutPanelVisibility);
+
+  /// Sets a panel visibility by location name.
+  void setLayoutPanelVisibility(String panelName, bool visible) {
+    _layoutPanelVisibility[panelName] = visible;
+  }
+
+  /// List of open editor URIs that were active when last saved.
+  List<String> get layoutOpenEditors => List<String>.unmodifiable(_layoutOpenEditors);
+
+  /// Sets the list of open editor URIs to persist.
+  void setLayoutOpenEditors(List<String> editorUris) {
+    _layoutOpenEditors = List<String>.from(editorUris);
   }
 
   /// Maximum number of recent workspaces to track.
@@ -119,6 +153,13 @@ class ForgePreferencesService extends ChangeNotifier {
       _editorTextSettings
         ..clear()
         ..addAll(_loadEditorTextSettings());
+      _layoutPanelSizes
+        ..clear()
+        ..addAll(_loadLayoutPanelSizes());
+      _layoutPanelVisibility
+        ..clear()
+        ..addAll(_loadLayoutPanelVisibility());
+      _layoutOpenEditors = _loadLayoutOpenEditors();
       _isLoaded = true;
       _log('loaded preferences with ${_editorTextSettings.length} editor settings entries');
 
@@ -170,6 +211,9 @@ class ForgePreferencesService extends ChangeNotifier {
           _keyRememberSettings, _startupPreferences.rememberSettings);
       await _saveRecentWorkspaces();
       await _saveEditorTextSettings();
+      await _saveLayoutPanelSizes();
+      await _saveLayoutPanelVisibility();
+      await _saveLayoutOpenEditors();
       _log('saved preferences with ${_editorTextSettings.length} editor settings entries');
     } catch (error, stackTrace) {
       debugPrint('[ForgePreferencesService] save failed: $error');
@@ -219,6 +263,67 @@ class ForgePreferencesService extends ChangeNotifier {
       serializable[entry.key] = _textSettingsToMap(entry.value);
     }
     await _prefs!.setString(_keyEditorTextSettings, jsonEncode(serializable));
+  }
+
+  Map<String, double> _loadLayoutPanelSizes() {
+    final jsonStr = _prefs!.getString(_keyLayoutPanelSizes);
+    if (jsonStr == null || jsonStr.trim().isEmpty) {
+      return <String, double>{};
+    }
+    try {
+      final decoded = jsonDecode(jsonStr);
+      if (decoded is Map) {
+        return decoded.map(
+          (key, value) => MapEntry(key as String, (value as num).toDouble()),
+        );
+      }
+    } catch (_) {}
+    return <String, double>{};
+  }
+
+  Future<void> _saveLayoutPanelSizes() async {
+    await _prefs!.setString(_keyLayoutPanelSizes, jsonEncode(_layoutPanelSizes));
+  }
+
+  Map<String, bool> _loadLayoutPanelVisibility() {
+    final jsonStr = _prefs!.getString(_keyLayoutPanelVisibility);
+    if (jsonStr == null || jsonStr.trim().isEmpty) {
+      return <String, bool>{};
+    }
+    try {
+      final decoded = jsonDecode(jsonStr);
+      if (decoded is Map) {
+        return decoded.map(
+          (key, value) => MapEntry(key as String, value as bool),
+        );
+      }
+    } catch (_) {}
+    return <String, bool>{};
+  }
+
+  Future<void> _saveLayoutPanelVisibility() async {
+    await _prefs!.setString(
+      _keyLayoutPanelVisibility,
+      jsonEncode(_layoutPanelVisibility),
+    );
+  }
+
+  List<String> _loadLayoutOpenEditors() {
+    final jsonStr = _prefs!.getString(_keyLayoutOpenEditors);
+    if (jsonStr == null || jsonStr.trim().isEmpty) {
+      return <String>[];
+    }
+    try {
+      final decoded = jsonDecode(jsonStr);
+      if (decoded is List) {
+        return decoded.cast<String>();
+      }
+    } catch (_) {}
+    return <String>[];
+  }
+
+  Future<void> _saveLayoutOpenEditors() async {
+    await _prefs!.setString(_keyLayoutOpenEditors, jsonEncode(_layoutOpenEditors));
   }
 
   ForgeTextSettings _textSettingsFromMap(Map<String, dynamic> json) {
