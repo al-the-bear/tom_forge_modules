@@ -322,11 +322,22 @@ This section is intended to cover file explorer loading behavior, path handling,
 ## 17. Diagnostics, Problems, and Output Channels
 This section is intended to cover diagnostic collection lifecycle, problem presentation, output channel behavior, and synchronization with editor/system state. Include checks for shell managers and per-module diagnostic/output producers.
 
-- [ ] Section completed (finished on ...)
+- [x] Section completed (finished on 2026-03-30T06:28:52+02:00)
 
 | category | per module? | per component? | to be implemented in modules? | shell implementation done? | implemented on |
 |---|---|---|---|---|---|
-| | | | | | |
+| Shell API exposes dedicated diagnostics and output managers (`diagnostics`, `output`) | yes | no | yes | yes | documented in `forge_panel_shell_concept.md` `ForgeShellApi` services |
+| Problems and Output are first-class shell views (aggregated diagnostics + channel logs) | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` shell module table |
+| Diagnostic lifecycle supports named collections via `createCollection` for producer isolation | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` `ForgeDiagnosticManager` contract and `tom_forge_ui_testapp.md` manager behavior |
+| Diagnostic CRUD and URI-scoped queries are defined (`all`, `forUri`, `set`, `delete`, `clear`) | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` diagnostic APIs |
+| System state synchronization includes aggregated diagnostic summary and diagnostics-changed events | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` (`diagnosticSummary`, `onDiagnosticsChanged`) and `tom_forge_ui_testapp.md` |
+| Problems presentation supports severity-rich entries and click-to-navigate to source | no | yes | yes | yes | documented in `forge_panel_shell_concept.md` Problems view description and `tom_forge_ui_testapp.md` problems view behavior |
+| Output channel manager supports channel lifecycle and write operations (`create/get/list`, `append`, `appendLine`, `clear`) | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` output channel interfaces |
+| Output view supports channel selection, scrollable logs, and timestamped/readable channel output | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` output view description and `tom_forge_ui_testapp.md` output view behavior |
+| Output UX behavior defines auto-scroll strategy and preserves user position when not at bottom | no | yes | yes | yes | documented in `forge_panel_shell_spec.md` output view behavior table |
+| Throughput and retention constraints are defined for output channels (ring buffer with line limits) | no | no | no | yes | documented in `forge_panel_shell_spec.md` output channel limits/performance table |
+| Error/reporting flows integrate output logging with diagnostic emission for the same failure path | yes | yes | yes | yes | documented in `forge_panel_shell_spec.md` module activation error flow |
+| Test coverage expectations include diagnostic manager, output channel manager, and Problems-view integration tests | yes | no | yes | yes | documented in `forge_panel_shell_spec.md` service test matrix and `tom_forge_ui_testapp.md` deliverables |
 
 ## 18. Status Bar and Context Signaling
 This section is intended to cover status bar item contribution, placement, update cadence, and context-sensitive values (cursor/language/diagnostics/etc.). Include checks for shell aggregation and per-module/component status item quality.
