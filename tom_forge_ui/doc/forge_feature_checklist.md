@@ -342,11 +342,22 @@ This section is intended to cover diagnostic collection lifecycle, problem prese
 ## 18. Status Bar and Context Signaling
 This section is intended to cover status bar item contribution, placement, update cadence, and context-sensitive values (cursor/language/diagnostics/etc.). Include checks for shell aggregation and per-module/component status item quality.
 
-- [ ] Section completed (finished on ...)
+- [x] Section completed (finished on 2026-03-30T06:30:34+02:00)
 
 | category | per module? | per component? | to be implemented in modules? | shell implementation done? | implemented on |
 |---|---|---|---|---|---|
-| | | | | | |
+| Shell API exposes a dedicated status-bar controller (`ForgeStatusBarController`) | yes | no | yes | yes | documented in `forge_panel_shell_concept.md` shell API services |
+| Status items are module-contributed (`ForgeModule.statusBarItems`) and shell-aggregated | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` status bar controller section |
+| Status item visibility is context-driven via `isActive(ForgeSystemState)` callbacks | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` status bar behavior (`isActive`) |
+| Reactive text updates use `ValueListenable<String>` (no manual refresh cycle) | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` status item model |
+| Placement model is explicit by alignment zones (`left`, `center`, `right`) | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` `StatusBarAlignment` |
+| Ordering within each alignment zone is controlled by item priority | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` status item `priority` field |
+| Status items can be interactive (tap handler for context actions such as language switch) | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` status bar interaction notes |
+| Context-signaling data sources include active editor cursor, language mode, encoding, and diagnostic summary | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` system/editor state fields and `tom_forge_ui_testapp.md` status bar mapping |
+| Dynamic visibility and content updates track focus/editor changes and system-state transitions | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` focus/state update behavior |
+| Progress can signal in status bar region (or overlay), including high-contrast static-update mode | yes | no | yes | yes | documented in `forge_panel_shell_concept.md` progress notes and `forge_panel_shell_spec.md` high-contrast behavior |
+| Integration evidence requires module status items for cursor/language indicators | yes | yes | yes | yes | documented in `tom_forge_full_integration.md` phase verification notes |
+| Test coverage expectations include dedicated status bar controller tests and widget segments | yes | no | yes | yes | documented in `forge_panel_shell_spec.md` (`status_bar_test.dart`) and `tom_forge_ui_testapp.md` (`status_bar_widget.dart`) |
 
 ## 19. Terminal, Process, and Runtime Tooling Integration
 This section is intended to cover terminal manager behavior, terminal lifecycle events, process/output integration, and module usage of runtime tooling services. Include checks for shell terminal infrastructure and module-level runtime interactions.
