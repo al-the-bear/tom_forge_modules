@@ -482,22 +482,22 @@ This section is intended to cover `canHandle`/`canHandleContent` resolution, edi
 ## 24. Advanced Data Services (Decorations, Outline, Virtual Documents, Workspace Edits)
 This section is intended to cover decoration pipelines, outline provider integration, virtual document providers, and multi-file workspace edit application. Include checks for shell service APIs and per-module/component usage coverage.
 
-- [ ] Section completed (finished on 2026-03-30T06:40:36+02:00)
+- [x] Section completed (finished on 2026-03-30T10:30:30+02:00)
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
-| Text-decoration pipeline is part of editor contract (`setDecorations`, `clearDecorations`) | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` `ForgeTextEditor` decoration API |
-| Decoration model is typed and extensible (`ForgeDecorationType`, keyed ranges, gutter/icon/overview support) | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` decoration type/range model |
-| Explorer file decoration service exists with provider registration and URI-scoped evaluation | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` `ForgeFileDecorationManager` |
-| File-decoration invalidation/event flow is supported (`onDidChange`) | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` file decoration provider events |
-| Virtual document service exists with scheme-based provider registration | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` `ForgeVirtualDocumentManager` |
-| Virtual-document invalidation/event flow is supported (`onDidChange`) | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` virtual document manager contract |
-| Outline service exists with provider registry and editor-targeted outline resolution (`provideOutline`) | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` `ForgeOutlineManager` |
-| Outline update/event signaling is part of service contract (`onDidChange`) and active-editor sync model | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` outline manager and `tom_forge_ui_testapp.md` outline behavior |
-| Workspace-edit API supports atomic multi-file edits (`applyWorkspaceEdit(ForgeWorkspaceEdit)`) | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` file system/workspace edit API |
-| Workspace-edit model explicitly defines all-or-nothing semantics for multi-file operations | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` `ForgeWorkspaceEdit` description |
-| Integration expectations include adapting existing editors to generalized decoration APIs | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_spec.md` integration gaps for md/dart editors |
-| Test coverage expectations include dedicated tests for file decorations, virtual documents, and outline managers | yes | no | yes | yes | no | no | documented in `forge_panel_shell_spec.md` service test matrix |
+| Text-decoration pipeline is part of editor contract (`setDecorations`, `clearDecorations`) | yes | yes | yes | yes | yes | yes | `ForgeTextEditor` defines decoration APIs and md/dart forge adapters implement set/clear decoration flows with integration test coverage |
+| Decoration model is typed and extensible (`ForgeDecorationType`, keyed ranges, gutter/icon/overview support) | yes | yes | yes | yes | yes | partial | core typed model includes key/underline/background/overview-ruler fields; current adapter wiring uses a subset of rendering capabilities |
+| Explorer file decoration service exists with provider registration and URI-scoped evaluation | yes | yes | yes | yes | yes | no | `DefaultFileDecorationManager` supports provider registration and URI evaluation via `getDecoration`, but explorer integration is not wired in runtime views |
+| File-decoration invalidation/event flow is supported (`onDidChange`) | yes | yes | yes | yes | partial | no | provider contract includes `onDidChange`, but manager/runtime do not aggregate or consume invalidation streams |
+| Virtual document service exists with scheme-based provider registration | yes | yes | yes | yes | yes | no | virtual-document manager contract and default scheme registration/resolution implementation exist, but no runtime consumption path was found |
+| Virtual-document invalidation/event flow is supported (`onDidChange`) | yes | yes | yes | yes | partial | no | provider-level `onDidChange` exists in core contract, while manager/runtime invalidation wiring is absent |
+| Outline service exists with provider registry and editor-targeted outline resolution (`provideOutline`) | yes | yes | yes | yes | yes | partial | `DefaultOutlineManager` registers providers and resolves outline per editor, and `ForgeOutlineView` calls `provideOutline` for active editor |
+| Outline update/event signaling is part of service contract (`onDidChange`) and active-editor sync model | yes | yes | yes | yes | partial | no | outline provider contract includes `onDidChange`, but manager/view do not wire provider change events into refresh flow |
+| Workspace-edit API supports atomic multi-file edits (`applyWorkspaceEdit(ForgeWorkspaceEdit)`) | yes | yes | yes | yes | partial | no | file-system implementations expose `applyWorkspaceEdit`, but runtime/editor flows do not consume it and implementation is best-effort rather than atomic |
+| Workspace-edit model explicitly defines all-or-nothing semantics for multi-file operations | yes | yes | yes | yes | partial | no | `ForgeWorkspaceEdit` model states all-or-nothing semantics, while memory/real file-system implementations can skip or partially apply edits |
+| Integration expectations include adapting existing editors to generalized decoration APIs | yes | yes | yes | yes | partial | partial | md/dart adapters are wired to generalized decoration APIs; equivalent generalized integration is not present across all editor modules |
+| Test coverage expectations include dedicated tests for file decorations, virtual documents, and outline managers | yes | no | yes | yes | no | no | no dedicated manager test suites for file decoration, virtual document, or outline services were found in scanned test packages |
 
 ## 25. State Persistence and Recovery
 This section is intended to cover persistence of shell settings, per-editor settings, panel/application state expectations, and recovery behavior after restart. Include checks for shell persistence services and per-module persistence responsibilities.
