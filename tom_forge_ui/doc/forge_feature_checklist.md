@@ -22,11 +22,22 @@ This section is intended to cover the top-level Forge shell runtime model: start
 ## 2. Workspace Model and File/Revision Boundaries
 This section is intended to cover workspace root handling, file-system scope, `.forge/` state/revision boundaries, and workspace-level assumptions. Include checks for core Forge behavior and module/component behavior when operating on workspace data.
 
-- [ ] Section completed (finished on ...)
+- [x] Section completed (finished on 2026-03-30T06:00:30+02:00)
 
 | category | per module? | per component? | to be implemented in modules? | shell implementation done? | implemented on |
 |---|---|---|---|---|---|
-| | | | | | |
+| Workspace root is the primary runtime boundary (`workspaceRoot`/`workspaceRootUri`) | no | no | no | yes | documented in `forge_panel_shell_concept.md` and `forge_panel_shell_spec.md` (test harness `workspaceUri`) |
+| `.forge` workspace folder stores state and revisions in workspace scope | no | no | no | yes | documented in `forge_panel_shell_concept.md` section 12.2 |
+| Workspace state stays local in both config modes (never in `~/.forge`) | no | no | no | yes | documented in `forge_panel_shell_concept.md` (local vs split mode matrix) |
+| Config mode split (`local` vs `split`) separates config location from workspace state | no | no | no | yes | documented in `forge_panel_shell_concept.md` sections 12.5 and 13 |
+| Startup workspace detection and selection (remembered path, walk-up `.forge`, CWD fallback) | no | no | no | yes | documented in `forge_panel_shell_concept.md` section 13 |
+| Standard workspace state files (`state/layout.json`, `state/open-editors.json`, `state/editors/{uri-hash}.json`) | no | yes | yes (editor state adapters) | yes | documented in `forge_panel_shell_concept.md` and `forge_panel_shell_spec.md` state schema sections |
+| Revision snapshots under `.forge/revisions/{uri-hash}/` with content snapshots | no | yes | yes (components triggering saves) | yes | documented in `forge_panel_shell_spec.md` revision schema and `forge_panel_shell_concept.md` |
+| Undo history persisted under `.forge/undo/{uri-hash}/` boundary | no | yes | yes (editor undo producers) | yes | documented in `forge_panel_shell_concept.md` section 12.2 and related schema references |
+| All file operations are routed through `ForgeFileSystem` (read/write/save/list/watch/edit) | yes | yes | yes (module/component file workflows) | yes | documented in `forge_panel_shell_concept.md` and `forge_vs_code_api_comparison.md` |
+| Revisioning behavior on save (dedupe identical saves, prune old revisions) | no | yes | yes (save semantics in components) | yes | documented in `forge_panel_shell_concept.md` revisioning notes |
+| Workspace `.forge` should be suggested for `.gitignore` | no | no | no | yes | documented in `forge_panel_shell_concept.md` initialization flow |
+| Test app workspace boundary uses seeded `MemoryFileSystem` virtual root | yes | yes | yes (module views/editors in test app) | yes (test app scope) | documented in `tom_forge_ui_testapp.md` sections 3, 5, and 11 |
 
 ## 3. Application Model and Multi-Application Switching
 This section is intended to cover application definitions, switching behavior, in-memory retention of inactive applications, and app-specific layout/action contexts. Include checks for global Forge behavior and module/component behavior across application switches.
