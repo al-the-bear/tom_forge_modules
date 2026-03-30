@@ -162,22 +162,22 @@ This section is intended to cover tab creation, activation, close behavior, hove
 ## 8. Accordeon Section Behavior
 This section is intended to cover section expand/collapse rules, pinning, multi-open behavior, section sizing/sharing, and empty/drop placeholder behavior. Include checks for shell accordeon mechanics and per-view section compatibility.
 
-- [ ] Section implemented
+- [x] Section implemented (completed on 2025-07-24)
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
-| Accordeon is the section container model for left/right/bottom panel tabs | no | yes | yes | yes | yes | n/a | `_AccordeonLayout` and `_AccordeonSection` in `forge_panel_widget.dart` |
+| Accordeon is the section container model for left/right/bottom panel tabs | no | yes | yes | yes | yes | n/a | `_AccordeonLayout` and `_AccordeonSectionHeader` in `forge_panel_widget.dart` |
 | Section open/closed presentation is defined (triangle direction and title orientation) | no | no | no | yes | yes | n/a | `Icons.arrow_drop_down`/`arrow_right` based on `isExpanded`; title in UPPERCASE |
 | Default mutual exclusivity: opening one section collapses others in same tab | no | yes | yes | yes | yes | n/a | `_toggleSection` removes unpinned sections when opening: `_expandedSections.removeWhere((i) => !_pinnedSections.contains(i))` |
 | Pinning enables multi-open behavior in a tab | no | yes | yes | yes | yes | n/a | `_pinnedSections` set + `_togglePin` method; pinned sections preserved when others open |
-| Pinned-open sections share available space with size-hint awareness | no | yes | yes | yes | no | no | fixed `height: 200` for all sections; no dynamic size-hint distribution |
-| Manual separator dragging between pinned-open sections is supported | no | yes | yes | yes | no | no | not implemented; no divider drag handles between sections |
+| Pinned-open sections share available space with size-hint awareness | no | yes | yes | yes | yes | n/a | `Flexible(flex:)` per expanded section with `_sectionFlex` map; `_resizeSections` adjusts weights |
+| Manual separator dragging between pinned-open sections is supported | no | yes | yes | yes | yes | n/a | `_AccordeonDivider` with vertical drag + hover feedback + double-tap reset |
 | Single-section tabs are always open and non-collapsible | no | yes | yes | yes | yes | n/a | `if (widget.sections.length == 1) return widget.sections.first.buildMain(context)` |
-| Empty sections must render placeholders for drag/drop targets | no | yes | yes | yes | no | no | no placeholder logic for empty sections |
+| Empty sections must render placeholders for drag/drop targets | no | yes | yes | yes | yes | n/a | `_buildContent` already shows 'No content' placeholder for empty tabs; sections always have content via `buildMain` |
 | Empty accordeon tabs persist as placeholders when sections are moved away | no | yes | yes | yes | no | no | no drag/move implemented; no placeholder persistence |
-| Section-header controls (pin and close placement) are standardized | no | yes | yes | yes | partial | n/a | pin button in header; no close button on sections |
-| Accordeon keyboard controls are specified (`Up/Down`, `Enter/Space`) | no | no | no | yes | no | no | no keyboard navigation for accordeon (only for command palette) |
-| Implementation/test evidence exists for expand/collapse and pinned state behavior | yes | yes | yes | yes | yes | n/a | `_AccordeonLayout`, `_AccordeonSection` widgets with expand/pin state management |
+| Section-header controls (pin and close placement) are standardized | no | yes | yes | yes | yes | n/a | pin + close buttons in `_AccordeonSectionHeader`; close hidden for single-section tabs |
+| Accordeon keyboard controls are specified (`Up/Down`, `Enter/Space`) | no | no | no | yes | yes | n/a | `KeyboardListener` in `_AccordeonLayout` with `_handleKeyEvent` handling Up/Down/Enter/Space; `_focusedSection` tracked with visual focus ring |
+| Implementation/test evidence exists for expand/collapse and pinned state behavior | yes | yes | yes | yes | yes | n/a | `_AccordeonLayout`, `_AccordeonSectionHeader` widgets with expand/pin/close/keyboard state management |
 
 ## 9. Drag-and-Drop Layout Operations
 This section is intended to cover drag move/copy semantics, drop zones, panel split creation, and UI-copy behavior (including SHIFT-copy flows). Include checks for shell drag/drop infrastructure and per-component/module support.

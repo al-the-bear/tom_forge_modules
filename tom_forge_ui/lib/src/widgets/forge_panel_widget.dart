@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../components/forge_view.dart';
 import '../model/forge_application.dart';
@@ -256,8 +257,35 @@ class _AccordeonLayoutState extends State<_AccordeonLayout> {
   final Set<int> _pinnedSections = {};
   /// Flex factors for expanded sections (default 1.0 each).
   final Map<int, double> _sectionFlex = {};
+  /// Keyboard-focused section index (-1 = none).
+  int _focusedSection = -1;
+  final FocusNode _focusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
 
   double _flexFor(int index) => _sectionFlex[index] ?? 1.0;
+
+  void _handleKeyEvent(KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) return;
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.arrowDown) {
+      setState(() {
+        _focusedSection = (_focusedSection + 1).clamp(0, widget.sections.length - 1);
+      });
+    } else if (key == LogicalKeyboardKey.arrowUp) {
+      setState(() {
+        _focusedSection = (_focusedSection - 1).clamp(0, widget.sections.length - 1);
+      });
+    } else if (key == LogicalKeyboardKey.enter || key == LogicalKeyboardKey.space) {
+      if (_focusedSection >= 0 && _focusedSection < widget.sections.length) {
+        _toggleSection(_focusedSection);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -271,7 +299,10 @@ class _AccordeonLayoutState extends State<_AccordeonLayout> {
             .where(_expandedSections.contains)
             .toList();
 
-    return Column(
+    return KeyboardListener(
+      focusNode: _focusNode,
+      onKeyEvent: _handleKeyEvent,
+      child: Column(
       children: [
         for (var i = 0; i < widget.sections.length; i++) ...[
           // Section header (always visible)
@@ -279,8 +310,12 @@ class _AccordeonLayoutState extends State<_AccordeonLayout> {
             view: widget.sections[i],
             isExpanded: _expandedSections.contains(i),
             isPinned: _pinnedSections.contains(i),
+            isFocused: _focusedSection == i,
             onToggle: () => _toggleSection(i),
             onTogglePin: () => _togglePin(i),
+            onClose: widget.sections.length > 1
+                ? () => _hideSection(i)
+                : null,
           ),
           // Section content (expanded sections get flexible space)
           if (_expandedSections.contains(i))
@@ -301,7 +336,24 @@ class _AccordeonLayoutState extends State<_AccordeonLayout> {
             ),
         ],
       ],
+    ),
     );
+  }
+
+  void _hideSection(int index) {
+    setState(() {
+      _expandedSections.remove(index);
+      _pinnedSections.remove(index);
+      // Ensure at least one section remains expanded
+      if (_expandedSections.isEmpty) {
+        for (var i = 0; i < widget.sections.length; i++) {
+          if (i != index) {
+            _expandedSections.add(i);
+            break;
+          }
+        }
+      }
+    });
   }
 
   bool _hasNextExpandedSection(int current, List<int> expandedIndices) {
@@ -366,64 +418,88 @@ class _AccordeonSectionHeader extends StatelessWidget {
   final ForgeView view;
   final bool isExpanded;
   final bool isPinned;
+  final bool isFocused;
   final VoidCallback onToggle;
   final VoidCallback onTogglePin;
+  final VoidCallback? onClose;
 
   const _AccordeonSectionHeader({
     required this.view,
     required this.isExpanded,
     required this.isPinned,
+    this.isFocused = false,
     required this.onToggle,
     required this.onTogglePin,
+    this.onClose,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return InkWell(
-      onTap: onToggle,
-      child: Container(
-        height: ForgeDimensions.sectionHeaderHeight,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        color: theme.colorScheme.surfaceContainerHighest,
-        child: Row(
-          children: [
-            // Triangle icon (down when expanded, right when collapsed)
-            Icon(
-              isExpanded
-                  ? Icons.arrow_drop_down
-                  : Icons.arrow_right,
-              size: 18,
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-            ),
-            // Title
-            Expanded(
-              child: ValueListenableBuilder<String>(
-                valueListenable: view.title,
-                builder: (context, title, _) => Text(
-                  title.toUpperCase(),
-                  style: theme.textTheme.labelSmall,
-                  overflow: TextOverflow.ellipsis,
+    return Semantics(
+      button: true,
+      label: 'Section header',
+      child: InkWell(
+        onTap: onToggle,
+        child: Container(
+          height: ForgeDimensions.sectionHeaderHeight,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerHighest,
+            border: isFocused
+                ? Border.all(color: theme.colorScheme.primary, width: 1)
+                : null,
+          ),
+          child: Row(
+            children: [
+              // Triangle icon (down when expanded, right when collapsed)
+              Icon(
+                isExpanded
+                    ? Icons.arrow_drop_down
+                    : Icons.arrow_right,
+                size: 18,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
+              // Title
+              Expanded(
+                child: ValueListenableBuilder<String>(
+                  valueListenable: view.title,
+                  builder: (context, title, _) => Text(
+                    title.toUpperCase(),
+                    style: theme.textTheme.labelSmall,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ),
-            ),
-            // Pin button
-            IconButton(
-              icon: Icon(
-                isPinned ? Icons.push_pin : Icons.push_pin_outlined,
-                size: 14,
+              // Pin button
+              IconButton(
+                icon: Icon(
+                  isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+                  size: 14,
+                ),
+                padding: EdgeInsets.zero,
+                constraints:
+                    const BoxConstraints(minWidth: 24, minHeight: 24),
+                onPressed: onTogglePin,
+                tooltip: isPinned ? 'Unpin' : 'Pin',
+                color: isPinned
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.onSurface.withValues(alpha: 0.4),
               ),
-              padding: EdgeInsets.zero,
-              constraints:
-                  const BoxConstraints(minWidth: 24, minHeight: 24),
-              onPressed: onTogglePin,
-              tooltip: isPinned ? 'Unpin' : 'Pin',
-              color: isPinned
-                  ? theme.colorScheme.primary
-                  : theme.colorScheme.onSurface.withValues(alpha: 0.4),
-            ),
-          ],
+              // Close/hide button (not shown for single-section tabs)
+              if (onClose != null)
+                IconButton(
+                  icon: const Icon(Icons.close, size: 14),
+                  padding: EdgeInsets.zero,
+                  constraints:
+                      const BoxConstraints(minWidth: 24, minHeight: 24),
+                  onPressed: onClose,
+                  tooltip: 'Hide section',
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                ),
+            ],
+          ),
         ),
       ),
     );
