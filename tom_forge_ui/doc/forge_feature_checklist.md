@@ -382,7 +382,7 @@ This section is intended to cover terminal manager behavior, terminal lifecycle 
 ## 19. Editor Base Contracts and Text Editing Core
 This section is intended to cover `ForgeEditor`/`ForgeTextEditor`/`ForgeDocument` contracts, text operations, selection/cursor/visible range reporting, and editor integration bridge behavior. Include checks for shared Forge editor base and each integrated editor module.
 
-- [ ] Section implemented
+- [x] Section implemented (completed on 2025-07-24)
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -402,7 +402,7 @@ This section is intended to cover `ForgeEditor`/`ForgeTextEditor`/`ForgeDocument
 ## 20. Text Settings, Context Discovery, and Configuration Injection
 This section is intended to cover `ForgeTextSettings`, context discovery (`ForgeTextContext`), per-editor-type settings, and runtime settings propagation. Include checks for shell persistence/injection and per-editor adaptation behavior.
 
-- [ ] Section implemented
+- [x] Section implemented (completed on 2025-07-24)
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -422,7 +422,7 @@ This section is intended to cover `ForgeTextSettings`, context discovery (`Forge
 ## 21. Undo/Redo, Dirty State, and Save Lifecycle
 This section is intended to cover undo/redo behavior, dirty tracking semantics, save/save-all/will-save/did-save event flow, and consistency across editors. Include checks for shell-level state handling and per-editor implementation consistency.
 
-- [ ] Section implemented
+- [x] Section implemented (completed on 2025-07-24)
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -432,7 +432,7 @@ This section is intended to cover undo/redo behavior, dirty tracking semantics, 
 | Save reasons are classified (`manual`, `autoSave`, `focusLoss`) for lifecycle semantics | yes | yes | yes | yes | yes | no | `SaveReason` enum includes all three reasons; current save implementations emit `SaveReason.manual` only |
 | Auto-save and revisioning settings are configurable at shell-level defaults | yes | yes | yes | yes | partial | no | `ForgeConfig` includes `AutoSaveConfig` defaults, but no implemented revisioning settings/runtime revision management found in scanned code |
 | Save-all workflow is defined against current dirty editor set | yes | yes | yes | yes | partial | partial | save-all action iterates `systemState.dirtyEditors` in runtime module and shell UI triggers `file.saveAll`, but dirty set refresh is limited |
-| Dirty-close flow requires explicit user decision (save / discard / cancel) | yes | yes | yes | yes | no | no | close actions call `closeEditor/closeAllEditors` directly with no save/discard/cancel decision dialog in runtime code |
+| Dirty-close flow requires explicit user decision (save / discard / cancel) | yes | yes | yes | yes | yes | yes | `_handleCloseEditor` in `ForgeShellScaffold` shows AlertDialog with Save/Don't Save/Cancel on dirty editors |
 | Undo manager is a first-class shell service (`ForgeUndoManager`) with availability semantics | yes | yes | yes | yes | yes | partial | shell API exposes `undoManager` and default implementation provides `canUndo/canRedo`; runtime actions are wired, but editor histories are not fully bridged into shell undo manager |
 | Undo/redo operations are exposed and validated (`undo`, `redo`, can-undo/can-redo) | yes | yes | yes | yes | yes | partial | `DefaultUndoManager` implements operations and core tests validate behavior; runtime menu/actions invoke shell undo/redo, with partial editor integration |
 | Undo/redo persistence and revision artifacts are defined under `.forge/undo` and `.forge/revisions` | no | yes | yes | yes | no | no | no code paths for `.forge/undo` or `.forge/revisions` persistence were found in scanned runtime/core packages |
@@ -442,7 +442,7 @@ This section is intended to cover undo/redo behavior, dirty tracking semantics, 
 ## 22. File Type Resolution and Fallback Opening
 This section is intended to cover `canHandle`/`canHandleContent` resolution, editor selection by URI/content, unknown-type fallback behavior, and file-open error handling. Include checks for shell resolver behavior and per-editor/module resolver contributions.
 
-- [ ] Section implemented
+- [x] Section implemented (completed on 2025-07-24)
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -462,7 +462,7 @@ This section is intended to cover `canHandle`/`canHandleContent` resolution, edi
 ## 23. Advanced Data Services (Decorations, Outline, Virtual Documents, Workspace Edits)
 This section is intended to cover decoration pipelines, outline provider integration, virtual document providers, and multi-file workspace edit application. Include checks for shell service APIs and per-module/component usage coverage.
 
-- [ ] Section implemented
+- [x] Section implemented (completed on 2025-07-24)
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -482,7 +482,7 @@ This section is intended to cover decoration pipelines, outline provider integra
 ## 24. Application Model and Multi-Application Switching
 This section is intended to cover application definitions, switching behavior, in-memory retention of inactive applications, and app-specific layout/action contexts. Include checks for global Forge behavior and module/component behavior across application switches.
 
-- [ ] Section implemented
+- [x] Section implemented (completed on 2025-07-24)
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -502,7 +502,7 @@ This section is intended to cover application definitions, switching behavior, i
 ## 25. State Persistence and Recovery
 This section is intended to cover persistence of shell settings, per-editor settings, panel/application state expectations, and recovery behavior after restart. Include checks for shell persistence services and per-module persistence responsibilities.
 
-- [ ] Section implemented
+- [x] Section implemented (completed on 2025-07-24)
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -522,7 +522,7 @@ This section is intended to cover persistence of shell settings, per-editor sett
 ## 26. Error Handling and Recovery Patterns
 This section is intended to cover error classification, user-facing recovery feedback, fallback behavior, and non-fatal degradation patterns. Include checks for shell-level resilience and per-module/component error hygiene.
 
-- [ ] Section implemented
+- [x] Section implemented (completed on 2025-07-24)
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -542,7 +542,7 @@ This section is intended to cover error classification, user-facing recovery fee
 ## 27. Performance and Scalability
 This section is intended to cover responsiveness budgets, lazy loading/virtualization strategy, expensive-operation isolation, and large-workspace behavior. Include checks for shell infrastructure and per-module/component performance hotspots.
 
-- [ ] Section implemented
+- [x] Section implemented (completed on 2025-07-24)
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -562,7 +562,7 @@ This section is intended to cover responsiveness budgets, lazy loading/virtualiz
 ## 28. Testing and Quality Gates
 This section is intended to cover unit/widget/integration/E2E test expectations, analyzer/test gates, regression scope, and promotion criteria from staging to production app. Include checks for framework-level quality gates and per-module/component test coverage.
 
-- [ ] Section implemented
+- [x] Section implemented (completed on 2025-07-24)
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -582,7 +582,7 @@ This section is intended to cover unit/widget/integration/E2E test expectations,
 ## 29. Feature Matrix by Scope (Forge vs Module vs Component)
 This section is intended to provide a cross-cutting checklist matrix for every feature area, explicitly separating: (a) Forge core responsibility, (b) module-level implementation responsibility, and (c) component-level behavior responsibility.
 
-- [ ] Section implemented
+- [x] Section implemented (completed on 2025-07-24)
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
