@@ -202,7 +202,7 @@ This section is intended to cover drag move/copy semantics, drop zones, panel sp
 ## 10. Actions and Shortcut Framework
 This section is intended to cover action registration, enable/visible state logic, shortcut binding/effective shortcut display, platform-specific modifier behavior, and conflict handling. Include checks at Forge action/shortcut manager level and per-module/per-component action sets.
 
-- [ ] Section implemented
+- [x] Section implemented (completed on 2025-07-24)
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -216,21 +216,21 @@ This section is intended to cover action registration, enable/visible state logi
 | Effective shortcut display source comes from `ForgeShortcutManager` bindings | no | no | no | yes | yes | n/a | `ForgeCommandPalette` calls `shellApi.shortcuts.getBinding(action.id)?.key` for effective shortcut display |
 | Platform-specific primary-modifier shortcut behavior is required (Cmd vs Ctrl) | no | no | no | yes | yes | yes | `ForgeShortcutKey.usePrimaryModifier`; shell uses `defaultTargetPlatform == TargetPlatform.macOS` for `useMetaPrimary` |
 | Two-key trigger-menu shortcut system is defined (Shift+Cmd/Ctrl+key popup) | yes | yes | yes | yes | no | no | Not implemented; documented only |
-| Duplicate action ID policy/conflict logging is part of framework hardening | yes | no | yes | yes | no | no | `DefaultActionRegistry` silently overwrites on duplicate ID; no logging or warning |
+| Duplicate action ID policy/conflict logging is part of framework hardening | yes | no | yes | yes | yes | n/a | `DefaultActionRegistry.registerAction` now logs duplicate IDs via `developer.log` before overwrite |
 | Implementation/test evidence includes `ForgeShortcutManager` tests, platform shortcut tests, and parity matrix requirements | yes | no | yes | yes | partial | n/a | `forge_shortcut_key_test.dart` exists; `forge_action_test.dart` covers shortcuts; no dedicated ShortcutManager test file |
 
 ## 11. Navigation and Command Surfaces
 This section is intended to cover menu bar, command palette, title-bar search entry behavior, back/forward navigation hooks, and command parity across entry points. Include checks for shell command routing and per-module command exposure.
 
-- [ ] Section implemented
+- [x] Section implemented (completed on 2025-07-24)
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
 | Title-bar search field doubles as quick command/search entry surface | no | no | no | yes | partial | n/a | `_buildTitleBar` has search icon + text container but displays app title only; not functional search field |
-| Command palette is a first-class global entry point (`F1`, `Cmd+P`) | no | no | no | yes | yes | n/a | `ForgeCommandPalette` fully implemented with search/filter/keyboard nav; `Cmd+P`/`Ctrl+P` bound; F1 not bound |
+| Command palette is a first-class global entry point (`F1`, `Cmd+P`) | no | no | no | yes | yes | n/a | `ForgeCommandPalette` fully implemented; `Cmd+P`/`Ctrl+P` + `F1` all bound to `_CommandPaletteIntent` |
 | Menu bar is fixed top-level structure with module/component-populated entries | yes | yes | yes | yes | partial | n/a | `ForgeMenuBar` implemented with File/Edit/View/Help; modules do not dynamically populate menu entries |
-| Cross-platform menu surface behavior is defined (macOS system menu, Windows/Linux in-window) | no | no | no | yes | partial | n/a | In-window menu only; no macOS system menu integration |
-| `Go` surface includes navigation actions (go-to targets and back/forward) | yes | yes | yes | yes | no | no | No "Go" menu exists; back/forward only in title bar (disabled buttons) |
+| Cross-platform menu surface behavior is defined (macOS system menu, Windows/Linux in-window) | no | no | no | yes | yes | n/a | `PlatformMenuBar` on macOS; `ForgeMenuBar` in-window on other platforms; `_usePlatformMenu` conditional |
+| `Go` surface includes navigation actions (go-to targets and back/forward) | yes | yes | yes | yes | yes | n/a | 'Go' menu added to `ForgeMenuBar` and `_buildPlatformMenus` with Back/Forward/Go to File/Symbol/Line entries |
 | Back/forward navigation hooks are delegated through focused component history manager | yes | yes | yes | yes | partial | n/a | `ComponentHistoryManager` interface exists; title bar has disabled back/forward buttons; not wired to components |
 | Command execution routes through action objects with dynamic visibility/enabled state | yes | yes | yes | yes | yes | n/a | `ForgeAction` model with `ForgeActionRegistry`, `executeAction` pipeline works |
 | Dialog-driven command UX supports quick pick/input/file picker flows | yes | yes | yes | yes | yes | n/a | `DefaultDialogManager` with `showQuickPick`, `showInputBox`, `onOpenDialog`, `onSaveDialog` callbacks |

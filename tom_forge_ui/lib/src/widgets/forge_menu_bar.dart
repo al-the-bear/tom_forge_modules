@@ -217,6 +217,36 @@ class ForgeMenuBar extends StatelessWidget {
             isDark: isDark,
           ),
           _MenuButton(
+            label: 'Go',
+            items: [
+              _MenuItem(
+                label: 'Back',
+                shortcut: '⌃-',
+                onTap: () => _showNotImplemented(context, 'Go Back'),
+              ),
+              _MenuItem(
+                label: 'Forward',
+                shortcut: '⌃⇧-',
+                onTap: () => _showNotImplemented(context, 'Go Forward'),
+              ),
+              const _MenuDivider(),
+              _MenuItem(
+                label: 'Go to File...',
+                shortcut: '⌘P',
+                onTap: () => shellApi.executeAction('view.commandPalette'),
+              ),
+              _MenuItem(
+                label: 'Go to Symbol...',
+                onTap: () => _showNotImplemented(context, 'Go to Symbol'),
+              ),
+              _MenuItem(
+                label: 'Go to Line...',
+                onTap: () => _showNotImplemented(context, 'Go to Line'),
+              ),
+            ],
+            isDark: isDark,
+          ),
+          _MenuButton(
             label: 'Help',
             items: [
               _MenuItem(

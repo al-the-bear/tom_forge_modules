@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import '../actions/forge_action.dart';
 import '../services/forge_action_registry.dart';
 
@@ -9,6 +11,12 @@ class DefaultActionRegistry implements ForgeActionRegistry {
 
   @override
   void registerAction(ForgeAction action) {
+    if (_actions.containsKey(action.id)) {
+      developer.log(
+        'Duplicate action ID: ${action.id} — overwriting previous registration',
+        name: 'ForgeActionRegistry',
+      );
+    }
     _actions[action.id] = action;
   }
 

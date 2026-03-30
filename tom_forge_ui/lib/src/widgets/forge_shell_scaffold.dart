@@ -612,6 +612,37 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         ],
       ),
       PlatformMenu(
+        label: 'Go',
+        menus: [
+          PlatformMenuItem(
+            label: 'Back',
+            shortcut: const SingleActivator(
+              LogicalKeyboardKey.minus,
+              control: true,
+            ),
+            onSelected: () {},
+          ),
+          PlatformMenuItem(
+            label: 'Forward',
+            shortcut: const SingleActivator(
+              LogicalKeyboardKey.minus,
+              control: true,
+              shift: true,
+            ),
+            onSelected: () {},
+          ),
+          const PlatformMenuItemGroup(members: []),
+          PlatformMenuItem(
+            label: 'Go to File...',
+            shortcut: const SingleActivator(
+              LogicalKeyboardKey.keyP,
+              meta: true,
+            ),
+            onSelected: _toggleCommandPalette,
+          ),
+        ],
+      ),
+      PlatformMenu(
         label: 'Help',
         menus: [
           PlatformMenuItem(
@@ -641,6 +672,8 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
 
       final shortcuts = {
         primaryActivator(LogicalKeyboardKey.keyP):
+            const _CommandPaletteIntent(),
+        const SingleActivator(LogicalKeyboardKey.f1):
             const _CommandPaletteIntent(),
         primaryActivator(LogicalKeyboardKey.keyL):
             const _ToggleLeftPanelIntent(),
