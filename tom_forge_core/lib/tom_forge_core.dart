@@ -45,6 +45,7 @@ export 'src/services/forge_config_manager.dart';
 export 'src/services/forge_diagnostic_manager.dart';
 export 'src/services/forge_disposable.dart';
 export 'src/services/forge_environment.dart';
+export 'src/services/forge_execution_monitor.dart';
 export 'src/services/forge_file_system.dart';
 export 'src/services/forge_notification_manager.dart';
 export 'src/services/forge_output_channel_manager.dart';
@@ -58,6 +59,7 @@ export 'src/services/forge_virtual_document_manager.dart';
 // Default implementations (pure-Dart)
 export 'src/defaults/default_config_manager.dart';
 export 'src/defaults/default_diagnostic_manager.dart';
+export 'src/defaults/default_execution_monitor.dart';
 export 'src/defaults/default_notification_manager.dart';
 export 'src/defaults/default_output_manager.dart';
 export 'src/defaults/default_progress_manager.dart';

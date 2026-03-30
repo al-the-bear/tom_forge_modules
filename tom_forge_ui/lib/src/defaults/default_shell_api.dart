@@ -34,6 +34,8 @@ import 'default_action_registry.dart';
 import 'default_config_manager.dart';
 import 'default_diagnostic_manager.dart';
 import 'default_dialog_manager.dart';
+import 'package:tom_forge_core/tom_forge_core.dart'
+    show DefaultExecutionMonitor, ForgeExecutionMonitor;
 import 'default_layout_controller.dart';
 import 'default_module_registry.dart';
 import 'default_notification_manager.dart';
@@ -98,6 +100,9 @@ class DefaultShellApi implements ForgeShellApi {
   final ForgeEnvironment environment;
 
   @override
+  final ForgeExecutionMonitor executions;
+
+  @override
   final ForgeModuleStorage storage;
 
   @override
@@ -144,6 +149,7 @@ class DefaultShellApi implements ForgeShellApi {
     required this.terminals,
     required this.clipboard,
     required this.environment,
+    required this.executions,
     required this.storage,
     required this.undoManager,
     required this.secrets,
@@ -227,6 +233,7 @@ class DefaultShellApi implements ForgeShellApi {
     final terminalManager = DefaultTerminalManager();
     final storageService = DefaultModuleStorage();
     final environmentService = DefaultEnvironment();
+    final executionMonitor = DefaultExecutionMonitor();
     final secretStorage = DefaultSecretStorage();
     final fileDecorationManager = DefaultFileDecorationManager();
     final virtualDocumentManager = DefaultVirtualDocumentManager();
@@ -252,6 +259,7 @@ class DefaultShellApi implements ForgeShellApi {
       terminals: terminalManager,
       clipboard: clipboardService,
       environment: environmentService,
+      executions: executionMonitor,
       storage: storageService,
       undoManager: undoManager,
       secrets: secretStorage,

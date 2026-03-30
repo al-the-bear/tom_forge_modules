@@ -55,13 +55,26 @@ class _TerminalContentState extends State<_TerminalContent> {
   final ScrollController _scrollController = ScrollController();
   final List<String> _lines = [];
   StreamSubscription<ForgeTerminal>? _openSub;
+  StreamSubscription<ForgeTerminal>? _closeSub;
+  StreamSubscription<ForgeTerminal?>? _activeSub;
+  StreamSubscription<String>? _outputSub;
 
   @override
   void initState() {
     super.initState();
     _openSub = widget.terminalManager.onDidOpen.listen((_) {
+      _rebindOutput();
       if (mounted) setState(() {});
     });
+    _closeSub = widget.terminalManager.onDidClose.listen((_) {
+      _rebindOutput();
+      if (mounted) setState(() {});
+    });
+    _activeSub = widget.terminalManager.onDidChangeActive.listen((_) {
+      _rebindOutput();
+      if (mounted) setState(() {});
+    });
+    _rebindOutput();
   }
 
   @override
@@ -69,7 +82,34 @@ class _TerminalContentState extends State<_TerminalContent> {
     _inputController.dispose();
     _scrollController.dispose();
     _openSub?.cancel();
+    _closeSub?.cancel();
+    _activeSub?.cancel();
+    _outputSub?.cancel();
     super.dispose();
+  }
+
+  void _rebindOutput() {
+    _outputSub?.cancel();
+    _outputSub = null;
+    final active = widget.terminalManager.activeTerminal;
+    if (active != null) {
+      _outputSub = active.onOutput.listen((line) {
+        if (mounted) {
+          setState(() {
+            _lines.add(line);
+          });
+          _scrollToBottom();
+        }
+      });
+    }
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+      }
+    });
   }
 
   void _sendCommand() {
@@ -78,15 +118,7 @@ class _TerminalContentState extends State<_TerminalContent> {
     final terminal = widget.terminalManager.activeTerminal;
     if (terminal == null) return;
     terminal.sendText(text);
-    setState(() {
-      _lines.add('\$ $text');
-    });
     _inputController.clear();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-      }
-    });
   }
 
   @override
@@ -127,18 +159,62 @@ class _TerminalContentState extends State<_TerminalContent> {
           child: Row(
             children: [
               for (final t in terminals)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 2),
-                  child: Text(
-                    t.name,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      fontWeight: t == active
-                          ? FontWeight.bold
-                          : FontWeight.normal,
-                      color: t == active
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.onSurface
-                              .withValues(alpha: 0.6),
+                GestureDetector(
+                  onTap: () => widget.terminalManager.setActive(t),
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        border: t == active
+                            ? Border(
+                                bottom: BorderSide(
+                                  color: theme.colorScheme.primary,
+                                  width: 2,
+                                ),
+                              )
+                            : null,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.terminal,
+                            size: 12,
+                            color: t == active
+                                ? theme.colorScheme.primary
+                                : theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.6),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            t.name,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              fontWeight: t == active
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                              color: t == active
+                                  ? theme.colorScheme.primary
+                                  : theme.colorScheme.onSurface
+                                      .withValues(alpha: 0.6),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          GestureDetector(
+                            onTap: () => t.close(),
+                            child: MouseRegion(
+                              cursor: SystemMouseCursors.click,
+                              child: Icon(
+                                Icons.close,
+                                size: 12,
+                                color: theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.4),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),

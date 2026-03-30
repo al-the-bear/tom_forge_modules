@@ -3,6 +3,8 @@ import '../services/forge_action_registry.dart';
 import '../services/forge_config_manager.dart';
 import '../services/forge_dialog_manager.dart';
 import '../services/forge_diagnostic_manager.dart';
+import 'package:tom_forge_core/tom_forge_core.dart'
+    show ForgeExecutionMonitor;
 import '../services/forge_environment.dart';
 import '../services/forge_file_decoration_manager.dart';
 import '../services/forge_file_system.dart';
@@ -72,6 +74,9 @@ abstract class ForgeShellApi {
 
   /// Environment utilities.
   ForgeEnvironment get environment;
+
+  /// Execution monitoring for running processes, builds, and tasks.
+  ForgeExecutionMonitor get executions;
 
   /// Per-module persistent storage.
   ForgeModuleStorage get storage;

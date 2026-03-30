@@ -26,11 +26,17 @@ class DefaultTerminalManager implements ForgeTerminalManager {
       StreamController<ForgeTerminal?>.broadcast();
 
   @override
-  ForgeTerminal create({String? name, String? shellPath, String? cwd}) {
+  ForgeTerminal create({
+    String? name,
+    String? shellPath,
+    String? cwd,
+    ForgeOutputChannel? outputChannel,
+  }) {
     final terminal = DefaultTerminal(
       name: name ?? 'Terminal ${_terminals.length + 1}',
       shellPath: shellPath,
       cwd: cwd,
+      outputChannel: outputChannel,
       onDispose: _removeTerminal,
     );
     _terminals.add(terminal);
@@ -45,6 +51,14 @@ class DefaultTerminalManager implements ForgeTerminalManager {
 
   @override
   ForgeTerminal? get activeTerminal => _activeTerminal;
+
+  @override
+  void setActive(ForgeTerminal terminal) {
+    if (_terminals.contains(terminal)) {
+      _activeTerminal = terminal as DefaultTerminal;
+      _activeController.add(_activeTerminal);
+    }
+  }
 
   @override
   Stream<ForgeTerminal> get onDidOpen => _openController.stream;
@@ -85,18 +99,50 @@ class DefaultTerminal implements ForgeTerminal {
   final String? cwd;
   final void Function(DefaultTerminal) _onDispose;
 
+  /// Optional output channel for mirroring terminal output to the Output panel.
+  final ForgeOutputChannel? outputChannel;
+
   final List<String> _history = [];
+  final StreamController<String> _outputController =
+      StreamController<String>.broadcast();
 
   DefaultTerminal({
     required this.name,
     this.shellPath,
     this.cwd,
+    this.outputChannel,
     required void Function(DefaultTerminal) onDispose,
   }) : _onDispose = onDispose;
 
   @override
+  Stream<String> get onOutput => _outputController.stream;
+
+  @override
   void sendText(String text, {bool addNewLine = true}) {
-    _history.add(addNewLine ? '$text\n' : text);
+    final line = addNewLine ? '$text\n' : text;
+    _history.add(line);
+    // Echo the command as output.
+    _emit('\$ $text');
+    // For the in-memory stub, simulate simple responses.
+    _simulateResponse(text.trim());
+  }
+
+  /// Emit output to both the terminal view and the optional output channel.
+  void _emit(String text) {
+    _outputController.add(text);
+    outputChannel?.appendLine(text);
+  }
+
+  void _simulateResponse(String command) {
+    if (command == 'echo hello') {
+      _emit('hello');
+    } else if (command == 'pwd') {
+      _emit(cwd ?? '/');
+    } else if (command == 'date') {
+      _emit(DateTime.now().toString());
+    } else if (command.startsWith('echo ')) {
+      _emit(command.substring(5));
+    }
   }
 
   @override
@@ -105,7 +151,14 @@ class DefaultTerminal implements ForgeTerminal {
   }
 
   @override
+  void close() {
+    _outputController.close();
+    _onDispose(this);
+  }
+
+  @override
   void dispose() {
+    _outputController.close();
     _onDispose(this);
   }
 
@@ -223,15 +276,26 @@ class DefaultKeyValueStore implements ForgeKeyValueStore {
 // ── Environment ──────────────────────────────────────────────────────
 
 /// Default implementation of [ForgeEnvironment].
+///
+/// Tracks opened URIs for testability and optionally invokes a callback
+/// for custom handling (e.g. logging to an output channel or launching
+/// a browser).
 class DefaultEnvironment implements ForgeEnvironment {
   @override
   final String appName;
 
-  DefaultEnvironment({this.appName = 'Tom Forge'});
+  /// Callback invoked when [openExternal] is called.
+  final Future<void> Function(Uri uri)? onOpenExternal;
+
+  /// History of URIs opened via [openExternal], newest last.
+  final List<Uri> openedUris = [];
+
+  DefaultEnvironment({this.appName = 'Tom Forge', this.onOpenExternal});
 
   @override
   Future<void> openExternal(Uri uri) async {
-    // No-op in default implementation.
+    openedUris.add(uri);
+    await onOpenExternal?.call(uri);
   }
 }
 
