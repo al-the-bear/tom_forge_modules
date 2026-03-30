@@ -582,19 +582,19 @@ This section is intended to cover unit/widget/integration/E2E test expectations,
 ## 29. Feature Matrix by Scope (Forge vs Module vs Component)
 This section is intended to provide a cross-cutting checklist matrix for every feature area, explicitly separating: (a) Forge core responsibility, (b) module-level implementation responsibility, and (c) component-level behavior responsibility.
 
-- [ ] Section completed (finished on 2026-03-30T06:49:18+02:00)
+- [x] Section completed (finished on 2026-03-30T11:04:56+02:00)
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
-| Shell framework owns panel/layout/focus/menu/shortcut orchestration as core runtime responsibility | no | no | no | yes | no | no | documented in `forge_panel_shell_concept.md` shell definition and architecture |
-| Modules are the primary packaging unit for functionality (components + actions + shortcuts + context menus) | yes | no | yes | yes | no | no | documented in `forge_panel_shell_concept.md` module model |
-| Components are owned by modules and exposed as direct typed members (no string IDs/registries) | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` ownership and typed-member model |
-| Shell module (`TomForgeShellModule`) provides built-in views as framework-level baseline | no | yes | no | yes | no | no | documented in `forge_panel_shell_concept.md` built-in views ownership |
-| Application layout config is structural and references module members directly | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` application/layout design notes |
-| Module lifecycle (`activate`/`deactivate`) controls registration and teardown of module-provided capabilities | yes | no | yes | yes | no | no | documented in `forge_panel_shell_concept.md` module lifecycle and `forge_panel_shell_spec.md` startup sequence |
-| Actions and shortcuts are contributed by modules/components while shell aggregates and resolves execution context | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` menu/shortcut system |
-| Provider-based extension points (outline, file decorations, virtual documents) are registered by modules against shell services | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` provider registration APIs |
-| Status bar model separates shell-global items from active-component/module-contributed items | yes | yes | yes | yes | no | no | documented in `forge_panel_shell_concept.md` status bar item model |
-| Module-scoped persistence is provided through shell storage service (`forModule`) with typed module identity | yes | no | yes | yes | no | no | documented in `forge_panel_shell_concept.md` `ForgeModuleStorage` contract |
-| Cross-module access uses typed module registry lookups (`shell.modules.get<T>()`) instead of string identifiers | yes | no | yes | yes | no | no | documented in `forge_panel_shell_concept.md` module registry API notes |
-| Staging-to-production integration workflow preserves module composition, actions, shortcuts, views, and status bar responsibilities | yes | yes | yes | yes | no | no | documented in `tom_forge_full_integration.md` Phase E port and verification checklist |
+| Shell framework owns panel/layout/focus/menu/shortcut orchestration as core runtime responsibility | no | no | no | yes | yes | partial | documented in `forge_panel_shell_concept.md` shell definition and architecture |
+| Modules are the primary packaging unit for functionality (components + actions + shortcuts + context menus) | yes | no | yes | yes | yes | partial | documented in `forge_panel_shell_concept.md` module model |
+| Components are owned by modules and exposed as direct typed members (no string IDs/registries) | yes | yes | yes | yes | partial | partial | documented in `forge_panel_shell_concept.md` ownership and typed-member model |
+| Shell module (`TomForgeShellModule`) provides built-in views as framework-level baseline | no | yes | no | yes | partial | partial | documented in `forge_panel_shell_concept.md` built-in views ownership |
+| Application layout config is structural and references module members directly | yes | yes | yes | yes | yes | partial | documented in `forge_panel_shell_concept.md` application/layout design notes |
+| Module lifecycle (`activate`/`deactivate`) controls registration and teardown of module-provided capabilities | yes | no | yes | yes | yes | partial | documented in `forge_panel_shell_concept.md` module lifecycle and `forge_panel_shell_spec.md` startup sequence |
+| Actions and shortcuts are contributed by modules/components while shell aggregates and resolves execution context | yes | yes | yes | yes | yes | partial | documented in `forge_panel_shell_concept.md` menu/shortcut system |
+| Provider-based extension points (outline, file decorations, virtual documents) are registered by modules against shell services | yes | yes | yes | yes | partial | no | documented in `forge_panel_shell_concept.md` provider registration APIs |
+| Status bar model separates shell-global items from active-component/module-contributed items | yes | yes | yes | yes | partial | partial | documented in `forge_panel_shell_concept.md` status bar item model |
+| Module-scoped persistence is provided through shell storage service (`forModule`) with typed module identity | yes | no | yes | yes | partial | no | documented in `forge_panel_shell_concept.md` `ForgeModuleStorage` contract |
+| Cross-module access uses typed module registry lookups (`shell.modules.get<T>()`) instead of string identifiers | yes | no | yes | yes | partial | no | documented in `forge_panel_shell_concept.md` module registry API notes |
+| Staging-to-production integration workflow preserves module composition, actions, shortcuts, views, and status bar responsibilities | yes | yes | yes | yes | partial | partial | documented in `tom_forge_full_integration.md` Phase E port and verification checklist |
