@@ -142,11 +142,22 @@ This section is intended to cover draggable splitters, min/max constraints, hove
 ## 8. Tab Systems and Editor/View Tab UX
 This section is intended to cover tab creation, activation, close behavior, hover feedback, dirty indicators, and tab overflow behavior in middle and auxiliary panels. Include checks for shell tab controls and per-component tab title/state updates.
 
-- [ ] Section completed (finished on ...)
+- [x] Section completed (finished on 2026-03-30T06:10:02+02:00)
 
 | category | per module? | per component? | to be implemented in modules? | shell implementation done? | implemented on |
 |---|---|---|---|---|---|
-| | | | | | |
+| Distinct tab systems exist: middle editor tab bar and side/bottom panel tab bars | no | yes | yes | yes | documented in `forge_panel_shell_concept.md` and `forge_panel_shell_spec.md` |
+| Tab creation on file open adds editor tab in active middle panel | yes | yes | yes | yes | documented in `forge_panel_shell_spec.md` editor lifecycle and `tom_forge_ui_testapp.md` layout controller flow |
+| Tab activation selects one active component per panel | no | yes | yes | yes | documented in `forge_panel_shell_concept.md` middle panel behavior |
+| Tab close behavior differs by type (all editors closable; view main vs copy rules) | no | yes | yes | yes | documented in `forge_panel_shell_concept.md` editor/view semantics |
+| Close-dirty workflow prompts save/discard/cancel on tab close | yes | yes | yes | yes | documented in `forge_panel_shell_spec.md` flows and `tom_forge_ui_testapp.md` behavior table |
+| Dirty state is reflected in tab UX and tracked in system state (`dirtyEditors`) | yes | yes | yes | yes | documented in `forge_panel_shell_spec.md` `DirtyStateEvent` and `tom_forge_ui_testapp.md` |
+| Tab keyboard UX is defined (`Left/Right`, `Enter`, `Delete`) | no | no | no | yes | documented in `forge_panel_shell_spec.md` keyboard table |
+| Accessibility semantics for tab system are defined (`tablist`, `tab`, `tabpanel`) | no | no | no | yes | documented in `forge_panel_shell_spec.md` accessibility roles |
+| Tab overflow behavior: horizontal scrolling with wheel and overflow arrows | no | no | no | yes | documented in `forge_panel_shell_spec.md` scrolling behavior |
+| Tab visual UX includes active/inactive/hover/indicator theme tokens | no | no | no | yes | documented in `forge_panel_shell_spec.md` theme tokens |
+| Drag-tab UX supports moving tabs across panels and split-editor scenarios | no | yes | yes | yes | documented in `forge_panel_shell_spec.md` widget tests and `tom_forge_ui_testapp.md` notes |
+| Implementation evidence includes dedicated tab widgets and tab-management controller logic | yes | yes | yes | yes | documented in `tom_forge_ui_testapp.md` file inventory and `forge_panel_shell_spec.md` tests |
 
 ## 9. Accordeon Section Behavior
 This section is intended to cover section expand/collapse rules, pinning, multi-open behavior, section sizing/sharing, and empty/drop placeholder behavior. Include checks for shell accordeon mechanics and per-view section compatibility.
