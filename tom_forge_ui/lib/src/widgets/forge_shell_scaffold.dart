@@ -1158,7 +1158,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
                   widget.systemState.setActiveEditor(editor);
                 });
               },
-              onClose: (editor) => _layout.closeEditor(editor),
+              onClose: (editor) => _handleCloseEditor(editor),
               onEditorDropped: (editor) {
                 _layout.moveComponent(editor, panelIndex);
                 widget.systemState.setActiveEditor(editor);
@@ -1171,6 +1171,55 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         );
       },
     );
+  }
+
+  /// Handles editor close with dirty-state check.
+  ///
+  /// If the editor has unsaved changes, prompts the user to save, discard,
+  /// or cancel before closing.
+  Future<void> _handleCloseEditor(ForgeEditor editor) async {
+    if (editor.isDirty.value) {
+      final result = await showDialog<_DirtyCloseAction>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          title: const Text('Unsaved Changes'),
+          content: Text(
+            'Do you want to save the changes to "${editor.title.value}"?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () =>
+                  Navigator.pop(context, _DirtyCloseAction.cancel),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () =>
+                  Navigator.pop(context, _DirtyCloseAction.discard),
+              child: const Text("Don't Save"),
+            ),
+            FilledButton(
+              onPressed: () =>
+                  Navigator.pop(context, _DirtyCloseAction.save),
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      );
+      switch (result) {
+        case _DirtyCloseAction.save:
+          widget.shell.executeAction('file.save');
+          _layout.closeEditor(editor);
+        case _DirtyCloseAction.discard:
+          _layout.closeEditor(editor);
+        case _DirtyCloseAction.cancel:
+        case null:
+          // Do nothing — user cancelled.
+          break;
+      }
+    } else {
+      _layout.closeEditor(editor);
+    }
   }
 
   Widget _buildBottomPanel(BuildContext context, LayoutPanelConfig config) {
@@ -1187,6 +1236,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
 }
 
 // ── Intents for keyboard shortcuts ──
+
+/// Result of the dirty-close confirmation dialog.
+enum _DirtyCloseAction { save, discard, cancel }
 
 class _CommandPaletteIntent extends Intent {
   const _CommandPaletteIntent();

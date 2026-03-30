@@ -142,7 +142,7 @@ This section is intended to cover draggable splitters, min/max constraints, hove
 ## 7. Tab Systems and Editor/View Tab UX
 This section is intended to cover tab creation, activation, close behavior, hover feedback, dirty indicators, and tab overflow behavior in middle and auxiliary panels. Include checks for shell tab controls and per-component tab title/state updates.
 
-- [ ] Section implemented
+- [x] Section implemented (completed on 2025-07-23)
 
 | category | per module? | per component? | to be implemented in modules? | documented? | demo implemented? | wired to editors? | implemented on |
 |---|---|---|---|---|---|---|---|
@@ -150,13 +150,13 @@ This section is intended to cover tab creation, activation, close behavior, hove
 | Tab creation on file open adds editor tab in active middle panel | yes | yes | yes | yes | yes | yes | `DefaultLayoutController.openFile` creates editor, adds to `_middlePanels`, sets active |
 | Tab activation selects one active component per panel | no | yes | yes | yes | yes | yes | `DefaultSystemState.activeEditor` + `setActiveEditor`; shell passes to `ForgeEditorTabBar.activeEditor` |
 | Tab close behavior differs by type (all editors closable; view main vs copy rules) | no | yes | yes | yes | partial | n/a | editors closable via `onClose`; view main/copy rules not implemented |
-| Close-dirty workflow prompts save/discard/cancel on tab close | yes | yes | yes | yes | no | no | not implemented; `closeEditor` does not check dirty state |
+| Close-dirty workflow prompts save/discard/cancel on tab close | yes | yes | yes | yes | yes | yes | `_handleCloseEditor` in scaffold shows `AlertDialog` with Save/Don't Save/Cancel; dispatches `file.save` action on save; `_DirtyCloseAction` enum |
 | Dirty state is reflected in tab UX and tracked in system state (`dirtyEditors`) | yes | yes | yes | yes | yes | yes | `isDirty ? '$title *' : title` in tab; `DefaultSystemState.dirtyEditors` updated on close |
-| Tab keyboard UX is defined (`Left/Right`, `Enter`, `Delete`) | no | no | no | yes | no | no | not implemented; no keyboard shortcuts for tab navigation |
-| Accessibility semantics for tab system are defined (`tablist`, `tab`, `tabpanel`) | no | no | no | yes | no | no | not implemented; no `Semantics` widgets in tab bar |
+| Tab keyboard UX is defined (`Left/Right`, `Enter`, `Delete`) | no | no | no | yes | yes | n/a | `_ForgeEditorTabBarState._handleKeyEvent` handles ArrowLeft/ArrowRight for navigation, Delete/Backspace for close; `KeyboardListener` wraps tab bar |
+| Accessibility semantics for tab system are defined (`tablist`, `tab`, `tabpanel`) | no | no | no | yes | yes | n/a | `Semantics(container: true, label: 'Editor tabs')` on tab bar; per-tab `Semantics(selected:, label:)` wrapping each tab |
 | Tab overflow behavior: horizontal scrolling with wheel and overflow arrows | no | no | no | yes | partial | n/a | `ListView(scrollDirection: Axis.horizontal)` provides scroll; no overflow arrows |
 | Tab visual UX includes active/inactive/hover/indicator theme tokens | no | no | no | yes | yes | n/a | `tabBackground` uses `surfaceContainerHighest`/`surfaceContainer`; active has primary top border |
-| Drag-tab UX supports moving tabs across panels and split-editor scenarios | no | yes | yes | yes | no | no | not implemented; no `Draggable`/`DragTarget` in tab bar |
+| Drag-tab UX supports moving tabs across panels and split-editor scenarios | no | yes | yes | yes | yes | yes | `Draggable<_TabDragData>` on each tab; `DragTarget` on tab bar; `onEditorDropped` calls `moveComponent`; feedback with elevation + opacity |
 | Implementation evidence includes dedicated tab widgets and tab-management controller logic | yes | yes | yes | yes | yes | yes | `ForgeEditorTabBar` widget; `DefaultLayoutController` with `closeEditor`, `openFile`, `splitMiddlePanel` |
 
 ## 8. Accordeon Section Behavior

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../components/forge_editor.dart';
 
@@ -40,11 +41,47 @@ class _ForgeEditorTabBarState extends State<ForgeEditorTabBar> {
   ForgeEditor? _hoveredEditor;
   ForgeEditor? _hoveredCloseEditor;
   bool _isDragOver = false;
+  final FocusNode _focusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _handleKeyEvent(KeyEvent event) {
+    if (event is! KeyDownEvent) return;
+    final editors = widget.editors;
+    if (editors.isEmpty) return;
+
+    final activeIdx = widget.activeEditor != null
+        ? editors.indexOf(widget.activeEditor!)
+        : -1;
+
+    if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+      final next = (activeIdx - 1).clamp(0, editors.length - 1);
+      widget.onSelect(editors[next]);
+    } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+      final next = (activeIdx + 1).clamp(0, editors.length - 1);
+      widget.onSelect(editors[next]);
+    } else if (event.logicalKey == LogicalKeyboardKey.delete ||
+        event.logicalKey == LogicalKeyboardKey.backspace) {
+      if (activeIdx >= 0) {
+        widget.onClose(editors[activeIdx]);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return DragTarget<_TabDragData>(
+    return Semantics(
+      container: true,
+      label: 'Editor tabs',
+      child: KeyboardListener(
+        focusNode: _focusNode,
+        onKeyEvent: _handleKeyEvent,
+        child: DragTarget<_TabDragData>(
       onWillAcceptWithDetails: (details) {
         // Accept drops from different panels only.
         if (details.data.sourcePanelIndex == widget.panelIndex) return false;
@@ -87,6 +124,8 @@ class _ForgeEditorTabBarState extends State<ForgeEditorTabBar> {
           ),
         );
       },
+    ),
+    ),
     );
   }
 
@@ -204,8 +243,11 @@ class _ForgeEditorTabBarState extends State<ForgeEditorTabBar> {
       ),
     );
 
-    // Wrap tab in Draggable for cross-panel tab moves.
-    return Draggable<_TabDragData>(
+    // Wrap tab in Draggable for cross-panel tab moves, with accessibility.
+    return Semantics(
+      selected: isActive,
+      label: editor.title.value,
+      child: Draggable<_TabDragData>(
       data: _TabDragData(editor: editor, sourcePanelIndex: widget.panelIndex),
       feedback: Material(
         elevation: 4,
@@ -240,6 +282,7 @@ class _ForgeEditorTabBarState extends State<ForgeEditorTabBar> {
         child: tabContent,
       ),
       child: tabContent,
+      ),
     );
   }
 }
