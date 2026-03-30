@@ -122,11 +122,22 @@ This section is intended to cover title bar, menu bar, left/right/middle/bottom 
 ## 7. Panel Resizing and Splitter Behavior
 This section is intended to cover draggable splitters, min/max constraints, hover/drag affordances, and resize persistence expectations. Include checks for shell splitter mechanics and module/component behavior under panel size changes.
 
-- [ ] Section completed (finished on ...)
+- [x] Section completed (finished on 2026-03-30T06:08:30+02:00)
 
 | category | per module? | per component? | to be implemented in modules? | shell implementation done? | implemented on |
 |---|---|---|---|---|---|
-| | | | | | |
+| Left panel width is user-adjustable via dedicated drag handle | no | no | no | yes | documented in `forge_panel_shell_concept.md` left panel behavior |
+| Right panel width is user-adjustable via dedicated drag handle | no | no | no | yes | documented in `forge_panel_shell_concept.md` right panel behavior |
+| Bottom panel height is user-adjustable via top-edge drag handle | no | no | no | yes | documented in `forge_panel_shell_concept.md` bottom panel behavior |
+| Middle area supports multiple panels separated by draggable dividers | no | no | no | yes | documented in `forge_panel_shell_concept.md` middle panel structure |
+| Resizing is real-time during drag (no animation), with reset animation on double-click | no | no | no | yes | documented in `forge_panel_shell_spec.md` animation timing table |
+| Minimum size constraints exist (for example middle panel minimum width) | no | yes | yes (component/module layouts must respect bounds) | yes | documented in `forge_panel_shell_spec.md` dimensions/constraints |
+| Splitter hit target and visual thickness are explicitly defined | no | no | no | yes | documented in `forge_panel_shell_spec.md` divider constants |
+| Accordeon section splitters support manual separator drag when sections are pinned open | no | yes | yes | yes | documented in `forge_panel_shell_concept.md` accordeon behavior table |
+| Layout controller is responsible for resize bounds and restore behavior | yes | no | yes (module interactions via layout API) | yes | documented in `forge_panel_shell_spec.md` service test matrix |
+| Panel size and layout changes persist through layout persistence in core shell architecture | no | no | no | yes | documented in `forge_panel_shell_concept.md` layout persistence and architecture sections |
+| Implementation evidence in test app uses explicit drag-handle dividers and resizable/collapsible panels | yes | yes | yes | yes | documented in `tom_forge_ui_testapp.md` layout map and deliverables |
+| Test-app scope notes that restart persistence is intentionally not implemented there (while core concept specifies persistence) | no | no | no | yes (scope-specific) | documented in `tom_forge_ui_testapp.md` non-goals and `forge_panel_shell_concept.md` persistence model |
 
 ## 8. Tab Systems and Editor/View Tab UX
 This section is intended to cover tab creation, activation, close behavior, hover feedback, dirty indicators, and tab overflow behavior in middle and auxiliary panels. Include checks for shell tab controls and per-component tab title/state updates.
