@@ -22,12 +22,16 @@ class ForgeMenuBar extends StatelessWidget {
   final DefaultShellApi shellApi;
   final VoidCallback onCommandPalette;
   final VoidCallback? onSettings;
+  final ThemeMode currentThemeMode;
+  final ValueChanged<ThemeMode>? onThemeModeChanged;
 
   const ForgeMenuBar({
     super.key,
     required this.shellApi,
     required this.onCommandPalette,
     this.onSettings,
+    this.currentThemeMode = ThemeMode.dark,
+    this.onThemeModeChanged,
   });
 
   DefaultSystemState get _systemState => shellApi.systemState as DefaultSystemState;
@@ -212,6 +216,23 @@ class ForgeMenuBar extends StatelessWidget {
                 label: 'Bottom Panel',
                 shortcut: '⌘4',
                 onTap: () => _systemState.setFocusedPanelLocation(ForgePanelLocation.bottom),
+              ),
+              const _MenuDivider(),
+              _MenuSubHeader(label: 'Appearance'),
+              _MenuItem(
+                label: 'Dark Theme',
+                shortcut: currentThemeMode == ThemeMode.dark ? '✓' : '',
+                onTap: () => onThemeModeChanged?.call(ThemeMode.dark),
+              ),
+              _MenuItem(
+                label: 'Light Theme',
+                shortcut: currentThemeMode == ThemeMode.light ? '✓' : '',
+                onTap: () => onThemeModeChanged?.call(ThemeMode.light),
+              ),
+              _MenuItem(
+                label: 'High Contrast',
+                shortcut: currentThemeMode == ThemeMode.system ? '✓' : '',
+                onTap: () => onThemeModeChanged?.call(ThemeMode.system),
               ),
             ],
             isDark: isDark,
@@ -467,6 +488,22 @@ class _MenuOverlay extends StatelessWidget {
                       color: isDark ? Colors.grey[700] : Colors.grey[300],
                     );
                   }
+                  if (item is _MenuSubHeader) {
+                    return Padding(
+                      padding: const EdgeInsets.only(
+                        left: 20, right: 20, top: 6, bottom: 2,
+                      ),
+                      child: Text(
+                        item.label,
+                        style: TextStyle(
+                          color: isDark ? Colors.grey[500] : Colors.grey[600],
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    );
+                  }
                   final menuItem = item as _MenuItem;
                   return _MenuItemWidget(
                     item: menuItem,
@@ -562,4 +599,9 @@ class _MenuItem extends _MenuItemBase {
 
 class _MenuDivider extends _MenuItemBase {
   const _MenuDivider() : super();
+}
+
+class _MenuSubHeader extends _MenuItemBase {
+  final String label;
+  const _MenuSubHeader({required this.label}) : super();
 }

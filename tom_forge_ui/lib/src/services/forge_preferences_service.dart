@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
@@ -341,6 +340,15 @@ class ForgePreferencesService extends ChangeNotifier {
 
   Future<void> _saveLayoutOpenEditors() async {
     await _prefs!.setString(_keyLayoutOpenEditors, jsonEncode(_layoutOpenEditors));
+  }
+
+  ThemeMode _loadThemeMode() {
+    final str = _prefs!.getString(_keyThemeMode);
+    if (str == null) return ThemeMode.dark;
+    return ThemeMode.values.firstWhere(
+      (m) => m.name == str,
+      orElse: () => ThemeMode.dark,
+    );
   }
 
   ForgeTextSettings _textSettingsFromMap(Map<String, dynamic> json) {

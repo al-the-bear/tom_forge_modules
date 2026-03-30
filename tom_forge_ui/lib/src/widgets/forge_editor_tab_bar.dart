@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../components/forge_editor.dart';
+import '../theme/forge_shell_theme.dart';
+import 'forge_shell_scaffold.dart';
 
 /// Callback for when a tab is dropped onto this tab bar from another panel.
 /// [isCopy] is true when SHIFT was held during the drop (copy semantics).
@@ -99,14 +101,18 @@ class _ForgeEditorTabBarState extends State<ForgeEditorTabBar> {
         widget.onEditorDropped?.call(details.data.editor, isCopy: isCopy);
       },
       builder: (context, candidateData, rejectedData) {
-        return Container(
+        final shellTheme = Theme.of(context).extension<ForgeShellTheme>();
+        return AnimatedContainer(
+          duration: ForgeAnimations.dropZoneFade,
           height: 32,
           decoration: BoxDecoration(
-            color: theme.colorScheme.surface,
+            color: _isDragOver
+                ? (shellTheme?.dropZoneHighlight ?? theme.colorScheme.primary.withValues(alpha: 0.2))
+                : theme.colorScheme.surface,
             border: _isDragOver
                 ? Border(
                     bottom: BorderSide(
-                      color: theme.colorScheme.primary,
+                      color: shellTheme?.dropZoneValid ?? theme.colorScheme.primary,
                       width: 2,
                     ),
                   )
@@ -166,8 +172,8 @@ class _ForgeEditorTabBarState extends State<ForgeEditorTabBar> {
           onTap: () => widget.onSelect(editor),
           hoverColor: theme.colorScheme.surfaceContainer.withValues(alpha: 0.35),
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 120),
-            curve: Curves.easeOut,
+            duration: ForgeAnimations.tabTransition,
+            curve: ForgeAnimations.tabCurve,
             padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: BoxDecoration(
               color: tabBackground,
@@ -222,8 +228,8 @@ class _ForgeEditorTabBarState extends State<ForgeEditorTabBar> {
                       radius: 14,
                       onTap: () => widget.onClose(editor),
                       child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 120),
-                        curve: Curves.easeOut,
+                        duration: ForgeAnimations.tabTransition,
+                        curve: ForgeAnimations.tabCurve,
                         padding: const EdgeInsets.all(2),
                         decoration: BoxDecoration(
                           color: isCloseHovered
@@ -254,30 +260,33 @@ class _ForgeEditorTabBarState extends State<ForgeEditorTabBar> {
       label: editor.title.value,
       child: Draggable<_TabDragData>(
       data: _TabDragData(editor: editor, sourcePanelIndex: widget.panelIndex),
-      feedback: Material(
-        elevation: 4,
-        borderRadius: BorderRadius.circular(4),
-        child: Opacity(
-          opacity: 0.85,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(editor.icon, size: 14, color: theme.colorScheme.onSurface),
-                const SizedBox(width: 6),
-                ValueListenableBuilder<String>(
-                  valueListenable: editor.title,
-                  builder: (context, title, _) => Text(
-                    title,
-                    style: theme.textTheme.bodySmall,
+      feedback: MouseRegion(
+        cursor: SystemMouseCursors.grabbing,
+        child: Material(
+          elevation: 4,
+          borderRadius: BorderRadius.circular(4),
+          child: Opacity(
+            opacity: 0.85,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(editor.icon, size: 14, color: theme.colorScheme.onSurface),
+                  const SizedBox(width: 6),
+                  ValueListenableBuilder<String>(
+                    valueListenable: editor.title,
+                    builder: (context, title, _) => Text(
+                      title,
+                      style: theme.textTheme.bodySmall,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

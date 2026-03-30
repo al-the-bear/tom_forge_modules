@@ -27,17 +27,30 @@ import 'forge_status_bar_widget.dart';
 
 /// Animation constants for shell UI.
 class ForgeAnimations {
-  static const Duration panelTransition = Duration(milliseconds: 200);
-  static const Duration tabTransition = Duration(milliseconds: 150);
-  static const Duration dropZoneFade = Duration(milliseconds: 100);
-  static const Duration shortcutPopupIn = Duration(milliseconds: 150);
-  static const Duration shortcutPopupOut = Duration(milliseconds: 100);
-  static const Duration notificationIn = Duration(milliseconds: 200);
-  static const Duration notificationOut = Duration(milliseconds: 150);
+  /// When true, all durations return [Duration.zero] and curves use
+  /// [Curves.linear]. Enabled automatically in high-contrast mode.
+  static bool reduceMotion = false;
 
-  static const Curve panelCurve = Curves.easeOutCubic;
-  static const Curve tabCurve = Curves.easeOut;
-  static const Curve popupCurve = Curves.easeOutBack;
+  static Duration get panelTransition =>
+      reduceMotion ? Duration.zero : const Duration(milliseconds: 200);
+  static Duration get tabTransition =>
+      reduceMotion ? Duration.zero : const Duration(milliseconds: 150);
+  static Duration get dropZoneFade =>
+      reduceMotion ? Duration.zero : const Duration(milliseconds: 100);
+  static Duration get shortcutPopupIn =>
+      reduceMotion ? Duration.zero : const Duration(milliseconds: 150);
+  static Duration get shortcutPopupOut =>
+      reduceMotion ? Duration.zero : const Duration(milliseconds: 100);
+  static Duration get notificationIn =>
+      reduceMotion ? Duration.zero : const Duration(milliseconds: 200);
+  static Duration get notificationOut =>
+      reduceMotion ? Duration.zero : const Duration(milliseconds: 150);
+
+  static Curve get panelCurve =>
+      reduceMotion ? Curves.linear : Curves.easeOutCubic;
+  static Curve get tabCurve => reduceMotion ? Curves.linear : Curves.easeOut;
+  static Curve get popupCurve =>
+      reduceMotion ? Curves.linear : Curves.easeOutBack;
 }
 
 /// Dimension constants for shell layout.
@@ -168,6 +181,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     try {
       _applyPreferenceTextSettings();
       _propagateSettingsToActiveEditors();
+      // High-contrast mode (ThemeMode.system) activates reduced motion.
+      ForgeAnimations.reduceMotion =
+          _preferences.themeMode == ThemeMode.system;
       if (mounted) {
         setState(() {});
       }
@@ -425,9 +441,16 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
                         shellApi: widget.shell,
                         onCommandPalette: _toggleCommandPalette,
                         onSettings: _openSettings,
+                        currentThemeMode: _preferences.themeMode,
+                        onThemeModeChanged: (mode) {
+                          _preferences.themeMode = mode;
+                        },
                       ),
                     Expanded(child: _buildMainArea(context)),
-                    ForgeStatusBarWidget(controller: widget.statusBarController),
+                    ForgeStatusBarWidget(
+                      controller: widget.statusBarController,
+                      systemState: widget.systemState,
+                    ),
                   ],
                 ),
                 ForgeNotificationOverlay(manager: widget.notificationManager),
@@ -1347,8 +1370,8 @@ class _ResizeHandleState extends State<_ResizeHandle> {
 
     final grip = isVerticalDivider
         ? AnimatedContainer(
-            duration: const Duration(milliseconds: 120),
-            curve: Curves.easeOut,
+            duration: ForgeAnimations.panelTransition,
+            curve: ForgeAnimations.panelCurve,
             margin: EdgeInsets.symmetric(
               horizontal:
                   (ForgeDimensions.dividerHitTarget - gripThickness) / 2,
@@ -1359,8 +1382,8 @@ class _ResizeHandleState extends State<_ResizeHandle> {
             ),
           )
         : AnimatedContainer(
-            duration: const Duration(milliseconds: 120),
-            curve: Curves.easeOut,
+            duration: ForgeAnimations.panelTransition,
+            curve: ForgeAnimations.panelCurve,
             margin: EdgeInsets.symmetric(
               vertical: (ForgeDimensions.dividerHitTarget - gripThickness) / 2,
             ),

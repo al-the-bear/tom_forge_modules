@@ -2,19 +2,31 @@ import 'package:flutter/material.dart';
 
 import '../actions/status_bar_item.dart';
 import '../shell/forge_status_bar_controller.dart';
+import '../shell/forge_system_state.dart';
+import '../theme/forge_shell_theme.dart';
 
 /// Status bar widget (~24px) at the bottom of the shell scaffold.
 ///
 /// Reads [StatusBarItem]s from [ForgeStatusBarController] and
 /// segments them left / center / right by alignment, sorted by priority.
+/// When [systemState] is provided, items are filtered by their [StatusBarItem.isActive] callback.
 class ForgeStatusBarWidget extends StatelessWidget {
   final ForgeStatusBarController controller;
+  final ForgeSystemState? systemState;
 
-  const ForgeStatusBarWidget({super.key, required this.controller});
+  const ForgeStatusBarWidget({
+    super.key,
+    required this.controller,
+    this.systemState,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final items = controller.items;
+    var items = controller.items;
+    final state = systemState;
+    if (state != null) {
+      items = items.where((i) => i.isActive(state)).toList();
+    }
     final leftItems = items
         .where((i) => i.alignment == StatusBarAlignment.left)
         .toList()
@@ -29,10 +41,11 @@ class ForgeStatusBarWidget extends StatelessWidget {
       ..sort((a, b) => a.priority.compareTo(b.priority));
 
     final theme = Theme.of(context);
+    final shellTheme = theme.extension<ForgeShellTheme>();
 
     return Container(
       height: 24,
-      color: theme.colorScheme.primary,
+      color: shellTheme?.statusBarBackground ?? theme.colorScheme.primary,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Row(
         children: [
