@@ -25,6 +25,16 @@ abstract class ForgeEditor extends ForgeComponent {
   /// Whether this editor has unsaved changes.
   ValueListenable<bool> get isDirty;
 
+  /// Reset the dirty state to clean (e.g., after save).
+  ///
+  /// Called by the save lifecycle to mark the editor as saved.
+  void markClean();
+
+  /// Get the current content of the editor for saving.
+  ///
+  /// Returns null if this editor type doesn't support content retrieval.
+  String? getContent() => null;
+
   /// Serialize editor state (cursor position, scroll, selections, etc.)
   /// for persistence to `.forge/state/editors/`.
   ///

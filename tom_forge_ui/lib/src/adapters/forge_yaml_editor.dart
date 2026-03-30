@@ -90,6 +90,14 @@ class ForgeYamlEditor extends ForgeSchemaEditor {
   ValueListenable<bool> get isDirty => controller.isDirtyNotifier;
 
   @override
+  void markClean() {
+    controller.markClean();
+  }
+
+  @override
+  String? getContent() => controller.yamlText;
+
+  @override
   Map<String, dynamic>? saveState() {
     return {
       'schemaLabel': schemaLabel,

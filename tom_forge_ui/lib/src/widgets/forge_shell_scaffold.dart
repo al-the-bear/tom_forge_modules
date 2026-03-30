@@ -137,6 +137,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   late final ForgePreferencesService _preferences;
   StreamSubscription<Uri>? _saveSubscription;
   StreamSubscription<EditorListChangeEvent>? _editorChangeSubscription;
+  StreamSubscription<DirtyStateEvent>? _dirtyStateSubscription;
+  StreamSubscription<WindowFocusEvent>? _windowFocusSubscription;
+  Timer? _autoSaveTimer;
 
   /// Flex factors for middle editor panels (1.0 per panel by default).
   /// Adjusted during drag-resize of middle panel dividers.
@@ -150,12 +153,16 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     _initializePreferences();
     _listenForSaveRevisions();
     _listenForEditorChanges();
+    _listenForAutoSave();
   }
 
   @override
   void dispose() {
+    _autoSaveTimer?.cancel();
     _saveSubscription?.cancel();
     _editorChangeSubscription?.cancel();
+    _dirtyStateSubscription?.cancel();
+    _windowFocusSubscription?.cancel();
     _preferences.removeListener(_onPreferencesChanged);
     _saveAllEditorStates();
     _saveLayoutState();
@@ -369,6 +376,60 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         }
       }
     });
+  }
+
+  /// Sets up auto-save based on configuration.
+  ///
+  /// Auto-save triggers:
+  /// - After idle delay when editor becomes dirty
+  /// - On window focus loss (if enabled in config)
+  void _listenForAutoSave() {
+    final config = widget.shell.config.current;
+    if (!config.autoSave.enabled) return;
+
+    // Listen for dirty state changes to trigger auto-save timer.
+    _dirtyStateSubscription = widget.systemState.onDirtyStateChanged.listen((event) {
+      if (event.isDirty) {
+        _scheduleAutoSave(config.autoSave.idleDelay);
+      }
+    });
+
+    // Listen for window focus loss to trigger auto-save.
+    if (config.autoSave.saveOnFocusLoss) {
+      _windowFocusSubscription = widget.systemState.onWindowFocusChanged.listen((event) {
+        if (!event.focused && widget.systemState.hasUnsavedChanges) {
+          _performAutoSave(SaveReason.focusLoss);
+        }
+      });
+    }
+  }
+
+  /// Schedules auto-save after the given delay.
+  void _scheduleAutoSave(Duration delay) {
+    _autoSaveTimer?.cancel();
+    _autoSaveTimer = Timer(delay, () => _performAutoSave(SaveReason.autoSave));
+  }
+
+  /// Performs auto-save on all dirty editors.
+  Future<void> _performAutoSave(SaveReason reason) async {
+    final dirtyEditors = widget.systemState.dirtyEditors.toList();
+    for (final editor in dirtyEditors) {
+      try {
+        final content = editor.getContent();
+        if (content != null) {
+          await widget.shell.fileSystem.write(editor.uri, content);
+        }
+        await widget.shell.fileSystem.save(editor.uri);
+        editor.markClean();
+        if (debugEnabled) {
+          debugPrint('[ForgeShellScaffold] auto-saved: ${editor.uri} (reason: $reason)');
+        }
+      } catch (e) {
+        if (debugEnabled) {
+          debugPrint('[ForgeShellScaffold] auto-save failed for ${editor.uri}: $e');
+        }
+      }
+    }
   }
 
   /// Saves all open editor states to `.forge/state/editors/` on shutdown.

@@ -127,6 +127,14 @@ class ForgeDartEditor extends ForgeTextEditor {
   ValueListenable<bool> get isDirty => _isDirty;
 
   @override
+  void markClean() {
+    _isDirty.value = false;
+  }
+
+  @override
+  String? getContent() => controller.userCode;
+
+  @override
   Map<String, dynamic>? saveState() {
     final cursor = _cursorPos.value;
     final sel = _selection.value;

@@ -202,7 +202,7 @@ class ForgeTestTextEditor extends ForgeTextEditor {
   Map<String, List<ForgeDecorationRange>> get appliedDecorations =>
       Map.unmodifiable(_decorations);
 
-  /// Mark the editor as clean (e.g. after a simulated save).
+  @override
   void markClean() {
     _isDirty.value = false;
   }
