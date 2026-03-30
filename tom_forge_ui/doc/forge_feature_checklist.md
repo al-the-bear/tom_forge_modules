@@ -362,11 +362,22 @@ This section is intended to cover status bar item contribution, placement, updat
 ## 19. Terminal, Process, and Runtime Tooling Integration
 This section is intended to cover terminal manager behavior, terminal lifecycle events, process/output integration, and module usage of runtime tooling services. Include checks for shell terminal infrastructure and module-level runtime interactions.
 
-- [ ] Section completed (finished on ...)
+- [x] Section completed (finished on 2026-03-30T06:31:54+02:00)
 
 | category | per module? | per component? | to be implemented in modules? | shell implementation done? | implemented on |
 |---|---|---|---|---|---|
-| | | | | | |
+| Shell API exposes runtime tooling services (`terminals`, `clipboard`, `environment`) | yes | no | yes | yes | documented in `forge_panel_shell_concept.md` `ForgeShellApi` services |
+| Terminal view is a first-class shell module surface with bottom-panel integration | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` shell module table (`shellModule.terminal`) |
+| Terminal backend model is PTY-based on desktop with support for multiple terminal tabs | no | yes | yes | yes | documented in `forge_panel_shell_concept.md` terminal view description |
+| Terminal manager supports creation with runtime options (`name`, `shellPath`, `cwd`) | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` `ForgeTerminalManager.create` |
+| Terminal lifecycle collection is defined (`terminals`, `activeTerminal`) for runtime state tracking | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` terminal manager contract |
+| Terminal lifecycle events are defined (`onDidOpen`, `onDidClose`, `onDidChangeActive`) | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` terminal event streams |
+| Terminal interaction API supports command/input dispatch (`sendText`) | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` `ForgeTerminal.sendText` |
+| Terminal visibility/lifecycle operations are explicit (`show`, `close`, dispose semantics) | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` `ForgeTerminal` interface |
+| Runtime process and output integration is expected through terminal + output channel tooling | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` service locator/runtime stack and `forge_panel_shell_spec.md` terminal scenario |
+| Environment service includes external runtime handoff (`openExternal(Uri)`) | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` environment interface and `tom_forge_ui_testapp.md` environment behavior |
+| Execution-monitor runtime surface is defined for live process/execution signaling | yes | yes | yes | yes | documented in `forge_panel_shell_concept.md` `shellModule.execution` notes |
+| Test coverage expectations include terminal manager service tests and long-running-command scenarios | yes | no | yes | yes | documented in `forge_panel_shell_spec.md` test matrix (`terminal_manager_test.dart`) |
 
 ## 20. Editor Base Contracts and Text Editing Core
 This section is intended to cover `ForgeEditor`/`ForgeTextEditor`/`ForgeDocument` contracts, text operations, selection/cursor/visible range reporting, and editor integration bridge behavior. Include checks for shared Forge editor base and each integrated editor module.
