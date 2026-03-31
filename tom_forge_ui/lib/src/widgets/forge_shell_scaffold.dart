@@ -162,6 +162,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   StreamSubscription<WindowFocusEvent>? _windowFocusSubscription;
   StreamSubscription<ConfigChangeEvent>? _configChangeSubscription;
   StreamSubscription<ForgeChordEvent>? _chordSubscription;
+  StreamSubscription<ForgeTerminal>? _terminalOpenSubscription;
+  StreamSubscription<ForgeTerminal>? _terminalCloseSubscription;
+  StreamSubscription<ForgeTerminal?>? _terminalActiveSubscription;
   Timer? _autoSaveTimer;
 
   /// Flex factors for middle editor panels (1.0 per panel by default).
@@ -175,6 +178,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     _preferences.addListener(_onPreferencesChanged);
     _initializePreferences();
     _wireDialogCallbacks();
+    _wireTerminalCallbacks();
     _listenForSaveRevisions();
     _listenForEditorChanges();
     _listenForAutoSave();
@@ -191,6 +195,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     _windowFocusSubscription?.cancel();
     _configChangeSubscription?.cancel();
     _chordSubscription?.cancel();
+    _terminalOpenSubscription?.cancel();
+    _terminalCloseSubscription?.cancel();
+    _terminalActiveSubscription?.cancel();
     _preferences.removeListener(_onPreferencesChanged);
     _saveAllEditorStates();
     _saveLayoutState();
@@ -303,6 +310,31 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       if (result == null) return null;
       return Uri.file(result);
     };
+  }
+
+  /// Wires terminal lifecycle events to scaffold-level behavior:
+  /// auto-opens the bottom panel on terminal creation and updates
+  /// status when the active terminal changes.
+  void _wireTerminalCallbacks() {
+    final terminals = widget.shell.terminals;
+
+    _terminalOpenSubscription = terminals.onDidOpen.listen((terminal) {
+      // Auto-show bottom panel when a terminal is created.
+      _layout.openPanel(ForgePanelLocation.bottom);
+    });
+
+    _terminalCloseSubscription = terminals.onDidClose.listen((terminal) {
+      // Notify user when a terminal is closed.
+      widget.shell.notifications.showInformation(
+        'Terminal "${terminal.name}" closed',
+      );
+    });
+
+    _terminalActiveSubscription =
+        terminals.onDidChangeActive.listen((terminal) {
+      // Refresh state to update status bar or other reactive UI.
+      if (mounted) setState(() {});
+    });
   }
 
   void _onPreferencesChanged() {
