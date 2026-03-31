@@ -1,5 +1,6 @@
 import '../actions/forge_action.dart';
 import '../actions/forge_shortcut_binding.dart';
+import '../actions/forge_shortcut_menu.dart';
 import '../actions/status_bar_item.dart';
 import '../components/forge_editor.dart';
 import '../components/forge_view.dart';
@@ -34,6 +35,9 @@ abstract class ForgeModule {
 
   /// Context menu contributions.
   List<ForgeContextMenuContribution> get contextMenus => [];
+
+  /// Custom shortcut menus activated by `Shift+Cmd/Ctrl+<key>`.
+  List<ForgeShortcutMenu> get shortcutMenus => [];
 
   /// Status bar items this module contributes.
   List<StatusBarItem> get statusBarItems => [];

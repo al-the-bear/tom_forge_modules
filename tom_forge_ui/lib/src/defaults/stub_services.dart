@@ -1,9 +1,11 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 
 import '../actions/forge_action.dart';
 import '../actions/forge_shortcut_binding.dart';
+import '../actions/forge_shortcut_menu.dart';
 import '../module/forge_module.dart';
 import '../services/forge_file_decoration_manager.dart';
 import '../services/forge_module_storage.dart';
@@ -184,6 +186,12 @@ class DefaultShortcutManager implements ForgeShortcutManager {
   final StreamController<ForgeChordEvent> _chordController =
       StreamController<ForgeChordEvent>.broadcast();
 
+  // Menu state.
+  final List<ForgeShortcutMenu> _menus = [];
+  ForgeShortcutMenu? _activeMenu;
+  final StreamController<ForgeShortcutMenuEvent> _menuController =
+      StreamController<ForgeShortcutMenuEvent>.broadcast();
+
   /// Set up initial bindings from modules.
   void loadBindings(List<ForgeShortcutBinding> bindings) {
     _bindings
@@ -321,10 +329,79 @@ class DefaultShortcutManager implements ForgeShortcutManager {
     return null;
   }
 
+  // ── Menu support ──
+
+  @override
+  List<ForgeShortcutMenu> get allMenus => List.unmodifiable(_menus);
+
+  @override
+  ForgeShortcutMenu? getMenuForTrigger(LogicalKeyboardKey triggerKey) {
+    for (final menu in _menus) {
+      if (menu.triggerKey == triggerKey) return menu;
+    }
+    return null;
+  }
+
+  @override
+  void registerMenu(ForgeShortcutMenu menu) {
+    // Replace existing menu with same trigger key.
+    _menus.removeWhere((m) => m.triggerKey == menu.triggerKey);
+    _menus.add(menu);
+  }
+
+  @override
+  ForgeShortcutMenu? get activeMenu => _activeMenu;
+
+  @override
+  Stream<ForgeShortcutMenuEvent> get onMenuStateChanged =>
+      _menuController.stream;
+
+  @override
+  bool openMenu(LogicalKeyboardKey triggerKey) {
+    final menu = getMenuForTrigger(triggerKey);
+    if (menu == null) return false;
+    _activeMenu = menu;
+    _menuController.add(ForgeShortcutMenuEvent(
+      state: ForgeShortcutMenuState.opened,
+      menu: menu,
+    ));
+    return true;
+  }
+
+  @override
+  ForgeShortcutMenuEntry? handleMenuKey(LogicalKeyboardKey key) {
+    if (_activeMenu == null) return null;
+    for (final entry in _activeMenu!.entries) {
+      if (entry.key == key) {
+        final selected = entry;
+        _activeMenu = null;
+        _menuController.add(ForgeShortcutMenuEvent(
+          state: ForgeShortcutMenuState.selected,
+          selectedEntry: selected,
+        ));
+        return selected;
+      }
+    }
+    // No match — close the menu.
+    closeMenu();
+    return null;
+  }
+
+  @override
+  void closeMenu() {
+    if (_activeMenu != null) {
+      _activeMenu = null;
+      _menuController.add(const ForgeShortcutMenuEvent(
+        state: ForgeShortcutMenuState.closed,
+      ));
+    }
+  }
+
   /// Dispose resources.
   void dispose() {
     _chordTimer?.cancel();
     _chordController.close();
+    _menuController.close();
   }
 }
 

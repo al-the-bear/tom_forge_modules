@@ -4,6 +4,7 @@ library;
 // ── Actions ──
 export 'src/actions/forge_action.dart';
 export 'src/actions/forge_shortcut_binding.dart';
+export 'src/actions/forge_shortcut_menu.dart';
 export 'src/actions/status_bar_item.dart';
 
 // ── Adapters ──
@@ -113,6 +114,7 @@ export 'src/widgets/forge_open_with_dialog.dart';
 export 'src/widgets/forge_panel_widget.dart';
 export 'src/widgets/forge_quick_pick_overlay.dart';
 export 'src/widgets/forge_shell_scaffold.dart';
+export 'src/widgets/forge_shortcut_menu_popup.dart';
 export 'src/widgets/forge_status_bar_widget.dart';
 export 'src/widgets/workspace_folder_selector.dart';
 

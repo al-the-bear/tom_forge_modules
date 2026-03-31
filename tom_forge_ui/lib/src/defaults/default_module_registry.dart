@@ -96,6 +96,9 @@ class DefaultModuleRegistry implements ForgeModuleRegistry {
         for (final binding in module.shortcuts) {
           shortcutManager.rebind(binding.action, binding.key);
         }
+        for (final menu in module.shortcutMenus) {
+          shortcutManager.registerMenu(menu);
+        }
       }
     } catch (error, stackTrace) {
       _moduleStates[module.runtimeType] = ModuleState.error;

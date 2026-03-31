@@ -38,6 +38,7 @@ import 'forge_menu_bar.dart';
 import 'forge_notification_overlay.dart';
 import 'forge_open_with_dialog.dart';
 import 'forge_panel_widget.dart';
+import 'forge_shortcut_menu_popup.dart';
 import 'forge_status_bar_widget.dart';
 
 /// Animation constants for shell UI.
@@ -161,6 +162,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   StreamSubscription<WindowFocusEvent>? _windowFocusSubscription;
   StreamSubscription<ConfigChangeEvent>? _configChangeSubscription;
   StreamSubscription<ForgeChordEvent>? _chordSubscription;
+  StreamSubscription<ForgeShortcutMenuEvent>? _menuSubscription;
   StreamSubscription<ForgeTerminal>? _terminalOpenSubscription;
   StreamSubscription<ForgeTerminal>? _terminalCloseSubscription;
   StreamSubscription<ForgeTerminal?>? _terminalActiveSubscription;
@@ -183,6 +185,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     _listenForAutoSave();
     _listenForConfigChanges();
     _listenForChordCompletions();
+    _listenForMenuSelections();
   }
 
   @override
@@ -194,6 +197,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     _windowFocusSubscription?.cancel();
     _configChangeSubscription?.cancel();
     _chordSubscription?.cancel();
+    _menuSubscription?.cancel();
     _terminalOpenSubscription?.cancel();
     _terminalCloseSubscription?.cancel();
     _terminalActiveSubscription?.cancel();
@@ -808,6 +812,17 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     });
   }
 
+  /// Listens for shortcut menu selections to execute the chosen action.
+  void _listenForMenuSelections() {
+    _menuSubscription =
+        widget.shell.shortcuts.onMenuStateChanged.listen((event) {
+      if (event.state == ForgeShortcutMenuState.selected &&
+          event.selectedEntry != null) {
+        widget.shell.executeAction(event.selectedEntry!.action.id);
+      }
+    });
+  }
+
   /// Converts a [KeyEvent] to a [ForgeShortcutKey] for chord matching.
   ForgeShortcutKey? _keyEventToShortcutKey(KeyEvent event) {
     if (event is! KeyDownEvent) return null;
@@ -843,15 +858,21 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     );
   }
 
-  /// Key event handler that intercepts chord shortcut sequences.
+  /// Key event handler that intercepts chord shortcut sequences and
+  /// shortcut menu triggers.
   ///
   /// Returns [KeyEventResult.handled] when a chord is in progress or
-  /// completed, preventing the normal [Shortcuts] widget from processing
+  /// completed, or when a shortcut menu is opened or a follow-up key
+  /// is matched, preventing the normal [Shortcuts] widget from processing
   /// the event.
   KeyEventResult _handleChordKeyEvent(FocusNode node, KeyEvent event) {
-    // Cancel chord on Escape.
+    // Cancel chord or close menu on Escape.
     if (event is KeyDownEvent &&
         event.logicalKey == LogicalKeyboardKey.escape) {
+      if (widget.shell.shortcuts.activeMenu != null) {
+        widget.shell.shortcuts.closeMenu();
+        return KeyEventResult.handled;
+      }
       if (widget.shell.shortcuts.isChordPending) {
         widget.shell.shortcuts.cancelChord();
         return KeyEventResult.handled;
@@ -861,6 +882,21 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
 
     final shortcutKey = _keyEventToShortcutKey(event);
     if (shortcutKey == null) return KeyEventResult.ignored;
+
+    // If a shortcut menu is open, route follow-up keys to it.
+    if (widget.shell.shortcuts.activeMenu != null) {
+      // The user may still hold Shift+Cmd/Ctrl — strip modifiers and
+      // match on the bare key.
+      widget.shell.shortcuts.handleMenuKey(shortcutKey.key);
+      return KeyEventResult.handled;
+    }
+
+    // Detect Shift+PrimaryModifier+<key> to open a shortcut menu.
+    if (shortcutKey.shift && shortcutKey.primaryModifier && !shortcutKey.alt) {
+      if (widget.shell.shortcuts.openMenu(shortcutKey.key)) {
+        return KeyEventResult.handled;
+      }
+    }
 
     final result = widget.shell.shortcuts.handleKeyForChord(shortcutKey);
     if (result != null) {
@@ -916,6 +952,10 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
                   ForgeNotificationOverlay(manager: widget.notificationManager),
                   // Chord shortcut overlay (shows available second keys).
                   ForgeChordOverlay(shortcutManager: widget.shell.shortcuts),
+                  // Shortcut menu overlay (concept §11.4).
+                  ForgeShortcutMenuPopup(
+                    shortcutManager: widget.shell.shortcuts,
+                  ),
                   // Open With dialog when multiple editors can handle a file.
                   ValueListenableBuilder<(Uri, List<ForgeEditor>)?>(
                     valueListenable: _layout.pendingEditorChoice,
