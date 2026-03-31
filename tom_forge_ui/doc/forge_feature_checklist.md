@@ -615,3 +615,162 @@ This section is intended to provide a cross-cutting checklist matrix for every f
 | Module-scoped persistence is provided through shell storage service (`forModule`) with typed module identity | yes | no | yes | yes | yes | yes | `TestAppModule` and `ForgeAppModule` use `shell.storage.forModule(this)` to persist `activationCount` and `lastActivePanel`; state restored on `activate()`, saved on `deactivate()` |
 | Cross-module access uses typed module registry lookups (`shell.modules.get<T>()`) instead of string identifiers | yes | no | yes | yes | yes | yes | `TestAppModule._logShellModuleCapabilities()` calls `shell.modules.get<TomForgeShellModule>()` to query `supportedExtensions`; fully tested in `feature_matrix_scope_test.dart` |
 | Staging-to-production integration workflow preserves module composition, actions, shortcuts, views, and status bar responsibilities | yes | yes | yes | yes | yes | yes | `ForgeAppModule` mirrors `TestAppModule` with identical provider registration, persistence, and lifecycle patterns; verified by 5 parity tests in `feature_matrix_parity_test.dart` |
+
+---
+
+## Implementation Plan
+
+This section groups the 33 incomplete checklist rows into implementation steps ordered by dependency and risk. Each step is scoped to be completable in a single session with full QA.
+
+### Step 1 — Shortcut Binding Alignment (4 rows)
+
+Rebind shortcuts to match concept §11.3 exactly. No new UI — only binding changes in `test_app_module.dart`, `forge_app_module.dart`, and `forge_shell_scaffold.dart`.
+
+| Line | Section | Row |
+|------|---------|-----|
+| L220 | §10 | Rebind undo/redo: `Cmd+U` = undo, `Cmd+Z` = redo (concept §11.3) |
+| L221 | §10 | Add `Cmd+F` shortcut bound to `editor.find` action |
+| L222 | §10 | Add `Cmd+Y` shortcut bound to `editor.deleteLine` action |
+| L226 | §10 | Remove extra single-modifier bindings not in concept §11.3; rebind `Cmd+S` to saveAll |
+
+**Depends on:** nothing
+**Unlocks:** Step 2 (clean shortcut state needed before adding menus)
+
+### Step 2 — Remove Non-Concept Pre-Assigned Shortcuts and Chord Bindings (1 row)
+
+Remove all `Ctrl+Shift+*` direct-action bindings and the `Ctrl+K` chord prefix. Actions remain accessible via command palette. This clears the `Shift+Cmd/Ctrl+*` namespace for custom shortcut menus.
+
+| Line | Section | Row |
+|------|---------|-----|
+| L219 | §10 | Only concept §11.3 standard shortcuts are pre-assigned — all others have no default shortcut |
+
+**Depends on:** Step 1
+**Unlocks:** Step 3 (clean namespace for menu system)
+
+### Step 3 — Custom Shortcut Menu System (2 rows)
+
+New architecture: `ForgeShortcutMenu` data model, `ForgeShortcutMenuPopup` widget anchored to command palette area, module registration API, `?` help key. Implement Explorer menu example from concept §11.4 (`Shift+Cmd+E` → R/N/D/C).
+
+| Line | Section | Row |
+|------|---------|-----|
+| L218 | §10 | Custom shortcut menus: `Shift+Cmd/Ctrl+<key>` popup from command palette |
+| L225 | §10 | Module-contributed `Shift+Cmd/Ctrl+<letter>` trigger menus |
+
+**Depends on:** Step 2 (clean namespace)
+**Unlocks:** Step 5 (editor context menu can reference menu actions)
+
+### Step 4 — Undo Bridge and Composite Grouping (5 rows)
+
+Wire editors to push `UndoEntry` to shell `ForgeUndoManager` on each text change. Add `beginUndoGroup()`/`endUndoGroup()` API. Define `.forge/undo/` and `.forge/revisions/` persistence artifacts. Add undo manager regression tests.
+
+| Line | Section | Row |
+|------|---------|-----|
+| L56  | §2  | Undo history persisted under `.forge/undo/{uri-hash}/` |
+| L452 | §21 | Undo/redo persistence and revision artifacts under `.forge/undo` and `.forge/revisions` |
+| L454 | §21 | Undo manager tests plus dirty/save regression checks |
+| L455 | §21 | Text edit undo bridge: editors push `UndoEntry` to shell `ForgeUndoManager` |
+| L456 | §21 | Composite undo grouping for multi-operation atomicity |
+
+**Depends on:** nothing (can run parallel to Steps 1–3)
+**Unlocks:** Step 8 (format document needs composite undo)
+
+### Step 5 — Editor Context Menu and Find/Replace Bar (2 rows)
+
+New widgets: right-click context menu on editor area (`cut`/`copy`/`paste`/`format`/editor-specific actions) and in-editor find/replace bar with next/prev/replace/replaceAll.
+
+| Line | Section | Row |
+|------|---------|-----|
+| L229 | §10 | Editor-area context menu on right-click |
+| L408 | §19 | In-editor find/replace bar UI with interactive search |
+
+**Depends on:** Step 1 (`Cmd+F` must be wired)
+**Unlocks:** nothing
+
+### Step 6 — Wiring Existing Demos to Editors: Status Bar and Module Storage (6 rows)
+
+Connect already-built status bar controller, alignment zones, priority ordering, and module-scoped persistence to editor integration paths. These are demo=yes/wired=no — the code exists, it just needs plumbing to editors.
+
+| Line | Section | Row |
+|------|---------|-----|
+| L360 | §17 | Wire `ForgeStatusBarController` to editors |
+| L364 | §17 | Wire placement model alignment zones to editor status items |
+| L365 | §17 | Wire ordering-by-priority within alignment zones |
+| L369 | §17 | Wire progress signaling to status bar (including high-contrast mode) |
+| L533 | §25 | Wire `ForgeModuleStorage` to editors for per-module persistence |
+| L534 | §25 | Wire split/local persistence mode to editor workspace state |
+
+**Depends on:** nothing
+**Unlocks:** Step 7
+
+### Step 7 — Wiring Existing Demos to Editors: Error Handling and Recovery (5 rows)
+
+Connect module activation failure isolation, error-state marking, diagnostics emission, retry utility, and error scenario test expectations to editor integration.
+
+| Line | Section | Row |
+|------|---------|-----|
+| L548 | §26 | Wire network timeout non-fatal path with status indication |
+| L549 | §26 | Wire module activation failure isolation to editor context |
+| L550 | §26 | Wire module failure recovery diagnostics to editor notifications |
+| L551 | §26 | Wire retry utility contract to editor error flows |
+| L557 | §26 | Add explicit module error scenario tests (toast + Problems while other modules work) |
+
+**Depends on:** Step 6 (status bar wiring needed for error indicators)
+**Unlocks:** nothing
+
+### Step 8 — Wiring Existing Demos to Editors: Tests and Validation (3 rows)
+
+Add high-contrast widget tests, golden tests for theme parity, and status bar controller/widget segment tests.
+
+| Line | Section | Row |
+|------|---------|-----|
+| L271 | §12 | High-contrast widget tests and parity validation checkpoints |
+| L291 | §13 | Golden tests for default/dark/high-contrast themes |
+| L371 | §17 | Dedicated status bar controller tests and widget segment tests |
+
+**Depends on:** Steps 6–7 (need wired code to test)
+**Unlocks:** nothing
+
+### Step 9 — Configuration, Settings UI, and File Type Overrides (4 rows)
+
+Shortcut editor settings page, configuration dialog editor toggles (line numbers, word wrap, highlight current line), file type override path, format document implementation.
+
+| Line | Section | Row |
+|------|---------|-----|
+| L228 | §10 | Shortcut editor UI (view, search, rebind keyboard shortcuts) |
+| L434 | §20 | Configuration dialog editor toggles |
+| L457 | §21 | Format document action performs actual formatting (custom menu secondary action) |
+| L471 | §22 | File type configuration and Open-with defaults override path |
+
+**Depends on:** Step 3 (shortcut editor needs menu system), Step 4 (format needs composite undo)
+**Unlocks:** nothing
+
+### Step 10 — Remaining Shell Items (2 rows)
+
+Tools menu surface and panel layout persistence.
+
+| Line | Section | Row |
+|------|---------|-----|
+| L138 | §6  | Panel size and layout changes persist through layout persistence |
+| L251 | §11 | `Tools` menu surface populated from modules |
+
+**Depends on:** Step 3 (Tools menu may reference shortcut menus)
+**Unlocks:** nothing
+
+### Dependency Graph
+
+```
+Step 1 (shortcut bindings)
+  → Step 2 (remove non-concept shortcuts)
+    → Step 3 (custom shortcut menu system)
+      → Step 5 (context menu + find/replace)
+      → Step 9 (settings UI, format action)
+      → Step 10 (tools menu, panel persistence)
+
+Step 4 (undo bridge) ──────→ Step 9 (format needs composite undo)
+
+Step 6 (status bar + storage wiring)
+  → Step 7 (error handling wiring)
+    → Step 8 (tests + golden validation)
+```
+
+Steps 1–3 and Step 4 can proceed in parallel. Steps 6–8 can proceed in parallel with all other steps.
