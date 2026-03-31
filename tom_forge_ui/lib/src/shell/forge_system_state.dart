@@ -16,6 +16,14 @@ abstract class ForgeSystemState {
   bool get isFocusedComponentMain;
   ForgePanelLocation? get focusedPanelLocation;
 
+  /// Moves focus to the next visible panel in cycle order
+  /// (left → middle → right → bottom → left).
+  void focusNextPanel();
+
+  /// Moves focus to the previous visible panel in reverse cycle order
+  /// (left ← middle ← right ← bottom ← left).
+  void focusPreviousPanel();
+
   // ── Editors ──
   List<ForgeEditor> get openEditors;
   ForgeEditor? get activeEditor;

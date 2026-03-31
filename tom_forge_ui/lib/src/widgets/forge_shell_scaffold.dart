@@ -13,6 +13,7 @@ import '../components/forge_editor.dart';
 import '../components/forge_text_editor.dart';
 import '../defaults/default_layout_controller.dart';
 import '../defaults/default_shell_api.dart';
+import '../services/forge_accessibility.dart';
 import '../defaults/default_system_state.dart';
 import '../defaults/default_workspace_state_manager.dart';
 import '../model/forge_application.dart';
@@ -790,15 +791,18 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
                     builder: (context, choice, _) {
                       if (choice == null) return const SizedBox.shrink();
                       final (uri, editors) = choice;
-                      return ForgeOpenWithDialog(
-                        uri: uri,
-                        editors: editors,
-                        onEditorSelected: (editor) {
-                          _layout.resolveEditorChoice(editor, uri);
-                        },
-                        onCancel: () {
-                          _layout.pendingEditorChoice.value = null;
-                        },
+                      return FocusScope(
+                        autofocus: true,
+                        child: ForgeOpenWithDialog(
+                          uri: uri,
+                          editors: editors,
+                          onEditorSelected: (editor) {
+                            _layout.resolveEditorChoice(editor, uri);
+                          },
+                          onCancel: () {
+                            _layout.pendingEditorChoice.value = null;
+                          },
+                        ),
                       );
                     },
                   ),
@@ -1058,6 +1062,10 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
             const _FocusRightPanelIntent(),
         primaryActivator(LogicalKeyboardKey.digit4):
             const _FocusBottomPanelIntent(),
+        primaryActivator(LogicalKeyboardKey.bracketRight):
+            const _FocusNextPanelIntent(),
+        primaryActivator(LogicalKeyboardKey.bracketLeft):
+            const _FocusPreviousPanelIntent(),
         primaryActivator(LogicalKeyboardKey.keyS): const _SaveIntent(),
       };
 
@@ -1096,24 +1104,42 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       _FocusLeftPanelIntent: CallbackAction<_FocusLeftPanelIntent>(
         onInvoke: (_) {
           widget.systemState.setFocusedPanelLocation(ForgePanelLocation.left);
+          ForgeAccessibility.announcePolite('Left panel focused');
           return null;
         },
       ),
       _FocusCenterIntent: CallbackAction<_FocusCenterIntent>(
         onInvoke: (_) {
           widget.systemState.setFocusedPanelLocation(ForgePanelLocation.middle);
+          ForgeAccessibility.announcePolite('Editor panel focused');
           return null;
         },
       ),
       _FocusRightPanelIntent: CallbackAction<_FocusRightPanelIntent>(
         onInvoke: (_) {
           widget.systemState.setFocusedPanelLocation(ForgePanelLocation.right);
+          ForgeAccessibility.announcePolite('Right panel focused');
           return null;
         },
       ),
       _FocusBottomPanelIntent: CallbackAction<_FocusBottomPanelIntent>(
         onInvoke: (_) {
           widget.systemState.setFocusedPanelLocation(ForgePanelLocation.bottom);
+          ForgeAccessibility.announcePolite('Bottom panel focused');
+          return null;
+        },
+      ),
+      _FocusNextPanelIntent: CallbackAction<_FocusNextPanelIntent>(
+        onInvoke: (_) {
+          widget.systemState.focusNextPanel();
+          ForgeAccessibility.announcePolite('Next panel focused');
+          return null;
+        },
+      ),
+      _FocusPreviousPanelIntent: CallbackAction<_FocusPreviousPanelIntent>(
+        onInvoke: (_) {
+          widget.systemState.focusPreviousPanel();
+          ForgeAccessibility.announcePolite('Previous panel focused');
           return null;
         },
       ),
@@ -1128,6 +1154,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
 
   void _toggleCommandPalette() {
     setState(() => _showCommandPalette = !_showCommandPalette);
+    if (_showCommandPalette) {
+      ForgeAccessibility.announceAssertive('Command palette opened');
+    }
   }
 
   void _executeSave() {
@@ -1787,6 +1816,14 @@ class _FocusRightPanelIntent extends Intent {
 
 class _FocusBottomPanelIntent extends Intent {
   const _FocusBottomPanelIntent();
+}
+
+class _FocusNextPanelIntent extends Intent {
+  const _FocusNextPanelIntent();
+}
+
+class _FocusPreviousPanelIntent extends Intent {
+  const _FocusPreviousPanelIntent();
 }
 
 class _SaveIntent extends Intent {

@@ -35,6 +35,9 @@ class ForgeShellTheme extends ThemeExtension<ForgeShellTheme> {
   /// Chord popup text/foreground color.
   final Color chordPopupForeground;
 
+  /// Focus ring color for keyboard-navigated elements.
+  final Color focusRing;
+
   const ForgeShellTheme({
     required this.panelSurface,
     required this.panelDivider,
@@ -46,6 +49,7 @@ class ForgeShellTheme extends ThemeExtension<ForgeShellTheme> {
     required this.statusBarBackground,
     required this.chordPopupBackground,
     required this.chordPopupForeground,
+    required this.focusRing,
   });
 
   /// Dark theme variant (default).
@@ -60,6 +64,7 @@ class ForgeShellTheme extends ThemeExtension<ForgeShellTheme> {
         statusBarBackground: Color(0xFF007ACC),
         chordPopupBackground: Color(0xFF252526),
         chordPopupForeground: Color(0xFFCCCCCC),
+        focusRing: Color(0xFF007ACC),
       );
 
   /// Light theme variant.
@@ -74,6 +79,7 @@ class ForgeShellTheme extends ThemeExtension<ForgeShellTheme> {
         statusBarBackground: Color(0xFF005FB8),
         chordPopupBackground: Color(0xFFFFFFFF),
         chordPopupForeground: Color(0xFF333333),
+        focusRing: Color(0xFF005FB8),
       );
 
   /// High-contrast theme variant.
@@ -91,6 +97,7 @@ class ForgeShellTheme extends ThemeExtension<ForgeShellTheme> {
         statusBarBackground: Color(0xFF00BFFF),
         chordPopupBackground: Color(0xFF1A1A1A),
         chordPopupForeground: Color(0xFFFFFFFF),
+        focusRing: Color(0xFFFFFFFF),
       );
 
   /// Returns the appropriate shell theme for the given [ThemeMode].
@@ -101,7 +108,7 @@ class ForgeShellTheme extends ThemeExtension<ForgeShellTheme> {
       case ThemeMode.dark:
         return ForgeShellTheme.dark();
       case ThemeMode.system:
-        return ForgeShellTheme.dark();
+        return ForgeShellTheme.highContrast();
     }
   }
 
@@ -117,6 +124,7 @@ class ForgeShellTheme extends ThemeExtension<ForgeShellTheme> {
     Color? statusBarBackground,
     Color? chordPopupBackground,
     Color? chordPopupForeground,
+    Color? focusRing,
   }) {
     return ForgeShellTheme(
       panelSurface: panelSurface ?? this.panelSurface,
@@ -129,6 +137,7 @@ class ForgeShellTheme extends ThemeExtension<ForgeShellTheme> {
       statusBarBackground: statusBarBackground ?? this.statusBarBackground,
       chordPopupBackground: chordPopupBackground ?? this.chordPopupBackground,
       chordPopupForeground: chordPopupForeground ?? this.chordPopupForeground,
+      focusRing: focusRing ?? this.focusRing,
     );
   }
 
@@ -150,6 +159,7 @@ class ForgeShellTheme extends ThemeExtension<ForgeShellTheme> {
           Color.lerp(chordPopupBackground, other.chordPopupBackground, t)!,
       chordPopupForeground:
           Color.lerp(chordPopupForeground, other.chordPopupForeground, t)!,
+      focusRing: Color.lerp(focusRing, other.focusRing, t)!,
     );
   }
 }

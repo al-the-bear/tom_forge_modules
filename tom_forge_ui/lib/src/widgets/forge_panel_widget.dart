@@ -621,10 +621,12 @@ class _AccordeonSectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final shellTheme = theme.extension<ForgeShellTheme>();
 
     return Semantics(
       button: true,
-      label: 'Section header',
+      label: 'Section: ${view.title.value}',
+      expanded: isExpanded,
       child: InkWell(
         onTap: onToggle,
         child: Container(
@@ -633,7 +635,10 @@ class _AccordeonSectionHeader extends StatelessWidget {
           decoration: BoxDecoration(
             color: theme.colorScheme.surfaceContainerHighest,
             border: isFocused
-                ? Border.all(color: theme.colorScheme.primary, width: 1)
+                ? Border.all(
+                    color: shellTheme?.focusRing ?? theme.colorScheme.primary,
+                    width: 2,
+                  )
                 : null,
           ),
           child: Row(

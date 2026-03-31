@@ -259,6 +259,7 @@ class _ForgeEditorTabBarState extends State<ForgeEditorTabBar> {
     return Semantics(
       selected: isActive,
       label: editor.title.value,
+      hint: isActive ? 'Active editor tab' : 'Editor tab',
       child: Draggable<TabDragData>(
       data: TabDragData(editor: editor, sourcePanelIndex: widget.panelIndex),
       feedback: MouseRegion(

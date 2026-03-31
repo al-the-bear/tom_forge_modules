@@ -242,7 +242,9 @@ class _ForgeCommandPaletteState extends State<ForgeCommandPalette> {
           alignment: const Alignment(0, -0.3),
           child: GestureDetector(
             onTap: () {}, // Prevent dismiss when tapping palette
-            child: Focus(
+            child: FocusScope(
+              autofocus: true,
+              child: Focus(
               onKeyEvent: _handleKeyEvent,
               child: Container(
                 width: 500,
@@ -388,6 +390,7 @@ class _ForgeCommandPaletteState extends State<ForgeCommandPalette> {
                   ],
                 ),
               ),
+            ),
             ),
           ),
         ),

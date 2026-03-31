@@ -352,6 +352,38 @@ class DefaultSystemState implements ForgeSystemState {
     _focusedComponent.value = null;
   }
 
+  /// Panel cycle order for focus navigation.
+  static const _panelCycleOrder = [
+    ForgePanelLocation.left,
+    ForgePanelLocation.middle,
+    ForgePanelLocation.right,
+    ForgePanelLocation.bottom,
+  ];
+
+  @override
+  void focusNextPanel() {
+    final visible = _visiblePanels.value;
+    if (visible.isEmpty) return;
+    final ordered = _panelCycleOrder.where(visible.contains).toList();
+    if (ordered.isEmpty) return;
+    final current = focusedPanelLocation;
+    final idx = current != null ? ordered.indexOf(current) : -1;
+    final next = ordered[(idx + 1) % ordered.length];
+    setFocusedPanelLocation(next);
+  }
+
+  @override
+  void focusPreviousPanel() {
+    final visible = _visiblePanels.value;
+    if (visible.isEmpty) return;
+    final ordered = _panelCycleOrder.where(visible.contains).toList();
+    if (ordered.isEmpty) return;
+    final current = focusedPanelLocation;
+    final idx = current != null ? ordered.indexOf(current) : -1;
+    final prev = idx <= 0 ? ordered.last : ordered[idx - 1];
+    setFocusedPanelLocation(prev);
+  }
+
   void setWorkspaceRootPath(String path) {
     _workspaceRootPath = path;
   }
