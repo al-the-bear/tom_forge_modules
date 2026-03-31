@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 
 import '../adapters/forge_dart_editor.dart';
@@ -12,12 +13,14 @@ import '../adapters/forge_yaml_editor.dart';
 import '../components/forge_editor.dart';
 import '../components/forge_text_editor.dart';
 import '../defaults/default_layout_controller.dart';
+import '../defaults/default_dialog_manager.dart';
 import '../defaults/default_shell_api.dart';
 import '../services/forge_accessibility.dart';
 import '../defaults/default_system_state.dart';
 import '../defaults/default_workspace_state_manager.dart';
 import '../model/forge_application.dart';
 import '../services/forge_preferences_service.dart';
+import '../services/forge_dialog_manager.dart';
 import '../shell/forge_layout_controller.dart';
 import '../shell/forge_status_bar_controller.dart';
 import '../actions/forge_shortcut_binding.dart';
@@ -27,6 +30,9 @@ import 'forge_command_palette.dart';
 import 'forge_configuration_dialog.dart';
 import 'forge_drag_data.dart';
 import 'forge_drop_zone_overlay.dart';
+import 'forge_error_recovery_dialog.dart';
+import 'forge_input_box_overlay.dart';
+import 'forge_quick_pick_overlay.dart';
 import 'forge_editor_tab_bar.dart';
 import 'forge_menu_bar.dart';
 import 'forge_notification_overlay.dart';
@@ -148,6 +154,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
 
   DefaultLayoutController get _layout => widget.layoutController;
   bool _showCommandPalette = false;
+  Widget? _dialogOverlay;
   late final ForgePreferencesService _preferences;
   StreamSubscription<Uri>? _saveSubscription;
   StreamSubscription<EditorListChangeEvent>? _editorChangeSubscription;
@@ -167,6 +174,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     _preferences = widget.preferencesService ?? ForgePreferencesService.instance;
     _preferences.addListener(_onPreferencesChanged);
     _initializePreferences();
+    _wireDialogCallbacks();
     _listenForSaveRevisions();
     _listenForEditorChanges();
     _listenForAutoSave();
@@ -203,6 +211,98 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       debugPrint('[ForgeShellScaffold] initialize preferences failed: $error');
       debugPrint('$stackTrace');
     }
+  }
+
+  /// Wires [DefaultDialogManager] callbacks to actual widget-layer UI.
+  void _wireDialogCallbacks() {
+    final dialogs = widget.shell.dialogs;
+    if (dialogs is! DefaultDialogManager) return;
+
+    dialogs.onQuickPick = <T>(
+      List<ForgeQuickPickItem<T>> items, {
+      String? placeholder,
+      bool canSelectMany = false,
+    }) {
+      final completer = Completer<T?>();
+      setState(() {
+        _dialogOverlay = ForgeQuickPickOverlay<T>(
+          items: items,
+          placeholder: placeholder,
+          canSelectMany: canSelectMany,
+          completer: completer,
+        );
+      });
+      completer.future.whenComplete(() {
+        if (mounted) setState(() => _dialogOverlay = null);
+      });
+      return completer.future;
+    };
+
+    dialogs.onInputBox = ({
+      String? prompt,
+      String? value,
+      String? placeholder,
+      String? Function(String)? validateInput,
+    }) {
+      final completer = Completer<String?>();
+      setState(() {
+        _dialogOverlay = ForgeInputBoxOverlay(
+          prompt: prompt,
+          value: value,
+          placeholder: placeholder,
+          validateInput: validateInput,
+          completer: completer,
+        );
+      });
+      completer.future.whenComplete(() {
+        if (mounted) setState(() => _dialogOverlay = null);
+      });
+      return completer.future;
+    };
+
+    dialogs.onOpenDialog = ({
+      String? title,
+      bool canSelectMany = false,
+      bool canSelectFolders = false,
+      List<FileFilter>? filters,
+    }) async {
+      final result = await FilePicker.platform.pickFiles(
+        dialogTitle: title ?? 'Open File',
+        allowMultiple: canSelectMany,
+        type: filters != null && filters.isNotEmpty
+            ? FileType.custom
+            : FileType.any,
+        allowedExtensions: filters
+            ?.expand((f) => f.extensions)
+            .toList(),
+      );
+      if (result == null || result.files.isEmpty) return null;
+      return result.files
+          .where((f) => f.path != null)
+          .map((f) => Uri.file(f.path!))
+          .toList();
+    };
+
+    dialogs.onSaveDialog = ({
+      String? title,
+      Uri? defaultUri,
+      List<FileFilter>? filters,
+    }) async {
+      final result = await FilePicker.platform.saveFile(
+        dialogTitle: title ?? 'Save File',
+        fileName: defaultUri?.pathSegments.isNotEmpty == true
+            ? defaultUri!.pathSegments.last
+            : null,
+        type: filters != null && filters.isNotEmpty
+            ? FileType.custom
+            : FileType.any,
+        allowedExtensions: filters
+            ?.expand((f) => f.extensions)
+            .toList(),
+      );
+      if (result == null) return null;
+      return Uri.file(result);
+    };
   }
 
   void _onPreferencesChanged() {
@@ -811,6 +911,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
                       shellApi: widget.shell,
                       onDismiss: _toggleCommandPalette,
                     ),
+                  if (_dialogOverlay != null) _dialogOverlay!,
                 ],
               ),
             ),
@@ -1754,8 +1855,27 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       );
       switch (result) {
         case _DirtyCloseAction.save:
-          widget.shell.executeAction('file.save');
-          _layout.closeEditor(editor);
+          try {
+            widget.shell.executeAction('file.save');
+            _layout.closeEditor(editor);
+          } catch (e) {
+            if (!mounted) return;
+            final recovery = await ForgeErrorRecoveryDialog.show(
+              context,
+              title: 'Save Failed',
+              message: 'Could not save "${editor.title.value}": $e',
+              showOverwrite: true,
+            );
+            switch (recovery) {
+              case ErrorRecoveryAction.retry:
+                _handleCloseEditor(editor); // retry the whole flow
+              case ErrorRecoveryAction.overwrite:
+                _layout.closeEditor(editor); // discard and close
+              case ErrorRecoveryAction.cancel:
+              case null:
+                break; // stay open
+            }
+          }
         case _DirtyCloseAction.discard:
           _layout.closeEditor(editor);
         case _DirtyCloseAction.cancel:
