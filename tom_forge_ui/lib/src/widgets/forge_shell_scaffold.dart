@@ -963,6 +963,11 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   }
 
   /// Build native platform menu items for macOS.
+  ///
+  /// Only concept §11.3 standard shortcuts are shown as accelerators.
+  /// Menu items for non-concept actions remain for discoverability but
+  /// without keyboard accelerators — those actions are accessible via
+  /// the command palette or custom shortcut menus (concept §11.4).
   List<PlatformMenuItem> _buildPlatformMenus() {
     return [
       PlatformMenu(
@@ -970,54 +975,30 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         menus: [
           PlatformMenuItem(
             label: 'New File',
-            shortcut: const SingleActivator(
-              LogicalKeyboardKey.keyN,
-              meta: true,
-            ),
             onSelected: () => widget.shell.executeAction('file.new'),
           ),
           PlatformMenuItem(
             label: 'Open Folder...',
-            shortcut: const SingleActivator(
-              LogicalKeyboardKey.keyO,
-              meta: true,
-            ),
             onSelected: () => widget.shell.executeAction('file.openFolder'),
           ),
           const PlatformMenuItemGroup(members: []),
-          PlatformMenuItem(
-            label: 'Save',
-            shortcut: const SingleActivator(
-              LogicalKeyboardKey.keyS,
-              meta: true,
-            ),
-            onSelected: () => widget.shell.executeAction('file.save'),
-          ),
+          // Concept §11.3: Cmd+S = "Save all dirty editors".
           PlatformMenuItem(
             label: 'Save All',
             shortcut: const SingleActivator(
               LogicalKeyboardKey.keyS,
               meta: true,
-              shift: true,
             ),
             onSelected: () => widget.shell.executeAction('file.saveAll'),
           ),
           const PlatformMenuItemGroup(members: []),
           PlatformMenuItem(
             label: 'Close Editor',
-            shortcut: const SingleActivator(
-              LogicalKeyboardKey.keyW,
-              meta: true,
-            ),
             onSelected: () => widget.shell.executeAction('file.close'),
           ),
           const PlatformMenuItemGroup(members: []),
           PlatformMenuItem(
             label: 'Settings...',
-            shortcut: const SingleActivator(
-              LogicalKeyboardKey.comma,
-              meta: true,
-            ),
             onSelected: _openSettings,
           ),
         ],
@@ -1025,20 +1006,21 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       PlatformMenu(
         label: 'Edit',
         menus: [
+          // Concept §11.3: Cmd+U = Undo.
           PlatformMenuItem(
             label: 'Undo',
             shortcut: const SingleActivator(
-              LogicalKeyboardKey.keyZ,
+              LogicalKeyboardKey.keyU,
               meta: true,
             ),
             onSelected: () => widget.shell.executeAction('edit.undo'),
           ),
+          // Concept §11.3: Cmd+Z = Redo.
           PlatformMenuItem(
             label: 'Redo',
             shortcut: const SingleActivator(
               LogicalKeyboardKey.keyZ,
               meta: true,
-              shift: true,
             ),
             onSelected: () => widget.shell.executeAction('edit.redo'),
           ),
@@ -1068,21 +1050,17 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
             onSelected: () => widget.shell.executeAction('edit.paste'),
           ),
           const PlatformMenuItemGroup(members: []),
+          // Concept §11.3: Cmd+F = Find in focused component.
           PlatformMenuItem(
             label: 'Find',
             shortcut: const SingleActivator(
               LogicalKeyboardKey.keyF,
               meta: true,
             ),
-            onSelected: () => widget.shell.executeAction('edit.find'),
+            onSelected: () => widget.shell.executeAction('editor.find'),
           ),
           PlatformMenuItem(
             label: 'Replace',
-            shortcut: const SingleActivator(
-              LogicalKeyboardKey.keyF,
-              meta: true,
-              alt: true,
-            ),
             onSelected: () => widget.shell.executeAction('edit.replace'),
           ),
         ],
@@ -1124,19 +1102,10 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         menus: [
           PlatformMenuItem(
             label: 'Back',
-            shortcut: const SingleActivator(
-              LogicalKeyboardKey.minus,
-              control: true,
-            ),
             onSelected: () {},
           ),
           PlatformMenuItem(
             label: 'Forward',
-            shortcut: const SingleActivator(
-              LogicalKeyboardKey.minus,
-              control: true,
-              shift: true,
-            ),
             onSelected: () {},
           ),
           const PlatformMenuItemGroup(members: []),

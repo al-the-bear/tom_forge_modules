@@ -41,15 +41,16 @@ class StandardEditingActions {
     usePrimaryModifier: true,
   );
 
+  // Concept §11.3: Cmd+U = Undo (non-conventional mapping).
   static final ForgeShortcutKey undoShortcut = ForgeShortcutKey(
-    key: LogicalKeyboardKey.keyZ,
+    key: LogicalKeyboardKey.keyU,
     usePrimaryModifier: true,
   );
 
+  // Concept §11.3: Cmd+Z = Redo (non-conventional mapping).
   static final ForgeShortcutKey redoShortcut = ForgeShortcutKey(
     key: LogicalKeyboardKey.keyZ,
     usePrimaryModifier: true,
-    shift: true,
   );
 
   // Alternative redo shortcut (Ctrl+Y on Windows/Linux)

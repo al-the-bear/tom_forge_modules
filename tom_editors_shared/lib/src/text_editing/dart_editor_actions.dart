@@ -74,11 +74,10 @@ class DartEditorActions {
     usePrimaryModifier: true,
   );
 
-  /// Delete line: Cmd+Shift+K (VS Code convention).
+  /// Delete line: Cmd+Y / Ctrl+Y (concept §11.3 standard shortcut).
   static final ForgeShortcutKey deleteLineShortcut = ForgeShortcutKey(
-    key: LogicalKeyboardKey.keyK,
+    key: LogicalKeyboardKey.keyY,
     usePrimaryModifier: true,
-    shift: true,
   );
 
   /// Duplicate line: Cmd+D / Ctrl+D.

@@ -72,11 +72,11 @@ void main() {
         expect(shortcut.usePrimaryModifier, true);
       });
 
-      test('deleteLine uses Cmd/Ctrl+Shift+K', () {
+      test('deleteLine uses Cmd/Ctrl+Y (concept §11.3)', () {
         final shortcut = DartEditorActions.deleteLineShortcut;
-        expect(shortcut.key, LogicalKeyboardKey.keyK);
+        expect(shortcut.key, LogicalKeyboardKey.keyY);
         expect(shortcut.usePrimaryModifier, true);
-        expect(shortcut.shift, true);
+        expect(shortcut.shift, false);
       });
 
       test('duplicateLine uses Cmd/Ctrl+D', () {

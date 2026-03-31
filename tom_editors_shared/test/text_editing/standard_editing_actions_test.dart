@@ -40,18 +40,18 @@ void main() {
         expect(shortcut.usePrimaryModifier, true);
       });
 
-      test('undo shortcut uses Cmd/Ctrl+Z', () {
+      test('undo shortcut uses Cmd/Ctrl+U (concept §11.3)', () {
         final shortcut = StandardEditingActions.undoShortcut;
-        expect(shortcut.key, LogicalKeyboardKey.keyZ);
+        expect(shortcut.key, LogicalKeyboardKey.keyU);
         expect(shortcut.usePrimaryModifier, true);
         expect(shortcut.shift, false);
       });
 
-      test('redo shortcut uses Cmd/Ctrl+Shift+Z', () {
+      test('redo shortcut uses Cmd/Ctrl+Z (concept §11.3)', () {
         final shortcut = StandardEditingActions.redoShortcut;
         expect(shortcut.key, LogicalKeyboardKey.keyZ);
         expect(shortcut.usePrimaryModifier, true);
-        expect(shortcut.shift, true);
+        expect(shortcut.shift, false);
       });
 
       test('redo alt shortcut uses Cmd/Ctrl+Y', () {
