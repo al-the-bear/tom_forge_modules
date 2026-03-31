@@ -310,6 +310,12 @@ class _MdEditorState extends State<MdEditor> {
       // Register editor actions with the integration
       _registerActions();
 
+      // Wire undo bridge: when the controller pushes an undo entry,
+      // notify the integration so the shell undo manager stays in sync.
+      _controller.onUndoPush = (description) {
+        _integration.notifyTextEdit(label: 'Md: $description');
+      };
+
       // Build the keyboard shortcut map
       _buildShortcutMap();
 

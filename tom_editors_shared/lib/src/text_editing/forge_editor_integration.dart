@@ -102,6 +102,22 @@ abstract class ForgeEditorIntegration {
   /// Unregisters the action with the given [actionId].
   void unregisterAction(String actionId);
 
+  /// Notifies the integration that a text edit occurred in the editor.
+  ///
+  /// Implementations may use this to push undo bridge entries to an
+  /// external undo manager (e.g. the shell [ForgeUndoManager]).
+  /// The default implementation is a no-op.
+  void notifyTextEdit({String? label}) {}
+
+  /// Notifies the integration that a composite undo group is starting.
+  ///
+  /// All edits between [beginUndoGroup] and [endUndoGroup] should be
+  /// treated as a single atomic undo step.
+  void beginUndoGroup({String? label}) {}
+
+  /// Notifies the integration that the current composite undo group ended.
+  void endUndoGroup() {}
+
   /// Disposes resources held by this integration.
   void dispose();
 }

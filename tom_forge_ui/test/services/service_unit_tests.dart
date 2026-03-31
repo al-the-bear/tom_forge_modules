@@ -312,6 +312,191 @@ void main() {
     });
   });
 
+  // ── DefaultUndoManager — Composite Grouping ────────────
+
+  group('DefaultUndoManager composite grouping', () {
+    late DefaultUndoManager mgr;
+
+    setUp(() {
+      mgr = DefaultUndoManager();
+    });
+
+    tearDown(() {
+      mgr.dispose();
+    });
+
+    test('beginUndoGroup/endUndoGroup groups entries atomically', () async {
+      final log = <String>[];
+      mgr.beginUndoGroup(label: 'format');
+      mgr.push(UndoEntry(
+        undo: () async => log.add('u1'),
+        redo: () async => log.add('r1'),
+        label: 'op1',
+      ));
+      mgr.push(UndoEntry(
+        undo: () async => log.add('u2'),
+        redo: () async => log.add('r2'),
+        label: 'op2',
+      ));
+      // Inside group, nothing pushed to stack yet.
+      expect(mgr.canUndo.value, isFalse);
+      mgr.endUndoGroup();
+      // After end, one composite entry on stack.
+      expect(mgr.canUndo.value, isTrue);
+      expect(mgr.undoCount, 1);
+
+      // Undo undoes both in reverse order.
+      await mgr.undo();
+      expect(log, ['u2', 'u1']);
+      expect(mgr.canRedo.value, isTrue);
+
+      // Redo redoes both in forward order.
+      await mgr.redo();
+      expect(log, ['u2', 'u1', 'r1', 'r2']);
+    });
+
+    test('nested groups commit on outermost end', () async {
+      final log = <String>[];
+      mgr.beginUndoGroup(label: 'outer');
+      mgr.push(UndoEntry(
+        undo: () async => log.add('u1'),
+        redo: () async => log.add('r1'),
+      ));
+      mgr.beginUndoGroup(label: 'inner');
+      mgr.push(UndoEntry(
+        undo: () async => log.add('u2'),
+        redo: () async => log.add('r2'),
+      ));
+      mgr.endUndoGroup(); // inner
+      // Still inside outer group.
+      expect(mgr.canUndo.value, isFalse);
+      mgr.endUndoGroup(); // outer
+      expect(mgr.undoCount, 1);
+
+      await mgr.undo();
+      expect(log, ['u2', 'u1']);
+    });
+
+    test('empty group does not push entry', () {
+      mgr.beginUndoGroup(label: 'empty');
+      mgr.endUndoGroup();
+      expect(mgr.canUndo.value, isFalse);
+      expect(mgr.undoCount, 0);
+    });
+
+    test('endUndoGroup without begin is no-op', () {
+      mgr.endUndoGroup();
+      expect(mgr.undoCount, 0);
+    });
+
+    test('clear resets group state', () {
+      mgr.beginUndoGroup(label: 'will-clear');
+      mgr.push(UndoEntry(undo: () async {}, redo: () async {}));
+      mgr.clear();
+      expect(mgr.canUndo.value, isFalse);
+      // endUndoGroup after clear should not push anything.
+      mgr.endUndoGroup();
+      expect(mgr.undoCount, 0);
+    });
+  });
+
+  // ── DefaultUndoManager — Memory Budget ─────────────────
+
+  group('DefaultUndoManager memory budget', () {
+    test('prunes oldest entries beyond maxEntries', () {
+      final mgr = DefaultUndoManager(maxEntries: 3);
+      for (var i = 0; i < 5; i++) {
+        mgr.push(UndoEntry(
+          undo: () async {},
+          redo: () async {},
+          label: 'entry-$i',
+        ));
+      }
+      expect(mgr.undoCount, 3);
+      mgr.dispose();
+    });
+  });
+
+  // ── DefaultUndoManager — Event Stream ──────────────────
+
+  group('DefaultUndoManager event stream', () {
+    late DefaultUndoManager mgr;
+
+    setUp(() {
+      mgr = DefaultUndoManager();
+    });
+
+    tearDown(() {
+      mgr.dispose();
+    });
+
+    test('emits pushed event on push', () async {
+      final events = <UndoEvent>[];
+      mgr.onUndoEvent.listen(events.add);
+      mgr.push(UndoEntry(
+        undo: () async {},
+        redo: () async {},
+        label: 'test-push',
+      ));
+      await Future<void>.delayed(Duration.zero);
+      expect(events, hasLength(1));
+      expect(events.first.type, UndoEventType.pushed);
+      expect(events.first.label, 'test-push');
+    });
+
+    test('emits undone/redone events', () async {
+      final events = <UndoEvent>[];
+      mgr.push(UndoEntry(
+        undo: () async {},
+        redo: () async {},
+        label: 'entry',
+      ));
+      mgr.onUndoEvent.listen(events.add);
+      await mgr.undo();
+      await mgr.redo();
+      await Future<void>.delayed(Duration.zero);
+      expect(events.where((e) => e.type == UndoEventType.undone), hasLength(1));
+      expect(events.where((e) => e.type == UndoEventType.redone), hasLength(1));
+    });
+
+    test('emits cleared event on clear', () async {
+      final events = <UndoEvent>[];
+      mgr.onUndoEvent.listen(events.add);
+      mgr.push(UndoEntry(undo: () async {}, redo: () async {}));
+      mgr.clear();
+      await Future<void>.delayed(Duration.zero);
+      expect(events.where((e) => e.type == UndoEventType.cleared), hasLength(1));
+    });
+  });
+
+  // ── UndoEntry — Serializable Data ──────────────────────
+
+  group('UndoEntry serializable data', () {
+    test('data field is optional and preserved', () {
+      final entry = UndoEntry(
+        undo: () async {},
+        redo: () async {},
+        label: 'text-edit',
+        data: {
+          'type': 'text-edit',
+          'editorId': 'dart-123',
+          'timestamp': '2026-03-31T10:00:00Z',
+        },
+      );
+      expect(entry.data, isNotNull);
+      expect(entry.data!['type'], 'text-edit');
+      expect(entry.data!['editorId'], 'dart-123');
+    });
+
+    test('data is null by default', () {
+      final entry = UndoEntry(
+        undo: () async {},
+        redo: () async {},
+      );
+      expect(entry.data, isNull);
+    });
+  });
+
   // ── DefaultModuleStorage (in-memory) ───────────────────
 
   group('DefaultModuleStorage', () {

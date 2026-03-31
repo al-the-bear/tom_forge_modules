@@ -1056,6 +1056,8 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
     if (_undoStack.length > _maxUndoStackSize) {
       _undoStack.removeAt(0);
     }
+    // Notify shell undo manager via bridge.
+    _integration.notifyTextEdit(label: 'Dart edit');
   }
 
   void _undo() {

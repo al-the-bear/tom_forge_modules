@@ -199,6 +199,13 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
         _ownsIntegration = true;
       }
       _registerActions();
+
+      // Wire undo bridge: when the controller pushes an undo entry,
+      // notify the integration so the shell undo manager stays in sync.
+      widget.controller.onUndoPush = (description) {
+        _integration.notifyTextEdit(label: description);
+      };
+
       trailEvent('setupIntegration: done (owned=$_ownsIntegration)');
     } catch (e) {
       trailEvent('setupIntegration: THREW $e');

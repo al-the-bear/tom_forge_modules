@@ -175,6 +175,9 @@ class BaseStandaloneIntegration extends ForgeEditorIntegration
       _undoStack.removeAt(0);
     }
 
+    // Notify bridge for shell undo manager integration.
+    notifyTextEdit(label: entry.description);
+
     _log('Undo stack size: ${_undoStack.length}');
   }
 
