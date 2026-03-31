@@ -624,6 +624,8 @@ This section groups the 33 incomplete checklist rows into implementation steps o
 
 ### Step 1 — Shortcut Binding Alignment (4 rows)
 
+- [ ] Done
+
 Rebind shortcuts to match concept §11.3 exactly. No new UI — only binding changes in `test_app_module.dart`, `forge_app_module.dart`, and `forge_shell_scaffold.dart`.
 
 | Line | Section | Row |
@@ -638,6 +640,8 @@ Rebind shortcuts to match concept §11.3 exactly. No new UI — only binding cha
 
 ### Step 2 — Remove Non-Concept Pre-Assigned Shortcuts and Chord Bindings (1 row)
 
+- [ ] Done
+
 Remove all `Ctrl+Shift+*` direct-action bindings and the `Ctrl+K` chord prefix. Actions remain accessible via command palette. This clears the `Shift+Cmd/Ctrl+*` namespace for custom shortcut menus.
 
 | Line | Section | Row |
@@ -648,6 +652,8 @@ Remove all `Ctrl+Shift+*` direct-action bindings and the `Ctrl+K` chord prefix. 
 **Unlocks:** Step 3 (clean namespace for menu system)
 
 ### Step 3 — Custom Shortcut Menu System (2 rows)
+
+- [ ] Done
 
 New architecture: `ForgeShortcutMenu` data model, `ForgeShortcutMenuPopup` widget anchored to command palette area, module registration API, `?` help key. Implement Explorer menu example from concept §11.4 (`Shift+Cmd+E` → R/N/D/C).
 
@@ -660,6 +666,8 @@ New architecture: `ForgeShortcutMenu` data model, `ForgeShortcutMenuPopup` widge
 **Unlocks:** Step 5 (editor context menu can reference menu actions)
 
 ### Step 4 — Undo Bridge and Composite Grouping (5 rows)
+
+- [ ] Done
 
 Wire editors to push `UndoEntry` to shell `ForgeUndoManager` on each text change. Add `beginUndoGroup()`/`endUndoGroup()` API. Define `.forge/undo/` and `.forge/revisions/` persistence artifacts. Add undo manager regression tests.
 
@@ -676,6 +684,8 @@ Wire editors to push `UndoEntry` to shell `ForgeUndoManager` on each text change
 
 ### Step 5 — Editor Context Menu and Find/Replace Bar (2 rows)
 
+- [ ] Done
+
 New widgets: right-click context menu on editor area (`cut`/`copy`/`paste`/`format`/editor-specific actions) and in-editor find/replace bar with next/prev/replace/replaceAll.
 
 | Line | Section | Row |
@@ -687,6 +697,8 @@ New widgets: right-click context menu on editor area (`cut`/`copy`/`paste`/`form
 **Unlocks:** nothing
 
 ### Step 6 — Wiring Existing Demos to Editors: Status Bar and Module Storage (6 rows)
+
+- [ ] Done
 
 Connect already-built status bar controller, alignment zones, priority ordering, and module-scoped persistence to editor integration paths. These are demo=yes/wired=no — the code exists, it just needs plumbing to editors.
 
@@ -704,6 +716,8 @@ Connect already-built status bar controller, alignment zones, priority ordering,
 
 ### Step 7 — Wiring Existing Demos to Editors: Error Handling and Recovery (5 rows)
 
+- [ ] Done
+
 Connect module activation failure isolation, error-state marking, diagnostics emission, retry utility, and error scenario test expectations to editor integration.
 
 | Line | Section | Row |
@@ -719,6 +733,8 @@ Connect module activation failure isolation, error-state marking, diagnostics em
 
 ### Step 8 — Wiring Existing Demos to Editors: Tests and Validation (3 rows)
 
+- [ ] Done
+
 Add high-contrast widget tests, golden tests for theme parity, and status bar controller/widget segment tests.
 
 | Line | Section | Row |
@@ -731,6 +747,8 @@ Add high-contrast widget tests, golden tests for theme parity, and status bar co
 **Unlocks:** nothing
 
 ### Step 9 — Configuration, Settings UI, and File Type Overrides (4 rows)
+
+- [ ] Done
 
 Shortcut editor settings page, configuration dialog editor toggles (line numbers, word wrap, highlight current line), file type override path, format document implementation.
 
@@ -745,6 +763,8 @@ Shortcut editor settings page, configuration dialog editor toggles (line numbers
 **Unlocks:** nothing
 
 ### Step 10 — Remaining Shell Items (2 rows)
+
+- [ ] Done
 
 Tools menu surface and panel layout persistence.
 
