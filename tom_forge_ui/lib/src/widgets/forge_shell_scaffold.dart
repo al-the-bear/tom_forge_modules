@@ -149,7 +149,6 @@ class ForgeShellScaffold extends StatefulWidget {
 class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   static bool debugEnabled = false;
 
-  static const String _actionFileSave = 'file.save';
   static const String _actionFileSaveAll = 'file.saveAll';
 
   DefaultLayoutController get _layout => widget.layoutController;
@@ -1294,10 +1293,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
 
   void _executeSave() {
     try {
-      if (widget.shell.executeAction(_actionFileSave)) {
-        return;
-      }
-
+      // Concept §11.3: Cmd+S = "Save all dirty editors".
       widget.shell.executeAction(_actionFileSaveAll);
     } catch (error, stackTrace) {
       debugPrint('[ForgeShellScaffold] execute save failed: $error');

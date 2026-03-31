@@ -8,6 +8,15 @@ void main() {
   testWidgets('save shortcut uses platform primary modifier', (
     WidgetTester tester,
   ) async {
+    // Suppress layout overflow errors – the default test surface is too
+    // small for the full scaffold, but that's irrelevant for shortcut logic.
+    final oldOnError = FlutterError.onError;
+    FlutterError.onError = (details) {
+      if (details.toString().contains('overflowed')) return;
+      oldOnError?.call(details);
+    };
+    addTearDown(() => FlutterError.onError = oldOnError);
+
     final harness = _ShortcutHarness.create();
 
     await tester.pumpWidget(harness.buildShellApp());
@@ -24,7 +33,7 @@ void main() {
     await tester.sendKeyUpEvent(modifier);
     await tester.pumpAndSettle();
 
-    expect(harness.module.executedActionIds, contains('file.save'));
+    expect(harness.module.executedActionIds, contains('file.saveAll'));
   });
 }
 
@@ -109,10 +118,10 @@ class _SaveActionModule extends ForgeModule {
   @override
   List<ForgeAction> get actions => <ForgeAction>[
         ForgeAction(
-          id: 'file.save',
-          label: 'Save',
+          id: 'file.saveAll',
+          label: 'Save All',
           execute: (_) async {
-            executedActionIds.add('file.save');
+            executedActionIds.add('file.saveAll');
             return null;
           },
           isEnabled: () => true,
