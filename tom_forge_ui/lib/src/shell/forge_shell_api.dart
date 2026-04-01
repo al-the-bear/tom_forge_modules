@@ -3,8 +3,7 @@ import '../services/forge_action_registry.dart';
 import '../services/forge_config_manager.dart';
 import '../services/forge_dialog_manager.dart';
 import '../services/forge_diagnostic_manager.dart';
-import 'package:tom_forge_core/tom_forge_core.dart'
-    show ForgeExecutionMonitor;
+import 'package:tom_forge_core/tom_forge_core.dart' show ForgeExecutionMonitor;
 import '../services/forge_environment.dart';
 import '../services/forge_file_decoration_manager.dart';
 import '../services/forge_file_system.dart';
@@ -22,7 +21,7 @@ import '../services/forge_virtual_document_manager.dart';
 import '../services/forge_workspace_state_manager.dart';
 import '../actions/forge_action.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart'
-  show ForgeTextSettings;
+    show ForgeTextSettings;
 import 'forge_layout_controller.dart';
 import 'forge_module_registry.dart';
 import 'forge_status_bar_controller.dart';
@@ -122,4 +121,10 @@ abstract class ForgeShellApi {
 
   /// Updates text settings for an editor type.
   void setTextSettings(String editorTypeId, ForgeTextSettings settings);
+
+  /// Reads preferred default editor ids by file extension (for example: .md).
+  Map<String, String> getFileTypeDefaults();
+
+  /// Sets the preferred default editor id for a file extension.
+  void setFileTypeDefault(String extension, String editorTypeId);
 }

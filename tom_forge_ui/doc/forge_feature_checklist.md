@@ -748,7 +748,7 @@ Add high-contrast widget tests, golden tests for theme parity, and status bar co
 
 ### Step 9 — Configuration, Settings UI, and File Type Overrides (4 rows)
 
-- [ ] Done
+- [x] Done
 
 Shortcut editor settings page, configuration dialog editor toggles (line numbers, word wrap, highlight current line), file type override path, format document implementation.
 

@@ -10,9 +10,10 @@ void main() {
 
   group('TomForgeShellModule', () {
     test('supportedExtensions contains all built-in types', () {
-      expect(TomForgeShellModule.supportedExtensions, containsAll([
-        'dart', 'md', 'markdown', 'yaml', 'yml', 'txt',
-      ]));
+      expect(
+        TomForgeShellModule.supportedExtensions,
+        containsAll(['dart', 'md', 'markdown', 'yaml', 'yml', 'txt']),
+      );
     });
 
     test('canHandleExtension returns true for supported types', () {
@@ -41,7 +42,10 @@ void main() {
 
       // Register a Dart editor.
       final dartEditor = ForgeDartEditor(
-        controller: DartCodeController(initialCode: '', uri: Uri.parse('file:///test.dart')),
+        controller: DartCodeController(
+          initialCode: '',
+          uri: Uri.parse('file:///test.dart'),
+        ),
         module: module,
       );
       module.registerDartEditor(dartEditor);
@@ -64,7 +68,10 @@ void main() {
       module.activate(shell);
 
       final dartEditor = ForgeDartEditor(
-        controller: DartCodeController(initialCode: '', uri: Uri.parse('file:///a.dart')),
+        controller: DartCodeController(
+          initialCode: '',
+          uri: Uri.parse('file:///a.dart'),
+        ),
         module: module,
       );
       module.registerDartEditor(dartEditor);
@@ -83,9 +90,7 @@ void main() {
   group('DefaultLayoutController owner resolution', () {
     test('creates editor with TomForgeShellModule as owner', () async {
       final shell = DefaultShellApi.withDefaults(
-        fileSystemSeed: {
-          '/workspace/hello.dart': 'void main() {}',
-        },
+        fileSystemSeed: {'/workspace/hello.dart': 'void main() {}'},
         appName: 'Test',
         navigatorKey: GlobalKey<NavigatorState>(),
       );
@@ -113,6 +118,28 @@ void main() {
         expect(editor, isA<ForgeDartEditor>());
         expect((editor as ForgeDartEditor).module, isA<TomForgeShellModule>());
       }
+
+      shell.dispose();
+    });
+
+    test('file type defaults override built-in editor selection', () async {
+      final shell = DefaultShellApi.withDefaults(
+        fileSystemSeed: {'/workspace/notes.txt': 'line one\nline two'},
+        appName: 'Test',
+        navigatorKey: GlobalKey<NavigatorState>(),
+      );
+
+      final shellModule = TomForgeShellModule();
+      shellModule.activate(shell);
+      (shell.modules as DefaultModuleRegistry).register(shellModule);
+
+      shell.setFileTypeDefault('.txt', 'plaintext');
+      shell.layout.openFile(Uri.parse('file:///workspace/notes.txt'));
+
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+
+      final active = shell.systemState.activeEditor;
+      expect(active, isA<ForgePlainTextEditor>());
 
       shell.dispose();
     });
@@ -222,8 +249,19 @@ mixin Serializable {
       );
 
       final items = await provider.provideOutline(editor);
-      expect(items.any((i) => i.label == 'Color' && i.kind == ForgeSymbolKind.enumKind), isTrue);
-      expect(items.any((i) => i.label == 'Serializable' && i.kind == ForgeSymbolKind.interface), isTrue);
+      expect(
+        items.any(
+          (i) => i.label == 'Color' && i.kind == ForgeSymbolKind.enumKind,
+        ),
+        isTrue,
+      );
+      expect(
+        items.any(
+          (i) =>
+              i.label == 'Serializable' && i.kind == ForgeSymbolKind.interface,
+        ),
+        isTrue,
+      );
       provider.dispose();
     });
 
@@ -307,7 +345,9 @@ Future<int> computeValue() async {
       );
 
       // No open editors → no decoration.
-      final decoration = provider.provideDecoration(Uri.parse('file:///a.dart'));
+      final decoration = provider.provideDecoration(
+        Uri.parse('file:///a.dart'),
+      );
       expect(decoration, isNull);
 
       provider.dispose();
@@ -316,9 +356,7 @@ Future<int> computeValue() async {
 
     test('returns M badge for dirty editor', () {
       final shell = DefaultShellApi.withDefaults(
-        fileSystemSeed: {
-          '/workspace/test.dart': 'void main() {}',
-        },
+        fileSystemSeed: {'/workspace/test.dart': 'void main() {}'},
         appName: 'Test',
         navigatorKey: GlobalKey<NavigatorState>(),
       );

@@ -259,6 +259,8 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         await _preferences.load();
       }
       _applyPreferenceTextSettings();
+      _applyPreferenceFileTypeDefaults();
+      _applyPreferenceShortcutOverrides();
       await _restoreLayoutState();
       await _restoreWorkspaceState();
     } catch (error, stackTrace) {
@@ -384,6 +386,8 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   void _onPreferencesChanged() {
     try {
       _applyPreferenceTextSettings();
+      _applyPreferenceFileTypeDefaults();
+      _applyPreferenceShortcutOverrides();
       _propagateSettingsToActiveEditors();
       // High-contrast mode (ThemeMode.system) activates reduced motion.
       ForgeAnimations.reduceMotion = _preferences.themeMode == ThemeMode.system;
@@ -440,6 +444,23 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       debugPrint(
         '[ForgeShellScaffold] applied persisted settings: ${settings.length}',
       );
+    }
+  }
+
+  void _applyPreferenceFileTypeDefaults() {
+    final defaults = _preferences.fileTypeDefaultEditors;
+    for (final entry in defaults.entries) {
+      widget.shell.setFileTypeDefault(entry.key, entry.value);
+    }
+  }
+
+  void _applyPreferenceShortcutOverrides() {
+    final overrides = _preferences.shortcutOverrides;
+    for (final entry in overrides.entries) {
+      final binding = widget.shell.shortcuts.getBinding(entry.key);
+      if (binding != null) {
+        widget.shell.shortcuts.rebind(binding.action, entry.value);
+      }
     }
   }
 
@@ -854,8 +875,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     }
   }
 
-  void _openSettings() {
-    ForgeConfigurationDialog.show(context, _preferences, widget.shell);
+  Future<void> _openSettings() async {
+    await ForgeConfigurationDialog.show(context, _preferences, widget.shell);
+    _onPreferencesChanged();
   }
 
   ForgeTextEditor? get _activeTextEditor {
@@ -1319,6 +1341,16 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       // First key of chord matched — consume event to prevent normal dispatch.
       return KeyEventResult.handled;
     }
+
+    final directBinding = widget.shell.shortcuts.allBindings
+        .where((binding) => !binding.isChord)
+        .where((binding) => binding.key == shortcutKey)
+        .firstOrNull;
+    if (directBinding != null) {
+      widget.shell.executeAction(directBinding.action.id);
+      return KeyEventResult.handled;
+    }
+
     return KeyEventResult.ignored;
   }
 

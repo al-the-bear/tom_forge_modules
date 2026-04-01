@@ -1,10 +1,13 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart'
-  show ForgeTextDefaults, ForgeTextSettings;
+    show ForgeTextDefaults, ForgeTextSettings;
+
+import '../actions/forge_shortcut_binding.dart';
 
 /// Service for managing persistent preferences.
 ///
@@ -24,6 +27,8 @@ class ForgePreferencesService extends ChangeNotifier {
   static const _keyLayoutPanelVisibility = 'forge.layout.panelVisibility';
   static const _keyLayoutOpenEditors = 'forge.layout.openEditors';
   static const _keyThemeMode = 'forge.appearance.themeMode';
+  static const _keyFileTypeDefaults = 'forge.files.typeDefaults';
+  static const _keyShortcutOverrides = 'forge.shortcuts.overrides';
 
   SharedPreferences? _prefs;
   ForgeStartupPreferences _startupPreferences = ForgeStartupPreferences();
@@ -33,6 +38,9 @@ class ForgePreferencesService extends ChangeNotifier {
       <String, ForgeTextSettings>{};
   final Map<String, double> _layoutPanelSizes = <String, double>{};
   final Map<String, bool> _layoutPanelVisibility = <String, bool>{};
+  final Map<String, String> _fileTypeDefaultEditors = <String, String>{};
+  final Map<String, ForgeShortcutKey> _shortcutOverrides =
+      <String, ForgeShortcutKey>{};
   List<String> _layoutOpenEditors = <String>[];
   ThemeMode _themeMode = ThemeMode.dark;
   bool _isLoaded = false;
@@ -69,6 +77,52 @@ class ForgePreferencesService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Preferred default editor ids keyed by file extension (for example: .md).
+  Map<String, String> get fileTypeDefaultEditors =>
+      Map<String, String>.unmodifiable(_fileTypeDefaultEditors);
+
+  /// Sets preferred editor id for a file extension.
+  void setFileTypeDefaultEditor(String extension, String editorTypeId) {
+    final normalized = _normalizeExtension(extension);
+    if (normalized.isEmpty) {
+      return;
+    }
+    if (_fileTypeDefaultEditors[normalized] == editorTypeId) {
+      return;
+    }
+    _fileTypeDefaultEditors[normalized] = editorTypeId;
+    notifyListeners();
+  }
+
+  /// Shortcut overrides keyed by action id.
+  Map<String, ForgeShortcutKey> get shortcutOverrides =>
+      Map<String, ForgeShortcutKey>.unmodifiable(_shortcutOverrides);
+
+  /// Sets a shortcut override for a specific action id.
+  void setShortcutOverride(String actionId, ForgeShortcutKey key) {
+    if (_shortcutOverrides[actionId] == key) {
+      return;
+    }
+    _shortcutOverrides[actionId] = key;
+    notifyListeners();
+  }
+
+  /// Removes a shortcut override for an action id.
+  void removeShortcutOverride(String actionId) {
+    if (_shortcutOverrides.remove(actionId) != null) {
+      notifyListeners();
+    }
+  }
+
+  /// Clears all shortcut overrides.
+  void clearShortcutOverrides() {
+    if (_shortcutOverrides.isEmpty) {
+      return;
+    }
+    _shortcutOverrides.clear();
+    notifyListeners();
+  }
+
   // ── Layout state persistence ──
 
   /// Panel sizes keyed by panel location name (left, right, bottom).
@@ -90,7 +144,8 @@ class ForgePreferencesService extends ChangeNotifier {
   }
 
   /// List of open editor URIs that were active when last saved.
-  List<String> get layoutOpenEditors => List<String>.unmodifiable(_layoutOpenEditors);
+  List<String> get layoutOpenEditors =>
+      List<String>.unmodifiable(_layoutOpenEditors);
 
   /// Sets the list of open editor URIs to persist.
   void setLayoutOpenEditors(List<String> editorUris) {
@@ -117,8 +172,10 @@ class ForgePreferencesService extends ChangeNotifier {
       _prefs?.setInt(_keyMaxRecentWorkspaces, value);
       // Trim the list if needed
       if (_startupPreferences.recentWorkspaces.length > value) {
-        _startupPreferences.recentWorkspaces =
-            _startupPreferences.recentWorkspaces.take(value).toList();
+        _startupPreferences.recentWorkspaces = _startupPreferences
+            .recentWorkspaces
+            .take(value)
+            .toList();
         _saveRecentWorkspaces();
       }
       notifyListeners();
@@ -173,10 +230,18 @@ class ForgePreferencesService extends ChangeNotifier {
       _layoutPanelVisibility
         ..clear()
         ..addAll(_loadLayoutPanelVisibility());
+      _fileTypeDefaultEditors
+        ..clear()
+        ..addAll(_loadFileTypeDefaults());
+      _shortcutOverrides
+        ..clear()
+        ..addAll(_loadShortcutOverrides());
       _layoutOpenEditors = _loadLayoutOpenEditors();
       _themeMode = _loadThemeMode();
       _isLoaded = true;
-      _log('loaded preferences with ${_editorTextSettings.length} editor settings entries');
+      _log(
+        'loaded preferences with ${_editorTextSettings.length} editor settings entries',
+      );
 
       notifyListeners();
     } catch (error, stackTrace) {
@@ -210,27 +275,37 @@ class ForgePreferencesService extends ChangeNotifier {
 
       if (_startupPreferences.lastWorkspacePath != null) {
         await _prefs!.setString(
-            _keyLastWorkspace, _startupPreferences.lastWorkspacePath!);
+          _keyLastWorkspace,
+          _startupPreferences.lastWorkspacePath!,
+        );
       } else {
         await _prefs!.remove(_keyLastWorkspace);
       }
 
       if (_startupPreferences.lastConfigMode != null) {
         await _prefs!.setString(
-            _keyConfigMode, _startupPreferences.lastConfigMode!);
+          _keyConfigMode,
+          _startupPreferences.lastConfigMode!,
+        );
       } else {
         await _prefs!.remove(_keyConfigMode);
       }
 
       await _prefs!.setBool(
-          _keyRememberSettings, _startupPreferences.rememberSettings);
+        _keyRememberSettings,
+        _startupPreferences.rememberSettings,
+      );
       await _saveRecentWorkspaces();
       await _saveEditorTextSettings();
       await _saveLayoutPanelSizes();
       await _saveLayoutPanelVisibility();
       await _saveLayoutOpenEditors();
+      await _saveFileTypeDefaults();
+      await _saveShortcutOverrides();
       await _prefs!.setString(_keyThemeMode, _themeMode.name);
-      _log('saved preferences with ${_editorTextSettings.length} editor settings entries');
+      _log(
+        'saved preferences with ${_editorTextSettings.length} editor settings entries',
+      );
     } catch (error, stackTrace) {
       debugPrint('[ForgePreferencesService] save failed: $error');
       debugPrint('$stackTrace');
@@ -267,7 +342,9 @@ class ForgePreferencesService extends ChangeNotifier {
       }
       return result;
     } catch (error, stackTrace) {
-      debugPrint('[ForgePreferencesService] parse editor settings failed: $error');
+      debugPrint(
+        '[ForgePreferencesService] parse editor settings failed: $error',
+      );
       debugPrint('$stackTrace');
       return <String, ForgeTextSettings>{};
     }
@@ -298,7 +375,10 @@ class ForgePreferencesService extends ChangeNotifier {
   }
 
   Future<void> _saveLayoutPanelSizes() async {
-    await _prefs!.setString(_keyLayoutPanelSizes, jsonEncode(_layoutPanelSizes));
+    await _prefs!.setString(
+      _keyLayoutPanelSizes,
+      jsonEncode(_layoutPanelSizes),
+    );
   }
 
   Map<String, bool> _loadLayoutPanelVisibility() {
@@ -339,7 +419,76 @@ class ForgePreferencesService extends ChangeNotifier {
   }
 
   Future<void> _saveLayoutOpenEditors() async {
-    await _prefs!.setString(_keyLayoutOpenEditors, jsonEncode(_layoutOpenEditors));
+    await _prefs!.setString(
+      _keyLayoutOpenEditors,
+      jsonEncode(_layoutOpenEditors),
+    );
+  }
+
+  Map<String, String> _loadFileTypeDefaults() {
+    final jsonStr = _prefs!.getString(_keyFileTypeDefaults);
+    if (jsonStr == null || jsonStr.trim().isEmpty) {
+      return <String, String>{};
+    }
+    try {
+      final decoded = jsonDecode(jsonStr);
+      if (decoded is! Map) {
+        return <String, String>{};
+      }
+      final result = <String, String>{};
+      for (final entry in decoded.entries) {
+        final key = entry.key;
+        final value = entry.value;
+        if (key is String && value is String) {
+          result[_normalizeExtension(key)] = value;
+        }
+      }
+      return result;
+    } catch (_) {
+      return <String, String>{};
+    }
+  }
+
+  Future<void> _saveFileTypeDefaults() async {
+    await _prefs!.setString(
+      _keyFileTypeDefaults,
+      jsonEncode(_fileTypeDefaultEditors),
+    );
+  }
+
+  Map<String, ForgeShortcutKey> _loadShortcutOverrides() {
+    final jsonStr = _prefs!.getString(_keyShortcutOverrides);
+    if (jsonStr == null || jsonStr.trim().isEmpty) {
+      return <String, ForgeShortcutKey>{};
+    }
+    try {
+      final decoded = jsonDecode(jsonStr);
+      if (decoded is! Map) {
+        return <String, ForgeShortcutKey>{};
+      }
+      final result = <String, ForgeShortcutKey>{};
+      for (final entry in decoded.entries) {
+        final actionId = entry.key;
+        final value = entry.value;
+        if (actionId is String && value is Map) {
+          final parsed = _shortcutKeyFromMap(Map<String, dynamic>.from(value));
+          if (parsed != null) {
+            result[actionId] = parsed;
+          }
+        }
+      }
+      return result;
+    } catch (_) {
+      return <String, ForgeShortcutKey>{};
+    }
+  }
+
+  Future<void> _saveShortcutOverrides() async {
+    final serializable = <String, Map<String, dynamic>>{};
+    for (final entry in _shortcutOverrides.entries) {
+      serializable[entry.key] = _shortcutKeyToMap(entry.value);
+    }
+    await _prefs!.setString(_keyShortcutOverrides, jsonEncode(serializable));
   }
 
   ThemeMode _loadThemeMode() {
@@ -351,24 +500,63 @@ class ForgePreferencesService extends ChangeNotifier {
     );
   }
 
+  Map<String, dynamic> _shortcutKeyToMap(ForgeShortcutKey key) {
+    return <String, dynamic>{
+      'keyId': key.key.keyId,
+      'primaryModifier': key.primaryModifier,
+      'shift': key.shift,
+      'alt': key.alt,
+    };
+  }
+
+  ForgeShortcutKey? _shortcutKeyFromMap(Map<String, dynamic> map) {
+    final keyId = map['keyId'];
+    if (keyId is! num) {
+      return null;
+    }
+    final logicalKey = LogicalKeyboardKey.findKeyByKeyId(keyId.toInt());
+    if (logicalKey == null) {
+      return null;
+    }
+    return ForgeShortcutKey(
+      key: logicalKey,
+      primaryModifier: map['primaryModifier'] as bool? ?? false,
+      shift: map['shift'] as bool? ?? false,
+      alt: map['alt'] as bool? ?? false,
+    );
+  }
+
+  String _normalizeExtension(String extension) {
+    final trimmed = extension.trim().toLowerCase();
+    if (trimmed.isEmpty) {
+      return trimmed;
+    }
+    return trimmed.startsWith('.') ? trimmed : '.$trimmed';
+  }
+
   ForgeTextSettings _textSettingsFromMap(Map<String, dynamic> json) {
     return ForgeTextSettings(
       fontFamily:
-        (json['fontFamily'] as String?) ?? ForgeTextDefaults.defaultFontFamily,
+          (json['fontFamily'] as String?) ??
+          ForgeTextDefaults.defaultFontFamily,
       uiFontFamily: json['uiFontFamily'] as String?,
       fontSize:
-        (json['fontSize'] as num?)?.toDouble() ?? ForgeTextDefaults.defaultFontSize,
-      lineHeight: (json['lineHeight'] as num?)?.toDouble() ??
-        ForgeTextDefaults.defaultLineHeight,
+          (json['fontSize'] as num?)?.toDouble() ??
+          ForgeTextDefaults.defaultFontSize,
+      lineHeight:
+          (json['lineHeight'] as num?)?.toDouble() ??
+          ForgeTextDefaults.defaultLineHeight,
       tabSize:
-        (json['tabSize'] as num?)?.toInt() ?? ForgeTextDefaults.defaultTabSize,
+          (json['tabSize'] as num?)?.toInt() ??
+          ForgeTextDefaults.defaultTabSize,
       insertSpaces: json['insertSpaces'] as bool? ?? true,
       showWhitespace: json['showWhitespace'] as bool? ?? false,
       wordWrap: json['wordWrap'] as bool? ?? true,
       showLineNumbers: json['showLineNumbers'] as bool? ?? true,
       highlightCurrentLine: json['highlightCurrentLine'] as bool? ?? true,
-      maxUndoHistory: (json['maxUndoHistory'] as num?)?.toInt() ??
-        ForgeTextDefaults.defaultMaxUndoHistory,
+      maxUndoHistory:
+          (json['maxUndoHistory'] as num?)?.toInt() ??
+          ForgeTextDefaults.defaultMaxUndoHistory,
     );
   }
 
@@ -403,8 +591,9 @@ class ForgePreferencesService extends ChangeNotifier {
 
     // Trim to max
     if (list.length > _maxRecentWorkspaces) {
-      _startupPreferences.recentWorkspaces =
-          list.take(_maxRecentWorkspaces).toList();
+      _startupPreferences.recentWorkspaces = list
+          .take(_maxRecentWorkspaces)
+          .toList();
     }
 
     // Update last workspace

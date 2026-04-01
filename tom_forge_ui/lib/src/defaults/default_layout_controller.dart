@@ -15,6 +15,7 @@ import '../adapters/tom_forge_shell_module.dart';
 import '../components/forge_component.dart';
 import '../components/forge_editor.dart';
 import '../components/forge_text_editor.dart';
+import '../module/forge_module.dart';
 import '../shell/forge_layout_controller.dart';
 import '../shell/forge_module_registry.dart';
 import 'default_system_state.dart';
@@ -46,6 +47,9 @@ class DefaultLayoutController implements ForgeLayoutController {
   /// Tracks the last-focused timestamp per editor for LRU ordering.
   final Map<ForgeEditor, DateTime> _editorLastFocused = {};
 
+  /// Preferred default editor ids keyed by file extension (including dot).
+  final Map<String, String> _fileTypeDefaultEditors = {};
+
   /// Late-bound diagnostic manager for emitting editor fallback diagnostics.
   ForgeDiagnosticManager? diagnosticManager;
 
@@ -75,18 +79,21 @@ class DefaultLayoutController implements ForgeLayoutController {
     double rightSize = 220,
     double bottomSize = 180,
     this.maxOpenEditors = 20,
-  })  : _systemState = systemState,
-        _fileSystem = fileSystem,
-        _moduleRegistry = moduleRegistry,
-        _virtualDocuments = virtualDocuments,
-        _leftPanel = ValueNotifier(
-            LayoutPanelConfig(size: leftSize, isVisible: true)),
-        _rightPanel = ValueNotifier(
-            LayoutPanelConfig(size: rightSize, isVisible: true)),
-        _bottomPanel = ValueNotifier(
-            LayoutPanelConfig(size: bottomSize, isVisible: true)),
-        _middlePanels = ValueNotifier([[]]),
-        _activeMiddlePanelIndex = ValueNotifier(0);
+  }) : _systemState = systemState,
+       _fileSystem = fileSystem,
+       _moduleRegistry = moduleRegistry,
+       _virtualDocuments = virtualDocuments,
+       _leftPanel = ValueNotifier(
+         LayoutPanelConfig(size: leftSize, isVisible: true),
+       ),
+       _rightPanel = ValueNotifier(
+         LayoutPanelConfig(size: rightSize, isVisible: true),
+       ),
+       _bottomPanel = ValueNotifier(
+         LayoutPanelConfig(size: bottomSize, isVisible: true),
+       ),
+       _middlePanels = ValueNotifier([[]]),
+       _activeMiddlePanelIndex = ValueNotifier(0);
 
   @override
   void openPanel(ForgePanelLocation location) {
@@ -125,12 +132,14 @@ class DefaultLayoutController implements ForgeLayoutController {
       return;
     }
 
-    unawaited(_openFileWithRecovery(
-      uri,
-      middlePanelIndex: middlePanelIndex,
-      line: line,
-      column: column,
-    ));
+    unawaited(
+      _openFileWithRecovery(
+        uri,
+        middlePanelIndex: middlePanelIndex,
+        line: line,
+        column: column,
+      ),
+    );
   }
 
   Future<void> _openFileWithRecovery(
@@ -192,7 +201,8 @@ class DefaultLayoutController implements ForgeLayoutController {
   }
 
   void _reportOpenTimeoutAttempt(Uri uri, int attempt, TimeoutException error) {
-    final message = 'Open timed out for "$uri" (attempt $attempt/3). Retrying...';
+    final message =
+        'Open timed out for "$uri" (attempt $attempt/3). Retrying...';
     _setOpenRecoveryDiagnostic(
       uri,
       message: message,
@@ -309,6 +319,20 @@ class DefaultLayoutController implements ForgeLayoutController {
       }
     }
 
+    final preferredTypeId =
+        _fileTypeDefaultEditors[_normalizeExtension(_extensionForUri(uri))];
+    if (preferredTypeId != null) {
+      final preferred = candidates
+          .where(
+            (editor) => _editorTypeIdForCandidate(editor) == preferredTypeId,
+          )
+          .firstOrNull;
+      if (preferred != null) {
+        resolveEditorChoice(preferred, uri, middlePanelIndex: middlePanelIndex);
+        return;
+      }
+    }
+
     if (candidates.length <= 1) {
       // Zero or one: just open normally.
       openFile(uri, middlePanelIndex: middlePanelIndex);
@@ -320,10 +344,23 @@ class DefaultLayoutController implements ForgeLayoutController {
   }
 
   /// Resolve a pending "Open With" choice by opening the selected editor.
-  void resolveEditorChoice(ForgeEditor editor, Uri uri,
-      {int? middlePanelIndex}) {
+  void resolveEditorChoice(
+    ForgeEditor editor,
+    Uri uri, {
+    int? middlePanelIndex,
+  }) {
     pendingEditorChoice.value = null;
     openEditor(editor, uri, middlePanelIndex: middlePanelIndex);
+  }
+
+  /// Sets the preferred default editor id for a file extension.
+  void setFileTypeDefaultEditor(String extension, String editorTypeId) {
+    _fileTypeDefaultEditors[_normalizeExtension(extension)] = editorTypeId;
+  }
+
+  /// Returns preferred default editor id for a file extension.
+  String? getFileTypeDefaultEditor(String extension) {
+    return _fileTypeDefaultEditors[_normalizeExtension(extension)];
   }
 
   @override
@@ -389,8 +426,10 @@ class DefaultLayoutController implements ForgeLayoutController {
     }
     _middlePanels.value = panels;
     _systemState.setMiddlePanelCount(panels.length);
-    _activeMiddlePanelIndex.value =
-        targetPanelIndex.clamp(0, panels.length - 1);
+    _activeMiddlePanelIndex.value = targetPanelIndex.clamp(
+      0,
+      panels.length - 1,
+    );
   }
 
   @override
@@ -406,8 +445,10 @@ class DefaultLayoutController implements ForgeLayoutController {
     panels[targetPanelIndex].add(component);
     _middlePanels.value = panels;
     _systemState.setMiddlePanelCount(panels.length);
-    _activeMiddlePanelIndex.value =
-        targetPanelIndex.clamp(0, panels.length - 1);
+    _activeMiddlePanelIndex.value = targetPanelIndex.clamp(
+      0,
+      panels.length - 1,
+    );
   }
 
   /// Close a specific editor.
@@ -457,10 +498,7 @@ class DefaultLayoutController implements ForgeLayoutController {
     final notifier = _panelNotifier(location);
     if (notifier == null) return;
     final current = notifier.value;
-    notifier.value = LayoutPanelConfig(
-      size: current.size,
-      isVisible: visible,
-    );
+    notifier.value = LayoutPanelConfig(size: current.size, isVisible: visible);
     final panels = Set<ForgePanelLocation>.from(_systemState.visiblePanels);
     if (visible) {
       panels.add(location);
@@ -481,7 +519,8 @@ class DefaultLayoutController implements ForgeLayoutController {
   }
 
   ValueNotifier<LayoutPanelConfig>? _panelNotifier(
-      ForgePanelLocation location) {
+    ForgePanelLocation location,
+  ) {
     switch (location) {
       case ForgePanelLocation.left:
         return _leftPanel;
@@ -548,7 +587,8 @@ class DefaultLayoutController implements ForgeLayoutController {
   }
 
   Future<ForgeEditor?> _createEditor(Uri uri, String content) async {
-    final ext = uri.path.split('.').last.toLowerCase();
+    final ext = _extensionForUri(uri);
+    final normalizedExt = _normalizeExtension(ext);
 
     // Phase 1: Check if any module editor explicitly accepts this URI.
     final inspectEditors = <ForgeEditor>[];
@@ -567,8 +607,7 @@ class DefaultLayoutController implements ForgeLayoutController {
     if (inspectEditors.isNotEmpty) {
       final bytes = utf8.encode(content);
       for (final editor in inspectEditors) {
-        if (editor.canHandleContent(uri, bytes) ==
-            FileHandlingResult.accept) {
+        if (editor.canHandleContent(uri, bytes) == FileHandlingResult.accept) {
           return editor;
         }
       }
@@ -576,45 +615,103 @@ class DefaultLayoutController implements ForgeLayoutController {
 
     // Resolve owner module: prefer TomForgeShellModule for built-in editor
     // types, fall back to the first registered module.
-    final ownerModule = _moduleRegistry.allModules
+    final ownerModule =
+        _moduleRegistry.allModules
             .whereType<TomForgeShellModule>()
             .firstOrNull ??
         _moduleRegistry.allModules.firstOrNull;
     if (ownerModule == null) return null;
 
+    final preferredTypeId = _fileTypeDefaultEditors[normalizedExt];
+    if (preferredTypeId != null) {
+      final preferred = _createBuiltInEditor(
+        editorTypeId: preferredTypeId,
+        uri: uri,
+        content: content,
+        ownerModule: ownerModule,
+      );
+      if (preferred != null) {
+        return preferred;
+      }
+    }
+
     // Phase 3: Default creation for known extensions.
-    switch (ext) {
-      case _extMarkdown:
-      case _extMarkdownAlt:
-      case _extText:
+    final defaultTypeId = switch (ext) {
+      _extMarkdown || _extMarkdownAlt || _extText => 'md',
+      _extDart => 'dart',
+      _extYaml || _extYml => 'yaml',
+      _ => 'plaintext',
+    };
+
+    if (defaultTypeId == 'plaintext') {
+      // Fallback to plain text editor when no specialized editor
+      // is registered for the current file type.
+      _emitFallbackDiagnostic(uri, ext);
+    }
+
+    return _createBuiltInEditor(
+      editorTypeId: defaultTypeId,
+      uri: uri,
+      content: content,
+      ownerModule: ownerModule,
+    );
+  }
+
+  ForgeEditor? _createBuiltInEditor({
+    required String editorTypeId,
+    required Uri uri,
+    required String content,
+    required ForgeModule ownerModule,
+  }) {
+    switch (editorTypeId) {
+      case 'md':
         final controller = MdEditorController(
           initialMarkdown: content,
           uri: uri,
         );
         return ForgeMdEditor(controller: controller, module: ownerModule);
-      case _extDart:
-        final controller = DartCodeController(
-          initialCode: content,
-          uri: uri,
-        );
+      case 'dart':
+        final controller = DartCodeController(initialCode: content, uri: uri);
         return ForgeDartEditor(controller: controller, module: ownerModule);
-      case _extYaml:
-      case _extYml:
-        final controller = YamlEditorController(
-          initialYaml: content,
-          uri: uri,
-        );
+      case 'yaml':
+        final controller = YamlEditorController(initialYaml: content, uri: uri);
         return ForgeYamlEditor(controller: controller, module: ownerModule);
-      default:
-        // Fallback to plain text editor when no specialized editor
-        // is registered for the current file type.
-        _emitFallbackDiagnostic(uri, ext);
+      case 'plaintext':
         return ForgePlainTextEditor.fromContent(
           content: content,
           uri: uri,
           module: ownerModule,
         );
     }
+    return null;
+  }
+
+  String _extensionForUri(Uri uri) {
+    final segments = uri.pathSegments;
+    if (segments.isEmpty) {
+      return '';
+    }
+    final fileName = segments.last;
+    if (!fileName.contains('.')) {
+      return '';
+    }
+    return fileName.split('.').last.toLowerCase();
+  }
+
+  String _normalizeExtension(String extension) {
+    if (extension.isEmpty) {
+      return extension;
+    }
+    final lowered = extension.toLowerCase();
+    return lowered.startsWith('.') ? lowered : '.$lowered';
+  }
+
+  String? _editorTypeIdForCandidate(ForgeEditor editor) {
+    if (editor is ForgeMdEditor) return 'md';
+    if (editor is ForgeDartEditor) return 'dart';
+    if (editor is ForgeYamlEditor) return 'yaml';
+    if (editor is ForgePlainTextEditor) return 'plaintext';
+    return null;
   }
 
   /// Navigate an editor to a specific line/column if supported.

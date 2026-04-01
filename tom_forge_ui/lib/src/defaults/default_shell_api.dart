@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart'
-  show ForgeTextSettings;
+    show ForgeTextSettings;
 
 import '../model/forge_config.dart';
 import '../actions/forge_action.dart';
@@ -133,6 +133,7 @@ class DefaultShellApi implements ForgeShellApi {
   final ForgeWorkspaceStateManager workspaceState;
 
   final Map<String, ForgeTextSettings> _editorTextSettings = {};
+  final Map<String, String> _fileTypeDefaults = {};
 
   DefaultShellApi({
     required this.systemState,
@@ -217,9 +218,7 @@ class DefaultShellApi implements ForgeShellApi {
       refreshDebounce: initialConfig.performance.diagnosticDebounceWindow,
     );
     final outputManager = DefaultOutputChannelManager();
-    final configManager = DefaultConfigManager(
-      initial: initialConfig,
-    );
+    final configManager = DefaultConfigManager(initial: initialConfig);
     final notificationManager = DefaultNotificationManager();
 
     // Late-wire error-reporting services into the module registry so
@@ -245,10 +244,14 @@ class DefaultShellApi implements ForgeShellApi {
     if (fileSystem is MemoryFileSystem) {
       searchManager = DefaultSearchManager(fileSystem: fileSystem);
     } else if (fileSystem is RealFileSystem) {
-      searchManager = RealSearchManager(rootDirectory: fileSystem.rootDirectory);
+      searchManager = RealSearchManager(
+        rootDirectory: fileSystem.rootDirectory,
+      );
     } else {
       // Fallback: create an empty MemoryFileSystem for search
-      searchManager = DefaultSearchManager(fileSystem: MemoryFileSystem(seed: {}));
+      searchManager = DefaultSearchManager(
+        fileSystem: MemoryFileSystem(seed: {}),
+      );
     }
 
     final outlineManager = DefaultOutlineManager();
@@ -331,6 +334,30 @@ class DefaultShellApi implements ForgeShellApi {
     _editorTextSettings[editorTypeId] = settings;
   }
 
+  @override
+  Map<String, String> getFileTypeDefaults() {
+    return Map<String, String>.unmodifiable(_fileTypeDefaults);
+  }
+
+  @override
+  void setFileTypeDefault(String extension, String editorTypeId) {
+    final normalized = _normalizeExtension(extension);
+    _fileTypeDefaults[normalized] = editorTypeId;
+
+    final layoutController = layout;
+    if (layoutController is DefaultLayoutController) {
+      layoutController.setFileTypeDefaultEditor(normalized, editorTypeId);
+    }
+  }
+
+  String _normalizeExtension(String extension) {
+    final trimmed = extension.trim().toLowerCase();
+    if (trimmed.isEmpty) {
+      return trimmed;
+    }
+    return trimmed.startsWith('.') ? trimmed : '.$trimmed';
+  }
+
   /// Restores a file from a revision snapshot.
   ///
   /// Writes the revision content to the file system and re-opens the file
@@ -353,8 +380,7 @@ class DefaultShellApi implements ForgeShellApi {
     await fileSystem.save(fileUri);
 
     // Refresh open editor if present.
-    final existing = (systemState as DefaultSystemState)
-        .openEditors
+    final existing = (systemState as DefaultSystemState).openEditors
         .where((e) => e.uri == fileUri)
         .firstOrNull;
     if (existing != null) {

@@ -239,10 +239,12 @@ class DefaultShortcutManager implements ForgeShortcutManager {
             binding.chord!.firstKey == _pendingFirstKey &&
             binding.chord!.secondKey == key) {
           _pendingFirstKey = null;
-          _chordController.add(ForgeChordEvent(
-            state: ForgeChordState.completed,
-            executedBinding: binding,
-          ));
+          _chordController.add(
+            ForgeChordEvent(
+              state: ForgeChordState.completed,
+              executedBinding: binding,
+            ),
+          );
           return binding;
         }
       }
@@ -259,11 +261,13 @@ class DefaultShortcutManager implements ForgeShortcutManager {
     if (startsChord) {
       _pendingFirstKey = key;
       final completions = pendingChordCompletions;
-      _chordController.add(ForgeChordEvent(
-        state: ForgeChordState.entered,
-        firstKey: key,
-        completions: completions,
-      ));
+      _chordController.add(
+        ForgeChordEvent(
+          state: ForgeChordState.entered,
+          firstKey: key,
+          completions: completions,
+        ),
+      );
 
       // Auto-cancel after timeout.
       _chordTimer?.cancel();
@@ -280,9 +284,9 @@ class DefaultShortcutManager implements ForgeShortcutManager {
       _pendingFirstKey = null;
       _chordTimer?.cancel();
       _chordTimer = null;
-      _chordController.add(const ForgeChordEvent(
-        state: ForgeChordState.cancelled,
-      ));
+      _chordController.add(
+        const ForgeChordEvent(state: ForgeChordState.cancelled),
+      );
     }
   }
 
@@ -291,6 +295,7 @@ class DefaultShortcutManager implements ForgeShortcutManager {
     final index = _bindings.indexWhere((b) => b.action.id == action.id);
     if (index >= 0) {
       final old = _bindings[index];
+      _defaults.putIfAbsent(action.id, () => old.key);
       _bindings[index] = ForgeShortcutBinding(
         action: old.action,
         key: key,
@@ -298,6 +303,7 @@ class DefaultShortcutManager implements ForgeShortcutManager {
       );
     } else {
       _bindings.add(ForgeShortcutBinding(action: action, key: key));
+      _defaults.putIfAbsent(action.id, () => key);
     }
   }
 
@@ -361,10 +367,9 @@ class DefaultShortcutManager implements ForgeShortcutManager {
     final menu = getMenuForTrigger(triggerKey);
     if (menu == null) return false;
     _activeMenu = menu;
-    _menuController.add(ForgeShortcutMenuEvent(
-      state: ForgeShortcutMenuState.opened,
-      menu: menu,
-    ));
+    _menuController.add(
+      ForgeShortcutMenuEvent(state: ForgeShortcutMenuState.opened, menu: menu),
+    );
     return true;
   }
 
@@ -375,10 +380,12 @@ class DefaultShortcutManager implements ForgeShortcutManager {
       if (entry.key == key) {
         final selected = entry;
         _activeMenu = null;
-        _menuController.add(ForgeShortcutMenuEvent(
-          state: ForgeShortcutMenuState.selected,
-          selectedEntry: selected,
-        ));
+        _menuController.add(
+          ForgeShortcutMenuEvent(
+            state: ForgeShortcutMenuState.selected,
+            selectedEntry: selected,
+          ),
+        );
         return selected;
       }
     }
@@ -391,9 +398,9 @@ class DefaultShortcutManager implements ForgeShortcutManager {
   void closeMenu() {
     if (_activeMenu != null) {
       _activeMenu = null;
-      _menuController.add(const ForgeShortcutMenuEvent(
-        state: ForgeShortcutMenuState.closed,
-      ));
+      _menuController.add(
+        const ForgeShortcutMenuEvent(state: ForgeShortcutMenuState.closed),
+      );
     }
   }
 
@@ -513,7 +520,7 @@ class DefaultSecretStorage implements ForgeSecretStorage {
 class DefaultFileDecorationManager implements ForgeFileDecorationManager {
   final List<ForgeFileDecorationProvider> _providers = [];
   final Map<ForgeFileDecorationProvider, StreamSubscription<Uri?>>
-      _subscriptions = {};
+  _subscriptions = {};
   final StreamController<Uri?> _changeController =
       StreamController<Uri?>.broadcast();
 
