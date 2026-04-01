@@ -228,10 +228,12 @@ class DefaultShellApi implements ForgeShellApi {
     moduleRegistry.diagnosticManager = diagnosticManager;
     moduleRegistry.notificationManager = notificationManager;
     moduleRegistry.outputManager = outputManager;
+    moduleRegistry.systemState = systemState;
 
     // Late-wire diagnostics into the layout controller so fallback-editor
     // events emit an ED002 diagnostic.
     layoutController.diagnosticManager = diagnosticManager;
+    layoutController.notificationManager = notificationManager;
 
     final progressManager = DefaultProgressManager();
     final dialogManager = DefaultDialogManager();

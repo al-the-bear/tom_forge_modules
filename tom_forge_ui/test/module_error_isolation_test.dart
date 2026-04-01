@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
@@ -73,6 +75,35 @@ class _BrokenDeactivateModule extends ForgeModule {
 
   @override
   List<ForgeAction> get actions => [];
+
+  @override
+  List<ForgeShortcutBinding> get shortcuts => [];
+}
+
+/// A module that times out once while registry inspects contributions.
+class _TimeoutActionsModule extends ForgeModule {
+  int attempts = 0;
+
+  @override
+  String get displayName => 'Timeout Actions Module';
+
+  @override
+  void activate(ForgeShellApi shell) {}
+
+  @override
+  void deactivate() {}
+
+  @override
+  List<ForgeEditor> get editors => [];
+
+  @override
+  List<ForgeView> get views => [];
+
+  @override
+  List<ForgeAction> get actions {
+    attempts++;
+    throw TimeoutException('network timed out while loading actions');
+  }
 
   @override
   List<ForgeShortcutBinding> get shortcuts => [];
@@ -168,9 +199,11 @@ void main() {
       expect(registry.errorModules, [bad]);
     });
 
-    test('diagnostic is emitted with MD001 code for broken module', () {
+    test('diagnostic is emitted with MD001 code for broken module', () async {
       final bad = _BrokenActionsModule();
       registry.register(bad);
+
+      await Future<void>.delayed(const Duration(milliseconds: 120));
 
       final allDiags = diagnosticManager.all;
       expect(allDiags, isNotEmpty, reason: 'Expected a diagnostic');
@@ -196,6 +229,65 @@ void main() {
       final channel = outputManager.get('Tom Forge Shell');
       expect(channel, isNotNull,
           reason: 'Shell output channel should exist');
+    });
+
+    test('module failure is mirrored into active editor diagnostics context', () {
+      final good = _GoodModule();
+      registry.register(good);
+
+      final state = DefaultSystemState();
+      registry.systemState = state;
+
+      final editor = ForgeTestTextEditor(
+        good,
+        document: ForgeTestDocument(
+          uri: Uri.parse('file:///workspace/active.dart'),
+          content: 'void main() {}',
+        ),
+      );
+      state.addOpenEditor(editor);
+      state.setActiveEditor(editor);
+
+      final bad = _BrokenActionsModule();
+      registry.register(bad);
+
+      expect(registry.moduleStateOf(good), ModuleState.active);
+      expect(registry.moduleStateOf(bad), ModuleState.error);
+      expect(registry.get<_GoodModule>(), same(good));
+
+      final editorDiags = diagnosticManager.forUri(editor.uri);
+      expect(editorDiags, isNotEmpty,
+          reason: 'Expected module failure to be reflected in editor context');
+      expect(
+        editorDiags.any((d) => d.code == ForgeErrorCodes.mdActivationFailed),
+        isTrue,
+      );
+
+      expect(notificationManager.errors, isNotEmpty,
+          reason: 'Expected failure toast notification for module error');
+
+      editor.dispose();
+    });
+
+    test('timeout activation failure reports warning toast and diagnostics', () async {
+      final timeoutModule = _TimeoutActionsModule();
+      registry.register(timeoutModule);
+
+      await Future<void>.delayed(const Duration(milliseconds: 120));
+
+      expect(registry.moduleStateOf(timeoutModule), ModuleState.error);
+      expect(notificationManager.errors, isNotEmpty);
+      expect(
+        notificationManager.errors.first,
+        contains('Timeout Actions Module'),
+      );
+
+      final allDiags = diagnosticManager.all;
+      expect(allDiags, isNotEmpty);
+      expect(
+        allDiags.any((d) => d.code == ForgeErrorCodes.mdActivationFailed),
+        isTrue,
+      );
     });
   });
 

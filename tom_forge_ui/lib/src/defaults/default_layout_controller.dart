@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -47,6 +48,11 @@ class DefaultLayoutController implements ForgeLayoutController {
 
   /// Late-bound diagnostic manager for emitting editor fallback diagnostics.
   ForgeDiagnosticManager? diagnosticManager;
+
+  /// Late-bound notification manager for open-file recovery warnings.
+  ForgeNotificationManager? notificationManager;
+
+  ForgeDiagnosticCollection? _openRecoveryDiagnostics;
 
   final ValueNotifier<LayoutPanelConfig> _leftPanel;
   final ValueNotifier<LayoutPanelConfig> _rightPanel;
@@ -119,31 +125,130 @@ class DefaultLayoutController implements ForgeLayoutController {
       return;
     }
 
+    unawaited(_openFileWithRecovery(
+      uri,
+      middlePanelIndex: middlePanelIndex,
+      line: line,
+      column: column,
+    ));
+  }
+
+  Future<void> _openFileWithRecovery(
+    Uri uri, {
+    int? middlePanelIndex,
+    int? line,
+    int? column,
+  }) async {
+    var timeoutAttempts = 0;
+    String? content;
+
     // Resolve content from virtual document provider or file system.
-    _resolveContent(uri).then((content) async {
-      if (content == null) {
-        if (debugEnabled) {
-          // ignore: avoid_print
-          print('[DefaultLayoutController] Cannot read content for: $uri');
-        }
-        return;
-      }
-      final editor = await _createEditor(uri, content);
-      if (editor == null) {
-        if (debugEnabled) {
-          // ignore: avoid_print
-          print('[DefaultLayoutController] No editor for: $uri');
-        }
-        return;
-      }
-      _addEditorToPanel(editor, panelIdx: middlePanelIndex);
-      _navigateEditorTo(editor, line: line, column: column);
-    }).catchError((Object e) {
+    try {
+      content = await ForgeRetryPolicy.withImmediateRetry<String?>(
+        operation: () async {
+          try {
+            return await _resolveContent(uri);
+          } on TimeoutException catch (error) {
+            timeoutAttempts++;
+            _reportOpenTimeoutAttempt(uri, timeoutAttempts, error);
+            rethrow;
+          }
+        },
+        maxAttempts: 3,
+        retryableErrors: const {TimeoutException},
+      );
+    } on TimeoutException catch (error) {
+      _reportOpenTimeoutExhausted(uri, timeoutAttempts, error);
+      return;
+    } catch (e) {
       if (debugEnabled) {
         // ignore: avoid_print
         print('[DefaultLayoutController] openFile error: $e');
       }
-    });
+      _reportOpenFailure(uri, e);
+      return;
+    }
+
+    _clearOpenRecoveryDiagnostic(uri);
+    if (content == null) {
+      if (debugEnabled) {
+        // ignore: avoid_print
+        print('[DefaultLayoutController] Cannot read content for: $uri');
+      }
+      return;
+    }
+
+    final editor = await _createEditor(uri, content);
+    if (editor == null) {
+      if (debugEnabled) {
+        // ignore: avoid_print
+        print('[DefaultLayoutController] No editor for: $uri');
+      }
+      return;
+    }
+
+    _addEditorToPanel(editor, panelIdx: middlePanelIndex);
+    _navigateEditorTo(editor, line: line, column: column);
+  }
+
+  void _reportOpenTimeoutAttempt(Uri uri, int attempt, TimeoutException error) {
+    final message = 'Open timed out for "$uri" (attempt $attempt/3). Retrying...';
+    _setOpenRecoveryDiagnostic(
+      uri,
+      message: message,
+      severity: ForgeSeverity.warning,
+    );
+    notificationManager?.showWarning(message);
+  }
+
+  void _reportOpenTimeoutExhausted(
+    Uri uri,
+    int attempt,
+    TimeoutException error,
+  ) {
+    final effectiveAttempts = attempt == 0 ? 3 : attempt;
+    final message =
+        'Open failed for "$uri" after $effectiveAttempts retries: $error';
+    _setOpenRecoveryDiagnostic(
+      uri,
+      message: message,
+      severity: ForgeSeverity.warning,
+    );
+    notificationManager?.showWarning(message);
+  }
+
+  void _reportOpenFailure(Uri uri, Object error) {
+    final message = 'Failed to open "$uri": $error';
+    _setOpenRecoveryDiagnostic(
+      uri,
+      message: message,
+      severity: ForgeSeverity.error,
+    );
+    notificationManager?.showError(message);
+  }
+
+  void _setOpenRecoveryDiagnostic(
+    Uri uri, {
+    required String message,
+    required ForgeSeverity severity,
+  }) {
+    final dm = diagnosticManager;
+    if (dm == null) return;
+    _openRecoveryDiagnostics ??= dm.createCollection('editor-open-recovery');
+    _openRecoveryDiagnostics!.set(uri, [
+      ForgeDiagnostic(
+        uri: uri,
+        range: const ForgeTextRange.empty(),
+        message: message,
+        severity: severity,
+        source: 'forge-shell',
+        code: ForgeErrorCodes.edLoadFailed,
+      ),
+    ]);
+  }
+
+  void _clearOpenRecoveryDiagnostic(Uri uri) {
+    _openRecoveryDiagnostics?.set(uri, const []);
   }
 
   /// Resolve content for a URI, trying virtual document providers first

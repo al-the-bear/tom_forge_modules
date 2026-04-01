@@ -716,7 +716,7 @@ Connect already-built status bar controller, alignment zones, priority ordering,
 
 ### Step 7 — Wiring Existing Demos to Editors: Error Handling and Recovery (5 rows)
 
-- [ ] Done
+- [x] Done
 
 Connect module activation failure isolation, error-state marking, diagnostics emission, retry utility, and error scenario test expectations to editor integration.
 

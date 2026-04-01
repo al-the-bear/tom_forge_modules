@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:tom_forge_core/tom_forge_core.dart'
     show
         ForgeDiagnostic,
@@ -11,6 +13,7 @@ import 'package:tom_forge_core/tom_forge_core.dart'
 
 import '../module/forge_module.dart';
 import '../shell/forge_module_registry.dart';
+import '../shell/forge_system_state.dart';
 import '../services/forge_action_registry.dart';
 import '../services/forge_shortcut_manager.dart';
 
@@ -58,6 +61,9 @@ class DefaultModuleRegistry implements ForgeModuleRegistry {
   /// Set after construction when wiring shell services.
   ForgeOutputChannelManager? outputManager;
 
+  /// Set after construction when wiring shell services.
+  ForgeSystemState? systemState;
+
   ForgeDiagnosticCollection? _shellDiagnostics;
 
   /// Returns the activation state of a registered module.
@@ -82,7 +88,6 @@ class DefaultModuleRegistry implements ForgeModuleRegistry {
       }
 
       _modules[module.runtimeType] = module;
-      _moduleStates[module.runtimeType] = ModuleState.active;
 
       final actionRegistry = _actionRegistry;
       if (actionRegistry != null) {
@@ -100,6 +105,17 @@ class DefaultModuleRegistry implements ForgeModuleRegistry {
           shortcutManager.registerMenu(menu);
         }
       }
+
+      _moduleStates[module.runtimeType] = ModuleState.active;
+    } on TimeoutException catch (error, stackTrace) {
+      _moduleStates[module.runtimeType] = ModuleState.error;
+      _reportModuleError(
+        module.displayName,
+        ForgeErrorCodes.mdActivationFailed,
+        'Module activation timed out: ${module.displayName}',
+        error,
+        stackTrace,
+      );
     } catch (error, stackTrace) {
       _moduleStates[module.runtimeType] = ModuleState.error;
       _reportModuleError(
@@ -164,10 +180,10 @@ class DefaultModuleRegistry implements ForgeModuleRegistry {
     final dm = diagnosticManager;
     if (dm != null) {
       _shellDiagnostics ??= dm.createCollection('shell');
-      final uri = Uri.parse('forge://modules/$moduleName');
-      _shellDiagnostics!.set(uri, [
+      final moduleUri = Uri.parse('forge://modules/${Uri.encodeComponent(moduleName)}');
+      _shellDiagnostics!.set(moduleUri, [
         ForgeDiagnostic(
-          uri: uri,
+          uri: moduleUri,
           range: const ForgeTextRange.empty(),
           message: '$message: $error',
           severity: ForgeSeverity.error,
@@ -175,11 +191,29 @@ class DefaultModuleRegistry implements ForgeModuleRegistry {
           code: code,
         ),
       ]);
+
+      // Mirror module failures into the active editor context so editor users
+      // see recoverable module errors without leaving the current file.
+      final activeEditorUri = systemState?.activeEditor?.uri;
+      if (activeEditorUri != null) {
+        _shellDiagnostics!.set(activeEditorUri, [
+          ForgeDiagnostic(
+            uri: activeEditorUri,
+            range: const ForgeTextRange.empty(),
+            message:
+                'Module "$moduleName" failed while editor context is active: $error',
+            severity: ForgeSeverity.error,
+            source: 'Shell',
+            code: code,
+          ),
+        ]);
+      }
     }
 
     // 3. Toast notification
     notificationManager?.showError(
       'Failed to activate $moduleName. See Problems view.',
+      actions: const ['Retry'],
     );
 
     // 4. Console log (always)
