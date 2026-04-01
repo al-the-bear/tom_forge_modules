@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
@@ -85,6 +84,25 @@ void main() {
       expect(find.text('Right'), findsOneWidget);
     });
 
+    testWidgets('orders items by priority within alignment zone', (
+      WidgetTester tester,
+    ) async {
+      final harness = _StatusBarHarness.create();
+      harness.register(_TestStatusBarModule(
+        name: 'PriorityZone',
+        items: [
+          _item('left-low', alignment: StatusBarAlignment.left, priority: 10),
+          _item('left-high', alignment: StatusBarAlignment.left, priority: 100),
+        ],
+      ));
+
+      await tester.pumpWidget(harness.buildApp());
+
+      final highX = tester.getCenter(find.text('left-high')).dx;
+      final lowX = tester.getCenter(find.text('left-low')).dx;
+      expect(highX, lessThan(lowX));
+    });
+
     testWidgets('filters items by isActive', (WidgetTester tester) async {
       final harness = _StatusBarHarness.create();
       harness.register(_TestStatusBarModule(
@@ -144,6 +162,35 @@ void main() {
       expect(find.textContaining('Building'), findsOneWidget);
 
       // Complete the task to clean up.
+      completer.complete();
+      await tester.pump();
+    });
+
+    testWidgets('uses static progress indicator when animations disabled', (
+      WidgetTester tester,
+    ) async {
+      final harness = _StatusBarHarness.create();
+
+      await tester.pumpWidget(
+        harness.buildApp(
+          mediaQueryData: const MediaQueryData(disableAnimations: true),
+        ),
+      );
+
+      final completer = Completer<void>();
+
+      // ignore: unawaited_futures
+      harness.shell.progress.withProgress(
+        title: 'Indexing',
+        location: ForgeProgressLocation.statusBar,
+        task: (r) => completer.future,
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.byIcon(Icons.sync), findsOneWidget);
+
       completer.complete();
       await tester.pump();
     });
@@ -236,13 +283,17 @@ class _StatusBarHarness {
     (shell.modules as DefaultModuleRegistry).register(module);
   }
 
-  Widget buildApp() {
+  Widget buildApp({MediaQueryData? mediaQueryData}) {
+    final data = mediaQueryData ?? const MediaQueryData();
     return MaterialApp(
-      home: Scaffold(
-        body: ForgeStatusBarWidget(
-          controller: shell.statusBar,
-          systemState: shell.systemState,
-          progressManager: shell.progress,
+      home: MediaQuery(
+        data: data,
+        child: Scaffold(
+          body: ForgeStatusBarWidget(
+            controller: shell.statusBar,
+            systemState: shell.systemState,
+            progressManager: shell.progress,
+          ),
         ),
       ),
     );
@@ -284,11 +335,9 @@ class _TestStatusBarModule extends ForgeModule {
 /// Separate module types so [DefaultModuleRegistry] (keyed by [Type])
 /// can store multiple modules simultaneously.
 class _TestStatusBarModuleA extends _TestStatusBarModule {
-  _TestStatusBarModuleA({List<StatusBarItem>? items})
-      : super(name: 'A', items: items);
+  _TestStatusBarModuleA({super.items}) : super(name: 'A');
 }
 
 class _TestStatusBarModuleB extends _TestStatusBarModule {
-  _TestStatusBarModuleB({List<StatusBarItem>? items})
-      : super(name: 'B', items: items);
+  _TestStatusBarModuleB({super.items}) : super(name: 'B');
 }

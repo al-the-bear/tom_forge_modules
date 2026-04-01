@@ -113,15 +113,15 @@ class _ForgeStatusBarWidgetState extends State<ForgeStatusBarWidget> {
     final leftItems = items
         .where((i) => i.alignment == StatusBarAlignment.left)
         .toList()
-      ..sort((a, b) => a.priority.compareTo(b.priority));
+      ..sort((a, b) => b.priority.compareTo(a.priority));
     final centerItems = items
         .where((i) => i.alignment == StatusBarAlignment.center)
         .toList()
-      ..sort((a, b) => a.priority.compareTo(b.priority));
+      ..sort((a, b) => b.priority.compareTo(a.priority));
     final rightItems = items
         .where((i) => i.alignment == StatusBarAlignment.right)
         .toList()
-      ..sort((a, b) => a.priority.compareTo(b.priority));
+      ..sort((a, b) => b.priority.compareTo(a.priority));
 
     final theme = Theme.of(context);
     final shellTheme = theme.extension<ForgeShellTheme>();
@@ -146,19 +146,26 @@ class _ForgeStatusBarWidgetState extends State<ForgeStatusBarWidget> {
   Widget _buildProgressIndicator(BuildContext context) {
     final theme = Theme.of(context);
     final color = theme.colorScheme.onPrimary;
+    final mediaQuery = MediaQuery.maybeOf(context);
+    final useStaticIndicator =
+        (mediaQuery?.disableAnimations ?? false) ||
+        (mediaQuery?.highContrast ?? false);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(
-            width: 10,
-            height: 10,
-            child: CircularProgressIndicator(
-              strokeWidth: 1.5,
-              color: color,
+          if (useStaticIndicator)
+            Icon(Icons.sync, size: 12, color: color)
+          else
+            SizedBox(
+              width: 10,
+              height: 10,
+              child: CircularProgressIndicator(
+                strokeWidth: 1.5,
+                color: color,
+              ),
             ),
-          ),
           const SizedBox(width: 4),
           Text(
             _progressMessage!,

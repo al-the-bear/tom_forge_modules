@@ -698,7 +698,7 @@ New widgets: right-click context menu on editor area (`cut`/`copy`/`paste`/`form
 
 ### Step 6 — Wiring Existing Demos to Editors: Status Bar and Module Storage (6 rows)
 
-- [ ] Done
+- [x] Done
 
 Connect already-built status bar controller, alignment zones, priority ordering, and module-scoped persistence to editor integration paths. These are demo=yes/wired=no — the code exists, it just needs plumbing to editors.
 
