@@ -11,12 +11,8 @@ void main() {
   group('DefaultStatusBarController', () {
     test('aggregates items from all modules', () {
       final harness = _StatusBarHarness.create();
-      final moduleA = _TestStatusBarModuleA(
-        items: [_item('a1'), _item('a2')],
-      );
-      final moduleB = _TestStatusBarModuleB(
-        items: [_item('b1')],
-      );
+      final moduleA = _TestStatusBarModuleA(items: [_item('a1'), _item('a2')]);
+      final moduleB = _TestStatusBarModuleB(items: [_item('b1')]);
       harness.registerTyped<_TestStatusBarModuleA>(moduleA);
       harness.registerTyped<_TestStatusBarModuleB>(moduleB);
 
@@ -41,22 +37,24 @@ void main() {
       );
       harness.register(module);
 
-      final texts =
-          harness.shell.statusBar.items.map((i) => i.text.value).toList();
+      final texts = harness.shell.statusBar.items
+          .map((i) => i.text.value)
+          .toList();
       expect(texts, ['high', 'mid', 'low']);
     });
 
     test('items from multiple modules are merged and sorted', () {
       final harness = _StatusBarHarness.create();
-      harness.registerTyped<_TestStatusBarModuleA>(_TestStatusBarModuleA(
-        items: [_item('f1', priority: 20)],
-      ));
-      harness.registerTyped<_TestStatusBarModuleB>(_TestStatusBarModuleB(
-        items: [_item('s1', priority: 30)],
-      ));
+      harness.registerTyped<_TestStatusBarModuleA>(
+        _TestStatusBarModuleA(items: [_item('f1', priority: 20)]),
+      );
+      harness.registerTyped<_TestStatusBarModuleB>(
+        _TestStatusBarModuleB(items: [_item('s1', priority: 30)]),
+      );
 
-      final texts =
-          harness.shell.statusBar.items.map((i) => i.text.value).toList();
+      final texts = harness.shell.statusBar.items
+          .map((i) => i.text.value)
+          .toList();
       expect(texts, ['s1', 'f1']);
     });
   });
@@ -68,14 +66,16 @@ void main() {
       WidgetTester tester,
     ) async {
       final harness = _StatusBarHarness.create();
-      harness.register(_TestStatusBarModule(
-        name: 'Layout',
-        items: [
-          _item('Left', alignment: StatusBarAlignment.left),
-          _item('Center', alignment: StatusBarAlignment.center),
-          _item('Right', alignment: StatusBarAlignment.right),
-        ],
-      ));
+      harness.register(
+        _TestStatusBarModule(
+          name: 'Layout',
+          items: [
+            _item('Left', alignment: StatusBarAlignment.left),
+            _item('Center', alignment: StatusBarAlignment.center),
+            _item('Right', alignment: StatusBarAlignment.right),
+          ],
+        ),
+      );
 
       await tester.pumpWidget(harness.buildApp());
 
@@ -84,17 +84,62 @@ void main() {
       expect(find.text('Right'), findsOneWidget);
     });
 
+    testWidgets('keeps left/center/right items in segmented layout', (
+      WidgetTester tester,
+    ) async {
+      final harness = _StatusBarHarness.create();
+      harness.register(
+        _TestStatusBarModule(
+          name: 'Segments',
+          items: [
+            _item(
+              'LeftSegment',
+              alignment: StatusBarAlignment.left,
+              priority: 50,
+            ),
+            _item(
+              'CenterSegment',
+              alignment: StatusBarAlignment.center,
+              priority: 50,
+            ),
+            _item(
+              'RightSegment',
+              alignment: StatusBarAlignment.right,
+              priority: 50,
+            ),
+          ],
+        ),
+      );
+
+      await tester.pumpWidget(harness.buildApp());
+
+      final leftX = tester.getCenter(find.text('LeftSegment')).dx;
+      final centerX = tester.getCenter(find.text('CenterSegment')).dx;
+      final rightX = tester.getCenter(find.text('RightSegment')).dx;
+      final barX = tester.getCenter(find.byType(ForgeStatusBarWidget)).dx;
+
+      expect(leftX, lessThan(centerX));
+      expect(centerX, lessThan(rightX));
+      expect((centerX - barX).abs(), lessThan(120));
+    });
+
     testWidgets('orders items by priority within alignment zone', (
       WidgetTester tester,
     ) async {
       final harness = _StatusBarHarness.create();
-      harness.register(_TestStatusBarModule(
-        name: 'PriorityZone',
-        items: [
-          _item('left-low', alignment: StatusBarAlignment.left, priority: 10),
-          _item('left-high', alignment: StatusBarAlignment.left, priority: 100),
-        ],
-      ));
+      harness.register(
+        _TestStatusBarModule(
+          name: 'PriorityZone',
+          items: [
+            _item('left-low', alignment: StatusBarAlignment.left, priority: 10),
+            _item(
+              'left-high',
+              alignment: StatusBarAlignment.left,
+              priority: 100,
+            ),
+          ],
+        ),
+      );
 
       await tester.pumpWidget(harness.buildApp());
 
@@ -105,13 +150,15 @@ void main() {
 
     testWidgets('filters items by isActive', (WidgetTester tester) async {
       final harness = _StatusBarHarness.create();
-      harness.register(_TestStatusBarModule(
-        name: 'Active',
-        items: [
-          _item('always', isActive: (_) => true),
-          _item('never', isActive: (_) => false),
-        ],
-      ));
+      harness.register(
+        _TestStatusBarModule(
+          name: 'Active',
+          items: [
+            _item('always', isActive: (_) => true),
+            _item('never', isActive: (_) => false),
+          ],
+        ),
+      );
 
       await tester.pumpWidget(harness.buildApp());
 
@@ -122,12 +169,12 @@ void main() {
     testWidgets('rebuilds when focus changes', (WidgetTester tester) async {
       final harness = _StatusBarHarness.create();
       var showItem = false;
-      harness.register(_TestStatusBarModule(
-        name: 'Dynamic',
-        items: [
-          _item('dynamic', isActive: (_) => showItem),
-        ],
-      ));
+      harness.register(
+        _TestStatusBarModule(
+          name: 'Dynamic',
+          items: [_item('dynamic', isActive: (_) => showItem)],
+        ),
+      );
 
       await tester.pumpWidget(harness.buildApp());
       expect(find.text('dynamic'), findsNothing);
@@ -195,15 +242,44 @@ void main() {
       await tester.pump();
     });
 
+    testWidgets('uses static progress indicator in high-contrast mode', (
+      WidgetTester tester,
+    ) async {
+      final harness = _StatusBarHarness.create();
+
+      await tester.pumpWidget(
+        harness.buildApp(
+          mediaQueryData: const MediaQueryData(highContrast: true),
+        ),
+      );
+
+      final completer = Completer<void>();
+
+      // ignore: unawaited_futures
+      harness.shell.progress.withProgress(
+        title: 'Syncing',
+        location: ForgeProgressLocation.statusBar,
+        task: (r) => completer.future,
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.byIcon(Icons.sync), findsOneWidget);
+
+      completer.complete();
+      await tester.pump();
+    });
+
     testWidgets('tap handler fires', (WidgetTester tester) async {
       var tapped = false;
       final harness = _StatusBarHarness.create();
-      harness.register(_TestStatusBarModule(
-        name: 'Tap',
-        items: [
-          _item('clickMe', onTap: () => tapped = true),
-        ],
-      ));
+      harness.register(
+        _TestStatusBarModule(
+          name: 'Tap',
+          items: [_item('clickMe', onTap: () => tapped = true)],
+        ),
+      );
 
       await tester.pumpWidget(harness.buildApp());
       await tester.tap(find.text('clickMe'));
@@ -217,15 +293,12 @@ void main() {
     ) async {
       final textNotifier = ValueNotifier<String>('initial');
       final harness = _StatusBarHarness.create();
-      harness.register(_TestStatusBarModule(
-        name: 'Live',
-        items: [
-          StatusBarItem(
-            text: textNotifier,
-            isActive: (_) => true,
-          ),
-        ],
-      ));
+      harness.register(
+        _TestStatusBarModule(
+          name: 'Live',
+          items: [StatusBarItem(text: textNotifier, isActive: (_) => true)],
+        ),
+      );
 
       await tester.pumpWidget(harness.buildApp());
       expect(find.text('initial'), findsOneWidget);
@@ -305,7 +378,7 @@ class _TestStatusBarModule extends ForgeModule {
   final List<StatusBarItem> _items;
 
   _TestStatusBarModule({required this.name, List<StatusBarItem>? items})
-      : _items = items ?? [];
+    : _items = items ?? [];
 
   @override
   String get displayName => name;

@@ -159,19 +159,18 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   static const String _actionForgeCopy = 'forge.edit.copy';
   static const String _actionForgePaste = 'forge.edit.paste';
 
-  static const ForgeDecorationType _findMatchesDecoration =
-      ForgeDecorationType(
+  static const ForgeDecorationType _findMatchesDecoration = ForgeDecorationType(
     key: 'shell.find.matches',
     backgroundColorValue: 0x3069A8FF,
   );
 
   static const ForgeDecorationType _findCurrentMatchDecoration =
       ForgeDecorationType(
-    key: 'shell.find.current',
-    backgroundColorValue: 0x66F2C94C,
-    underlineStyle: ForgeUnderlineStyle.solid,
-    underlineColorValue: 0xFFF2C94C,
-  );
+        key: 'shell.find.current',
+        backgroundColorValue: 0x66F2C94C,
+        underlineStyle: ForgeUnderlineStyle.solid,
+        underlineColorValue: 0xFFF2C94C,
+      );
 
   DefaultLayoutController get _layout => widget.layoutController;
   bool _showCommandPalette = false;
@@ -205,10 +204,13 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   @override
   void initState() {
     super.initState();
-    _preferences = widget.preferencesService ?? ForgePreferencesService.instance;
+    _preferences =
+        widget.preferencesService ?? ForgePreferencesService.instance;
     _preferences.addListener(_onPreferencesChanged);
     _findQueryController.addListener(_onFindQueryChanged);
-    widget.systemState.activeEditorListenable.addListener(_onActiveEditorChanged);
+    widget.systemState.activeEditorListenable.addListener(
+      _onActiveEditorChanged,
+    );
     _registerFindReplaceActions();
     _initializePreferences();
     _wireDialogCallbacks();
@@ -234,8 +236,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     _terminalOpenSubscription?.cancel();
     _terminalCloseSubscription?.cancel();
     _terminalActiveSubscription?.cancel();
-    widget.systemState.activeEditorListenable
-      .removeListener(_onActiveEditorChanged);
+    widget.systemState.activeEditorListenable.removeListener(
+      _onActiveEditorChanged,
+    );
     _findQueryController.removeListener(_onFindQueryChanged);
     _clearFindDecorations();
     _findQueryController.dispose();
@@ -269,91 +272,87 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     final dialogs = widget.shell.dialogs;
     if (dialogs is! DefaultDialogManager) return;
 
-    dialogs.onQuickPick = <T>(
-      List<ForgeQuickPickItem<T>> items, {
-      String? placeholder,
-      bool canSelectMany = false,
-    }) {
-      final completer = Completer<T?>();
-      setState(() {
-        _dialogOverlay = ForgeQuickPickOverlay<T>(
-          items: items,
-          placeholder: placeholder,
-          canSelectMany: canSelectMany,
-          completer: completer,
-        );
-      });
-      completer.future.whenComplete(() {
-        if (mounted) setState(() => _dialogOverlay = null);
-      });
-      return completer.future;
-    };
+    dialogs.onQuickPick =
+        <T>(
+          List<ForgeQuickPickItem<T>> items, {
+          String? placeholder,
+          bool canSelectMany = false,
+        }) {
+          final completer = Completer<T?>();
+          setState(() {
+            _dialogOverlay = ForgeQuickPickOverlay<T>(
+              items: items,
+              placeholder: placeholder,
+              canSelectMany: canSelectMany,
+              completer: completer,
+            );
+          });
+          completer.future.whenComplete(() {
+            if (mounted) setState(() => _dialogOverlay = null);
+          });
+          return completer.future;
+        };
 
-    dialogs.onInputBox = ({
-      String? prompt,
-      String? value,
-      String? placeholder,
-      String? Function(String)? validateInput,
-    }) {
-      final completer = Completer<String?>();
-      setState(() {
-        _dialogOverlay = ForgeInputBoxOverlay(
-          prompt: prompt,
-          value: value,
-          placeholder: placeholder,
-          validateInput: validateInput,
-          completer: completer,
-        );
-      });
-      completer.future.whenComplete(() {
-        if (mounted) setState(() => _dialogOverlay = null);
-      });
-      return completer.future;
-    };
+    dialogs.onInputBox =
+        ({
+          String? prompt,
+          String? value,
+          String? placeholder,
+          String? Function(String)? validateInput,
+        }) {
+          final completer = Completer<String?>();
+          setState(() {
+            _dialogOverlay = ForgeInputBoxOverlay(
+              prompt: prompt,
+              value: value,
+              placeholder: placeholder,
+              validateInput: validateInput,
+              completer: completer,
+            );
+          });
+          completer.future.whenComplete(() {
+            if (mounted) setState(() => _dialogOverlay = null);
+          });
+          return completer.future;
+        };
 
-    dialogs.onOpenDialog = ({
-      String? title,
-      bool canSelectMany = false,
-      bool canSelectFolders = false,
-      List<FileFilter>? filters,
-    }) async {
-      final result = await FilePicker.platform.pickFiles(
-        dialogTitle: title ?? 'Open File',
-        allowMultiple: canSelectMany,
-        type: filters != null && filters.isNotEmpty
-            ? FileType.custom
-            : FileType.any,
-        allowedExtensions: filters
-            ?.expand((f) => f.extensions)
-            .toList(),
-      );
-      if (result == null || result.files.isEmpty) return null;
-      return result.files
-          .where((f) => f.path != null)
-          .map((f) => Uri.file(f.path!))
-          .toList();
-    };
+    dialogs.onOpenDialog =
+        ({
+          String? title,
+          bool canSelectMany = false,
+          bool canSelectFolders = false,
+          List<FileFilter>? filters,
+        }) async {
+          final result = await FilePicker.platform.pickFiles(
+            dialogTitle: title ?? 'Open File',
+            allowMultiple: canSelectMany,
+            type: filters != null && filters.isNotEmpty
+                ? FileType.custom
+                : FileType.any,
+            allowedExtensions: filters?.expand((f) => f.extensions).toList(),
+          );
+          if (result == null || result.files.isEmpty) return null;
+          return result.files
+              .where((f) => f.path != null)
+              .map((f) => Uri.file(f.path!))
+              .toList();
+        };
 
-    dialogs.onSaveDialog = ({
-      String? title,
-      Uri? defaultUri,
-      List<FileFilter>? filters,
-    }) async {
-      final result = await FilePicker.platform.saveFile(
-        dialogTitle: title ?? 'Save File',
-        fileName: defaultUri?.pathSegments.isNotEmpty == true
-            ? defaultUri!.pathSegments.last
-            : null,
-        type: filters != null && filters.isNotEmpty
-            ? FileType.custom
-            : FileType.any,
-        allowedExtensions: filters
-            ?.expand((f) => f.extensions)
-            .toList(),
-      );
-      if (result == null) return null;
-      return Uri.file(result);
-    };
+    dialogs.onSaveDialog =
+        ({String? title, Uri? defaultUri, List<FileFilter>? filters}) async {
+          final result = await FilePicker.platform.saveFile(
+            dialogTitle: title ?? 'Save File',
+            fileName: defaultUri?.pathSegments.isNotEmpty == true
+                ? defaultUri!.pathSegments.last
+                : null,
+            type: filters != null && filters.isNotEmpty
+                ? FileType.custom
+                : FileType.any,
+            allowedExtensions: filters?.expand((f) => f.extensions).toList(),
+          );
+          if (result == null) return null;
+          return Uri.file(result);
+        };
   }
 
   /// Wires terminal lifecycle events to scaffold-level behavior:
@@ -374,8 +373,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       );
     });
 
-    _terminalActiveSubscription =
-        terminals.onDidChangeActive.listen((terminal) {
+    _terminalActiveSubscription = terminals.onDidChangeActive.listen((
+      terminal,
+    ) {
       // Refresh state to update status bar or other reactive UI.
       if (mounted) setState(() {});
     });
@@ -386,8 +386,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       _applyPreferenceTextSettings();
       _propagateSettingsToActiveEditors();
       // High-contrast mode (ThemeMode.system) activates reduced motion.
-      ForgeAnimations.reduceMotion =
-          _preferences.themeMode == ThemeMode.system;
+      ForgeAnimations.reduceMotion = _preferences.themeMode == ThemeMode.system;
       if (mounted) {
         setState(() {});
       }
@@ -405,18 +404,20 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         final typeId = _editorTypeId(editor);
         if (typeId != null) {
           final settings = widget.shell.getTextSettings(typeId);
-          editor.updateOptions(ForgeTextEditorOptions(
-            tabSize: settings.tabSize,
-            insertSpaces: settings.insertSpaces,
-            wordWrap: settings.wordWrap
-                ? ForgeWordWrap.on
-                : ForgeWordWrap.off,
-            fontFamily: settings.fontFamily,
-            fontSize: settings.fontSize,
-            lineHeight: settings.lineHeight,
-            showLineNumbers: settings.showLineNumbers,
-            highlightCurrentLine: settings.highlightCurrentLine,
-          ));
+          editor.updateOptions(
+            ForgeTextEditorOptions(
+              tabSize: settings.tabSize,
+              insertSpaces: settings.insertSpaces,
+              wordWrap: settings.wordWrap
+                  ? ForgeWordWrap.on
+                  : ForgeWordWrap.off,
+              fontFamily: settings.fontFamily,
+              fontSize: settings.fontSize,
+              lineHeight: settings.lineHeight,
+              showLineNumbers: settings.showLineNumbers,
+              highlightCurrentLine: settings.highlightCurrentLine,
+            ),
+          );
         }
       }
     }
@@ -436,7 +437,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       widget.shell.setTextSettings(entry.key, entry.value);
     }
     if (debugEnabled) {
-      debugPrint('[ForgeShellScaffold] applied persisted settings: ${settings.length}');
+      debugPrint(
+        '[ForgeShellScaffold] applied persisted settings: ${settings.length}',
+      );
     }
   }
 
@@ -504,7 +507,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         _layout.openFile(Uri.parse(uriStr));
       } catch (e) {
         if (debugEnabled) {
-          debugPrint('[ForgeShellScaffold] restore editor failed for $uriStr: $e');
+          debugPrint(
+            '[ForgeShellScaffold] restore editor failed for $uriStr: $e',
+          );
         }
       }
     }
@@ -593,8 +598,10 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       }
 
       if (debugEnabled) {
-        debugPrint('[ForgeShellScaffold] restored workspace state for '
-            '"${widget.application.title}"');
+        debugPrint(
+          '[ForgeShellScaffold] restored workspace state for '
+          '"${widget.application.title}"',
+        );
       }
     } catch (e) {
       if (debugEnabled) {
@@ -660,8 +667,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   void _listenForEditorChanges() {
     final wsState = widget.shell.workspaceState;
     if (!wsState.isInitialized) return;
-    _editorChangeSubscription =
-        widget.systemState.onEditorsChanged.listen((event) async {
+    _editorChangeSubscription = widget.systemState.onEditorsChanged.listen((
+      event,
+    ) async {
       // Save state for editors being closed.
       for (final closed in event.closed) {
         if (closed is ForgeEditor) {
@@ -672,8 +680,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
             }
           } catch (e) {
             if (debugEnabled) {
-              debugPrint(
-                  '[ForgeShellScaffold] save editor state failed: $e');
+              debugPrint('[ForgeShellScaffold] save editor state failed: $e');
             }
           }
         }
@@ -694,7 +701,8 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
           } catch (e) {
             if (debugEnabled) {
               debugPrint(
-                  '[ForgeShellScaffold] restore editor state failed: $e');
+                '[ForgeShellScaffold] restore editor state failed: $e',
+              );
             }
           }
         }
@@ -712,7 +720,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     if (!config.autoSave.enabled) return;
 
     // Listen for dirty state changes to trigger auto-save timer.
-    _dirtyStateSubscription = widget.systemState.onDirtyStateChanged.listen((event) {
+    _dirtyStateSubscription = widget.systemState.onDirtyStateChanged.listen((
+      event,
+    ) {
       if (event.isDirty) {
         _scheduleAutoSave(config.autoSave.idleDelay);
       }
@@ -720,11 +730,13 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
 
     // Listen for window focus loss to trigger auto-save.
     if (config.autoSave.saveOnFocusLoss) {
-      _windowFocusSubscription = widget.systemState.onWindowFocusChanged.listen((event) {
-        if (!event.focused && widget.systemState.hasUnsavedChanges) {
-          _performAutoSave(SaveReason.focusLoss);
-        }
-      });
+      _windowFocusSubscription = widget.systemState.onWindowFocusChanged.listen(
+        (event) {
+          if (!event.focused && widget.systemState.hasUnsavedChanges) {
+            _performAutoSave(SaveReason.focusLoss);
+          }
+        },
+      );
     }
   }
 
@@ -746,11 +758,15 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         await widget.shell.fileSystem.save(editor.uri);
         editor.markClean();
         if (debugEnabled) {
-          debugPrint('[ForgeShellScaffold] auto-saved: ${editor.uri} (reason: $reason)');
+          debugPrint(
+            '[ForgeShellScaffold] auto-saved: ${editor.uri} (reason: $reason)',
+          );
         }
       } catch (e) {
         if (debugEnabled) {
-          debugPrint('[ForgeShellScaffold] auto-save failed for ${editor.uri}: $e');
+          debugPrint(
+            '[ForgeShellScaffold] auto-save failed for ${editor.uri}: $e',
+          );
         }
       }
     }
@@ -1008,10 +1024,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
 
     if (nextIndex >= 0 && nextIndex < matches.length) {
       final activeRange = matches[nextIndex];
-      editor.setDecorations(
-        _findCurrentMatchDecoration,
-        [ForgeDecorationRange(range: activeRange)],
-      );
+      editor.setDecorations(_findCurrentMatchDecoration, [
+        ForgeDecorationRange(range: activeRange),
+      ]);
       editor.setSelection(activeRange);
       editor.revealRange(activeRange);
     } else {
@@ -1035,10 +1050,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     });
 
     final activeRange = _findMatches[targetIndex];
-    editor.setDecorations(
-      _findCurrentMatchDecoration,
-      [ForgeDecorationRange(range: activeRange)],
-    );
+    editor.setDecorations(_findCurrentMatchDecoration, [
+      ForgeDecorationRange(range: activeRange),
+    ]);
     editor.setSelection(activeRange);
     editor.revealRange(activeRange);
   }
@@ -1064,7 +1078,10 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     if (editor == null || query.isEmpty) return;
 
     final replacement = _replaceValueController.text;
-    final replacedCount = editor.replaceAll(_buildFindPattern(query), replacement);
+    final replacedCount = editor.replaceAll(
+      _buildFindPattern(query),
+      replacement,
+    );
     _recomputeFindMatches(editor, moveToFirst: true);
     widget.shell.notifications.showInformation(
       'Replaced $replacedCount match${replacedCount == 1 ? '' : 'es'}.',
@@ -1080,14 +1097,18 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     return false;
   }
 
-  List<PopupMenuEntry<String>> _buildEditorContextMenuItems(ForgeEditor editor) {
+  List<PopupMenuEntry<String>> _buildEditorContextMenuItems(
+    ForgeEditor editor,
+  ) {
     final activeTextEditor = editor is ForgeTextEditor ? editor : null;
     final contextActions = widget.shell
         .getContextActionsFor(editor.uri.toString())
-        .where((action) =>
-            action.id != _actionEditorFind &&
-            action.id != _actionEditReplace &&
-            action.id != _actionEditFormatDocument)
+        .where(
+          (action) =>
+              action.id != _actionEditorFind &&
+              action.id != _actionEditReplace &&
+              action.id != _actionEditFormatDocument,
+        )
         .toList(growable: false);
 
     final entries = <PopupMenuEntry<String>>[
@@ -1127,11 +1148,13 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     if (contextActions.isNotEmpty) {
       entries.add(const PopupMenuDivider());
       for (final action in contextActions) {
-        entries.add(PopupMenuItem<String>(
-          value: 'action.${action.id}',
-          enabled: action.isEnabled(),
-          child: Text(action.label),
-        ));
+        entries.add(
+          PopupMenuItem<String>(
+            value: 'action.${action.id}',
+            enabled: action.isEnabled(),
+            child: Text(action.label),
+          ),
+        );
       }
     }
 
@@ -1144,7 +1167,8 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   ) async {
     widget.systemState.setActiveEditor(editor);
 
-    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox?;
+    final overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox?;
     if (overlay == null) return;
 
     final selected = await showMenu<String>(
@@ -1188,8 +1212,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
 
   /// Listens for chord completions to execute the bound action.
   void _listenForChordCompletions() {
-    _chordSubscription =
-        widget.shell.shortcuts.onChordStateChanged.listen((event) {
+    _chordSubscription = widget.shell.shortcuts.onChordStateChanged.listen((
+      event,
+    ) {
       if (event.state == ForgeChordState.completed &&
           event.executedBinding != null) {
         widget.shell.executeAction(event.executedBinding!.action.id);
@@ -1199,8 +1224,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
 
   /// Listens for shortcut menu selections to execute the chosen action.
   void _listenForMenuSelections() {
-    _menuSubscription =
-        widget.shell.shortcuts.onMenuStateChanged.listen((event) {
+    _menuSubscription = widget.shell.shortcuts.onMenuStateChanged.listen((
+      event,
+    ) {
       if (event.state == ForgeShortcutMenuState.selected &&
           event.selectedEntry != null) {
         widget.shell.executeAction(event.selectedEntry!.action.id);
@@ -1224,16 +1250,17 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       return null;
     }
     final pressed = HardwareKeyboard.instance.logicalKeysPressed;
-    final useMeta =
-        !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
+    final useMeta = !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
     final hasPrimary = useMeta
         ? pressed.contains(LogicalKeyboardKey.metaLeft) ||
-            pressed.contains(LogicalKeyboardKey.metaRight)
+              pressed.contains(LogicalKeyboardKey.metaRight)
         : pressed.contains(LogicalKeyboardKey.controlLeft) ||
-            pressed.contains(LogicalKeyboardKey.controlRight);
-    final hasShift = pressed.contains(LogicalKeyboardKey.shiftLeft) ||
+              pressed.contains(LogicalKeyboardKey.controlRight);
+    final hasShift =
+        pressed.contains(LogicalKeyboardKey.shiftLeft) ||
         pressed.contains(LogicalKeyboardKey.shiftRight);
-    final hasAlt = pressed.contains(LogicalKeyboardKey.altLeft) ||
+    final hasAlt =
+        pressed.contains(LogicalKeyboardKey.altLeft) ||
         pressed.contains(LogicalKeyboardKey.altRight);
     return ForgeShortcutKey(
       key: key,
@@ -1378,10 +1405,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
 
     // Wrap with native platform menu bar on macOS desktop.
     if (_usePlatformMenu) {
-      body = PlatformMenuBar(
-        menus: _buildPlatformMenus(),
-        child: body,
-      );
+      body = PlatformMenuBar(menus: _buildPlatformMenus(), child: body);
     }
 
     return body;
@@ -1422,10 +1446,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
             onSelected: () => widget.shell.executeAction('file.close'),
           ),
           const PlatformMenuItemGroup(members: []),
-          PlatformMenuItem(
-            label: 'Settings...',
-            onSelected: _openSettings,
-          ),
+          PlatformMenuItem(label: 'Settings...', onSelected: _openSettings),
         ],
       ),
       PlatformMenu(
@@ -1525,14 +1546,8 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       PlatformMenu(
         label: 'Go',
         menus: [
-          PlatformMenuItem(
-            label: 'Back',
-            onSelected: () {},
-          ),
-          PlatformMenuItem(
-            label: 'Forward',
-            onSelected: () {},
-          ),
+          PlatformMenuItem(label: 'Back', onSelected: () {}),
+          PlatformMenuItem(label: 'Forward', onSelected: () {}),
           const PlatformMenuItemGroup(members: []),
           PlatformMenuItem(
             label: 'Go to File...',
@@ -1546,12 +1561,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       ),
       PlatformMenu(
         label: 'Help',
-        menus: [
-          PlatformMenuItem(
-            label: 'About Tom Forge',
-            onSelected: () {},
-          ),
-        ],
+        menus: [PlatformMenuItem(label: 'About Tom Forge', onSelected: () {})],
       ),
     ];
   }
@@ -1692,9 +1702,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     } catch (error, stackTrace) {
       debugPrint('[ForgeShellScaffold] execute save failed: $error');
       debugPrint('$stackTrace');
-      widget.shell.notifications.showError(
-        'Save failed: $error',
-      );
+      widget.shell.notifications.showError('Save failed: $error');
     }
   }
 
@@ -1713,12 +1721,19 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
             child: Row(
               children: [
                 IconButton(
-                  icon: Icon(Icons.arrow_back, size: ForgeDimensions.iconToolbar),
-                  onPressed: null, // Disabled until component history is implemented
+                  icon: Icon(
+                    Icons.arrow_back,
+                    size: ForgeDimensions.iconToolbar,
+                  ),
+                  onPressed:
+                      null, // Disabled until component history is implemented
                   tooltip: 'Back',
                 ),
                 IconButton(
-                  icon: Icon(Icons.arrow_forward, size: ForgeDimensions.iconToolbar),
+                  icon: Icon(
+                    Icons.arrow_forward,
+                    size: ForgeDimensions.iconToolbar,
+                  ),
                   onPressed: null,
                   tooltip: 'Forward',
                 ),
@@ -1729,85 +1744,113 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
           Expanded(
             child: Align(
               alignment: Alignment.center,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    constraints: const BoxConstraints(maxWidth: 400),
-                    width: 400,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Row(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          child: Icon(
-                            Icons.search,
-                            size: 16,
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                          ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final availableWidth = constraints.maxWidth;
+                  final switcherMaxWidth = availableWidth < 520 ? 120.0 : 180.0;
+                  final searchWidth = (availableWidth - switcherMaxWidth - 20)
+                      .clamp(220.0, 400.0)
+                      .toDouble();
+
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        constraints: const BoxConstraints(maxWidth: 400),
+                        width: searchWidth,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(6),
                         ),
-                        Expanded(
-                          child: Text(
-                            widget.application.title,
-                            style: theme.textTheme.bodyMedium,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                        child: Row(
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
+                              child: Icon(
+                                Icons.search,
+                                size: 16,
+                                color: theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.5,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Text(
+                                widget.application.title,
+                                style: theme.textTheme.bodyMedium,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  PopupMenuButton<ForgeApplication>(
-                    tooltip: 'Switch Application',
-                    onSelected: (app) {
-                      if (app != widget.application) {
-                        widget.systemState.setActiveApplication(app);
-                        widget.onApplicationSwitch?.call(app);
-                      }
-                    },
-                    itemBuilder: (context) {
-                      final apps = widget.systemState.applications;
-                      return apps.map((app) {
-                        final isActive = app == widget.application;
-                        return PopupMenuItem<ForgeApplication>(
-                          value: app,
+                      ),
+                      const SizedBox(width: 12),
+                      PopupMenuButton<ForgeApplication>(
+                        tooltip: 'Switch Application',
+                        onSelected: (app) {
+                          if (app != widget.application) {
+                            widget.systemState.setActiveApplication(app);
+                            widget.onApplicationSwitch?.call(app);
+                          }
+                        },
+                        itemBuilder: (context) {
+                          final apps = widget.systemState.applications;
+                          return apps.map((app) {
+                            final isActive = app == widget.application;
+                            return PopupMenuItem<ForgeApplication>(
+                              value: app,
+                              child: Row(
+                                children: [
+                                  if (app.icon != null)
+                                    Padding(
+                                      padding: const EdgeInsets.only(right: 8),
+                                      child: Icon(app.icon, size: 16),
+                                    ),
+                                  Expanded(child: Text(app.title)),
+                                  if (isActive)
+                                    Icon(
+                                      Icons.check,
+                                      size: 16,
+                                      color: theme.colorScheme.primary,
+                                    ),
+                                ],
+                              ),
+                            );
+                          }).toList();
+                        },
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: switcherMaxWidth,
+                          ),
                           child: Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              if (app.icon != null)
+                              if (widget.application.icon != null)
                                 Padding(
-                                  padding: const EdgeInsets.only(right: 8),
-                                  child: Icon(app.icon, size: 16),
+                                  padding: const EdgeInsets.only(right: 4),
+                                  child: Icon(
+                                    widget.application.icon,
+                                    size: 14,
+                                  ),
                                 ),
-                              Expanded(child: Text(app.title)),
-                              if (isActive)
-                                Icon(
-                                  Icons.check,
-                                  size: 16,
-                                  color: theme.colorScheme.primary,
+                              Flexible(
+                                child: Text(
+                                  widget.application.title,
+                                  style: theme.textTheme.bodySmall,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
+                              ),
+                              const Icon(Icons.arrow_drop_down, size: 18),
                             ],
                           ),
-                        );
-                      }).toList();
-                    },
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (widget.application.icon != null)
-                          Padding(
-                            padding: const EdgeInsets.only(right: 4),
-                            child: Icon(widget.application.icon, size: 14),
-                          ),
-                        Text(widget.application.title, style: theme.textTheme.bodySmall),
-                        const Icon(Icons.arrow_drop_down, size: 18),
-                      ],
-                    ),
-                  ),
-                ],
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ),
@@ -1896,7 +1939,8 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
                   ForgeDimensions.bottomPanelDefaultHeight,
                 ),
               ),
-            if (bottomConfig.isVisible) _buildBottomPanel(context, bottomConfig),
+            if (bottomConfig.isVisible)
+              _buildBottomPanel(context, bottomConfig),
           ],
         );
       },
@@ -1937,7 +1981,10 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     final totalFlex = _middlePanelFlex[leftIdx] + _middlePanelFlex[rightIdx];
     // Convert pixel delta to flex delta (rough: assume equal share baseline).
     final flexDelta = delta / 300.0;
-    var newLeft = (_middlePanelFlex[leftIdx] + flexDelta).clamp(minFlex, totalFlex - minFlex);
+    var newLeft = (_middlePanelFlex[leftIdx] + flexDelta).clamp(
+      minFlex,
+      totalFlex - minFlex,
+    );
     var newRight = totalFlex - newLeft;
     setState(() {
       _middlePanelFlex[leftIdx] = newLeft;
@@ -2082,11 +2129,10 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
                 child: Text(
                   'Open a file to get started',
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withValues(alpha: 0.4),
-                      ),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.4),
+                  ),
                 ),
               );
             }
@@ -2146,8 +2192,8 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       builder: (context, activeEditor, _) {
         final currentEditor =
             (activeEditor != null && editors.contains(activeEditor))
-                ? activeEditor
-                : editors.last;
+            ? activeEditor
+            : editors.last;
         final showFindBar =
             _showFindReplaceBar && currentEditor is ForgeTextEditor;
 
@@ -2185,7 +2231,10 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
                   key: ValueKey('editor-area-context-target-$panelIndex'),
                   behavior: HitTestBehavior.translucent,
                   onSecondaryTapDown: (details) {
-                    _showEditorContextMenu(details.globalPosition, currentEditor);
+                    _showEditorContextMenu(
+                      details.globalPosition,
+                      currentEditor,
+                    );
                   },
                   child: SizedBox.expand(
                     child: currentEditor.buildMain(context),
@@ -2209,12 +2258,11 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest
-            .withValues(alpha: 0.65),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(
+          alpha: 0.65,
+        ),
         border: Border(
-          bottom: BorderSide(
-            color: theme.colorScheme.outlineVariant,
-          ),
+          bottom: BorderSide(color: theme.colorScheme.outlineVariant),
         ),
       ),
       child: SingleChildScrollView(
@@ -2239,7 +2287,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
             IconButton(
               key: const Key('find-prev-button'),
               tooltip: 'Previous match',
-              onPressed: hasMatches ? () => _selectFindMatch(next: false) : null,
+              onPressed: hasMatches
+                  ? () => _selectFindMatch(next: false)
+                  : null,
               icon: const Icon(Icons.keyboard_arrow_up),
             ),
             IconButton(
@@ -2288,8 +2338,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
               const SizedBox(width: 6),
               FilledButton.tonal(
                 key: const Key('find-replace-all-button'),
-                onPressed:
-                    _findQueryController.text.isEmpty ? null : _replaceAllMatches,
+                onPressed: _findQueryController.text.isEmpty
+                    ? null
+                    : _replaceAllMatches,
                 child: const Text('Replace All'),
               ),
             ],
@@ -2378,8 +2429,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
           ),
           actions: [
             TextButton(
-              onPressed: () =>
-                  Navigator.pop(context, _DirtyCloseAction.cancel),
+              onPressed: () => Navigator.pop(context, _DirtyCloseAction.cancel),
               child: const Text('Cancel'),
             ),
             TextButton(
@@ -2388,8 +2438,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
               child: const Text("Don't Save"),
             ),
             FilledButton(
-              onPressed: () =>
-                  Navigator.pop(context, _DirtyCloseAction.save),
+              onPressed: () => Navigator.pop(context, _DirtyCloseAction.save),
               child: const Text('Save'),
             ),
           ],
@@ -2524,9 +2573,7 @@ class _ResizeHandleState extends State<_ResizeHandle> {
         ? activeColor
         : (_isHovering ? hoverColor : idleColor);
 
-    final gripThickness = _isDragging
-        ? 5.0
-        : (_isHovering ? 3.0 : 1.0);
+    final gripThickness = _isDragging ? 5.0 : (_isHovering ? 3.0 : 1.0);
 
     final grip = isVerticalDivider
         ? AnimatedContainer(

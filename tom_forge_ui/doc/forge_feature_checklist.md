@@ -733,7 +733,7 @@ Connect module activation failure isolation, error-state marking, diagnostics em
 
 ### Step 8 — Wiring Existing Demos to Editors: Tests and Validation (3 rows)
 
-- [ ] Done
+- [x] Done
 
 Add high-contrast widget tests, golden tests for theme parity, and status bar controller/widget segment tests.
 

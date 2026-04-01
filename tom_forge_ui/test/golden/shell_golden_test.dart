@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
 /// Golden test configuration for zero-debounce synchronous behavior.
 const _goldenConfig = ForgeConfig(
-  performance: ForgePerformanceConfig(
-    diagnosticDebounceWindow: Duration.zero,
-  ),
+  performance: ForgePerformanceConfig(diagnosticDebounceWindow: Duration.zero),
 );
 
 void main() {
+  setUpAll(() async {
+    SharedPreferences.setMockInitialValues({});
+  });
+
   group('Golden: Shell layout', () {
     testWidgets('dark theme default layout', (WidgetTester tester) async {
       final harness = _GoldenHarness.create(themeMode: ThemeMode.dark);
@@ -24,7 +27,9 @@ void main() {
       );
     });
 
-    testWidgets('light theme default layout', (WidgetTester tester) async {
+    testWidgets('default theme layout parity checkpoint', (
+      WidgetTester tester,
+    ) async {
       final harness = _GoldenHarness.create(themeMode: ThemeMode.light);
 
       await tester.pumpWidget(harness.buildApp());
@@ -36,14 +41,36 @@ void main() {
       );
     });
 
+    testWidgets('theme parity checkpoint for default/dark/high-contrast', (
+      WidgetTester tester,
+    ) async {
+      final defaultTheme = ForgeShellTheme.light();
+      final darkTheme = ForgeShellTheme.dark();
+      final highContrast = ForgeShellTheme.highContrast();
+
+      // Keep a quick parity checkpoint in addition to goldens so theme-token
+      // regressions are caught before pixel-level snapshots diverge.
+      expect(defaultTheme.panelSurface, isNot(darkTheme.panelSurface));
+      expect(highContrast.panelDivider, equals(const Color(0xFFFFFFFF)));
+      expect(highContrast.focusRing, equals(const Color(0xFFFFFFFF)));
+      expect(
+        defaultTheme.statusBarBackground,
+        isNot(highContrast.statusBarBackground),
+      );
+      expect(
+        darkTheme.statusBarBackground,
+        isNot(highContrast.statusBarBackground),
+      );
+    });
+
     testWidgets('high contrast theme default layout', (
       WidgetTester tester,
     ) async {
       final harness = _GoldenHarness.create(themeMode: ThemeMode.system);
 
-      await tester.pumpWidget(harness.buildApp(
-        shellTheme: ForgeShellTheme.highContrast(),
-      ));
+      await tester.pumpWidget(
+        harness.buildApp(shellTheme: ForgeShellTheme.highContrast()),
+      );
       await tester.pumpAndSettle();
 
       await expectLater(
@@ -147,15 +174,13 @@ class _GoldenHarness {
 
   Widget buildApp({ForgeShellTheme? shellTheme}) {
     final theme = shellTheme ?? ForgeShellTheme.forMode(themeMode);
-    final brightness =
-        themeMode == ThemeMode.light ? Brightness.light : Brightness.dark;
+    final brightness = themeMode == ThemeMode.light
+        ? Brightness.light
+        : Brightness.dark;
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        brightness: brightness,
-        extensions: [theme],
-      ),
+      theme: ThemeData(brightness: brightness, extensions: [theme]),
       home: SizedBox(
         width: 1280,
         height: 720,
