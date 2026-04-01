@@ -94,7 +94,7 @@ void main() {
       final kl = tester.widget<KeyboardListener>(
         find.byType(KeyboardListener),
       );
-      kl.focusNode?.requestFocus();
+      kl.focusNode.requestFocus();
       await tester.pumpAndSettle();
 
       selected = null;
@@ -119,7 +119,7 @@ void main() {
       final kl = tester.widget<KeyboardListener>(
         find.byType(KeyboardListener),
       );
-      kl.focusNode?.requestFocus();
+      kl.focusNode.requestFocus();
       await tester.pumpAndSettle();
 
       await tester.sendKeyEvent(LogicalKeyboardKey.delete);

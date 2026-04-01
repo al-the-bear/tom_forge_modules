@@ -23,6 +23,7 @@ import '../services/forge_preferences_service.dart';
 import '../services/forge_dialog_manager.dart';
 import '../shell/forge_layout_controller.dart';
 import '../shell/forge_status_bar_controller.dart';
+import '../actions/forge_action.dart' as shell_action;
 import '../actions/forge_shortcut_binding.dart';
 import '../services/forge_shortcut_manager.dart';
 import 'forge_chord_overlay.dart';
@@ -151,11 +152,40 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   static bool debugEnabled = false;
 
   static const String _actionFileSaveAll = 'file.saveAll';
+  static const String _actionEditorFind = 'editor.find';
+  static const String _actionEditReplace = 'edit.replace';
+  static const String _actionEditFormatDocument = 'edit.formatDocument';
+  static const String _actionForgeCut = 'forge.edit.cut';
+  static const String _actionForgeCopy = 'forge.edit.copy';
+  static const String _actionForgePaste = 'forge.edit.paste';
+
+  static const ForgeDecorationType _findMatchesDecoration =
+      ForgeDecorationType(
+    key: 'shell.find.matches',
+    backgroundColorValue: 0x3069A8FF,
+  );
+
+  static const ForgeDecorationType _findCurrentMatchDecoration =
+      ForgeDecorationType(
+    key: 'shell.find.current',
+    backgroundColorValue: 0x66F2C94C,
+    underlineStyle: ForgeUnderlineStyle.solid,
+    underlineColorValue: 0xFFF2C94C,
+  );
 
   DefaultLayoutController get _layout => widget.layoutController;
   bool _showCommandPalette = false;
+  bool _showFindReplaceBar = false;
+  bool _showReplaceFields = false;
   Widget? _dialogOverlay;
   late final ForgePreferencesService _preferences;
+  final TextEditingController _findQueryController = TextEditingController();
+  final TextEditingController _replaceValueController = TextEditingController();
+  final FocusNode _findFieldFocusNode = FocusNode();
+  final FocusNode _replaceFieldFocusNode = FocusNode();
+  List<ForgeTextRange> _findMatches = const [];
+  int _activeFindMatchIndex = -1;
+  ForgeTextEditor? _decoratedFindEditor;
   StreamSubscription<Uri>? _saveSubscription;
   StreamSubscription<EditorListChangeEvent>? _editorChangeSubscription;
   StreamSubscription<DirtyStateEvent>? _dirtyStateSubscription;
@@ -177,6 +207,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     super.initState();
     _preferences = widget.preferencesService ?? ForgePreferencesService.instance;
     _preferences.addListener(_onPreferencesChanged);
+    _findQueryController.addListener(_onFindQueryChanged);
+    widget.systemState.activeEditorListenable.addListener(_onActiveEditorChanged);
+    _registerFindReplaceActions();
     _initializePreferences();
     _wireDialogCallbacks();
     _wireTerminalCallbacks();
@@ -201,6 +234,14 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     _terminalOpenSubscription?.cancel();
     _terminalCloseSubscription?.cancel();
     _terminalActiveSubscription?.cancel();
+    widget.systemState.activeEditorListenable
+      .removeListener(_onActiveEditorChanged);
+    _findQueryController.removeListener(_onFindQueryChanged);
+    _clearFindDecorations();
+    _findQueryController.dispose();
+    _replaceValueController.dispose();
+    _findFieldFocusNode.dispose();
+    _replaceFieldFocusNode.dispose();
     _preferences.removeListener(_onPreferencesChanged);
     _saveAllEditorStates();
     _saveLayoutState();
@@ -801,6 +842,350 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     ForgeConfigurationDialog.show(context, _preferences, widget.shell);
   }
 
+  ForgeTextEditor? get _activeTextEditor {
+    final active = widget.systemState.activeEditor;
+    return active is ForgeTextEditor ? active : null;
+  }
+
+  void _registerFindReplaceActions() {
+    widget.shell.actionRegistry.registerAction(
+      shell_action.ForgeAction(
+        id: _actionEditorFind,
+        label: 'Find',
+        menu: shell_action.ForgeMenuLocation.edit,
+        execute: (_) async {
+          _openFindReplaceBar(showReplaceFields: false);
+          return null;
+        },
+        isEnabled: () => _activeTextEditor != null,
+        isVisible: () => true,
+      ),
+    );
+
+    widget.shell.actionRegistry.registerAction(
+      shell_action.ForgeAction(
+        id: _actionEditReplace,
+        label: 'Replace',
+        menu: shell_action.ForgeMenuLocation.edit,
+        execute: (_) async {
+          _openFindReplaceBar(showReplaceFields: true);
+          return null;
+        },
+        isEnabled: () => _activeTextEditor != null,
+        isVisible: () => true,
+      ),
+    );
+  }
+
+  void _onActiveEditorChanged() {
+    if (!_showFindReplaceBar) {
+      _clearFindDecorations();
+      return;
+    }
+
+    final editor = _activeTextEditor;
+    if (editor == null) {
+      _clearFindDecorations();
+      if (mounted) {
+        setState(() {
+          _findMatches = const [];
+          _activeFindMatchIndex = -1;
+        });
+      }
+      return;
+    }
+
+    _recomputeFindMatches(editor, moveToFirst: true);
+  }
+
+  void _onFindQueryChanged() {
+    if (!_showFindReplaceBar) return;
+    final editor = _activeTextEditor;
+    if (editor == null) return;
+    _recomputeFindMatches(editor, moveToFirst: true);
+  }
+
+  void _openFindReplaceBar({required bool showReplaceFields}) {
+    final editor = _activeTextEditor;
+    if (editor == null) {
+      widget.shell.notifications.showWarning(
+        'Find/Replace is available for text editors only.',
+      );
+      return;
+    }
+
+    if (_findQueryController.text.isEmpty && editor.hasSelection) {
+      final selected = editor.selectedText.trim();
+      if (selected.isNotEmpty) {
+        _findQueryController.text = selected;
+      }
+    }
+
+    setState(() {
+      _showFindReplaceBar = true;
+      _showReplaceFields = _showReplaceFields || showReplaceFields;
+    });
+
+    _recomputeFindMatches(editor, moveToFirst: true);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (showReplaceFields) {
+        _replaceFieldFocusNode.requestFocus();
+      } else {
+        _findFieldFocusNode.requestFocus();
+      }
+    });
+  }
+
+  void _closeFindReplaceBar() {
+    _clearFindDecorations();
+    if (!mounted) return;
+    setState(() {
+      _showFindReplaceBar = false;
+      _showReplaceFields = false;
+      _findMatches = const [];
+      _activeFindMatchIndex = -1;
+    });
+  }
+
+  void _clearFindDecorations([ForgeTextEditor? editor]) {
+    final target = editor ?? _decoratedFindEditor;
+    if (target == null) return;
+    try {
+      target.clearDecorations(_findMatchesDecoration);
+      target.clearDecorations(_findCurrentMatchDecoration);
+    } catch (_) {
+      // Ignore teardown races when editors are disposed while closing UI.
+    }
+    if (target == _decoratedFindEditor) {
+      _decoratedFindEditor = null;
+    }
+  }
+
+  Pattern _buildFindPattern(String query) {
+    return RegExp(RegExp.escape(query), caseSensitive: false);
+  }
+
+  void _recomputeFindMatches(
+    ForgeTextEditor editor, {
+    required bool moveToFirst,
+  }) {
+    final query = _findQueryController.text;
+
+    if (_decoratedFindEditor != null && _decoratedFindEditor != editor) {
+      _clearFindDecorations(_decoratedFindEditor);
+    }
+
+    if (query.isEmpty) {
+      _clearFindDecorations(editor);
+      if (!mounted) return;
+      setState(() {
+        _findMatches = const [];
+        _activeFindMatchIndex = -1;
+      });
+      return;
+    }
+
+    final matches = editor.findAll(_buildFindPattern(query));
+    var nextIndex = _activeFindMatchIndex;
+    if (matches.isEmpty) {
+      nextIndex = -1;
+    } else if (moveToFirst || nextIndex < 0 || nextIndex >= matches.length) {
+      nextIndex = 0;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _findMatches = matches;
+      _activeFindMatchIndex = nextIndex;
+    });
+
+    editor.setDecorations(
+      _findMatchesDecoration,
+      matches.map((range) => ForgeDecorationRange(range: range)).toList(),
+    );
+
+    if (nextIndex >= 0 && nextIndex < matches.length) {
+      final activeRange = matches[nextIndex];
+      editor.setDecorations(
+        _findCurrentMatchDecoration,
+        [ForgeDecorationRange(range: activeRange)],
+      );
+      editor.setSelection(activeRange);
+      editor.revealRange(activeRange);
+    } else {
+      editor.clearDecorations(_findCurrentMatchDecoration);
+    }
+
+    _decoratedFindEditor = editor;
+  }
+
+  void _selectFindMatch({required bool next}) {
+    final editor = _activeTextEditor;
+    if (editor == null || _findMatches.isEmpty) return;
+
+    final lastIndex = _findMatches.length - 1;
+    final targetIndex = next
+        ? (_activeFindMatchIndex >= lastIndex ? 0 : _activeFindMatchIndex + 1)
+        : (_activeFindMatchIndex <= 0 ? lastIndex : _activeFindMatchIndex - 1);
+
+    setState(() {
+      _activeFindMatchIndex = targetIndex;
+    });
+
+    final activeRange = _findMatches[targetIndex];
+    editor.setDecorations(
+      _findCurrentMatchDecoration,
+      [ForgeDecorationRange(range: activeRange)],
+    );
+    editor.setSelection(activeRange);
+    editor.revealRange(activeRange);
+  }
+
+  void _replaceCurrentMatch() {
+    final editor = _activeTextEditor;
+    if (editor == null ||
+        _findMatches.isEmpty ||
+        _activeFindMatchIndex < 0 ||
+        _activeFindMatchIndex >= _findMatches.length) {
+      return;
+    }
+
+    final replacement = _replaceValueController.text;
+    final range = _findMatches[_activeFindMatchIndex];
+    editor.replaceRange(range, replacement);
+    _recomputeFindMatches(editor, moveToFirst: false);
+  }
+
+  void _replaceAllMatches() {
+    final editor = _activeTextEditor;
+    final query = _findQueryController.text;
+    if (editor == null || query.isEmpty) return;
+
+    final replacement = _replaceValueController.text;
+    final replacedCount = editor.replaceAll(_buildFindPattern(query), replacement);
+    _recomputeFindMatches(editor, moveToFirst: true);
+    widget.shell.notifications.showInformation(
+      'Replaced $replacedCount match${replacedCount == 1 ? '' : 'es'}.',
+    );
+  }
+
+  bool _executeActionWithFallback(List<String> actionIds) {
+    for (final id in actionIds) {
+      if (widget.shell.executeAction(id)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  List<PopupMenuEntry<String>> _buildEditorContextMenuItems(ForgeEditor editor) {
+    final activeTextEditor = editor is ForgeTextEditor ? editor : null;
+    final contextActions = widget.shell
+        .getContextActionsFor(editor.uri.toString())
+        .where((action) =>
+            action.id != _actionEditorFind &&
+            action.id != _actionEditReplace &&
+            action.id != _actionEditFormatDocument)
+        .toList(growable: false);
+
+    final entries = <PopupMenuEntry<String>>[
+      PopupMenuItem<String>(
+        value: 'cmd.cut',
+        enabled: activeTextEditor != null,
+        child: const Text('Cut'),
+      ),
+      PopupMenuItem<String>(
+        value: 'cmd.copy',
+        enabled: activeTextEditor != null,
+        child: const Text('Copy'),
+      ),
+      PopupMenuItem<String>(
+        value: 'cmd.paste',
+        enabled: activeTextEditor != null,
+        child: const Text('Paste'),
+      ),
+      const PopupMenuDivider(),
+      PopupMenuItem<String>(
+        value: 'cmd.find',
+        enabled: activeTextEditor != null,
+        child: const Text('Find'),
+      ),
+      PopupMenuItem<String>(
+        value: 'cmd.replace',
+        enabled: activeTextEditor != null,
+        child: const Text('Replace'),
+      ),
+      PopupMenuItem<String>(
+        value: 'cmd.format',
+        enabled: widget.shell.isActionEnabled(_actionEditFormatDocument),
+        child: const Text('Format Document'),
+      ),
+    ];
+
+    if (contextActions.isNotEmpty) {
+      entries.add(const PopupMenuDivider());
+      for (final action in contextActions) {
+        entries.add(PopupMenuItem<String>(
+          value: 'action.${action.id}',
+          enabled: action.isEnabled(),
+          child: Text(action.label),
+        ));
+      }
+    }
+
+    return entries;
+  }
+
+  Future<void> _showEditorContextMenu(
+    Offset globalPosition,
+    ForgeEditor editor,
+  ) async {
+    widget.systemState.setActiveEditor(editor);
+
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox?;
+    if (overlay == null) return;
+
+    final selected = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        Rect.fromLTWH(globalPosition.dx, globalPosition.dy, 1, 1),
+        Offset.zero & overlay.size,
+      ),
+      items: _buildEditorContextMenuItems(editor),
+    );
+
+    if (!mounted || selected == null) return;
+
+    switch (selected) {
+      case 'cmd.cut':
+        _executeActionWithFallback([_actionForgeCut, 'edit.cut']);
+        break;
+      case 'cmd.copy':
+        _executeActionWithFallback([_actionForgeCopy, 'edit.copy']);
+        break;
+      case 'cmd.paste':
+        _executeActionWithFallback([_actionForgePaste, 'edit.paste']);
+        break;
+      case 'cmd.find':
+        _openFindReplaceBar(showReplaceFields: false);
+        break;
+      case 'cmd.replace':
+        _openFindReplaceBar(showReplaceFields: true);
+        break;
+      case 'cmd.format':
+        _executeActionWithFallback([_actionEditFormatDocument]);
+        break;
+      default:
+        if (selected.startsWith('action.')) {
+          final actionId = selected.substring('action.'.length);
+          widget.shell.executeAction(actionId);
+        }
+        break;
+    }
+  }
+
   /// Listens for chord completions to execute the bound action.
   void _listenForChordCompletions() {
     _chordSubscription =
@@ -982,7 +1367,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
                       shellApi: widget.shell,
                       onDismiss: _toggleCommandPalette,
                     ),
-                  if (_dialogOverlay != null) _dialogOverlay!,
+                  if (_dialogOverlay != null) ...[_dialogOverlay!],
                 ],
               ),
             ),
@@ -1760,7 +2145,11 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       valueListenable: widget.systemState.activeEditorListenable,
       builder: (context, activeEditor, _) {
         final currentEditor =
-            editors.contains(activeEditor) ? activeEditor : editors.last;
+            (activeEditor != null && editors.contains(activeEditor))
+                ? activeEditor
+                : editors.last;
+        final showFindBar =
+            _showFindReplaceBar && currentEditor is ForgeTextEditor;
 
         return EditorDropZoneOverlay(
           panelIndex: panelIndex,
@@ -1790,14 +2179,130 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
                   widget.systemState.setActiveEditor(editor);
                 },
               ),
+              if (showFindBar) _buildFindReplaceBar(),
               Expanded(
-                child: currentEditor?.buildMain(context) ??
-                    const SizedBox.expand(),
+                child: GestureDetector(
+                  key: ValueKey('editor-area-context-target-$panelIndex'),
+                  behavior: HitTestBehavior.translucent,
+                  onSecondaryTapDown: (details) {
+                    _showEditorContextMenu(details.globalPosition, currentEditor);
+                  },
+                  child: SizedBox.expand(
+                    child: currentEditor.buildMain(context),
+                  ),
+                ),
               ),
             ],
           ),
         );
       },
+    );
+  }
+
+  Widget _buildFindReplaceBar() {
+    final theme = Theme.of(context);
+    final hasMatches = _findMatches.isNotEmpty;
+    final counterText = hasMatches
+        ? '${_activeFindMatchIndex + 1}/${_findMatches.length}'
+        : '0/0';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest
+            .withValues(alpha: 0.65),
+        border: Border(
+          bottom: BorderSide(
+            color: theme.colorScheme.outlineVariant,
+          ),
+        ),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            SizedBox(
+              width: 220,
+              child: TextField(
+                key: const Key('find-bar-query-field'),
+                controller: _findQueryController,
+                focusNode: _findFieldFocusNode,
+                decoration: const InputDecoration(
+                  isDense: true,
+                  hintText: 'Find',
+                  prefixIcon: Icon(Icons.search, size: 18),
+                ),
+                onSubmitted: (_) => _selectFindMatch(next: true),
+              ),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              key: const Key('find-prev-button'),
+              tooltip: 'Previous match',
+              onPressed: hasMatches ? () => _selectFindMatch(next: false) : null,
+              icon: const Icon(Icons.keyboard_arrow_up),
+            ),
+            IconButton(
+              key: const Key('find-next-button'),
+              tooltip: 'Next match',
+              onPressed: hasMatches ? () => _selectFindMatch(next: true) : null,
+              icon: const Icon(Icons.keyboard_arrow_down),
+            ),
+            Text(
+              counterText,
+              key: const Key('find-match-counter'),
+              style: theme.textTheme.bodySmall,
+            ),
+            const SizedBox(width: 8),
+            TextButton(
+              key: const Key('find-toggle-replace-button'),
+              onPressed: () {
+                setState(() {
+                  _showReplaceFields = !_showReplaceFields;
+                });
+              },
+              child: Text(_showReplaceFields ? 'Hide Replace' : 'Replace'),
+            ),
+            if (_showReplaceFields) ...[
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 220,
+                child: TextField(
+                  key: const Key('find-bar-replace-field'),
+                  controller: _replaceValueController,
+                  focusNode: _replaceFieldFocusNode,
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    hintText: 'Replace with',
+                    prefixIcon: Icon(Icons.find_replace, size: 18),
+                  ),
+                  onSubmitted: (_) => _replaceCurrentMatch(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              FilledButton.tonal(
+                key: const Key('find-replace-button'),
+                onPressed: hasMatches ? _replaceCurrentMatch : null,
+                child: const Text('Replace'),
+              ),
+              const SizedBox(width: 6),
+              FilledButton.tonal(
+                key: const Key('find-replace-all-button'),
+                onPressed:
+                    _findQueryController.text.isEmpty ? null : _replaceAllMatches,
+                child: const Text('Replace All'),
+              ),
+            ],
+            const SizedBox(width: 8),
+            IconButton(
+              key: const Key('find-close-button'),
+              tooltip: 'Close find/replace',
+              onPressed: _closeFindReplaceBar,
+              icon: const Icon(Icons.close),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
