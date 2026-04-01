@@ -135,7 +135,7 @@ This section is intended to cover draggable splitters, min/max constraints, hove
 | Splitter hit target and visual thickness are explicitly defined | no | no | no | yes | yes | n/a | `ForgeDimensions.dividerHitTarget=14`, `dividerVisual=2`; `_ResizeHandle` uses these constants |
 | Accordeon section splitters support manual separator drag when sections are pinned open | no | yes | yes | yes | yes | n/a | `_AccordeonDivider` between expanded sections; `_resizeSections` adjusts flex weights; double-tap resets; replaces fixed `height: 200` with flexible layout |
 | Layout controller is responsible for resize bounds and restore behavior | yes | no | yes (module interactions via layout API) | yes | yes | n/a | `DefaultLayoutController.setPanelSize` with `.clamp()` to enforce bounds |
-| Panel size and layout changes persist through layout persistence in core shell architecture | no | no | no | yes | no | n/a | no persistence; sizes reset on app restart |
+| Panel size and layout changes persist through layout persistence in core shell architecture | no | no | no | yes | yes | n/a | `ForgeShellScaffold` persists/restores full layout snapshots (`_captureLayoutSnapshot`/`_applyLayoutSnapshot`) via `ForgePreferencesService.layoutSnapshot`, with restart verification in `phase_c_settings_persistence_test.dart` |
 | Implementation evidence in test app uses explicit drag-handle dividers and resizable/collapsible panels | yes | yes | yes | yes | yes | n/a | test app has left/right/bottom panels with `_ResizeHandle` dividers and toggleable visibility |
 | Test-app scope notes that restart persistence is intentionally not implemented there (while core concept specifies persistence) | no | no | no | yes (scope-specific) | yes | n/a | persistence not implemented (matches test-app non-goals documentation) |
 
@@ -248,7 +248,7 @@ This section is intended to cover menu bar, command palette, title-bar search en
 | Command parity objective across menu, palette, and shortcuts is required | yes | yes | yes | yes | partial | n/a | Actions shared via registry; menu has hardcoded entries; palette dynamically populated from registry |
 | Implementation evidence: menu handlers switched from placeholders to real action dispatch | yes | no | yes | yes | yes | n/a | `_executeActionOrInform` calls `shellApi.executeAction` with real action IDs |
 | Implementation evidence: command palette source unified to action registry with fallback dedupe | yes | no | yes | yes | yes | n/a | `ForgeCommandPalette._buildCommandList` iterates `actionRegistry.allActions` and module actions |
-| `Tools` menu surface populated from modules with module-contributed tool actions | yes | yes | yes | yes | no | no | `ForgeMenuLocation.tools` is defined in the enum but no actions use it; no `Tools` menu entry exists in `ForgeMenuBar` or platform menus |
+| `Tools` menu surface populated from modules with module-contributed tool actions | yes | yes | yes | yes | yes | yes | `ForgeMenuBar` builds Tools entries from module actions (`ForgeMenuLocation.tools`), `ForgeShellScaffold` mirrors this in platform menus, and module tool actions are exercised in `forge_menu_bar_test.dart` |
 
 ## 12. Focus Management and Accessibility
 This section is intended to cover keyboard navigation order, focus visibility, focus trapping in modal surfaces, screen-reader semantics, and hit-target usability. Include checks for shell accessibility baseline and per component/module accessibility conformance.
