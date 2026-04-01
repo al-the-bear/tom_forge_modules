@@ -90,5 +90,36 @@ void main() {
 
       expect(second.shortcutOverrides['editor.find'], override);
     });
+
+    test('round-trips full layout snapshot', () async {
+      final first = ForgePreferencesService();
+      await first.load();
+
+      final snapshot = <String, dynamic>{
+        'panels': {
+          'left': {'size': 320.0, 'isVisible': true},
+          'right': {'size': 260.0, 'isVisible': false},
+          'bottom': {'size': 220.0, 'isVisible': true},
+        },
+        'activeMiddlePanelIndex': 1,
+        'middlePanels': [
+          ['file:///workspace/a.dart'],
+          ['file:///workspace/b.md'],
+        ],
+        'middlePanelFlex': [1.0, 1.4],
+      };
+
+      first.setLayoutSnapshot(snapshot);
+      await first.save();
+
+      final second = ForgePreferencesService();
+      await second.load();
+
+      expect(second.layoutSnapshot['activeMiddlePanelIndex'], 1);
+      expect(
+        second.layoutSnapshot['middlePanelFlex'],
+        containsAllInOrder([1.0, 1.4]),
+      );
+    });
   });
 }

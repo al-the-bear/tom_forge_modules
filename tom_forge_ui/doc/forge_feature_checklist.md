@@ -764,7 +764,7 @@ Shortcut editor settings page, configuration dialog editor toggles (line numbers
 
 ### Step 10 — Remaining Shell Items (2 rows)
 
-- [ ] Done
+- [x] Done
 
 Tools menu surface and panel layout persistence.
 

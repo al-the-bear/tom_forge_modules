@@ -804,6 +804,13 @@ class DefaultLayoutController implements ForgeLayoutController {
 
     final middlePanelUris = snapshot['middlePanels'];
     if (middlePanelUris is List) {
+      final panelCount = middlePanelUris.isEmpty ? 1 : middlePanelUris.length;
+      _middlePanels.value = List<List<ForgeEditor>>.generate(
+        panelCount,
+        (_) => <ForgeEditor>[],
+      );
+      _systemState.setMiddlePanelCount(panelCount);
+
       for (var i = 0; i < middlePanelUris.length; i++) {
         final panelUris = middlePanelUris[i];
         if (panelUris is List) {

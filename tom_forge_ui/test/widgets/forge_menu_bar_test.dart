@@ -50,13 +50,26 @@ void main() {
 
     expect(harness.module.executedActionIds, contains('edit.undo'));
   });
+
+  testWidgets('Tools menu executes module tool action', (
+    WidgetTester tester,
+  ) async {
+    final harness = _MenuHarness.create();
+
+    await tester.pumpWidget(harness.buildMenuApp());
+
+    await tester.tap(find.text('Tools'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Format Workspace'));
+    await tester.pumpAndSettle();
+
+    expect(harness.module.executedActionIds, contains('tools.formatWorkspace'));
+  });
 }
 
 class _MenuHarness {
-  _MenuHarness._({
-    required this.shell,
-    required this.module,
-  });
+  _MenuHarness._({required this.shell, required this.module});
 
   final DefaultShellApi shell;
   final _TestActionModule module;
@@ -73,19 +86,13 @@ class _MenuHarness {
     module.activate(shell);
     (shell.modules as DefaultModuleRegistry).register(module);
 
-    return _MenuHarness._(
-      shell: shell,
-      module: module,
-    );
+    return _MenuHarness._(shell: shell, module: module);
   }
 
   Widget buildMenuApp() {
     return MaterialApp(
       home: Scaffold(
-        body: ForgeMenuBar(
-          shellApi: shell,
-          onCommandPalette: () {},
-        ),
+        body: ForgeMenuBar(shellApi: shell, onCommandPalette: () {}),
       ),
     );
   }
@@ -111,12 +118,23 @@ class _TestActionModule extends ForgeModule {
 
   @override
   List<ForgeAction> get actions => <ForgeAction>[
-        _action('file.save'),
-        _action('file.saveAll'),
-        _action('file.close'),
-        _action('edit.undo'),
-        _action('edit.redo'),
-      ];
+    _action('file.save'),
+    _action('file.saveAll'),
+    _action('file.close'),
+    _action('edit.undo'),
+    _action('edit.redo'),
+    ForgeAction(
+      id: 'tools.formatWorkspace',
+      label: 'Format Workspace',
+      menu: ForgeMenuLocation.tools,
+      execute: (_) async {
+        executedActionIds.add('tools.formatWorkspace');
+        return null;
+      },
+      isEnabled: () => true,
+      isVisible: () => true,
+    ),
+  ];
 
   @override
   List<ForgeShortcutBinding> get shortcuts => const [];

@@ -26,6 +26,7 @@ class ForgePreferencesService extends ChangeNotifier {
   static const _keyLayoutPanelSizes = 'forge.layout.panelSizes';
   static const _keyLayoutPanelVisibility = 'forge.layout.panelVisibility';
   static const _keyLayoutOpenEditors = 'forge.layout.openEditors';
+  static const _keyLayoutSnapshot = 'forge.layout.snapshot';
   static const _keyThemeMode = 'forge.appearance.themeMode';
   static const _keyFileTypeDefaults = 'forge.files.typeDefaults';
   static const _keyShortcutOverrides = 'forge.shortcuts.overrides';
@@ -38,6 +39,7 @@ class ForgePreferencesService extends ChangeNotifier {
       <String, ForgeTextSettings>{};
   final Map<String, double> _layoutPanelSizes = <String, double>{};
   final Map<String, bool> _layoutPanelVisibility = <String, bool>{};
+  Map<String, dynamic> _layoutSnapshot = <String, dynamic>{};
   final Map<String, String> _fileTypeDefaultEditors = <String, String>{};
   final Map<String, ForgeShortcutKey> _shortcutOverrides =
       <String, ForgeShortcutKey>{};
@@ -152,6 +154,16 @@ class ForgePreferencesService extends ChangeNotifier {
     _layoutOpenEditors = List<String>.from(editorUris);
   }
 
+  /// Full layout snapshot (panels + middle panel tabs) used for
+  /// complete layout persistence across restarts.
+  Map<String, dynamic> get layoutSnapshot =>
+      Map<String, dynamic>.unmodifiable(_layoutSnapshot);
+
+  /// Sets full layout snapshot.
+  void setLayoutSnapshot(Map<String, dynamic> snapshot) {
+    _layoutSnapshot = Map<String, dynamic>.from(snapshot);
+  }
+
   /// The persisted theme mode (dark, light, or system).
   ThemeMode get themeMode => _themeMode;
 
@@ -230,6 +242,7 @@ class ForgePreferencesService extends ChangeNotifier {
       _layoutPanelVisibility
         ..clear()
         ..addAll(_loadLayoutPanelVisibility());
+      _layoutSnapshot = _loadLayoutSnapshot();
       _fileTypeDefaultEditors
         ..clear()
         ..addAll(_loadFileTypeDefaults());
@@ -300,6 +313,7 @@ class ForgePreferencesService extends ChangeNotifier {
       await _saveLayoutPanelSizes();
       await _saveLayoutPanelVisibility();
       await _saveLayoutOpenEditors();
+      await _saveLayoutSnapshot();
       await _saveFileTypeDefaults();
       await _saveShortcutOverrides();
       await _prefs!.setString(_keyThemeMode, _themeMode.name);
@@ -423,6 +437,27 @@ class ForgePreferencesService extends ChangeNotifier {
       _keyLayoutOpenEditors,
       jsonEncode(_layoutOpenEditors),
     );
+  }
+
+  Map<String, dynamic> _loadLayoutSnapshot() {
+    final jsonStr = _prefs!.getString(_keyLayoutSnapshot);
+    if (jsonStr == null || jsonStr.trim().isEmpty) {
+      return <String, dynamic>{};
+    }
+    try {
+      final decoded = jsonDecode(jsonStr);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+      if (decoded is Map) {
+        return Map<String, dynamic>.from(decoded);
+      }
+    } catch (_) {}
+    return <String, dynamic>{};
+  }
+
+  Future<void> _saveLayoutSnapshot() async {
+    await _prefs!.setString(_keyLayoutSnapshot, jsonEncode(_layoutSnapshot));
   }
 
   Map<String, String> _loadFileTypeDefaults() {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 
+import '../actions/forge_action.dart' as shell_action;
 import '../defaults/default_shell_api.dart';
 import '../defaults/default_system_state.dart';
 
@@ -34,7 +35,8 @@ class ForgeMenuBar extends StatelessWidget {
     this.onThemeModeChanged,
   });
 
-  DefaultSystemState get _systemState => shellApi.systemState as DefaultSystemState;
+  DefaultSystemState get _systemState =>
+      shellApi.systemState as DefaultSystemState;
 
   @override
   Widget build(BuildContext context) {
@@ -53,11 +55,8 @@ class ForgeMenuBar extends StatelessWidget {
               _MenuItem(
                 label: 'New File',
                 shortcut: '⌘N',
-                onTap: () => _executeActionOrInform(
-                  context,
-                  _actionFileNew,
-                  'New File',
-                ),
+                onTap: () =>
+                    _executeActionOrInform(context, _actionFileNew, 'New File'),
               ),
               _MenuItem(
                 label: 'Open Folder...',
@@ -72,11 +71,8 @@ class ForgeMenuBar extends StatelessWidget {
               _MenuItem(
                 label: 'Save',
                 shortcut: '⌘S',
-                onTap: () => _executeActionOrInform(
-                  context,
-                  _actionFileSave,
-                  'Save',
-                ),
+                onTap: () =>
+                    _executeActionOrInform(context, _actionFileSave, 'Save'),
               ),
               _MenuItem(
                 label: 'Save All',
@@ -101,7 +97,9 @@ class ForgeMenuBar extends StatelessWidget {
               _MenuItem(
                 label: 'Settings...',
                 shortcut: '⌘,',
-                onTap: onSettings ?? () => _showNotImplemented(context, 'Settings'),
+                onTap:
+                    onSettings ??
+                    () => _showNotImplemented(context, 'Settings'),
               ),
             ],
             isDark: isDark,
@@ -112,58 +110,40 @@ class ForgeMenuBar extends StatelessWidget {
               _MenuItem(
                 label: 'Undo',
                 shortcut: '⌘Z',
-                onTap: () => _executeActionOrInform(
-                  context,
-                  _actionEditUndo,
-                  'Undo',
-                ),
+                onTap: () =>
+                    _executeActionOrInform(context, _actionEditUndo, 'Undo'),
               ),
               _MenuItem(
                 label: 'Redo',
                 shortcut: '⇧⌘Z',
-                onTap: () => _executeActionOrInform(
-                  context,
-                  _actionEditRedo,
-                  'Redo',
-                ),
+                onTap: () =>
+                    _executeActionOrInform(context, _actionEditRedo, 'Redo'),
               ),
               const _MenuDivider(),
               _MenuItem(
                 label: 'Cut',
                 shortcut: '⌘X',
-                onTap: () => _executeActionOrInform(
-                  context,
-                  _actionEditCut,
-                  'Cut',
-                ),
+                onTap: () =>
+                    _executeActionOrInform(context, _actionEditCut, 'Cut'),
               ),
               _MenuItem(
                 label: 'Copy',
                 shortcut: '⌘C',
-                onTap: () => _executeActionOrInform(
-                  context,
-                  _actionEditCopy,
-                  'Copy',
-                ),
+                onTap: () =>
+                    _executeActionOrInform(context, _actionEditCopy, 'Copy'),
               ),
               _MenuItem(
                 label: 'Paste',
                 shortcut: '⌘V',
-                onTap: () => _executeActionOrInform(
-                  context,
-                  _actionEditPaste,
-                  'Paste',
-                ),
+                onTap: () =>
+                    _executeActionOrInform(context, _actionEditPaste, 'Paste'),
               ),
               const _MenuDivider(),
               _MenuItem(
                 label: 'Find',
                 shortcut: '⌘F',
-                onTap: () => _executeActionOrInform(
-                  context,
-                  _actionEditFind,
-                  'Find',
-                ),
+                onTap: () =>
+                    _executeActionOrInform(context, _actionEditFind, 'Find'),
               ),
               _MenuItem(
                 label: 'Replace',
@@ -189,33 +169,43 @@ class ForgeMenuBar extends StatelessWidget {
               _MenuItem(
                 label: 'Toggle Left Panel',
                 shortcut: '⌘L',
-                onTap: () => shellApi.layout.togglePanel(ForgePanelLocation.left),
+                onTap: () =>
+                    shellApi.layout.togglePanel(ForgePanelLocation.left),
               ),
               _MenuItem(
                 label: 'Toggle Right Panel',
                 shortcut: '⌘R',
-                onTap: () => shellApi.layout.togglePanel(ForgePanelLocation.right),
+                onTap: () =>
+                    shellApi.layout.togglePanel(ForgePanelLocation.right),
               ),
               const _MenuDivider(),
               _MenuItem(
                 label: 'Explorer',
                 shortcut: '⌘1',
-                onTap: () => _systemState.setFocusedPanelLocation(ForgePanelLocation.left),
+                onTap: () => _systemState.setFocusedPanelLocation(
+                  ForgePanelLocation.left,
+                ),
               ),
               _MenuItem(
                 label: 'Editor',
                 shortcut: '⌘2',
-                onTap: () => _systemState.setFocusedPanelLocation(ForgePanelLocation.middle),
+                onTap: () => _systemState.setFocusedPanelLocation(
+                  ForgePanelLocation.middle,
+                ),
               ),
               _MenuItem(
                 label: 'Properties',
                 shortcut: '⌘3',
-                onTap: () => _systemState.setFocusedPanelLocation(ForgePanelLocation.right),
+                onTap: () => _systemState.setFocusedPanelLocation(
+                  ForgePanelLocation.right,
+                ),
               ),
               _MenuItem(
                 label: 'Bottom Panel',
                 shortcut: '⌘4',
-                onTap: () => _systemState.setFocusedPanelLocation(ForgePanelLocation.bottom),
+                onTap: () => _systemState.setFocusedPanelLocation(
+                  ForgePanelLocation.bottom,
+                ),
               ),
               const _MenuDivider(),
               _MenuSubHeader(label: 'Appearance'),
@@ -268,6 +258,11 @@ class ForgeMenuBar extends StatelessWidget {
             isDark: isDark,
           ),
           _MenuButton(
+            label: 'Tools',
+            items: _buildToolsMenuItems(context),
+            isDark: isDark,
+          ),
+          _MenuButton(
             label: 'Help',
             items: [
               _MenuItem(
@@ -279,10 +274,7 @@ class ForgeMenuBar extends StatelessWidget {
                 onTap: () => _showNotImplemented(context, 'Documentation'),
               ),
               const _MenuDivider(),
-              _MenuItem(
-                label: 'About',
-                onTap: () => _showAbout(context),
-              ),
+              _MenuItem(label: 'About', onTap: () => _showAbout(context)),
             ],
             isDark: isDark,
           ),
@@ -290,6 +282,62 @@ class ForgeMenuBar extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  List<_MenuItemBase> _buildToolsMenuItems(BuildContext context) {
+    final grouped = <String, List<shell_action.ForgeAction>>{};
+
+    for (final module in shellApi.modules.allModules) {
+      final actions =
+          module.actions
+              .where(
+                (action) => action.menu == shell_action.ForgeMenuLocation.tools,
+              )
+              .where((action) => action.isVisible())
+              .toList(growable: false)
+            ..sort((a, b) {
+              final priority = a.priority.compareTo(b.priority);
+              if (priority != 0) return priority;
+              return a.label.compareTo(b.label);
+            });
+      if (actions.isNotEmpty) {
+        grouped[module.displayName] = actions;
+      }
+    }
+
+    if (grouped.isEmpty) {
+      return [
+        _MenuItem(
+          label: 'No Tools Available',
+          onTap: () => _showNotImplemented(context, 'Tools'),
+        ),
+      ];
+    }
+
+    final items = <_MenuItemBase>[];
+    var groupIndex = 0;
+    final showModuleHeaders = grouped.length > 1;
+
+    for (final entry in grouped.entries) {
+      if (groupIndex > 0) {
+        items.add(const _MenuDivider());
+      }
+      if (showModuleHeaders) {
+        items.add(_MenuSubHeader(label: entry.key));
+      }
+      for (final action in entry.value) {
+        items.add(
+          _MenuItem(
+            label: action.label,
+            onTap: () =>
+                _executeActionOrInform(context, action.id, action.label),
+          ),
+        );
+      }
+      groupIndex++;
+    }
+
+    return items;
   }
 
   void _executeActionOrInform(
@@ -491,7 +539,10 @@ class _MenuOverlay extends StatelessWidget {
                   if (item is _MenuSubHeader) {
                     return Padding(
                       padding: const EdgeInsets.only(
-                        left: 20, right: 20, top: 6, bottom: 2,
+                        left: 20,
+                        right: 20,
+                        top: 6,
+                        bottom: 2,
                       ),
                       child: Text(
                         item.label,
@@ -552,8 +603,8 @@ class _MenuItemWidgetState extends State<_MenuItemWidget> {
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
           color: _isHovered
               ? (widget.isDark
-                  ? const Color(0xFF094771)
-                  : Colors.blue.withValues(alpha: 0.1))
+                    ? const Color(0xFF094771)
+                    : Colors.blue.withValues(alpha: 0.1))
               : null,
           child: Row(
             children: [
@@ -590,11 +641,8 @@ class _MenuItem extends _MenuItemBase {
   final String? shortcut;
   final VoidCallback onTap;
 
-  _MenuItem({
-    required this.label,
-    this.shortcut,
-    required this.onTap,
-  }) : super();
+  _MenuItem({required this.label, this.shortcut, required this.onTap})
+    : super();
 }
 
 class _MenuDivider extends _MenuItemBase {

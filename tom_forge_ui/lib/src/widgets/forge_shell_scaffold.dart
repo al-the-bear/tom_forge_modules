@@ -150,6 +150,7 @@ class ForgeShellScaffold extends StatefulWidget {
 
 class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   static bool debugEnabled = false;
+  static const Duration _layoutPersistDebounce = Duration(milliseconds: 500);
 
   static const String _actionFileSaveAll = 'file.saveAll';
   static const String _actionEditorFind = 'editor.find';
@@ -196,6 +197,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   StreamSubscription<ForgeTerminal>? _terminalCloseSubscription;
   StreamSubscription<ForgeTerminal?>? _terminalActiveSubscription;
   Timer? _autoSaveTimer;
+  Timer? _layoutPersistTimer;
 
   /// Flex factors for middle editor panels (1.0 per panel by default).
   /// Adjusted during drag-resize of middle panel dividers.
@@ -219,6 +221,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     _listenForEditorChanges();
     _listenForAutoSave();
     _listenForConfigChanges();
+    _listenForLayoutChanges();
     _listenForChordCompletions();
     _listenForMenuSelections();
   }
@@ -236,6 +239,8 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     _terminalOpenSubscription?.cancel();
     _terminalCloseSubscription?.cancel();
     _terminalActiveSubscription?.cancel();
+    _layoutPersistTimer?.cancel();
+    _detachLayoutListeners();
     widget.systemState.activeEditorListenable.removeListener(
       _onActiveEditorChanged,
     );
@@ -469,6 +474,12 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   /// Tries SharedPreferences first, then falls back to `.forge/state/`
   /// files for workspace-scoped recovery.
   Future<void> _restoreLayoutState() async {
+    final savedSnapshot = _preferences.layoutSnapshot;
+    if (savedSnapshot.isNotEmpty) {
+      _applyLayoutSnapshot(savedSnapshot);
+      return;
+    }
+
     var sizes = _preferences.layoutPanelSizes;
     var visibility = _preferences.layoutPanelVisibility;
     var editorUris = _preferences.layoutOpenEditors;
@@ -479,6 +490,11 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       try {
         final layoutData = await wsState.loadLayoutState();
         if (layoutData != null) {
+          if (_isLayoutSnapshot(layoutData)) {
+            _applyLayoutSnapshot(layoutData);
+            return;
+          }
+
           for (final entry in layoutData.entries) {
             if (entry.value is Map<String, dynamic>) {
               final panel = entry.value as Map<String, dynamic>;
@@ -582,20 +598,27 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       // Restore per-app layout if we didn't already restore from preferences.
       final layout = appState['layout'];
       if (layout is Map<String, dynamic> &&
+          _preferences.layoutSnapshot.isEmpty &&
           _preferences.layoutPanelSizes.isEmpty) {
-        for (final entry in layout.entries) {
-          if (entry.value is Map<String, dynamic>) {
-            final panel = entry.value as Map<String, dynamic>;
-            final size = panel['size'];
-            final isVisible = panel['isVisible'];
-            final location = _panelLocationFromName(entry.key);
-            if (location != null) {
-              if (size is num) _layout.setPanelSize(location, size.toDouble());
-              if (isVisible is bool) {
-                if (isVisible) {
-                  _layout.openPanel(location);
-                } else {
-                  _layout.closePanel(location);
+        if (_isLayoutSnapshot(layout)) {
+          _applyLayoutSnapshot(layout);
+        } else {
+          for (final entry in layout.entries) {
+            if (entry.value is Map<String, dynamic>) {
+              final panel = entry.value as Map<String, dynamic>;
+              final size = panel['size'];
+              final isVisible = panel['isVisible'];
+              final location = _panelLocationFromName(entry.key);
+              if (location != null) {
+                if (size is num) {
+                  _layout.setPanelSize(location, size.toDouble());
+                }
+                if (isVisible is bool) {
+                  if (isVisible) {
+                    _layout.openPanel(location);
+                  } else {
+                    _layout.closePanel(location);
+                  }
                 }
               }
             }
@@ -634,6 +657,8 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   /// Persists current panel sizes, visibility, and open editor URIs.
   void _saveLayoutState() {
     try {
+      _preferences.setLayoutSnapshot(_captureLayoutSnapshot());
+
       for (final location in ForgePanelLocation.values) {
         if (location == ForgePanelLocation.middle) continue;
         final config = _layout.getPanelConfig(location);
@@ -649,7 +674,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
           .toList();
       _preferences.setLayoutOpenEditors(openUris);
 
-      _preferences.save();
+      unawaited(_preferences.save());
 
       if (debugEnabled) {
         debugPrint('[ForgeShellScaffold] saved layout state');
@@ -681,6 +706,8 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
           debugPrint('[ForgeShellScaffold] revision on save failed: $e');
         }
       }
+
+      _scheduleLayoutPersistence();
     });
   }
 
@@ -728,6 +755,8 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
           }
         }
       }
+
+      _scheduleLayoutPersistence();
     });
   }
 
@@ -845,18 +874,8 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
           .toList();
       wsState.saveOpenEditors(openUris);
 
-      // Save layout state to .forge/state/layout.json
-      final layoutData = <String, dynamic>{};
-      for (final location in ForgePanelLocation.values) {
-        if (location == ForgePanelLocation.middle) continue;
-        final config = _layout.getPanelConfig(location);
-        if (config != null) {
-          layoutData[location.name] = {
-            'size': config.size,
-            'isVisible': config.isVisible,
-          };
-        }
-      }
+      // Save full layout snapshot to .forge/state/layout.json
+      final layoutData = _captureLayoutSnapshot();
       wsState.saveLayoutState(layoutData);
 
       // Save per-application state to .forge/state/apps/
@@ -1591,11 +1610,64 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
           ),
         ],
       ),
+      PlatformMenu(label: 'Tools', menus: _buildToolsPlatformMenuItems()),
       PlatformMenu(
         label: 'Help',
         menus: [PlatformMenuItem(label: 'About Tom Forge', onSelected: () {})],
       ),
     ];
+  }
+
+  Map<String, List<shell_action.ForgeAction>> _toolActionsByModule() {
+    final result = <String, List<shell_action.ForgeAction>>{};
+
+    for (final module in widget.shell.modules.allModules) {
+      final actions =
+          module.actions
+              .where(
+                (action) => action.menu == shell_action.ForgeMenuLocation.tools,
+              )
+              .where((action) => action.isVisible())
+              .toList(growable: false)
+            ..sort((a, b) {
+              final priority = a.priority.compareTo(b.priority);
+              if (priority != 0) return priority;
+              return a.label.compareTo(b.label);
+            });
+      if (actions.isNotEmpty) {
+        result[module.displayName] = actions;
+      }
+    }
+
+    return result;
+  }
+
+  List<PlatformMenuItem> _buildToolsPlatformMenuItems() {
+    final grouped = _toolActionsByModule();
+    if (grouped.isEmpty) {
+      return [PlatformMenuItem(label: 'No Tools Available', onSelected: () {})];
+    }
+
+    final hasMultipleModules = grouped.length > 1;
+    final items = <PlatformMenuItem>[];
+    for (final entry in grouped.entries) {
+      final moduleItems = entry.value
+          .map(
+            (action) => PlatformMenuItem(
+              label: action.label,
+              onSelected: () => widget.shell.executeAction(action.id),
+            ),
+          )
+          .toList(growable: false);
+
+      if (hasMultipleModules) {
+        items.add(PlatformMenu(label: entry.key, menus: moduleItems));
+      } else {
+        items.addAll(moduleItems);
+      }
+    }
+
+    return items;
   }
 
   Map<ShortcutActivator, Intent> _buildShortcuts() {
@@ -2022,6 +2094,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       _middlePanelFlex[leftIdx] = newLeft;
       _middlePanelFlex[rightIdx] = newRight;
     });
+    _scheduleLayoutPersistence();
   }
 
   /// Reset all middle panel flex factors to equal distribution.
@@ -2029,6 +2102,65 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     setState(() {
       _middlePanelFlex = List.filled(_middlePanelFlex.length, 1.0);
     });
+    _scheduleLayoutPersistence();
+  }
+
+  void _listenForLayoutChanges() {
+    _layout.leftPanel.addListener(_onLayoutChanged);
+    _layout.rightPanel.addListener(_onLayoutChanged);
+    _layout.bottomPanel.addListener(_onLayoutChanged);
+    _layout.middlePanels.addListener(_onLayoutChanged);
+    _layout.activeMiddlePanelIndexNotifier.addListener(_onLayoutChanged);
+  }
+
+  void _detachLayoutListeners() {
+    _layout.leftPanel.removeListener(_onLayoutChanged);
+    _layout.rightPanel.removeListener(_onLayoutChanged);
+    _layout.bottomPanel.removeListener(_onLayoutChanged);
+    _layout.middlePanels.removeListener(_onLayoutChanged);
+    _layout.activeMiddlePanelIndexNotifier.removeListener(_onLayoutChanged);
+  }
+
+  void _onLayoutChanged() {
+    _scheduleLayoutPersistence();
+  }
+
+  void _scheduleLayoutPersistence() {
+    _layoutPersistTimer?.cancel();
+    _layoutPersistTimer = Timer(_layoutPersistDebounce, () {
+      _saveLayoutState();
+      _saveWorkspaceState();
+    });
+  }
+
+  bool _isLayoutSnapshot(Map<String, dynamic> data) {
+    return data.containsKey('panels') && data.containsKey('middlePanels');
+  }
+
+  void _applyLayoutSnapshot(Map<String, dynamic> snapshot) {
+    _layout.loadLayoutSnapshot(snapshot);
+
+    final middleFlex = snapshot['middlePanelFlex'];
+    if (middleFlex is List) {
+      final parsed = middleFlex
+          .whereType<num>()
+          .map((value) => value.toDouble())
+          .where((value) => value > 0)
+          .toList(growable: false);
+      if (parsed.isNotEmpty) {
+        _middlePanelFlex = parsed;
+      }
+    }
+
+    if (debugEnabled) {
+      debugPrint('[ForgeShellScaffold] restored layout snapshot');
+    }
+  }
+
+  Map<String, dynamic> _captureLayoutSnapshot() {
+    final snapshot = _layout.toLayoutSnapshot();
+    snapshot['middlePanelFlex'] = List<double>.from(_middlePanelFlex);
+    return snapshot;
   }
 
   Widget _buildVerticalResizeHandle({
