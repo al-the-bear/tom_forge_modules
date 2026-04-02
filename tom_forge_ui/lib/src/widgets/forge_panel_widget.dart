@@ -60,6 +60,7 @@ class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
       return _SidePanelEmptyPlaceholder(
         panelArea: widget.panelArea,
         onTabDropped: widget.onTabDropped,
+        onEditorDropped: widget.onEditorDropped,
       );
     }
 
@@ -91,7 +92,6 @@ class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
           PanelTabDragData d => d.sourceArea != widget.panelArea,
           TabDragData _ => true, // Accept editor tabs from middle panels
           SectionDragData _ => true, // Accept sections from other panels
-          _ => false,
         };
       },
       onAcceptWithDetails: (details) {
@@ -769,6 +769,344 @@ class _AccordeonDividerState extends State<_AccordeonDivider> {
   }
 }
 
+/// Horizontal accordeon layout for bottom panel sections (per concept §3.1).
+///
+/// Unlike the vertical [_AccordeonLayout] used in side panels, this arranges
+/// sections horizontally. Expanded sections show a horizontal header bar with
+/// content below. Collapsed sections appear as narrow vertical strips with
+/// rotated text flowing top to bottom.
+class _BottomAccordeonLayout extends StatefulWidget {
+  final List<ForgeView> sections;
+
+  const _BottomAccordeonLayout({required this.sections});
+
+  @override
+  State<_BottomAccordeonLayout> createState() => _BottomAccordeonLayoutState();
+}
+
+class _BottomAccordeonLayoutState extends State<_BottomAccordeonLayout> {
+  final Set<int> _expandedSections = {0};
+  final Set<int> _pinnedSections = {};
+  final Map<int, double> _sectionFlex = {};
+
+  double _flexFor(int index) => _sectionFlex[index] ?? 1.0;
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.sections.length == 1) {
+      return widget.sections.first.buildMain(context);
+    }
+
+    final expandedIndices = List.generate(widget.sections.length, (i) => i)
+        .where(_expandedSections.contains)
+        .toList();
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var i = 0; i < widget.sections.length; i++) ...[
+          if (_expandedSections.contains(i))
+            Flexible(
+              flex: (_flexFor(i) * 1000).round(),
+              child: Column(
+                children: [
+                  _BottomSectionHeader(
+                    view: widget.sections[i],
+                    isExpanded: true,
+                    isPinned: _pinnedSections.contains(i),
+                    onToggle: () => _toggleSection(i),
+                    onTogglePin: () => _togglePin(i),
+                  ),
+                  Expanded(child: widget.sections[i].buildMain(context)),
+                ],
+              ),
+            )
+          else
+            _CollapsedVerticalStrip(
+              view: widget.sections[i],
+              isPinned: _pinnedSections.contains(i),
+              onTap: () => _toggleSection(i),
+              onTogglePin: () => _togglePin(i),
+            ),
+          // Horizontal divider between adjacent expanded sections.
+          if (_expandedSections.contains(i) &&
+              _hasNextExpandedSection(i, expandedIndices))
+            _BottomAccordeonDivider(
+              onDragDelta: (delta) => _resizeSections(
+                i,
+                _nextExpandedSection(i, expandedIndices)!,
+                delta,
+              ),
+              onDoubleTap: () => setState(() => _sectionFlex.clear()),
+            ),
+        ],
+      ],
+    );
+  }
+
+  bool _hasNextExpandedSection(int current, List<int> expandedIndices) {
+    final currentPos = expandedIndices.indexOf(current);
+    return currentPos >= 0 && currentPos < expandedIndices.length - 1;
+  }
+
+  int? _nextExpandedSection(int current, List<int> expandedIndices) {
+    final currentPos = expandedIndices.indexOf(current);
+    if (currentPos >= 0 && currentPos < expandedIndices.length - 1) {
+      return expandedIndices[currentPos + 1];
+    }
+    return null;
+  }
+
+  void _resizeSections(int leftIdx, int rightIdx, double delta) {
+    const minFlex = 0.15;
+    final leftFlex = _flexFor(leftIdx);
+    final rightFlex = _flexFor(rightIdx);
+    final totalFlex = leftFlex + rightFlex;
+    final flexDelta = delta / 200.0;
+    final newLeft = (leftFlex + flexDelta).clamp(minFlex, totalFlex - minFlex);
+    setState(() {
+      _sectionFlex[leftIdx] = newLeft;
+      _sectionFlex[rightIdx] = totalFlex - newLeft;
+    });
+  }
+
+  void _toggleSection(int index) {
+    setState(() {
+      if (_expandedSections.contains(index)) {
+        if (_expandedSections.length > 1) {
+          _expandedSections.remove(index);
+        }
+      } else {
+        _expandedSections
+            .removeWhere((i) => !_pinnedSections.contains(i) && i != index);
+        _expandedSections.add(index);
+      }
+    });
+  }
+
+  void _togglePin(int index) {
+    setState(() {
+      if (_pinnedSections.contains(index)) {
+        _pinnedSections.remove(index);
+      } else {
+        _pinnedSections.add(index);
+        _expandedSections.add(index);
+      }
+    });
+  }
+}
+
+/// Horizontal header bar for an expanded bottom panel section.
+class _BottomSectionHeader extends StatelessWidget {
+  final ForgeView view;
+  final bool isExpanded;
+  final bool isPinned;
+  final VoidCallback onToggle;
+  final VoidCallback onTogglePin;
+
+  const _BottomSectionHeader({
+    required this.view,
+    required this.isExpanded,
+    required this.isPinned,
+    required this.onToggle,
+    required this.onTogglePin,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: onToggle,
+      child: Container(
+        height: ForgeDimensions.sectionHeaderHeight,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHighest,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isExpanded ? Icons.arrow_drop_down : Icons.arrow_right,
+              size: 18,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+            ),
+            Expanded(
+              child: ValueListenableBuilder<String>(
+                valueListenable: view.title,
+                builder: (context, title, _) => Text(
+                  title.toUpperCase(),
+                  style: theme.textTheme.labelSmall,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+            IconButton(
+              icon: Icon(
+                isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+                size: 14,
+              ),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+              onPressed: onTogglePin,
+              tooltip: isPinned ? 'Unpin' : 'Pin',
+              color: isPinned
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.onSurface.withValues(alpha: 0.4),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Narrow vertical strip for collapsed bottom panel sections.
+///
+/// Title text is rotated 90° clockwise so it flows top to bottom,
+/// matching the concept §3.1 specification for collapsed bottom sections.
+class _CollapsedVerticalStrip extends StatefulWidget {
+  final ForgeView view;
+  final bool isPinned;
+  final VoidCallback onTap;
+  final VoidCallback onTogglePin;
+
+  const _CollapsedVerticalStrip({
+    required this.view,
+    required this.isPinned,
+    required this.onTap,
+    required this.onTogglePin,
+  });
+
+  @override
+  State<_CollapsedVerticalStrip> createState() =>
+      _CollapsedVerticalStripState();
+}
+
+class _CollapsedVerticalStripState extends State<_CollapsedVerticalStrip> {
+  bool _isHovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovering = true),
+      onExit: (_) => setState(() => _isHovering = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: ForgeAnimations.dropZoneFade,
+          width: 28,
+          decoration: BoxDecoration(
+            color: _isHovering
+                ? theme.colorScheme.surfaceContainerHighest
+                : theme.colorScheme.surfaceContainerHigh,
+            border: Border(
+              right: BorderSide(
+                color: theme.colorScheme.outlineVariant,
+                width: 1,
+              ),
+            ),
+          ),
+          child: Column(
+            children: [
+              // Pin indicator at top.
+              if (widget.isPinned)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Icon(
+                    Icons.push_pin,
+                    size: 10,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+              // Rotated title text.
+              Expanded(
+                child: Center(
+                  child: RotatedBox(
+                    quarterTurns: 1,
+                    child: ValueListenableBuilder<String>(
+                      valueListenable: widget.view.title,
+                      builder: (context, title, _) => Text(
+                        title.toUpperCase(),
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          fontSize: 10,
+                          letterSpacing: 1.2,
+                          color: _isHovering
+                              ? theme.colorScheme.onSurface
+                              : theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.6),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Horizontal drag divider between bottom panel expanded sections.
+class _BottomAccordeonDivider extends StatefulWidget {
+  final ValueChanged<double> onDragDelta;
+  final VoidCallback? onDoubleTap;
+
+  const _BottomAccordeonDivider({
+    required this.onDragDelta,
+    this.onDoubleTap,
+  });
+
+  @override
+  State<_BottomAccordeonDivider> createState() =>
+      _BottomAccordeonDividerState();
+}
+
+class _BottomAccordeonDividerState extends State<_BottomAccordeonDivider> {
+  bool _isHovering = false;
+  bool _isDragging = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final activeColor = theme.colorScheme.primary.withValues(alpha: 0.9);
+    final hoverColor = theme.colorScheme.primary.withValues(alpha: 0.45);
+    final idleColor = theme.colorScheme.outlineVariant.withValues(alpha: 0.5);
+    final color =
+        _isDragging ? activeColor : (_isHovering ? hoverColor : idleColor);
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onDoubleTap: widget.onDoubleTap,
+      onHorizontalDragStart: (_) => setState(() => _isDragging = true),
+      onHorizontalDragUpdate: (d) => widget.onDragDelta(d.delta.dx),
+      onHorizontalDragEnd: (_) => setState(() => _isDragging = false),
+      onHorizontalDragCancel: () => setState(() => _isDragging = false),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.resizeColumn,
+        onEnter: (_) => setState(() => _isHovering = true),
+        onExit: (_) => setState(() {
+          _isHovering = false;
+          _isDragging = false;
+        }),
+        child: SizedBox(
+          width: 8,
+          child: Center(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 120),
+              width: _isDragging ? 3.0 : (_isHovering ? 2.0 : 1.0),
+              color: color,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Bottom panel widget with horizontal tabs (icon + text).
 ///
 /// Used for bottom panels per concept §2.5.
@@ -809,6 +1147,7 @@ class _ForgePanelWidgetState extends State<ForgePanelWidget> {
       return _BottomPanelEmptyPlaceholder(
         panelArea: widget.panelArea,
         onTabDropped: widget.onTabDropped,
+        onEditorDropped: widget.onEditorDropped,
       );
     }
 
@@ -832,7 +1171,6 @@ class _ForgePanelWidgetState extends State<ForgePanelWidget> {
           PanelTabDragData d => d.sourceArea != widget.panelArea,
           TabDragData _ => true, // Accept editor tabs from middle panels
           SectionDragData _ => true, // Accept sections from other panels
-          _ => false,
         };
       },
       onAcceptWithDetails: (details) {
@@ -974,8 +1312,8 @@ class _ForgePanelWidgetState extends State<ForgePanelWidget> {
       );
     }
 
-    // Bottom panel uses accordeon with horizontal collapsed view
-    return _AccordeonLayout(sections: tab.sections);
+    // Bottom panel uses horizontal accordeon (per concept §3.1)
+    return _BottomAccordeonLayout(sections: tab.sections);
   }
 }
 
@@ -1014,7 +1352,6 @@ class _SidePanelEmptyPlaceholderState
           PanelTabDragData d => d.sourceArea != widget.panelArea,
           TabDragData _ => true,
           SectionDragData _ => true,
-          _ => false,
         };
       },
       onAcceptWithDetails: (details) {
@@ -1069,10 +1406,12 @@ class _SidePanelEmptyPlaceholderState
 class _BottomPanelEmptyPlaceholder extends StatefulWidget {
   final PanelArea panelArea;
   final void Function(PanelTabDragData data)? onTabDropped;
+  final void Function(TabDragData data)? onEditorDropped;
 
   const _BottomPanelEmptyPlaceholder({
     required this.panelArea,
     this.onTabDropped,
+    this.onEditorDropped,
   });
 
   @override
@@ -1086,12 +1425,23 @@ class _BottomPanelEmptyPlaceholderState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final shellTheme = theme.extension<ForgeShellTheme>();
-    return DragTarget<PanelTabDragData>(
+    return DragTarget<ForgeDragData>(
       onWillAcceptWithDetails: (details) {
-        return details.data.sourceArea != widget.panelArea;
+        return switch (details.data) {
+          PanelTabDragData d => d.sourceArea != widget.panelArea,
+          TabDragData _ => true,
+          SectionDragData _ => true,
+        };
       },
       onAcceptWithDetails: (details) {
-        widget.onTabDropped?.call(details.data);
+        switch (details.data) {
+          case PanelTabDragData data:
+            widget.onTabDropped?.call(data);
+          case TabDragData data:
+            widget.onEditorDropped?.call(data);
+          case SectionDragData _:
+            break;
+        }
       },
       builder: (context, candidateData, rejectedData) {
         final isDropTarget = candidateData.isNotEmpty;

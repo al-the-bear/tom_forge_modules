@@ -10,8 +10,10 @@ import '../adapters/forge_dart_editor.dart';
 import '../adapters/forge_md_editor.dart';
 import '../adapters/forge_plain_text_editor.dart';
 import '../adapters/forge_yaml_editor.dart';
+import '../components/forge_component.dart';
 import '../components/forge_editor.dart';
 import '../components/forge_text_editor.dart';
+import '../components/forge_view.dart';
 import '../defaults/default_layout_controller.dart';
 import '../defaults/default_dialog_manager.dart';
 import '../defaults/default_shell_api.dart';
@@ -2222,6 +2224,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         configurationPanelBuilder: configurationPanelBuilder,
         panelArea: panelArea,
         onTabDropped: (data) => _handlePanelTabDrop(data, panelArea),
+        onEditorDropped: (data) => _handleEditorDropOnPanel(data, panelArea),
       ),
     );
   }
@@ -2484,6 +2487,8 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
                   }
                   widget.systemState.setActiveEditor(editor);
                 },
+                onViewDropped: (view) =>
+                    _handleViewDropOnMiddle(view, panelIndex),
               ),
               if (showFindBar) _buildFindReplaceBar(),
               Expanded(
@@ -2626,25 +2631,109 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   }
 
   /// Handles drop zone actions for editor panels (center/left/right split).
+  ///
+  /// Accepts both [TabDragData] (editor from another middle panel) and
+  /// [SectionDragData] (view from a side/bottom panel), adapting views
+  /// into editor wrappers when needed.
   void _handleDropZone(
-    TabDragData data,
+    ForgeDragData data,
     DropPosition position,
     int panelIndex, {
     bool isCopy = false,
   }) {
-    switch (position) {
-      case DropPosition.center:
-        if (isCopy) {
-          _layout.copyComponent(data.editor, panelIndex);
-        } else {
-          _layout.moveComponent(data.editor, panelIndex);
+    switch (data) {
+      case TabDragData tabData:
+        switch (position) {
+          case DropPosition.center:
+            if (isCopy) {
+              _layout.copyComponent(tabData.editor, panelIndex);
+            } else {
+              _layout.moveComponent(tabData.editor, panelIndex);
+            }
+          case DropPosition.left:
+            _layout.splitAndInsertPanel(panelIndex, tabData.editor);
+          case DropPosition.right:
+            _layout.splitAndInsertPanel(panelIndex + 1, tabData.editor);
         }
-      case DropPosition.left:
-        _layout.splitAndInsertPanel(panelIndex, data.editor);
-      case DropPosition.right:
-        _layout.splitAndInsertPanel(panelIndex + 1, data.editor);
+        widget.systemState.setActiveEditor(tabData.editor);
+
+      case SectionDragData sectionData:
+        // Wrap the view as an editor for the middle panel.
+        final adapter = _ViewEditorAdapter(sectionData.section);
+        switch (position) {
+          case DropPosition.center:
+            _layout.moveComponent(adapter, panelIndex);
+          case DropPosition.left:
+            _layout.splitAndInsertPanel(panelIndex, adapter);
+          case DropPosition.right:
+            _layout.splitAndInsertPanel(panelIndex + 1, adapter);
+        }
+        // Remove from source side/bottom panel section list.
+        _removeSectionFromPanel(sectionData);
+        widget.systemState.setActiveEditor(adapter);
+
+      case PanelTabDragData _:
+        break; // Not handled in editor drop zones.
     }
-    widget.systemState.setActiveEditor(data.editor);
+  }
+
+  /// Removes a section from its source side/bottom panel after a cross-panel
+  /// move (view dragged to middle panel).
+  void _removeSectionFromPanel(SectionDragData data) {
+    if (data.sourceArea == null || data.sourceTabIndex == null) return;
+    final layout = widget.application.layout;
+    final tabs = switch (data.sourceArea!) {
+      PanelArea.left => layout.leftPanel.tabs,
+      PanelArea.right => layout.rightPanel.tabs,
+      PanelArea.bottom => layout.bottomPanel.tabs,
+    };
+    final tabIdx = data.sourceTabIndex!;
+    if (tabIdx >= 0 && tabIdx < tabs.length) {
+      final sections = tabs[tabIdx].sections;
+      if (data.sourceIndex >= 0 && data.sourceIndex < sections.length) {
+        sections.removeAt(data.sourceIndex);
+        setState(() {});
+      }
+    }
+  }
+
+  /// Handles an editor tab being dropped onto a side or bottom panel.
+  ///
+  /// Wraps the editor as a [ForgeView] via [_EditorViewAdapter] and
+  /// adds it as a section in the target panel's active tab.
+  void _handleEditorDropOnPanel(TabDragData data, PanelArea targetArea) {
+    final layout = widget.application.layout;
+
+    // Target panel tabs.
+    final targetTabs = switch (targetArea) {
+      PanelArea.left => layout.leftPanel.tabs,
+      PanelArea.right => layout.rightPanel.tabs,
+      PanelArea.bottom => layout.bottomPanel.tabs,
+    };
+
+    if (targetTabs.isEmpty) {
+      // Create a new tab with the editor as a section.
+      targetTabs.add(PanelTabConfig(
+        title: data.editor.title.value,
+        icon: data.editor.icon,
+        sections: [_EditorViewAdapter(data.editor)],
+      ));
+    } else {
+      // Add to the first tab as a new section.
+      targetTabs.first.sections.add(_EditorViewAdapter(data.editor));
+    }
+
+    // Remove from middle panel.
+    _layout.closeEditor(data.editor);
+    setState(() {});
+  }
+
+  /// Handles a view section being dropped onto the editor tab bar from
+  /// a side/bottom panel.
+  void _handleViewDropOnMiddle(ForgeView view, int panelIndex) {
+    final adapter = _ViewEditorAdapter(view);
+    _layout.moveComponent(adapter, panelIndex);
+    widget.systemState.setActiveEditor(adapter);
   }
 
   /// Handles a tab being dropped from one panel area to another.
@@ -2759,6 +2848,8 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         tabs: tabs,
         panelArea: PanelArea.bottom,
         onTabDropped: (data) => _handlePanelTabDrop(data, PanelArea.bottom),
+        onEditorDropped: (data) =>
+            _handleEditorDropOnPanel(data, PanelArea.bottom),
       ),
     );
   }
@@ -2768,6 +2859,63 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
 
 /// Result of the dirty-close confirmation dialog.
 enum _DirtyCloseAction { save, discard, cancel }
+
+// ── Cross-panel drag adapters ──
+
+/// Wraps a [ForgeEditor] as a [ForgeView] so it can appear as a section
+/// in a side or bottom panel. The editor's main widget is displayed
+/// directly; editor-specific capabilities (save, dirty) are not surfaced.
+class _EditorViewAdapter extends ForgeView {
+  final ForgeEditor editor;
+  _EditorViewAdapter(this.editor);
+
+  @override
+  ValueListenable<String> get title => editor.title;
+  @override
+  ValueListenable<String?> get titleExtension => editor.titleExtension;
+  @override
+  IconData get icon => editor.icon;
+  @override
+  ForgeComponentSizeHints get sizeHints => editor.sizeHints;
+  @override
+  Widget buildMain(BuildContext context) => editor.buildMain(context);
+  @override
+  Widget buildCopy(BuildContext context) => editor.buildCopy(context);
+}
+
+/// Wraps a [ForgeView] as a [ForgeEditor] so it can appear as a tab
+/// in the middle (editor) panel. Editor-specific methods return safe
+/// defaults (not dirty, no URI handling).
+class _ViewEditorAdapter extends ForgeEditor {
+  final ForgeView view;
+  final _isDirtyNotifier = ValueNotifier<bool>(false);
+  final Uri _syntheticUri;
+
+  _ViewEditorAdapter(this.view)
+      : _syntheticUri = Uri.parse(
+            'forge-view://${view.title.value.replaceAll(' ', '-').toLowerCase()}');
+
+  @override
+  ValueListenable<String> get title => view.title;
+  @override
+  ValueListenable<String?> get titleExtension => view.titleExtension;
+  @override
+  IconData get icon => view.icon;
+  @override
+  ForgeComponentSizeHints get sizeHints => view.sizeHints;
+  @override
+  Widget buildMain(BuildContext context) => view.buildMain(context);
+  @override
+  Widget buildCopy(BuildContext context) => view.buildCopy(context);
+  @override
+  Uri get uri => _syntheticUri;
+  @override
+  FileHandlingResult canHandle(Uri uri) => FileHandlingResult.reject;
+  @override
+  ValueListenable<bool> get isDirty => _isDirtyNotifier;
+  @override
+  void markClean() {}
+}
 
 class _CommandPaletteIntent extends Intent {
   const _CommandPaletteIntent();
