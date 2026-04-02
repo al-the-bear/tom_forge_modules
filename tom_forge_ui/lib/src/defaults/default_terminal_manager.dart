@@ -112,7 +112,10 @@ class DefaultTerminal implements ForgeTerminal {
     this.cwd,
     this.outputChannel,
     required void Function(DefaultTerminal) onDispose,
-  }) : _onDispose = onDispose;
+  }) : _onDispose = onDispose {
+    final shell = shellPath ?? (Platform.isWindows ? 'cmd.exe' : '/bin/bash');
+    outputChannel?.appendLine('New terminal opened using $shell');
+  }
 
   @override
   Stream<String> get onOutput => _outputController.stream;
@@ -127,11 +130,10 @@ class DefaultTerminal implements ForgeTerminal {
     unawaited(_executeCommand(text.trim()));
   }
 
-  /// Emit output to both the terminal view and the optional output channel.
+  /// Emit output to the terminal view only (not the output channel).
   void _emit(String text) {
     if (_isDisposed || _outputController.isClosed) return;
     _outputController.add(text);
-    outputChannel?.appendLine(text);
   }
 
   Future<void> _executeCommand(String command) async {
@@ -209,6 +211,7 @@ class DefaultTerminal implements ForgeTerminal {
   void _closeInternal() {
     if (_isDisposed) return;
     _isDisposed = true;
+    outputChannel?.appendLine('Terminal closed');
     _activeProcess?.kill(ProcessSignal.sigterm);
     _activeProcess = null;
     _outputController.close();

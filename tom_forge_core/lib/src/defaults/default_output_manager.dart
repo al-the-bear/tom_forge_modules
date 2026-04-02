@@ -53,22 +53,27 @@ class DefaultOutputChannel implements ForgeOutputChannel {
   DefaultOutputChannel(this.name, {this.maxLines = 1000});
 
   @override
-  void append(String text) {
-    _addLine(text, newline: false);
+  void append(String text, {OutputMessageType type = OutputMessageType.info}) {
+    _addLine(text, newline: false, type: type);
     _lineController.add(text);
   }
 
   @override
-  void appendLine(String line) {
-    _addLine(line, newline: true);
+  void appendLine(String line, {OutputMessageType type = OutputMessageType.info}) {
+    _addLine(line, newline: true, type: type);
     _lineController.add(line);
   }
 
-  void _addLine(String text, {required bool newline}) {
+  void _addLine(
+    String text, {
+    required bool newline,
+    OutputMessageType type = OutputMessageType.info,
+  }) {
     _lines.add(OutputLine(
       text: text,
       timestamp: DateTime.now(),
       hasNewline: newline,
+      type: type,
     ));
     // Enforce ring buffer limit.
     while (_lines.length > maxLines) {
@@ -99,32 +104,23 @@ class DefaultOutputChannel implements ForgeOutputChannel {
   /// All stored output lines.
   List<OutputLine> get lines => List.unmodifiable(_lines);
 
-  /// Current channel contents as a single string (without timestamps).
+  /// Current channel contents with uniform format: [HH:MM:SS] [TYPE] text
   String get contents {
     final buf = StringBuffer();
     for (final line in _lines) {
+      final ts = _formatTimestamp(line.timestamp);
+      final formatted = '[$ts] [${line.type.label}] ${line.text}';
       if (line.hasNewline) {
-        buf.writeln(line.text);
+        buf.writeln(formatted);
       } else {
-        buf.write(line.text);
+        buf.write(formatted);
       }
     }
     return buf.toString();
   }
 
-  /// Current channel contents with timestamps prepended.
-  String get contentsWithTimestamps {
-    final buf = StringBuffer();
-    for (final line in _lines) {
-      final ts = _formatTimestamp(line.timestamp);
-      if (line.hasNewline) {
-        buf.writeln('[$ts] ${line.text}');
-      } else {
-        buf.write('[$ts] ${line.text}');
-      }
-    }
-    return buf.toString();
-  }
+  /// Alias for [contents] — timestamps and types are always shown.
+  String get contentsWithTimestamps => contents;
 
   static String _formatTimestamp(DateTime dt) {
     final h = dt.hour.toString().padLeft(2, '0');
@@ -145,10 +141,12 @@ class OutputLine {
   final String text;
   final DateTime timestamp;
   final bool hasNewline;
+  final OutputMessageType type;
 
   const OutputLine({
     required this.text,
     required this.timestamp,
     this.hasNewline = true,
+    this.type = OutputMessageType.info,
   });
 }

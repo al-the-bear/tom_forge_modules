@@ -57,7 +57,6 @@ class _OutputContentState extends State<_OutputContent> {
   String? _selectedChannel;
   final ScrollController _scrollController = ScrollController();
   StreamSubscription<String>? _subscription;
-  bool _showTimestamps = false;
   bool _autoScroll = true;
 
   @override
@@ -141,42 +140,46 @@ class _OutputContentState extends State<_OutputContent> {
       BuildContext context, List<ForgeOutputChannel> channels) {
     final theme = Theme.of(context);
     return Container(
-      height: 28,
+      height: 32,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       color: theme.colorScheme.surface,
       child: Row(
         children: [
-          DropdownButton<String>(
-            value: _selectedChannel,
-            onChanged: (value) => setState(() {
-              _selectedChannel = value;
-              _subscription?.cancel();
-              _autoScroll = true;
-            }),
-            underline: const SizedBox.shrink(),
-            isDense: true,
-            style: theme.textTheme.bodySmall,
-            items: [
-              for (final ch in channels)
-                DropdownMenuItem(value: ch.name, child: Text(ch.name)),
-            ],
+          SizedBox(
+            height: 26,
+            child: DropdownButtonHideUnderline(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: theme.colorScheme.outline.withValues(alpha: 0.4),
+                  ),
+                  borderRadius: BorderRadius.circular(4),
+                  color: theme.colorScheme.surfaceContainerLow,
+                ),
+                child: DropdownButton<String>(
+                  value: _selectedChannel,
+                  onChanged: (value) => setState(() {
+                    _selectedChannel = value;
+                    _subscription?.cancel();
+                    _autoScroll = true;
+                  }),
+                  isDense: true,
+                  style: theme.textTheme.bodySmall,
+                  icon: Icon(
+                    Icons.arrow_drop_down,
+                    size: 16,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                  ),
+                  items: [
+                    for (final ch in channels)
+                      DropdownMenuItem(value: ch.name, child: Text(ch.name)),
+                  ],
+                ),
+              ),
+            ),
           ),
           const Spacer(),
-          // Timestamp toggle.
-          IconButton(
-            icon: Icon(
-              Icons.schedule,
-              size: 14,
-              color: _showTimestamps
-                  ? theme.colorScheme.primary
-                  : theme.colorScheme.onSurface.withValues(alpha: 0.5),
-            ),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            onPressed: () => setState(() => _showTimestamps = !_showTimestamps),
-            tooltip: _showTimestamps ? 'Hide timestamps' : 'Show timestamps',
-          ),
-          const SizedBox(width: 8),
           // Auto-scroll indicator / toggle.
           IconButton(
             icon: Icon(
@@ -215,22 +218,24 @@ class _OutputContentState extends State<_OutputContent> {
       BuildContext context, ForgeOutputChannel? channel) {
     if (channel == null) return const SizedBox.expand();
 
-    final contents = channel is DefaultOutputChannel
-        ? (_showTimestamps
-            ? channel.contentsWithTimestamps
-            : channel.contents)
-        : '';
+    final contents =
+        channel is DefaultOutputChannel ? channel.contents : '';
 
     return Container(
+      width: double.infinity,
       color: Theme.of(context).colorScheme.surfaceContainerLowest,
       padding: const EdgeInsets.all(8),
       child: SingleChildScrollView(
         controller: _scrollController,
-        child: SelectableText(
-          contents,
-          style: const TextStyle(
-            fontFamily: 'monospace',
-            fontSize: 12,
+        child: SizedBox(
+          width: double.infinity,
+          child: SelectableText(
+            contents,
+            textAlign: TextAlign.left,
+            style: const TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 12,
+            ),
           ),
         ),
       ),

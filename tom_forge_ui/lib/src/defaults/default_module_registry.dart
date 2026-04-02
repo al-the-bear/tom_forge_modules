@@ -9,7 +9,8 @@ import 'package:tom_forge_core/tom_forge_core.dart'
         ForgeNotificationManager,
         ForgeOutputChannelManager,
         ForgeSeverity,
-        ForgeTextRange;
+        ForgeTextRange,
+        OutputMessageType;
 
 import '../module/forge_module.dart';
 import '../shell/forge_module_registry.dart';
@@ -172,8 +173,8 @@ class DefaultModuleRegistry implements ForgeModuleRegistry {
     final om = outputManager;
     if (om != null) {
       final channel = om.get('Tom Forge Shell') ?? om.create('Tom Forge Shell');
-      channel.appendLine('$message: $error');
-      channel.appendLine(stackTrace.toString());
+      channel.appendLine('$message: $error', type: OutputMessageType.error);
+      channel.appendLine(stackTrace.toString(), type: OutputMessageType.error);
     }
 
     // 2. Emit diagnostic to Problems view

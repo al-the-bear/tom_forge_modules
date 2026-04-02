@@ -127,16 +127,18 @@ class PtyTerminal implements ForgeTerminal {
       rows: 25,
     );
 
+    // Log lifecycle event: terminal opened.
+    outputChannel?.appendLine('New terminal opened using $shell');
+
     // Wire PTY output → xterm Terminal model + onOutput stream.
     _ptyOutputSub = _pty.output.listen((data) {
       if (_isDisposed) return;
       final text = utf8.decode(data, allowMalformed: true);
       terminalModel.write(text);
-      // Mirror to onOutput stream and output channel.
+      // Mirror to onOutput stream only (not output channel).
       if (!_outputController.isClosed) {
         _outputController.add(text);
       }
-      outputChannel?.appendLine(text);
     });
 
     // Wire xterm Terminal user input → PTY stdin.
@@ -158,6 +160,7 @@ class PtyTerminal implements ForgeTerminal {
         terminalModel.write(exitMsg);
         _outputController.add(exitMsg);
       }
+      outputChannel?.appendLine('Terminal process exited with code $code');
     });
   }
 
@@ -196,6 +199,7 @@ class PtyTerminal implements ForgeTerminal {
   void _closeInternal() {
     if (_isDisposed) return;
     _isDisposed = true;
+    outputChannel?.appendLine('Terminal closed');
     _ptyOutputSub?.cancel();
     _pty.kill();
     _outputController.close();
