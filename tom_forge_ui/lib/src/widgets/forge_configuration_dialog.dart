@@ -11,6 +11,18 @@ import '../actions/forge_shortcut_binding.dart';
 import '../services/forge_preferences_service.dart';
 import '../shell/forge_shell_api.dart';
 
+/// Active configuration sub-tab.
+enum _ConfigTab {
+  shell,
+  terminal,
+  dartEditor,
+  yamlEditor,
+  mdEditor,
+  shortcuts,
+  chordShortcuts,
+  fileTypes,
+}
+
 /// Configuration mode for forge settings storage.
 enum ForgeConfigMode {
   /// Store settings in `{workspace}/.forge/`
@@ -78,7 +90,22 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
   };
 
   String _shortcutSearchTerm = '';
+  String _chordSearchTerm = '';
   String? _capturingActionId;
+
+  // Sub-tab selection.
+  _ConfigTab _selectedTab = _ConfigTab.shell;
+
+  // Terminal settings controllers.
+  late TextEditingController _terminalDefaultShellController;
+  late TextEditingController _terminalScrollbackController;
+  late TextEditingController _terminalFontFamilyController;
+  late TextEditingController _terminalFontSizeController;
+  late List<String> _terminalShellPaths;
+  late String _terminalStartFolder;
+
+  // Theme mode.
+  late ThemeMode _selectedThemeMode;
 
   @override
   void initState() {
@@ -113,6 +140,23 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
     if (shellDefaults != null) {
       _fileTypeDefaults.addAll(shellDefaults);
     }
+
+    // Terminal settings.
+    _terminalDefaultShellController =
+        TextEditingController(text: prefs.terminalDefaultShell ?? '');
+    _terminalScrollbackController =
+        TextEditingController(text: prefs.terminalScrollbackLines.toString());
+    _terminalFontFamilyController =
+        TextEditingController(text: prefs.terminalFontFamily);
+    _terminalFontSizeController =
+        TextEditingController(text: prefs.terminalFontSize.toStringAsFixed(0));
+    _terminalShellPaths = List<String>.from(prefs.terminalShellPaths);
+    if (_terminalShellPaths.isEmpty) {
+      _terminalShellPaths = _detectAvailableShells();
+    }
+    _terminalStartFolder = prefs.terminalStartFolder;
+
+    _selectedThemeMode = prefs.themeMode;
   }
 
   @override
@@ -120,7 +164,28 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
     _centralDirController.dispose();
     _maxRecentController.dispose();
     _shortcutSearchController.dispose();
+    _terminalDefaultShellController.dispose();
+    _terminalScrollbackController.dispose();
+    _terminalFontFamilyController.dispose();
+    _terminalFontSizeController.dispose();
     super.dispose();
+  }
+
+  static List<String> _detectAvailableShells() {
+    if (Platform.isWindows) {
+      return [
+        r'C:\Windows\System32\cmd.exe',
+        r'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe',
+      ];
+    }
+    final candidates = [
+      '/bin/bash',
+      '/bin/zsh',
+      '/bin/sh',
+      '/bin/fish',
+      '/usr/bin/fish',
+    ];
+    return candidates.where((p) => File(p).existsSync()).toList();
   }
 
   Future<void> _selectCentralDirectory() async {
@@ -197,6 +262,29 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
         shellApi?.setFileTypeDefault(entry.key, entry.value);
       }
 
+      // Theme mode.
+      prefs.themeMode = _selectedThemeMode;
+
+      // Terminal settings.
+      final shellText = _terminalDefaultShellController.text.trim();
+      prefs.terminalDefaultShell = shellText.isEmpty ? null : shellText;
+      prefs.terminalShellPaths = _terminalShellPaths;
+      prefs.terminalStartFolder = _terminalStartFolder;
+      final scrollback =
+          int.tryParse(_terminalScrollbackController.text.trim());
+      if (scrollback != null && scrollback > 0) {
+        prefs.terminalScrollbackLines = scrollback;
+      }
+      final tFontFamily = _terminalFontFamilyController.text.trim();
+      if (tFontFamily.isNotEmpty) {
+        prefs.terminalFontFamily = tFontFamily;
+      }
+      final tFontSize =
+          double.tryParse(_terminalFontSizeController.text.trim());
+      if (tFontSize != null && tFontSize > 0) {
+        prefs.terminalFontSize = tFontSize;
+      }
+
       await prefs.save();
 
       if (mounted) {
@@ -216,7 +304,7 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
 
     return Dialog(
       child: Container(
-        width: 720,
+        width: 900,
         constraints: const BoxConstraints(maxHeight: 780),
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -233,132 +321,28 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
                 Text('Settings', style: theme.textTheme.headlineSmall),
               ],
             ),
-            const SizedBox(height: 24),
-            const Divider(),
             const SizedBox(height: 16),
+            const Divider(),
+            const SizedBox(height: 8),
             Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      'Quick Access',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        const Text('Max recent workspaces:'),
-                        const SizedBox(width: 12),
-                        SizedBox(
-                          width: 80,
-                          child: TextField(
-                            controller: _maxRecentController,
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    Text(
-                      'Configuration Storage',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    RadioGroup<ForgeConfigMode>(
-                      groupValue: _configMode,
-                      onChanged: (value) {
-                        if (value != null) {
-                          setState(() => _configMode = value);
-                        }
-                      },
-                      child: Column(
-                        children: [
-                          _buildConfigModeOption(
-                            value: ForgeConfigMode.workspaceLocal,
-                            title: 'Workspace-local',
-                            subtitle: 'Store settings in {workspace}/.forge/',
-                          ),
-                          const SizedBox(height: 8),
-                          _buildConfigModeOption(
-                            value: ForgeConfigMode.centralDirectory,
-                            title: 'Central directory',
-                            subtitle: 'Store settings in a shared location',
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (_configMode == ForgeConfigMode.centralDirectory) ...[
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _centralDirController,
-                              decoration: InputDecoration(
-                                hintText: '/path/to/config',
-                                border: const OutlineInputBorder(),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 14,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          ElevatedButton(
-                            onPressed: _isSelectingDirectory
-                                ? null
-                                : _selectCentralDirectory,
-                            child: _isSelectingDirectory
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Text('Browse...'),
-                          ),
-                        ],
-                      ),
-                    ],
-                    if (_errorMessage != null) ...[
-                      const SizedBox(height: 16),
-                      Text(
-                        _errorMessage!,
-                        style: TextStyle(color: Colors.red[400], fontSize: 13),
-                      ),
-                    ],
-                    const SizedBox(height: 24),
-                    _buildShortcutSection(theme),
-                    const SizedBox(height: 20),
-                    Text(
-                      'Editor Text Settings',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    ..._editorTypeIds.map(_buildEditorSettingsPanel),
-                    const SizedBox(height: 20),
-                    _buildFileTypesSection(theme),
-                  ],
-                ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildSidebar(theme),
+                  const VerticalDivider(width: 1),
+                  const SizedBox(width: 16),
+                  Expanded(child: _buildTabContent(theme)),
+                ],
               ),
             ),
-            const SizedBox(height: 20),
+            if (_errorMessage != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _errorMessage!,
+                style: TextStyle(color: Colors.red[400], fontSize: 13),
+              ),
+            ],
+            const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -376,6 +360,256 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
     );
   }
 
+  // ── Sidebar ──
+
+  Widget _buildSidebar(ThemeData theme) {
+    return SizedBox(
+      width: 180,
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          _buildSidebarItem(
+            _ConfigTab.shell,
+            Icons.desktop_mac_outlined,
+            'Shell',
+            theme,
+          ),
+          _buildSidebarItem(
+            _ConfigTab.terminal,
+            Icons.terminal,
+            'Terminal',
+            theme,
+          ),
+          _buildSidebarItem(
+            _ConfigTab.dartEditor,
+            Icons.code,
+            'Dart Editor',
+            theme,
+          ),
+          _buildSidebarItem(
+            _ConfigTab.yamlEditor,
+            Icons.data_object,
+            'YAML Editor',
+            theme,
+          ),
+          _buildSidebarItem(
+            _ConfigTab.mdEditor,
+            Icons.description_outlined,
+            'Markdown Editor',
+            theme,
+          ),
+          _buildSidebarItem(
+            _ConfigTab.shortcuts,
+            Icons.keyboard,
+            'Shortcuts',
+            theme,
+          ),
+          _buildSidebarItem(
+            _ConfigTab.chordShortcuts,
+            Icons.piano,
+            'Chord Shortcuts',
+            theme,
+          ),
+          _buildSidebarItem(
+            _ConfigTab.fileTypes,
+            Icons.folder_open,
+            'File Types',
+            theme,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSidebarItem(
+    _ConfigTab tab,
+    IconData icon,
+    String label,
+    ThemeData theme,
+  ) {
+    final isSelected = _selectedTab == tab;
+    return Material(
+      color: isSelected
+          ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3)
+          : Colors.transparent,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: () => setState(() => _selectedTab = tab),
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                size: 20,
+                color: isSelected
+                    ? theme.colorScheme.primary
+                    : theme.iconTheme.color,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight:
+                        isSelected ? FontWeight.w600 : FontWeight.normal,
+                    color: isSelected
+                        ? theme.colorScheme.primary
+                        : theme.textTheme.bodyMedium?.color,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Tab content router ──
+
+  Widget _buildTabContent(ThemeData theme) {
+    return switch (_selectedTab) {
+      _ConfigTab.shell => _buildShellTab(theme),
+      _ConfigTab.terminal => _buildTerminalTab(theme),
+      _ConfigTab.dartEditor => _buildEditorTab(theme, 'dart', 'Dart'),
+      _ConfigTab.yamlEditor => _buildEditorTab(theme, 'yaml', 'YAML'),
+      _ConfigTab.mdEditor => _buildEditorTab(theme, 'md', 'Markdown'),
+      _ConfigTab.shortcuts => _buildShortcutsTab(theme),
+      _ConfigTab.chordShortcuts => _buildChordShortcutsTab(theme),
+      _ConfigTab.fileTypes => _buildFileTypesTab(theme),
+    };
+  }
+
+  // ── Shell tab ──
+
+  Widget _buildShellTab(ThemeData theme) {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionHeader(theme, 'Appearance'),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              const Text('Theme:'),
+              const SizedBox(width: 12),
+              SegmentedButton<ThemeMode>(
+                segments: const [
+                  ButtonSegment(
+                    value: ThemeMode.dark,
+                    label: Text('Dark'),
+                    icon: Icon(Icons.dark_mode, size: 16),
+                  ),
+                  ButtonSegment(
+                    value: ThemeMode.light,
+                    label: Text('Light'),
+                    icon: Icon(Icons.light_mode, size: 16),
+                  ),
+                  ButtonSegment(
+                    value: ThemeMode.system,
+                    label: Text('System'),
+                    icon: Icon(Icons.settings_brightness, size: 16),
+                  ),
+                ],
+                selected: {_selectedThemeMode},
+                onSelectionChanged: (values) {
+                  setState(() => _selectedThemeMode = values.first);
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          _sectionHeader(theme, 'Quick Access'),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              const Text('Max recent workspaces:'),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 80,
+                child: TextField(
+                  controller: _maxRecentController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          _sectionHeader(theme, 'Configuration Storage'),
+          const SizedBox(height: 12),
+          _buildConfigModeRadios(),
+          if (_configMode == ForgeConfigMode.centralDirectory) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _centralDirController,
+                    decoration: const InputDecoration(
+                      hintText: '/path/to/config',
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 14,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed:
+                      _isSelectingDirectory ? null : _selectCentralDirectory,
+                  child: _isSelectingDirectory
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Browse...'),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildConfigModeRadios() {
+    return RadioGroup<ForgeConfigMode>(
+      groupValue: _configMode,
+      onChanged: (value) {
+        if (value != null) setState(() => _configMode = value);
+      },
+      child: Column(
+        children: [
+          _buildConfigModeOption(
+            value: ForgeConfigMode.workspaceLocal,
+            title: 'Workspace-local',
+            subtitle: 'Store settings in {workspace}/.forge/',
+          ),
+          const SizedBox(height: 8),
+          _buildConfigModeOption(
+            value: ForgeConfigMode.centralDirectory,
+            title: 'Central directory',
+          subtitle: 'Store settings in a shared location',
+        ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildConfigModeOption({
     required ForgeConfigMode value,
     required String title,
@@ -388,7 +622,9 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
         child: Row(
           children: [
-            Radio<ForgeConfigMode>(value: value),
+            Radio<ForgeConfigMode>(
+              value: value,
+            ),
             const SizedBox(width: 8),
             Expanded(
               child: Column(
@@ -411,129 +647,367 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
     );
   }
 
-  Widget _buildEditorSettingsPanel(String editorTypeId) {
-    final settings = _editorSettings[editorTypeId] ?? const ForgeTextSettings();
+  // ── Terminal tab ──
 
-    return Card(
-      margin: const EdgeInsets.only(top: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              _editorTitle(editorTypeId),
-              style: const TextStyle(fontWeight: FontWeight.w600),
+  Widget _buildTerminalTab(ThemeData theme) {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionHeader(theme, 'Shell'),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _terminalDefaultShellController,
+            decoration: InputDecoration(
+              labelText: 'Default Shell',
+              hintText: Platform.isWindows ? 'cmd.exe' : '/bin/zsh',
+              border: const OutlineInputBorder(),
+              helperText: 'Leave empty to use platform default',
             ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    initialValue: settings.fontFamily,
-                    decoration: const InputDecoration(
-                      labelText: 'Font Family',
-                      border: OutlineInputBorder(),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Available Shells',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ..._terminalShellPaths.asMap().entries.map((entry) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      entry.value,
+                      style: const TextStyle(fontFamily: 'monospace'),
                     ),
-                    onChanged: (value) {
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.remove_circle_outline, size: 18),
+                    onPressed: () {
                       setState(() {
-                        _editorSettings[editorTypeId] = settings.copyWith(
-                          fontFamily: value.trim().isEmpty
-                              ? settings.fontFamily
-                              : value.trim(),
-                        );
+                        _terminalShellPaths.removeAt(entry.key);
                       });
                     },
+                    tooltip: 'Remove',
                   ),
-                ),
-                const SizedBox(width: 12),
-                SizedBox(
-                  width: 110,
-                  child: TextFormField(
-                    initialValue: settings.fontSize.toStringAsFixed(0),
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Font',
-                      border: OutlineInputBorder(),
-                    ),
-                    onChanged: (value) {
-                      final parsed = double.tryParse(value.trim());
-                      if (parsed != null && parsed > 0) {
-                        setState(() {
-                          _editorSettings[editorTypeId] = settings.copyWith(
-                            fontSize: parsed,
-                          );
-                        });
-                      }
-                    },
-                  ),
-                ),
-                const SizedBox(width: 12),
-                SizedBox(
-                  width: 90,
-                  child: TextFormField(
-                    initialValue: settings.tabSize.toString(),
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Tab',
-                      border: OutlineInputBorder(),
-                    ),
-                    onChanged: (value) {
-                      final parsed = int.tryParse(value.trim());
-                      if (parsed != null && parsed > 0) {
-                        setState(() {
-                          _editorSettings[editorTypeId] = settings.copyWith(
-                            tabSize: parsed,
-                          );
-                        });
-                      }
-                    },
-                  ),
-                ),
-              ],
+                ],
+              ),
+            );
+          }),
+          TextButton.icon(
+            onPressed: _addShellPath,
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('Add shell path'),
+          ),
+          const SizedBox(height: 24),
+          _sectionHeader(theme, 'Start Folder'),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            initialValue: _terminalStartFolder,
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 8,
+              ),
             ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 12,
-              runSpacing: 8,
-              children: [
-                _buildEditorToggle(
-                  label: 'Line numbers',
-                  value: settings.showLineNumbers,
-                  onChanged: (value) {
-                    setState(() {
-                      _editorSettings[editorTypeId] = settings.copyWith(
-                        showLineNumbers: value,
-                      );
-                    });
-                  },
+            items: const [
+              DropdownMenuItem(
+                value: 'workspace',
+                child: Text('Workspace root'),
+              ),
+              DropdownMenuItem(value: 'home', child: Text('Home directory')),
+              DropdownMenuItem(
+                value: 'lastUsed',
+                child: Text('Last used directory'),
+              ),
+            ],
+            onChanged: (value) {
+              if (value != null) setState(() => _terminalStartFolder = value);
+            },
+          ),
+          const SizedBox(height: 24),
+          _sectionHeader(theme, 'Font & Display'),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: _terminalFontFamilyController,
+                  decoration: const InputDecoration(
+                    labelText: 'Font Family',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
-                _buildEditorToggle(
-                  label: 'Word wrap',
-                  value: settings.wordWrap,
-                  onChanged: (value) {
-                    setState(() {
-                      _editorSettings[editorTypeId] = settings.copyWith(
-                        wordWrap: value,
-                      );
-                    });
-                  },
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 110,
+                child: TextFormField(
+                  controller: _terminalFontSizeController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Font Size',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
-                _buildEditorToggle(
-                  label: 'Highlight current line',
-                  value: settings.highlightCurrentLine,
-                  onChanged: (value) {
-                    setState(() {
-                      _editorSettings[editorTypeId] = settings.copyWith(
-                        highlightCurrentLine: value,
-                      );
-                    });
-                  },
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              const Text('Scrollback lines:'),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 120,
+                child: TextField(
+                  controller: _terminalScrollbackController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                  ),
                 ),
-              ],
-            ),
-          ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _addShellPath() async {
+    final controller = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add Shell'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: InputDecoration(
+            hintText: Platform.isWindows ? r'C:\path\to\shell.exe' : '/bin/fish',
+            border: const OutlineInputBorder(),
+          ),
+          onSubmitted: (value) => Navigator.of(context).pop(value.trim()),
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () =>
+                Navigator.of(context).pop(controller.text.trim()),
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (result != null && result.isNotEmpty && mounted) {
+      setState(() {
+        if (!_terminalShellPaths.contains(result)) {
+          _terminalShellPaths.add(result);
+        }
+      });
+    }
+  }
+
+  // ── Editor tab (shared for Dart, YAML, Markdown) ──
+
+  Widget _buildEditorTab(ThemeData theme, String editorTypeId, String title) {
+    final settings =
+        _editorSettings[editorTypeId] ?? const ForgeTextSettings();
+
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionHeader(theme, '$title Editor — Font'),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  initialValue: settings.fontFamily,
+                  decoration: const InputDecoration(
+                    labelText: 'Font Family',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (value) {
+                    setState(() {
+                      _editorSettings[editorTypeId] = settings.copyWith(
+                        fontFamily: value.trim().isEmpty
+                            ? settings.fontFamily
+                            : value.trim(),
+                      );
+                    });
+                  },
+                ),
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 110,
+                child: TextFormField(
+                  initialValue: settings.fontSize.toStringAsFixed(0),
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Font Size',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (value) {
+                    final parsed = double.tryParse(value.trim());
+                    if (parsed != null && parsed > 0) {
+                      setState(() {
+                        _editorSettings[editorTypeId] =
+                            settings.copyWith(fontSize: parsed);
+                      });
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 110,
+                child: TextFormField(
+                  initialValue: settings.lineHeight.toStringAsFixed(1),
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Line Height',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (value) {
+                    final parsed = double.tryParse(value.trim());
+                    if (parsed != null && parsed > 0) {
+                      setState(() {
+                        _editorSettings[editorTypeId] =
+                            settings.copyWith(lineHeight: parsed);
+                      });
+                    }
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          _sectionHeader(theme, 'Indentation'),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              SizedBox(
+                width: 110,
+                child: TextFormField(
+                  initialValue: settings.tabSize.toString(),
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Tab Size',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (value) {
+                    final parsed = int.tryParse(value.trim());
+                    if (parsed != null && parsed > 0) {
+                      setState(() {
+                        _editorSettings[editorTypeId] =
+                            settings.copyWith(tabSize: parsed);
+                      });
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 16),
+              _buildEditorToggle(
+                label: 'Insert spaces',
+                value: settings.insertSpaces,
+                onChanged: (value) {
+                  setState(() {
+                    _editorSettings[editorTypeId] =
+                        settings.copyWith(insertSpaces: value);
+                  });
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          _sectionHeader(theme, 'Display'),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            children: [
+              _buildEditorToggle(
+                label: 'Line numbers',
+                value: settings.showLineNumbers,
+                onChanged: (value) {
+                  setState(() {
+                    _editorSettings[editorTypeId] =
+                        settings.copyWith(showLineNumbers: value);
+                  });
+                },
+              ),
+              _buildEditorToggle(
+                label: 'Word wrap',
+                value: settings.wordWrap,
+                onChanged: (value) {
+                  setState(() {
+                    _editorSettings[editorTypeId] =
+                        settings.copyWith(wordWrap: value);
+                  });
+                },
+              ),
+              _buildEditorToggle(
+                label: 'Highlight current line',
+                value: settings.highlightCurrentLine,
+                onChanged: (value) {
+                  setState(() {
+                    _editorSettings[editorTypeId] =
+                        settings.copyWith(highlightCurrentLine: value);
+                  });
+                },
+              ),
+              _buildEditorToggle(
+                label: 'Show whitespace',
+                value: settings.showWhitespace,
+                onChanged: (value) {
+                  setState(() {
+                    _editorSettings[editorTypeId] =
+                        settings.copyWith(showWhitespace: value);
+                  });
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          _sectionHeader(theme, 'Undo'),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: 140,
+            child: TextFormField(
+              initialValue: settings.maxUndoHistory.toString(),
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Max undo steps',
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (value) {
+                final parsed = int.tryParse(value.trim());
+                if (parsed != null && parsed > 0) {
+                  setState(() {
+                    _editorSettings[editorTypeId] =
+                        settings.copyWith(maxUndoHistory: parsed);
+                  });
+                }
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -558,34 +1032,21 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
     );
   }
 
-  String _editorTitle(String editorTypeId) {
-    switch (editorTypeId) {
-      case 'md':
-        return 'Markdown';
-      case 'dart':
-        return 'Dart';
-      case 'yaml':
-        return 'YAML';
-      case 'plaintext':
-        return 'Plain Text';
-      default:
-        return editorTypeId;
-    }
-  }
+  // ── Shortcuts tab (one-key) ──
 
-  Widget _buildShortcutSection(ThemeData theme) {
+  Widget _buildShortcutsTab(ThemeData theme) {
     final shellApi = widget.shellApi;
     if (shellApi == null) {
-      return const SizedBox.shrink();
+      return const Center(child: Text('Shell not available'));
     }
 
-    final bindings =
-        shellApi.shortcuts.allBindings
-            .where(_shortcutMatchesFilter)
-            .toList(growable: false)
-          ..sort((a, b) => a.action.label.compareTo(b.action.label));
+    final bindings = shellApi.shortcuts.allBindings
+        .where((b) => !b.isChord)
+        .where(_shortcutMatchesFilter)
+        .toList(growable: false)
+      ..sort((a, b) => a.action.label.compareTo(b.action.label));
     final conflictIds = _collectConflictingActionIds(
-      shellApi.shortcuts.allBindings,
+      shellApi.shortcuts.allBindings.where((b) => !b.isChord).toList(),
     );
 
     return Column(
@@ -593,16 +1054,11 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
       children: [
         Row(
           children: [
-            Text(
-              'Shortcuts',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            _sectionHeader(theme, 'System Shortcuts'),
             const Spacer(),
             TextButton.icon(
               onPressed: bindings.isEmpty ? null : _resetAllShortcuts,
-              icon: const Icon(Icons.refresh),
+              icon: const Icon(Icons.refresh, size: 18),
               label: const Text('Reset All'),
             ),
           ],
@@ -618,67 +1074,134 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
           ),
         ),
         const SizedBox(height: 12),
-        if (bindings.isEmpty)
-          const Text('No shortcuts match the current filter.')
-        else
-          Card(
-            child: Column(
-              children: bindings.map((binding) {
-                final isConflicting = conflictIds.contains(binding.action.id);
-                return Container(
-                  color: isConflicting
-                      ? theme.colorScheme.errorContainer.withValues(alpha: 0.3)
-                      : null,
-                  child: ListTile(
-                    dense: true,
-                    title: Text(binding.action.label),
-                    subtitle: Text(
-                      'Context: ${binding.context ?? 'global'}',
-                      style: TextStyle(
-                        color: isConflicting ? theme.colorScheme.error : null,
-                      ),
-                    ),
-                    trailing: Wrap(
-                      spacing: 8,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        Text(
-                          binding.displayString,
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        if (isConflicting)
-                          Icon(
-                            Icons.warning_amber,
-                            color: theme.colorScheme.error,
-                            size: 18,
-                          ),
-                        TextButton(
-                          onPressed: binding.isChord
-                              ? null
-                              : () => _rebindShortcut(binding),
-                          child: _capturingActionId == binding.action.id
-                              ? const Text('Press keys...')
-                              : const Text('Rebind'),
-                        ),
-                        TextButton(
-                          onPressed: () => _resetShortcut(binding),
-                          child: const Text('Reset'),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
+        Expanded(
+          child: bindings.isEmpty
+              ? const Center(
+                  child: Text('No shortcuts match the current filter.'),
+                )
+              : ListView.builder(
+                  itemCount: bindings.length,
+                  itemBuilder: (context, index) {
+                    final binding = bindings[index];
+                    final isConflicting =
+                        conflictIds.contains(binding.action.id);
+                    return _buildShortcutRow(theme, binding, isConflicting);
+                  },
+                ),
+        ),
       ],
     );
   }
 
-  bool _shortcutMatchesFilter(ForgeShortcutBinding binding) {
-    if (_shortcutSearchTerm.isEmpty) {
-      return true;
+  // ── Chord shortcuts tab (two-key) ──
+
+  Widget _buildChordShortcutsTab(ThemeData theme) {
+    final shellApi = widget.shellApi;
+    if (shellApi == null) {
+      return const Center(child: Text('Shell not available'));
     }
+
+    final bindings = shellApi.shortcuts.allBindings
+        .where((b) => b.isChord)
+        .where(_chordMatchesFilter)
+        .toList(growable: false)
+      ..sort((a, b) => a.action.label.compareTo(b.action.label));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionHeader(theme, 'Chord Shortcuts (Two-Key)'),
+        const SizedBox(height: 8),
+        TextField(
+          onChanged: (value) =>
+              setState(() => _chordSearchTerm = value.trim().toLowerCase()),
+          decoration: const InputDecoration(
+            labelText: 'Search chords',
+            hintText: 'Filter by action or key sequence',
+            border: OutlineInputBorder(),
+            prefixIcon: Icon(Icons.search),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Expanded(
+          child: bindings.isEmpty
+              ? const Center(
+                  child: Text('No chord shortcuts match the current filter.'),
+                )
+              : ListView.builder(
+                  itemCount: bindings.length,
+                  itemBuilder: (context, index) {
+                    final binding = bindings[index];
+                    return _buildChordRow(theme, binding);
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildShortcutRow(
+    ThemeData theme,
+    ForgeShortcutBinding binding,
+    bool isConflicting,
+  ) {
+    return Container(
+      color: isConflicting
+          ? theme.colorScheme.errorContainer.withValues(alpha: 0.3)
+          : null,
+      child: ListTile(
+        dense: true,
+        title: Text(binding.action.label),
+        subtitle: Text(
+          'Context: ${binding.context ?? 'global'}',
+          style: TextStyle(
+            color: isConflicting ? theme.colorScheme.error : null,
+          ),
+        ),
+        trailing: Wrap(
+          spacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text(
+              binding.displayString,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            if (isConflicting)
+              Icon(
+                Icons.warning_amber,
+                color: theme.colorScheme.error,
+                size: 18,
+              ),
+            TextButton(
+              onPressed: () => _rebindShortcut(binding),
+              child: _capturingActionId == binding.action.id
+                  ? const Text('Press keys...')
+                  : const Text('Rebind'),
+            ),
+            TextButton(
+              onPressed: () => _resetShortcut(binding),
+              child: const Text('Reset'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChordRow(ThemeData theme, ForgeShortcutBinding binding) {
+    return ListTile(
+      dense: true,
+      title: Text(binding.action.label),
+      subtitle: Text('Context: ${binding.context ?? 'global'}'),
+      trailing: Text(
+        binding.displayString,
+        style: const TextStyle(fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+
+  bool _shortcutMatchesFilter(ForgeShortcutBinding binding) {
+    if (_shortcutSearchTerm.isEmpty) return true;
     final haystack = <String>[
       binding.action.id,
       binding.action.label,
@@ -686,6 +1209,17 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
       binding.context ?? 'global',
     ].join(' ').toLowerCase();
     return haystack.contains(_shortcutSearchTerm);
+  }
+
+  bool _chordMatchesFilter(ForgeShortcutBinding binding) {
+    if (_chordSearchTerm.isEmpty) return true;
+    final haystack = <String>[
+      binding.action.id,
+      binding.action.label,
+      binding.displayString,
+      binding.context ?? 'global',
+    ].join(' ').toLowerCase();
+    return haystack.contains(_chordSearchTerm);
   }
 
   Set<String> _collectConflictingActionIds(
@@ -712,22 +1246,17 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
     });
 
     final captured = await _captureShortcutKey();
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
 
     setState(() {
       _capturingActionId = null;
     });
 
-    if (captured == null) {
-      return;
-    }
+    if (captured == null) return;
 
     final shellApi = widget.shellApi;
-    if (shellApi == null) {
-      return;
-    }
+    if (shellApi == null) return;
+
     final conflict = shellApi.shortcuts.conflictsWith(captured);
     if (conflict != null && conflict.action.id != binding.action.id) {
       final accepted = await showDialog<bool>(
@@ -750,45 +1279,33 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
           ],
         ),
       );
-      if (accepted != true) {
-        return;
-      }
+      if (accepted != true) return;
     }
 
     shellApi.shortcuts.rebind(binding.action, captured);
     widget.preferencesService.setShortcutOverride(binding.action.id, captured);
     await widget.preferencesService.save();
-    if (mounted) {
-      setState(() {});
-    }
+    if (mounted) setState(() {});
   }
 
   Future<void> _resetShortcut(ForgeShortcutBinding binding) async {
     final shellApi = widget.shellApi;
-    if (shellApi == null) {
-      return;
-    }
+    if (shellApi == null) return;
     shellApi.shortcuts.resetToDefault(binding.action);
     widget.preferencesService.removeShortcutOverride(binding.action.id);
     await widget.preferencesService.save();
-    if (mounted) {
-      setState(() {});
-    }
+    if (mounted) setState(() {});
   }
 
   Future<void> _resetAllShortcuts() async {
     final shellApi = widget.shellApi;
-    if (shellApi == null) {
-      return;
-    }
+    if (shellApi == null) return;
     for (final binding in shellApi.shortcuts.allBindings) {
       shellApi.shortcuts.resetToDefault(binding.action);
     }
     widget.preferencesService.clearShortcutOverrides();
     await widget.preferencesService.save();
-    if (mounted) {
-      setState(() {});
-    }
+    if (mounted) setState(() {});
   }
 
   Future<ForgeShortcutKey?> _captureShortcutKey() {
@@ -868,77 +1385,191 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
     );
   }
 
-  Widget _buildFileTypesSection(ThemeData theme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'File Type Associations',
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
+  // ── File types tab ──
+
+  Widget _buildFileTypesTab(ThemeData theme) {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionHeader(theme, 'File Type Associations'),
+          const SizedBox(height: 8),
+          Text(
+            'Configure which editor opens each file type by default.',
+            style: TextStyle(fontSize: 12, color: Colors.grey[500]),
           ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'Configure which editor opens each file type by default.',
-          style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-        ),
-        const SizedBox(height: 12),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              children: _fileTypeDefaults.entries.map((entry) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 100,
-                        child: Text(
-                          entry.key,
-                          style: const TextStyle(
-                            fontFamily: 'monospace',
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                      const Icon(Icons.arrow_forward, size: 16),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          initialValue: entry.value,
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
+          const SizedBox(height: 12),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                children: _fileTypeDefaults.entries.map((entry) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 100,
+                          child: Text(
+                            entry.key,
+                            style: const TextStyle(
+                              fontFamily: 'monospace',
+                              fontWeight: FontWeight.w500,
                             ),
-                            isDense: true,
                           ),
-                          items: _editorTypeIds.map((id) {
-                            return DropdownMenuItem(
-                              value: id,
-                              child: Text(_editorTitle(id)),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            if (value != null) {
-                              setState(() {
-                                _fileTypeDefaults[entry.key] = value;
-                              });
-                            }
-                          },
                         ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
+                        const Icon(Icons.arrow_forward, size: 16),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            initialValue: entry.value,
+                            decoration: const InputDecoration(
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              isDense: true,
+                            ),
+                            items: _editorTypeIds.map((id) {
+                              return DropdownMenuItem(
+                                value: id,
+                                child: Text(_editorTitle(id)),
+                              );
+                            }).toList(),
+                            onChanged: (value) {
+                              if (value != null) {
+                                setState(() {
+                                  _fileTypeDefaults[entry.key] = value;
+                                });
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
             ),
           ),
-        ),
-      ],
+          const SizedBox(height: 24),
+          _sectionHeader(theme, 'Plain Text Editor'),
+          const SizedBox(height: 8),
+          _buildPlainTextEditorSettings(),
+        ],
+      ),
     );
+  }
+
+  Widget _buildPlainTextEditorSettings() {
+    final settings =
+        _editorSettings['plaintext'] ?? const ForgeTextSettings();
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    initialValue: settings.fontFamily,
+                    decoration: const InputDecoration(
+                      labelText: 'Font Family',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (value) {
+                      setState(() {
+                        _editorSettings['plaintext'] = settings.copyWith(
+                          fontFamily: value.trim().isEmpty
+                              ? settings.fontFamily
+                              : value.trim(),
+                        );
+                      });
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                SizedBox(
+                  width: 110,
+                  child: TextFormField(
+                    initialValue: settings.fontSize.toStringAsFixed(0),
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Font Size',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (value) {
+                      final parsed = double.tryParse(value.trim());
+                      if (parsed != null && parsed > 0) {
+                        setState(() {
+                          _editorSettings['plaintext'] =
+                              settings.copyWith(fontSize: parsed);
+                        });
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                _buildEditorToggle(
+                  label: 'Line numbers',
+                  value: settings.showLineNumbers,
+                  onChanged: (value) {
+                    setState(() {
+                      _editorSettings['plaintext'] =
+                          settings.copyWith(showLineNumbers: value);
+                    });
+                  },
+                ),
+                _buildEditorToggle(
+                  label: 'Word wrap',
+                  value: settings.wordWrap,
+                  onChanged: (value) {
+                    setState(() {
+                      _editorSettings['plaintext'] =
+                          settings.copyWith(wordWrap: value);
+                    });
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Shared helpers ──
+
+  Widget _sectionHeader(ThemeData theme, String title) {
+    return Text(
+      title,
+      style: theme.textTheme.titleMedium?.copyWith(
+        fontWeight: FontWeight.bold,
+      ),
+    );
+  }
+
+  String _editorTitle(String editorTypeId) {
+    switch (editorTypeId) {
+      case 'md':
+        return 'Markdown';
+      case 'dart':
+        return 'Dart';
+      case 'yaml':
+        return 'YAML';
+      case 'plaintext':
+        return 'Plain Text';
+      default:
+        return editorTypeId;
+    }
   }
 }

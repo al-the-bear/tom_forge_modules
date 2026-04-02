@@ -30,6 +30,12 @@ class ForgePreferencesService extends ChangeNotifier {
   static const _keyThemeMode = 'forge.appearance.themeMode';
   static const _keyFileTypeDefaults = 'forge.files.typeDefaults';
   static const _keyShortcutOverrides = 'forge.shortcuts.overrides';
+  static const _keyTerminalDefaultShell = 'forge.terminal.defaultShell';
+  static const _keyTerminalShellPaths = 'forge.terminal.shellPaths';
+  static const _keyTerminalStartFolder = 'forge.terminal.startFolder';
+  static const _keyTerminalScrollbackLines = 'forge.terminal.scrollbackLines';
+  static const _keyTerminalFontFamily = 'forge.terminal.fontFamily';
+  static const _keyTerminalFontSize = 'forge.terminal.fontSize';
 
   SharedPreferences? _prefs;
   ForgeStartupPreferences _startupPreferences = ForgeStartupPreferences();
@@ -45,6 +51,12 @@ class ForgePreferencesService extends ChangeNotifier {
       <String, ForgeShortcutKey>{};
   List<String> _layoutOpenEditors = <String>[];
   ThemeMode _themeMode = ThemeMode.dark;
+  String? _terminalDefaultShell;
+  List<String> _terminalShellPaths = <String>[];
+  String _terminalStartFolder = 'workspace';
+  int _terminalScrollbackLines = 10000;
+  String _terminalFontFamily = 'monospace';
+  double _terminalFontSize = 14.0;
   bool _isLoaded = false;
 
   static void _log(String message) {
@@ -123,6 +135,61 @@ class ForgePreferencesService extends ChangeNotifier {
     }
     _shortcutOverrides.clear();
     notifyListeners();
+  }
+
+  // ── Terminal preferences ──
+
+  /// Default shell executable path (null = platform default).
+  String? get terminalDefaultShell => _terminalDefaultShell;
+  set terminalDefaultShell(String? value) {
+    if (_terminalDefaultShell != value) {
+      _terminalDefaultShell = value;
+      notifyListeners();
+    }
+  }
+
+  /// List of available shell paths the user can choose from.
+  List<String> get terminalShellPaths =>
+      List<String>.unmodifiable(_terminalShellPaths);
+  set terminalShellPaths(List<String> value) {
+    _terminalShellPaths = List<String>.from(value);
+    notifyListeners();
+  }
+
+  /// Terminal start folder behavior: 'workspace', 'home', or 'lastUsed'.
+  String get terminalStartFolder => _terminalStartFolder;
+  set terminalStartFolder(String value) {
+    if (_terminalStartFolder != value) {
+      _terminalStartFolder = value;
+      notifyListeners();
+    }
+  }
+
+  /// Terminal scrollback buffer lines.
+  int get terminalScrollbackLines => _terminalScrollbackLines;
+  set terminalScrollbackLines(int value) {
+    if (_terminalScrollbackLines != value) {
+      _terminalScrollbackLines = value;
+      notifyListeners();
+    }
+  }
+
+  /// Terminal font family.
+  String get terminalFontFamily => _terminalFontFamily;
+  set terminalFontFamily(String value) {
+    if (_terminalFontFamily != value) {
+      _terminalFontFamily = value;
+      notifyListeners();
+    }
+  }
+
+  /// Terminal font size.
+  double get terminalFontSize => _terminalFontSize;
+  set terminalFontSize(double value) {
+    if (_terminalFontSize != value) {
+      _terminalFontSize = value;
+      notifyListeners();
+    }
   }
 
   // ── Layout state persistence ──
@@ -251,6 +318,16 @@ class ForgePreferencesService extends ChangeNotifier {
         ..addAll(_loadShortcutOverrides());
       _layoutOpenEditors = _loadLayoutOpenEditors();
       _themeMode = _loadThemeMode();
+      _terminalDefaultShell = _prefs!.getString(_keyTerminalDefaultShell);
+      _terminalShellPaths = _loadTerminalShellPaths();
+      _terminalStartFolder =
+          _prefs!.getString(_keyTerminalStartFolder) ?? 'workspace';
+      _terminalScrollbackLines =
+          _prefs!.getInt(_keyTerminalScrollbackLines) ?? 10000;
+      _terminalFontFamily =
+          _prefs!.getString(_keyTerminalFontFamily) ?? 'monospace';
+      _terminalFontSize =
+          (_prefs!.getDouble(_keyTerminalFontSize)) ?? 14.0;
       _isLoaded = true;
       _log(
         'loaded preferences with ${_editorTextSettings.length} editor settings entries',
@@ -317,6 +394,7 @@ class ForgePreferencesService extends ChangeNotifier {
       await _saveFileTypeDefaults();
       await _saveShortcutOverrides();
       await _prefs!.setString(_keyThemeMode, _themeMode.name);
+      await _saveTerminalPreferences();
       _log(
         'saved preferences with ${_editorTextSettings.length} editor settings entries',
       );
@@ -330,6 +408,42 @@ class ForgePreferencesService extends ChangeNotifier {
   Future<void> _saveRecentWorkspaces() async {
     final jsonStr = jsonEncode(_startupPreferences.recentWorkspaces);
     await _prefs!.setString(_keyRecentWorkspaces, jsonStr);
+  }
+
+  List<String> _loadTerminalShellPaths() {
+    final jsonStr = _prefs!.getString(_keyTerminalShellPaths);
+    if (jsonStr == null || jsonStr.trim().isEmpty) {
+      return <String>[];
+    }
+    try {
+      final decoded = jsonDecode(jsonStr);
+      if (decoded is List) {
+        return decoded.cast<String>();
+      }
+    } catch (_) {}
+    return <String>[];
+  }
+
+  Future<void> _saveTerminalPreferences() async {
+    if (_terminalDefaultShell != null) {
+      await _prefs!.setString(
+        _keyTerminalDefaultShell,
+        _terminalDefaultShell!,
+      );
+    } else {
+      await _prefs!.remove(_keyTerminalDefaultShell);
+    }
+    await _prefs!.setString(
+      _keyTerminalShellPaths,
+      jsonEncode(_terminalShellPaths),
+    );
+    await _prefs!.setString(_keyTerminalStartFolder, _terminalStartFolder);
+    await _prefs!.setInt(
+      _keyTerminalScrollbackLines,
+      _terminalScrollbackLines,
+    );
+    await _prefs!.setString(_keyTerminalFontFamily, _terminalFontFamily);
+    await _prefs!.setDouble(_keyTerminalFontSize, _terminalFontSize);
   }
 
   Map<String, ForgeTextSettings> _loadEditorTextSettings() {
