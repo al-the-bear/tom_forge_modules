@@ -298,7 +298,11 @@ class _SearchContentState extends State<_SearchContent> {
     final theme = Theme.of(context);
     final query = _queryController.text;
     return InkWell(
-      onTap: () => widget.layoutController.openFile(uri),
+      onTap: () => widget.layoutController.openFile(
+        uri,
+        line: match.range.start.line,
+        column: match.range.start.column,
+      ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 1),
         child: Row(

@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
@@ -107,6 +109,8 @@ class DefaultTerminal implements ForgeTerminal {
   final List<String> _history = [];
   final StreamController<String> _outputController =
       StreamController<String>.broadcast();
+  Process? _activeProcess;
+  bool _isDisposed = false;
 
   DefaultTerminal({
     required this.name,
@@ -125,14 +129,56 @@ class DefaultTerminal implements ForgeTerminal {
     _history.add(line);
     // Echo the command as output.
     _emit('\$ $text');
-    // For the in-memory stub, simulate simple responses.
-    _simulateResponse(text.trim());
+    // Execute command through a real shell when possible.
+    unawaited(_executeCommand(text.trim()));
   }
 
   /// Emit output to both the terminal view and the optional output channel.
   void _emit(String text) {
+    if (_isDisposed || _outputController.isClosed) return;
     _outputController.add(text);
     outputChannel?.appendLine(text);
+  }
+
+  Future<void> _executeCommand(String command) async {
+    if (command.isEmpty || _isDisposed) return;
+
+    final executable = shellPath ?? (Platform.isWindows ? 'cmd.exe' : '/bin/bash');
+    final args = Platform.isWindows ? <String>['/c', command] : <String>['-lc', command];
+    Process? process;
+    try {
+      process = await Process.start(
+        executable,
+        args,
+        workingDirectory: cwd,
+        runInShell: true,
+      );
+      _activeProcess = process;
+
+      final stdoutDone = process.stdout
+          .transform(utf8.decoder)
+          .transform(const LineSplitter())
+          .listen(_emit)
+          .asFuture<void>();
+      final stderrDone = process.stderr
+          .transform(utf8.decoder)
+          .transform(const LineSplitter())
+          .listen(_emit)
+          .asFuture<void>();
+
+      final exitCode = await process.exitCode;
+      await Future.wait([stdoutDone, stderrDone]);
+      if (exitCode != 0) {
+        _emit('[exit $exitCode]');
+      }
+    } catch (_) {
+      // Fallback keeps tests and basic demo behavior usable on constrained setups.
+      _simulateResponse(command);
+    } finally {
+      if (identical(_activeProcess, process)) {
+        _activeProcess = null;
+      }
+    }
   }
 
   void _simulateResponse(String command) {
@@ -154,12 +200,19 @@ class DefaultTerminal implements ForgeTerminal {
 
   @override
   void close() {
-    _outputController.close();
-    _onDispose(this);
+    _closeInternal();
   }
 
   @override
   void dispose() {
+    _closeInternal();
+  }
+
+  void _closeInternal() {
+    if (_isDisposed) return;
+    _isDisposed = true;
+    _activeProcess?.kill(ProcessSignal.sigterm);
+    _activeProcess = null;
     _outputController.close();
     _onDispose(this);
   }

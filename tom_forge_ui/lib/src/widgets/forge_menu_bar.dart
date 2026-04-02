@@ -244,7 +244,7 @@ class ForgeMenuBar extends StatelessWidget {
               _MenuItem(
                 label: 'Go to File...',
                 shortcut: '⌘P',
-                onTap: () => shellApi.executeAction('view.commandPalette'),
+                onTap: onCommandPalette,
               ),
               _MenuItem(
                 label: 'Go to Symbol...',

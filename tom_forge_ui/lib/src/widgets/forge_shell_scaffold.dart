@@ -1859,36 +1859,51 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
                   return Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Container(
-                        constraints: const BoxConstraints(maxWidth: 400),
-                        width: searchWidth,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Row(
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
+                      Tooltip(
+                        message: 'Search and commands (Cmd/Ctrl+P, F1)',
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(6),
+                            onTap: _toggleCommandPalette,
+                            child: Container(
+                              constraints: const BoxConstraints(maxWidth: 400),
+                              width: searchWidth,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color:
+                                    theme.colorScheme.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(6),
                               ),
-                              child: Icon(
-                                Icons.search,
-                                size: 16,
-                                color: theme.colorScheme.onSurface.withValues(
-                                  alpha: 0.5,
-                                ),
+                              child: Row(
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                    ),
+                                    child: Icon(
+                                      Icons.search,
+                                      size: 16,
+                                      color: theme.colorScheme.onSurface
+                                          .withValues(alpha: 0.5),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Text(
+                                      'Search files, symbols, and commands',
+                                      style: theme.textTheme.bodyMedium
+                                          ?.copyWith(
+                                            color: theme
+                                                .colorScheme.onSurface
+                                                .withValues(alpha: 0.72),
+                                          ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            Expanded(
-                              child: Text(
-                                widget.application.title,
-                                style: theme.textTheme.bodyMedium,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -1983,7 +1998,6 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
                     iconStripPosition: IconStripPosition.left,
                     panelArea: PanelArea.left,
                     showConfigTab: true,
-                    onConfigTap: _openSettings,
                     configurationPanelBuilder: _buildConfigurationPanel,
                   ),
                 if (leftConfig.isVisible)
@@ -2214,6 +2228,14 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
 
   Widget _buildConfigurationPanel(BuildContext context) {
     final theme = Theme.of(context);
+    final primaryModifier =
+        defaultTargetPlatform == TargetPlatform.macOS ? 'Cmd' : 'Ctrl';
+
+    String keyLabel(LogicalKeyboardKey key) {
+      final label = key.keyLabel;
+      if (label.isNotEmpty) return label.toUpperCase();
+      return (key.debugName ?? '?').replaceFirst('Key ', '').toUpperCase();
+    }
 
     Widget buildPanelToggle({
       required String label,
@@ -2238,6 +2260,8 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       );
     }
 
+    final shortcutMenus = widget.shell.shortcuts.allMenus;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(12),
       child: Column(
@@ -2246,39 +2270,110 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
           Text('Configuration', style: theme.textTheme.titleMedium),
           const SizedBox(height: 8),
           Text(
-            'Panel visibility and editor settings.',
+            'Shell settings, module panels, and shortcut-menu mappings.',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
             ),
           ),
           const SizedBox(height: 12),
-          buildPanelToggle(
-            label: 'Show left panel',
-            config: _layout.leftPanel,
-            location: ForgePanelLocation.left,
-          ),
-          buildPanelToggle(
-            label: 'Show right panel',
-            config: _layout.rightPanel,
-            location: ForgePanelLocation.right,
-          ),
-          buildPanelToggle(
-            label: 'Show bottom panel',
-            config: _layout.bottomPanel,
-            location: ForgePanelLocation.bottom,
-          ),
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: OutlinedButton.icon(
-              onPressed: _openSettings,
-              icon: const Icon(Icons.tune),
-              label: const Text('Open Full Settings'),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Column(
+                children: [
+                  buildPanelToggle(
+                    label: 'Show left panel',
+                    config: _layout.leftPanel,
+                    location: ForgePanelLocation.left,
+                  ),
+                  buildPanelToggle(
+                    label: 'Show right panel',
+                    config: _layout.rightPanel,
+                    location: ForgePanelLocation.right,
+                  ),
+                  buildPanelToggle(
+                    label: 'Show bottom panel',
+                    config: _layout.bottomPanel,
+                    location: ForgePanelLocation.bottom,
+                  ),
+                ],
+              ),
             ),
+          ),
+          const SizedBox(height: 8),
+          Text('Module Panels', style: theme.textTheme.titleSmall),
+          const SizedBox(height: 4),
+          for (final module in widget.shell.modules.allModules)
+            Card(
+              child: ExpansionTile(
+                title: Text(module.displayName),
+                subtitle: Text(
+                  '${module.views.length} views, '
+                  '${module.actions.length} actions, '
+                  '${module.shortcuts.length} shortcuts',
+                ),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        module.views.isEmpty
+                            ? 'No module views registered.'
+                            : module.views
+                                .map((view) => view.title.value)
+                                .join(', '),
+                        style: theme.textTheme.bodySmall,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          const SizedBox(height: 8),
+          Text('Two-Key Shortcut Menus', style: theme.textTheme.titleSmall),
+          const SizedBox(height: 4),
+          if (shortcutMenus.isEmpty)
+            Card(
+              child: ListTile(
+                dense: true,
+                title: const Text('No shortcut menus registered'),
+                subtitle: const Text(
+                  'Modules can contribute Shift+Cmd/Ctrl shortcut menus.',
+                ),
+              ),
+            )
+          else
+            for (final menu in shortcutMenus)
+              Card(
+                child: ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.keyboard_command_key),
+                  title: Text(menu.label),
+                  subtitle: Text(
+                    'Trigger: Shift+$primaryModifier+${keyLabel(menu.triggerKey)} '
+                    '(${menu.entries.length} entries)',
+                  ),
+                ),
+              ),
+          const SizedBox(height: 8),
+          Text(
+            'Command Palette: $primaryModifier+P or F1',
+            style: theme.textTheme.bodySmall,
           ),
         ],
       ),
     );
+  }
+
+  bool _isPrimaryEditorRender(int panelIndex, ForgeEditor editor) {
+    final panels = _layout.middlePanels.value;
+    for (var idx = 0; idx < panels.length; idx++) {
+      if (panels[idx].contains(editor)) {
+        return idx == panelIndex;
+      }
+    }
+    return true;
   }
 
   Widget _buildMiddleArea(BuildContext context) {
@@ -2358,6 +2453,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
             (activeEditor != null && editors.contains(activeEditor))
             ? activeEditor
             : editors.last;
+        final useMainRender = _isPrimaryEditorRender(panelIndex, currentEditor);
         final showFindBar =
             _showFindReplaceBar && currentEditor is ForgeTextEditor;
 
@@ -2401,7 +2497,15 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
                     );
                   },
                   child: SizedBox.expand(
-                    child: currentEditor.buildMain(context),
+                    child: KeyedSubtree(
+                      key: ValueKey(
+                        'editor-${currentEditor.uri}-$panelIndex-'
+                        '${useMainRender ? 'main' : 'copy'}',
+                      ),
+                      child: useMainRender
+                          ? currentEditor.buildMain(context)
+                          : currentEditor.buildCopy(context),
+                    ),
                   ),
                 ),
               ),
