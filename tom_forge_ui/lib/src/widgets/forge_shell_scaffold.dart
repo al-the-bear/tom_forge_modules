@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
@@ -28,9 +29,8 @@ import '../shell/forge_status_bar_controller.dart';
 import '../actions/forge_action.dart' as shell_action;
 import '../actions/forge_shortcut_binding.dart';
 import '../services/forge_shortcut_manager.dart';
-import 'forge_chord_overlay.dart';
-import 'forge_command_palette.dart';
 import 'forge_configuration_dialog.dart';
+import 'forge_quick_open.dart';
 import 'forge_drag_data.dart';
 import 'forge_drop_zone_overlay.dart';
 import 'forge_error_recovery_dialog.dart';
@@ -177,6 +177,14 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
 
   DefaultLayoutController get _layout => widget.layoutController;
   bool _showCommandPalette = false;
+  QuickOpenMode? _quickOpenMode;
+  final TextEditingController _quickOpenSearchController =
+      TextEditingController();
+  final FocusNode _quickOpenFocusNode = FocusNode();
+  final GlobalKey _searchBoxKey = GlobalKey();
+  final GlobalKey _quickOpenWidgetKey = GlobalKey();
+  ForgeShortcutKey? _chordFirstKeyForQuickOpen;
+  List<ForgeShortcutBinding> _chordCompletionsForQuickOpen = const [];
   bool _showFindReplaceBar = false;
   bool _showReplaceFields = false;
   Widget? _dialogOverlay;
@@ -252,6 +260,8 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     _replaceValueController.dispose();
     _findFieldFocusNode.dispose();
     _replaceFieldFocusNode.dispose();
+    _quickOpenSearchController.dispose();
+    _quickOpenFocusNode.dispose();
     _preferences.removeListener(_onPreferencesChanged);
     _saveAllEditorStates();
     _saveLayoutState();
@@ -1254,13 +1264,24 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   }
 
   /// Listens for chord completions to execute the bound action.
+  ///
+  /// When a chord is entered, opens the quick-open dropdown in chord mode.
+  /// When a chord completes or is cancelled, closes the quick-open.
   void _listenForChordCompletions() {
     _chordSubscription = widget.shell.shortcuts.onChordStateChanged.listen((
       event,
     ) {
-      if (event.state == ForgeChordState.completed &&
-          event.executedBinding != null) {
-        widget.shell.executeAction(event.executedBinding!.action.id);
+      switch (event.state) {
+        case ForgeChordState.entered:
+          // Open quick-open in chord mode with the completions.
+          _openQuickOpenChord(event.firstKey!, event.completions);
+        case ForgeChordState.completed:
+          if (event.executedBinding != null) {
+            widget.shell.executeAction(event.executedBinding!.action.id);
+          }
+          _closeQuickOpen();
+        case ForgeChordState.cancelled:
+          _closeQuickOpen();
       }
     });
   }
@@ -1415,8 +1436,6 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
                     ],
                   ),
                   ForgeNotificationOverlay(manager: widget.notificationManager),
-                  // Chord shortcut overlay (shows available second keys).
-                  ForgeChordOverlay(shortcutManager: widget.shell.shortcuts),
                   // Shortcut menu overlay (concept §11.4).
                   ForgeShortcutMenuPopup(
                     shortcutManager: widget.shell.shortcuts,
@@ -1442,11 +1461,8 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
                       );
                     },
                   ),
-                  if (_showCommandPalette)
-                    ForgeCommandPalette(
-                      shellApi: widget.shell,
-                      onDismiss: _toggleCommandPalette,
-                    ),
+                  if (_showCommandPalette && _quickOpenMode != null)
+                    _buildQuickOpenOverlay(),
                   if (_dialogOverlay != null) ...[_dialogOverlay!],
                 ],
               ),
@@ -1690,7 +1706,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
 
       final shortcuts = {
         primaryActivator(LogicalKeyboardKey.keyP):
-            const _CommandPaletteIntent(),
+            const _ActionOnlyPaletteIntent(),
         const SingleActivator(LogicalKeyboardKey.f1):
             const _CommandPaletteIntent(),
         primaryActivator(LogicalKeyboardKey.keyL):
@@ -1728,6 +1744,12 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       _CommandPaletteIntent: CallbackAction<_CommandPaletteIntent>(
         onInvoke: (_) {
           _toggleCommandPalette();
+          return null;
+        },
+      ),
+      _ActionOnlyPaletteIntent: CallbackAction<_ActionOnlyPaletteIntent>(
+        onInvoke: (_) {
+          _openQuickOpen(QuickOpenMode.actions);
           return null;
         },
       ),
@@ -1795,10 +1817,146 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   }
 
   void _toggleCommandPalette() {
-    setState(() => _showCommandPalette = !_showCommandPalette);
-    if (_showCommandPalette) {
-      ForgeAccessibility.announceAssertive('Command palette opened');
+    if (_quickOpenMode != null) {
+      _closeQuickOpen();
+    } else {
+      _openQuickOpen(QuickOpenMode.all);
     }
+  }
+
+  void _openQuickOpen(QuickOpenMode mode) {
+    setState(() {
+      _showCommandPalette = true;
+      _quickOpenMode = mode;
+      _quickOpenSearchController.clear();
+    });
+    _quickOpenFocusNode.requestFocus();
+    ForgeAccessibility.announceAssertive(
+      mode == QuickOpenMode.actions
+          ? 'Action palette opened'
+          : 'Quick open search opened',
+    );
+  }
+
+  void _openQuickOpenChord(
+    ForgeShortcutKey firstKey,
+    List<ForgeShortcutBinding> completions,
+  ) {
+    setState(() {
+      _showCommandPalette = true;
+      _quickOpenMode = QuickOpenMode.chord;
+      _chordFirstKeyForQuickOpen = firstKey;
+      _chordCompletionsForQuickOpen = completions;
+      _quickOpenSearchController.clear();
+    });
+    _quickOpenFocusNode.requestFocus();
+    ForgeAccessibility.announceAssertive(
+      'Chord shortcut: press second key',
+    );
+  }
+
+  void _closeQuickOpen() {
+    setState(() {
+      _showCommandPalette = false;
+      _quickOpenMode = null;
+      _chordFirstKeyForQuickOpen = null;
+      _chordCompletionsForQuickOpen = const [];
+      _quickOpenSearchController.clear();
+    });
+  }
+
+  void _openHelpDocument() {
+    // Write the help markdown to the workspace and open it.
+    final root = widget.systemState.workspaceRootPath;
+    final helpPath = '$root/.forge/help/keyboard_shortcuts.md';
+    final helpFile = File(helpPath);
+    if (!helpFile.existsSync()) {
+      helpFile.parent.createSync(recursive: true);
+      helpFile.writeAsStringSync(_keyboardShortcutsHelpContent);
+    }
+    _layout.openFile(Uri.file(helpPath));
+  }
+
+  static const _keyboardShortcutsHelpContent = '''
+# Keyboard Shortcuts
+
+## Quick Open
+
+| Shortcut | Action |
+|----------|--------|
+| Click search bar | Search files, actions, and settings |
+| Ctrl+P / Cmd+P | Search actions only |
+| F1 | Open quick open (all) |
+| Escape | Close quick open |
+
+## Navigation
+
+| Shortcut | Action |
+|----------|--------|
+| Ctrl+L / Cmd+L | Toggle left panel |
+| Ctrl+R / Cmd+R | Toggle right panel |
+| Ctrl+1 / Cmd+1 | Focus left panel |
+| Ctrl+2 / Cmd+2 | Focus editor |
+| Ctrl+3 / Cmd+3 | Focus right panel |
+| Ctrl+4 / Cmd+4 | Focus bottom panel |
+
+## Chord Shortcuts
+
+Press the first key combination, then the second key to execute.
+
+When a chord is active, the search bar shows available completions.
+Press "?" for this help document.
+
+## Editing
+
+| Shortcut | Action |
+|----------|--------|
+| Ctrl+S / Cmd+S | Save all |
+
+---
+
+*This document will be expanded with more shortcuts as they are added.*
+''';
+
+  Widget _buildQuickOpenOverlay() {
+    // Position the dropdown below the search bar.
+    return GestureDetector(
+      onTap: _closeQuickOpen,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        color: Colors.transparent,
+        child: Stack(
+          children: [
+            Positioned(
+              top: ForgeDimensions.titleBarHeight,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: GestureDetector(
+                  onTap: () {}, // Prevent dismiss when tapping dropdown.
+                  child: SizedBox(
+                    width: 400,
+                    child: ForgeQuickOpen(
+                      key: _quickOpenWidgetKey,
+                      shellApi: widget.shell,
+                      mode: _quickOpenMode!,
+                      onDismiss: _closeQuickOpen,
+                      initialQuery: _quickOpenSearchController.text,
+                      chordFirstKey: _chordFirstKeyForQuickOpen,
+                      chordCompletions: _chordCompletionsForQuickOpen,
+                      searchController: _quickOpenSearchController,
+                      searchFocusNode: _quickOpenFocusNode,
+                      onOpenFile: (uri) => _layout.openFile(uri),
+                      onOpenHelp: _openHelpDocument,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _executeSave() {
@@ -1861,50 +2019,53 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
                   return Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Tooltip(
-                        message: 'Search and commands (Cmd/Ctrl+P, F1)',
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
+                      SizedBox(
+                        key: _searchBoxKey,
+                        width: searchWidth,
+                        height: 32,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color:
+                                theme.colorScheme.surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(6),
-                            onTap: _toggleCommandPalette,
-                            child: Container(
-                              constraints: const BoxConstraints(maxWidth: 400),
-                              width: searchWidth,
-                              height: 32,
-                              decoration: BoxDecoration(
-                                color:
-                                    theme.colorScheme.surfaceContainerHighest,
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Row(
-                                children: [
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                    ),
-                                    child: Icon(
-                                      Icons.search,
-                                      size: 16,
-                                      color: theme.colorScheme.onSurface
-                                          .withValues(alpha: 0.5),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: Text(
-                                      'Search files, symbols, and commands',
-                                      style: theme.textTheme.bodyMedium
-                                          ?.copyWith(
-                                            color: theme
-                                                .colorScheme.onSurface
-                                                .withValues(alpha: 0.72),
-                                          ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                          ),
+                          child: TextField(
+                            controller: _quickOpenSearchController,
+                            focusNode: _quickOpenFocusNode,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurface,
                             ),
+                            decoration: InputDecoration(
+                              hintText: _quickOpenMode == QuickOpenMode.actions
+                                  ? 'Type an action...'
+                                  : _quickOpenMode == QuickOpenMode.chord
+                                      ? 'Search shortcuts or press key...'
+                                      : 'Search files, actions, and settings',
+                              hintStyle:
+                                  theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.5),
+                              ),
+                              prefixIcon: Icon(
+                                Icons.search,
+                                size: 16,
+                                color: theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.5),
+                              ),
+                              prefixIconConstraints: const BoxConstraints(
+                                minWidth: 32,
+                                minHeight: 32,
+                              ),
+                              border: InputBorder.none,
+                              contentPadding:
+                                  const EdgeInsets.symmetric(vertical: 8),
+                              isDense: true,
+                            ),
+                            onTap: () {
+                              if (_quickOpenMode == null) {
+                                _openQuickOpen(QuickOpenMode.all);
+                              }
+                            },
                           ),
                         ),
                       ),
@@ -2919,6 +3080,10 @@ class _ViewEditorAdapter extends ForgeEditor {
 
 class _CommandPaletteIntent extends Intent {
   const _CommandPaletteIntent();
+}
+
+class _ActionOnlyPaletteIntent extends Intent {
+  const _ActionOnlyPaletteIntent();
 }
 
 class _ToggleLeftPanelIntent extends Intent {
