@@ -96,6 +96,7 @@ export 'src/defaults/real_file_system.dart';
 export 'src/defaults/real_search_manager.dart';
 export 'src/defaults/shell_autosave_controller.dart';
 export 'src/defaults/default_terminal_manager.dart';
+export 'src/defaults/platform_secret_storage.dart';
 export 'src/defaults/pty_terminal.dart';
 export 'src/defaults/stub_services.dart';
 export 'src/integrations/shell_editor_integration.dart';

@@ -48,6 +48,7 @@ import 'default_system_state.dart';
 import 'default_undo_manager.dart';
 import 'default_workspace_state_manager.dart';
 import 'memory_file_system.dart';
+import 'platform_secret_storage.dart';
 import 'pty_terminal.dart';
 import 'real_file_system.dart';
 import 'real_search_manager.dart';
@@ -264,7 +265,11 @@ class DefaultShellApi implements ForgeShellApi {
     final storageService = storage ?? DefaultModuleStorage();
     final environmentService = DefaultEnvironment();
     final executionMonitor = DefaultExecutionMonitor();
-    final secretStorage = DefaultSecretStorage();
+    // Use platform keychain on desktop, in-memory for tests.
+    final ForgeSecretStorage secretStorage =
+        fileSystem is RealFileSystem
+            ? PlatformSecretStorage()
+            : DefaultSecretStorage();
     final fileDecorationManager = DefaultFileDecorationManager();
 
     // Auto-bridge: sync diagnostics from manager into system state so
