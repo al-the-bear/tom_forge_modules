@@ -23,6 +23,8 @@ dependencies:
     path: ../tom_dart_editor
   tom_yaml_editor:
     path: ../tom_yaml_editor
+  flutter_pty: ^0.4.2
+  xterm: ^4.0.0
 
 dev_dependencies:
   flutter_test:

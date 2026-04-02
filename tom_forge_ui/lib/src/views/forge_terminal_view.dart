@@ -3,9 +3,11 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
+import 'package:xterm/xterm.dart' as xterm;
 
 import '../components/forge_component.dart';
 import '../components/forge_view.dart';
+import '../defaults/pty_terminal.dart';
 
 /// Terminal view with tab selector and monospace output display.
 ///
@@ -92,7 +94,8 @@ class _TerminalContentState extends State<_TerminalContent> {
     _outputSub?.cancel();
     _outputSub = null;
     final active = widget.terminalManager.activeTerminal;
-    if (active != null) {
+    // Only bind the text-based output listener for non-PTY terminals.
+    if (active != null && active is! PtyTerminal) {
       _outputSub = active.onOutput.listen((line) {
         if (mounted) {
           setState(() {
@@ -152,85 +155,120 @@ class _TerminalContentState extends State<_TerminalContent> {
     return Column(
       children: [
         // Terminal tab bar
-        Container(
-          height: 28,
-          color: theme.colorScheme.surfaceContainerHighest,
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          child: Row(
-            children: [
-              for (final t in terminals)
-                GestureDetector(
-                  onTap: () => widget.terminalManager.setActive(t),
-                  child: MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        border: t == active
-                            ? Border(
-                                bottom: BorderSide(
-                                  color: theme.colorScheme.primary,
-                                  width: 2,
-                                ),
-                              )
-                            : null,
+        _buildTabBar(context, theme, terminals, active),
+        // Terminal content area
+        Expanded(
+          child: active is PtyTerminal
+              ? _buildPtyTerminal(active)
+              : _buildFallbackTerminal(theme),
+        ),
+      ],
+    );
+  }
+
+  /// Build the terminal tab bar with close buttons and a new-terminal button.
+  Widget _buildTabBar(
+    BuildContext context,
+    ThemeData theme,
+    List<ForgeTerminal> terminals,
+    ForgeTerminal? active,
+  ) {
+    return Container(
+      height: 28,
+      color: theme.colorScheme.surfaceContainerHighest,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Row(
+        children: [
+          for (final t in terminals)
+            GestureDetector(
+              onTap: () => widget.terminalManager.setActive(t),
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    border: t == active
+                        ? Border(
+                            bottom: BorderSide(
+                              color: theme.colorScheme.primary,
+                              width: 2,
+                            ),
+                          )
+                        : null,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.terminal,
+                        size: 12,
+                        color: t == active
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.onSurface
+                                .withValues(alpha: 0.6),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.terminal,
+                      const SizedBox(width: 4),
+                      Text(
+                        t.name,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          fontWeight: t == active
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                          color: t == active
+                              ? theme.colorScheme.primary
+                              : theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.6),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      GestureDetector(
+                        onTap: () => t.close(),
+                        child: MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: Icon(
+                            Icons.close,
                             size: 12,
-                            color: t == active
-                                ? theme.colorScheme.primary
-                                : theme.colorScheme.onSurface
-                                    .withValues(alpha: 0.6),
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.4),
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            t.name,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              fontWeight: t == active
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                              color: t == active
-                                  ? theme.colorScheme.primary
-                                  : theme.colorScheme.onSurface
-                                      .withValues(alpha: 0.6),
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          GestureDetector(
-                            onTap: () => t.close(),
-                            child: MouseRegion(
-                              cursor: SystemMouseCursors.click,
-                              child: Icon(
-                                Icons.close,
-                                size: 12,
-                                color: theme.colorScheme.onSurface
-                                    .withValues(alpha: 0.4),
-                              ),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ),
-              const Spacer(),
-              IconButton(
-                icon: const Icon(Icons.add, size: 14),
-                padding: EdgeInsets.zero,
-                constraints:
-                    const BoxConstraints(minWidth: 24, minHeight: 24),
-                onPressed: () => widget.terminalManager.create(),
-                tooltip: 'New Terminal',
               ),
-            ],
+            ),
+          const Spacer(),
+          IconButton(
+            icon: const Icon(Icons.add, size: 14),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+            onPressed: () => widget.terminalManager.create(),
+            tooltip: 'New Terminal',
           ),
-        ),
-        // Output area
+        ],
+      ),
+    );
+  }
+
+  /// Full xterm-based terminal view for [PtyTerminal] instances.
+  Widget _buildPtyTerminal(PtyTerminal terminal) {
+    return xterm.TerminalView(
+      terminal.terminalModel,
+      autofocus: true,
+      textStyle: const xterm.TerminalStyle(
+        fontSize: 13,
+        fontFamily: 'monospace',
+      ),
+    );
+  }
+
+  /// Text-based fallback terminal for [DefaultTerminal] or other
+  /// non-PTY implementations.
+  Widget _buildFallbackTerminal(ThemeData theme) {
+    return Column(
+      children: [
         Expanded(
           child: Container(
             color: theme.colorScheme.surface,
@@ -248,7 +286,7 @@ class _TerminalContentState extends State<_TerminalContent> {
             ),
           ),
         ),
-        // Input field
+        // Input field for fallback terminal
         Container(
           height: 28,
           padding: const EdgeInsets.symmetric(horizontal: 4),

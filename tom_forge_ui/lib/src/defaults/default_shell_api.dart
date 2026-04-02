@@ -48,6 +48,7 @@ import 'default_system_state.dart';
 import 'default_undo_manager.dart';
 import 'default_workspace_state_manager.dart';
 import 'memory_file_system.dart';
+import 'pty_terminal.dart';
 import 'real_file_system.dart';
 import 'real_search_manager.dart';
 import 'stub_services.dart';
@@ -255,7 +256,11 @@ class DefaultShellApi implements ForgeShellApi {
     }
 
     final outlineManager = DefaultOutlineManager();
-    final terminalManager = DefaultTerminalManager();
+    // Use PTY-backed terminals on desktop (RealFileSystem), fallback for tests.
+    final ForgeTerminalManager terminalManager =
+        fileSystem is RealFileSystem
+            ? PtyTerminalManager()
+            : DefaultTerminalManager();
     final storageService = storage ?? DefaultModuleStorage();
     final environmentService = DefaultEnvironment();
     final executionMonitor = DefaultExecutionMonitor();
