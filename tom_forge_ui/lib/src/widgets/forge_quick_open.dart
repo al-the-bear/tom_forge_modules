@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'package:tom_forge_core/tom_forge_core.dart' show ForgeSearchConfig;
+
 import '../actions/forge_action.dart';
 import '../actions/forge_shortcut_binding.dart';
 import '../defaults/default_shell_api.dart';
@@ -78,6 +80,9 @@ class ForgeQuickOpen extends StatefulWidget {
   /// Focus node for the search field.
   final FocusNode searchFocusNode;
 
+  /// Configuration for file search behavior (extensions, directories, limits).
+  final ForgeSearchConfig searchConfig;
+
   const ForgeQuickOpen({
     super.key,
     required this.shellApi,
@@ -90,6 +95,7 @@ class ForgeQuickOpen extends StatefulWidget {
     this.onOpenHelp,
     required this.searchController,
     required this.searchFocusNode,
+    this.searchConfig = const ForgeSearchConfig(),
   });
 
   @override
@@ -281,6 +287,12 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
       _settingItem('Line Numbers', 'forge.editor.lineNumbers', Icons.format_list_numbered),
       _settingItem('Minimap', 'forge.editor.minimap', Icons.map),
       _settingItem('File Type Defaults', 'forge.editor.fileTypeDefaults', Icons.file_copy),
+      _settingItem('Search: Excluded Extensions', 'forge.search.excludedExtensions', Icons.extension_off),
+      _settingItem('Search: Excluded Directories', 'forge.search.excludedDirectories', Icons.folder_off),
+      _settingItem('Search: File Size Limit', 'forge.search.fileSizeLimit', Icons.data_usage),
+      _settingItem('Search: Hide Hidden Directories', 'forge.search.excludeHiddenDirectories', Icons.visibility_off),
+      _settingItem('Search: Hide Git-Ignored Files', 'forge.search.excludeGitIgnored', Icons.rule),
+      _settingItem('Search: Max File Results', 'forge.search.maxFileResults', Icons.format_list_numbered),
     ];
 
     if (lowerQuery.isEmpty) return settings;
@@ -308,6 +320,7 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
   Future<void> _searchFiles(String query) async {
     try {
       final workspaceRoot = widget.shellApi.systemState.workspaceRootPath;
+      final config = widget.searchConfig;
 
       final rootDir = Directory(workspaceRoot);
       if (!rootDir.existsSync()) return;
@@ -317,33 +330,54 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
       var count = 0;
 
       await for (final entity in rootDir.list(recursive: true)) {
-        if (entity is! File) continue;
-        final name = entity.uri.pathSegments.last;
-        final relativePath = entity.path.substring(workspaceRoot.length);
+        if (entity is File) {
+          final name = entity.uri.pathSegments.last;
+          final relativePath = entity.path.substring(workspaceRoot.length);
 
-        // Skip hidden/build directories.
-        if (relativePath.contains('/.') ||
-            relativePath.contains('/build/') ||
-            relativePath.contains('/node_modules/') ||
-            relativePath.contains('/.dart_tool/')) {
-          continue;
-        }
+          // Check excluded directories in path segments.
+          final segments = relativePath.split('/');
+          final skipDir = segments.any((seg) {
+            if (seg.isEmpty) return false;
+            return config.isDirectoryExcluded(seg);
+          });
+          if (skipDir) continue;
 
-        if (name.toLowerCase().contains(lowerQuery) ||
-            relativePath.toLowerCase().contains(lowerQuery)) {
-          fileItems.add(_QuickOpenItem(
-            id: 'file:${entity.path}',
-            label: name,
-            detail: relativePath,
-            icon: _fileIcon(name),
-            type: _ResultType.file,
-            onExecute: () {
-              widget.onOpenFile?.call(entity.uri);
-              widget.onDismiss();
-            },
-          ));
-          count++;
-          if (count >= 50) break; // Limit results.
+          // Check excluded extensions.
+          final dotIndex = name.lastIndexOf('.');
+          if (dotIndex != -1) {
+            final ext = name.substring(dotIndex + 1);
+            if (config.isExtensionExcluded(ext)) continue;
+          }
+
+          // Check file size limit.
+          try {
+            final stat = entity.statSync();
+            if (stat.size > config.fileSizeLimit) continue;
+          } catch (_) {
+            continue;
+          }
+
+          if (name.toLowerCase().contains(lowerQuery) ||
+              relativePath.toLowerCase().contains(lowerQuery)) {
+            fileItems.add(_QuickOpenItem(
+              id: 'file:${entity.path}',
+              label: name,
+              detail: relativePath,
+              icon: _fileIcon(name),
+              type: _ResultType.file,
+              onExecute: () {
+                widget.onOpenFile?.call(entity.uri);
+                widget.onDismiss();
+              },
+            ));
+            count++;
+            if (count >= config.maxFileResults) break;
+          }
+        } else if (entity is Directory) {
+          // Skip excluded directories eagerly by name.
+          final dirName = entity.uri.pathSegments
+              .lastWhere((s) => s.isNotEmpty, orElse: () => '');
+          if (config.isDirectoryExcluded(dirName)) continue;
         }
       }
 

@@ -1946,6 +1946,7 @@ Press "?" for this help document.
                       chordCompletions: _chordCompletionsForQuickOpen,
                       searchController: _quickOpenSearchController,
                       searchFocusNode: _quickOpenFocusNode,
+                      searchConfig: _preferences.searchConfig,
                       onOpenFile: (uri) => _layout.openFile(uri),
                       onOpenHelp: _openHelpDocument,
                     ),

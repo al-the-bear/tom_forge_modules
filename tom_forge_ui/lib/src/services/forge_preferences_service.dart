@@ -36,6 +36,7 @@ class ForgePreferencesService extends ChangeNotifier {
   static const _keyTerminalScrollbackLines = 'forge.terminal.scrollbackLines';
   static const _keyTerminalFontFamily = 'forge.terminal.fontFamily';
   static const _keyTerminalFontSize = 'forge.terminal.fontSize';
+  static const _keySearchConfig = 'forge.search.config';
 
   SharedPreferences? _prefs;
   ForgeStartupPreferences _startupPreferences = ForgeStartupPreferences();
@@ -57,6 +58,7 @@ class ForgePreferencesService extends ChangeNotifier {
   int _terminalScrollbackLines = 10000;
   String _terminalFontFamily = 'monospace';
   double _terminalFontSize = 14.0;
+  ForgeSearchConfig _searchConfig = const ForgeSearchConfig();
   bool _isLoaded = false;
 
   static void _log(String message) {
@@ -286,6 +288,42 @@ class ForgePreferencesService extends ChangeNotifier {
     return '$workspacePath/.forge';
   }
 
+  // ── Search configuration ──
+
+  /// The current search configuration.
+  ForgeSearchConfig get searchConfig => _searchConfig;
+
+  /// Updates the search configuration and persists it.
+  set searchConfig(ForgeSearchConfig value) {
+    _searchConfig = value;
+    _saveSearchConfig();
+    notifyListeners();
+  }
+
+  ForgeSearchConfig _loadSearchConfig() {
+    final jsonStr = _prefs!.getString(_keySearchConfig);
+    if (jsonStr == null || jsonStr.trim().isEmpty) {
+      return const ForgeSearchConfig();
+    }
+    try {
+      final decoded = jsonDecode(jsonStr);
+      if (decoded is Map<String, dynamic>) {
+        return ForgeSearchConfig.fromJson(decoded);
+      }
+      if (decoded is Map) {
+        return ForgeSearchConfig.fromJson(Map<String, dynamic>.from(decoded));
+      }
+    } catch (_) {}
+    return const ForgeSearchConfig();
+  }
+
+  Future<void> _saveSearchConfig() async {
+    await _prefs?.setString(
+      _keySearchConfig,
+      jsonEncode(_searchConfig.toJson()),
+    );
+  }
+
   /// Loads preferences from persistent storage.
   Future<void> load() async {
     try {
@@ -328,6 +366,7 @@ class ForgePreferencesService extends ChangeNotifier {
           _prefs!.getString(_keyTerminalFontFamily) ?? 'monospace';
       _terminalFontSize =
           (_prefs!.getDouble(_keyTerminalFontSize)) ?? 14.0;
+      _searchConfig = _loadSearchConfig();
       _isLoaded = true;
       _log(
         'loaded preferences with ${_editorTextSettings.length} editor settings entries',
@@ -395,6 +434,7 @@ class ForgePreferencesService extends ChangeNotifier {
       await _saveShortcutOverrides();
       await _prefs!.setString(_keyThemeMode, _themeMode.name);
       await _saveTerminalPreferences();
+      await _saveSearchConfig();
       _log(
         'saved preferences with ${_editorTextSettings.length} editor settings entries',
       );

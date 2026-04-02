@@ -39,6 +39,7 @@ export 'src/document/forge_document.dart';
 
 // Model
 export 'src/model/forge_config.dart';
+export 'src/model/forge_search_config.dart';
 
 // Services (pure-Dart interfaces)
 export 'src/services/forge_clipboard.dart';
