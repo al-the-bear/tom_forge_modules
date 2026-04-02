@@ -11,11 +11,16 @@ import '../shell/forge_layout_controller.dart';
 
 /// Search view with query input, toggle options, and results grouped by file.
 ///
-/// Clicking a match opens the file at the match location.
+/// Uses streaming search for progressive results: files appear as they are
+/// found rather than waiting for the entire search to complete. Clicking a
+/// match opens the file at the match location.
 class ForgeSearchView extends ForgeView {
   final ForgeSearchManager searchManager;
   final ForgeLayoutController layoutController;
   final DefaultSystemState? systemState;
+
+  /// Workspace root path for displaying relative file paths.
+  final String? workspaceRoot;
 
   final _title = ValueNotifier<String>('Search');
   final _titleExtension = ValueNotifier<String?>(null);
@@ -24,6 +29,7 @@ class ForgeSearchView extends ForgeView {
     required this.searchManager,
     required this.layoutController,
     this.systemState,
+    this.workspaceRoot,
   });
 
   @override
@@ -46,6 +52,7 @@ class ForgeSearchView extends ForgeView {
       searchManager: searchManager,
       layoutController: layoutController,
       systemState: systemState,
+      workspaceRoot: workspaceRoot,
     );
   }
 
@@ -57,11 +64,13 @@ class _SearchContent extends StatefulWidget {
   final ForgeSearchManager searchManager;
   final ForgeLayoutController layoutController;
   final DefaultSystemState? systemState;
+  final String? workspaceRoot;
 
   const _SearchContent({
     required this.searchManager,
     required this.layoutController,
     this.systemState,
+    this.workspaceRoot,
   });
 
   @override
@@ -77,6 +86,8 @@ class _SearchContentState extends State<_SearchContent> {
   bool _isSearching = false;
   Timer? _debounceTimer;
   int _totalMatchCount = 0;
+  String? _searchError;
+  StreamSubscription<ForgeSearchResult>? _searchSubscription;
 
   @override
   void initState() {
@@ -86,10 +97,16 @@ class _SearchContentState extends State<_SearchContent> {
 
   @override
   void dispose() {
+    _cancelSearch();
     _debounceTimer?.cancel();
     _queryController.removeListener(_onQueryChanged);
     _queryController.dispose();
     super.dispose();
+  }
+
+  void _cancelSearch() {
+    _searchSubscription?.cancel();
+    _searchSubscription = null;
   }
 
   void _onQueryChanged() {
@@ -106,36 +123,81 @@ class _SearchContentState extends State<_SearchContent> {
     widget.systemState?.setSearchQuery(query);
     widget.systemState?.setSearchActive(query.isNotEmpty);
 
+    // Cancel any in-progress search.
+    _cancelSearch();
+
     if (query.isEmpty) {
       setState(() {
         _results = [];
         _totalMatchCount = 0;
+        _isSearching = false;
+        _searchError = null;
       });
       return;
     }
 
-    setState(() => _isSearching = true);
+    setState(() {
+      _isSearching = true;
+      _results = [];
+      _totalMatchCount = 0;
+      _searchError = null;
+    });
+
     try {
-      final results = await widget.searchManager.search(
+      final stream = widget.searchManager.searchStream(
         query,
         isCaseSensitive: _isCaseSensitive,
         isWordMatch: _isWordMatch,
         isRegExp: _isRegExp,
       );
+
+      _searchSubscription = stream.listen(
+        (result) {
+          if (!mounted) return;
+          setState(() {
+            _results.add(result);
+            _totalMatchCount += result.matches.length;
+          });
+        },
+        onError: (Object error) {
+          if (!mounted) return;
+          setState(() {
+            _searchError = error.toString();
+            _isSearching = false;
+          });
+        },
+        onDone: () {
+          if (!mounted) return;
+          setState(() {
+            _isSearching = false;
+          });
+        },
+      );
+    } catch (e) {
       if (mounted) {
-        var count = 0;
-        for (final r in results) {
-          count += r.matches.length;
-        }
         setState(() {
-          _results = results;
-          _totalMatchCount = count;
+          _searchError = e.toString();
           _isSearching = false;
         });
       }
-    } catch (e) {
-      if (mounted) setState(() => _isSearching = false);
     }
+  }
+
+  /// Make a file URI relative to the workspace root.
+  String _relativePath(Uri uri) {
+    final root = widget.workspaceRoot;
+    if (root != null) {
+      final filePath = uri.toFilePath();
+      if (filePath.startsWith(root)) {
+        var relative = filePath.substring(root.length);
+        if (relative.startsWith('/')) relative = relative.substring(1);
+        return relative;
+      }
+    }
+    // Fallback: show full path segments.
+    return uri.pathSegments.isNotEmpty
+        ? uri.pathSegments.skip(uri.pathSegments.length > 3 ? uri.pathSegments.length - 3 : 0).join('/')
+        : uri.path;
   }
 
   @override
@@ -179,16 +241,42 @@ class _SearchContentState extends State<_SearchContent> {
                   }),
                 ],
               ),
-              if (_results.isNotEmpty || _isSearching)
+              if (_results.isNotEmpty || _isSearching || _searchError != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    _isSearching
-                        ? 'Searching...'
-                        : '$_totalMatchCount matches in ${_results.length} files',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                    ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _searchError != null
+                              ? 'Error: $_searchError'
+                              : _isSearching
+                                  ? '$_totalMatchCount matches in ${_results.length} files (searching...)'
+                                  : '$_totalMatchCount matches in ${_results.length} files',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: _searchError != null
+                                ? theme.colorScheme.error
+                                : theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (_isSearching)
+                        InkWell(
+                          onTap: () {
+                            _cancelSearch();
+                            setState(() => _isSearching = false);
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.all(2),
+                            child: Icon(
+                              Icons.stop,
+                              size: 14,
+                              color: theme.colorScheme.error,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
             ],
@@ -262,6 +350,7 @@ class _SearchContentState extends State<_SearchContent> {
 
   Widget _buildFileHeader(BuildContext context, ForgeSearchResult result) {
     final theme = Theme.of(context);
+    final relativePath = _relativePath(result.uri);
     final name = result.uri.pathSegments.isNotEmpty
         ? result.uri.pathSegments.last
         : result.uri.path;
@@ -270,11 +359,25 @@ class _SearchContentState extends State<_SearchContent> {
       child: Row(
         children: [
           Expanded(
-            child: Text(
-              name,
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (relativePath != name)
+                  Text(
+                    relativePath,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      fontSize: 9,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
             ),
           ),
           Container(

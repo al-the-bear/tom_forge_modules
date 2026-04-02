@@ -31,6 +31,9 @@ class ForgeSidePanelWidget extends StatefulWidget {
   /// Called when a panel tab is dropped from another area.
   final void Function(PanelTabDragData data)? onTabDropped;
 
+  /// Called when an editor tab from the middle panels is dropped here.
+  final void Function(TabDragData data)? onEditorDropped;
+
   const ForgeSidePanelWidget({
     super.key,
     required this.tabs,
@@ -40,6 +43,7 @@ class ForgeSidePanelWidget extends StatefulWidget {
     this.configurationPanelBuilder,
     this.panelArea = PanelArea.left,
     this.onTabDropped,
+    this.onEditorDropped,
   });
 
   @override
@@ -81,13 +85,24 @@ class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
 
   Widget _buildVerticalIconStrip(BuildContext context) {
     final theme = Theme.of(context);
-    return DragTarget<PanelTabDragData>(
+    return DragTarget<ForgeDragData>(
       onWillAcceptWithDetails: (details) {
-        // Accept tabs from different panel areas.
-        return details.data.sourceArea != widget.panelArea;
+        return switch (details.data) {
+          PanelTabDragData d => d.sourceArea != widget.panelArea,
+          TabDragData _ => true, // Accept editor tabs from middle panels
+          SectionDragData _ => true, // Accept sections from other panels
+          _ => false,
+        };
       },
       onAcceptWithDetails: (details) {
-        widget.onTabDropped?.call(details.data);
+        switch (details.data) {
+          case PanelTabDragData data:
+            widget.onTabDropped?.call(data);
+          case TabDragData data:
+            widget.onEditorDropped?.call(data);
+          case SectionDragData _:
+            break; // Section reorder handled by accordion
+        }
       },
       builder: (context, candidateData, rejectedData) {
         final isDropTarget = candidateData.isNotEmpty;
@@ -107,6 +122,7 @@ class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
                     title: widget.tabs[i].title,
                     tabIndex: i,
                     sourceArea: widget.panelArea,
+                    sections: widget.tabs[i].sections,
                   ),
                   feedback: _buildTabDragFeedback(context, widget.tabs[i]),
                   childWhenDragging: Opacity(
@@ -397,6 +413,8 @@ class _AccordeonLayoutState extends State<_AccordeonLayout> {
             data: SectionDragData(
               section: widget.sections[i],
               sourceIndex: i,
+              sourceArea: null, // Set by parent if in a panel context
+              sourceTabIndex: null,
             ),
             feedback: _buildDragFeedback(context, widget.sections[i]),
             childWhenDragging: Opacity(
@@ -767,11 +785,15 @@ class ForgePanelWidget extends StatefulWidget {
   /// Called when a tab is dropped onto this panel from a different area.
   final void Function(PanelTabDragData data)? onTabDropped;
 
+  /// Called when an editor tab from the middle panels is dropped here.
+  final void Function(TabDragData data)? onEditorDropped;
+
   const ForgePanelWidget({
     super.key,
     required this.tabs,
     this.panelArea = PanelArea.bottom,
     this.onTabDropped,
+    this.onEditorDropped,
   });
 
   @override
@@ -804,12 +826,24 @@ class _ForgePanelWidgetState extends State<ForgePanelWidget> {
   Widget _buildHorizontalTabBar(BuildContext context) {
     final theme = Theme.of(context);
     final shellTheme = theme.extension<ForgeShellTheme>();
-    return DragTarget<PanelTabDragData>(
+    return DragTarget<ForgeDragData>(
       onWillAcceptWithDetails: (details) {
-        return details.data.sourceArea != widget.panelArea;
+        return switch (details.data) {
+          PanelTabDragData d => d.sourceArea != widget.panelArea,
+          TabDragData _ => true, // Accept editor tabs from middle panels
+          SectionDragData _ => true, // Accept sections from other panels
+          _ => false,
+        };
       },
       onAcceptWithDetails: (details) {
-        widget.onTabDropped?.call(details.data);
+        switch (details.data) {
+          case PanelTabDragData data:
+            widget.onTabDropped?.call(data);
+          case TabDragData data:
+            widget.onEditorDropped?.call(data);
+          case SectionDragData _:
+            break;
+        }
       },
       builder: (context, candidateData, rejectedData) {
         final isDropTarget = candidateData.isNotEmpty;
@@ -827,6 +861,7 @@ class _ForgePanelWidgetState extends State<ForgePanelWidget> {
                     title: widget.tabs[i].title,
                     tabIndex: i,
                     sourceArea: widget.panelArea,
+                    sections: widget.tabs[i].sections,
                   ),
                   feedback: _buildHorizTabDragFeedback(context, widget.tabs[i]),
                   childWhenDragging: Opacity(
@@ -952,10 +987,12 @@ class _ForgePanelWidgetState extends State<ForgePanelWidget> {
 class _SidePanelEmptyPlaceholder extends StatefulWidget {
   final PanelArea panelArea;
   final void Function(PanelTabDragData data)? onTabDropped;
+  final void Function(TabDragData data)? onEditorDropped;
 
   const _SidePanelEmptyPlaceholder({
     required this.panelArea,
     this.onTabDropped,
+    this.onEditorDropped,
   });
 
   @override
@@ -971,12 +1008,24 @@ class _SidePanelEmptyPlaceholderState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final shellTheme = theme.extension<ForgeShellTheme>();
-    return DragTarget<PanelTabDragData>(
+    return DragTarget<ForgeDragData>(
       onWillAcceptWithDetails: (details) {
-        return details.data.sourceArea != widget.panelArea;
+        return switch (details.data) {
+          PanelTabDragData d => d.sourceArea != widget.panelArea,
+          TabDragData _ => true,
+          SectionDragData _ => true,
+          _ => false,
+        };
       },
       onAcceptWithDetails: (details) {
-        widget.onTabDropped?.call(details.data);
+        switch (details.data) {
+          case PanelTabDragData data:
+            widget.onTabDropped?.call(data);
+          case TabDragData data:
+            widget.onEditorDropped?.call(data);
+          case SectionDragData _:
+            break;
+        }
       },
       builder: (context, candidateData, rejectedData) {
         final isDropTarget = candidateData.isNotEmpty;

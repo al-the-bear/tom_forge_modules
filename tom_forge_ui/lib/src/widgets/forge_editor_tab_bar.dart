@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../components/forge_editor.dart';
+import '../components/forge_view.dart';
 import '../theme/forge_shell_theme.dart';
 import 'forge_drag_data.dart';
 import 'forge_shell_scaffold.dart';
@@ -9,6 +10,9 @@ import 'forge_shell_scaffold.dart';
 /// Callback for when a tab is dropped onto this tab bar from another panel.
 /// [isCopy] is true when SHIFT was held during the drop (copy semantics).
 typedef EditorDropCallback = void Function(ForgeEditor editor, {bool isCopy});
+
+/// Callback for when a view section is dropped onto the editor tab bar.
+typedef ViewDropCallback = void Function(ForgeView view);
 
 /// Tab bar for the editor area.
 ///
@@ -24,6 +28,9 @@ class ForgeEditorTabBar extends StatefulWidget {
   /// Called when an editor tab from another panel is dropped here.
   final EditorDropCallback? onEditorDropped;
 
+  /// Called when a view section is dropped here from a side/bottom panel.
+  final ViewDropCallback? onViewDropped;
+
   /// Index of the panel this tab bar belongs to (for drag identity).
   final int panelIndex;
 
@@ -34,6 +41,7 @@ class ForgeEditorTabBar extends StatefulWidget {
     required this.onSelect,
     required this.onClose,
     this.onEditorDropped,
+    this.onViewDropped,
     this.panelIndex = 0,
   });
 
@@ -85,21 +93,31 @@ class _ForgeEditorTabBarState extends State<ForgeEditorTabBar> {
       child: KeyboardListener(
         focusNode: _focusNode,
         onKeyEvent: _handleKeyEvent,
-        child: DragTarget<TabDragData>(
+        child: DragTarget<ForgeDragData>(
       onWillAcceptWithDetails: (details) {
-        // Accept drops from different panels only.
-        if (details.data.sourcePanelIndex == widget.panelIndex) return false;
-        setState(() => _isDragOver = true);
-        return true;
+        final accepted = switch (details.data) {
+          TabDragData d => d.sourcePanelIndex != widget.panelIndex,
+          SectionDragData _ => true, // Accept view drops from side panels
+          _ => false,
+        };
+        if (accepted) setState(() => _isDragOver = true);
+        return accepted;
       },
       onLeave: (_) => setState(() => _isDragOver = false),
       onAcceptWithDetails: (details) {
         setState(() => _isDragOver = false);
-        final isCopy = HardwareKeyboard.instance.logicalKeysPressed
-            .contains(LogicalKeyboardKey.shiftLeft) ||
-            HardwareKeyboard.instance.logicalKeysPressed
-            .contains(LogicalKeyboardKey.shiftRight);
-        widget.onEditorDropped?.call(details.data.editor, isCopy: isCopy);
+        switch (details.data) {
+          case TabDragData data:
+            final isCopy = HardwareKeyboard.instance.logicalKeysPressed
+                .contains(LogicalKeyboardKey.shiftLeft) ||
+                HardwareKeyboard.instance.logicalKeysPressed
+                .contains(LogicalKeyboardKey.shiftRight);
+            widget.onEditorDropped?.call(data.editor, isCopy: isCopy);
+          case SectionDragData data:
+            widget.onViewDropped?.call(data.section);
+          case PanelTabDragData _:
+            break; // Not accepted
+        }
       },
       builder: (context, candidateData, rejectedData) {
         final shellTheme = Theme.of(context).extension<ForgeShellTheme>();

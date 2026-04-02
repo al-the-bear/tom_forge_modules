@@ -7,9 +7,12 @@ import '../theme/forge_shell_theme.dart';
 import 'forge_drag_data.dart';
 import 'forge_shell_scaffold.dart';
 
-/// Callback when an editor is dropped on a zone in the overlay.
+/// Callback when a component is dropped on a zone in the overlay.
+///
+/// Accepts [TabDragData] (editor from another middle panel) or
+/// [SectionDragData] (view from a side/bottom panel).
 typedef DropZoneCallback = void Function(
-  TabDragData data,
+  ForgeDragData data,
   DropPosition position, {
   bool isCopy,
 });
@@ -17,9 +20,9 @@ typedef DropZoneCallback = void Function(
 /// Overlay that appears on editor panels during drag operations.
 ///
 /// Shows directional drop zones (left, center, right) using themed
-/// colors from [ForgeShellTheme]. The overlay activates only when
-/// a [TabDragData] drag enters the area, with a subtle delayed
-/// reveal for each zone to prevent accidental drops.
+/// colors from [ForgeShellTheme]. The overlay activates when any
+/// [ForgeDragData] drag (editor tab or view section) enters the area,
+/// with a subtle delayed reveal for each zone to prevent accidental drops.
 class EditorDropZoneOverlay extends StatefulWidget {
   /// The child widget (the editor panel content).
   final Widget child;
@@ -63,9 +66,10 @@ class _EditorDropZoneOverlayState extends State<EditorDropZoneOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    return DragTarget<TabDragData>(
+    return DragTarget<ForgeDragData>(
       onWillAcceptWithDetails: (details) {
-        // Accept from any panel (including same panel for split).
+        // Accept editor tabs and view sections, but not whole panel tabs.
+        if (details.data is PanelTabDragData) return false;
         if (!_isDragActive) {
           setState(() => _isDragActive = true);
           // Start delayed reveal timer.
@@ -341,8 +345,9 @@ class _EmptyPanelDropTargetState extends State<EmptyPanelDropTarget> {
     final borderColor = shellTheme?.dropZoneValid ??
         theme.colorScheme.primary.withValues(alpha: 0.35);
 
-    return DragTarget<TabDragData>(
-      onWillAcceptWithDetails: (_) {
+    return DragTarget<ForgeDragData>(
+      onWillAcceptWithDetails: (details) {
+        if (details.data is PanelTabDragData) return false;
         setState(() => _isDragOver = true);
         return true;
       },
