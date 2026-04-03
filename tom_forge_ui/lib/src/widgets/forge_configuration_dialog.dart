@@ -8,6 +8,7 @@ import 'package:tom_editors_shared/tom_editors_shared.dart'
     show ForgeTextSettings;
 
 import '../actions/forge_shortcut_binding.dart';
+import '../module/forge_config_panel.dart';
 import '../services/forge_preferences_service.dart';
 import '../shell/forge_shell_api.dart';
 
@@ -38,24 +39,28 @@ enum ForgeConfigMode {
 class ForgeConfigurationDialog extends StatefulWidget {
   final ForgePreferencesService preferencesService;
   final ForgeShellApi? shellApi;
+  final List<ForgeConfigPanel> modulePanels;
 
   const ForgeConfigurationDialog({
     super.key,
     required this.preferencesService,
     this.shellApi,
+    this.modulePanels = const [],
   });
 
   /// Shows the configuration dialog.
   static Future<void> show(
     BuildContext context,
     ForgePreferencesService preferencesService,
-    ForgeShellApi? shellApi,
-  ) {
+    ForgeShellApi? shellApi, {
+    List<ForgeConfigPanel> modulePanels = const [],
+  }) {
     return showDialog(
       context: context,
       builder: (context) => ForgeConfigurationDialog(
         preferencesService: preferencesService,
         shellApi: shellApi,
+        modulePanels: modulePanels,
       ),
     );
   }
@@ -95,6 +100,9 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
 
   // Sub-tab selection.
   _ConfigTab _selectedTab = _ConfigTab.shell;
+
+  /// When non-null, a module config panel is selected instead of a built-in tab.
+  String? _selectedModulePanelId;
 
   // Terminal settings controllers.
   late TextEditingController _terminalDefaultShellController;
@@ -287,6 +295,11 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
 
       await prefs.save();
 
+      // Invoke module panel save callbacks.
+      for (final panel in widget.modulePanels) {
+        await panel.onSave?.call();
+      }
+
       if (mounted) {
         Navigator.of(context).pop();
       }
@@ -416,6 +429,22 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
             'File Types',
             theme,
           ),
+          // Module-contributed config panels.
+          if (widget.modulePanels.isNotEmpty) ...[
+            const Divider(height: 24),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: Text(
+                'MODULES',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ),
+            for (final panel in widget.modulePanels)
+              _buildModuleSidebarItem(panel, theme),
+          ],
         ],
       ),
     );
@@ -427,14 +456,17 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
     String label,
     ThemeData theme,
   ) {
-    final isSelected = _selectedTab == tab;
+    final isSelected = _selectedTab == tab && _selectedModulePanelId == null;
     return Material(
       color: isSelected
           ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3)
           : Colors.transparent,
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
-        onTap: () => setState(() => _selectedTab = tab),
+        onTap: () => setState(() {
+          _selectedTab = tab;
+          _selectedModulePanelId = null;
+        }),
         borderRadius: BorderRadius.circular(8),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -469,9 +501,63 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
     );
   }
 
+  Widget _buildModuleSidebarItem(ForgeConfigPanel panel, ThemeData theme) {
+    final isSelected = _selectedModulePanelId == panel.id;
+    return Material(
+      color: isSelected
+          ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3)
+          : Colors.transparent,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: () => setState(() {
+          _selectedModulePanelId = panel.id;
+        }),
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              Icon(
+                panel.icon,
+                size: 20,
+                color: isSelected
+                    ? theme.colorScheme.primary
+                    : theme.iconTheme.color,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  panel.title,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight:
+                        isSelected ? FontWeight.w600 : FontWeight.normal,
+                    color: isSelected
+                        ? theme.colorScheme.primary
+                        : theme.textTheme.bodyMedium?.color,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   // ── Tab content router ──
 
   Widget _buildTabContent(ThemeData theme) {
+    // Show module panel if one is selected.
+    if (_selectedModulePanelId != null) {
+      final panel = widget.modulePanels
+          .where((p) => p.id == _selectedModulePanelId)
+          .firstOrNull;
+      if (panel != null) {
+        return panel.builder(context);
+      }
+    }
     return switch (_selectedTab) {
       _ConfigTab.shell => _buildShellTab(theme),
       _ConfigTab.terminal => _buildTerminalTab(theme),

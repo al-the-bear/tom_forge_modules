@@ -518,6 +518,17 @@ class DefaultLayoutController implements ForgeLayoutController {
     );
   }
 
+  /// Resets all panel sizes to their constructor defaults.
+  void resetPanelSizes({
+    double leftSize = 250,
+    double rightSize = 220,
+    double bottomSize = 180,
+  }) {
+    setPanelSize(ForgePanelLocation.left, leftSize);
+    setPanelSize(ForgePanelLocation.right, rightSize);
+    setPanelSize(ForgePanelLocation.bottom, bottomSize);
+  }
+
   ValueNotifier<LayoutPanelConfig>? _panelNotifier(
     ForgePanelLocation location,
   ) {

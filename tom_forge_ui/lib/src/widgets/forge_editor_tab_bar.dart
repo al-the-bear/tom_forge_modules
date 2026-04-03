@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../components/forge_editor.dart';
-import '../components/forge_view.dart';
 import '../theme/forge_shell_theme.dart';
 import 'forge_drag_data.dart';
 import 'forge_shell_scaffold.dart';
@@ -12,7 +11,7 @@ import 'forge_shell_scaffold.dart';
 typedef EditorDropCallback = void Function(ForgeEditor editor, {bool isCopy});
 
 /// Callback for when a view section is dropped onto the editor tab bar.
-typedef ViewDropCallback = void Function(ForgeView view);
+typedef ViewDropCallback = void Function(SectionDragData data);
 
 /// Tab bar for the editor area.
 ///
@@ -114,7 +113,7 @@ class _ForgeEditorTabBarState extends State<ForgeEditorTabBar> {
                 .contains(LogicalKeyboardKey.shiftRight);
             widget.onEditorDropped?.call(data.editor, isCopy: isCopy);
           case SectionDragData data:
-            widget.onViewDropped?.call(data.section);
+            widget.onViewDropped?.call(data);
           case PanelTabDragData _:
             break; // Not accepted
         }

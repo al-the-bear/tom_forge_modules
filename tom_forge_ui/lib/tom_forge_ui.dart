@@ -32,6 +32,7 @@ export 'src/providers/dart_outline_provider.dart';
 export 'src/providers/modified_file_decoration_provider.dart';
 
 // ── Module ──
+export 'src/module/forge_config_panel.dart';
 export 'src/module/forge_module.dart';
 
 // ── Shell ──

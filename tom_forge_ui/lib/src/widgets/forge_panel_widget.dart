@@ -25,6 +25,9 @@ class ForgeSidePanelWidget extends StatefulWidget {
   final VoidCallback? onConfigTap;
   final WidgetBuilder? configurationPanelBuilder;
 
+  /// External notifier to open/close the config panel from outside.
+  final ValueNotifier<bool>? configPanelVisible;
+
   /// The panel area this side panel belongs to.
   final PanelArea panelArea;
 
@@ -41,6 +44,7 @@ class ForgeSidePanelWidget extends StatefulWidget {
     this.showConfigTab = false,
     this.onConfigTap,
     this.configurationPanelBuilder,
+    this.configPanelVisible,
     this.panelArea = PanelArea.left,
     this.onTabDropped,
     this.onEditorDropped,
@@ -53,6 +57,34 @@ class ForgeSidePanelWidget extends StatefulWidget {
 class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
   int _activeTabIndex = 0;
   bool _showConfigPanel = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.configPanelVisible?.addListener(_onConfigPanelVisibleChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant ForgeSidePanelWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.configPanelVisible != widget.configPanelVisible) {
+      oldWidget.configPanelVisible?.removeListener(_onConfigPanelVisibleChanged);
+      widget.configPanelVisible?.addListener(_onConfigPanelVisibleChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.configPanelVisible?.removeListener(_onConfigPanelVisibleChanged);
+    super.dispose();
+  }
+
+  void _onConfigPanelVisibleChanged() {
+    final visible = widget.configPanelVisible?.value ?? false;
+    if (visible != _showConfigPanel) {
+      setState(() => _showConfigPanel = visible);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -188,6 +220,7 @@ class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
         onTap: () => setState(() {
           _activeTabIndex = index;
           _showConfigPanel = false;
+          widget.configPanelVisible?.value = false;
         }),
         child: Container(
           width: ForgeDimensions.sideTabBarCollapsed,
@@ -250,6 +283,7 @@ class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
         onTap: () {
           setState(() {
             _showConfigPanel = true;
+            widget.configPanelVisible?.value = true;
           });
           if (widget.configurationPanelBuilder == null) {
             widget.onConfigTap?.call();

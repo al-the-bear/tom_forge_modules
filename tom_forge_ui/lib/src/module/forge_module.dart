@@ -6,6 +6,7 @@ import '../components/forge_editor.dart';
 import '../components/forge_view.dart';
 import '../model/forge_application.dart';
 import '../shell/forge_shell_api.dart';
+import 'forge_config_panel.dart';
 
 /// Registration interface for shell modules.
 ///
@@ -48,4 +49,11 @@ abstract class ForgeModule {
   /// that reference the module's views and editors. This allows modules
   /// to provide complete working environments.
   List<ForgeApplication> get applications => [];
+
+  /// Configuration panels this module contributes to the settings dialog.
+  ///
+  /// Panels appear in the sidebar alongside built-in panels. Use
+  /// [ForgeConfigPanel.priority] to control ordering (100+ recommended
+  /// for modules; 0–99 is reserved for built-in panels).
+  List<ForgeConfigPanel> get configPanels => [];
 }

@@ -29,7 +29,7 @@ import '../shell/forge_status_bar_controller.dart';
 import '../actions/forge_action.dart' as shell_action;
 import '../actions/forge_shortcut_binding.dart';
 import '../services/forge_shortcut_manager.dart';
-import 'forge_configuration_dialog.dart';
+import 'forge_configuration_panel.dart';
 import 'forge_quick_open.dart';
 import 'forge_drag_data.dart';
 import 'forge_drop_zone_overlay.dart';
@@ -74,15 +74,10 @@ class ForgeAnimations {
 
 /// Dimension constants for shell layout.
 class ForgeDimensions {
-  // Panels
-  static const double leftPanelMinWidth = 180;
-  static const double leftPanelMaxWidth = 600;
+  // Panels – no upper limits; users may drag to any size.
+  static const double panelMinSize = 50;
   static const double leftPanelDefaultWidth = 280;
-  static const double rightPanelMinWidth = 180;
-  static const double rightPanelMaxWidth = 600;
   static const double rightPanelDefaultWidth = 280;
-  static const double bottomPanelMinHeight = 100;
-  static const double bottomPanelMaxHeight = 500;
   static const double bottomPanelDefaultHeight = 200;
   static const double middlePanelMinWidth = 200;
 
@@ -213,6 +208,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   /// Adjusted during drag-resize of middle panel dividers.
   List<double> _middlePanelFlex = [];
 
+  /// Notifier to externally open/close the left panel configuration tab.
+  final ValueNotifier<bool> _configPanelVisible = ValueNotifier<bool>(false);
+
   @override
   void initState() {
     super.initState();
@@ -262,6 +260,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     _replaceFieldFocusNode.dispose();
     _quickOpenSearchController.dispose();
     _quickOpenFocusNode.dispose();
+    _configPanelVisible.dispose();
     _preferences.removeListener(_onPreferencesChanged);
     _saveAllEditorStates();
     _saveLayoutState();
@@ -421,25 +420,23 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   /// converting [ForgeTextSettings] to [ForgeTextEditorOptions].
   void _propagateSettingsToActiveEditors() {
     for (final editor in widget.systemState.openEditors) {
+      final typeId = _editorTypeId(editor);
+      if (typeId == null) continue;
+      final settings = widget.shell.getTextSettings(typeId);
+      final options = ForgeTextEditorOptions(
+        tabSize: settings.tabSize,
+        insertSpaces: settings.insertSpaces,
+        wordWrap: settings.wordWrap ? ForgeWordWrap.on : ForgeWordWrap.off,
+        fontFamily: settings.fontFamily,
+        fontSize: settings.fontSize,
+        lineHeight: settings.lineHeight,
+        showLineNumbers: settings.showLineNumbers,
+        highlightCurrentLine: settings.highlightCurrentLine,
+      );
       if (editor is ForgeTextEditor) {
-        final typeId = _editorTypeId(editor);
-        if (typeId != null) {
-          final settings = widget.shell.getTextSettings(typeId);
-          editor.updateOptions(
-            ForgeTextEditorOptions(
-              tabSize: settings.tabSize,
-              insertSpaces: settings.insertSpaces,
-              wordWrap: settings.wordWrap
-                  ? ForgeWordWrap.on
-                  : ForgeWordWrap.off,
-              fontFamily: settings.fontFamily,
-              fontSize: settings.fontSize,
-              lineHeight: settings.lineHeight,
-              showLineNumbers: settings.showLineNumbers,
-              highlightCurrentLine: settings.highlightCurrentLine,
-            ),
-          );
-        }
+        editor.updateOptions(options);
+      } else if (editor is ForgeYamlEditor) {
+        editor.updateOptions(options);
       }
     }
   }
@@ -907,8 +904,57 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   }
 
   Future<void> _openSettings() async {
-    await ForgeConfigurationDialog.show(context, _preferences, widget.shell);
-    _onPreferencesChanged();
+    // Ensure the left panel is visible.
+    final leftPanel = _layout.leftPanel.value;
+    if (!leftPanel.isVisible) {
+      _layout.openPanel(ForgePanelLocation.left);
+    }
+    // Toggle the config panel inside the left side panel.
+    _configPanelVisible.value = true;
+  }
+
+  /// Resets all panel sizes (left, right, bottom) to their defaults.
+  void _resetPanelSizes() {
+    _layout.resetPanelSizes(
+      leftSize: ForgeDimensions.leftPanelDefaultWidth,
+      rightSize: ForgeDimensions.rightPanelDefaultWidth,
+      bottomSize: ForgeDimensions.bottomPanelDefaultHeight,
+    );
+    setState(() {});
+  }
+
+  /// Moves cross-panel items back to their original locations:
+  /// - Editors that were dragged to side/bottom panels return to the middle.
+  /// - Views that were dragged to the middle panel are closed there.
+  void _resetPanelLocations() {
+    final layout = widget.application.layout;
+
+    // Collect editors wrapped as views in side/bottom panels and move back.
+    for (final panel in [layout.leftPanel, layout.rightPanel, layout.bottomPanel]) {
+      for (final tab in panel.tabs) {
+        final adapters = tab.sections
+            .whereType<_EditorViewAdapter>()
+            .toList();
+        for (final adapter in adapters) {
+          tab.sections.remove(adapter);
+          // Re-open the wrapped editor in the middle panel.
+          _layout.moveComponent(adapter.editor, _layout.activeMiddlePanelIndex);
+        }
+      }
+    }
+
+    // Close view-wrapping adapters from the middle panel.
+    final middlePanels = _layout.middlePanels.value;
+    for (final panel in middlePanels) {
+      final viewAdapters = panel
+          .whereType<_ViewEditorAdapter>()
+          .toList();
+      for (final adapter in viewAdapters) {
+        _layout.closeEditor(adapter);
+      }
+    }
+
+    setState(() {});
   }
 
   ForgeTextEditor? get _activeTextEditor {
@@ -2137,8 +2183,31 @@ Press "?" for this help document.
               ),
             ),
           ),
-          // Keep center cluster visually centered by mirroring nav width.
-          const SizedBox(width: navClusterWidth),
+          // Right cluster: layout reset buttons.
+          SizedBox(
+            width: navClusterWidth,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                IconButton(
+                  icon: Icon(
+                    Icons.flip_to_front,
+                    size: ForgeDimensions.iconToolbar,
+                  ),
+                  onPressed: _resetPanelLocations,
+                  tooltip: 'Reset Panel Locations',
+                ),
+                IconButton(
+                  icon: Icon(
+                    Icons.fit_screen_outlined,
+                    size: ForgeDimensions.iconToolbar,
+                  ),
+                  onPressed: _resetPanelSizes,
+                  tooltip: 'Reset Panel Sizes',
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -2163,6 +2232,7 @@ Press "?" for this help document.
                     panelArea: PanelArea.left,
                     showConfigTab: true,
                     configurationPanelBuilder: _buildConfigurationPanel,
+                    configPanelVisible: _configPanelVisible,
                   ),
                 if (leftConfig.isVisible)
                   _buildVerticalResizeHandle(
@@ -2232,8 +2302,8 @@ Press "?" for this help document.
   void _resizeLeftPanel(double deltaX) {
     final current = _layout.leftPanel.value;
     final nextSize = (current.size + deltaX).clamp(
-      ForgeDimensions.leftPanelMinWidth,
-      ForgeDimensions.leftPanelMaxWidth,
+      ForgeDimensions.panelMinSize,
+      double.infinity,
     );
     _layout.setPanelSize(ForgePanelLocation.left, nextSize);
   }
@@ -2241,8 +2311,8 @@ Press "?" for this help document.
   void _resizeRightPanel(double deltaX) {
     final current = _layout.rightPanel.value;
     final nextSize = (current.size - deltaX).clamp(
-      ForgeDimensions.rightPanelMinWidth,
-      ForgeDimensions.rightPanelMaxWidth,
+      ForgeDimensions.panelMinSize,
+      double.infinity,
     );
     _layout.setPanelSize(ForgePanelLocation.right, nextSize);
   }
@@ -2250,8 +2320,8 @@ Press "?" for this help document.
   void _resizeBottomPanel(double deltaY) {
     final current = _layout.bottomPanel.value;
     final nextSize = (current.size - deltaY).clamp(
-      ForgeDimensions.bottomPanelMinHeight,
-      ForgeDimensions.bottomPanelMaxHeight,
+      ForgeDimensions.panelMinSize,
+      double.infinity,
     );
     _layout.setPanelSize(ForgePanelLocation.bottom, nextSize);
   }
@@ -2372,6 +2442,7 @@ Press "?" for this help document.
     bool showConfigTab = false,
     VoidCallback? onConfigTap,
     WidgetBuilder? configurationPanelBuilder,
+    ValueNotifier<bool>? configPanelVisible,
   }) {
     if (tabs.isEmpty && !showConfigTab) {
       return SizedBox(width: width);
@@ -2384,6 +2455,7 @@ Press "?" for this help document.
         showConfigTab: showConfigTab,
         onConfigTap: onConfigTap,
         configurationPanelBuilder: configurationPanelBuilder,
+        configPanelVisible: configPanelVisible,
         panelArea: panelArea,
         onTabDropped: (data) => _handlePanelTabDrop(data, panelArea),
         onEditorDropped: (data) => _handleEditorDropOnPanel(data, panelArea),
@@ -2392,142 +2464,15 @@ Press "?" for this help document.
   }
 
   Widget _buildConfigurationPanel(BuildContext context) {
-    final theme = Theme.of(context);
-    final primaryModifier =
-        defaultTargetPlatform == TargetPlatform.macOS ? 'Cmd' : 'Ctrl';
-
-    String keyLabel(LogicalKeyboardKey key) {
-      final label = key.keyLabel;
-      if (label.isNotEmpty) return label.toUpperCase();
-      return (key.debugName ?? '?').replaceFirst('Key ', '').toUpperCase();
-    }
-
-    Widget buildPanelToggle({
-      required String label,
-      required ValueListenable<LayoutPanelConfig> config,
-      required ForgePanelLocation location,
-    }) {
-      return ValueListenableBuilder<LayoutPanelConfig>(
-        valueListenable: config,
-        builder: (context, panelConfig, _) {
-          return SwitchListTile(
-            title: Text(label),
-            value: panelConfig.isVisible,
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            onChanged: (nextValue) {
-              if (nextValue != panelConfig.isVisible) {
-                _layout.togglePanel(location);
-              }
-            },
-          );
-        },
-      );
-    }
-
-    final shortcutMenus = widget.shell.shortcuts.allMenus;
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Configuration', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 8),
-          Text(
-            'Shell settings, module panels, and shortcut-menu mappings.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: Column(
-                children: [
-                  buildPanelToggle(
-                    label: 'Show left panel',
-                    config: _layout.leftPanel,
-                    location: ForgePanelLocation.left,
-                  ),
-                  buildPanelToggle(
-                    label: 'Show right panel',
-                    config: _layout.rightPanel,
-                    location: ForgePanelLocation.right,
-                  ),
-                  buildPanelToggle(
-                    label: 'Show bottom panel',
-                    config: _layout.bottomPanel,
-                    location: ForgePanelLocation.bottom,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text('Module Panels', style: theme.textTheme.titleSmall),
-          const SizedBox(height: 4),
-          for (final module in widget.shell.modules.allModules)
-            Card(
-              child: ExpansionTile(
-                title: Text(module.displayName),
-                subtitle: Text(
-                  '${module.views.length} views, '
-                  '${module.actions.length} actions, '
-                  '${module.shortcuts.length} shortcuts',
-                ),
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        module.views.isEmpty
-                            ? 'No module views registered.'
-                            : module.views
-                                .map((view) => view.title.value)
-                                .join(', '),
-                        style: theme.textTheme.bodySmall,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          const SizedBox(height: 8),
-          Text('Two-Key Shortcut Menus', style: theme.textTheme.titleSmall),
-          const SizedBox(height: 4),
-          if (shortcutMenus.isEmpty)
-            Card(
-              child: ListTile(
-                dense: true,
-                title: const Text('No shortcut menus registered'),
-                subtitle: const Text(
-                  'Modules can contribute Shift+Cmd/Ctrl shortcut menus.',
-                ),
-              ),
-            )
-          else
-            for (final menu in shortcutMenus)
-              Card(
-                child: ListTile(
-                  dense: true,
-                  leading: const Icon(Icons.keyboard_command_key),
-                  title: Text(menu.label),
-                  subtitle: Text(
-                    'Trigger: Shift+$primaryModifier+${keyLabel(menu.triggerKey)} '
-                    '(${menu.entries.length} entries)',
-                  ),
-                ),
-              ),
-          const SizedBox(height: 8),
-          Text(
-            'Command Palette: $primaryModifier+P or F1',
-            style: theme.textTheme.bodySmall,
-          ),
-        ],
-      ),
+    final modulePanels = widget.shell.modules.allModules
+        .expand((m) => m.configPanels)
+        .toList()
+      ..sort((a, b) => a.priority.compareTo(b.priority));
+    return ForgeConfigurationPanel(
+      preferencesService: _preferences,
+      shellApi: widget.shell,
+      modulePanels: modulePanels,
+      onSettingsChanged: _onPreferencesChanged,
     );
   }
 
@@ -2649,8 +2594,8 @@ Press "?" for this help document.
                   }
                   widget.systemState.setActiveEditor(editor);
                 },
-                onViewDropped: (view) =>
-                    _handleViewDropOnMiddle(view, panelIndex),
+                onViewDropped: (data) =>
+                    _handleViewDropOnMiddle(data, panelIndex),
               ),
               if (showFindBar) _buildFindReplaceBar(),
               Expanded(
@@ -2892,9 +2837,11 @@ Press "?" for this help document.
 
   /// Handles a view section being dropped onto the editor tab bar from
   /// a side/bottom panel.
-  void _handleViewDropOnMiddle(ForgeView view, int panelIndex) {
-    final adapter = _ViewEditorAdapter(view);
+  void _handleViewDropOnMiddle(SectionDragData data, int panelIndex) {
+    final adapter = _ViewEditorAdapter(data.section);
     _layout.moveComponent(adapter, panelIndex);
+    // Remove the section from its source side/bottom panel.
+    _removeSectionFromPanel(data);
     widget.systemState.setActiveEditor(adapter);
   }
 

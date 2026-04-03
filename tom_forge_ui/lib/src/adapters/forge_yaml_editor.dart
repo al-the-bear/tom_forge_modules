@@ -21,11 +21,13 @@ class ForgeYamlEditor extends ForgeSchemaEditor {
   final _title = ValueNotifier<String>('YAML');
   final _titleExtension = ValueNotifier<String?>(null);
   ShellEditorIntegration? _integration;
+  ForgeTextEditorOptions _options;
 
   ForgeYamlEditor({
     required this.controller,
     required ForgeModule module,
-  }) : _module = module {
+    ForgeTextEditorOptions options = const ForgeTextEditorOptions(),
+  }) : _module = module, _options = options {
     controller.addListener(_onControllerChanged);
 
     if (controller.uri != null) {
@@ -75,6 +77,29 @@ class ForgeYamlEditor extends ForgeSchemaEditor {
     return YamlSchemaEditor(
       controller: controller,
       integration: _integration,
+      theme: _buildThemeFromOptions(),
+    );
+  }
+
+  ForgeTextEditorOptions get options => _options;
+
+  void updateOptions(ForgeTextEditorOptions options) => _options = options;
+
+  YamlEditorTheme _buildThemeFromOptions() {
+    const base = YamlEditorTheme();
+    return YamlEditorTheme(
+      colors: base.colors,
+      structureColors: base.structureColors,
+      fonts: YamlEditorFontSettings(
+        keyFontFamily: _options.fontFamily ?? base.fonts.keyFontFamily,
+        valueFontFamily: _options.fontFamily ?? base.fonts.valueFontFamily,
+        keyFontSize: _options.fontSize ?? base.fonts.keyFontSize,
+        valueFontSize: _options.fontSize ?? base.fonts.valueFontSize,
+        lineHeight: _options.lineHeight ?? base.fonts.lineHeight,
+      ),
+      embeddedEditorStyle: base.embeddedEditorStyle,
+      editorPadding: base.editorPadding,
+      indentWidth: base.indentWidth,
     );
   }
 
