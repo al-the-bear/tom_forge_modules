@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart'
     show ForgeTextSettings;
 
+import '../actions/forge_action.dart';
 import '../actions/forge_shortcut_binding.dart';
 import '../module/forge_config_panel.dart';
 import '../services/forge_preferences_service.dart';
@@ -34,7 +35,8 @@ class ForgeConfigurationPanel extends StatefulWidget {
 }
 
 class _ForgeConfigurationPanelState extends State<ForgeConfigurationPanel> {
-  int _selectedSection = 0;
+  /// Tracks which accordion sections are expanded (by index).
+  final Set<int> _expandedSections = {0};
 
   static const _builtInSections = [
     _SectionDef('Shell', Icons.desktop_mac_outlined),
@@ -52,58 +54,45 @@ class _ForgeConfigurationPanelState extends State<ForgeConfigurationPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      children: [
-        // Section selector as a scrollable list of chips.
-        SizedBox(
-          height: 40,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            itemCount: _totalSections,
-            separatorBuilder: (context, index) => const SizedBox(width: 4),
-            itemBuilder: (context, index) {
-              final isSelected = _selectedSection == index;
-              final String label;
-              final IconData icon;
-              if (index < _builtInSections.length) {
-                label = _builtInSections[index].label;
-                icon = _builtInSections[index].icon;
-              } else {
-                final mp =
-                    widget.modulePanels[index - _builtInSections.length];
-                label = mp.title;
-                icon = mp.icon;
-              }
-              return FilterChip(
-                selected: isSelected,
-                label: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(icon, size: 14),
-                    const SizedBox(width: 4),
-                    Text(label, style: const TextStyle(fontSize: 11)),
-                  ],
-                ),
-                onSelected: (_) => setState(() => _selectedSection = index),
-                visualDensity: VisualDensity.compact,
-                padding: EdgeInsets.zero,
-                labelPadding: const EdgeInsets.symmetric(horizontal: 6),
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              );
-            },
-          ),
-        ),
-        const Divider(height: 1),
-        Expanded(child: _buildSelectedContent(theme)),
-      ],
+    return ListView.builder(
+      itemCount: _totalSections,
+      itemBuilder: (context, index) {
+        final String label;
+        final IconData icon;
+        if (index < _builtInSections.length) {
+          label = _builtInSections[index].label;
+          icon = _builtInSections[index].icon;
+        } else {
+          final mp = widget.modulePanels[index - _builtInSections.length];
+          label = mp.title;
+          icon = mp.icon;
+        }
+        final isExpanded = _expandedSections.contains(index);
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _ConfigAccordionHeader(
+              label: label,
+              icon: icon,
+              isExpanded: isExpanded,
+              onTap: () => setState(() {
+                if (isExpanded) {
+                  _expandedSections.remove(index);
+                } else {
+                  _expandedSections.add(index);
+                }
+              }),
+            ),
+            if (isExpanded) _buildSectionContent(index),
+          ],
+        );
+      },
     );
   }
 
-  Widget _buildSelectedContent(ThemeData theme) {
-    if (_selectedSection < _builtInSections.length) {
-      return switch (_selectedSection) {
+  Widget _buildSectionContent(int index) {
+    if (index < _builtInSections.length) {
+      return switch (index) {
         0 => _ShellSettingsSection(
             preferencesService: widget.preferencesService,
             onChanged: widget.onSettingsChanged,
@@ -152,8 +141,79 @@ class _ForgeConfigurationPanelState extends State<ForgeConfigurationPanel> {
       };
     }
     // Module panel.
-    final mp = widget.modulePanels[_selectedSection - _builtInSections.length];
+    final mp = widget.modulePanels[index - _builtInSections.length];
     return mp.builder(context);
+  }
+}
+
+/// Accordion section header for the configuration panel.
+class _ConfigAccordionHeader extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool isExpanded;
+  final VoidCallback onTap;
+
+  const _ConfigAccordionHeader({
+    required this.label,
+    required this.icon,
+    required this.isExpanded,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return GestureDetector(
+      onTap: onTap,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Container(
+          height: 28,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            color: isExpanded
+                ? theme.colorScheme.primaryContainer.withValues(alpha: 0.15)
+                : theme.colorScheme.surfaceContainerHighest,
+            border: Border(
+              bottom: BorderSide(
+                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+              ),
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                isExpanded ? Icons.expand_more : Icons.chevron_right,
+                size: 14,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+              ),
+              const SizedBox(width: 6),
+              Icon(
+                icon,
+                size: 14,
+                color: isExpanded
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  label,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    fontWeight:
+                        isExpanded ? FontWeight.bold : FontWeight.normal,
+                    color: isExpanded
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.onSurface.withValues(alpha: 0.8),
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -723,6 +783,7 @@ class _ShortcutsSettingsSectionState extends State<_ShortcutsSettingsSection> {
       ..sort((a, b) => a.action.label.compareTo(b.action.label));
 
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
@@ -747,6 +808,15 @@ class _ShortcutsSettingsSectionState extends State<_ShortcutsSettingsSection> {
                   ),
                 ),
               ),
+              const SizedBox(width: 4),
+              IconButton(
+                icon: const Icon(Icons.add, size: 16),
+                tooltip: widget.isChord ? 'Add Chord' : 'Add Shortcut',
+                onPressed: () => _addBinding(shellApi),
+                padding: EdgeInsets.zero,
+                constraints:
+                    const BoxConstraints(minWidth: 28, minHeight: 28),
+              ),
               if (!widget.isChord) ...[
                 const SizedBox(width: 4),
                 TextButton(
@@ -758,62 +828,79 @@ class _ShortcutsSettingsSectionState extends State<_ShortcutsSettingsSection> {
             ],
           ),
         ),
-        Expanded(
-          child: bindings.isEmpty
-              ? const Center(child: Text('No matches'))
-              : ListView.builder(
-                  itemCount: bindings.length,
-                  itemBuilder: (context, index) {
-                    final binding = bindings[index];
-                    return ListTile(
-                      dense: true,
-                      visualDensity: VisualDensity.compact,
-                      title: Text(
-                        binding.action.label,
-                        style: const TextStyle(fontSize: 12),
+        if (bindings.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(16),
+            child: Text('No matches'),
+          )
+        else
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: bindings.length,
+            itemBuilder: (context, index) {
+              final binding = bindings[index];
+              return ListTile(
+                dense: true,
+                visualDensity: VisualDensity.compact,
+                title: Text(
+                  binding.action.label,
+                  style: const TextStyle(fontSize: 12),
+                ),
+                subtitle: Text(
+                  binding.context ?? 'global',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: theme.colorScheme.onSurface
+                        .withValues(alpha: 0.5),
+                  ),
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      binding.displayString,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
                       ),
-                      subtitle: Text(
-                        binding.context ?? 'global',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: theme.colorScheme.onSurface
-                              .withValues(alpha: 0.5),
+                    ),
+                    const SizedBox(width: 4),
+                    InkWell(
+                      onTap: () => widget.isChord
+                          ? _rebindChord(binding)
+                          : _rebind(binding),
+                      child: Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: Text(
+                          _capturingActionId == binding.action.id
+                              ? '...'
+                              : 'Edit',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: theme.colorScheme.primary,
+                          ),
                         ),
                       ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            binding.displayString,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 12,
-                            ),
-                          ),
-                          if (!widget.isChord) ...[
-                            const SizedBox(width: 4),
-                            InkWell(
-                              onTap: () => _rebind(binding),
-                              child: Padding(
-                                padding: const EdgeInsets.all(4),
-                                child: Text(
-                                  _capturingActionId == binding.action.id
-                                      ? '...'
-                                      : 'Edit',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: theme.colorScheme.primary,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
+                    ),
+                    const SizedBox(width: 2),
+                    InkWell(
+                      onTap: () => _removeBinding(binding),
+                      child: Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: Icon(
+                          Icons.close,
+                          size: 12,
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.4),
+                        ),
                       ),
-                    );
-                  },
+                    ),
+                  ],
                 ),
-        ),
+              );
+            },
+          ),
       ],
     );
   }
@@ -877,6 +964,94 @@ class _ShortcutsSettingsSectionState extends State<_ShortcutsSettingsSection> {
     widget.preferencesService.clearShortcutOverrides();
     await widget.preferencesService.save();
     if (mounted) setState(() {});
+  }
+
+  Future<void> _addBinding(ForgeShellApi shellApi) async {
+    // Show a picker with all registered actions.
+    final allActions = shellApi.actionRegistry.allActions;
+    final boundIds = shellApi.shortcuts.allBindings
+        .where((b) => widget.isChord ? b.isChord : !b.isChord)
+        .map((b) => b.action.id)
+        .toSet();
+    // Show both bound and unbound actions, sorted by label.
+    final sortedActions = allActions.toList()
+      ..sort((a, b) => a.label.compareTo(b.label));
+
+    final chosen = await showDialog<ForgeAction>(
+      context: context,
+      builder: (ctx) => _ActionPickerDialog(
+        actions: sortedActions,
+        boundIds: boundIds,
+      ),
+    );
+    if (chosen == null || !mounted) return;
+
+    if (widget.isChord) {
+      final chord = await _captureChord();
+      if (chord == null || !mounted) return;
+      shellApi.shortcuts.rebindChord(chosen, chord);
+    } else {
+      final key = await _captureKey();
+      if (key == null || !mounted) return;
+      final conflict = shellApi.shortcuts.conflictsWith(key);
+      if (conflict != null && conflict.action.id != chosen.id) {
+        final accepted = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Conflict'),
+            content: Text(
+              '"${key.toDisplayString()}" is bound to '
+              '"${conflict.action.label}". Replace?',
+            ),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: const Text('Cancel')),
+              ElevatedButton(
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  child: const Text('Replace')),
+            ],
+          ),
+        );
+        if (accepted != true) return;
+      }
+      shellApi.shortcuts.rebind(chosen, key);
+      widget.preferencesService.setShortcutOverride(chosen.id, key);
+    }
+    await widget.preferencesService.save();
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _removeBinding(ForgeShortcutBinding binding) async {
+    final shellApi = widget.shellApi;
+    if (shellApi == null) return;
+    shellApi.shortcuts.removeBinding(binding.action.id);
+    widget.preferencesService.removeShortcutOverride(binding.action.id);
+    await widget.preferencesService.save();
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _rebindChord(ForgeShortcutBinding binding) async {
+    setState(() => _capturingActionId = binding.action.id);
+    final chord = await _captureChord();
+    if (!mounted) return;
+    setState(() => _capturingActionId = null);
+    if (chord == null) return;
+
+    final shellApi = widget.shellApi;
+    if (shellApi == null) return;
+
+    shellApi.shortcuts.rebindChord(binding.action, chord);
+    await widget.preferencesService.save();
+    if (mounted) setState(() {});
+  }
+
+  Future<ForgeChordKey?> _captureChord() {
+    return showDialog<ForgeChordKey>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => _ChordCaptureDialog(),
+    );
   }
 
   Future<ForgeShortcutKey?> _captureKey() {
@@ -943,6 +1118,201 @@ class _ShortcutsSettingsSectionState extends State<_ShortcutsSettingsSection> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Action picker dialog (for adding new shortcuts/chords)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ActionPickerDialog extends StatefulWidget {
+  final List<ForgeAction> actions;
+  final Set<String> boundIds;
+
+  const _ActionPickerDialog({
+    required this.actions,
+    required this.boundIds,
+  });
+
+  @override
+  State<_ActionPickerDialog> createState() => _ActionPickerDialogState();
+}
+
+class _ActionPickerDialogState extends State<_ActionPickerDialog> {
+  String _filter = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final filtered = widget.actions.where((a) {
+      if (_filter.isEmpty) return true;
+      return a.label.toLowerCase().contains(_filter) ||
+          a.id.toLowerCase().contains(_filter);
+    }).toList();
+
+    return AlertDialog(
+      title: const Text('Select Action'),
+      content: SizedBox(
+        width: 360,
+        height: 400,
+        child: Column(
+          children: [
+            TextField(
+              autofocus: true,
+              onChanged: (v) =>
+                  setState(() => _filter = v.trim().toLowerCase()),
+              style: const TextStyle(fontSize: 13),
+              decoration: const InputDecoration(
+                hintText: 'Filter actions...',
+                border: OutlineInputBorder(),
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                isDense: true,
+                prefixIcon: Icon(Icons.search, size: 16),
+                prefixIconConstraints:
+                    BoxConstraints(minWidth: 32, minHeight: 32),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: ListView.builder(
+                itemCount: filtered.length,
+                itemBuilder: (context, index) {
+                  final action = filtered[index];
+                  final isBound = widget.boundIds.contains(action.id);
+                  return ListTile(
+                    dense: true,
+                    visualDensity: VisualDensity.compact,
+                    leading: action.icon != null
+                        ? Icon(action.icon, size: 16)
+                        : null,
+                    title: Text(
+                      action.label,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    subtitle: Text(
+                      action.id,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: theme.colorScheme.onSurface
+                            .withValues(alpha: 0.5),
+                      ),
+                    ),
+                    trailing: isBound
+                        ? Icon(Icons.check, size: 14,
+                            color: theme.colorScheme.primary)
+                        : null,
+                    onTap: () => Navigator.of(context).pop(action),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Chord capture dialog (captures two key combinations)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ChordCaptureDialog extends StatefulWidget {
+  @override
+  State<_ChordCaptureDialog> createState() => _ChordCaptureDialogState();
+}
+
+class _ChordCaptureDialogState extends State<_ChordCaptureDialog> {
+  ForgeShortcutKey? _firstKey;
+
+  ForgeShortcutKey? _toShortcutKey(KeyDownEvent event) {
+    final key = event.logicalKey;
+    if ({
+      LogicalKeyboardKey.controlLeft,
+      LogicalKeyboardKey.controlRight,
+      LogicalKeyboardKey.metaLeft,
+      LogicalKeyboardKey.metaRight,
+      LogicalKeyboardKey.shiftLeft,
+      LogicalKeyboardKey.shiftRight,
+      LogicalKeyboardKey.altLeft,
+      LogicalKeyboardKey.altRight,
+    }.contains(key)) {
+      return null;
+    }
+    final pressed = HardwareKeyboard.instance.logicalKeysPressed;
+    final useMeta =
+        !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
+    return ForgeShortcutKey(
+      key: key,
+      primaryModifier: useMeta
+          ? pressed.contains(LogicalKeyboardKey.metaLeft) ||
+              pressed.contains(LogicalKeyboardKey.metaRight)
+          : pressed.contains(LogicalKeyboardKey.controlLeft) ||
+              pressed.contains(LogicalKeyboardKey.controlRight),
+      shift: pressed.contains(LogicalKeyboardKey.shiftLeft) ||
+          pressed.contains(LogicalKeyboardKey.shiftRight),
+      alt: pressed.contains(LogicalKeyboardKey.altLeft) ||
+          pressed.contains(LogicalKeyboardKey.altRight),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(_firstKey == null
+          ? 'Press first key combination'
+          : 'Press second key combination'),
+      content: Focus(
+        autofocus: true,
+        onKeyEvent: (_, event) {
+          if (event is! KeyDownEvent) return KeyEventResult.ignored;
+          if (event.logicalKey == LogicalKeyboardKey.escape) {
+            Navigator.of(context).pop();
+            return KeyEventResult.handled;
+          }
+          final key = _toShortcutKey(event);
+          if (key == null) return KeyEventResult.ignored;
+          if (_firstKey == null) {
+            setState(() => _firstKey = key);
+            return KeyEventResult.handled;
+          }
+          Navigator.of(context).pop(
+            ForgeChordKey(firstKey: _firstKey!, secondKey: key),
+          );
+          return KeyEventResult.handled;
+        },
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (_firstKey != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  'First: ${_firstKey!.toDisplayString()}',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            Text(_firstKey == null
+                ? 'Press a key combination for the first key.\nEsc to cancel.'
+                : 'Now press the second key combination.\nEsc to cancel.'),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // File types settings
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -975,6 +1345,8 @@ class _FileTypesSettingsSectionState extends State<_FileTypesSettingsSection> {
   static const _editorTypeIds = ['md', 'dart', 'yaml', 'plaintext'];
 
   late Map<String, String> _mappings;
+  late String _defaultEditor;
+  final TextEditingController _newExtController = TextEditingController();
 
   @override
   void initState() {
@@ -983,6 +1355,16 @@ class _FileTypesSettingsSectionState extends State<_FileTypesSettingsSection> {
       ..addAll(widget.preferencesService.fileTypeDefaultEditors);
     final shellDefaults = widget.shellApi?.getFileTypeDefaults();
     if (shellDefaults != null) _mappings.addAll(shellDefaults);
+    // Extract the wildcard/default mapping or fall back to 'plaintext'.
+    _defaultEditor = _mappings.remove('*') ??
+        widget.preferencesService.fileTypeDefaultEditors['*'] ??
+        'plaintext';
+  }
+
+  @override
+  void dispose() {
+    _newExtController.dispose();
+    super.dispose();
   }
 
   void _save() {
@@ -991,6 +1373,9 @@ class _FileTypesSettingsSectionState extends State<_FileTypesSettingsSection> {
           entry.key, entry.value);
       widget.shellApi?.setFileTypeDefault(entry.key, entry.value);
     }
+    // Save the default editor for unmapped extensions.
+    widget.preferencesService.setFileTypeDefaultEditor('*', _defaultEditor);
+    widget.shellApi?.setFileTypeDefault('*', _defaultEditor);
     widget.preferencesService.save();
     widget.onChanged?.call();
   }
@@ -1005,17 +1390,59 @@ class _FileTypesSettingsSectionState extends State<_FileTypesSettingsSection> {
     };
   }
 
+  void _addExtension() {
+    var ext = _newExtController.text.trim().toLowerCase();
+    if (ext.isEmpty) return;
+    if (!ext.startsWith('.')) ext = '.$ext';
+    if (_mappings.containsKey(ext)) return;
+    setState(() {
+      _mappings[ext] = _defaultEditor;
+      _newExtController.clear();
+    });
+    _save();
+  }
+
+  void _removeExtension(String ext) {
+    setState(() => _mappings.remove(ext));
+    _save();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final sortedEntries = _mappings.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
     return SingleChildScrollView(
       padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _sectionHeader(theme, 'Default Editor (unmapped extensions)'),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<String>(
+            initialValue: _defaultEditor,
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
+              contentPadding:
+                  EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              isDense: true,
+            ),
+            style: const TextStyle(fontSize: 12),
+            items: _editorTypeIds
+                .map((id) => DropdownMenuItem(
+                    value: id, child: Text(_editorTitle(id))))
+                .toList(),
+            onChanged: (value) {
+              if (value != null) {
+                setState(() => _defaultEditor = value);
+                _save();
+              }
+            },
+          ),
+          const SizedBox(height: 16),
           _sectionHeader(theme, 'File Type Associations'),
           const SizedBox(height: 8),
-          for (final entry in _mappings.entries)
+          for (final entry in sortedEntries)
             Padding(
               padding: const EdgeInsets.only(bottom: 6),
               child: Row(
@@ -1035,7 +1462,9 @@ class _FileTypesSettingsSectionState extends State<_FileTypesSettingsSection> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      initialValue: entry.value,
+                      initialValue: _editorTypeIds.contains(entry.value)
+                          ? entry.value
+                          : _editorTypeIds.first,
                       decoration: const InputDecoration(
                         border: OutlineInputBorder(),
                         contentPadding:
@@ -1055,9 +1484,54 @@ class _FileTypesSettingsSectionState extends State<_FileTypesSettingsSection> {
                       },
                     ),
                   ),
+                  const SizedBox(width: 4),
+                  InkWell(
+                    onTap: () => _removeExtension(entry.key),
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Icon(
+                        Icons.close,
+                        size: 14,
+                        color: theme.colorScheme.onSurface
+                            .withValues(alpha: 0.4),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              SizedBox(
+                width: 80,
+                child: TextField(
+                  controller: _newExtController,
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                  ),
+                  decoration: const InputDecoration(
+                    hintText: '.ext',
+                    border: OutlineInputBorder(),
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    isDense: true,
+                  ),
+                  onSubmitted: (_) => _addExtension(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.add, size: 16),
+                tooltip: 'Add Extension',
+                onPressed: _addExtension,
+                padding: EdgeInsets.zero,
+                constraints:
+                    const BoxConstraints(minWidth: 28, minHeight: 28),
+              ),
+            ],
+          ),
         ],
       ),
     );

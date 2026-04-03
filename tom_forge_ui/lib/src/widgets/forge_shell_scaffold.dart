@@ -2138,7 +2138,7 @@ Press "?" for this help document.
                                       padding: const EdgeInsets.only(right: 8),
                                       child: Icon(app.icon, size: 16),
                                     ),
-                                  Expanded(child: Text(app.title)),
+                                  Expanded(child: Text(app.displayTitle)),
                                   if (isActive)
                                     Icon(
                                       Icons.check,
@@ -2167,7 +2167,7 @@ Press "?" for this help document.
                                 ),
                               Flexible(
                                 child: Text(
-                                  widget.application.title,
+                                  widget.application.displayTitle,
                                   style: theme.textTheme.bodySmall,
                                   overflow: TextOverflow.ellipsis,
                                 ),

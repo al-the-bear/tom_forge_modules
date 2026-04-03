@@ -10,6 +10,8 @@ import '../actions/forge_shortcut_menu.dart';
 abstract class ForgeShortcutManager {
   List<ForgeShortcutBinding> get allBindings;
   void rebind(ForgeAction action, ForgeShortcutKey key);
+  void rebindChord(ForgeAction action, ForgeChordKey chord);
+  void removeBinding(String actionId);
   void resetToDefault(ForgeAction action);
   ForgeShortcutBinding? conflictsWith(ForgeShortcutKey key);
   ForgeShortcutBinding? getBinding(String actionId);

@@ -154,6 +154,32 @@ class DefaultShortcutManager implements ForgeShortcutManager {
   }
 
   @override
+  void rebindChord(ForgeAction action, ForgeChordKey chord) {
+    final index = _bindings.indexWhere((b) => b.action.id == action.id);
+    if (index >= 0) {
+      final old = _bindings[index];
+      _bindings[index] = ForgeShortcutBinding(
+        action: old.action,
+        key: chord.firstKey,
+        chord: chord,
+        context: old.context,
+      );
+    } else {
+      _bindings.add(ForgeShortcutBinding(
+        action: action,
+        key: chord.firstKey,
+        chord: chord,
+      ));
+    }
+  }
+
+  @override
+  void removeBinding(String actionId) {
+    _bindings.removeWhere((b) => b.action.id == actionId);
+    _defaults.remove(actionId);
+  }
+
+  @override
   void resetToDefault(ForgeAction action) {
     final defaultKey = _defaults[action.id];
     if (defaultKey != null) {

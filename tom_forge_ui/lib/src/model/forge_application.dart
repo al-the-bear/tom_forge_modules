@@ -66,12 +66,23 @@ class ForgeApplication {
   final String title;
   final IconData? icon;
   final ApplicationLayout layout;
+
+  /// Optional workspace folder name for display in the application switcher.
+  final String? workspaceFolder;
   bool isActive;
 
   ForgeApplication({
     required this.title,
     this.icon,
     this.layout = const ApplicationLayout(),
+    this.workspaceFolder,
     this.isActive = false,
   });
+
+  /// Display text for the application switcher.
+  ///
+  /// If [workspaceFolder] is set, returns `<title> - <workspaceFolder>`.
+  /// Otherwise returns just [title].
+  String get displayTitle =>
+      workspaceFolder != null ? '$title - $workspaceFolder' : title;
 }
