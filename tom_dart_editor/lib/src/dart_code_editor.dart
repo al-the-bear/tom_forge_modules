@@ -78,6 +78,22 @@ class DartCodeController extends ChangeNotifier {
 
   /// Number of lines in the user code.
   int get lineCount => '\n'.allMatches(_userCode).length + 1;
+
+  /// Notifier that triggers a scroll-to-line when set.
+  /// Set the value to the 1-based line number to reveal.
+  final ValueNotifier<int?> revealLineNotifier = ValueNotifier<int?>(null);
+
+  /// Request the editor to scroll so that [line] (1-based) is visible.
+  void revealLine(int line) {
+    revealLineNotifier.value = null; // reset first to trigger even if same line
+    revealLineNotifier.value = line;
+  }
+
+  @override
+  void dispose() {
+    revealLineNotifier.dispose();
+    super.dispose();
+  }
 }
 
 /// Represents a code error or warning.
@@ -690,6 +706,7 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
     _textController.addListener(_onSelectionChanged);
     // Dismiss popups when the editor loses focus (e.g. click outside)
     _focusNode.addListener(_onFocusChanged);
+    widget.controller.revealLineNotifier.addListener(_onRevealLine);
 
     // Initialize undo state
     _lastSavedText = widget.controller.userCode;
@@ -836,6 +853,7 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
     _scrollController.removeListener(_syncScroll);
     _textController.removeListener(_onSelectionChanged);
     _focusNode.removeListener(_onFocusChanged);
+    widget.controller.revealLineNotifier.removeListener(_onRevealLine);
     _textContext.dispose();
     if (_ownsIntegration) {
       _integration.dispose();
@@ -947,6 +965,23 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
       startLine: startLine,
       endLine: endLine,
     ));
+  }
+
+  /// Scroll so that the requested line is visible (roughly centered).
+  void _onRevealLine() {
+    final line = widget.controller.revealLineNotifier.value;
+    if (line == null || !_scrollController.hasClients) return;
+    final lh = _lineHeight;
+    if (lh <= 0) return;
+    final viewportHeight = _scrollController.position.viewportDimension;
+    // Center the target line in the viewport.
+    final target = ((line - 1) * lh - viewportHeight / 2 + lh / 2)
+        .clamp(0.0, _scrollController.position.maxScrollExtent);
+    _scrollController.animateTo(
+      target,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+    );
   }
 
   void _handleTextChange(String newText) {

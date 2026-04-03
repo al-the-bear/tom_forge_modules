@@ -166,6 +166,7 @@ class _OutputContentState extends State<_OutputContent> {
                   }),
                   isDense: true,
                   style: theme.textTheme.bodySmall,
+                  itemHeight: 28,
                   icon: Icon(
                     Icons.arrow_drop_down,
                     size: 16,
@@ -173,7 +174,10 @@ class _OutputContentState extends State<_OutputContent> {
                   ),
                   items: [
                     for (final ch in channels)
-                      DropdownMenuItem(value: ch.name, child: Text(ch.name)),
+                      DropdownMenuItem(
+                        value: ch.name,
+                        child: Text(ch.name, style: theme.textTheme.bodySmall),
+                      ),
                   ],
                 ),
               ),

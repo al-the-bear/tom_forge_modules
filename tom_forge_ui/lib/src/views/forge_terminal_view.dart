@@ -53,82 +53,45 @@ class _TerminalContent extends StatefulWidget {
 }
 
 class _TerminalContentState extends State<_TerminalContent> {
-  final TextEditingController _inputController = TextEditingController();
-  final ScrollController _scrollController = ScrollController();
-  final List<String> _lines = [];
   StreamSubscription<ForgeTerminal>? _openSub;
   StreamSubscription<ForgeTerminal>? _closeSub;
   StreamSubscription<ForgeTerminal?>? _activeSub;
-  StreamSubscription<String>? _outputSub;
+
+  /// Set of expanded terminal indices.
+  final Set<int> _expanded = {0};
 
   @override
   void initState() {
     super.initState();
     _openSub = widget.terminalManager.onDidOpen.listen((_) {
-      _rebindOutput();
-      if (mounted) setState(() {});
+      if (mounted) {
+        setState(() {
+          // Auto-expand newly added terminal.
+          final idx = widget.terminalManager.terminals.length - 1;
+          if (idx >= 0) _expanded.add(idx);
+        });
+      }
     });
     _closeSub = widget.terminalManager.onDidClose.listen((_) {
-      _rebindOutput();
       if (mounted) setState(() {});
     });
     _activeSub = widget.terminalManager.onDidChangeActive.listen((_) {
-      _rebindOutput();
       if (mounted) setState(() {});
     });
-    _rebindOutput();
   }
 
   @override
   void dispose() {
-    _inputController.dispose();
-    _scrollController.dispose();
     _openSub?.cancel();
     _closeSub?.cancel();
     _activeSub?.cancel();
-    _outputSub?.cancel();
     super.dispose();
-  }
-
-  void _rebindOutput() {
-    _outputSub?.cancel();
-    _outputSub = null;
-    final active = widget.terminalManager.activeTerminal;
-    // Only bind the text-based output listener for non-PTY terminals.
-    if (active != null && active is! PtyTerminal) {
-      _outputSub = active.onOutput.listen((line) {
-        if (mounted) {
-          setState(() {
-            _lines.add(line);
-          });
-          _scrollToBottom();
-        }
-      });
-    }
-  }
-
-  void _scrollToBottom() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-      }
-    });
-  }
-
-  void _sendCommand() {
-    final text = _inputController.text.trim();
-    if (text.isEmpty) return;
-    final terminal = widget.terminalManager.activeTerminal;
-    if (terminal == null) return;
-    terminal.sendText(text);
-    _inputController.clear();
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final terminals = widget.terminalManager.terminals;
-    final active = widget.terminalManager.activeTerminal;
 
     if (terminals.isEmpty) {
       return Center(
@@ -152,121 +115,313 @@ class _TerminalContentState extends State<_TerminalContent> {
       );
     }
 
+    // Accordion layout: each terminal is an expandable section.
     return Column(
       children: [
-        // Terminal tab bar
-        _buildTabBar(context, theme, terminals, active),
-        // Terminal content area
         Expanded(
-          child: active is PtyTerminal
-              ? _buildPtyTerminal(active)
-              : _buildFallbackTerminal(theme),
+          child: _TerminalAccordion(
+            terminals: terminals,
+            activeTerminal: widget.terminalManager.activeTerminal,
+            expanded: _expanded,
+            onToggle: (index) {
+              setState(() {
+                if (_expanded.contains(index)) {
+                  _expanded.remove(index);
+                } else {
+                  _expanded.add(index);
+                }
+              });
+              widget.terminalManager.setActive(terminals[index]);
+            },
+            onClose: (terminal) => terminal.close(),
+            onAdd: () => widget.terminalManager.create(),
+          ),
         ),
       ],
     );
   }
+}
 
-  /// Build the terminal tab bar with close buttons and a new-terminal button.
-  Widget _buildTabBar(
-    BuildContext context,
-    ThemeData theme,
-    List<ForgeTerminal> terminals,
-    ForgeTerminal? active,
-  ) {
-    return Container(
-      height: 28,
-      color: theme.colorScheme.surfaceContainerHighest,
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Row(
-        children: [
-          for (final t in terminals)
-            GestureDetector(
-              onTap: () => widget.terminalManager.setActive(t),
-              child: MouseRegion(
-                cursor: SystemMouseCursors.click,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    border: t == active
-                        ? Border(
-                            bottom: BorderSide(
-                              color: theme.colorScheme.primary,
-                              width: 2,
-                            ),
-                          )
-                        : null,
+/// Accordion layout for terminals.
+/// Each terminal has a collapsible header and an expanded content area.
+class _TerminalAccordion extends StatelessWidget {
+  final List<ForgeTerminal> terminals;
+  final ForgeTerminal? activeTerminal;
+  final Set<int> expanded;
+  final void Function(int index) onToggle;
+  final void Function(ForgeTerminal terminal) onClose;
+  final VoidCallback onAdd;
+
+  const _TerminalAccordion({
+    required this.terminals,
+    required this.activeTerminal,
+    required this.expanded,
+    required this.onToggle,
+    required this.onClose,
+    required this.onAdd,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final hasExpanded = expanded.isNotEmpty;
+
+    return Column(
+      children: [
+        for (var i = 0; i < terminals.length; i++) ...[
+          _TerminalSectionHeader(
+            terminal: terminals[i],
+            index: i,
+            isExpanded: expanded.contains(i),
+            isActive: terminals[i] == activeTerminal,
+            onToggle: () => onToggle(i),
+            onClose: () => onClose(terminals[i]),
+            onAdd: onAdd,
+            isLast: i == terminals.length - 1,
+          ),
+          if (expanded.contains(i))
+            Expanded(
+              child: _TerminalSectionContent(terminal: terminals[i]),
+            ),
+        ],
+        // If nothing is expanded, fill remaining space.
+        if (!hasExpanded) const Spacer(),
+        // Add button row at bottom if no terminals are expanded.
+        if (!hasExpanded)
+          Container(
+            height: 28,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            color: theme.colorScheme.surface,
+            child: Row(
+              children: [
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.add, size: 14),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                  onPressed: onAdd,
+                  tooltip: 'New Terminal',
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// Accordion section header for a single terminal.
+class _TerminalSectionHeader extends StatelessWidget {
+  final ForgeTerminal terminal;
+  final int index;
+  final bool isExpanded;
+  final bool isActive;
+  final VoidCallback onToggle;
+  final VoidCallback onClose;
+  final VoidCallback onAdd;
+  final bool isLast;
+
+  const _TerminalSectionHeader({
+    required this.terminal,
+    required this.index,
+    required this.isExpanded,
+    required this.isActive,
+    required this.onToggle,
+    required this.onClose,
+    required this.onAdd,
+    required this.isLast,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Draggable<_TerminalDragData>(
+      data: _TerminalDragData(terminal: terminal, index: index),
+      feedback: Material(
+        elevation: 4,
+        borderRadius: BorderRadius.circular(4),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          decoration: BoxDecoration(
+            color: const Color(0xFF252526),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.terminal, size: 12, color: Colors.white70),
+              const SizedBox(width: 4),
+              Text(terminal.name,
+                  style: const TextStyle(color: Colors.white70, fontSize: 12)),
+            ],
+          ),
+        ),
+      ),
+      childWhenDragging: Opacity(
+        opacity: 0.35,
+        child: _buildHeader(context, theme),
+      ),
+      child: _buildHeader(context, theme),
+    );
+  }
+
+  Widget _buildHeader(BuildContext context, ThemeData theme) {
+    return GestureDetector(
+      onTap: onToggle,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Container(
+          height: 24,
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          decoration: BoxDecoration(
+            color: isActive
+                ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3)
+                : theme.colorScheme.surfaceContainerHighest,
+            border: Border(
+              bottom: BorderSide(
+                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+              ),
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                isExpanded ? Icons.expand_more : Icons.chevron_right,
+                size: 14,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                Icons.terminal,
+                size: 12,
+                color: isActive
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  terminal.name,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                    color: isActive
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.onSurface.withValues(alpha: 0.8),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.terminal,
-                        size: 12,
-                        color: t == active
-                            ? theme.colorScheme.primary
-                            : theme.colorScheme.onSurface
-                                .withValues(alpha: 0.6),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              // Add terminal button (only show on last header or when expanded)
+              if (isLast)
+                GestureDetector(
+                  onTap: onAdd,
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 2),
+                      child: Icon(
+                        Icons.add,
+                        size: 14,
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        t.name,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          fontWeight: t == active
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                          color: t == active
-                              ? theme.colorScheme.primary
-                              : theme.colorScheme.onSurface
-                                  .withValues(alpha: 0.6),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      GestureDetector(
-                        onTap: () => t.close(),
-                        child: MouseRegion(
-                          cursor: SystemMouseCursors.click,
-                          child: Icon(
-                            Icons.close,
-                            size: 12,
-                            color: theme.colorScheme.onSurface
-                                .withValues(alpha: 0.4),
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
+                  ),
+                ),
+              GestureDetector(
+                onTap: onClose,
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    child: Icon(
+                      Icons.close,
+                      size: 14,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                    ),
                   ),
                 ),
               ),
-            ),
-          const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.add, size: 14),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-            onPressed: () => widget.terminalManager.create(),
-            tooltip: 'New Terminal',
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
+}
 
-  /// Full xterm-based terminal view for [PtyTerminal] instances.
-  Widget _buildPtyTerminal(PtyTerminal terminal) {
-    return xterm.TerminalView(
-      terminal.terminalModel,
-      autofocus: true,
-      textStyle: const xterm.TerminalStyle(
-        fontSize: 13,
-        fontFamily: 'monospace',
-      ),
-    );
+/// Content area for a single terminal section.
+class _TerminalSectionContent extends StatelessWidget {
+  final ForgeTerminal terminal;
+
+  const _TerminalSectionContent({required this.terminal});
+
+  @override
+  Widget build(BuildContext context) {
+    if (terminal is PtyTerminal) {
+      return xterm.TerminalView(
+        (terminal as PtyTerminal).terminalModel,
+        autofocus: true,
+        textStyle: const xterm.TerminalStyle(
+          fontSize: 13,
+          fontFamily: 'monospace',
+        ),
+      );
+    }
+    return _FallbackTerminalContent(terminal: terminal);
+  }
+}
+
+/// Text-based fallback terminal for non-PTY implementations.
+class _FallbackTerminalContent extends StatefulWidget {
+  final ForgeTerminal terminal;
+
+  const _FallbackTerminalContent({required this.terminal});
+
+  @override
+  State<_FallbackTerminalContent> createState() =>
+      _FallbackTerminalContentState();
+}
+
+class _FallbackTerminalContentState extends State<_FallbackTerminalContent> {
+  final TextEditingController _inputController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  final List<String> _lines = [];
+  StreamSubscription<String>? _outputSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _outputSub = widget.terminal.onOutput.listen((line) {
+      if (mounted) {
+        setState(() => _lines.add(line));
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_scrollController.hasClients) {
+            _scrollController
+                .jumpTo(_scrollController.position.maxScrollExtent);
+          }
+        });
+      }
+    });
   }
 
-  /// Text-based fallback terminal for [DefaultTerminal] or other
-  /// non-PTY implementations.
-  Widget _buildFallbackTerminal(ThemeData theme) {
+  @override
+  void dispose() {
+    _inputController.dispose();
+    _scrollController.dispose();
+    _outputSub?.cancel();
+    super.dispose();
+  }
+
+  void _sendCommand() {
+    final text = _inputController.text.trim();
+    if (text.isEmpty) return;
+    widget.terminal.sendText(text);
+    _inputController.clear();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Column(
       children: [
         Expanded(
@@ -286,7 +441,6 @@ class _TerminalContentState extends State<_TerminalContent> {
             ),
           ),
         ),
-        // Input field for fallback terminal
         Container(
           height: 28,
           padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -321,4 +475,11 @@ class _TerminalContentState extends State<_TerminalContent> {
       ],
     );
   }
+}
+
+/// Internal drag data for dragging a terminal to another panel.
+class _TerminalDragData {
+  final ForgeTerminal terminal;
+  final int index;
+  const _TerminalDragData({required this.terminal, required this.index});
 }

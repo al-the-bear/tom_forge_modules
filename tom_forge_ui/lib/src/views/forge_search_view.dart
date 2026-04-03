@@ -283,9 +283,8 @@ class _SearchContentState extends State<_SearchContent> {
           ),
         ),
         if (_isSearching)
-          const LinearProgressIndicator()
-        else
-          Expanded(child: _buildResults(context)),
+          const LinearProgressIndicator(),
+        Expanded(child: _buildResults(context)),
       ],
     );
   }

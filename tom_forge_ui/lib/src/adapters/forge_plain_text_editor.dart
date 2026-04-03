@@ -316,11 +316,13 @@ class ForgePlainTextEditor extends ForgeTextEditor {
   @override
   void revealPosition(ForgeTextPosition position) {
     setCursorPosition(position);
+    controller.revealLine(position.line);
   }
 
   @override
   void revealRange(ForgeTextRange range) {
     setCursorPosition(range.start);
+    controller.revealLine(range.start.line);
   }
 
   @override

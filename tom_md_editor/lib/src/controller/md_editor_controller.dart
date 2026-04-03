@@ -143,6 +143,17 @@ class MdEditorController extends ChangeNotifier {
     if (notify) notifyListeners();
   }
 
+  /// Scroll so that the given 1-based [line] is visible and place the cursor
+  /// at the beginning of that line.
+  void revealLine(int line) {
+    final lines = _markdown.split('\n');
+    int offset = 0;
+    for (int i = 0; i < (line - 1).clamp(0, lines.length - 1); i++) {
+      offset += lines[i].length + 1; // +1 for newline
+    }
+    setCursorOffset(offset);
+  }
+
   /// Schema ID detected from document.
   String? get schemaId => _document.schemaId;
 

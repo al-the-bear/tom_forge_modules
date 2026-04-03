@@ -78,6 +78,11 @@ class _ProblemsContent extends StatefulWidget {
 
 class _ProblemsContentState extends State<_ProblemsContent> {
   _SeverityFilter _filter = _SeverityFilter.all;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  bool _searchIsRegex = false;
+  bool _searchFullWord = false;
+  bool _searchCaseSensitive = false;
 
   @override
   void initState() {
@@ -90,6 +95,7 @@ class _ProblemsContentState extends State<_ProblemsContent> {
 
   @override
   void dispose() {
+    _searchController.dispose();
     if (widget.diagnosticManager is DefaultDiagnosticManager) {
       final dm = widget.diagnosticManager as DefaultDiagnosticManager;
       dm.allNotifier.removeListener(_onDiagnosticsChanged);
@@ -102,17 +108,45 @@ class _ProblemsContentState extends State<_ProblemsContent> {
   }
 
   List<ForgeDiagnostic> get _filteredDiags {
-    final all = widget.diagnosticManager.all;
-    return switch (_filter) {
-      _SeverityFilter.all => all,
+    var diags = widget.diagnosticManager.all;
+    diags = switch (_filter) {
+      _SeverityFilter.all => diags,
       _SeverityFilter.errors =>
-        all.where((d) => d.severity == ForgeSeverity.error).toList(),
-      _SeverityFilter.warnings => all
+        diags.where((d) => d.severity == ForgeSeverity.error).toList(),
+      _SeverityFilter.warnings => diags
           .where((d) =>
               d.severity == ForgeSeverity.error ||
               d.severity == ForgeSeverity.warning)
           .toList(),
     };
+    if (_searchQuery.isEmpty) return diags;
+    final RegExp? pattern = _buildSearchPattern();
+    if (pattern == null) return diags;
+    return diags.where((d) {
+      final fileName = d.uri.pathSegments.isNotEmpty
+          ? d.uri.pathSegments.last
+          : d.uri.path;
+      return pattern.hasMatch(d.message) || pattern.hasMatch(fileName);
+    }).toList();
+  }
+
+  RegExp? _buildSearchPattern() {
+    if (_searchQuery.isEmpty) return null;
+    try {
+      if (_searchIsRegex) {
+        return RegExp(
+          _searchQuery,
+          caseSensitive: _searchCaseSensitive,
+        );
+      }
+      var query = RegExp.escape(_searchQuery);
+      if (_searchFullWord) {
+        query = '\\b$query\\b';
+      }
+      return RegExp(query, caseSensitive: _searchCaseSensitive);
+    } catch (_) {
+      return null; // Invalid regex
+    }
   }
 
   @override
@@ -122,6 +156,7 @@ class _ProblemsContentState extends State<_ProblemsContent> {
     return Column(
       children: [
         _buildFilterBar(context),
+        _buildSearchBar(context),
         Expanded(
           child: allDiags.isEmpty
               ? Center(
@@ -206,6 +241,106 @@ class _ProblemsContentState extends State<_ProblemsContent> {
               color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchBar(BuildContext context) {
+    final theme = Theme.of(context);
+
+    Widget toggle(String label, bool active, VoidCallback onTap) {
+      return GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 24,
+          height: 22,
+          margin: const EdgeInsets.only(left: 2),
+          decoration: BoxDecoration(
+            color:
+                active ? theme.colorScheme.primary.withValues(alpha: 0.2) : null,
+            borderRadius: BorderRadius.circular(2),
+            border: Border.all(
+              color: active
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.outline,
+            ),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: active ? FontWeight.bold : FontWeight.normal,
+              color: active
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.onSurface.withValues(alpha: 0.6),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      height: 28,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      color: theme.colorScheme.surface,
+      child: Row(
+        children: [
+          Expanded(
+            child: SizedBox(
+              height: 22,
+              child: TextField(
+                controller: _searchController,
+                onChanged: (v) => setState(() => _searchQuery = v),
+                decoration: InputDecoration(
+                  hintText: 'Filter problems...',
+                  hintStyle: theme.textTheme.bodySmall?.copyWith(
+                    color:
+                        theme.colorScheme.onSurface.withValues(alpha: 0.35),
+                  ),
+                  isDense: true,
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  border: const OutlineInputBorder(),
+                  prefixIcon: Padding(
+                    padding: const EdgeInsets.only(left: 6, right: 4),
+                    child: Icon(Icons.search, size: 14,
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                  ),
+                  prefixIconConstraints:
+                      const BoxConstraints(minWidth: 24, minHeight: 22),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? GestureDetector(
+                          onTap: () => setState(() {
+                            _searchController.clear();
+                            _searchQuery = '';
+                          }),
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: 4),
+                            child: Icon(Icons.close, size: 14,
+                                color: theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.5)),
+                          ),
+                        )
+                      : null,
+                  suffixIconConstraints:
+                      const BoxConstraints(minWidth: 22, minHeight: 22),
+                ),
+                style: theme.textTheme.bodySmall,
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          toggle('.*', _searchIsRegex, () {
+            setState(() => _searchIsRegex = !_searchIsRegex);
+          }),
+          toggle('W', _searchFullWord, () {
+            setState(() => _searchFullWord = !_searchFullWord);
+          }),
+          toggle('Aa', _searchCaseSensitive, () {
+            setState(() => _searchCaseSensitive = !_searchCaseSensitive);
+          }),
         ],
       ),
     );

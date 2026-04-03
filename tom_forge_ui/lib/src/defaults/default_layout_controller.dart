@@ -34,7 +34,6 @@ class DefaultLayoutController implements ForgeLayoutController {
   static const String _extDart = 'dart';
   static const String _extYaml = 'yaml';
   static const String _extYml = 'yml';
-  static const String _extText = 'txt';
 
   final DefaultSystemState _systemState;
   final ForgeFileSystem _fileSystem;
@@ -648,7 +647,7 @@ class DefaultLayoutController implements ForgeLayoutController {
 
     // Phase 3: Default creation for known extensions.
     final defaultTypeId = switch (ext) {
-      _extMarkdown || _extMarkdownAlt || _extText => 'md',
+      _extMarkdown || _extMarkdownAlt => 'md',
       _extDart => 'dart',
       _extYaml || _extYml => 'yaml',
       _ => 'plaintext',
@@ -729,9 +728,8 @@ class DefaultLayoutController implements ForgeLayoutController {
   void _navigateEditorTo(ForgeEditor editor, {int? line, int? column}) {
     if (line == null) return;
     if (editor is ForgeTextEditor) {
-      editor.setCursorPosition(
-        ForgeTextPosition(line: line, column: column ?? 0),
-      );
+      final pos = ForgeTextPosition(line: line, column: column ?? 0);
+      editor.revealPosition(pos);
     }
   }
 
