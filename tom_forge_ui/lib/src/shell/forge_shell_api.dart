@@ -122,6 +122,13 @@ abstract class ForgeShellApi {
   /// Updates text settings for an editor type.
   void setTextSettings(String editorTypeId, ForgeTextSettings settings);
 
+  /// Reads editor-specific configuration for an editor type.
+  Map<String, dynamic> getEditorSpecificConfig(String editorTypeId);
+
+  /// Updates editor-specific configuration for an editor type.
+  void setEditorSpecificConfig(
+      String editorTypeId, Map<String, dynamic> config);
+
   /// Reads preferred default editor ids by file extension (for example: .md).
   Map<String, String> getFileTypeDefaults();
 

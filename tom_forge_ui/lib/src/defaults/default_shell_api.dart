@@ -344,6 +344,21 @@ class DefaultShellApi implements ForgeShellApi {
     _editorTextSettings[editorTypeId] = settings;
   }
 
+  final Map<String, Map<String, dynamic>> _editorSpecificConfig =
+      <String, Map<String, dynamic>>{};
+
+  @override
+  Map<String, dynamic> getEditorSpecificConfig(String editorTypeId) {
+    return Map<String, dynamic>.from(
+        _editorSpecificConfig[editorTypeId] ?? <String, dynamic>{});
+  }
+
+  @override
+  void setEditorSpecificConfig(
+      String editorTypeId, Map<String, dynamic> config) {
+    _editorSpecificConfig[editorTypeId] = Map<String, dynamic>.from(config);
+  }
+
   @override
   Map<String, String> getFileTypeDefaults() {
     return Map<String, String>.unmodifiable(_fileTypeDefaults);

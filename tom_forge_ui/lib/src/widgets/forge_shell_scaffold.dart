@@ -454,6 +454,13 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     for (final entry in settings.entries) {
       widget.shell.setTextSettings(entry.key, entry.value);
     }
+    // Also propagate editor-specific config.
+    for (final editorTypeId in ['dart', 'md', 'yaml']) {
+      final config = _preferences.getEditorSpecificConfig(editorTypeId);
+      if (config.isNotEmpty) {
+        widget.shell.setEditorSpecificConfig(editorTypeId, config);
+      }
+    }
     if (debugEnabled) {
       debugPrint(
         '[ForgeShellScaffold] applied persisted settings: ${settings.length}',

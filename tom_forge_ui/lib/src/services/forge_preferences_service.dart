@@ -37,6 +37,7 @@ class ForgePreferencesService extends ChangeNotifier {
   static const _keyTerminalFontFamily = 'forge.terminal.fontFamily';
   static const _keyTerminalFontSize = 'forge.terminal.fontSize';
   static const _keySearchConfig = 'forge.search.config';
+  static const _keyEditorSpecificConfig = 'forge.editor.specificConfig';
 
   SharedPreferences? _prefs;
   ForgeStartupPreferences _startupPreferences = ForgeStartupPreferences();
@@ -59,6 +60,8 @@ class ForgePreferencesService extends ChangeNotifier {
   String _terminalFontFamily = 'monospace';
   double _terminalFontSize = 14.0;
   ForgeSearchConfig _searchConfig = const ForgeSearchConfig();
+  final Map<String, Map<String, dynamic>> _editorSpecificConfig =
+      <String, Map<String, dynamic>>{};
   bool _isLoaded = false;
 
   static void _log(String message) {
@@ -90,6 +93,20 @@ class ForgePreferencesService extends ChangeNotifier {
     }
     _editorTextSettings[editorTypeId] = settings;
     _log('updated editor settings for $editorTypeId');
+    notifyListeners();
+  }
+
+  /// Reads editor-specific configuration map for the given editor type.
+  Map<String, dynamic> getEditorSpecificConfig(String editorTypeId) {
+    return Map<String, dynamic>.from(
+        _editorSpecificConfig[editorTypeId] ?? <String, dynamic>{});
+  }
+
+  /// Stores editor-specific configuration map for an editor type.
+  void setEditorSpecificConfig(
+      String editorTypeId, Map<String, dynamic> config) {
+    _editorSpecificConfig[editorTypeId] = Map<String, dynamic>.from(config);
+    _log('updated editor specific config for $editorTypeId');
     notifyListeners();
   }
 
@@ -324,6 +341,29 @@ class ForgePreferencesService extends ChangeNotifier {
     );
   }
 
+  Map<String, Map<String, dynamic>> _loadEditorSpecificConfig() {
+    final jsonStr = _prefs?.getString(_keyEditorSpecificConfig);
+    if (jsonStr == null || jsonStr.trim().isEmpty) {
+      return <String, Map<String, dynamic>>{};
+    }
+    try {
+      final decoded = jsonDecode(jsonStr);
+      if (decoded is Map) {
+        return decoded.map((k, v) => MapEntry(
+            k.toString(),
+            v is Map ? Map<String, dynamic>.from(v) : <String, dynamic>{}));
+      }
+    } catch (_) {}
+    return <String, Map<String, dynamic>>{};
+  }
+
+  Future<void> _saveEditorSpecificConfig() async {
+    await _prefs?.setString(
+      _keyEditorSpecificConfig,
+      jsonEncode(_editorSpecificConfig),
+    );
+  }
+
   /// Loads preferences from persistent storage.
   Future<void> load() async {
     try {
@@ -367,6 +407,9 @@ class ForgePreferencesService extends ChangeNotifier {
       _terminalFontSize =
           (_prefs!.getDouble(_keyTerminalFontSize)) ?? 14.0;
       _searchConfig = _loadSearchConfig();
+      _editorSpecificConfig
+        ..clear()
+        ..addAll(_loadEditorSpecificConfig());
       _isLoaded = true;
       _log(
         'loaded preferences with ${_editorTextSettings.length} editor settings entries',
@@ -435,6 +478,7 @@ class ForgePreferencesService extends ChangeNotifier {
       await _prefs!.setString(_keyThemeMode, _themeMode.name);
       await _saveTerminalPreferences();
       await _saveSearchConfig();
+      await _saveEditorSpecificConfig();
       _log(
         'saved preferences with ${_editorTextSettings.length} editor settings entries',
       );

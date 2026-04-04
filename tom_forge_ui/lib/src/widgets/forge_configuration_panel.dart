@@ -37,6 +37,10 @@ class ForgeConfigurationPanel extends StatefulWidget {
 class _ForgeConfigurationPanelState extends State<ForgeConfigurationPanel> {
   /// Tracks which accordion sections are expanded (by index).
   final Set<int> _expandedSections = {0};
+  /// Pinned sections remain open when another section is expanded.
+  final Set<int> _pinnedSections = {};
+  /// Flex factors for expanded sections (for drag-to-resize).
+  final Map<int, double> _sectionFlex = {};
 
   static const _builtInSections = [
     _SectionDef('Shell', Icons.desktop_mac_outlined),
@@ -54,40 +58,111 @@ class _ForgeConfigurationPanelState extends State<ForgeConfigurationPanel> {
 
   @override
   Widget build(BuildContext context) {
-    return ListView.builder(
-      itemCount: _totalSections,
-      itemBuilder: (context, index) {
-        final String label;
-        final IconData icon;
-        if (index < _builtInSections.length) {
-          label = _builtInSections[index].label;
-          icon = _builtInSections[index].icon;
-        } else {
-          final mp = widget.modulePanels[index - _builtInSections.length];
-          label = mp.title;
-          icon = mp.icon;
-        }
-        final isExpanded = _expandedSections.contains(index);
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _ConfigAccordionHeader(
-              label: label,
-              icon: icon,
-              isExpanded: isExpanded,
-              onTap: () => setState(() {
-                if (isExpanded) {
-                  _expandedSections.remove(index);
-                } else {
-                  _expandedSections.add(index);
-                }
-              }),
-            ),
-            if (isExpanded) _buildSectionContent(index),
-          ],
+    // Build all section entries with their headers and content.
+    final children = <Widget>[];
+    final expandedIndices = List.generate(_totalSections, (i) => i)
+        .where(_expandedSections.contains)
+        .toList();
+
+    for (var index = 0; index < _totalSections; index++) {
+      final String label;
+      final IconData icon;
+      if (index < _builtInSections.length) {
+        label = _builtInSections[index].label;
+        icon = _builtInSections[index].icon;
+      } else {
+        final mp = widget.modulePanels[index - _builtInSections.length];
+        label = mp.title;
+        icon = mp.icon;
+      }
+      final isExpanded = _expandedSections.contains(index);
+      final isPinned = _pinnedSections.contains(index);
+
+      children.add(
+        _ConfigAccordionHeader(
+          label: label,
+          icon: icon,
+          isExpanded: isExpanded,
+          isPinned: isPinned,
+          onTap: () => _toggleSection(index),
+          onTogglePin: () => _togglePin(index),
+        ),
+      );
+      if (isExpanded) {
+        children.add(
+          Flexible(
+            flex: ((_sectionFlex[index] ?? 1.0) * 1000).round(),
+            child: _buildSectionContent(index),
+          ),
         );
-      },
-    );
+        // Add drag divider between adjacent expanded sections.
+        if (_hasNextExpanded(index, expandedIndices)) {
+          children.add(
+            _ConfigDivider(
+              onDragDelta: (delta) {
+                final nextIdx = _nextExpanded(index, expandedIndices);
+                if (nextIdx != null) _resizeSections(index, nextIdx, delta);
+              },
+              onDoubleTap: () => setState(() => _sectionFlex.clear()),
+            ),
+          );
+        }
+      }
+    }
+
+    return Column(children: children);
+  }
+
+  void _toggleSection(int index) {
+    setState(() {
+      if (_expandedSections.contains(index)) {
+        if (_expandedSections.length > 1) {
+          _expandedSections.remove(index);
+        }
+      } else {
+        // Mutual exclusivity: collapse unpinned sections.
+        _expandedSections
+            .removeWhere((i) => !_pinnedSections.contains(i) && i != index);
+        _expandedSections.add(index);
+      }
+    });
+  }
+
+  void _togglePin(int index) {
+    setState(() {
+      if (_pinnedSections.contains(index)) {
+        _pinnedSections.remove(index);
+      } else {
+        _pinnedSections.add(index);
+        _expandedSections.add(index);
+      }
+    });
+  }
+
+  bool _hasNextExpanded(int current, List<int> expandedIndices) {
+    final pos = expandedIndices.indexOf(current);
+    return pos >= 0 && pos < expandedIndices.length - 1;
+  }
+
+  int? _nextExpanded(int current, List<int> expandedIndices) {
+    final pos = expandedIndices.indexOf(current);
+    if (pos >= 0 && pos < expandedIndices.length - 1) {
+      return expandedIndices[pos + 1];
+    }
+    return null;
+  }
+
+  void _resizeSections(int topIdx, int bottomIdx, double delta) {
+    const minFlex = 0.15;
+    final topFlex = _sectionFlex[topIdx] ?? 1.0;
+    final bottomFlex = _sectionFlex[bottomIdx] ?? 1.0;
+    final totalFlex = topFlex + bottomFlex;
+    final flexDelta = delta / 200.0;
+    final newTop = (topFlex + flexDelta).clamp(minFlex, totalFlex - minFlex);
+    setState(() {
+      _sectionFlex[topIdx] = newTop;
+      _sectionFlex[bottomIdx] = totalFlex - newTop;
+    });
   }
 
   Widget _buildSectionContent(int index) {
@@ -151,13 +226,17 @@ class _ConfigAccordionHeader extends StatelessWidget {
   final String label;
   final IconData icon;
   final bool isExpanded;
+  final bool isPinned;
   final VoidCallback onTap;
+  final VoidCallback onTogglePin;
 
   const _ConfigAccordionHeader({
     required this.label,
     required this.icon,
     required this.isExpanded,
+    this.isPinned = false,
     required this.onTap,
+    required this.onTogglePin,
   });
 
   @override
@@ -210,7 +289,66 @@ class _ConfigAccordionHeader extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
+              // Pin button
+              GestureDetector(
+                onTap: onTogglePin,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  child: Icon(
+                    isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+                    size: 12,
+                    color: isPinned
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                  ),
+                ),
+              ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Draggable divider between expanded config accordion sections.
+class _ConfigDivider extends StatefulWidget {
+  final ValueChanged<double> onDragDelta;
+  final VoidCallback? onDoubleTap;
+
+  const _ConfigDivider({required this.onDragDelta, this.onDoubleTap});
+
+  @override
+  State<_ConfigDivider> createState() => _ConfigDividerState();
+}
+
+class _ConfigDividerState extends State<_ConfigDivider> {
+  bool _hovering = false;
+  bool _dragging = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = _dragging
+        ? theme.colorScheme.primary
+        : _hovering
+            ? theme.colorScheme.primary.withValues(alpha: 0.5)
+            : theme.colorScheme.outlineVariant.withValues(alpha: 0.3);
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.resizeRow,
+      onEnter: (_) => setState(() => _hovering = true),
+      onExit: (_) => setState(() => _hovering = false),
+      child: GestureDetector(
+        onVerticalDragStart: (_) => setState(() => _dragging = true),
+        onVerticalDragUpdate: (d) => widget.onDragDelta(d.delta.dy),
+        onVerticalDragEnd: (_) => setState(() => _dragging = false),
+        onDoubleTap: widget.onDoubleTap,
+        child: Container(
+          height: 5,
+          color: Colors.transparent,
+          child: Center(
+            child: Container(height: 1, color: color),
           ),
         ),
       ),
