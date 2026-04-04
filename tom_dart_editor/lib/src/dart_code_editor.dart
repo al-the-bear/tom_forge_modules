@@ -25,7 +25,7 @@ export 'editor_theme.dart';
 /// Controller for managing Dart code state.
 class DartCodeController extends ChangeNotifier {
   String _userCode = '';
-  List<String> _implicitImports;
+  List<String> _implicitImports; // comment 
 
   DartCodeController({
     String initialCode = '',
@@ -664,6 +664,7 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
   final List<_UndoState> _redoStack = [];
   static const int _maxUndoStackSize = 100;
   String _lastSavedText = '';
+  TextSelection _lastSavedSelection = const TextSelection.collapsed(offset: 0);
   Timer? _undoDebounceTimer;
   static const _undoDebounceDuration = Duration(milliseconds: 300);
 
@@ -1078,8 +1079,9 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
     _undoDebounceTimer?.cancel();
     _undoDebounceTimer = Timer(_undoDebounceDuration, () {
       if (_lastSavedText != newText) {
-        _pushUndoState(_lastSavedText, _textController.selection);
+        _pushUndoState(_lastSavedText, _lastSavedSelection);
         _lastSavedText = newText;
+        _lastSavedSelection = _textController.selection;
         // Clear redo stack on new edit
         _redoStack.clear();
       }

@@ -1,7 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart';
 import 'package:tom_md_editor/tom_md_editor.dart';
@@ -124,32 +125,17 @@ class ForgePlainTextEditor extends ForgeTextEditor {
         editorTypeId: 'plaintext',
       );
     }
-    // Build theme with monospace font for plain text.
-    final theme = _buildThemeFromOptions();
-    return MdEditor(
-      controller: controller,
+    final ext = uri.pathSegments.isNotEmpty
+        ? uri.pathSegments.last.split('.').last.toLowerCase()
+        : '';
+    return _PlainTextEditorWidget(
+      initialText: controller.markdown,
+      fileExtension: ext,
       integration: _integration,
-      theme: theme,
-      // Raw-only mode: disable markdown preview by using 'below' position
-      // and making autoHideEditor false. The preview will show raw text.
-      settings: MdEditorSettings.standard().copyWith(
-        autoHideEditor: false,
-        rawEditorPosition: RawEditorPosition.below,
-      ),
+      onChanged: (text) {
+        controller.markdown = text;
+      },
     );
-  }
-
-  /// Builds an [MdEditorTheme] applying current [_options] with mono font.
-  MdEditorTheme _buildThemeFromOptions() {
-    const baseTheme = MdBasicTheme();
-    final fontFamily = _options.fontFamily ?? 'monospace';
-    final basic = MdBasicTheme(
-      fontFamily: fontFamily,
-      monoFontFamily: fontFamily,
-      baseFontSize: _options.fontSize ?? baseTheme.baseFontSize,
-      lineHeight: _options.lineHeight ?? baseTheme.lineHeight,
-    );
-    return MdEditorTheme(basic: basic);
   }
 
   @override
@@ -478,4 +464,480 @@ class _PlainTextForgeDocument extends ForgeDocumentAdapter {
 
   @override
   bool get isUntitled => _controller.uri == null;
+}
+
+// ──────────────────────────────────────────────────────────────────
+// Plain text editor widget with syntax-aware colorization
+// ──────────────────────────────────────────────────────────────────
+
+/// Intent for plain text editor shortcut actions.
+class _PlainTextActionIntent extends Intent {
+  final String actionId;
+  const _PlainTextActionIntent(this.actionId);
+}
+
+/// A lightweight text editor widget with line numbers and optional syntax
+/// highlighting for common file formats (JSON, XML, etc.).
+class _PlainTextEditorWidget extends StatefulWidget {
+  final String initialText;
+  final String fileExtension;
+  final ForgeEditorIntegration? integration;
+  final ValueChanged<String> onChanged;
+
+  const _PlainTextEditorWidget({
+    required this.initialText,
+    required this.fileExtension,
+    this.integration,
+    required this.onChanged,
+  });
+
+  @override
+  State<_PlainTextEditorWidget> createState() => _PlainTextEditorWidgetState();
+}
+
+class _PlainTextEditorWidgetState extends State<_PlainTextEditorWidget> {
+  late _HighlightTextController _textController;
+  late ScrollController _scrollController;
+  late ScrollController _gutterScrollController;
+  final FocusNode _focusNode = FocusNode();
+
+  // Undo/redo state
+  final List<_UndoState> _undoStack = [];
+  final List<_UndoState> _redoStack = [];
+  String _lastSavedText = '';
+  TextSelection _lastSavedSelection = const TextSelection.collapsed(offset: 0);
+  Timer? _undoDebounceTimer;
+  static const _undoDebounceDuration = Duration(milliseconds: 300);
+  static const int _maxUndoStackSize = 100;
+
+  // Shortcuts map
+  Map<ShortcutActivator, Intent> _shortcuts = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _textController = _HighlightTextController(
+      text: widget.initialText,
+      language: widget.fileExtension,
+    );
+    _scrollController = ScrollController();
+    _gutterScrollController = ScrollController();
+    _scrollController.addListener(_syncScroll);
+    _textController.addListener(_onTextChanged);
+    _lastSavedText = widget.initialText;
+
+    _registerActions();
+  }
+
+  void _registerActions() {
+    final integration = widget.integration;
+    if (integration == null) return;
+
+    integration.registerAction(
+      StandardEditingActions.undoActionId,
+      _undo,
+      isEnabled: () => _undoStack.isNotEmpty,
+    );
+    integration.registerAction(
+      StandardEditingActions.redoActionId,
+      _redo,
+      isEnabled: () => _redoStack.isNotEmpty,
+    );
+
+    _shortcuts = <ShortcutActivator, Intent>{};
+    for (final action in integration.supportedActions) {
+      final key = integration.getShortcutForAction(action.id);
+      if (key != null) {
+        _shortcuts[key.toActivator()] = _PlainTextActionIntent(action.id);
+      }
+    }
+    _shortcuts[StandardEditingActions.redoAltShortcut.toActivator()] =
+        const _PlainTextActionIntent(StandardEditingActions.redoActionId);
+  }
+
+  @override
+  void dispose() {
+    _undoDebounceTimer?.cancel();
+    _textController.removeListener(_onTextChanged);
+    _scrollController.removeListener(_syncScroll);
+    _textController.dispose();
+    _scrollController.dispose();
+    _gutterScrollController.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _syncScroll() {
+    if (_gutterScrollController.hasClients) {
+      _gutterScrollController.jumpTo(_scrollController.offset);
+    }
+  }
+
+  void _onTextChanged() {
+    final newText = _textController.text;
+    widget.onChanged(newText);
+    _scheduleUndoSave(newText);
+  }
+
+  // ── Undo/Redo ──
+
+  void _scheduleUndoSave(String newText) {
+    _undoDebounceTimer?.cancel();
+    _undoDebounceTimer = Timer(_undoDebounceDuration, () {
+      if (_lastSavedText != newText) {
+        _undoStack.add(_UndoState(
+          text: _lastSavedText,
+          selection: _lastSavedSelection,
+        ));
+        if (_undoStack.length > _maxUndoStackSize) {
+          _undoStack.removeAt(0);
+        }
+        _lastSavedText = newText;
+        _lastSavedSelection = _textController.selection;
+        _redoStack.clear();
+        widget.integration?.notifyTextEdit(label: 'Text edit');
+      }
+    });
+  }
+
+  void _undo() {
+    if (_undoStack.isEmpty) return;
+    _redoStack.add(_UndoState(
+      text: _textController.text,
+      selection: _textController.selection,
+    ));
+    final state = _undoStack.removeLast();
+    _applyState(state);
+  }
+
+  void _redo() {
+    if (_redoStack.isEmpty) return;
+    _undoStack.add(_UndoState(
+      text: _textController.text,
+      selection: _textController.selection,
+    ));
+    final state = _redoStack.removeLast();
+    _applyState(state);
+  }
+
+  void _applyState(_UndoState state) {
+    _textController.removeListener(_onTextChanged);
+    _textController.text = state.text;
+    _textController.selection = state.selection;
+    _lastSavedText = state.text;
+    _lastSavedSelection = state.selection;
+    widget.onChanged(state.text);
+    _textController.addListener(_onTextChanged);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    const monoStyle = TextStyle(
+      fontFamily: 'monospace',
+      fontSize: 13,
+      height: 1.5,
+    );
+
+    final lineCount = '\n'.allMatches(_textController.text).length + 1;
+
+    Widget editor = Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Line number gutter
+        SizedBox(
+          width: 52,
+          child: ListView.builder(
+            controller: _gutterScrollController,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: lineCount,
+            itemBuilder: (context, index) {
+              return SizedBox(
+                height: monoStyle.fontSize! * monoStyle.height!,
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Text(
+                      '${index + 1}',
+                      style: monoStyle.copyWith(
+                        color: theme.colorScheme.onSurface
+                            .withValues(alpha: 0.35),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        Container(
+          width: 1,
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+        ),
+        // Text editor
+        Expanded(
+          child: TextField(
+            controller: _textController,
+            focusNode: _focusNode,
+            scrollController: _scrollController,
+            maxLines: null,
+            expands: true,
+            style: monoStyle.copyWith(
+              color: theme.colorScheme.onSurface,
+            ),
+            decoration: const InputDecoration(
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 4,
+              ),
+              isDense: true,
+            ),
+          ),
+        ),
+      ],
+    );
+
+    if (_shortcuts.isNotEmpty) {
+      editor = Shortcuts(
+        shortcuts: _shortcuts,
+        child: Actions(
+          actions: <Type, Action<Intent>>{
+            _PlainTextActionIntent:
+                CallbackAction<_PlainTextActionIntent>(
+              onInvoke: (intent) {
+                widget.integration?.executeAction(intent.actionId);
+                return null;
+              },
+            ),
+          },
+          child: editor,
+        ),
+      );
+    }
+
+    return Container(
+      color: theme.colorScheme.surface,
+      child: editor,
+    );
+  }
+}
+
+/// Undo state snapshot.
+class _UndoState {
+  final String text;
+  final TextSelection selection;
+  const _UndoState({required this.text, required this.selection});
+}
+
+/// A [TextEditingController] that applies syntax highlighting via
+/// [buildTextSpan] based on the file type.
+class _HighlightTextController extends TextEditingController {
+  final String language;
+
+  _HighlightTextController({
+    required String text,
+    required this.language,
+  }) : super(text: text);
+
+  @override
+  TextSpan buildTextSpan({
+    required BuildContext context,
+    TextStyle? style,
+    required bool withComposing,
+  }) {
+    final rules = _rulesForLanguage(language);
+    if (rules.isEmpty) {
+      return TextSpan(text: text, style: style);
+    }
+
+    final isDark =
+        Theme.of(context).colorScheme.brightness == Brightness.dark;
+    final spans = _buildHighlightedSpans(text, rules, style, isDark);
+    return TextSpan(children: spans, style: style);
+  }
+
+  static List<_HighlightRule> _rulesForLanguage(String lang) {
+    return switch (lang) {
+      'json' => _jsonRules,
+      'xml' || 'html' || 'svg' || 'xhtml' => _xmlRules,
+      'css' => _cssRules,
+      'sql' => _sqlRules,
+      _ => const [],
+    };
+  }
+
+  static List<TextSpan> _buildHighlightedSpans(
+    String text,
+    List<_HighlightRule> rules,
+    TextStyle? baseStyle,
+    bool isDark,
+  ) {
+    // Build colored regions from regex matches.
+    final regions = <_Region>[];
+    for (final rule in rules) {
+      for (final match in rule.pattern.allMatches(text)) {
+        regions.add(_Region(match.start, match.end, rule.colorDark(isDark)));
+      }
+    }
+    regions.sort((a, b) => a.start.compareTo(b.start));
+
+    // Merge into non-overlapping TextSpans.
+    final spans = <TextSpan>[];
+    var pos = 0;
+    for (final region in regions) {
+      if (region.start < pos) continue; // skip overlapping
+      if (region.start > pos) {
+        spans.add(TextSpan(text: text.substring(pos, region.start)));
+      }
+      spans.add(TextSpan(
+        text: text.substring(region.start, region.end),
+        style: TextStyle(color: region.color),
+      ));
+      pos = region.end;
+    }
+    if (pos < text.length) {
+      spans.add(TextSpan(text: text.substring(pos)));
+    }
+    return spans;
+  }
+
+  // ── JSON rules ──
+  static final _jsonRules = <_HighlightRule>[
+    _HighlightRule(
+      RegExp(r'//.*$', multiLine: true),
+      dark: const Color(0xFF7F848E),
+      light: const Color(0xFF6A737D),
+    ),
+    _HighlightRule(
+      RegExp(r'"(?:[^"\\]|\\.)*"\s*(?=:)'),
+      dark: const Color(0xFF7DCFFF),
+      light: const Color(0xFF005CC5),
+    ),
+    _HighlightRule(
+      RegExp(r'"(?:[^"\\]|\\.)*"'),
+      dark: const Color(0xFF98C379),
+      light: const Color(0xFF116329),
+    ),
+    _HighlightRule(
+      RegExp(r'\b(?:true|false|null)\b'),
+      dark: const Color(0xFF56B6C2),
+      light: const Color(0xFF1B7F83),
+    ),
+    _HighlightRule(
+      RegExp(r'-?\b\d+\.?\d*(?:[eE][+-]?\d+)?\b'),
+      dark: const Color(0xFFD19A66),
+      light: const Color(0xFF9A6700),
+    ),
+  ];
+
+  // ── XML rules ──
+  static final _xmlRules = <_HighlightRule>[
+    _HighlightRule(
+      RegExp(r'<!--[\s\S]*?-->'),
+      dark: const Color(0xFF7F848E),
+      light: const Color(0xFF6A737D),
+    ),
+    _HighlightRule(
+      RegExp(r'</?[\w:-]+'),
+      dark: const Color(0xFFC678DD),
+      light: const Color(0xFF6F42C1),
+    ),
+    _HighlightRule(
+      RegExp(r'\b[\w:-]+(?==)'),
+      dark: const Color(0xFF7DCFFF),
+      light: const Color(0xFF005CC5),
+    ),
+    _HighlightRule(
+      RegExp(r'"[^"]*"|' "'" r"[^']*'"),
+      dark: const Color(0xFF98C379),
+      light: const Color(0xFF116329),
+    ),
+    _HighlightRule(
+      RegExp(r'/?>'),
+      dark: const Color(0xFFC678DD),
+      light: const Color(0xFF6F42C1),
+    ),
+  ];
+
+  // ── CSS rules ──
+  static final _cssRules = <_HighlightRule>[
+    _HighlightRule(
+      RegExp(r'/\*[\s\S]*?\*/'),
+      dark: const Color(0xFF7F848E),
+      light: const Color(0xFF6A737D),
+    ),
+    _HighlightRule(
+      RegExp(r'[.#][\w-]+'),
+      dark: const Color(0xFFC678DD),
+      light: const Color(0xFF6F42C1),
+    ),
+    _HighlightRule(
+      RegExp(r'[\w-]+(?=\s*:)'),
+      dark: const Color(0xFF7DCFFF),
+      light: const Color(0xFF005CC5),
+    ),
+    _HighlightRule(
+      RegExp(r'"[^"]*"|' "'" r"[^']*'"),
+      dark: const Color(0xFF98C379),
+      light: const Color(0xFF116329),
+    ),
+    _HighlightRule(
+      RegExp(r'-?\b\d+\.?\d*(?:px|em|rem|%|vh|vw|s|ms)?\b'),
+      dark: const Color(0xFFD19A66),
+      light: const Color(0xFF9A6700),
+    ),
+  ];
+
+  // ── SQL rules ──
+  static final _sqlRules = <_HighlightRule>[
+    _HighlightRule(
+      RegExp(r'--.*$', multiLine: true),
+      dark: const Color(0xFF7F848E),
+      light: const Color(0xFF6A737D),
+    ),
+    _HighlightRule(
+      RegExp(
+        r'\b(?:SELECT|FROM|WHERE|INSERT|INTO|UPDATE|SET|DELETE|CREATE|DROP|'
+        r'ALTER|TABLE|INDEX|VIEW|JOIN|LEFT|RIGHT|INNER|OUTER|ON|AND|OR|NOT|'
+        r'NULL|IS|IN|LIKE|ORDER|BY|GROUP|HAVING|LIMIT|OFFSET|AS|DISTINCT|'
+        r'COUNT|SUM|AVG|MIN|MAX|VALUES|PRIMARY|KEY|FOREIGN|REFERENCES|'
+        r'CONSTRAINT|EXISTS|UNION|ALL|CASE|WHEN|THEN|ELSE|END|BEGIN|'
+        r'COMMIT|ROLLBACK)\b',
+        caseSensitive: false,
+      ),
+      dark: const Color(0xFFC678DD),
+      light: const Color(0xFF6F42C1),
+    ),
+    _HighlightRule(
+      RegExp(r"'(?:[^'\\]|\\.)*'"),
+      dark: const Color(0xFF98C379),
+      light: const Color(0xFF116329),
+    ),
+    _HighlightRule(
+      RegExp(r'-?\b\d+\.?\d*\b'),
+      dark: const Color(0xFFD19A66),
+      light: const Color(0xFF9A6700),
+    ),
+  ];
+}
+
+class _HighlightRule {
+  final RegExp pattern;
+  final Color _dark;
+  final Color _light;
+
+  const _HighlightRule(this.pattern, {required Color dark, required Color light})
+      : _dark = dark,
+        _light = light;
+
+  Color colorDark(bool isDark) => isDark ? _dark : _light;
+}
+
+class _Region {
+  final int start;
+  final int end;
+  final Color color;
+  const _Region(this.start, this.end, this.color);
 }

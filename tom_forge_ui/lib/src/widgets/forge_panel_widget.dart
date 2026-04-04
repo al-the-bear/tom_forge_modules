@@ -841,10 +841,15 @@ class _BottomAccordeonLayout extends StatefulWidget {
   final PanelArea? panelArea;
   final int? tabIndex;
 
+  /// Called when an editor tab from the middle panel is dropped on the
+  /// accordion content area (as opposed to the tab bar).
+  final void Function(TabDragData data)? onEditorDroppedAsSection;
+
   const _BottomAccordeonLayout({
     required this.sections,
     this.panelArea,
     this.tabIndex,
+    this.onEditorDroppedAsSection,
   });
 
   @override
@@ -861,14 +866,41 @@ class _BottomAccordeonLayoutState extends State<_BottomAccordeonLayout> {
   @override
   Widget build(BuildContext context) {
     if (widget.sections.length == 1) {
-      return widget.sections.first.buildMain(context);
+      return DragTarget<TabDragData>(
+        onWillAcceptWithDetails: (_) =>
+            widget.onEditorDroppedAsSection != null,
+        onAcceptWithDetails: (details) =>
+            widget.onEditorDroppedAsSection?.call(details.data),
+        builder: (context, candidateData, _) {
+          final child = widget.sections.first.buildMain(context);
+          if (candidateData.isEmpty) return child;
+          final shellTheme =
+              Theme.of(context).extension<ForgeShellTheme>();
+          return Container(
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: shellTheme?.dropZoneValid ??
+                    Theme.of(context).colorScheme.primary,
+                width: 2,
+              ),
+            ),
+            child: child,
+          );
+        },
+      );
     }
 
     final expandedIndices = List.generate(widget.sections.length, (i) => i)
         .where(_expandedSections.contains)
         .toList();
 
-    return Row(
+    return DragTarget<TabDragData>(
+      onWillAcceptWithDetails: (_) =>
+          widget.onEditorDroppedAsSection != null,
+      onAcceptWithDetails: (details) =>
+          widget.onEditorDroppedAsSection?.call(details.data),
+      builder: (context, candidateData, _) {
+        final row = Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (var i = 0; i < widget.sections.length; i++) ...[
@@ -908,6 +940,21 @@ class _BottomAccordeonLayoutState extends State<_BottomAccordeonLayout> {
             ),
         ],
       ],
+    );
+        if (candidateData.isEmpty) return row;
+        final shellTheme =
+            Theme.of(context).extension<ForgeShellTheme>();
+        return Container(
+          decoration: BoxDecoration(
+            border: Border.all(
+              color: shellTheme?.dropZoneValid ??
+                  Theme.of(context).colorScheme.primary,
+              width: 2,
+            ),
+          ),
+          child: row,
+        );
+      },
     );
   }
 
@@ -1193,12 +1240,17 @@ class ForgePanelWidget extends StatefulWidget {
   /// Called when an editor tab from the middle panels is dropped here.
   final void Function(TabDragData data)? onEditorDropped;
 
+  /// Called when an editor tab is dropped on the accordion content area
+  /// of the active tab (to be added as an accordion section, not a new tab).
+  final void Function(TabDragData data, int tabIndex)? onEditorDroppedAsSection;
+
   const ForgePanelWidget({
     super.key,
     required this.tabs,
     this.panelArea = PanelArea.bottom,
     this.onTabDropped,
     this.onEditorDropped,
+    this.onEditorDroppedAsSection,
   });
 
   @override
@@ -1384,6 +1436,9 @@ class _ForgePanelWidgetState extends State<ForgePanelWidget> {
       sections: tab.sections,
       panelArea: widget.panelArea,
       tabIndex: _activeTabIndex,
+      onEditorDroppedAsSection: widget.onEditorDroppedAsSection != null
+          ? (data) => widget.onEditorDroppedAsSection!(data, _activeTabIndex)
+          : null,
     );
   }
 }

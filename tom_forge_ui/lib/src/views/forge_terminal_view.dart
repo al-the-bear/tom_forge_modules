@@ -556,16 +556,45 @@ class _TerminalSectionHeader extends StatelessWidget {
 }
 
 /// Content area for a single terminal section.
-class _TerminalSectionContent extends StatelessWidget {
+class _TerminalSectionContent extends StatefulWidget {
   final ForgeTerminal terminal;
 
   const _TerminalSectionContent({required this.terminal});
 
   @override
+  State<_TerminalSectionContent> createState() =>
+      _TerminalSectionContentState();
+}
+
+class _TerminalSectionContentState extends State<_TerminalSectionContent> {
+  final FocusNode _focusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    // Explicitly request focus after the first frame to ensure the terminal
+    // can receive keyboard input even when another widget already has focus
+    // (e.g. when dragged into the middle panel where the scaffold's
+    // Focus(autofocus: true) already holds focus).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_focusNode.hasFocus) {
+        _focusNode.requestFocus();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (terminal is PtyTerminal) {
+    if (widget.terminal is PtyTerminal) {
       return xterm.TerminalView(
-        (terminal as PtyTerminal).terminalModel,
+        (widget.terminal as PtyTerminal).terminalModel,
+        focusNode: _focusNode,
         autofocus: true,
         textStyle: const xterm.TerminalStyle(
           fontSize: 13,
@@ -573,7 +602,7 @@ class _TerminalSectionContent extends StatelessWidget {
         ),
       );
     }
-    return _FallbackTerminalContent(terminal: terminal);
+    return _FallbackTerminalContent(terminal: widget.terminal);
   }
 }
 

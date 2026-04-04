@@ -109,6 +109,9 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
   /// Whether we own (created) the integration and must dispose it.
   bool _ownsIntegration = false;
 
+  /// Keyboard shortcuts built from registered actions.
+  Map<ShortcutActivator, Intent> _shortcuts = {};
+
   /// Set of node IDs that the user has explicitly collapsed.
   ///
   /// All container nodes are EXPANDED by default. Only nodes present in this
@@ -230,10 +233,24 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
         () => widget.controller.redo(),
         isEnabled: () => widget.controller.canRedo,
       );
+      _buildShortcutMap();
       trailEvent('registerActions: done');
     } catch (e) {
       trailEvent('registerActions: THREW $e');
     }
+  }
+
+  void _buildShortcutMap() {
+    _shortcuts = <ShortcutActivator, Intent>{};
+    for (final action in _integration.supportedActions) {
+      final key = _integration.getShortcutForAction(action.id);
+      if (key != null) {
+        _shortcuts[key.toActivator()] = _YamlEditorActionIntent(action.id);
+      }
+    }
+    // Alternative redo shortcut (Ctrl+Y)
+    _shortcuts[StandardEditingActions.redoAltShortcut.toActivator()] =
+        const _YamlEditorActionIntent(StandardEditingActions.redoActionId);
   }
 
   @override
@@ -874,12 +891,26 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
       }
     }
 
-    var mainContent = Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _buildModeToolbar(theme),
-        Expanded(child: editorContent),
-      ],
+    var mainContent = Shortcuts(
+      shortcuts: _shortcuts,
+      child: Actions(
+        actions: <Type, Action<Intent>>{
+          _YamlEditorActionIntent:
+              CallbackAction<_YamlEditorActionIntent>(
+            onInvoke: (intent) {
+              _integration.executeAction(intent.actionId);
+              return null;
+            },
+          ),
+        },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildModeToolbar(theme),
+            Expanded(child: editorContent),
+          ],
+        ),
+      ),
     );
 
     // Wrap with optional error list
@@ -1216,4 +1247,10 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
         break;
     }
   }
+}
+
+/// Intent carrying a [ForgeAction] ID for the [Shortcuts]/[Actions] bridge.
+class _YamlEditorActionIntent extends Intent {
+  final String actionId;
+  const _YamlEditorActionIntent(this.actionId);
 }

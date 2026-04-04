@@ -2895,6 +2895,40 @@ Press "?" for this help document.
     setState(() {});
   }
 
+  /// Handles an editor tab being dropped on the accordion content area
+  /// of a panel tab. Instead of creating a new tab, adds the editor as
+  /// a new accordion section in the target tab.
+  void _handleEditorDropAsSection(
+    TabDragData data,
+    PanelArea targetArea,
+    int tabIndex,
+  ) {
+    final layout = widget.application.layout;
+
+    final targetTabs = switch (targetArea) {
+      PanelArea.left => layout.leftPanel.tabs,
+      PanelArea.right => layout.rightPanel.tabs,
+      PanelArea.bottom => layout.bottomPanel.tabs,
+    };
+
+    if (tabIndex < 0 || tabIndex >= targetTabs.length) return;
+
+    // Convert the editor to a ForgeView for the accordion section.
+    // If it's a _ViewEditorAdapter wrapping a ForgeView, unwrap it.
+    final ForgeView section;
+    if (data.editor is _ViewEditorAdapter) {
+      section = (data.editor as _ViewEditorAdapter).view;
+    } else {
+      section = _EditorViewAdapter(data.editor);
+    }
+
+    targetTabs[tabIndex].sections.add(section);
+
+    // Remove from middle panel.
+    _layout.closeEditor(data.editor);
+    setState(() {});
+  }
+
   /// Handles a view section being dropped onto the editor tab bar from
   /// a side/bottom panel.
   void _handleViewDropOnMiddle(SectionDragData data, int panelIndex) {
@@ -3027,6 +3061,8 @@ Press "?" for this help document.
         onTabDropped: (data) => _handlePanelTabDrop(data, PanelArea.bottom),
         onEditorDropped: (data) =>
             _handleEditorDropOnPanel(data, PanelArea.bottom),
+        onEditorDroppedAsSection: (data, tabIndex) =>
+            _handleEditorDropAsSection(data, PanelArea.bottom, tabIndex),
       ),
     );
   }
