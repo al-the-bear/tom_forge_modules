@@ -671,6 +671,7 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
   // Auto-close brackets state
   String _previousText = '';
   bool _skipAutoClose = false;
+  bool _applyingUndoState = false;
 
   // Auto-completion debounce
   Timer? _completionDebounceTimer;
@@ -849,6 +850,14 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
           const _DartEditorActionIntent(DartEditorActions.triggerCompletionActionId);
     }
 
+    // Explicit Ctrl+Z → undo, Ctrl+Shift+Z → redo overrides for the case
+    // when FocusNode.onKeyEvent doesn't fire before EditableText's built-in
+    // shortcuts consume the event.
+    _shortcuts[const SingleActivator(LogicalKeyboardKey.keyZ, control: true)] =
+        const _DartEditorActionIntent(StandardEditingActions.undoActionId);
+    _shortcuts[const SingleActivator(
+            LogicalKeyboardKey.keyZ, control: true, shift: true)] =
+        const _DartEditorActionIntent(StandardEditingActions.redoActionId);
     // Alternative redo shortcut (Ctrl+Y)
     _shortcuts[StandardEditingActions.redoAltShortcut.toActivator()] =
         const _DartEditorActionIntent(StandardEditingActions.redoActionId);
@@ -1084,6 +1093,8 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
   }
 
   void _scheduleUndoSave(String newText) {
+    // Skip scheduling during undo/redo application to avoid corrupting stacks.
+    if (_applyingUndoState) return;
     _undoDebounceTimer?.cancel();
 
     // Detect word boundary: if the edit inserts a word separator (space,
@@ -1132,7 +1143,22 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
     _integration.notifyTextEdit(label: 'Dart edit');
   }
 
+  /// Flush the debounce timer and immediately save the pending undo state
+  /// if the text has changed since the last save.
+  void _flushPendingUndoSave() {
+    _undoDebounceTimer?.cancel();
+    final currentText = _textController.text;
+    if (_lastSavedText != currentText) {
+      _pushUndoState(_lastSavedText, _lastSavedSelection);
+      _lastSavedText = currentText;
+      _lastSavedSelection = _textController.selection;
+    }
+  }
+
   void _undo() {
+    // Flush any pending debounce save so the pre-edit state is on the
+    // stack even when the user presses Ctrl+Z within the 300ms window.
+    _flushPendingUndoSave();
     if (_undoStack.isEmpty) return;
 
     // Save current state to redo stack
@@ -1165,12 +1191,16 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
   }
 
   void _applyUndoState(_UndoState state) {
+    _applyingUndoState = true;
     _textController.text = state.text;
     _textController.selection = state.selection;
     _lastSavedText = state.text;
+    _lastSavedSelection = state.selection;
+    _previousText = state.text;
     widget.controller.userCode = state.text;
     widget.onChanged?.call(state.text);
     _textController.invalidate();
+    _applyingUndoState = false;
   }
 
   void _onHover(PointerHoverEvent event) {

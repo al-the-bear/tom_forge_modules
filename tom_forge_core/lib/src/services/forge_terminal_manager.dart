@@ -14,6 +14,14 @@ abstract class ForgeTerminalManager {
   /// Sets [terminal] as the active terminal.
   void setActive(ForgeTerminal terminal);
 
+  /// Remove a terminal from this manager without killing its process.
+  ///
+  /// Used when a terminal is moved to another panel (e.g. dragged to the
+  /// editor area).  The PTY process keeps running; calling code becomes
+  /// responsible for eventually calling [ForgeTerminal.close] or
+  /// [ForgeTerminal.dispose].
+  void detach(ForgeTerminal terminal);
+
   Stream<ForgeTerminal> get onDidOpen;
   Stream<ForgeTerminal> get onDidClose;
   Stream<ForgeTerminal?> get onDidChangeActive;

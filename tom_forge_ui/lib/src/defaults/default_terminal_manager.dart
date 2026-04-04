@@ -65,6 +65,17 @@ class DefaultTerminalManager implements ForgeTerminalManager {
   @override
   Stream<ForgeTerminal?> get onDidChangeActive => _activeController.stream;
 
+  @override
+  void detach(ForgeTerminal terminal) {
+    if (terminal is! DefaultTerminal) return;
+    _terminals.remove(terminal);
+    _closeController.add(terminal);
+    if (_activeTerminal == terminal) {
+      _activeTerminal = _terminals.isNotEmpty ? _terminals.last : null;
+      _activeController.add(_activeTerminal);
+    }
+  }
+
   void _removeTerminal(DefaultTerminal terminal) {
     _terminals.remove(terminal);
     _closeController.add(terminal);

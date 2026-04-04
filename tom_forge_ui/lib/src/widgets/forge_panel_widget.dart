@@ -944,41 +944,36 @@ class _BottomAccordeonLayoutState extends State<_BottomAccordeonLayout> {
           if (_expandedSections.contains(i))
             Flexible(
               flex: (_flexFor(i) * 1000).round(),
-              child: Draggable<SectionDragData>(
-                data: SectionDragData(
-                  section: widget.sections[i],
-                  sourceIndex: i,
-                  sourceArea: widget.panelArea,
-                  sourceTabIndex: widget.tabIndex,
-                ),
-                feedback: _buildDragFeedback(context, widget.sections[i]),
-                childWhenDragging: Opacity(
-                  opacity: 0.35,
-                  child: Column(
-                    children: [
-                      _BottomSectionHeader(
+              child: Column(
+                children: [
+                  Draggable<SectionDragData>(
+                    data: SectionDragData(
+                      section: widget.sections[i],
+                      sourceIndex: i,
+                      sourceArea: widget.panelArea,
+                      sourceTabIndex: widget.tabIndex,
+                    ),
+                    feedback: _buildDragFeedback(context, widget.sections[i]),
+                    childWhenDragging: Opacity(
+                      opacity: 0.35,
+                      child: _BottomSectionHeader(
                         view: widget.sections[i],
                         isExpanded: true,
                         isPinned: _pinnedSections.contains(i),
                         onToggle: () {},
                         onTogglePin: () {},
                       ),
-                      const Expanded(child: SizedBox.shrink()),
-                    ],
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    _BottomSectionHeader(
+                    ),
+                    child: _BottomSectionHeader(
                       view: widget.sections[i],
                       isExpanded: true,
                       isPinned: _pinnedSections.contains(i),
                       onToggle: () => _toggleSection(i),
                       onTogglePin: () => _togglePin(i),
                     ),
-                    Expanded(child: widget.sections[i].buildMain(context)),
-                  ],
-                ),
+                  ),
+                  Expanded(child: widget.sections[i].buildMain(context)),
+                ],
               ),
             )
           else

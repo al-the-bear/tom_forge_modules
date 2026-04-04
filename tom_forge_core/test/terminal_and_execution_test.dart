@@ -92,6 +92,13 @@ class _TestTerminalManager implements ForgeTerminalManager {
   @override
   Stream<ForgeTerminal?> get onDidChangeActive => _activeCtrl.stream;
 
+  @override
+  void detach(ForgeTerminal terminal) {
+    if (terminal is _TestTerminal) {
+      removeTerminal(terminal);
+    }
+  }
+
   void removeTerminal(_TestTerminal t) {
     _terminals.remove(t);
     _closeCtrl.add(t);

@@ -260,6 +260,43 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
         const _YamlEditorActionIntent(StandardEditingActions.redoActionId);
   }
 
+  /// Direct key-event handler for undo/redo that fires before the
+  /// Shortcuts/Actions chain.  When inline text fields in tree-node rows
+  /// hold the primary focus, the Flutter Shortcuts widget may not
+  /// propagate to our Actions widget reliably.  This handler guarantees
+  /// Ctrl+U (undo), Ctrl+Z (undo), Ctrl+Shift+Z (redo), and Ctrl+Y
+  /// (redo) always reach the controller.
+  KeyEventResult _handleUndoKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    final isCtrl = HardwareKeyboard.instance.isControlPressed ||
+        HardwareKeyboard.instance.isMetaPressed;
+    if (!isCtrl || HardwareKeyboard.instance.isAltPressed) {
+      return KeyEventResult.ignored;
+    }
+    // Ctrl+U  → undo (non-conventional, Concept §11.3)
+    // Ctrl+Z  → undo (standard)
+    if (event.logicalKey == LogicalKeyboardKey.keyU ||
+        (event.logicalKey == LogicalKeyboardKey.keyZ &&
+            !HardwareKeyboard.instance.isShiftPressed)) {
+      widget.controller.undo();
+      return KeyEventResult.handled;
+    }
+    // Ctrl+Shift+Z → redo
+    if (event.logicalKey == LogicalKeyboardKey.keyZ &&
+        HardwareKeyboard.instance.isShiftPressed) {
+      widget.controller.redo();
+      return KeyEventResult.handled;
+    }
+    // Ctrl+Y → redo
+    if (event.logicalKey == LogicalKeyboardKey.keyY) {
+      widget.controller.redo();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
   @override
   void didUpdateWidget(YamlSchemaEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -898,6 +935,8 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
       }
     }
 
+    // Outer Focus interceptor removed — handler is now on the inner Focus
+    // (autofocus: true) which fires BEFORE the Shortcuts/Actions chain.
     var mainContent = Shortcuts(
       shortcuts: _shortcuts,
       child: Actions(
@@ -912,11 +951,12 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
         },
         // A Focus wrapper inside Actions ensures that when a tree-node
         // text field loses focus, Flutter falls back to this node which
-        // stays inside the Actions scope.  Without it, focus leaves the
-        // YAML editor entirely and Shortcuts can no longer find the
-        // registered Actions for undo/redo.
+        // stays inside the Actions scope.  The onKeyEvent handler
+        // intercepts undo/redo before the Shortcuts chain so that they
+        // work even when inline text fields hold primaryFocus.
         child: Focus(
           autofocus: true,
+          onKeyEvent: _handleUndoKeyEvent,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [

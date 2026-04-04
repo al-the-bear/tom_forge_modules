@@ -202,6 +202,7 @@ class _TerminalContentState extends State<_TerminalContent> {
         widget.terminalManager.setActive(terminals[index]);
       },
       onClose: (terminal) => terminal.close(),
+      onDetach: (terminal) => widget.terminalManager.detach(terminal),
       onAdd: () => widget.terminalManager.create(),
     );
   }
@@ -217,6 +218,7 @@ class _TerminalAccordion extends StatelessWidget {
   final Set<int> expanded;
   final void Function(int index) onToggle;
   final void Function(ForgeTerminal terminal) onClose;
+  final void Function(ForgeTerminal terminal) onDetach;
   final VoidCallback onAdd;
 
   const _TerminalAccordion({
@@ -225,6 +227,7 @@ class _TerminalAccordion extends StatelessWidget {
     required this.expanded,
     required this.onToggle,
     required this.onClose,
+    required this.onDetach,
     required this.onAdd,
   });
 
@@ -245,7 +248,7 @@ class _TerminalAccordion extends StatelessWidget {
                       sourceIndex: i,
                       sourceArea: PanelArea.bottom,
                       sourceTabIndex: 0,
-                      onRemoved: () => onClose(terminals[i]),
+                      onRemoved: () => onDetach(terminals[i]),
                     ),
                     feedback: Material(
                       elevation: 4,
@@ -308,7 +311,7 @@ class _TerminalAccordion extends StatelessWidget {
                 sourceIndex: i,
                 sourceArea: PanelArea.bottom,
                 sourceTabIndex: 0,
-                onRemoved: () => onClose(terminals[i]),
+                onRemoved: () => onDetach(terminals[i]),
               ),
               feedback: Material(
                 elevation: 4,
