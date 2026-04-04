@@ -87,6 +87,11 @@ class ForgeYamlEditor extends ForgeSchemaEditor {
 
   YamlEditorTheme _buildThemeFromOptions() {
     const base = YamlEditorTheme();
+    final config = switch (_module) {
+      final TomForgeShellModule m =>
+        m.shellApi.getEditorSpecificConfig('yaml'),
+      _ => const <String, dynamic>{},
+    };
     return YamlEditorTheme(
       colors: base.colors,
       structureColors: base.structureColors,
@@ -99,7 +104,19 @@ class ForgeYamlEditor extends ForgeSchemaEditor {
       ),
       embeddedEditorStyle: base.embeddedEditorStyle,
       editorPadding: base.editorPadding,
-      indentWidth: base.indentWidth,
+      indentWidth: (config['indentWidth'] as num?)?.toDouble() ?? base.indentWidth,
+      showTreeLines: (config['showTreeLines'] as bool?) ?? base.showTreeLines,
+      showCollapseToggles: (config['showCollapseToggles'] as bool?) ??
+          base.showCollapseToggles,
+      showAddButtons:
+          (config['showAddButtons'] as bool?) ?? base.showAddButtons,
+      showRemoveButtons:
+          (config['showRemoveButtons'] as bool?) ?? base.showRemoveButtons,
+      showInlineValidation: (config['showInlineValidation'] as bool?) ??
+          base.showInlineValidation,
+      collapsedPreviewLines:
+          (config['collapsedPreviewLines'] as num?)?.toInt() ??
+              base.collapsedPreviewLines,
     );
   }
 

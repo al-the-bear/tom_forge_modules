@@ -683,12 +683,16 @@ class _EditorSettingsSection extends StatefulWidget {
 
 class _EditorSettingsSectionState extends State<_EditorSettingsSection> {
   late ForgeTextSettings _settings;
+  late Map<String, dynamic> _editorConfig;
 
   @override
   void initState() {
     super.initState();
     _settings = widget.shellApi?.getTextSettings(widget.editorTypeId) ??
         const ForgeTextSettings();
+    _editorConfig =
+        widget.shellApi?.getEditorSpecificConfig(widget.editorTypeId) ??
+            <String, dynamic>{};
   }
 
   void _update(ForgeTextSettings next) {
@@ -698,6 +702,24 @@ class _EditorSettingsSectionState extends State<_EditorSettingsSection> {
     widget.preferencesService.save();
     widget.onChanged?.call();
   }
+
+  void _updateConfig(String key, dynamic value) {
+    setState(() => _editorConfig[key] = value);
+    widget.preferencesService
+        .setEditorSpecificConfig(widget.editorTypeId, _editorConfig);
+    widget.shellApi
+        ?.setEditorSpecificConfig(widget.editorTypeId, _editorConfig);
+    widget.preferencesService.save();
+    widget.onChanged?.call();
+  }
+
+  bool _configBool(String key, {bool defaultValue = true}) =>
+      (_editorConfig[key] as bool?) ?? defaultValue;
+
+  int _configInt(String key, {int defaultValue = 0}) =>
+      (_editorConfig[key] as int?) ??
+      ((_editorConfig[key] as num?)?.toInt()) ??
+      defaultValue;
 
   @override
   Widget build(BuildContext context) {
@@ -862,9 +884,391 @@ class _EditorSettingsSectionState extends State<_EditorSettingsSection> {
               },
             ),
           ),
+          // ── Editor-specific settings ──
+          ..._buildEditorSpecificSettings(theme),
         ],
       ),
     );
+  }
+
+  List<Widget> _buildEditorSpecificSettings(ThemeData theme) {
+    return switch (widget.editorTypeId) {
+      'dart' => _buildDartSettings(theme),
+      'yaml' => _buildYamlSettings(theme),
+      'md' => _buildMdSettings(theme),
+      _ => const <Widget>[],
+    };
+  }
+
+  // ── Dart editor-specific settings ──
+
+  List<Widget> _buildDartSettings(ThemeData theme) {
+    return [
+      const SizedBox(height: 16),
+      _sectionHeader(theme, 'Toolbar'),
+      const SizedBox(height: 8),
+      Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        children: [
+          _toggle('Show toolbar', _configBool('showToolbar'),
+              (v) => _updateConfig('showToolbar', v)),
+          _toggle('Line numbers', _configBool('showLineNumbers'),
+              (v) => _updateConfig('showLineNumbers', v)),
+        ],
+      ),
+      const SizedBox(height: 16),
+      _sectionHeader(theme, 'Autocompletion'),
+      const SizedBox(height: 8),
+      Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        children: [
+          _toggle('Enabled', _configBool('autoCompleteEnabled'),
+              (v) => _updateConfig('autoCompleteEnabled', v)),
+          _toggle('Popup below', _configBool('popupPreferBelow'),
+              (v) => _updateConfig('popupPreferBelow', v)),
+        ],
+      ),
+      const SizedBox(height: 8),
+      SizedBox(
+        width: 100,
+        child: TextFormField(
+          initialValue: _configInt('maxCompletionItems', defaultValue: 8)
+              .toString(),
+          keyboardType: TextInputType.number,
+          style: const TextStyle(fontSize: 13),
+          decoration: const InputDecoration(
+            labelText: 'Max items',
+            border: OutlineInputBorder(),
+            contentPadding:
+                EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            isDense: true,
+          ),
+          onChanged: (v) {
+            final p = int.tryParse(v.trim());
+            if (p != null && p > 0) _updateConfig('maxCompletionItems', p);
+          },
+        ),
+      ),
+      const SizedBox(height: 16),
+      _sectionHeader(theme, 'Diagnostics — Errors'),
+      const SizedBox(height: 8),
+      Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        children: [
+          _toggle('Tooltips', _configBool('showErrorTooltips'),
+              (v) => _updateConfig('showErrorTooltips', v)),
+          _toggle('Markers', _configBool('showErrorMarkers'),
+              (v) => _updateConfig('showErrorMarkers', v)),
+        ],
+      ),
+      const SizedBox(height: 8),
+      _sectionHeader(theme, 'Diagnostics — Warnings'),
+      const SizedBox(height: 8),
+      Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        children: [
+          _toggle('Tooltips', _configBool('showWarningTooltips'),
+              (v) => _updateConfig('showWarningTooltips', v)),
+          _toggle('Markers', _configBool('showWarningMarkers'),
+              (v) => _updateConfig('showWarningMarkers', v)),
+        ],
+      ),
+      const SizedBox(height: 8),
+      _sectionHeader(theme, 'Diagnostics — Info'),
+      const SizedBox(height: 8),
+      Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        children: [
+          _toggle(
+              'Tooltips',
+              _configBool('showInfoTooltips', defaultValue: false),
+              (v) => _updateConfig('showInfoTooltips', v)),
+          _toggle(
+              'Markers',
+              _configBool('showInfoMarkers', defaultValue: false),
+              (v) => _updateConfig('showInfoMarkers', v)),
+        ],
+      ),
+      const SizedBox(height: 16),
+      _sectionHeader(theme, 'Toolbar Buttons'),
+      const SizedBox(height: 8),
+      Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        children: [
+          _toggle('Autocomplete toggle',
+              _configBool('showAutoCompleteToggle'),
+              (v) => _updateConfig('showAutoCompleteToggle', v)),
+          _toggle('Error toggles', _configBool('showErrorToggles'),
+              (v) => _updateConfig('showErrorToggles', v)),
+          _toggle('Warning toggles', _configBool('showWarningToggles'),
+              (v) => _updateConfig('showWarningToggles', v)),
+          _toggle('Info toggles', _configBool('showInfoToggles'),
+              (v) => _updateConfig('showInfoToggles', v)),
+          _toggle('Popup position', _configBool('showPopupPositionToggle'),
+              (v) => _updateConfig('showPopupPositionToggle', v)),
+          _toggle('Open reference', _configBool('showOpenReferenceButton'),
+              (v) => _updateConfig('showOpenReferenceButton', v)),
+        ],
+      ),
+    ];
+  }
+
+  // ── YAML editor-specific settings ──
+
+  List<Widget> _buildYamlSettings(ThemeData theme) {
+    return [
+      const SizedBox(height: 16),
+      _sectionHeader(theme, 'Tree & Structure'),
+      const SizedBox(height: 8),
+      Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        children: [
+          _toggle('Tree lines', _configBool('showTreeLines'),
+              (v) => _updateConfig('showTreeLines', v)),
+          _toggle('Collapse toggles', _configBool('showCollapseToggles'),
+              (v) => _updateConfig('showCollapseToggles', v)),
+          _toggle('Add buttons', _configBool('showAddButtons'),
+              (v) => _updateConfig('showAddButtons', v)),
+          _toggle('Remove buttons', _configBool('showRemoveButtons'),
+              (v) => _updateConfig('showRemoveButtons', v)),
+          _toggle('Inline validation', _configBool('showInlineValidation'),
+              (v) => _updateConfig('showInlineValidation', v)),
+        ],
+      ),
+      const SizedBox(height: 16),
+      _sectionHeader(theme, 'Layout'),
+      const SizedBox(height: 8),
+      Row(
+        children: [
+          SizedBox(
+            width: 80,
+            child: TextFormField(
+              initialValue:
+                  _configInt('indentWidth', defaultValue: 24).toString(),
+              keyboardType: TextInputType.number,
+              style: const TextStyle(fontSize: 13),
+              decoration: const InputDecoration(
+                labelText: 'Indent',
+                border: OutlineInputBorder(),
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                isDense: true,
+              ),
+              onChanged: (v) {
+                final p = int.tryParse(v.trim());
+                if (p != null && p > 0) _updateConfig('indentWidth', p);
+              },
+            ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 100,
+            child: TextFormField(
+              initialValue: _configInt('collapsedPreviewLines',
+                      defaultValue: 2)
+                  .toString(),
+              keyboardType: TextInputType.number,
+              style: const TextStyle(fontSize: 13),
+              decoration: const InputDecoration(
+                labelText: 'Preview lines',
+                border: OutlineInputBorder(),
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                isDense: true,
+              ),
+              onChanged: (v) {
+                final p = int.tryParse(v.trim());
+                if (p != null && p >= 0) {
+                  _updateConfig('collapsedPreviewLines', p);
+                }
+              },
+            ),
+          ),
+        ],
+      ),
+    ];
+  }
+
+  // ── Markdown editor-specific settings ──
+
+  List<Widget> _buildMdSettings(ThemeData theme) {
+    return [
+      const SizedBox(height: 16),
+      _sectionHeader(theme, 'Layout'),
+      const SizedBox(height: 8),
+      Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        children: [
+          _toggle('Show tree', _configBool('showTree'),
+              (v) => _updateConfig('showTree', v)),
+          _toggle(
+              'Show toolbar',
+              _configBool('showToolbar', defaultValue: false),
+              (v) => _updateConfig('showToolbar', v)),
+          _toggle('Show status bar', _configBool('showStatusBar'),
+              (v) => _updateConfig('showStatusBar', v)),
+          _toggle('Show search box', _configBool('showSearchBox'),
+              (v) => _updateConfig('showSearchBox', v)),
+        ],
+      ),
+      const SizedBox(height: 16),
+      _sectionHeader(theme, 'Raw Editor'),
+      const SizedBox(height: 8),
+      Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        children: [
+          _toggle('Auto-hide editor', _configBool('autoHideEditor'),
+              (v) => _updateConfig('autoHideEditor', v)),
+          _toggle('Live preview', _configBool('livePreview'),
+              (v) => _updateConfig('livePreview', v)),
+          _toggle('Allow position change',
+              _configBool('allowEditorPositionChange'),
+              (v) => _updateConfig('allowEditorPositionChange', v)),
+        ],
+      ),
+      const SizedBox(height: 16),
+      _sectionHeader(theme, 'Main Panel'),
+      const SizedBox(height: 8),
+      Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        children: [
+          _toggle(
+              'Line numbers',
+              _configBool('showLineNumbers', defaultValue: false),
+              (v) => _updateConfig('showLineNumbers', v)),
+          _toggle('Section borders', _configBool('showSectionBorders'),
+              (v) => _updateConfig('showSectionBorders', v)),
+          _toggle('Highlight section',
+              _configBool('highlightCurrentSection'),
+              (v) => _updateConfig('highlightCurrentSection', v)),
+          _toggle('Smooth scrolling', _configBool('enableSmoothScrolling'),
+              (v) => _updateConfig('enableSmoothScrolling', v)),
+        ],
+      ),
+      const SizedBox(height: 16),
+      _sectionHeader(theme, 'Tree'),
+      const SizedBox(height: 8),
+      Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        children: [
+          _toggle('Expand all', _configBool('expandAllByDefault'),
+              (v) => _updateConfig('expandAllByDefault', v)),
+          _toggle('Validation markers',
+              _configBool('showValidationMarkers'),
+              (v) => _updateConfig('showValidationMarkers', v)),
+          _toggle('Drag and drop', _configBool('enableDragAndDrop'),
+              (v) => _updateConfig('enableDragAndDrop', v)),
+          _toggle(
+              'Section icons',
+              _configBool('showSectionIcons', defaultValue: false),
+              (v) => _updateConfig('showSectionIcons', v)),
+        ],
+      ),
+      const SizedBox(height: 16),
+      _sectionHeader(theme, 'Markdown Features'),
+      const SizedBox(height: 8),
+      Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        children: [
+          _toggle('Mermaid diagrams', _configBool('enableMermaid'),
+              (v) => _updateConfig('enableMermaid', v)),
+          _toggle('Math (KaTeX)', _configBool('enableMath'),
+              (v) => _updateConfig('enableMath', v)),
+          _toggle('Footnotes', _configBool('enableFootnotes'),
+              (v) => _updateConfig('enableFootnotes', v)),
+          _toggle('Task lists', _configBool('enableTaskLists'),
+              (v) => _updateConfig('enableTaskLists', v)),
+          _toggle('Interactive tasks',
+              _configBool('enableInteractiveTaskLists'),
+              (v) => _updateConfig('enableInteractiveTaskLists', v)),
+          _toggle('Tables', _configBool('enableTables'),
+              (v) => _updateConfig('enableTables', v)),
+          _toggle('Syntax highlighting',
+              _configBool('enableSyntaxHighlighting'),
+              (v) => _updateConfig('enableSyntaxHighlighting', v)),
+        ],
+      ),
+      const SizedBox(height: 16),
+      _sectionHeader(theme, 'Code Blocks'),
+      const SizedBox(height: 8),
+      Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        children: [
+          _toggle('Show language', _configBool('showCodeBlockLanguage'),
+              (v) => _updateConfig('showCodeBlockLanguage', v)),
+          _toggle('Copy button', _configBool('showCopyCodeButton'),
+              (v) => _updateConfig('showCopyCodeButton', v)),
+          _toggle('Edit button', _configBool('showCodeEditButton'),
+              (v) => _updateConfig('showCodeEditButton', v)),
+          _toggle('Enable editing', _configBool('enableCodeEditing'),
+              (v) => _updateConfig('enableCodeEditing', v)),
+        ],
+      ),
+      const SizedBox(height: 16),
+      _sectionHeader(theme, 'Tables'),
+      const SizedBox(height: 8),
+      Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        children: [
+          _toggle('Edit button', _configBool('showTableEditButton'),
+              (v) => _updateConfig('showTableEditButton', v)),
+          _toggle('Enable editing', _configBool('enableTableEditing'),
+              (v) => _updateConfig('enableTableEditing', v)),
+        ],
+      ),
+      const SizedBox(height: 16),
+      _sectionHeader(theme, 'Search'),
+      const SizedBox(height: 8),
+      Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        children: [
+          _toggle('Search', _configBool('enableSearch'),
+              (v) => _updateConfig('enableSearch', v)),
+          _toggle('Replace', _configBool('enableReplace'),
+              (v) => _updateConfig('enableReplace', v)),
+          _toggle(
+              'Regex',
+              _configBool('enableRegexSearch', defaultValue: false),
+              (v) => _updateConfig('enableRegexSearch', v)),
+        ],
+      ),
+      const SizedBox(height: 16),
+      _sectionHeader(theme, 'Behavior'),
+      const SizedBox(height: 8),
+      Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        children: [
+          _toggle(
+              'Read only',
+              _configBool('readOnly', defaultValue: false),
+              (v) => _updateConfig('readOnly', v)),
+          _toggle('Undo', _configBool('enableUndo'),
+              (v) => _updateConfig('enableUndo', v)),
+          _toggle('Confirm delete', _configBool('confirmDelete'),
+              (v) => _updateConfig('confirmDelete', v)),
+          _toggle(
+              'Auto save',
+              _configBool('autoSave', defaultValue: false),
+              (v) => _updateConfig('autoSave', v)),
+        ],
+      ),
+    ];
   }
 
   Widget _toggle(String label, bool value, ValueChanged<bool> onChanged) {

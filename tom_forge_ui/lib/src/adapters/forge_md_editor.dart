@@ -88,14 +88,12 @@ class ForgeMdEditor extends ForgeTextEditor {
     }
     // Build theme with applied options.
     final theme = _buildThemeFromOptions();
+    final settings = _buildSettingsFromConfig();
     return MdEditor(
       controller: controller,
       integration: _integration,
       theme: theme,
-      settings: MdEditorSettings.standard().copyWith(
-        autoHideEditor: false,
-        rawEditorPosition: RawEditorPosition.below,
-      ),
+      settings: settings,
     );
   }
 
@@ -109,6 +107,55 @@ class ForgeMdEditor extends ForgeTextEditor {
       lineHeight: _options.lineHeight ?? baseTheme.lineHeight,
     );
     return MdEditorTheme(basic: basic);
+  }
+
+  /// Builds [MdEditorSettings] from the editor-specific config map.
+  MdEditorSettings _buildSettingsFromConfig() {
+    final shellApi = switch (_module) {
+      final TomForgeShellModule m => m.shellApi,
+      _ => null,
+    };
+    final c = shellApi?.getEditorSpecificConfig('md')
+        ?? const <String, dynamic>{};
+    // Start from standard defaults and overlay user config.
+    return MdEditorSettings.standard().copyWith(
+      autoHideEditor: (c['autoHideEditor'] as bool?) ?? false,
+      rawEditorPosition: RawEditorPosition.below,
+      showTree: c['showTree'] as bool?,
+      showToolbar: c['showToolbar'] as bool?,
+      showStatusBar: c['showStatusBar'] as bool?,
+      showSearchBox: c['showSearchBox'] as bool?,
+      allowEditorPositionChange: c['allowEditorPositionChange'] as bool?,
+      livePreview: c['livePreview'] as bool?,
+      showLineNumbers: c['showLineNumbers'] as bool?,
+      showSectionBorders: c['showSectionBorders'] as bool?,
+      highlightCurrentSection: c['highlightCurrentSection'] as bool?,
+      enableSmoothScrolling: c['enableSmoothScrolling'] as bool?,
+      expandAllByDefault: c['expandAllByDefault'] as bool?,
+      showValidationMarkers: c['showValidationMarkers'] as bool?,
+      enableDragAndDrop: c['enableDragAndDrop'] as bool?,
+      showSectionIcons: c['showSectionIcons'] as bool?,
+      enableSearch: c['enableSearch'] as bool?,
+      enableReplace: c['enableReplace'] as bool?,
+      enableRegexSearch: c['enableRegexSearch'] as bool?,
+      enableMermaid: c['enableMermaid'] as bool?,
+      enableMath: c['enableMath'] as bool?,
+      enableFootnotes: c['enableFootnotes'] as bool?,
+      enableTaskLists: c['enableTaskLists'] as bool?,
+      enableInteractiveTaskLists: c['enableInteractiveTaskLists'] as bool?,
+      enableTables: c['enableTables'] as bool?,
+      enableSyntaxHighlighting: c['enableSyntaxHighlighting'] as bool?,
+      showCodeBlockLanguage: c['showCodeBlockLanguage'] as bool?,
+      showCopyCodeButton: c['showCopyCodeButton'] as bool?,
+      showCodeEditButton: c['showCodeEditButton'] as bool?,
+      enableCodeEditing: c['enableCodeEditing'] as bool?,
+      showTableEditButton: c['showTableEditButton'] as bool?,
+      enableTableEditing: c['enableTableEditing'] as bool?,
+      readOnly: c['readOnly'] as bool?,
+      enableUndo: c['enableUndo'] as bool?,
+      confirmDelete: c['confirmDelete'] as bool?,
+      autoSave: c['autoSave'] as bool?,
+    );
   }
 
   @override

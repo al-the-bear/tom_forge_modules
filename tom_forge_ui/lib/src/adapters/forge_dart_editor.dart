@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -33,6 +34,11 @@ class ForgeDartEditor extends ForgeTextEditor {
   String _lastCode = '';
   ShellEditorIntegration? _integration;
 
+  /// Summary-backed analysis adapter for autocompletion and diagnostics.
+  final SummaryBackedDartAnalysisAdapter _analysisAdapter;
+  List<CodeError> _analysisErrors = const [];
+  Timer? _analysisDebounce;
+
   /// Decoration state.
   final Map<String, List<ForgeDecorationRange>> _decorationMap = {};
 
@@ -41,8 +47,14 @@ class ForgeDartEditor extends ForgeTextEditor {
     required ForgeModule module,
     this.errorsProvider,
     ForgeTextEditorOptions options = const ForgeTextEditorOptions(),
+    String sdkSummaryAsset = 'assets/sdk_summary.sum',
+    String packageSummaryAsset = 'assets/packages.sum',
   })  : _module = module,
-        _options = options {
+        _options = options,
+        _analysisAdapter = SummaryBackedDartAnalysisAdapter(
+          sdkSummaryAsset: sdkSummaryAsset,
+          packageSummaryAsset: packageSummaryAsset,
+        ) {
     _lastCode = controller.userCode;
     _positionConverter = PositionConverter(_lastCode);
     _document = _DartForgeDocument(
@@ -56,6 +68,9 @@ class ForgeDartEditor extends ForgeTextEditor {
     if (controller.uri != null) {
       _title.value = controller.uri!.pathSegments.last;
     }
+
+    // Run initial analysis.
+    _scheduleAnalysis(immediate: true);
   }
 
   // ── ForgeComponent ──
@@ -86,11 +101,15 @@ class ForgeDartEditor extends ForgeTextEditor {
     }
     // Build theme with applied options.
     final theme = _buildThemeFromOptions();
+    final settings = _buildSettingsFromConfig();
+    final errors = errorsProvider?.call() ?? _analysisErrors;
     return DartCodeEditor(
       controller: controller,
       integration: _integration,
       theme: theme,
-      errors: errorsProvider?.call() ?? const [],
+      settings: settings,
+      errors: errors,
+      onCompletionRequest: _analysisAdapter.completions,
       onCursorChanged: _onCursorOffset,
       onSelectionChanged: _onSelectionRange,
       onVisibleRangeChanged: _onVisibleRangeLines,
@@ -106,6 +125,40 @@ class ForgeDartEditor extends ForgeTextEditor {
       lineHeight: _options.lineHeight ?? base.font.lineHeight,
     );
     return base.copyWith(font: font);
+  }
+
+  /// Builds [DartEditorSettings] from the editor-specific config map.
+  DartEditorSettings _buildSettingsFromConfig() {
+    final shellApi = switch (_module) {
+      final TomForgeShellModule m => m.shellApi,
+      _ => null,
+    };
+    final config = shellApi?.getEditorSpecificConfig('dart')
+        ?? const <String, dynamic>{};
+    if (config.isEmpty) return const DartEditorSettings();
+    return DartEditorSettings(
+      showToolbar: (config['showToolbar'] as bool?) ?? true,
+      showLineNumbers: (config['showLineNumbers'] as bool?) ?? true,
+      autoCompleteEnabled: (config['autoCompleteEnabled'] as bool?) ?? true,
+      maxCompletionItems:
+          (config['maxCompletionItems'] as num?)?.toInt() ?? 8,
+      showErrorTooltips: (config['showErrorTooltips'] as bool?) ?? true,
+      showErrorMarkers: (config['showErrorMarkers'] as bool?) ?? true,
+      showWarningTooltips: (config['showWarningTooltips'] as bool?) ?? true,
+      showWarningMarkers: (config['showWarningMarkers'] as bool?) ?? true,
+      showInfoTooltips: (config['showInfoTooltips'] as bool?) ?? false,
+      showInfoMarkers: (config['showInfoMarkers'] as bool?) ?? false,
+      popupPreferBelow: (config['popupPreferBelow'] as bool?) ?? true,
+      showAutoCompleteToggle:
+          (config['showAutoCompleteToggle'] as bool?) ?? true,
+      showErrorToggles: (config['showErrorToggles'] as bool?) ?? true,
+      showWarningToggles: (config['showWarningToggles'] as bool?) ?? true,
+      showInfoToggles: (config['showInfoToggles'] as bool?) ?? true,
+      showPopupPositionToggle:
+          (config['showPopupPositionToggle'] as bool?) ?? true,
+      showOpenReferenceButton:
+          (config['showOpenReferenceButton'] as bool?) ?? true,
+    );
   }
 
   @override
@@ -350,14 +403,32 @@ class ForgeDartEditor extends ForgeTextEditor {
       _isDirty.value = true;
       _document.updateConverter(_positionConverter);
       _document.notifyContentChanged();
+      _scheduleAnalysis();
     }
     if (controller.uri != null) {
       _title.value = controller.uri!.pathSegments.last;
     }
   }
 
+  void _scheduleAnalysis({bool immediate = false}) {
+    _analysisDebounce?.cancel();
+    if (immediate) {
+      unawaited(_runAnalysis());
+      return;
+    }
+    _analysisDebounce = Timer(const Duration(milliseconds: 500), () {
+      unawaited(_runAnalysis());
+    });
+  }
+
+  Future<void> _runAnalysis() async {
+    final errors = await _analysisAdapter.analyzeCode(controller.userCode);
+    _analysisErrors = errors;
+  }
+
   /// Release listeners.
   void dispose() {
+    _analysisDebounce?.cancel();
     _integration?.dispose();
     _document.dispose();
     controller.removeListener(_onControllerChanged);
