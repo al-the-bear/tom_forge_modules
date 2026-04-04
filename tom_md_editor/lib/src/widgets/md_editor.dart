@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart';
 
 import '../controller/md_editor_controller.dart';
@@ -377,13 +378,22 @@ class _MdEditorState extends State<MdEditor> {
       }
     }
 
-    // Markdown-specific shortcuts (always registered regardless of
-    // whether handlers exist yet — handlers are added by the editor
-    // or by the shell at runtime).
+    // Markdown-specific shortcuts — skip actions whose handlers have not been
+    // registered (e.g. save when documentProvider is null) so that the
+    // shortcut can propagate to the scaffold's handler instead.
     for (final entry in MdEditorActions.primaryShortcuts.entries) {
+      if (!_integration.isActionEnabled(entry.key)) continue;
       _shortcuts[entry.value.toActivator()] =
           _MdEditorActionIntent(entry.key);
     }
+
+    // Standard Ctrl+Z → undo, Ctrl+Shift+Z → redo so that the universal
+    // keyboard shortcuts work in addition to the non-conventional mapping.
+    _shortcuts[const SingleActivator(LogicalKeyboardKey.keyZ, control: true)] =
+        const _MdEditorActionIntent(StandardEditingActions.undoActionId);
+    _shortcuts[const SingleActivator(
+            LogicalKeyboardKey.keyZ, control: true, shift: true)] =
+        const _MdEditorActionIntent(StandardEditingActions.redoActionId);
 
     // Alternative redo shortcut (Ctrl+Y)
     _shortcuts[StandardEditingActions.redoAltShortcut.toActivator()] =

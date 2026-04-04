@@ -1888,6 +1888,26 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
       return KeyEventResult.ignored;
     }
 
+    // Intercept standard undo/redo shortcuts so that our custom word-level
+    // undo runs instead of Flutter's built-in per-character undo on
+    // EditableText.  Ctrl+Z = undo, Ctrl+Shift+Z / Ctrl+Y = redo.
+    final isCtrl = HardwareKeyboard.instance.isControlPressed ||
+        HardwareKeyboard.instance.isMetaPressed;
+    if (isCtrl && !HardwareKeyboard.instance.isAltPressed) {
+      if (event.logicalKey == LogicalKeyboardKey.keyZ) {
+        if (HardwareKeyboard.instance.isShiftPressed) {
+          _redo();
+        } else {
+          _undo();
+        }
+        return KeyEventResult.handled;
+      }
+      if (event.logicalKey == LogicalKeyboardKey.keyY) {
+        _redo();
+        return KeyEventResult.handled;
+      }
+    }
+
     // Handle completion navigation when popup is open
     if (_completionOverlay != null) {
       if (event.logicalKey == LogicalKeyboardKey.arrowDown) {

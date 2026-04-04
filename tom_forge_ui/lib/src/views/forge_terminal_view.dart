@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
+import 'package:xterm/src/ui/input_map.dart' show keyToTerminalKey;
 import 'package:xterm/xterm.dart' as xterm;
 
 import '../components/forge_component.dart';
@@ -567,26 +569,15 @@ class _TerminalSectionContent extends StatefulWidget {
 }
 
 class _TerminalSectionContentState extends State<_TerminalSectionContent> {
-  final FocusNode _focusNode = FocusNode();
-
-  /// Whether to use hardware keyboard only mode (desktop platforms).
-  /// On desktop, keyboard input goes entirely through key events which is
-  /// more reliable when the terminal is placed inside the editor panel's
-  /// focus/shortcuts tree.  On web/mobile we keep the TextInputClient path
-  /// for soft keyboard support.
-  static final bool _hardwareKeyboardOnly =
-      !kIsWeb &&
-      (defaultTargetPlatform == TargetPlatform.linux ||
-          defaultTargetPlatform == TargetPlatform.macOS ||
-          defaultTargetPlatform == TargetPlatform.windows);
+  /// Outer focus node that we fully control.  This sits above xterm's
+  /// internal Focus so that we can guarantee keyboard input reaches the
+  /// terminal even when the widget is rendered inside the middle editor
+  /// panel (where the scaffold's focus hierarchy may compete).
+  final FocusNode _focusNode = FocusNode(debugLabel: 'TerminalSection');
 
   @override
   void initState() {
     super.initState();
-    // Explicitly request focus after the first frame to ensure the terminal
-    // can receive keyboard input even when another widget already has focus
-    // (e.g. when dragged into the middle panel where the scaffold's
-    // Focus(autofocus: true) already holds focus).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && !_focusNode.hasFocus) {
         _focusNode.requestFocus();
@@ -600,26 +591,73 @@ class _TerminalSectionContentState extends State<_TerminalSectionContent> {
     super.dispose();
   }
 
+  /// Forward a key event directly to the terminal model, replicating
+  /// what xterm's `CustomKeyboardListener` does internally.
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (widget.terminal is! PtyTerminal) return KeyEventResult.ignored;
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    final terminal = (widget.terminal as PtyTerminal).terminalModel;
+    final isCtrl = HardwareKeyboard.instance.isControlPressed;
+    final isShift = HardwareKeyboard.instance.isShiftPressed;
+    final isAlt = HardwareKeyboard.instance.isAltPressed;
+
+    // Let copy / paste / select-all shortcuts fall through to xterm's
+    // Shortcuts/Actions (they live below this Focus in the tree).
+    if (isCtrl && !isAlt) {
+      if ((isShift && event.logicalKey == LogicalKeyboardKey.keyC) ||
+          event.logicalKey == LogicalKeyboardKey.keyV ||
+          event.logicalKey == LogicalKeyboardKey.keyA) {
+        return KeyEventResult.ignored;
+      }
+    }
+
+    // Map the logical key to a terminal key.
+    final key = keyToTerminalKey(event.logicalKey);
+    if (key != null) {
+      final handled = terminal.keyInput(
+        key,
+        ctrl: isCtrl,
+        alt: isAlt,
+        shift: isShift,
+      );
+      if (handled) return KeyEventResult.handled;
+    }
+
+    // Fallback: insert the key's character if available.
+    if (event.character != null && event.character!.isNotEmpty) {
+      terminal.textInput(event.character!);
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.terminal is PtyTerminal) {
-      // Wrap in Listener to guarantee focus on any pointer interaction,
-      // even if xterm's internal tap handler doesn't fire (e.g. when the
-      // terminal is rendered inside the middle editor panel).
-      return Listener(
-        onPointerDown: (_) {
-          if (!_focusNode.hasFocus) {
-            _focusNode.requestFocus();
-          }
-        },
-        child: xterm.TerminalView(
-          (widget.terminal as PtyTerminal).terminalModel,
-          focusNode: _focusNode,
-          autofocus: true,
-          hardwareKeyboardOnly: _hardwareKeyboardOnly,
-          textStyle: const xterm.TerminalStyle(
-            fontSize: 13,
-            fontFamily: 'monospace',
+      // Outer Focus that we control: receives all key events first and
+      // forwards them to the terminal model directly.  This bypasses
+      // xterm's internal Focus, which may fail to become primaryFocus
+      // when the terminal is embedded in the middle editor panel.
+      return Focus(
+        focusNode: _focusNode,
+        autofocus: true,
+        onKeyEvent: _handleKeyEvent,
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () {
+            if (!_focusNode.hasFocus) _focusNode.requestFocus();
+          },
+          child: xterm.TerminalView(
+            (widget.terminal as PtyTerminal).terminalModel,
+            // Do NOT pass focusNode — let xterm create its own internal
+            // node so there is no conflict with our outer Focus.
+            autofocus: false,
+            textStyle: const xterm.TerminalStyle(
+              fontSize: 13,
+              fontFamily: 'monospace',
+            ),
           ),
         ),
       );

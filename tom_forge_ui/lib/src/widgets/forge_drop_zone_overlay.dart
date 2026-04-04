@@ -68,8 +68,6 @@ class _EditorDropZoneOverlayState extends State<EditorDropZoneOverlay> {
   Widget build(BuildContext context) {
     return DragTarget<ForgeDragData>(
       onWillAcceptWithDetails: (details) {
-        // Accept editor tabs and view sections, but not whole panel tabs.
-        if (details.data is PanelTabDragData) return false;
         if (!_isDragActive) {
           setState(() => _isDragActive = true);
           // Start delayed reveal timer.

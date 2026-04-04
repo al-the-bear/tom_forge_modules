@@ -863,6 +863,43 @@ class _BottomAccordeonLayoutState extends State<_BottomAccordeonLayout> {
 
   double _flexFor(int index) => _sectionFlex[index] ?? 1.0;
 
+  Widget _buildDragFeedback(BuildContext context, ForgeView view) {
+    return Material(
+      elevation: 4,
+      borderRadius: BorderRadius.circular(4),
+      child: Opacity(
+        opacity: 0.85,
+        child: Container(
+          height: ForgeDimensions.sectionHeaderHeight,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF252526),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.drag_indicator,
+                  size: 14, color: Colors.white70),
+              const SizedBox(width: 6),
+              ValueListenableBuilder<String>(
+                valueListenable: view.title,
+                builder: (context, title, _) => Text(
+                  title.toUpperCase(),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Colors.white70,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.sections.length == 1) {
@@ -907,17 +944,41 @@ class _BottomAccordeonLayoutState extends State<_BottomAccordeonLayout> {
           if (_expandedSections.contains(i))
             Flexible(
               flex: (_flexFor(i) * 1000).round(),
-              child: Column(
-                children: [
-                  _BottomSectionHeader(
-                    view: widget.sections[i],
-                    isExpanded: true,
-                    isPinned: _pinnedSections.contains(i),
-                    onToggle: () => _toggleSection(i),
-                    onTogglePin: () => _togglePin(i),
+              child: Draggable<SectionDragData>(
+                data: SectionDragData(
+                  section: widget.sections[i],
+                  sourceIndex: i,
+                  sourceArea: widget.panelArea,
+                  sourceTabIndex: widget.tabIndex,
+                ),
+                feedback: _buildDragFeedback(context, widget.sections[i]),
+                childWhenDragging: Opacity(
+                  opacity: 0.35,
+                  child: Column(
+                    children: [
+                      _BottomSectionHeader(
+                        view: widget.sections[i],
+                        isExpanded: true,
+                        isPinned: _pinnedSections.contains(i),
+                        onToggle: () {},
+                        onTogglePin: () {},
+                      ),
+                      const Expanded(child: SizedBox.shrink()),
+                    ],
                   ),
-                  Expanded(child: widget.sections[i].buildMain(context)),
-                ],
+                ),
+                child: Column(
+                  children: [
+                    _BottomSectionHeader(
+                      view: widget.sections[i],
+                      isExpanded: true,
+                      isPinned: _pinnedSections.contains(i),
+                      onToggle: () => _toggleSection(i),
+                      onTogglePin: () => _togglePin(i),
+                    ),
+                    Expanded(child: widget.sections[i].buildMain(context)),
+                  ],
+                ),
               ),
             )
           else

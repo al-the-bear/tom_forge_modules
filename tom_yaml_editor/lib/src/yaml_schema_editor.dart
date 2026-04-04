@@ -248,6 +248,13 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
         _shortcuts[key.toActivator()] = _YamlEditorActionIntent(action.id);
       }
     }
+    // Standard Ctrl+Z → undo, Ctrl+Shift+Z → redo so that the universal
+    // keyboard shortcuts work in addition to the non-conventional mapping.
+    _shortcuts[const SingleActivator(LogicalKeyboardKey.keyZ, control: true)] =
+        const _YamlEditorActionIntent(StandardEditingActions.undoActionId);
+    _shortcuts[const SingleActivator(
+            LogicalKeyboardKey.keyZ, control: true, shift: true)] =
+        const _YamlEditorActionIntent(StandardEditingActions.redoActionId);
     // Alternative redo shortcut (Ctrl+Y)
     _shortcuts[StandardEditingActions.redoAltShortcut.toActivator()] =
         const _YamlEditorActionIntent(StandardEditingActions.redoActionId);
