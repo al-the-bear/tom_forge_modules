@@ -1750,7 +1750,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         );
       }
 
-      final shortcuts = {
+      final shortcuts = <ShortcutActivator, Intent>{
         primaryActivator(LogicalKeyboardKey.keyP):
             const _ActionOnlyPaletteIntent(),
         const SingleActivator(LogicalKeyboardKey.f1):
@@ -1772,6 +1772,18 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
             const _FocusPreviousPanelIntent(),
         primaryActivator(LogicalKeyboardKey.keyS): const _SaveIntent(),
       };
+
+      // Also map module direct bindings so they work through the
+      // standard Shortcuts/Actions pipeline (not just the chord handler).
+      for (final binding in widget.shell.shortcuts.allBindings) {
+        if (!binding.isChord) {
+          final activator = binding.key.toActivator();
+          if (!shortcuts.containsKey(activator)) {
+            shortcuts[activator] =
+                _ModuleActionIntent(binding.action.id);
+          }
+        }
+      }
 
       if (debugEnabled) {
         debugPrint('[ForgeShellScaffold] shortcut count: ${shortcuts.length}');
@@ -1856,6 +1868,12 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       _SaveIntent: CallbackAction<_SaveIntent>(
         onInvoke: (_) {
           _executeSave();
+          return null;
+        },
+      ),
+      _ModuleActionIntent: CallbackAction<_ModuleActionIntent>(
+        onInvoke: (intent) {
+          widget.shell.executeAction(intent.actionId);
           return null;
         },
       ),
@@ -2596,6 +2614,9 @@ Press "?" for this help document.
                 },
                 onViewDropped: (data) =>
                     _handleViewDropOnMiddle(data, panelIndex),
+                onPanelTabDropped: (data) {
+                  _handleDropZone(data, DropPosition.center, panelIndex);
+                },
               ),
               if (showFindBar) _buildFindReplaceBar(),
               Expanded(
@@ -2779,8 +2800,22 @@ Press "?" for this help document.
         _removeSectionFromPanel(sectionData);
         widget.systemState.setActiveEditor(adapter);
 
-      case PanelTabDragData _:
-        break; // Not handled in editor drop zones.
+      case PanelTabDragData panelTabData:
+        // Wrap each section as an editor adapter for the middle panel.
+        for (final section in panelTabData.sections) {
+          final adapter = _ViewEditorAdapter(section);
+          switch (position) {
+            case DropPosition.center:
+              _layout.moveComponent(adapter, panelIndex);
+            case DropPosition.left:
+              _layout.splitAndInsertPanel(panelIndex, adapter);
+            case DropPosition.right:
+              _layout.splitAndInsertPanel(panelIndex + 1, adapter);
+          }
+          widget.systemState.setActiveEditor(adapter);
+        }
+        // Remove the tab from its source panel.
+        _removePanelTab(panelTabData);
     }
   }
 
@@ -2801,6 +2836,21 @@ Press "?" for this help document.
         sections.removeAt(data.sourceIndex);
         setState(() {});
       }
+    }
+  }
+
+  /// Removes an entire tab from its source panel after a cross-panel move
+  /// (panel tab dragged to middle panel).
+  void _removePanelTab(PanelTabDragData data) {
+    final layout = widget.application.layout;
+    final tabs = switch (data.sourceArea) {
+      PanelArea.left => layout.leftPanel.tabs,
+      PanelArea.right => layout.rightPanel.tabs,
+      PanelArea.bottom => layout.bottomPanel.tabs,
+    };
+    if (data.tabIndex >= 0 && data.tabIndex < tabs.length) {
+      tabs.removeAt(data.tabIndex);
+      setState(() {});
     }
   }
 
@@ -3063,6 +3113,12 @@ class _FocusPreviousPanelIntent extends Intent {
 
 class _SaveIntent extends Intent {
   const _SaveIntent();
+}
+
+/// Intent that dynamically dispatches a module action by its ID.
+class _ModuleActionIntent extends Intent {
+  final String actionId;
+  const _ModuleActionIntent(this.actionId);
 }
 
 class _ResizeHandle extends StatefulWidget {

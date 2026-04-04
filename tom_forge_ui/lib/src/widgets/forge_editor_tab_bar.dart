@@ -13,6 +13,9 @@ typedef EditorDropCallback = void Function(ForgeEditor editor, {bool isCopy});
 /// Callback for when a view section is dropped onto the editor tab bar.
 typedef ViewDropCallback = void Function(SectionDragData data);
 
+/// Callback for when a panel tab is dropped onto the editor tab bar.
+typedef PanelTabDropCallback = void Function(PanelTabDragData data);
+
 /// Tab bar for the editor area.
 ///
 /// Shows open editor tabs with file name, dirty indicator (*),
@@ -30,6 +33,9 @@ class ForgeEditorTabBar extends StatefulWidget {
   /// Called when a view section is dropped here from a side/bottom panel.
   final ViewDropCallback? onViewDropped;
 
+  /// Called when a panel tab is dropped here from a side/bottom panel.
+  final PanelTabDropCallback? onPanelTabDropped;
+
   /// Index of the panel this tab bar belongs to (for drag identity).
   final int panelIndex;
 
@@ -41,6 +47,7 @@ class ForgeEditorTabBar extends StatefulWidget {
     required this.onClose,
     this.onEditorDropped,
     this.onViewDropped,
+    this.onPanelTabDropped,
     this.panelIndex = 0,
   });
 
@@ -97,7 +104,7 @@ class _ForgeEditorTabBarState extends State<ForgeEditorTabBar> {
         final accepted = switch (details.data) {
           TabDragData d => d.sourcePanelIndex != widget.panelIndex,
           SectionDragData _ => true, // Accept view drops from side panels
-          _ => false,
+          PanelTabDragData _ => true, // Accept panel tab drops to middle
         };
         if (accepted) setState(() => _isDragOver = true);
         return accepted;
@@ -114,8 +121,8 @@ class _ForgeEditorTabBarState extends State<ForgeEditorTabBar> {
             widget.onEditorDropped?.call(data.editor, isCopy: isCopy);
           case SectionDragData data:
             widget.onViewDropped?.call(data);
-          case PanelTabDragData _:
-            break; // Not accepted
+          case PanelTabDragData data:
+            widget.onPanelTabDropped?.call(data);
         }
       },
       builder: (context, candidateData, rejectedData) {

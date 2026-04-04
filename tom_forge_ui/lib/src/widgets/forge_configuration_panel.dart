@@ -180,6 +180,7 @@ class _ConfigAccordionHeader extends StatelessWidget {
               ),
             ),
           ),
+          clipBehavior: Clip.hardEdge,
           child: Row(
             children: [
               Icon(

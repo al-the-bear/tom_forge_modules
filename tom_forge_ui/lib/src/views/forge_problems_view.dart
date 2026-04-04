@@ -155,8 +155,7 @@ class _ProblemsContentState extends State<_ProblemsContent> {
 
     return Column(
       children: [
-        _buildFilterBar(context),
-        _buildSearchBar(context),
+        _buildToolBar(context),
         Expanded(
           child: allDiags.isEmpty
               ? Center(
@@ -173,6 +172,40 @@ class _ProblemsContentState extends State<_ProblemsContent> {
               : _buildDiagnosticList(context, allDiags),
         ),
       ],
+    );
+  }
+
+  /// Combined filter chips + search bar.
+  /// Shows them in one row when wide enough, wraps to two rows when narrow.
+  Widget _buildToolBar(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Below 400px, stack vertically.
+        final inline = constraints.maxWidth >= 400;
+        if (inline) {
+          return Container(
+            height: 28,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            color: Theme.of(context).colorScheme.surface,
+            child: Row(
+              children: [
+                ..._buildFilterChips(context),
+                const SizedBox(width: 8),
+                Expanded(child: _buildSearchField(context)),
+                const SizedBox(width: 4),
+                ..._buildSearchToggles(context),
+              ],
+            ),
+          );
+        }
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildFilterBar(context),
+            _buildSearchBar(context),
+          ],
+        );
+      },
     );
   }
 
@@ -244,6 +277,160 @@ class _ProblemsContentState extends State<_ProblemsContent> {
         ],
       ),
     );
+  }
+
+  /// Filter chips for inline toolbar use (no Container wrapper).
+  List<Widget> _buildFilterChips(BuildContext context) {
+    final theme = Theme.of(context);
+    final all = widget.diagnosticManager.all;
+    final errorCount =
+        all.where((d) => d.severity == ForgeSeverity.error).length;
+    final warningCount =
+        all.where((d) => d.severity == ForgeSeverity.warning).length;
+
+    Widget chip(
+        _SeverityFilter f, IconData icon, Color color, String label) {
+      final selected = _filter == f;
+      return Padding(
+        padding: const EdgeInsets.only(right: 4),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(4),
+          onTap: () => setState(() => _filter = f),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: selected
+                  ? theme.colorScheme.primaryContainer
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 12, color: color),
+                const SizedBox(width: 3),
+                Text(
+                  label,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: selected
+                        ? theme.colorScheme.onPrimaryContainer
+                        : theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return [
+      chip(_SeverityFilter.all, Icons.list, theme.colorScheme.onSurface,
+          'All (${all.length})'),
+      chip(_SeverityFilter.errors, Icons.error, theme.colorScheme.error,
+          'Errors ($errorCount)'),
+      chip(_SeverityFilter.warnings, Icons.warning_amber, Colors.orange,
+          'Warnings ($warningCount)'),
+    ];
+  }
+
+  /// Search text field for inline toolbar use (no Container wrapper).
+  Widget _buildSearchField(BuildContext context) {
+    final theme = Theme.of(context);
+    return SizedBox(
+      height: 22,
+      child: TextField(
+        controller: _searchController,
+        onChanged: (v) => setState(() => _searchQuery = v),
+        decoration: InputDecoration(
+          hintText: 'Filter problems...',
+          hintStyle: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
+          ),
+          isDense: true,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          border: const OutlineInputBorder(),
+          prefixIcon: Padding(
+            padding: const EdgeInsets.only(left: 6, right: 4),
+            child: Icon(Icons.search,
+                size: 14,
+                color:
+                    theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+          ),
+          prefixIconConstraints:
+              const BoxConstraints(minWidth: 24, minHeight: 22),
+          suffixIcon: _searchQuery.isNotEmpty
+              ? GestureDetector(
+                  onTap: () => setState(() {
+                    _searchController.clear();
+                    _searchQuery = '';
+                  }),
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: Icon(Icons.close,
+                        size: 14,
+                        color: theme.colorScheme.onSurface
+                            .withValues(alpha: 0.5)),
+                  ),
+                )
+              : null,
+          suffixIconConstraints:
+              const BoxConstraints(minWidth: 22, minHeight: 22),
+        ),
+        style: theme.textTheme.bodySmall,
+      ),
+    );
+  }
+
+  /// Search toggle buttons for inline toolbar use.
+  List<Widget> _buildSearchToggles(BuildContext context) {
+    final theme = Theme.of(context);
+
+    Widget toggle(String label, bool active, VoidCallback onTap) {
+      return GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 24,
+          height: 22,
+          margin: const EdgeInsets.only(left: 2),
+          decoration: BoxDecoration(
+            color: active
+                ? theme.colorScheme.primary.withValues(alpha: 0.2)
+                : null,
+            borderRadius: BorderRadius.circular(2),
+            border: Border.all(
+              color: active
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.outline,
+            ),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: active ? FontWeight.bold : FontWeight.normal,
+              color: active
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.onSurface.withValues(alpha: 0.6),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return [
+      toggle('.*', _searchIsRegex, () {
+        setState(() => _searchIsRegex = !_searchIsRegex);
+      }),
+      toggle('W', _searchFullWord, () {
+        setState(() => _searchFullWord = !_searchFullWord);
+      }),
+      toggle('Aa', _searchCaseSensitive, () {
+        setState(() => _searchCaseSensitive = !_searchCaseSensitive);
+      }),
+    ];
   }
 
   Widget _buildSearchBar(BuildContext context) {

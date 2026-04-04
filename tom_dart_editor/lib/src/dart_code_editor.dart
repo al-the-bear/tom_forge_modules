@@ -2271,6 +2271,8 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
                 border: InputBorder.none,
                 isDense: true,
               ),
+              contextMenuBuilder: (context, editableTextState) =>
+                  const SizedBox.shrink(),
               onChanged: _handleTextChange,
               inputFormatters: [_SmartIndentFormatter()],
             ),

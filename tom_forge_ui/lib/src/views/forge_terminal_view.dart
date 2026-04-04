@@ -8,6 +8,7 @@ import 'package:xterm/xterm.dart' as xterm;
 import '../components/forge_component.dart';
 import '../components/forge_view.dart';
 import '../defaults/pty_terminal.dart';
+import '../widgets/forge_drag_data.dart';
 
 /// Terminal view with tab selector and monospace output display.
 ///
@@ -50,6 +51,41 @@ class _TerminalContent extends StatefulWidget {
 
   @override
   State<_TerminalContent> createState() => _TerminalContentState();
+}
+
+/// View wrapper for a single terminal, used when dragging an individual
+/// terminal out of the accordion into another panel.
+class _SingleTerminalView extends ForgeView {
+  final ForgeTerminal terminal;
+
+  final _title = ValueNotifier<String>('');
+  final _titleExtension = ValueNotifier<String?>(null);
+
+  _SingleTerminalView({required this.terminal}) {
+    _title.value = terminal.name;
+  }
+
+  @override
+  ValueListenable<String> get title => _title;
+
+  @override
+  ValueListenable<String?> get titleExtension => _titleExtension;
+
+  @override
+  IconData get icon => Icons.terminal;
+
+  @override
+  ForgeComponentSizeHints get sizeHints => const ForgeComponentSizeHints(
+        preferredSize: Size(400, 200),
+      );
+
+  @override
+  Widget buildMain(BuildContext context) {
+    return _TerminalSectionContent(terminal: terminal);
+  }
+
+  @override
+  Widget buildCopy(BuildContext context) => buildMain(context);
 }
 
 class _TerminalContentState extends State<_TerminalContent> {
@@ -169,15 +205,61 @@ class _TerminalAccordion extends StatelessWidget {
             Expanded(
               child: Column(
                 children: [
-                  _TerminalSectionHeader(
-                    terminal: terminals[i],
-                    index: i,
-                    isExpanded: true,
-                    isActive: terminals[i] == activeTerminal,
-                    onToggle: () => onToggle(i),
-                    onClose: () => onClose(terminals[i]),
-                    onAdd: onAdd,
-                    isLast: i == terminals.length - 1,
+                  Draggable<SectionDragData>(
+                    data: SectionDragData(
+                      section: _SingleTerminalView(
+                          terminal: terminals[i]),
+                      sourceIndex: i,
+                      sourceArea: PanelArea.bottom,
+                      sourceTabIndex: 0,
+                    ),
+                    feedback: Material(
+                      elevation: 4,
+                      borderRadius: BorderRadius.circular(4),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.surface,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.terminal, size: 12,
+                                color: Theme.of(context)
+                                    .colorScheme.onSurface),
+                            const SizedBox(width: 4),
+                            Text(terminals[i].name,
+                                style: Theme.of(context)
+                                    .textTheme.labelSmall),
+                          ],
+                        ),
+                      ),
+                    ),
+                    childWhenDragging: Opacity(
+                      opacity: 0.35,
+                      child: _TerminalSectionHeader(
+                        terminal: terminals[i],
+                        index: i,
+                        isExpanded: true,
+                        isActive: false,
+                        onToggle: () {},
+                        onClose: () {},
+                        onAdd: () {},
+                        isLast: false,
+                      ),
+                    ),
+                    child: _TerminalSectionHeader(
+                      terminal: terminals[i],
+                      index: i,
+                      isExpanded: true,
+                      isActive: terminals[i] == activeTerminal,
+                      onToggle: () => onToggle(i),
+                      onClose: () => onClose(terminals[i]),
+                      onAdd: onAdd,
+                      isLast: i == terminals.length - 1,
+                    ),
                   ),
                   Expanded(
                     child: _TerminalSectionContent(terminal: terminals[i]),
@@ -186,11 +268,50 @@ class _TerminalAccordion extends StatelessWidget {
               ),
             )
           else
-            _CollapsedTerminalStrip(
-              terminal: terminals[i],
-              isActive: terminals[i] == activeTerminal,
-              onTap: () => onToggle(i),
-              onClose: () => onClose(terminals[i]),
+            Draggable<SectionDragData>(
+              data: SectionDragData(
+                section: _SingleTerminalView(terminal: terminals[i]),
+                sourceIndex: i,
+                sourceArea: PanelArea.bottom,
+                sourceTabIndex: 0,
+              ),
+              feedback: Material(
+                elevation: 4,
+                borderRadius: BorderRadius.circular(4),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.terminal, size: 12,
+                          color: Theme.of(context).colorScheme.onSurface),
+                      const SizedBox(width: 4),
+                      Text(terminals[i].name,
+                          style: Theme.of(context).textTheme.labelSmall),
+                    ],
+                  ),
+                ),
+              ),
+              childWhenDragging: Opacity(
+                opacity: 0.35,
+                child: _CollapsedTerminalStrip(
+                  terminal: terminals[i],
+                  isActive: false,
+                  onTap: () {},
+                  onClose: () {},
+                ),
+              ),
+              child: _CollapsedTerminalStrip(
+                terminal: terminals[i],
+                isActive: terminals[i] == activeTerminal,
+                onTap: () => onToggle(i),
+                onClose: () => onClose(terminals[i]),
+              ),
             ),
         ],
       ],
