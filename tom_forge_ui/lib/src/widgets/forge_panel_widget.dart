@@ -351,7 +351,11 @@ class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
     }
 
     // Accordeon layout: stack views vertically with collapsible sections
-    return _AccordeonLayout(sections: tab.sections);
+    return _AccordeonLayout(
+      sections: tab.sections,
+      panelArea: widget.panelArea,
+      tabIndex: _activeTabIndex,
+    );
   }
 
   Widget _buildConfigurationPanel(BuildContext context) {
@@ -378,8 +382,14 @@ class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
 /// Features mutual exclusivity (default) and pinning for multiple open sections.
 class _AccordeonLayout extends StatefulWidget {
   final List<ForgeView> sections;
+  final PanelArea? panelArea;
+  final int? tabIndex;
 
-  const _AccordeonLayout({required this.sections});
+  const _AccordeonLayout({
+    required this.sections,
+    this.panelArea,
+    this.tabIndex,
+  });
 
   @override
   State<_AccordeonLayout> createState() => _AccordeonLayoutState();
@@ -464,8 +474,8 @@ class _AccordeonLayoutState extends State<_AccordeonLayout> {
             data: SectionDragData(
               section: widget.sections[i],
               sourceIndex: i,
-              sourceArea: null, // Set by parent if in a panel context
-              sourceTabIndex: null,
+              sourceArea: widget.panelArea,
+              sourceTabIndex: widget.tabIndex,
             ),
             feedback: _buildDragFeedback(context, widget.sections[i]),
             childWhenDragging: Opacity(
@@ -828,8 +838,14 @@ class _AccordeonDividerState extends State<_AccordeonDivider> {
 /// rotated text flowing top to bottom.
 class _BottomAccordeonLayout extends StatefulWidget {
   final List<ForgeView> sections;
+  final PanelArea? panelArea;
+  final int? tabIndex;
 
-  const _BottomAccordeonLayout({required this.sections});
+  const _BottomAccordeonLayout({
+    required this.sections,
+    this.panelArea,
+    this.tabIndex,
+  });
 
   @override
   State<_BottomAccordeonLayout> createState() => _BottomAccordeonLayoutState();
@@ -1364,7 +1380,11 @@ class _ForgePanelWidgetState extends State<ForgePanelWidget> {
     }
 
     // Bottom panel uses horizontal accordeon (per concept §3.1)
-    return _BottomAccordeonLayout(sections: tab.sections);
+    return _BottomAccordeonLayout(
+      sections: tab.sections,
+      panelArea: widget.panelArea,
+      tabIndex: _activeTabIndex,
+    );
   }
 }
 

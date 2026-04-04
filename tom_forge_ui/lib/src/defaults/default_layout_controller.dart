@@ -384,12 +384,14 @@ class DefaultLayoutController implements ForgeLayoutController {
     // Insert a new panel at the requested position.
     final insertAt = position.clamp(0, panels.length);
     panels.insert(insertAt, [editor]);
-    // Clean up empty trailing panels.
-    while (panels.length > 1 && panels.last.isEmpty) {
-      panels.removeLast();
-    }
+    // Remove any empty panels (keep at least one).
+    panels.removeWhere((p) => p.isEmpty);
+    if (panels.isEmpty) panels.add([]);
+    // Find the panel that now contains the editor.
+    final newIdx = panels.indexWhere((p) => p.contains(editor));
     _middlePanels.value = panels;
-    _activeMiddlePanelIndex.value = insertAt.clamp(0, panels.length - 1);
+    _activeMiddlePanelIndex.value =
+        (newIdx >= 0 ? newIdx : 0).clamp(0, panels.length - 1);
     _systemState.setMiddlePanelCount(panels.length);
   }
 
@@ -419,13 +421,14 @@ class DefaultLayoutController implements ForgeLayoutController {
       panels.add([]);
     }
     panels[targetPanelIndex].add(component);
-    // Clean up empty trailing panels.
-    while (panels.length > 1 && panels.last.isEmpty) {
-      panels.removeLast();
-    }
+    // Remove any empty panels (keep at least one).
+    panels.removeWhere((p) => p.isEmpty);
+    if (panels.isEmpty) panels.add([]);
+    // Find the panel that now contains the component.
+    final newTarget = panels.indexWhere((p) => p.contains(component));
     _middlePanels.value = panels;
     _systemState.setMiddlePanelCount(panels.length);
-    _activeMiddlePanelIndex.value = targetPanelIndex.clamp(
+    _activeMiddlePanelIndex.value = (newTarget >= 0 ? newTarget : 0).clamp(
       0,
       panels.length - 1,
     );
@@ -458,10 +461,12 @@ class DefaultLayoutController implements ForgeLayoutController {
     for (var i = 0; i < panels.length; i++) {
       panels[i] = panels[i].where((e) => e != editor).toList();
     }
-    while (panels.length > 1 && panels.last.isEmpty) {
-      panels.removeLast();
-    }
+    // Remove any empty panels (keep at least one).
+    panels.removeWhere((p) => p.isEmpty);
+    if (panels.isEmpty) panels.add([]);
     _middlePanels.value = panels;
+    _activeMiddlePanelIndex.value =
+        _activeMiddlePanelIndex.value.clamp(0, panels.length - 1);
     _systemState.setMiddlePanelCount(panels.length);
     _systemState.updateDirtyEditors();
   }

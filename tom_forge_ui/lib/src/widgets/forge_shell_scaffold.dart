@@ -2822,6 +2822,14 @@ Press "?" for this help document.
   /// Removes a section from its source side/bottom panel after a cross-panel
   /// move (view dragged to middle panel).
   void _removeSectionFromPanel(SectionDragData data) {
+    // If the section provides its own removal callback (e.g. terminals
+    // managed by ForgeTerminalManager), invoke it instead of manipulating
+    // the panel sections list directly.
+    if (data.onRemoved != null) {
+      data.onRemoved!();
+      setState(() {});
+      return;
+    }
     if (data.sourceArea == null || data.sourceTabIndex == null) return;
     final layout = widget.application.layout;
     final tabs = switch (data.sourceArea!) {
@@ -2883,11 +2891,19 @@ Press "?" for this help document.
   /// Handles a view section being dropped onto the editor tab bar from
   /// a side/bottom panel.
   void _handleViewDropOnMiddle(SectionDragData data, int panelIndex) {
-    final adapter = _ViewEditorAdapter(data.section);
-    _layout.moveComponent(adapter, panelIndex);
+    final section = data.section;
+    // If the section is an _EditorViewAdapter, unwrap to recover the original
+    // editor instead of double-wrapping.
+    final ForgeEditor editor;
+    if (section is _EditorViewAdapter) {
+      editor = section.editor;
+    } else {
+      editor = _ViewEditorAdapter(section);
+    }
+    _layout.moveComponent(editor, panelIndex);
     // Remove the section from its source side/bottom panel.
     _removeSectionFromPanel(data);
-    widget.systemState.setActiveEditor(adapter);
+    widget.systemState.setActiveEditor(editor);
   }
 
   /// Handles a tab being dropped from one panel area to another.

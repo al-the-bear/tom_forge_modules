@@ -93,23 +93,51 @@ class _TerminalContentState extends State<_TerminalContent> {
   StreamSubscription<ForgeTerminal>? _closeSub;
   StreamSubscription<ForgeTerminal?>? _activeSub;
 
-  /// Set of expanded terminal indices.
-  final Set<int> _expanded = {0};
+  /// Set of expanded terminals (tracked by reference).
+  final Set<ForgeTerminal> _expandedTerminals = {};
+
+  /// Convert expanded terminals to index-based set for the accordion widget.
+  Set<int> get _expandedIndices {
+    final terminals = widget.terminalManager.terminals;
+    return {
+      for (var i = 0; i < terminals.length; i++)
+        if (_expandedTerminals.contains(terminals[i])) i,
+    };
+  }
 
   @override
   void initState() {
     super.initState();
-    _openSub = widget.terminalManager.onDidOpen.listen((_) {
+    // Expand the first terminal if available.
+    final terminals = widget.terminalManager.terminals;
+    if (terminals.isNotEmpty) _expandedTerminals.add(terminals.first);
+
+    _openSub = widget.terminalManager.onDidOpen.listen((newTerminal) {
       if (mounted) {
         setState(() {
-          // Auto-expand newly added terminal.
-          final idx = widget.terminalManager.terminals.length - 1;
-          if (idx >= 0) _expanded.add(idx);
+          // Collapse all existing terminals and expand only the new one.
+          _expandedTerminals.clear();
+          _expandedTerminals.add(newTerminal);
         });
       }
     });
-    _closeSub = widget.terminalManager.onDidClose.listen((_) {
-      if (mounted) setState(() {});
+    _closeSub = widget.terminalManager.onDidClose.listen((closed) {
+      if (mounted) {
+        setState(() {
+          final wasExpanded = _expandedTerminals.remove(closed);
+          if (wasExpanded && _expandedTerminals.isEmpty) {
+            final terminals = widget.terminalManager.terminals;
+            if (terminals.isNotEmpty) {
+              // Find the neighbor: prefer left, then right.
+              // The closed terminal is already removed from the list,
+              // so we use the terminal count to pick a neighbor.
+              // Since indices shifted, just pick the last one (nearest to
+              // where the removed one was).
+              _expandedTerminals.add(terminals.last);
+            }
+          }
+        });
+      }
     });
     _activeSub = widget.terminalManager.onDidChangeActive.listen((_) {
       if (mounted) setState(() {});
@@ -155,15 +183,18 @@ class _TerminalContentState extends State<_TerminalContent> {
     return _TerminalAccordion(
       terminals: terminals,
       activeTerminal: widget.terminalManager.activeTerminal,
-      expanded: _expanded,
+      expanded: _expandedIndices,
       onToggle: (index) {
         setState(() {
-          if (_expanded.contains(index)) {
-            if (_expanded.length > 1) _expanded.remove(index);
+          final terminal = terminals[index];
+          if (_expandedTerminals.contains(terminal)) {
+            if (_expandedTerminals.length > 1) {
+              _expandedTerminals.remove(terminal);
+            }
           } else {
-            // Collapse non-pinned, expand the new one.
-            _expanded.clear();
-            _expanded.add(index);
+            // Collapse all, expand the new one.
+            _expandedTerminals.clear();
+            _expandedTerminals.add(terminal);
           }
         });
         widget.terminalManager.setActive(terminals[index]);
@@ -212,6 +243,7 @@ class _TerminalAccordion extends StatelessWidget {
                       sourceIndex: i,
                       sourceArea: PanelArea.bottom,
                       sourceTabIndex: 0,
+                      onRemoved: () => onClose(terminals[i]),
                     ),
                     feedback: Material(
                       elevation: 4,
@@ -274,6 +306,7 @@ class _TerminalAccordion extends StatelessWidget {
                 sourceIndex: i,
                 sourceArea: PanelArea.bottom,
                 sourceTabIndex: 0,
+                onRemoved: () => onClose(terminals[i]),
               ),
               feedback: Material(
                 elevation: 4,

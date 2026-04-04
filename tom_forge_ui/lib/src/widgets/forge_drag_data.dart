@@ -64,11 +64,17 @@ class SectionDragData extends ForgeDragData {
   /// Tab index within the source panel.
   final int? sourceTabIndex;
 
+  /// Optional callback invoked when this section is removed from its source.
+  /// Used by components that manage their own internal lists (e.g. terminals)
+  /// instead of relying on the panel sections list.
+  final VoidCallback? onRemoved;
+
   const SectionDragData({
     required this.section,
     required this.sourceIndex,
     this.sourceArea,
     this.sourceTabIndex,
+    this.onRemoved,
   });
 
   @override
