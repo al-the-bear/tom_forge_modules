@@ -43,6 +43,7 @@ import 'forge_open_with_dialog.dart';
 import 'forge_panel_widget.dart';
 import 'forge_shortcut_menu_popup.dart';
 import 'forge_status_bar_widget.dart';
+import '../views/forge_terminal_view.dart';
 
 /// Animation constants for shell UI.
 class ForgeAnimations {
@@ -2519,15 +2520,11 @@ Press "?" for this help document.
           valueListenable: _layout.activeMiddlePanelIndexNotifier,
           builder: (context, activeIdx, _) {
             if (panels.isEmpty || panels.every((p) => p.isEmpty)) {
-              return Center(
-                child: Text(
-                  'Open a file to get started',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withValues(alpha: 0.4),
-                  ),
-                ),
+              return EmptyPanelDropTarget(
+                panelIndex: 0,
+                onDrop: (data, position, {bool isCopy = false}) {
+                  _handleDropZone(data, position, 0, isCopy: isCopy);
+                },
               );
             }
             // Ensure flex list matches panel count.
@@ -3047,6 +3044,46 @@ Press "?" for this help document.
     }
   }
 
+  /// Shows a context menu for a bottom-panel tab.
+  void _showBottomTabContextMenu(
+    int tabIndex,
+    Offset position,
+    List<PanelTabConfig> tabs,
+  ) {
+    if (tabIndex < 0 || tabIndex >= tabs.length) return;
+    final tab = tabs[tabIndex];
+
+    // Check if this tab contains a terminal view.
+    final hasTerminal = tab.sections.any((s) => s is ForgeTerminalView);
+    if (!hasTerminal) return; // Only terminal tabs have context actions now.
+
+    final terminalView = tab.sections
+        .whereType<ForgeTerminalView>()
+        .firstOrNull;
+    if (terminalView == null) return;
+
+    showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(position.dx, position.dy, position.dx, position.dy),
+      items: [
+        const PopupMenuItem(
+          value: 'new_terminal',
+          child: Row(
+            children: [
+              Icon(Icons.add, size: 16),
+              SizedBox(width: 8),
+              Text('New Terminal'),
+            ],
+          ),
+        ),
+      ],
+    ).then((value) {
+      if (value == 'new_terminal') {
+        terminalView.terminalManager.create();
+      }
+    });
+  }
+
   Widget _buildBottomPanel(BuildContext context, LayoutPanelConfig config) {
     final tabs = widget.application.layout.bottomPanel.tabs;
     if (tabs.isEmpty) return const SizedBox.shrink();
@@ -3063,6 +3100,8 @@ Press "?" for this help document.
             _handleEditorDropOnPanel(data, PanelArea.bottom),
         onEditorDroppedAsSection: (data, tabIndex) =>
             _handleEditorDropAsSection(data, PanelArea.bottom, tabIndex),
+        onTabContextMenu: (tabIndex, position) =>
+            _showBottomTabContextMenu(tabIndex, position, tabs),
       ),
     );
   }

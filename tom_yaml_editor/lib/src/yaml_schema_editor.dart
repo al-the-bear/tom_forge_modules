@@ -903,12 +903,20 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
             },
           ),
         },
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildModeToolbar(theme),
-            Expanded(child: editorContent),
-          ],
+        // A Focus wrapper inside Actions ensures that when a tree-node
+        // text field loses focus, Flutter falls back to this node which
+        // stays inside the Actions scope.  Without it, focus leaves the
+        // YAML editor entirely and Shortcuts can no longer find the
+        // registered Actions for undo/redo.
+        child: Focus(
+          autofocus: true,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildModeToolbar(theme),
+              Expanded(child: editorContent),
+            ],
+          ),
         ),
       ),
     );

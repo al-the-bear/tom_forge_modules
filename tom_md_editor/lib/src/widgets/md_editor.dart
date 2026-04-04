@@ -347,11 +347,15 @@ class _MdEditorState extends State<MdEditor> {
       isEnabled: () => _controller.canRedo,
     );
 
-    // Save action
-    _integration.registerAction(
-      MdEditorActions.saveActionId,
-      _save,
-    );
+    // Save action — only register when the editor can save directly via
+    // documentProvider.  When omitted, the parent scaffold's Ctrl+S shortcut
+    // takes over and triggers the shell's file.save action instead.
+    if (widget.documentProvider != null) {
+      _integration.registerAction(
+        MdEditorActions.saveActionId,
+        _save,
+      );
+    }
 
     // Search action
     _integration.registerAction(

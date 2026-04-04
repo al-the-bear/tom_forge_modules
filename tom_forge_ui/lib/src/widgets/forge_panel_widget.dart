@@ -1244,6 +1244,9 @@ class ForgePanelWidget extends StatefulWidget {
   /// of the active tab (to be added as an accordion section, not a new tab).
   final void Function(TabDragData data, int tabIndex)? onEditorDroppedAsSection;
 
+  /// Called when a tab is right-clicked to show a context menu.
+  final void Function(int tabIndex, Offset globalPosition)? onTabContextMenu;
+
   const ForgePanelWidget({
     super.key,
     required this.tabs,
@@ -1251,6 +1254,7 @@ class ForgePanelWidget extends StatefulWidget {
     this.onTabDropped,
     this.onEditorDropped,
     this.onEditorDroppedAsSection,
+    this.onTabContextMenu,
   });
 
   @override
@@ -1381,6 +1385,9 @@ class _ForgePanelWidgetState extends State<ForgePanelWidget> {
 
     return GestureDetector(
       onTap: () => setState(() => _activeTabIndex = index),
+      onSecondaryTapDown: (details) {
+        widget.onTabContextMenu?.call(index, details.globalPosition);
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(

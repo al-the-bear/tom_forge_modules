@@ -569,6 +569,17 @@ class _TerminalSectionContent extends StatefulWidget {
 class _TerminalSectionContentState extends State<_TerminalSectionContent> {
   final FocusNode _focusNode = FocusNode();
 
+  /// Whether to use hardware keyboard only mode (desktop platforms).
+  /// On desktop, keyboard input goes entirely through key events which is
+  /// more reliable when the terminal is placed inside the editor panel's
+  /// focus/shortcuts tree.  On web/mobile we keep the TextInputClient path
+  /// for soft keyboard support.
+  static final bool _hardwareKeyboardOnly =
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.linux ||
+          defaultTargetPlatform == TargetPlatform.macOS ||
+          defaultTargetPlatform == TargetPlatform.windows);
+
   @override
   void initState() {
     super.initState();
@@ -592,13 +603,24 @@ class _TerminalSectionContentState extends State<_TerminalSectionContent> {
   @override
   Widget build(BuildContext context) {
     if (widget.terminal is PtyTerminal) {
-      return xterm.TerminalView(
-        (widget.terminal as PtyTerminal).terminalModel,
-        focusNode: _focusNode,
-        autofocus: true,
-        textStyle: const xterm.TerminalStyle(
-          fontSize: 13,
-          fontFamily: 'monospace',
+      // Wrap in Listener to guarantee focus on any pointer interaction,
+      // even if xterm's internal tap handler doesn't fire (e.g. when the
+      // terminal is rendered inside the middle editor panel).
+      return Listener(
+        onPointerDown: (_) {
+          if (!_focusNode.hasFocus) {
+            _focusNode.requestFocus();
+          }
+        },
+        child: xterm.TerminalView(
+          (widget.terminal as PtyTerminal).terminalModel,
+          focusNode: _focusNode,
+          autofocus: true,
+          hardwareKeyboardOnly: _hardwareKeyboardOnly,
+          textStyle: const xterm.TerminalStyle(
+            fontSize: 13,
+            fontFamily: 'monospace',
+          ),
         ),
       );
     }

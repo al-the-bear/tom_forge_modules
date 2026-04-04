@@ -713,6 +713,14 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
     _lastSavedText = widget.controller.userCode;
     _previousText = widget.controller.userCode;
 
+    // Initialize _lastSavedSelection after the first frame when the
+    // text controller is attached and has a valid selection.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _textController.selection.isValid) {
+        _lastSavedSelection = _textController.selection;
+      }
+    });
+
     // Set up Forge integration
     _setupIntegration();
 
@@ -1077,6 +1085,33 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
 
   void _scheduleUndoSave(String newText) {
     _undoDebounceTimer?.cancel();
+
+    // Detect word boundary: if the edit inserts a word separator (space,
+    // newline, punctuation) after an identifier character, flush the
+    // pending undo state immediately so undo works per-word.
+    final lenDiff = newText.length - _lastSavedText.length;
+    final pos = _textController.selection.baseOffset;
+    if (lenDiff == 1 && pos > 0 && pos <= newText.length) {
+      final inserted = newText[pos - 1];
+      final isWordSep = inserted == ' ' ||
+          inserted == '\n' ||
+          inserted == '\t' ||
+          inserted == '.' ||
+          inserted == ';' ||
+          inserted == ',' ||
+          inserted == '(' ||
+          inserted == ')' ||
+          inserted == '{' ||
+          inserted == '}';
+      if (isWordSep && _lastSavedText != newText) {
+        _pushUndoState(_lastSavedText, _lastSavedSelection);
+        _lastSavedText = newText;
+        _lastSavedSelection = _textController.selection;
+        _redoStack.clear();
+        return;
+      }
+    }
+
     _undoDebounceTimer = Timer(_undoDebounceDuration, () {
       if (_lastSavedText != newText) {
         _pushUndoState(_lastSavedText, _lastSavedSelection);

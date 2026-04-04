@@ -21,11 +21,16 @@ class MdEditOperation {
     required this.oldMarkdown,
     required this.newMarkdown,
     required this.description,
+    this.cursorOffset,
   });
 
   final String oldMarkdown;
   final String newMarkdown;
   final String description;
+
+  /// Cursor offset at the time the operation was created.
+  /// Used to restore cursor position on undo/redo.
+  final int? cursorOffset;
 }
 
 /// Controller for the markdown editor.
@@ -694,6 +699,12 @@ class MdEditorController extends ChangeNotifier {
       if (entry != null) {
         MdEditorDebug.logger.info('Undo: ${entry.description}');
         _setMarkdownInternal(entry.oldState.oldMarkdown);
+        // Restore cursor position from undo entry if available.
+        final cursor = entry.oldState.cursorOffset;
+        if (cursor != null) {
+          _cursorOffset = cursor.clamp(0, _markdown.length);
+          cursorPositionNotifier.value = _cursorOffset;
+        }
         notifyListeners();
       }
     } catch (e, st) {
@@ -707,6 +718,12 @@ class MdEditorController extends ChangeNotifier {
       if (entry != null) {
         MdEditorDebug.logger.info('Redo: ${entry.description}');
         _setMarkdownInternal(entry.newState.newMarkdown);
+        // Restore cursor position from redo entry if available.
+        final cursor = entry.newState.cursorOffset;
+        if (cursor != null) {
+          _cursorOffset = cursor.clamp(0, _markdown.length);
+          cursorPositionNotifier.value = _cursorOffset;
+        }
         notifyListeners();
       }
     } catch (e, st) {
@@ -1158,11 +1175,13 @@ class MdEditorController extends ChangeNotifier {
         oldMarkdown: oldMd,
         newMarkdown: newMd,
         description: description,
+        cursorOffset: _cursorOffset,
       ),
       newState: MdEditOperation(
         oldMarkdown: oldMd,
         newMarkdown: newMd,
         description: description,
+        cursorOffset: _cursorOffset,
       ),
       description: description,
     ));

@@ -347,7 +347,6 @@ class _EmptyPanelDropTargetState extends State<EmptyPanelDropTarget> {
 
     return DragTarget<ForgeDragData>(
       onWillAcceptWithDetails: (details) {
-        if (details.data is PanelTabDragData) return false;
         setState(() => _isDragOver = true);
         return true;
       },
