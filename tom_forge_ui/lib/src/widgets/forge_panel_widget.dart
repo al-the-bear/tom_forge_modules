@@ -210,7 +210,7 @@ class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
   }
 
   Widget _buildIconTab(BuildContext context, int index, PanelTabConfig tab) {
-    final isActive = index == _activeTabIndex;
+    final isActive = index == _activeTabIndex && !_showConfigPanel;
     final theme = Theme.of(context);
 
     return Tooltip(
@@ -289,9 +289,26 @@ class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
             widget.onConfigTap?.call();
           }
         },
-        child: SizedBox(
+        child: Container(
           width: ForgeDimensions.sideTabBarCollapsed,
           height: ForgeDimensions.sideTabBarCollapsed,
+          decoration: BoxDecoration(
+            border: _showConfigPanel
+                ? Border(
+                    left: widget.iconStripPosition == IconStripPosition.left
+                        ? BorderSide(
+                            color: theme.colorScheme.primary, width: 2)
+                        : BorderSide.none,
+                    right: widget.iconStripPosition == IconStripPosition.right
+                        ? BorderSide(
+                            color: theme.colorScheme.primary, width: 2)
+                        : BorderSide.none,
+                  )
+                : null,
+            color: _showConfigPanel
+                ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3)
+                : null,
+          ),
           child: Icon(
             Icons.settings,
             size: ForgeDimensions.iconTab,

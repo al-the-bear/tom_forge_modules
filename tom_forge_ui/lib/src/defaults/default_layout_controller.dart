@@ -646,11 +646,12 @@ class DefaultLayoutController implements ForgeLayoutController {
     }
 
     // Phase 3: Default creation for known extensions.
+    final wildcardDefault = _fileTypeDefaultEditors['*'];
     final defaultTypeId = switch (ext) {
       _extMarkdown || _extMarkdownAlt => 'md',
       _extDart => 'dart',
       _extYaml || _extYml => 'yaml',
-      _ => 'plaintext',
+      _ => wildcardDefault ?? 'plaintext',
     };
 
     if (defaultTypeId == 'plaintext') {

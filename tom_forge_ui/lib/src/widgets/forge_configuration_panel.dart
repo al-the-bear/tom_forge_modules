@@ -1340,7 +1340,6 @@ class _FileTypesSettingsSectionState extends State<_FileTypesSettingsSection> {
     '.yaml': 'yaml',
     '.yml': 'yaml',
     '.json': 'yaml',
-    '.txt': 'md',
   };
   static const _editorTypeIds = ['md', 'dart', 'yaml', 'plaintext'];
 

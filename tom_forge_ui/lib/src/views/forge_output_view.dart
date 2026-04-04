@@ -166,7 +166,6 @@ class _OutputContentState extends State<_OutputContent> {
                   }),
                   isDense: true,
                   style: theme.textTheme.bodySmall,
-                  itemHeight: 28,
                   icon: Icon(
                     Icons.arrow_drop_down,
                     size: 16,

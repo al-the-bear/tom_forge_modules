@@ -2818,17 +2818,12 @@ Press "?" for this help document.
       PanelArea.bottom => layout.bottomPanel.tabs,
     };
 
-    if (targetTabs.isEmpty) {
-      // Create a new tab with the editor as a section.
-      targetTabs.add(PanelTabConfig(
-        title: data.editor.title.value,
-        icon: data.editor.icon,
-        sections: [_EditorViewAdapter(data.editor)],
-      ));
-    } else {
-      // Add to the first tab as a new section.
-      targetTabs.first.sections.add(_EditorViewAdapter(data.editor));
-    }
+    // Always create a new tab with the editor as its content.
+    targetTabs.add(PanelTabConfig(
+      title: data.editor.title.value,
+      icon: data.editor.icon,
+      sections: [_EditorViewAdapter(data.editor)],
+    ));
 
     // Remove from middle panel.
     _layout.closeEditor(data.editor);

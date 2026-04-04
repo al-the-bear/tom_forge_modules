@@ -115,35 +115,33 @@ class _TerminalContentState extends State<_TerminalContent> {
       );
     }
 
-    // Accordion layout: each terminal is an expandable section.
-    return Column(
-      children: [
-        Expanded(
-          child: _TerminalAccordion(
-            terminals: terminals,
-            activeTerminal: widget.terminalManager.activeTerminal,
-            expanded: _expanded,
-            onToggle: (index) {
-              setState(() {
-                if (_expanded.contains(index)) {
-                  _expanded.remove(index);
-                } else {
-                  _expanded.add(index);
-                }
-              });
-              widget.terminalManager.setActive(terminals[index]);
-            },
-            onClose: (terminal) => terminal.close(),
-            onAdd: () => widget.terminalManager.create(),
-          ),
-        ),
-      ],
+    // Horizontal accordion layout: each terminal is a horizontal section.
+    return _TerminalAccordion(
+      terminals: terminals,
+      activeTerminal: widget.terminalManager.activeTerminal,
+      expanded: _expanded,
+      onToggle: (index) {
+        setState(() {
+          if (_expanded.contains(index)) {
+            if (_expanded.length > 1) _expanded.remove(index);
+          } else {
+            // Collapse non-pinned, expand the new one.
+            _expanded.clear();
+            _expanded.add(index);
+          }
+        });
+        widget.terminalManager.setActive(terminals[index]);
+      },
+      onClose: (terminal) => terminal.close(),
+      onAdd: () => widget.terminalManager.create(),
     );
   }
 }
 
-/// Accordion layout for terminals.
-/// Each terminal has a collapsible header and an expanded content area.
+/// Horizontal accordion layout for terminals.
+/// Each terminal is a horizontal section; collapsed terminals appear as
+/// narrow vertical strips with rotated text (matching the bottom panel
+/// accordion style).
 class _TerminalAccordion extends StatelessWidget {
   final List<ForgeTerminal> terminals;
   final ForgeTerminal? activeTerminal;
@@ -163,54 +161,143 @@ class _TerminalAccordion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final hasExpanded = expanded.isNotEmpty;
-
-    return Column(
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (var i = 0; i < terminals.length; i++) ...[
-          _TerminalSectionHeader(
-            terminal: terminals[i],
-            index: i,
-            isExpanded: expanded.contains(i),
-            isActive: terminals[i] == activeTerminal,
-            onToggle: () => onToggle(i),
-            onClose: () => onClose(terminals[i]),
-            onAdd: onAdd,
-            isLast: i == terminals.length - 1,
-          ),
           if (expanded.contains(i))
             Expanded(
-              child: _TerminalSectionContent(terminal: terminals[i]),
+              child: Column(
+                children: [
+                  _TerminalSectionHeader(
+                    terminal: terminals[i],
+                    index: i,
+                    isExpanded: true,
+                    isActive: terminals[i] == activeTerminal,
+                    onToggle: () => onToggle(i),
+                    onClose: () => onClose(terminals[i]),
+                    onAdd: onAdd,
+                    isLast: i == terminals.length - 1,
+                  ),
+                  Expanded(
+                    child: _TerminalSectionContent(terminal: terminals[i]),
+                  ),
+                ],
+              ),
+            )
+          else
+            _CollapsedTerminalStrip(
+              terminal: terminals[i],
+              isActive: terminals[i] == activeTerminal,
+              onTap: () => onToggle(i),
+              onClose: () => onClose(terminals[i]),
             ),
         ],
-        // If nothing is expanded, fill remaining space.
-        if (!hasExpanded) const Spacer(),
-        // Add button row at bottom if no terminals are expanded.
-        if (!hasExpanded)
-          Container(
-            height: 28,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            color: theme.colorScheme.surface,
-            child: Row(
-              children: [
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.add, size: 14),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-                  onPressed: onAdd,
-                  tooltip: 'New Terminal',
-                ),
-              ],
-            ),
-          ),
       ],
     );
   }
 }
 
-/// Accordion section header for a single terminal.
+/// Narrow vertical strip for a collapsed terminal in the horizontal accordion.
+class _CollapsedTerminalStrip extends StatefulWidget {
+  final ForgeTerminal terminal;
+  final bool isActive;
+  final VoidCallback onTap;
+  final VoidCallback onClose;
+
+  const _CollapsedTerminalStrip({
+    required this.terminal,
+    required this.isActive,
+    required this.onTap,
+    required this.onClose,
+  });
+
+  @override
+  State<_CollapsedTerminalStrip> createState() =>
+      _CollapsedTerminalStripState();
+}
+
+class _CollapsedTerminalStripState extends State<_CollapsedTerminalStrip> {
+  bool _isHovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovering = true),
+      onExit: (_) => setState(() => _isHovering = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          width: 28,
+          decoration: BoxDecoration(
+            color: _isHovering
+                ? theme.colorScheme.surfaceContainerHighest
+                : theme.colorScheme.surfaceContainerHigh,
+            border: Border(
+              right: BorderSide(
+                color: theme.colorScheme.outlineVariant,
+                width: 1,
+              ),
+            ),
+          ),
+          child: Column(
+            children: [
+              // Terminal icon at top.
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Icon(
+                  Icons.terminal,
+                  size: 12,
+                  color: widget.isActive
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
+              ),
+              // Rotated title text.
+              Expanded(
+                child: Center(
+                  child: RotatedBox(
+                    quarterTurns: 1,
+                    child: Text(
+                      widget.terminal.name.toUpperCase(),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        fontSize: 10,
+                        letterSpacing: 1.2,
+                        color: _isHovering
+                            ? theme.colorScheme.onSurface
+                            : theme.colorScheme.onSurface
+                                .withValues(alpha: 0.6),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+              ),
+              // Close button at bottom.
+              if (_isHovering)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: GestureDetector(
+                    onTap: widget.onClose,
+                    child: Icon(
+                      Icons.close,
+                      size: 12,
+                      color:
+                          theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Horizontal header bar for an expanded terminal section.
 class _TerminalSectionHeader extends StatelessWidget {
   final ForgeTerminal terminal;
   final int index;
@@ -235,37 +322,6 @@ class _TerminalSectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Draggable<_TerminalDragData>(
-      data: _TerminalDragData(terminal: terminal, index: index),
-      feedback: Material(
-        elevation: 4,
-        borderRadius: BorderRadius.circular(4),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          decoration: BoxDecoration(
-            color: const Color(0xFF252526),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.terminal, size: 12, color: Colors.white70),
-              const SizedBox(width: 4),
-              Text(terminal.name,
-                  style: const TextStyle(color: Colors.white70, fontSize: 12)),
-            ],
-          ),
-        ),
-      ),
-      childWhenDragging: Opacity(
-        opacity: 0.35,
-        child: _buildHeader(context, theme),
-      ),
-      child: _buildHeader(context, theme),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context, ThemeData theme) {
     return GestureDetector(
       onTap: onToggle,
       child: MouseRegion(
@@ -277,16 +333,11 @@ class _TerminalSectionHeader extends StatelessWidget {
             color: isActive
                 ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3)
                 : theme.colorScheme.surfaceContainerHighest,
-            border: Border(
-              bottom: BorderSide(
-                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
-              ),
-            ),
           ),
           child: Row(
             children: [
               Icon(
-                isExpanded ? Icons.expand_more : Icons.chevron_right,
+                Icons.arrow_drop_down,
                 size: 14,
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
               ),
@@ -311,7 +362,6 @@ class _TerminalSectionHeader extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              // Add terminal button (only show on last header or when expanded)
               if (isLast)
                 GestureDetector(
                   onTap: onAdd,
@@ -322,7 +372,8 @@ class _TerminalSectionHeader extends StatelessWidget {
                       child: Icon(
                         Icons.add,
                         size: 14,
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                        color: theme.colorScheme.onSurface
+                            .withValues(alpha: 0.5),
                       ),
                     ),
                   ),
@@ -336,7 +387,8 @@ class _TerminalSectionHeader extends StatelessWidget {
                     child: Icon(
                       Icons.close,
                       size: 14,
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                      color:
+                          theme.colorScheme.onSurface.withValues(alpha: 0.4),
                     ),
                   ),
                 ),
@@ -477,9 +529,3 @@ class _FallbackTerminalContentState extends State<_FallbackTerminalContent> {
   }
 }
 
-/// Internal drag data for dragging a terminal to another panel.
-class _TerminalDragData {
-  final ForgeTerminal terminal;
-  final int index;
-  const _TerminalDragData({required this.terminal, required this.index});
-}
