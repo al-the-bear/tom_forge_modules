@@ -30,6 +30,7 @@ class ForgePreferencesService extends ChangeNotifier {
   static const _keyThemeMode = 'forge.appearance.themeMode';
   static const _keyFileTypeDefaults = 'forge.files.typeDefaults';
   static const _keyShortcutOverrides = 'forge.shortcuts.overrides';
+  static const _keyChordOverrides = 'forge.shortcuts.chordOverrides';
   static const _keyTerminalDefaultShell = 'forge.terminal.defaultShell';
   static const _keyTerminalShellPaths = 'forge.terminal.shellPaths';
   static const _keyTerminalStartFolder = 'forge.terminal.startFolder';
@@ -51,6 +52,8 @@ class ForgePreferencesService extends ChangeNotifier {
   final Map<String, String> _fileTypeDefaultEditors = <String, String>{};
   final Map<String, ForgeShortcutKey> _shortcutOverrides =
       <String, ForgeShortcutKey>{};
+  final Map<String, ForgeChordKey> _chordOverrides =
+      <String, ForgeChordKey>{};
   List<String> _layoutOpenEditors = <String>[];
   ThemeMode _themeMode = ThemeMode.dark;
   String? _terminalDefaultShell;
@@ -156,6 +159,30 @@ class ForgePreferencesService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Chord overrides keyed by action id.
+  Map<String, ForgeChordKey> get chordOverrides =>
+      Map<String, ForgeChordKey>.unmodifiable(_chordOverrides);
+
+  /// Sets a chord override for a specific action id.
+  void setChordOverride(String actionId, ForgeChordKey chord) {
+    _chordOverrides[actionId] = chord;
+    notifyListeners();
+  }
+
+  /// Removes a chord override for an action id.
+  void removeChordOverride(String actionId) {
+    if (_chordOverrides.remove(actionId) != null) {
+      notifyListeners();
+    }
+  }
+
+  /// Clears all chord overrides.
+  void clearChordOverrides() {
+    if (_chordOverrides.isEmpty) return;
+    _chordOverrides.clear();
+    notifyListeners();
+  }
+
   // ── Terminal preferences ──
 
   /// Default shell executable path (null = platform default).
@@ -248,6 +275,14 @@ class ForgePreferencesService extends ChangeNotifier {
   /// Sets full layout snapshot.
   void setLayoutSnapshot(Map<String, dynamic> snapshot) {
     _layoutSnapshot = Map<String, dynamic>.from(snapshot);
+  }
+
+  /// Clears all layout state, forcing a fresh UI on next launch.
+  void clearLayoutState() {
+    _layoutSnapshot.clear();
+    _layoutPanelSizes.clear();
+    _layoutPanelVisibility.clear();
+    _layoutOpenEditors.clear();
   }
 
   /// The persisted theme mode (dark, light, or system).
@@ -394,6 +429,9 @@ class ForgePreferencesService extends ChangeNotifier {
       _shortcutOverrides
         ..clear()
         ..addAll(_loadShortcutOverrides());
+      _chordOverrides
+        ..clear()
+        ..addAll(_loadChordOverrides());
       _layoutOpenEditors = _loadLayoutOpenEditors();
       _themeMode = _loadThemeMode();
       _terminalDefaultShell = _prefs!.getString(_keyTerminalDefaultShell);
@@ -475,6 +513,7 @@ class ForgePreferencesService extends ChangeNotifier {
       await _saveLayoutSnapshot();
       await _saveFileTypeDefaults();
       await _saveShortcutOverrides();
+      await _saveChordOverrides();
       await _prefs!.setString(_keyThemeMode, _themeMode.name);
       await _saveTerminalPreferences();
       await _saveSearchConfig();
@@ -722,6 +761,50 @@ class ForgePreferencesService extends ChangeNotifier {
       serializable[entry.key] = _shortcutKeyToMap(entry.value);
     }
     await _prefs!.setString(_keyShortcutOverrides, jsonEncode(serializable));
+  }
+
+  Map<String, ForgeChordKey> _loadChordOverrides() {
+    final jsonStr = _prefs!.getString(_keyChordOverrides);
+    if (jsonStr == null || jsonStr.trim().isEmpty) {
+      return <String, ForgeChordKey>{};
+    }
+    try {
+      final decoded = jsonDecode(jsonStr);
+      if (decoded is! Map) return <String, ForgeChordKey>{};
+      final result = <String, ForgeChordKey>{};
+      for (final entry in decoded.entries) {
+        final actionId = entry.key;
+        final value = entry.value;
+        if (actionId is String && value is Map<String, dynamic>) {
+          final first = value['firstKey'];
+          final second = value['secondKey'];
+          if (first is Map && second is Map) {
+            final firstKey =
+                _shortcutKeyFromMap(Map<String, dynamic>.from(first));
+            final secondKey =
+                _shortcutKeyFromMap(Map<String, dynamic>.from(second));
+            if (firstKey != null && secondKey != null) {
+              result[actionId] =
+                  ForgeChordKey(firstKey: firstKey, secondKey: secondKey);
+            }
+          }
+        }
+      }
+      return result;
+    } catch (_) {
+      return <String, ForgeChordKey>{};
+    }
+  }
+
+  Future<void> _saveChordOverrides() async {
+    final serializable = <String, Map<String, dynamic>>{};
+    for (final entry in _chordOverrides.entries) {
+      serializable[entry.key] = {
+        'firstKey': _shortcutKeyToMap(entry.value.firstKey),
+        'secondKey': _shortcutKeyToMap(entry.value.secondKey),
+      };
+    }
+    await _prefs!.setString(_keyChordOverrides, jsonEncode(serializable));
   }
 
   ThemeMode _loadThemeMode() {

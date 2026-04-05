@@ -120,6 +120,23 @@ class DefaultLayoutController implements ForgeLayoutController {
     }
   }
 
+  /// Creates an editor for the given URI without adding it to any panel.
+  ///
+  /// Returns `null` if the content cannot be read or no editor can handle it.
+  Future<ForgeEditor?> createEditorForUri(Uri uri) async {
+    // Check if already open — return the existing instance.
+    final existing = _systemState.openEditors.where((e) => e.uri == uri);
+    if (existing.isNotEmpty) return existing.first;
+
+    try {
+      final content = await _resolveContent(uri);
+      if (content == null) return null;
+      return _createEditor(uri, content);
+    } catch (_) {
+      return null;
+    }
+  }
+
   @override
   void openFile(Uri uri, {int? middlePanelIndex, int? line, int? column}) {
     // Check if already open.

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart'
     show ForgeTextSettings;
 
@@ -1048,18 +1049,10 @@ class _EditorSettingsSectionState extends State<_EditorSettingsSection> {
       const SizedBox(height: 16),
       _sectionHeader(theme, 'Schema'),
       const SizedBox(height: 8),
-      TextFormField(
-        initialValue: _configString('yamlSchemasPath'),
-        style: const TextStyle(fontSize: 13),
-        decoration: const InputDecoration(
-          labelText: 'JSON Schema directory',
-          hintText: '.tom/json-schema/',
-          border: OutlineInputBorder(),
-          contentPadding:
-              EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          isDense: true,
-        ),
-        onChanged: (v) => _updateConfig('yamlSchemasPath', v.trim()),
+      _buildDirectoryField(
+        configKey: 'yamlSchemasPath',
+        labelText: 'JSON Schema directory',
+        hintText: '.tom/json-schema/',
       ),
       const SizedBox(height: 16),
       _sectionHeader(theme, 'Layout'),
@@ -1290,20 +1283,43 @@ class _EditorSettingsSectionState extends State<_EditorSettingsSection> {
       const SizedBox(height: 16),
       _sectionHeader(theme, 'Schema'),
       const SizedBox(height: 8),
-      TextFormField(
-        initialValue: _configString('docspecSchemasPath'),
-        style: const TextStyle(fontSize: 13),
-        decoration: const InputDecoration(
-          labelText: 'DocSpec schema directory',
-          hintText: '.tom/docspecs-schema/',
-          border: OutlineInputBorder(),
-          contentPadding:
-              EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          isDense: true,
-        ),
-        onChanged: (v) => _updateConfig('docspecSchemasPath', v.trim()),
+      _buildDirectoryField(
+        configKey: 'docspecSchemasPath',
+        labelText: 'DocSpec schema directory',
+        hintText: '.tom/docspecs-schema/',
       ),
     ];
+  }
+
+  Widget _buildDirectoryField({
+    required String configKey,
+    required String labelText,
+    required String hintText,
+  }) {
+    return TextFormField(
+      initialValue: _configString(configKey),
+      style: const TextStyle(fontSize: 13),
+      decoration: InputDecoration(
+        labelText: labelText,
+        hintText: hintText,
+        floatingLabelBehavior: FloatingLabelBehavior.always,
+        border: const OutlineInputBorder(),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        isDense: true,
+        suffixIcon: IconButton(
+          icon: const Icon(Icons.folder_open, size: 18),
+          tooltip: 'Browse\u2026',
+          onPressed: () async {
+            final path = await FilePicker.platform.getDirectoryPath();
+            if (path != null) {
+              _updateConfig(configKey, path);
+            }
+          },
+        ),
+      ),
+      onChanged: (v) => _updateConfig(configKey, v.trim()),
+    );
   }
 
   Widget _toggle(String label, bool value, ValueChanged<bool> onChanged) {
@@ -1620,6 +1636,7 @@ class _ShortcutsSettingsSectionState extends State<_ShortcutsSettingsSection> {
     if (shellApi == null) return;
 
     shellApi.shortcuts.rebindChord(binding.action, chord);
+    widget.preferencesService.setChordOverride(binding.action.id, chord);
     await widget.preferencesService.save();
     if (mounted) setState(() {});
   }

@@ -30,6 +30,7 @@ import '../actions/forge_action.dart' as shell_action;
 import '../actions/forge_shortcut_binding.dart';
 import '../services/forge_shortcut_manager.dart';
 import 'forge_configuration_panel.dart';
+import 'forge_chord_overlay.dart';
 import 'forge_quick_open.dart';
 import 'forge_drag_data.dart';
 import 'forge_drop_zone_overlay.dart';
@@ -587,6 +588,13 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         widget.shell.shortcuts.rebind(binding.action, entry.value);
       }
     }
+    final chordOverrides = _preferences.chordOverrides;
+    for (final entry in chordOverrides.entries) {
+      final binding = widget.shell.shortcuts.getBinding(entry.key);
+      if (binding != null) {
+        widget.shell.shortcuts.rebindChord(binding.action, entry.value);
+      }
+    }
   }
 
   /// Restores panel sizes, visibility, and previously-open editors.
@@ -596,7 +604,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   Future<void> _restoreLayoutState() async {
     final savedSnapshot = _preferences.layoutSnapshot;
     if (savedSnapshot.isNotEmpty) {
-      _applyLayoutSnapshot(savedSnapshot);
+      await _applyLayoutSnapshot(savedSnapshot);
       return;
     }
 
@@ -611,7 +619,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         final layoutData = await wsState.loadLayoutState();
         if (layoutData != null) {
           if (_isLayoutSnapshot(layoutData)) {
-            _applyLayoutSnapshot(layoutData);
+            await _applyLayoutSnapshot(layoutData);
             return;
           }
 
@@ -721,7 +729,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
           _preferences.layoutSnapshot.isEmpty &&
           _preferences.layoutPanelSizes.isEmpty) {
         if (_isLayoutSnapshot(layout)) {
-          _applyLayoutSnapshot(layout);
+          await _applyLayoutSnapshot(layout);
         } else {
           for (final entry in layout.entries) {
             if (entry.value is Map<String, dynamic>) {
@@ -1559,12 +1567,12 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
 
   @override
   Widget build(BuildContext context) {
-    Widget body = Focus(
-      onKeyEvent: _handleChordKeyEvent,
-      child: Shortcuts(
-        shortcuts: _buildShortcuts(),
-        child: Actions(
-          actions: _buildActions(),
+    Widget body = Shortcuts(
+      shortcuts: _buildShortcuts(),
+      child: Actions(
+        actions: _buildActions(),
+        child: Focus(
+          onKeyEvent: _handleChordKeyEvent,
           child: Focus(
             autofocus: true,
             child: Material(
@@ -1606,6 +1614,10 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
                     ),
                   // Shortcut menu overlay (concept §11.4).
                   ForgeShortcutMenuPopup(
+                    shortcutManager: widget.shell.shortcuts,
+                  ),
+                  // Chord key overlay showing pending chord state.
+                  ForgeChordOverlay(
                     shortcutManager: widget.shell.shortcuts,
                   ),
                   // Open With dialog when multiple editors can handle a file.
@@ -2362,9 +2374,11 @@ Press "?" for this help document.
           builder: (context, rightConfig, _) {
             return Row(
               children: [
-                // Left Panel with vertical icon strip on LEFT edge
-                if (leftConfig.isVisible)
-                  _buildSidePanel(
+                // Left Panel — always in tree to preserve state
+                Visibility(
+                  visible: leftConfig.isVisible,
+                  maintainState: true,
+                  child: _buildSidePanel(
                     context,
                     width: leftConfig.size,
                     tabs: widget.application.layout.leftPanel.tabs,
@@ -2374,6 +2388,7 @@ Press "?" for this help document.
                     configurationPanelBuilder: _buildConfigurationPanel,
                     configPanelVisible: _configPanelVisible,
                   ),
+                ),
                 if (leftConfig.isVisible)
                   _buildVerticalResizeHandle(
                     onDragDelta: _resizeLeftPanel,
@@ -2386,7 +2401,7 @@ Press "?" for this help document.
                 // Middle area: editor panels + bottom panel
                 Expanded(child: _buildCenterColumn(context)),
 
-                // Right Panel with vertical icon strip on RIGHT edge
+                // Right Panel — always in tree to preserve state
                 if (rightConfig.isVisible)
                   _buildVerticalResizeHandle(
                     onDragDelta: _resizeRightPanel,
@@ -2395,8 +2410,10 @@ Press "?" for this help document.
                       ForgeDimensions.rightPanelDefaultWidth,
                     ),
                   ),
-                if (rightConfig.isVisible)
-                  _buildSidePanel(
+                Visibility(
+                  visible: rightConfig.isVisible,
+                  maintainState: true,
+                  child: _buildSidePanel(
                     context,
                     width: rightConfig.size,
                     tabs: widget.application.layout.rightPanel.tabs,
@@ -2404,6 +2421,7 @@ Press "?" for this help document.
                     panelArea: PanelArea.right,
                     showConfigTab: false,
                   ),
+                ),
               ],
             );
           },
@@ -2422,7 +2440,7 @@ Press "?" for this help document.
           children: [
             // Middle editor panels
             Expanded(child: _buildMiddleArea(context)),
-            // Bottom panel (between left/right, below middle)
+            // Bottom panel — always in tree to preserve state
             if (bottomConfig.isVisible)
               _buildHorizontalResizeHandle(
                 onDragDelta: _resizeBottomPanel,
@@ -2431,8 +2449,11 @@ Press "?" for this help document.
                   ForgeDimensions.bottomPanelDefaultHeight,
                 ),
               ),
-            if (bottomConfig.isVisible)
-              _buildBottomPanel(context, bottomConfig),
+            Visibility(
+              visible: bottomConfig.isVisible,
+              maintainState: true,
+              child: _buildBottomPanel(context, bottomConfig),
+            ),
           ],
         );
       },
@@ -2526,7 +2547,7 @@ Press "?" for this help document.
     return data.containsKey('panels') && data.containsKey('middlePanels');
   }
 
-  void _applyLayoutSnapshot(Map<String, dynamic> snapshot) {
+  Future<void> _applyLayoutSnapshot(Map<String, dynamic> snapshot) async {
     _layout.loadLayoutSnapshot(snapshot);
 
     final middleFlex = snapshot['middlePanelFlex'];
@@ -2541,14 +2562,78 @@ Press "?" for this help document.
       }
     }
 
+    // Restore editors in side/bottom panels.
+    final sidePanelEditors = snapshot['sidePanelEditors'];
+    if (sidePanelEditors is Map<String, dynamic>) {
+      await _restorePanelEditors(
+        sidePanelEditors['left'],
+        widget.application.layout.leftPanel.tabs,
+      );
+      await _restorePanelEditors(
+        sidePanelEditors['right'],
+        widget.application.layout.rightPanel.tabs,
+      );
+      await _restorePanelEditors(
+        sidePanelEditors['bottom'],
+        widget.application.layout.bottomPanel.tabs,
+      );
+    }
+
     if (debugEnabled) {
       debugPrint('[ForgeShellScaffold] restored layout snapshot');
+    }
+  }
+
+  /// Restores editors saved within side/bottom panel tabs.
+  Future<void> _restorePanelEditors(
+    dynamic tabsData,
+    List<PanelTabConfig> targetTabs,
+  ) async {
+    if (tabsData is! List) return;
+    for (final tabUris in tabsData) {
+      if (tabUris is! List || tabUris.isEmpty) continue;
+      final sections = <ForgeView>[];
+      for (final uriStr in tabUris) {
+        if (uriStr is! String) continue;
+        try {
+          final uri = Uri.parse(uriStr);
+          final editor = await _layout.createEditorForUri(uri);
+          if (editor != null) {
+            sections.add(_EditorViewAdapter(editor));
+          }
+        } catch (_) {}
+      }
+      if (sections.isNotEmpty) {
+        final firstEditor = sections.first;
+        targetTabs.add(PanelTabConfig(
+          title: firstEditor.title.value,
+          icon: firstEditor.icon,
+          sections: sections,
+        ));
+      }
     }
   }
 
   Map<String, dynamic> _captureLayoutSnapshot() {
     final snapshot = _layout.toLayoutSnapshot();
     snapshot['middlePanelFlex'] = List<double>.from(_middlePanelFlex);
+
+    // Serialize side/bottom panel editor tabs.
+    List<List<String>> extractEditorUris(List<PanelTabConfig> tabs) {
+      return tabs.map((tab) {
+        return tab.sections
+            .whereType<_EditorViewAdapter>()
+            .map((adapter) => adapter.editor.uri.toString())
+            .toList();
+      }).toList();
+    }
+
+    final layout = widget.application.layout;
+    snapshot['sidePanelEditors'] = {
+      'left': extractEditorUris(layout.leftPanel.tabs),
+      'right': extractEditorUris(layout.rightPanel.tabs),
+      'bottom': extractEditorUris(layout.bottomPanel.tabs),
+    };
     return snapshot;
   }
 

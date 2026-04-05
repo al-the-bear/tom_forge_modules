@@ -49,7 +49,14 @@ class DefaultShortcutManager implements ForgeShortcutManager {
   }
 
   @override
-  List<ForgeShortcutBinding> get allBindings => List.unmodifiable(_bindings);
+  List<ForgeShortcutBinding> get allBindings {
+    // Deduplicate by action.id — keep last-registered entry.
+    final seen = <String, ForgeShortcutBinding>{};
+    for (final binding in _bindings) {
+      seen[binding.action.id] = binding;
+    }
+    return List.unmodifiable(seen.values);
+  }
 
   @override
   List<ForgeShortcutBinding> get chordBindings =>

@@ -189,6 +189,7 @@ class WorkspaceWelcomePage extends StatefulWidget {
 class _WorkspaceWelcomePageState extends State<WorkspaceWelcomePage> {
   bool _isLoading = false;
   bool _prefsLoaded = false;
+  bool _resetUI = false;
   late ForgePreferencesService _prefs;
   List<String> _recentFolders = [];
 
@@ -220,6 +221,7 @@ class _WorkspaceWelcomePageState extends State<WorkspaceWelcomePage> {
       );
 
       if (result != null && mounted) {
+        if (_resetUI) await _clearLayoutPreferences();
         await _prefs.addRecentWorkspace(result);
         widget.onFolderSelected(Directory(result));
       }
@@ -231,8 +233,14 @@ class _WorkspaceWelcomePageState extends State<WorkspaceWelcomePage> {
   }
 
   Future<void> _selectFolder(String path) async {
+    if (_resetUI) await _clearLayoutPreferences();
     await _prefs.addRecentWorkspace(path);
     widget.onFolderSelected(Directory(path));
+  }
+
+  Future<void> _clearLayoutPreferences() async {
+    _prefs.clearLayoutState();
+    await _prefs.save();
   }
 
   Future<void> _removeFromRecent(String path) async {
@@ -298,6 +306,22 @@ class _WorkspaceWelcomePageState extends State<WorkspaceWelcomePage> {
                 isLoading: _isLoading,
                 onTap: _browseFolder,
                 isDark: isDark,
+              ),
+              const SizedBox(height: 8),
+              CheckboxListTile(
+                dense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                controlAffinity: ListTileControlAffinity.leading,
+                title: const Text(
+                  'Reset UI',
+                  style: TextStyle(fontSize: 13),
+                ),
+                subtitle: const Text(
+                  'Start with a fresh layout (discard panel positions)',
+                  style: TextStyle(fontSize: 11),
+                ),
+                value: _resetUI,
+                onChanged: (v) => setState(() => _resetUI = v ?? false),
               ),
 
               // Recent folders

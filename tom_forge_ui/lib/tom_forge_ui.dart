@@ -127,6 +127,7 @@ export 'src/views/forge_file_explorer_view.dart';
 export 'src/views/forge_outline_view.dart';
 export 'src/views/forge_output_view.dart';
 export 'src/views/forge_problems_view.dart';
+export 'src/views/forge_revision_view.dart';
 export 'src/views/forge_search_view.dart';
 export 'src/views/forge_terminal_view.dart';
 

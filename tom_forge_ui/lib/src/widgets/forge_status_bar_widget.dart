@@ -186,6 +186,7 @@ class _ForgeStatusBarWidgetState extends State<ForgeStatusBarWidget> {
 
     return GestureDetector(
       onTap: item.onTap,
+      behavior: HitTestBehavior.opaque,
       child: MouseRegion(
         cursor: item.onTap != null
             ? SystemMouseCursors.click
