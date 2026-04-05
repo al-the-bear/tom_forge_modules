@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -15,6 +17,7 @@ class ForgeRevisionView extends ForgeView {
   final ForgeWorkspaceStateManager workspaceState;
   final DefaultSystemState systemState;
   final ForgeLayoutController layoutController;
+  final Stream<Uri>? onDidSave;
 
   final _title = ValueNotifier<String>('Revisions');
   final _titleExtension = ValueNotifier<String?>(null);
@@ -23,6 +26,7 @@ class ForgeRevisionView extends ForgeView {
     required this.workspaceState,
     required this.systemState,
     required this.layoutController,
+    this.onDidSave,
   });
 
   @override
@@ -45,6 +49,7 @@ class ForgeRevisionView extends ForgeView {
       workspaceState: workspaceState,
       systemState: systemState,
       layoutController: layoutController,
+      onDidSave: onDidSave,
     );
   }
 
@@ -56,11 +61,13 @@ class _RevisionContent extends StatefulWidget {
   final ForgeWorkspaceStateManager workspaceState;
   final DefaultSystemState systemState;
   final ForgeLayoutController layoutController;
+  final Stream<Uri>? onDidSave;
 
   const _RevisionContent({
     required this.workspaceState,
     required this.systemState,
     required this.layoutController,
+    this.onDidSave,
   });
 
   @override
@@ -71,18 +78,28 @@ class _RevisionContentState extends State<_RevisionContent> {
   List<String> _revisions = [];
   Uri? _currentUri;
   bool _loading = false;
+  StreamSubscription<Uri>? _saveSubscription;
 
   @override
   void initState() {
     super.initState();
     widget.systemState.activeEditorListenable.addListener(_onActiveEditorChanged);
+    _saveSubscription = widget.onDidSave?.listen(_onFileSaved);
     _onActiveEditorChanged();
   }
 
   @override
   void dispose() {
+    _saveSubscription?.cancel();
     widget.systemState.activeEditorListenable.removeListener(_onActiveEditorChanged);
     super.dispose();
+  }
+
+  void _onFileSaved(Uri uri) {
+    // Reload revisions when the currently displayed file is saved.
+    if (uri == _currentUri) {
+      _loadRevisions();
+    }
   }
 
   void _onActiveEditorChanged() {
@@ -114,15 +131,17 @@ class _RevisionContentState extends State<_RevisionContent> {
   }
 
   String _formatRevisionId(String id) {
-    // Revision IDs are timestamps like "20250101_120000".
-    if (id.length >= 15 && id.contains('_')) {
-      final parts = id.split('_');
-      if (parts.length == 2 && parts[0].length == 8 && parts[1].length >= 6) {
-        final date = parts[0];
-        final time = parts[1];
-        return '${date.substring(0, 4)}-${date.substring(4, 6)}-${date.substring(6, 8)} '
-            '${time.substring(0, 2)}:${time.substring(2, 4)}:${time.substring(4, 6)}';
-      }
+    // Revision IDs are millisecondsSinceEpoch strings.
+    final millis = int.tryParse(id);
+    if (millis != null) {
+      final dt = DateTime.fromMillisecondsSinceEpoch(millis);
+      final y = dt.year.toString();
+      final m = dt.month.toString().padLeft(2, '0');
+      final d = dt.day.toString().padLeft(2, '0');
+      final h = dt.hour.toString().padLeft(2, '0');
+      final min = dt.minute.toString().padLeft(2, '0');
+      final s = dt.second.toString().padLeft(2, '0');
+      return '$y-$m-$d $h:$min:$s';
     }
     return id;
   }

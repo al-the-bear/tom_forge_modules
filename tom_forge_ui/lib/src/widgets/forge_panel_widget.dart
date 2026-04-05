@@ -57,6 +57,11 @@ class ForgeSidePanelWidget extends StatefulWidget {
 class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
   int _activeTabIndex = 0;
   bool _showConfigPanel = false;
+  /// GlobalKeys for each tab's AccordeonLayout to preserve state.
+  final Map<int, GlobalKey> _tabKeys = {};
+
+  GlobalKey _keyForTab(int index) =>
+      _tabKeys.putIfAbsent(index, () => GlobalKey());
 
   @override
   void initState() {
@@ -96,17 +101,29 @@ class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
       );
     }
 
-    final hasTabs = widget.tabs.isNotEmpty;
-    final activeTab = hasTabs
-        ? widget.tabs[_activeTabIndex.clamp(0, widget.tabs.length - 1)]
-        : null;
-
     final iconStrip = _buildVerticalIconStrip(context);
-    final content = Expanded(
-      child: _showConfigPanel
-          ? _buildConfigurationPanel(context)
-          : _buildContent(context, activeTab),
-    );
+
+    // Use IndexedStack to preserve tab state across tab switches.
+    // Config panel is conditionally rendered on top (not in stack)
+    // since its layout-sensitive widgets can't be in an offstage tree.
+    final clampedIndex = widget.tabs.isEmpty
+        ? 0
+        : _activeTabIndex.clamp(0, widget.tabs.length - 1);
+
+    Widget contentBody;
+    if (_showConfigPanel || widget.tabs.isEmpty) {
+      contentBody = _buildConfigurationPanel(context);
+    } else {
+      contentBody = IndexedStack(
+        index: clampedIndex,
+        children: [
+          for (var i = 0; i < widget.tabs.length; i++)
+            _buildContent(context, widget.tabs[i]),
+        ],
+      );
+    }
+
+    final content = Expanded(child: contentBody);
 
     // Position icon strip on left or right edge
     return Row(
@@ -217,11 +234,16 @@ class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
       message: tab.title,
       waitDuration: const Duration(milliseconds: 500),
       child: InkWell(
-        onTap: () => setState(() {
-          _activeTabIndex = index;
-          _showConfigPanel = false;
-          widget.configPanelVisible?.value = false;
-        }),
+        onTap: () {
+          // Unfocus text fields (e.g. from config panel) so scaffold
+          // shortcuts like Ctrl+L continue to work.
+          FocusManager.instance.primaryFocus?.unfocus();
+          setState(() {
+            _activeTabIndex = index;
+            _showConfigPanel = false;
+            widget.configPanelVisible?.value = false;
+          });
+        },
         child: Container(
           width: ForgeDimensions.sideTabBarCollapsed,
           height: ForgeDimensions.sideTabBarCollapsed,
@@ -1330,13 +1352,17 @@ class _ForgePanelWidgetState extends State<ForgePanelWidget> {
       );
     }
 
-    final activeTab =
-        widget.tabs[_activeTabIndex.clamp(0, widget.tabs.length - 1)];
-
     return Column(
       children: [
         _buildHorizontalTabBar(context),
-        Expanded(child: _buildContent(context, activeTab)),
+        Expanded(
+          child: IndexedStack(
+            index: _activeTabIndex.clamp(0, widget.tabs.length - 1),
+            children: [
+              for (final tab in widget.tabs) _buildContent(context, tab),
+            ],
+          ),
+        ),
       ],
     );
   }
