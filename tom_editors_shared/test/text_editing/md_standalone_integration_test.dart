@@ -199,7 +199,7 @@ void main() {
             actionIds.contains(StandardEditingActions.selectAllActionId), true);
       });
 
-      test('includes redo alt shortcut (Ctrl+Y)', () {
+      test('includes redo shortcut', () {
         final integration = MdStandaloneIntegration(
           controller: controller,
           focusNode: focusNode,
@@ -207,12 +207,13 @@ void main() {
         addTeardownDispose(integration);
 
         final map = integration.buildShortcutMap();
-        // The redo action ID should appear at least twice in values:
-        // once for the primary shortcut and once for the alt shortcut.
+        // The redo action ID should appear in values via the primary
+        // shortcut. Ctrl+Y is intentionally NOT mapped to redo —
+        // it is handled by the shell's shortcut binding system (Delete Line).
         final redoCount = map.values
             .where((id) => id == StandardEditingActions.redoActionId)
             .length;
-        expect(redoCount, greaterThanOrEqualTo(2));
+        expect(redoCount, greaterThanOrEqualTo(1));
       });
     });
   });

@@ -394,10 +394,6 @@ class _MdEditorState extends State<MdEditor> {
     _shortcuts[const SingleActivator(
             LogicalKeyboardKey.keyZ, control: true, shift: true)] =
         const _MdEditorActionIntent(StandardEditingActions.redoActionId);
-
-    // Alternative redo shortcut (Ctrl+Y)
-    _shortcuts[StandardEditingActions.redoAltShortcut.toActivator()] =
-        const _MdEditorActionIntent(StandardEditingActions.redoActionId);
   }
 
   @override

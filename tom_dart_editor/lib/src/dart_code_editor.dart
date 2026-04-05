@@ -858,9 +858,8 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
     _shortcuts[const SingleActivator(
             LogicalKeyboardKey.keyZ, control: true, shift: true)] =
         const _DartEditorActionIntent(StandardEditingActions.redoActionId);
-    // Alternative redo shortcut (Ctrl+Y)
-    _shortcuts[StandardEditingActions.redoAltShortcut.toActivator()] =
-        const _DartEditorActionIntent(StandardEditingActions.redoActionId);
+    // Note: Ctrl+Y is intentionally NOT mapped to redo here — it is
+    // handled by the shell's shortcut binding system (Delete Line).
   }
 
   @override
@@ -1920,7 +1919,9 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
 
     // Intercept standard undo/redo shortcuts so that our custom word-level
     // undo runs instead of Flutter's built-in per-character undo on
-    // EditableText.  Ctrl+Z = undo, Ctrl+Shift+Z / Ctrl+Y = redo.
+    // EditableText.  Ctrl+Z = undo, Ctrl+Shift+Z = redo.
+    // Note: Ctrl+Y is intentionally NOT intercepted here — it is handled
+    // by the shell's shortcut binding system (mapped to Delete Line).
     final isCtrl = HardwareKeyboard.instance.isControlPressed ||
         HardwareKeyboard.instance.isMetaPressed;
     if (isCtrl && !HardwareKeyboard.instance.isAltPressed) {
@@ -1930,10 +1931,6 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
         } else {
           _undo();
         }
-        return KeyEventResult.handled;
-      }
-      if (event.logicalKey == LogicalKeyboardKey.keyY) {
-        _redo();
         return KeyEventResult.handled;
       }
     }

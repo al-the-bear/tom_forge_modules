@@ -551,8 +551,6 @@ class _PlainTextEditorWidgetState extends State<_PlainTextEditorWidget> {
         _shortcuts[key.toActivator()] = _PlainTextActionIntent(action.id);
       }
     }
-    _shortcuts[StandardEditingActions.redoAltShortcut.toActivator()] =
-        const _PlainTextActionIntent(StandardEditingActions.redoActionId);
   }
 
   @override

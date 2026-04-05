@@ -2,7 +2,6 @@ import 'package:flutter/widgets.dart';
 
 import '../md_editor_actions.dart';
 import '../forge_text_settings.dart';
-import '../standard_editing_actions.dart';
 import 'base_standalone_integration.dart';
 
 /// Debug flag for MdStandaloneIntegration.
@@ -109,10 +108,6 @@ class MdStandaloneIntegration extends BaseStandaloneIntegration {
           map[altKey.toActivator()] = actionId;
         }
       }
-
-      // Add alternative redo shortcut (Ctrl+Y)
-      map[StandardEditingActions.redoAltShortcut.toActivator()] =
-          StandardEditingActions.redoActionId;
 
       _log('Built shortcut map with ${map.length} entries');
     } catch (e) {

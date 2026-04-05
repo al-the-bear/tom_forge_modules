@@ -26,6 +26,10 @@ class DefaultShortcutManager implements ForgeShortcutManager {
   final List<ForgeShortcutBinding> _bindings = [];
   final Map<String, ForgeShortcutKey> _defaults = {};
 
+  // Deferred overrides — applied when the action is first registered.
+  final Map<String, ForgeShortcutKey> _deferredShortcutOverrides = {};
+  final Map<String, ForgeChordKey> _deferredChordOverrides = {};
+
   // Chord state.
   ForgeShortcutKey? _pendingFirstKey;
   Timer? _chordTimer;
@@ -154,17 +158,27 @@ class DefaultShortcutManager implements ForgeShortcutManager {
 
   @override
   void rebind(ForgeAction action, ForgeShortcutKey key) {
+    // Check for deferred chord override first — takes priority.
+    final deferredChord = _deferredChordOverrides.remove(action.id);
+    if (deferredChord != null) {
+      rebindChord(action, deferredChord);
+      return;
+    }
+
+    // Check for deferred shortcut override.
+    final effectiveKey = _deferredShortcutOverrides.remove(action.id) ?? key;
+
     final index = _bindings.indexWhere((b) => b.action.id == action.id);
     if (index >= 0) {
       final old = _bindings[index];
       _defaults.putIfAbsent(action.id, () => old.key);
       _bindings[index] = ForgeShortcutBinding(
         action: old.action,
-        key: key,
+        key: effectiveKey,
         context: old.context,
       );
     } else {
-      _bindings.add(ForgeShortcutBinding(action: action, key: key));
+      _bindings.add(ForgeShortcutBinding(action: action, key: effectiveKey));
       _defaults.putIfAbsent(action.id, () => key);
     }
   }
@@ -221,6 +235,22 @@ class DefaultShortcutManager implements ForgeShortcutManager {
       }
     }
     return null;
+  }
+
+  // ── Deferred overrides ──
+
+  /// Stores a shortcut override to apply when the action is first registered
+  /// via [rebind]. Used for editor-level actions that are not yet available
+  /// at startup when preference overrides are restored.
+  void setDeferredShortcutOverride(String actionId, ForgeShortcutKey key) {
+    _deferredShortcutOverrides[actionId] = key;
+  }
+
+  /// Stores a chord override to apply when the action is first registered
+  /// via [rebind]. Used for editor-level actions that are not yet available
+  /// at startup when preference overrides are restored.
+  void setDeferredChordOverride(String actionId, ForgeChordKey chord) {
+    _deferredChordOverrides[actionId] = chord;
   }
 
   // ── Menu support ──

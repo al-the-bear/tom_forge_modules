@@ -255,17 +255,16 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
     _shortcuts[const SingleActivator(
             LogicalKeyboardKey.keyZ, control: true, shift: true)] =
         const _YamlEditorActionIntent(StandardEditingActions.redoActionId);
-    // Alternative redo shortcut (Ctrl+Y)
-    _shortcuts[StandardEditingActions.redoAltShortcut.toActivator()] =
-        const _YamlEditorActionIntent(StandardEditingActions.redoActionId);
   }
 
   /// Direct key-event handler for undo/redo that fires before the
   /// Shortcuts/Actions chain.  When inline text fields in tree-node rows
   /// hold the primary focus, the Flutter Shortcuts widget may not
   /// propagate to our Actions widget reliably.  This handler guarantees
-  /// Ctrl+U (undo), Ctrl+Z (undo), Ctrl+Shift+Z (redo), and Ctrl+Y
-  /// (redo) always reach the controller.
+  /// Ctrl+U (undo), Ctrl+Z (undo), and Ctrl+Shift+Z (redo) always reach
+  /// the controller.
+  /// Note: Ctrl+Y is intentionally NOT intercepted — it is handled by the
+  /// shell's shortcut binding system (mapped to Delete Line).
   KeyEventResult _handleUndoKeyEvent(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
@@ -286,11 +285,6 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
     // Ctrl+Shift+Z → redo
     if (event.logicalKey == LogicalKeyboardKey.keyZ &&
         HardwareKeyboard.instance.isShiftPressed) {
-      widget.controller.redo();
-      return KeyEventResult.handled;
-    }
-    // Ctrl+Y → redo
-    if (event.logicalKey == LogicalKeyboardKey.keyY) {
       widget.controller.redo();
       return KeyEventResult.handled;
     }

@@ -635,18 +635,27 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   }
 
   void _applyPreferenceShortcutOverrides() {
+    final shortcuts = widget.shell.shortcuts;
+    final isDeferrable = shortcuts is DefaultShortcutManager;
+
     final overrides = _preferences.shortcutOverrides;
     for (final entry in overrides.entries) {
-      final binding = widget.shell.shortcuts.getBinding(entry.key);
+      final binding = shortcuts.getBinding(entry.key);
       if (binding != null) {
-        widget.shell.shortcuts.rebind(binding.action, entry.value);
+        shortcuts.rebind(binding.action, entry.value);
+      } else if (isDeferrable) {
+        // Action not yet registered (e.g. editor-level action).
+        // Store the override so it gets applied when the action registers.
+        shortcuts.setDeferredShortcutOverride(entry.key, entry.value);
       }
     }
     final chordOverrides = _preferences.chordOverrides;
     for (final entry in chordOverrides.entries) {
-      final binding = widget.shell.shortcuts.getBinding(entry.key);
+      final binding = shortcuts.getBinding(entry.key);
       if (binding != null) {
-        widget.shell.shortcuts.rebindChord(binding.action, entry.value);
+        shortcuts.rebindChord(binding.action, entry.value);
+      } else if (isDeferrable) {
+        shortcuts.setDeferredChordOverride(entry.key, entry.value);
       }
     }
   }
