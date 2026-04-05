@@ -29,6 +29,14 @@ class ForgeMdEditor extends ForgeTextEditor {
   late final _MdForgeDocument _document;
   ForgeTextEditorOptions _options;
   ShellEditorIntegration? _integration;
+  ForgeDiagnosticCollection? _diagnosticCollection;
+
+  /// Optional path to the directory containing docspec schema files.
+  ///
+  /// When set, the adapter can resolve schemas from this location.
+  /// Typically configured via the editor-specific config map under
+  /// the key `docspecSchemasPath`.
+  final String? docspecSchemasPath;
 
   /// Decoration state.
   final Map<String, List<ForgeDecorationRange>> _decorationMap = {};
@@ -37,6 +45,7 @@ class ForgeMdEditor extends ForgeTextEditor {
     required this.controller,
     required ForgeModule module,
     ForgeTextEditorOptions options = const ForgeTextEditorOptions(),
+    this.docspecSchemasPath,
   })  : _module = module,
         _options = options {
     _positionConverter = PositionConverter(controller.markdown);
@@ -54,6 +63,9 @@ class ForgeMdEditor extends ForgeTextEditor {
     controller.visibleRangeNotifier.addListener(_onVisibleRangeChanged);
     // Observe content.
     controller.addListener(_onContentChanged);
+
+    // Wire validation changes to the diagnostic manager.
+    _wireValidationDiagnostics();
 
     // Set initial title from URI.
     if (controller.uri != null) {
@@ -430,10 +442,112 @@ class ForgeMdEditor extends ForgeTextEditor {
     if (controller.uri != null) {
       _title.value = controller.uri!.pathSegments.last;
     }
+    // Update schema title extension when schema changes.
+    if (controller.schema != null) {
+      _titleExtension.value = controller.schema!.fullId;
+    }
+  }
+
+  /// Wires the controller's validation events to the forge diagnostic system.
+  void _wireValidationDiagnostics() {
+    final existingHandlers = controller.eventHandlers;
+    controller.eventHandlers = MdEditorEventHandlers(
+      onBeforeSectionCreate: existingHandlers?.onBeforeSectionCreate,
+      onSectionCreated: existingHandlers?.onSectionCreated,
+      onBeforeSectionDelete: existingHandlers?.onBeforeSectionDelete,
+      onSectionDeleted: existingHandlers?.onSectionDeleted,
+      onBeforeSectionMove: existingHandlers?.onBeforeSectionMove,
+      onSectionMoved: existingHandlers?.onSectionMoved,
+      onBeforeHeadlineChange: existingHandlers?.onBeforeHeadlineChange,
+      onHeadlineChanged: existingHandlers?.onHeadlineChanged,
+      onBeforeTextChange: existingHandlers?.onBeforeTextChange,
+      onTextChanged: existingHandlers?.onTextChanged,
+      onSectionSelected: existingHandlers?.onSectionSelected,
+      onBeforeSave: existingHandlers?.onBeforeSave,
+      onSaved: existingHandlers?.onSaved,
+      onLoaded: existingHandlers?.onLoaded,
+      onValidationChanged: (event) {
+        existingHandlers?.onValidationChanged?.call(event);
+        _updateDiagnostics(event.errors);
+      },
+    );
+
+    // Push initial diagnostics if schema is already set and has errors.
+    if (controller.validationErrors.isNotEmpty) {
+      _updateDiagnostics(controller.validationErrors);
+    }
+  }
+
+  /// Converts validation errors to [ForgeDiagnostic] entries and pushes
+  /// them to the diagnostic manager.
+  void _updateDiagnostics(List<ValidationError> errors) {
+    final module = _module;
+    final shell =
+        module is TomForgeShellModule ? module.shellApi : null;
+    if (shell == null) return;
+
+    final fileUri = controller.uri;
+    if (fileUri == null) return;
+
+    _diagnosticCollection ??=
+        shell.diagnostics.createCollection('md-editor');
+
+    if (errors.isEmpty) {
+      _diagnosticCollection!.set(fileUri, const []);
+      return;
+    }
+
+    final diagnostics = ForgeValidationBridge.convert(
+      errors,
+      fileUri,
+      (path) => _pathToRange(path),
+    );
+
+    _diagnosticCollection!.set(fileUri, diagnostics);
+  }
+
+  /// Maps a validation error path to a text range in the document.
+  ///
+  /// The path typically contains a section ID or headline as first element.
+  /// Walks the document tree to find the matching section and returns
+  /// a range pointing at its source line.
+  ForgeTextRange _pathToRange(List<Object> path) {
+    if (path.isEmpty) return const ForgeTextRange.empty();
+
+    final sectionKey = path.first.toString();
+    final section = _findSectionByKey(
+      controller.document.sections,
+      sectionKey,
+    );
+
+    if (section != null && section.sourceLineStart != null) {
+      final line = section.sourceLineStart!; // 0-based
+      return ForgeTextRange(
+        start: ForgeTextPosition(line: line, column: 0),
+        end: ForgeTextPosition(line: line, column: 1),
+      );
+    }
+
+    return const ForgeTextRange.empty();
+  }
+
+  /// Recursively searches for a section matching by ID or headline.
+  MdSection? _findSectionByKey(List<MdSection> sections, String key) {
+    for (final section in sections) {
+      if (section.id == key || section.headline == key) {
+        return section;
+      }
+      final found = _findSectionByKey(section.subsections, key);
+      if (found != null) return found;
+    }
+    return null;
   }
 
   /// Release listeners.
   void dispose() {
+    if (_diagnosticCollection != null && controller.uri != null) {
+      _diagnosticCollection!.set(controller.uri!, const []);
+    }
     _integration?.dispose();
     _document.dispose();
     controller.cursorPositionNotifier.removeListener(_onCursorChanged);
