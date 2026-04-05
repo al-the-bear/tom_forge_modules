@@ -26,6 +26,8 @@ class _TimeoutMemoryFileSystem extends MemoryFileSystem {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('DefaultLayoutController timeout recovery', () {
     test('openFile retries timeout and eventually opens editor', () async {
       final fs = _TimeoutMemoryFileSystem(

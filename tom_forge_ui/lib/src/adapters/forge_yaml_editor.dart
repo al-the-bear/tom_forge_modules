@@ -38,12 +38,12 @@ class ForgeYamlEditor extends ForgeSchemaEditor {
     String? yamlSchemasPath,
   }) : _module = module, _options = options {
     // Resolve schemas path: constructor arg > editor config.
-    final configPath = switch (module) {
-      final TomForgeShellModule m =>
-        m.shellApi.getEditorSpecificConfig('yaml')['yamlSchemasPath']
-            as String?,
-      _ => null,
-    };
+    // Guard: shell may not be activated yet during tests.
+    String? configPath;
+    if (module case final TomForgeShellModule m when m.isActivated) {
+      configPath = m.shellApi.getEditorSpecificConfig('yaml')['yamlSchemasPath']
+          as String?;
+    }
     this.yamlSchemasPath = yamlSchemasPath ?? configPath;
     controller.addListener(_onControllerChanged);
 

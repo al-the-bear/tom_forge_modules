@@ -49,12 +49,12 @@ class ForgeMdEditor extends ForgeTextEditor {
   })  : _module = module,
         _options = options {
     // Resolve docspec schemas path: constructor arg > editor config.
-    final configPath = switch (module) {
-      final TomForgeShellModule m =>
-        m.shellApi.getEditorSpecificConfig('md')['docspecSchemasPath']
-            as String?,
-      _ => null,
-    };
+    // Guard: shell may not be activated yet during tests.
+    String? configPath;
+    if (module case final TomForgeShellModule m when m.isActivated) {
+      configPath = m.shellApi.getEditorSpecificConfig('md')['docspecSchemasPath']
+          as String?;
+    }
     this.docspecSchemasPath = docspecSchemasPath ?? configPath;
     _positionConverter = PositionConverter(controller.markdown);
     _document = _MdForgeDocument(

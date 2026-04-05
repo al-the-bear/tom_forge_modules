@@ -27,6 +27,9 @@ class TomForgeShellModule extends ForgeModule {
   final List<ForgeEditor> _editors = [];
   ForgeShellApi? _shell;
 
+  /// Whether this module has been activated (i.e. [shellApi] is available).
+  bool get isActivated => _shell != null;
+
   ForgeShellApi get shellApi {
     final shell = _shell;
     if (shell == null) {

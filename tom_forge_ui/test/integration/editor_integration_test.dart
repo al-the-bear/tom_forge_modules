@@ -7,6 +7,8 @@ import 'package:tom_md_editor/tom_md_editor.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('ForgeTestDocument', () {
     test('starts empty with single line', () {
       final doc = ForgeTestDocument();

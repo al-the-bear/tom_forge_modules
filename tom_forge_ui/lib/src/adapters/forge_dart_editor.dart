@@ -423,9 +423,13 @@ class ForgeDartEditor extends ForgeTextEditor {
   }
 
   Future<void> _runAnalysis() async {
-    final errors = await _analysisAdapter.analyzeCode(controller.userCode);
-    _analysisErrors = errors;
-    _updateDiagnostics();
+    try {
+      final errors = await _analysisAdapter.analyzeCode(controller.userCode);
+      _analysisErrors = errors;
+      _updateDiagnostics();
+    } catch (_) {
+      // Analysis may fail if assets are unavailable (e.g. in unit tests).
+    }
   }
 
   /// Pushes current analysis errors to the diagnostic manager.

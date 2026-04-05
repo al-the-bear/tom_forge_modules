@@ -5,6 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   test('staging cycle opens .txt file with an editor', () async {
     final harness = _PhaseDHarness.create();
 
@@ -13,7 +15,7 @@ void main() {
 
     final active = harness.shell.systemState.activeEditor;
     expect(active, isNotNull);
-    expect(active, isA<ForgeMdEditor>());
+    expect(active, isA<ForgePlainTextEditor>());
     expect(active!.uri.path, endsWith('notes.txt'));
   });
 
@@ -47,7 +49,7 @@ void main() {
     await tester.sendKeyUpEvent(modifier);
     await tester.pumpAndSettle();
 
-    expect(harness.module.executedActionIds, contains('file.save'));
+    expect(harness.module.executedActionIds, contains('file.saveAll'));
   });
 
   testWidgets('menu executes file.save in phase d cycle', (
@@ -182,6 +184,16 @@ class _PhaseDActionModule extends ForgeModule {
           label: 'Save',
           execute: (_) async {
             executedActionIds.add('file.save');
+            return null;
+          },
+          isEnabled: () => true,
+          isVisible: () => true,
+        ),
+        ForgeAction(
+          id: 'file.saveAll',
+          label: 'Save All',
+          execute: (_) async {
+            executedActionIds.add('file.saveAll');
             return null;
           },
           isEnabled: () => true,

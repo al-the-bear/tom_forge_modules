@@ -6,6 +6,8 @@ import 'package:tom_forge_ui/tom_forge_ui.dart';
 /// Section 29: Feature Matrix by Scope — unit and integration tests for
 /// cross-cutting module/component/shell responsibility wiring.
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   // ── Row 1-3: Shell module, owner resolution, typed members ──
 
   group('TomForgeShellModule', () {

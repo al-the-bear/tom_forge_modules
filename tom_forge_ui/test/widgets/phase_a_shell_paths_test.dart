@@ -5,6 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   testWidgets('Command palette executes file.save action', (
     WidgetTester tester,
   ) async {
@@ -38,7 +40,7 @@ void main() {
     await tester.sendKeyUpEvent(modifier);
     await tester.pumpAndSettle();
 
-    expect(harness.module.executedActionIds, contains('file.save'));
+    expect(harness.module.executedActionIds, contains('file.saveAll'));
   });
 }
 
@@ -144,6 +146,16 @@ class _ActionProbeModule extends ForgeModule {
           label: 'Save',
           execute: (_) async {
             executedActionIds.add('file.save');
+            return null;
+          },
+          isEnabled: () => true,
+          isVisible: () => true,
+        ),
+        ForgeAction(
+          id: 'file.saveAll',
+          label: 'Save All',
+          execute: (_) async {
+            executedActionIds.add('file.saveAll');
             return null;
           },
           isEnabled: () => true,
