@@ -205,6 +205,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   Timer? _autoSaveTimer;
   Timer? _layoutPersistTimer;
 
+  /// Stable view instances for terminal sections, keyed by terminal identity.
+  final Map<ForgeTerminal, SingleTerminalView> _terminalSectionViews = {};
+
   /// Flex factors for middle editor panels (1.0 per panel by default).
   /// Adjusted during drag-resize of middle panel dividers.
   List<double> _middlePanelFlex = [];
@@ -375,14 +378,20 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   }
 
   /// Wires terminal lifecycle events to scaffold-level behavior:
-  /// auto-opens the bottom panel on terminal creation and updates
-  /// status when the active terminal changes.
+  /// auto-opens the bottom panel on terminal creation, updates
+  /// status when the active terminal changes, and keeps the
+  /// Terminal tab's sections list in sync with the terminal manager.
   void _wireTerminalCallbacks() {
     final terminals = widget.shell.terminals;
+
+    // Initial sync of terminal sections.
+    _syncTerminalSections();
 
     _terminalOpenSubscription = terminals.onDidOpen.listen((terminal) {
       // Auto-show bottom panel when a terminal is created.
       _layout.openPanel(ForgePanelLocation.bottom);
+      _syncTerminalSections();
+      if (mounted) setState(() {});
     });
 
     _terminalCloseSubscription = terminals.onDidClose.listen((terminal) {
@@ -390,6 +399,8 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       widget.shell.notifications.showInformation(
         'Terminal "${terminal.name}" closed',
       );
+      _syncTerminalSections();
+      if (mounted) setState(() {});
     });
 
     _terminalActiveSubscription = terminals.onDidChangeActive.listen((
@@ -398,6 +409,44 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       // Refresh state to update status bar or other reactive UI.
       if (mounted) setState(() {});
     });
+  }
+
+  /// Finds the Terminal tab in the bottom panel configuration.
+  PanelTabConfig? get _terminalTab {
+    final tabs = widget.application.layout.bottomPanel.tabs;
+    for (final tab in tabs) {
+      if (tab.title == 'Terminal') return tab;
+    }
+    return null;
+  }
+
+  /// Synchronises the Terminal tab's sections list with the terminal
+  /// manager's current terminals, keeping stable [SingleTerminalView]
+  /// instances across rebuilds.
+  void _syncTerminalSections() {
+    final tab = _terminalTab;
+    if (tab == null) return;
+    final terminals = widget.shell.terminals;
+
+    // Remove views for terminals no longer in the manager.
+    _terminalSectionViews.removeWhere(
+      (t, _) => !terminals.terminals.contains(t),
+    );
+
+    // Add views for newly opened terminals.
+    for (final t in terminals.terminals) {
+      _terminalSectionViews.putIfAbsent(
+        t,
+        () => SingleTerminalView(terminal: t),
+      );
+    }
+
+    // Update the sections list preserving terminal manager order.
+    tab.sections
+      ..clear()
+      ..addAll(
+        terminals.terminals.map((t) => _terminalSectionViews[t]!),
+      );
   }
 
   void _onPreferencesChanged() {
@@ -2834,6 +2883,14 @@ Press "?" for this help document.
       setState(() {});
       return;
     }
+    // Terminal sections need to detach from the manager so that
+    // _syncTerminalSections keeps the sections list consistent.
+    if (data.section is SingleTerminalView) {
+      final view = data.section as SingleTerminalView;
+      widget.shell.terminals.detach(view.terminal);
+      // onDidClose listener will call _syncTerminalSections + setState.
+      return;
+    }
     if (data.sourceArea == null || data.sourceTabIndex == null) return;
     final layout = widget.application.layout;
     final tabs = switch (data.sourceArea!) {
@@ -3053,14 +3110,8 @@ Press "?" for this help document.
     if (tabIndex < 0 || tabIndex >= tabs.length) return;
     final tab = tabs[tabIndex];
 
-    // Check if this tab contains a terminal view.
-    final hasTerminal = tab.sections.any((s) => s is ForgeTerminalView);
-    if (!hasTerminal) return; // Only terminal tabs have context actions now.
-
-    final terminalView = tab.sections
-        .whereType<ForgeTerminalView>()
-        .firstOrNull;
-    if (terminalView == null) return;
+    // Only terminal tabs have context actions now.
+    if (tab.title != 'Terminal') return;
 
     showMenu<String>(
       context: context,
@@ -3079,7 +3130,7 @@ Press "?" for this help document.
       ],
     ).then((value) {
       if (value == 'new_terminal') {
-        terminalView.terminalManager.create();
+        widget.shell.terminals.create();
       }
     });
   }
