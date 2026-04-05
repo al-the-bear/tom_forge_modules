@@ -38,6 +38,7 @@ class ForgeDartEditor extends ForgeTextEditor {
   final SummaryBackedDartAnalysisAdapter _analysisAdapter;
   List<CodeError> _analysisErrors = const [];
   Timer? _analysisDebounce;
+  ForgeDiagnosticCollection? _diagnosticCollection;
 
   /// Decoration state.
   final Map<String, List<ForgeDecorationRange>> _decorationMap = {};
@@ -424,11 +425,53 @@ class ForgeDartEditor extends ForgeTextEditor {
   Future<void> _runAnalysis() async {
     final errors = await _analysisAdapter.analyzeCode(controller.userCode);
     _analysisErrors = errors;
+    _updateDiagnostics();
+  }
+
+  /// Pushes current analysis errors to the diagnostic manager.
+  void _updateDiagnostics() {
+    final module = _module;
+    final shell =
+        module is TomForgeShellModule ? module.shellApi : null;
+    if (shell == null) return;
+
+    final fileUri = controller.uri;
+    if (fileUri == null) return;
+
+    _diagnosticCollection ??=
+        shell.diagnostics.createCollection('dart-editor');
+
+    final diagnostics = _analysisErrors.map((e) {
+      final severity = switch (e.severity.toUpperCase()) {
+        'ERROR' => ForgeSeverity.error,
+        'WARNING' => ForgeSeverity.warning,
+        _ => ForgeSeverity.info,
+      };
+      return ForgeDiagnostic(
+        uri: fileUri,
+        range: ForgeTextRange(
+          start: ForgeTextPosition(line: e.line, column: e.column),
+          end: ForgeTextPosition(
+            line: e.line,
+            column: e.column + (e.length > 0 ? e.length : 1),
+          ),
+        ),
+        message: e.message,
+        severity: severity,
+        source: 'dart',
+        code: e.code,
+      );
+    }).toList();
+
+    _diagnosticCollection!.set(fileUri, diagnostics);
   }
 
   /// Release listeners.
   void dispose() {
     _analysisDebounce?.cancel();
+    if (_diagnosticCollection != null && controller.uri != null) {
+      _diagnosticCollection!.set(controller.uri!, const []);
+    }
     _integration?.dispose();
     _document.dispose();
     controller.removeListener(_onControllerChanged);
