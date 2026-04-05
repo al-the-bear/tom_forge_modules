@@ -57,11 +57,6 @@ class ForgeSidePanelWidget extends StatefulWidget {
 class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
   int _activeTabIndex = 0;
   bool _showConfigPanel = false;
-  /// GlobalKeys for each tab's AccordeonLayout to preserve state.
-  final Map<int, GlobalKey> _tabKeys = {};
-
-  GlobalKey _keyForTab(int index) =>
-      _tabKeys.putIfAbsent(index, () => GlobalKey());
 
   @override
   void initState() {
@@ -103,22 +98,36 @@ class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
 
     final iconStrip = _buildVerticalIconStrip(context);
 
-    // Use IndexedStack to preserve tab state across tab switches.
-    // Config panel is conditionally rendered on top (not in stack)
-    // since its layout-sensitive widgets can't be in an offstage tree.
+    // Use Stack + Offstage to preserve tab state even when the config panel
+    // is shown.  Tabs stay in the tree (laid out but hidden via Offstage)
+    // so their AccordeonLayout state (expanded/pinned sections) survives.
+    // The config panel is only mounted when visible, avoiding
+    // SegmentedButton overflow at narrow panel widths.
     final clampedIndex = widget.tabs.isEmpty
         ? 0
         : _activeTabIndex.clamp(0, widget.tabs.length - 1);
 
     Widget contentBody;
-    if (_showConfigPanel || widget.tabs.isEmpty) {
-      contentBody = _buildConfigurationPanel(context);
+    if (widget.tabs.isEmpty) {
+      // No user tabs – show config or placeholder directly
+      contentBody = _showConfigPanel
+          ? _buildConfigurationPanel(context)
+          : _buildContent(context, null);
     } else {
-      contentBody = IndexedStack(
-        index: clampedIndex,
+      contentBody = Stack(
+        fit: StackFit.expand,
         children: [
-          for (var i = 0; i < widget.tabs.length; i++)
-            _buildContent(context, widget.tabs[i]),
+          Offstage(
+            offstage: _showConfigPanel,
+            child: IndexedStack(
+              index: clampedIndex,
+              children: [
+                for (var i = 0; i < widget.tabs.length; i++)
+                  _buildContent(context, widget.tabs[i]),
+              ],
+            ),
+          ),
+          if (_showConfigPanel) _buildConfigurationPanel(context),
         ],
       );
     }
