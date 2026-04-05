@@ -150,6 +150,19 @@ class ShellEditorIntegration extends shared.ForgeEditorIntegration
     _registerWithShell(action);
   }
 
+  /// Standard editing action IDs that are handled internally by the editor
+  /// or by Flutter's built-in text editing. These should NOT be registered
+  /// with the shell's shortcut manager to avoid duplicating shell-level
+  /// actions (e.g. `edit.undo` vs `forge.edit.undo`).
+  static const _editorInternalActions = {
+    shared.StandardEditingActions.cutActionId,
+    shared.StandardEditingActions.copyActionId,
+    shared.StandardEditingActions.pasteActionId,
+    shared.StandardEditingActions.selectAllActionId,
+    shared.StandardEditingActions.undoActionId,
+    shared.StandardEditingActions.redoActionId,
+  };
+
   @override
   void registerAction(
     String actionId,
@@ -167,6 +180,10 @@ class ShellEditorIntegration extends shared.ForgeEditorIntegration
     if (isEnabled != null) {
       _enabledQueries[actionId] = isEnabled;
     }
+
+    // Standard editing actions are handled by the editor's own Shortcuts
+    // widget — don't register them with the shell to avoid duplicates.
+    if (_editorInternalActions.contains(actionId)) return;
 
     final action = _knownActions[actionId] ?? _resolveAction(actionId, isEnabled);
     if (action != null) {
@@ -205,6 +222,11 @@ class ShellEditorIntegration extends shared.ForgeEditorIntegration
   shared.ForgeShortcutKey? getShortcutForAction(String actionId) {
     final binding = _shellApi.shortcuts.getBinding(actionId);
     if (binding != null) {
+      // Chord bindings are handled by the shell's chord system — do NOT
+      // expose the first key as a direct shortcut to the editor, otherwise
+      // the editor's Shortcuts widget would intercept the first key press
+      // and execute the action immediately, bypassing the chord popup.
+      if (binding.isChord) return null;
       return _toSharedShortcut(binding.key);
     }
     return _knownActions[actionId]?.defaultShortcut;

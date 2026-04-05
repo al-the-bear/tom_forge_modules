@@ -1623,6 +1623,7 @@ class _ShortcutsSettingsSectionState extends State<_ShortcutsSettingsSection> {
     shellApi.shortcuts.removeBinding(binding.action.id);
     widget.preferencesService.removeShortcutOverride(binding.action.id);
     widget.preferencesService.removeChordOverride(binding.action.id);
+    widget.preferencesService.addDeletedBinding(binding.action.id);
     await widget.preferencesService.save();
     if (mounted) setState(() {});
   }

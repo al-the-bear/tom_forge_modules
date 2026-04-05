@@ -229,6 +229,13 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   int _rightPanelActiveTab = 0;
   int _bottomPanelActiveTab = 0;
 
+  /// Accordion section state per panel area and tab index.
+  final Map<String, Map<int, AccordionSectionState>> _accordionStates = {
+    'left': {},
+    'right': {},
+    'bottom': {},
+  };
+
   /// True while restoring layout state from preferences — suppresses
   /// persistence so we don't overwrite the saved state with a
   /// partially-restored snapshot.
@@ -637,6 +644,11 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   void _applyPreferenceShortcutOverrides() {
     final shortcuts = widget.shell.shortcuts;
     final isDeferrable = shortcuts is DefaultShortcutManager;
+
+    // Load user-deleted bindings so rebind() skips them.
+    if (isDeferrable) {
+      shortcuts.loadSuppressedActions(_preferences.deletedBindings);
+    }
 
     final overrides = _preferences.shortcutOverrides;
     for (final entry in overrides.entries) {
@@ -2677,6 +2689,26 @@ Press "?" for this help document.
       if (bottomIdx is int) _bottomPanelActiveTab = bottomIdx;
     }
 
+    // Restore accordion section state per panel area.
+    final accordionData = snapshot['panelAccordionState'];
+    if (accordionData is Map<String, dynamic>) {
+      for (final area in ['left', 'right', 'bottom']) {
+        final areaTabs = accordionData[area];
+        if (areaTabs is Map<String, dynamic>) {
+          final restored = <int, AccordionSectionState>{};
+          for (final entry in areaTabs.entries) {
+            final tabIdx = int.tryParse(entry.key);
+            if (tabIdx != null && entry.value is Map<String, dynamic>) {
+              restored[tabIdx] = AccordionSectionState.fromJson(
+                entry.value as Map<String, dynamic>,
+              );
+            }
+          }
+          _accordionStates[area] = restored;
+        }
+      }
+    }
+
     if (debugEnabled) {
       debugPrint('[ForgeShellScaffold] restored layout snapshot');
     }
@@ -2738,6 +2770,13 @@ Press "?" for this help document.
       'right': _rightPanelActiveTab,
       'bottom': _bottomPanelActiveTab,
     };
+    // Serialize accordion section state per panel area.
+    snapshot['panelAccordionState'] = _accordionStates.map(
+      (area, tabs) => MapEntry(
+        area,
+        tabs.map((k, v) => MapEntry(k.toString(), v.toJson())),
+      ),
+    );
     return snapshot;
   }
 
@@ -2795,6 +2834,11 @@ Press "?" for this help document.
         onTabChanged: onTabChanged,
         onTabDropped: (data) => _handlePanelTabDrop(data, panelArea),
         onEditorDropped: (data) => _handleEditorDropOnPanel(data, panelArea),
+        initialAccordionState: _accordionStates[panelArea.name],
+        onAccordionStateChanged: (tabIndex, state) {
+          _accordionStates[panelArea.name]![tabIndex] = state;
+          _scheduleLayoutPersistence();
+        },
       ),
     );
   }
@@ -3419,6 +3463,11 @@ Press "?" for this help document.
             _handleEditorDropAsSection(data, PanelArea.bottom, tabIndex),
         onTabContextMenu: (tabIndex, position) =>
             _showBottomTabContextMenu(tabIndex, position, tabs),
+        initialAccordionState: _accordionStates['bottom'],
+        onAccordionStateChanged: (tabIndex, state) {
+          _accordionStates['bottom']![tabIndex] = state;
+          _scheduleLayoutPersistence();
+        },
       ),
     );
   }

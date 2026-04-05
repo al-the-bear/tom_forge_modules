@@ -10,6 +10,43 @@ import 'forge_shell_scaffold.dart';
 /// Position of vertical icon strip on side panels.
 enum IconStripPosition { left, right }
 
+/// Persisted state of an accordion layout for a panel tab.
+class AccordionSectionState {
+  final Set<int> expandedSections;
+  final Set<int> pinnedSections;
+  final Map<int, double> sectionFlex;
+
+  const AccordionSectionState({
+    this.expandedSections = const {0},
+    this.pinnedSections = const {},
+    this.sectionFlex = const {},
+  });
+
+  Map<String, dynamic> toJson() => {
+        'expanded': expandedSections.toList(),
+        'pinned': pinnedSections.toList(),
+        'flex': sectionFlex.map((k, v) => MapEntry(k.toString(), v)),
+      };
+
+  factory AccordionSectionState.fromJson(Map<String, dynamic> json) {
+    final expanded = json['expanded'];
+    final pinned = json['pinned'];
+    final flex = json['flex'];
+    return AccordionSectionState(
+      expandedSections: expanded is List
+          ? expanded.whereType<num>().map((e) => e.toInt()).toSet()
+          : const {0},
+      pinnedSections: pinned is List
+          ? pinned.whereType<num>().map((e) => e.toInt()).toSet()
+          : const {},
+      sectionFlex: flex is Map
+          ? flex.map((k, v) =>
+              MapEntry(int.tryParse(k.toString()) ?? 0, (v as num).toDouble()))
+          : const {},
+    );
+  }
+}
+
 /// Side panel widget with vertical icon strip (per concept §2.2, §2.3).
 ///
 /// Features:
@@ -46,6 +83,13 @@ class ForgeSidePanelWidget extends StatefulWidget {
   /// Called when an editor tab from the middle panels is dropped here.
   final void Function(TabDragData data)? onEditorDropped;
 
+  /// Initial accordion state per tab index.
+  final Map<int, AccordionSectionState>? initialAccordionState;
+
+  /// Called when accordion state changes for a tab.
+  final void Function(int tabIndex, AccordionSectionState state)?
+      onAccordionStateChanged;
+
   const ForgeSidePanelWidget({
     super.key,
     required this.tabs,
@@ -60,6 +104,8 @@ class ForgeSidePanelWidget extends StatefulWidget {
     this.onTabChanged,
     this.onTabDropped,
     this.onEditorDropped,
+    this.initialAccordionState,
+    this.onAccordionStateChanged,
   });
 
   @override
@@ -84,6 +130,14 @@ class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
     if (oldWidget.configPanelVisible != widget.configPanelVisible) {
       oldWidget.configPanelVisible?.removeListener(_onConfigPanelVisibleChanged);
       widget.configPanelVisible?.addListener(_onConfigPanelVisibleChanged);
+    }
+    // Update active tab when restored from layout snapshot.
+    if (oldWidget.initialActiveTabIndex != widget.initialActiveTabIndex) {
+      _activeTabIndex = widget.initialActiveTabIndex
+          .clamp(0, widget.tabs.isEmpty ? 0 : widget.tabs.length - 1);
+    }
+    if (oldWidget.initialShowConfig != widget.initialShowConfig) {
+      _showConfigPanel = widget.initialShowConfig;
     }
   }
 
@@ -402,6 +456,11 @@ class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
       sections: tab.sections,
       panelArea: widget.panelArea,
       tabIndex: _activeTabIndex,
+      initialState: widget.initialAccordionState?[_activeTabIndex],
+      onStateChanged: widget.onAccordionStateChanged != null
+          ? (state) =>
+              widget.onAccordionStateChanged!(_activeTabIndex, state)
+          : null,
     );
   }
 
@@ -431,11 +490,15 @@ class _AccordeonLayout extends StatefulWidget {
   final List<ForgeView> sections;
   final PanelArea? panelArea;
   final int? tabIndex;
+  final AccordionSectionState? initialState;
+  final ValueChanged<AccordionSectionState>? onStateChanged;
 
   const _AccordeonLayout({
     required this.sections,
     this.panelArea,
     this.tabIndex,
+    this.initialState,
+    this.onStateChanged,
   });
 
   @override
@@ -450,6 +513,23 @@ class _AccordeonLayoutState extends State<_AccordeonLayout> {
   /// Keyboard-focused section index (-1 = none).
   int _focusedSection = -1;
   final FocusNode _focusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initialState;
+    if (initial != null) {
+      _expandedSections
+        ..clear()
+        ..addAll(initial.expandedSections);
+      _pinnedSections
+        ..clear()
+        ..addAll(initial.pinnedSections);
+      _sectionFlex
+        ..clear()
+        ..addAll(initial.sectionFlex);
+    }
+  }
 
   @override
   void dispose() {
@@ -610,10 +690,12 @@ class _AccordeonLayoutState extends State<_AccordeonLayout> {
       _sectionFlex[topIdx] = newTop;
       _sectionFlex[bottomIdx] = totalFlex - newTop;
     });
+    _notifyStateChanged();
   }
 
   void _resetSectionFlex() {
     setState(() => _sectionFlex.clear());
+    _notifyStateChanged();
   }
 
   void _reorderSection(int fromIndex, int toIndex) {
@@ -711,6 +793,7 @@ class _AccordeonLayoutState extends State<_AccordeonLayout> {
         _expandedSections.add(index);
       }
     });
+    _notifyStateChanged();
   }
 
   void _togglePin(int index) {
@@ -722,6 +805,15 @@ class _AccordeonLayoutState extends State<_AccordeonLayout> {
         _expandedSections.add(index);
       }
     });
+    _notifyStateChanged();
+  }
+
+  void _notifyStateChanged() {
+    widget.onStateChanged?.call(AccordionSectionState(
+      expandedSections: Set.of(_expandedSections),
+      pinnedSections: Set.of(_pinnedSections),
+      sectionFlex: Map.of(_sectionFlex),
+    ));
   }
 }
 
@@ -887,6 +979,8 @@ class _BottomAccordeonLayout extends StatefulWidget {
   final List<ForgeView> sections;
   final PanelArea? panelArea;
   final int? tabIndex;
+  final AccordionSectionState? initialState;
+  final ValueChanged<AccordionSectionState>? onStateChanged;
 
   /// Called when an editor tab from the middle panel is dropped on the
   /// accordion content area (as opposed to the tab bar).
@@ -896,6 +990,8 @@ class _BottomAccordeonLayout extends StatefulWidget {
     required this.sections,
     this.panelArea,
     this.tabIndex,
+    this.initialState,
+    this.onStateChanged,
     this.onEditorDroppedAsSection,
   });
 
@@ -907,6 +1003,23 @@ class _BottomAccordeonLayoutState extends State<_BottomAccordeonLayout> {
   final Set<int> _expandedSections = {0};
   final Set<int> _pinnedSections = {};
   final Map<int, double> _sectionFlex = {};
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initialState;
+    if (initial != null) {
+      _expandedSections
+        ..clear()
+        ..addAll(initial.expandedSections);
+      _pinnedSections
+        ..clear()
+        ..addAll(initial.pinnedSections);
+      _sectionFlex
+        ..clear()
+        ..addAll(initial.sectionFlex);
+    }
+  }
 
   double _flexFor(int index) => _sectionFlex[index] ?? 1.0;
 
@@ -1085,6 +1198,7 @@ class _BottomAccordeonLayoutState extends State<_BottomAccordeonLayout> {
       _sectionFlex[leftIdx] = newLeft;
       _sectionFlex[rightIdx] = totalFlex - newLeft;
     });
+    _notifyStateChanged();
   }
 
   void _toggleSection(int index) {
@@ -1099,6 +1213,7 @@ class _BottomAccordeonLayoutState extends State<_BottomAccordeonLayout> {
         _expandedSections.add(index);
       }
     });
+    _notifyStateChanged();
   }
 
   void _togglePin(int index) {
@@ -1110,6 +1225,15 @@ class _BottomAccordeonLayoutState extends State<_BottomAccordeonLayout> {
         _expandedSections.add(index);
       }
     });
+    _notifyStateChanged();
+  }
+
+  void _notifyStateChanged() {
+    widget.onStateChanged?.call(AccordionSectionState(
+      expandedSections: Set.of(_expandedSections),
+      pinnedSections: Set.of(_pinnedSections),
+      sectionFlex: Map.of(_sectionFlex),
+    ));
   }
 }
 
@@ -1356,6 +1480,13 @@ class ForgePanelWidget extends StatefulWidget {
   /// Called when a tab is right-clicked to show a context menu.
   final void Function(int tabIndex, Offset globalPosition)? onTabContextMenu;
 
+  /// Initial accordion state per tab index.
+  final Map<int, AccordionSectionState>? initialAccordionState;
+
+  /// Called when accordion state changes for a tab.
+  final void Function(int tabIndex, AccordionSectionState state)?
+      onAccordionStateChanged;
+
   const ForgePanelWidget({
     super.key,
     required this.tabs,
@@ -1366,6 +1497,8 @@ class ForgePanelWidget extends StatefulWidget {
     this.onEditorDropped,
     this.onEditorDroppedAsSection,
     this.onTabContextMenu,
+    this.initialAccordionState,
+    this.onAccordionStateChanged,
   });
 
   @override
@@ -1379,6 +1512,16 @@ class _ForgePanelWidgetState extends State<ForgePanelWidget> {
   void initState() {
     super.initState();
     _activeTabIndex = widget.initialActiveTabIndex;
+  }
+
+  @override
+  void didUpdateWidget(covariant ForgePanelWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Update active tab when restored from layout snapshot.
+    if (oldWidget.initialActiveTabIndex != widget.initialActiveTabIndex) {
+      _activeTabIndex = widget.initialActiveTabIndex
+          .clamp(0, widget.tabs.isEmpty ? 0 : widget.tabs.length - 1);
+    }
   }
 
   @override
@@ -1567,6 +1710,11 @@ class _ForgePanelWidgetState extends State<ForgePanelWidget> {
       sections: tab.sections,
       panelArea: widget.panelArea,
       tabIndex: _activeTabIndex,
+      initialState: widget.initialAccordionState?[_activeTabIndex],
+      onStateChanged: widget.onAccordionStateChanged != null
+          ? (state) =>
+              widget.onAccordionStateChanged!(_activeTabIndex, state)
+          : null,
       onEditorDroppedAsSection: widget.onEditorDroppedAsSection != null
           ? (data) => widget.onEditorDroppedAsSection!(data, _activeTabIndex)
           : null,

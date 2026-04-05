@@ -30,6 +30,9 @@ class DefaultShortcutManager implements ForgeShortcutManager {
   final Map<String, ForgeShortcutKey> _deferredShortcutOverrides = {};
   final Map<String, ForgeChordKey> _deferredChordOverrides = {};
 
+  // Actions the user explicitly deleted — suppress re-registration.
+  final Set<String> _suppressedActions = {};
+
   // Chord state.
   ForgeShortcutKey? _pendingFirstKey;
   Timer? _chordTimer;
@@ -158,6 +161,9 @@ class DefaultShortcutManager implements ForgeShortcutManager {
 
   @override
   void rebind(ForgeAction action, ForgeShortcutKey key) {
+    // Skip re-registration of actions the user explicitly deleted.
+    if (_suppressedActions.contains(action.id)) return;
+
     // Check for deferred chord override first — takes priority.
     final deferredChord = _deferredChordOverrides.remove(action.id);
     if (deferredChord != null) {
@@ -185,6 +191,9 @@ class DefaultShortcutManager implements ForgeShortcutManager {
 
   @override
   void rebindChord(ForgeAction action, ForgeChordKey chord) {
+    // Skip re-registration of actions the user explicitly deleted.
+    if (_suppressedActions.contains(action.id)) return;
+
     final index = _bindings.indexWhere((b) => b.action.id == action.id);
     if (index >= 0) {
       final old = _bindings[index];
@@ -207,6 +216,27 @@ class DefaultShortcutManager implements ForgeShortcutManager {
   void removeBinding(String actionId) {
     _bindings.removeWhere((b) => b.action.id == actionId);
     _defaults.remove(actionId);
+    _suppressedActions.add(actionId);
+  }
+
+  /// Actions that should not be re-registered (user-deleted).
+  Set<String> get suppressedActions => Set.unmodifiable(_suppressedActions);
+
+  /// Mark an action as suppressed so future [rebind] calls are ignored.
+  void suppressAction(String actionId) {
+    _suppressedActions.add(actionId);
+  }
+
+  /// Remove suppression so the action can be re-registered.
+  void unsuppressAction(String actionId) {
+    _suppressedActions.remove(actionId);
+  }
+
+  /// Replace all suppressed action IDs (used when loading from preferences).
+  void loadSuppressedActions(Set<String> actionIds) {
+    _suppressedActions
+      ..clear()
+      ..addAll(actionIds);
   }
 
   @override

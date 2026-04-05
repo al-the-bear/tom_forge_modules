@@ -31,6 +31,7 @@ class ForgePreferencesService extends ChangeNotifier {
   static const _keyFileTypeDefaults = 'forge.files.typeDefaults';
   static const _keyShortcutOverrides = 'forge.shortcuts.overrides';
   static const _keyChordOverrides = 'forge.shortcuts.chordOverrides';
+  static const _keyDeletedBindings = 'forge.shortcuts.deletedBindings';
   static const _keyTerminalDefaultShell = 'forge.terminal.defaultShell';
   static const _keyTerminalShellPaths = 'forge.terminal.shellPaths';
   static const _keyTerminalStartFolder = 'forge.terminal.startFolder';
@@ -54,6 +55,7 @@ class ForgePreferencesService extends ChangeNotifier {
       <String, ForgeShortcutKey>{};
   final Map<String, ForgeChordKey> _chordOverrides =
       <String, ForgeChordKey>{};
+  final Set<String> _deletedBindings = <String>{};
   List<String> _layoutOpenEditors = <String>[];
   ThemeMode _themeMode = ThemeMode.dark;
   String? _terminalDefaultShell;
@@ -181,6 +183,23 @@ class ForgePreferencesService extends ChangeNotifier {
     if (_chordOverrides.isEmpty) return;
     _chordOverrides.clear();
     notifyListeners();
+  }
+
+  /// Action IDs that were explicitly deleted by the user.
+  Set<String> get deletedBindings => Set.unmodifiable(_deletedBindings);
+
+  /// Marks a binding as deleted so it is not re-registered on restart.
+  void addDeletedBinding(String actionId) {
+    if (_deletedBindings.add(actionId)) {
+      notifyListeners();
+    }
+  }
+
+  /// Removes a binding from the deleted set (un-deletes it).
+  void removeDeletedBinding(String actionId) {
+    if (_deletedBindings.remove(actionId)) {
+      notifyListeners();
+    }
   }
 
   // ── Terminal preferences ──
@@ -432,6 +451,9 @@ class ForgePreferencesService extends ChangeNotifier {
       _chordOverrides
         ..clear()
         ..addAll(_loadChordOverrides());
+      _deletedBindings
+        ..clear()
+        ..addAll(_loadDeletedBindings());
       _layoutOpenEditors = _loadLayoutOpenEditors();
       _themeMode = _loadThemeMode();
       _terminalDefaultShell = _prefs!.getString(_keyTerminalDefaultShell);
@@ -514,6 +536,7 @@ class ForgePreferencesService extends ChangeNotifier {
       await _saveFileTypeDefaults();
       await _saveShortcutOverrides();
       await _saveChordOverrides();
+      await _saveDeletedBindings();
       await _prefs!.setString(_keyThemeMode, _themeMode.name);
       await _saveTerminalPreferences();
       await _saveSearchConfig();
@@ -805,6 +828,25 @@ class ForgePreferencesService extends ChangeNotifier {
       };
     }
     await _prefs!.setString(_keyChordOverrides, jsonEncode(serializable));
+  }
+
+  Set<String> _loadDeletedBindings() {
+    final jsonStr = _prefs!.getString(_keyDeletedBindings);
+    if (jsonStr == null || jsonStr.trim().isEmpty) return <String>{};
+    try {
+      final list = jsonDecode(jsonStr);
+      if (list is List) {
+        return list.cast<String>().toSet();
+      }
+    } catch (_) {}
+    return <String>{};
+  }
+
+  Future<void> _saveDeletedBindings() async {
+    await _prefs!.setString(
+      _keyDeletedBindings,
+      jsonEncode(_deletedBindings.toList()),
+    );
   }
 
   ThemeMode _loadThemeMode() {
