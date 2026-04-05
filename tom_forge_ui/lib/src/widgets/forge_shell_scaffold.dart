@@ -212,6 +212,11 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   /// Adjusted during drag-resize of middle panel dividers.
   List<double> _middlePanelFlex = [];
 
+  /// True while restoring layout state from preferences — suppresses
+  /// persistence so we don't overwrite the saved state with a
+  /// partially-restored snapshot.
+  bool _isRestoringLayout = false;
+
   /// Notifier to externally open/close the left panel configuration tab.
   final ValueNotifier<bool> _configPanelVisible = ValueNotifier<bool>(false);
 
@@ -236,6 +241,30 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     _listenForLayoutChanges();
     _listenForChordCompletions();
     _listenForMenuSelections();
+  }
+
+  @override
+  void didUpdateWidget(covariant ForgeShellScaffold oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.layoutController != widget.layoutController) {
+      // The layout controller changed (e.g. placeholder → real shell).
+      // Re-wire listeners and restore persisted layout state.
+      _detachLayoutListeners();
+      _listenForLayoutChanges();
+
+      // Cancel any pending persistence timer from the old controller.
+      _layoutPersistTimer?.cancel();
+
+      // Re-wire terminal subscriptions for the new shell.
+      _terminalOpenSubscription?.cancel();
+      _terminalCloseSubscription?.cancel();
+      _terminalActiveSubscription?.cancel();
+      _terminalSectionViews.clear();
+      _wireTerminalCallbacks();
+
+      // Restore layout from preferences into the new controller.
+      _initializePreferences();
+    }
   }
 
   @override
@@ -281,9 +310,16 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       _applyPreferenceTextSettings();
       _applyPreferenceFileTypeDefaults();
       _applyPreferenceShortcutOverrides();
-      await _restoreLayoutState();
-      await _restoreWorkspaceState();
+      _isRestoringLayout = true;
+      try {
+        await _restoreLayoutState();
+        await _restoreWorkspaceState();
+      } finally {
+        _isRestoringLayout = false;
+      }
+      if (mounted) setState(() {});
     } catch (error, stackTrace) {
+      _isRestoringLayout = false;
       debugPrint('[ForgeShellScaffold] initialize preferences failed: $error');
       debugPrint('$stackTrace');
     }
@@ -2449,6 +2485,7 @@ Press "?" for this help document.
   }
 
   void _scheduleLayoutPersistence() {
+    if (_isRestoringLayout) return;
     _layoutPersistTimer?.cancel();
     _layoutPersistTimer = Timer(_layoutPersistDebounce, () {
       _saveLayoutState();
