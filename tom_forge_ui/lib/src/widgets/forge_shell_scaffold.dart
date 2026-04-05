@@ -266,21 +266,62 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   @override
   void didUpdateWidget(covariant ForgeShellScaffold oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.layoutController != widget.layoutController) {
-      // The layout controller changed (e.g. placeholder → real shell).
-      // Re-wire listeners and restore persisted layout state.
+    if (oldWidget.shell != widget.shell) {
+      // The shell changed (e.g. placeholder → real shell).
+      // Re-wire ALL shell-dependent listeners.
+
+      // Layout listeners.
       _detachLayoutListeners();
       _listenForLayoutChanges();
-
-      // Cancel any pending persistence timer from the old controller.
       _layoutPersistTimer?.cancel();
 
-      // Re-wire terminal subscriptions for the new shell.
+      // Terminal subscriptions.
       _terminalOpenSubscription?.cancel();
       _terminalCloseSubscription?.cancel();
       _terminalActiveSubscription?.cancel();
       _terminalSectionViews.clear();
       _wireTerminalCallbacks();
+
+      // Save and revision subscriptions (depend on fileSystem/systemState).
+      _autoSaveTimer?.cancel();
+      _saveSubscription?.cancel();
+      _dirtyStateSubscription?.cancel();
+      _windowFocusSubscription?.cancel();
+      _listenForSaveRevisions();
+      _listenForAutoSave();
+
+      // Editor change tracking (depends on systemState).
+      _editorChangeSubscription?.cancel();
+      _listenForEditorChanges();
+
+      // Config change persistence (depends on workspaceState/config).
+      _configChangeSubscription?.cancel();
+      _listenForConfigChanges();
+
+      // Chord and menu subscriptions (depend on shortcutManager).
+      _chordSubscription?.cancel();
+      _menuSubscription?.cancel();
+      _listenForChordCompletions();
+      _listenForMenuSelections();
+
+      // Active editor listener (depends on systemState).
+      oldWidget.systemState.activeEditorListenable.removeListener(
+        _onActiveEditorChanged,
+      );
+      widget.systemState.activeEditorListenable.addListener(
+        _onActiveEditorChanged,
+      );
+
+      // Notification popup listener.
+      oldWidget.notificationManager.popupVisible.removeListener(
+        _onNotificationPopupChanged,
+      );
+      widget.notificationManager.popupVisible.addListener(
+        _onNotificationPopupChanged,
+      );
+
+      // Dialog callbacks (depend on shell.dialogs).
+      _wireDialogCallbacks();
 
       // Restore layout from preferences into the new controller.
       _initializePreferences();
