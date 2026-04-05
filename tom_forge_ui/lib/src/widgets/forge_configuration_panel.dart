@@ -721,6 +721,9 @@ class _EditorSettingsSectionState extends State<_EditorSettingsSection> {
       ((_editorConfig[key] as num?)?.toInt()) ??
       defaultValue;
 
+  String _configString(String key, {String defaultValue = ''}) =>
+      (_editorConfig[key] as String?) ?? defaultValue;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -1043,6 +1046,22 @@ class _EditorSettingsSectionState extends State<_EditorSettingsSection> {
         ],
       ),
       const SizedBox(height: 16),
+      _sectionHeader(theme, 'Schema'),
+      const SizedBox(height: 8),
+      TextFormField(
+        initialValue: _configString('yamlSchemasPath'),
+        style: const TextStyle(fontSize: 13),
+        decoration: const InputDecoration(
+          labelText: 'JSON Schema directory',
+          hintText: '.tom/json-schema/',
+          border: OutlineInputBorder(),
+          contentPadding:
+              EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          isDense: true,
+        ),
+        onChanged: (v) => _updateConfig('yamlSchemasPath', v.trim()),
+      ),
+      const SizedBox(height: 16),
       _sectionHeader(theme, 'Layout'),
       const SizedBox(height: 8),
       Row(
@@ -1267,6 +1286,22 @@ class _EditorSettingsSectionState extends State<_EditorSettingsSection> {
               _configBool('autoSave', defaultValue: false),
               (v) => _updateConfig('autoSave', v)),
         ],
+      ),
+      const SizedBox(height: 16),
+      _sectionHeader(theme, 'Schema'),
+      const SizedBox(height: 8),
+      TextFormField(
+        initialValue: _configString('docspecSchemasPath'),
+        style: const TextStyle(fontSize: 13),
+        decoration: const InputDecoration(
+          labelText: 'DocSpec schema directory',
+          hintText: '.tom/docspecs-schema/',
+          border: OutlineInputBorder(),
+          contentPadding:
+              EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          isDense: true,
+        ),
+        onChanged: (v) => _updateConfig('docspecSchemasPath', v.trim()),
       ),
     ];
   }

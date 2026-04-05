@@ -24,11 +24,27 @@ class ForgeYamlEditor extends ForgeSchemaEditor {
   ForgeTextEditorOptions _options;
   ForgeDiagnosticCollection? _diagnosticCollection;
 
+  /// Optional path to the directory containing JSON Schema files.
+  ///
+  /// When set, the adapter can resolve schemas from this location.
+  /// Falls back to the editor-specific config map key `yamlSchemasPath`
+  /// when not set via constructor.
+  late final String? yamlSchemasPath;
+
   ForgeYamlEditor({
     required this.controller,
     required ForgeModule module,
     ForgeTextEditorOptions options = const ForgeTextEditorOptions(),
+    String? yamlSchemasPath,
   }) : _module = module, _options = options {
+    // Resolve schemas path: constructor arg > editor config.
+    final configPath = switch (module) {
+      final TomForgeShellModule m =>
+        m.shellApi.getEditorSpecificConfig('yaml')['yamlSchemasPath']
+            as String?,
+      _ => null,
+    };
+    this.yamlSchemasPath = yamlSchemasPath ?? configPath;
     controller.addListener(_onControllerChanged);
 
     if (controller.uri != null) {

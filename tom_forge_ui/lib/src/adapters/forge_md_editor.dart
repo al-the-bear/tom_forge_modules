@@ -34,9 +34,9 @@ class ForgeMdEditor extends ForgeTextEditor {
   /// Optional path to the directory containing docspec schema files.
   ///
   /// When set, the adapter can resolve schemas from this location.
-  /// Typically configured via the editor-specific config map under
-  /// the key `docspecSchemasPath`.
-  final String? docspecSchemasPath;
+  /// Falls back to the editor-specific config map key `docspecSchemasPath`
+  /// when not set via constructor.
+  late final String? docspecSchemasPath;
 
   /// Decoration state.
   final Map<String, List<ForgeDecorationRange>> _decorationMap = {};
@@ -45,9 +45,17 @@ class ForgeMdEditor extends ForgeTextEditor {
     required this.controller,
     required ForgeModule module,
     ForgeTextEditorOptions options = const ForgeTextEditorOptions(),
-    this.docspecSchemasPath,
+    String? docspecSchemasPath,
   })  : _module = module,
         _options = options {
+    // Resolve docspec schemas path: constructor arg > editor config.
+    final configPath = switch (module) {
+      final TomForgeShellModule m =>
+        m.shellApi.getEditorSpecificConfig('md')['docspecSchemasPath']
+            as String?,
+      _ => null,
+    };
+    this.docspecSchemasPath = docspecSchemasPath ?? configPath;
     _positionConverter = PositionConverter(controller.markdown);
     _document = _MdForgeDocument(
       controller.uri ?? Uri.parse('untitled:markdown'),
