@@ -65,6 +65,9 @@ abstract class ForgeWorkspaceStateManager {
   /// Read a specific revision's content.
   Future<String?> readRevision(Uri fileUri, String revisionId);
 
+  /// Delete a single revision.
+  Future<void> deleteRevision(Uri fileUri, String revisionId);
+
   /// Prune old revisions, keeping at most [maxRevisions] per file.
   Future<int> pruneRevisions(Uri fileUri, {int maxRevisions = 50});
 

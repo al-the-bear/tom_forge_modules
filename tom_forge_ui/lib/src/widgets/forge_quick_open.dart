@@ -37,6 +37,9 @@ class _QuickOpenItem {
   final _ResultType type;
   final VoidCallback onExecute;
 
+  /// The actual chord second key for matching key events (chord mode only).
+  final ForgeShortcutKey? chordSecondKey;
+
   _QuickOpenItem({
     required this.id,
     required this.label,
@@ -45,6 +48,7 @@ class _QuickOpenItem {
     required this.icon,
     required this.type,
     required this.onExecute,
+    this.chordSecondKey,
   });
 }
 
@@ -218,6 +222,7 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
         id: binding.action.id,
         label: label,
         shortcut: secondKey?.toDisplayString(),
+        chordSecondKey: secondKey,
         icon: binding.action.icon ?? Icons.keyboard,
         type: _ResultType.action,
         onExecute: () {
@@ -481,11 +486,23 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
       return KeyEventResult.handled;
     }
 
-    // In chord mode, a bare key press executes the matching completion.
+    // In chord mode, match the pressed key against chord second-keys.
     if (widget.mode == QuickOpenMode.chord) {
-      // Check if this bare key matches a chord completion.
+      final pressedKey = ForgeShortcutKey(
+        key: event.logicalKey,
+        primaryModifier: HardwareKeyboard.instance.isControlPressed ||
+            HardwareKeyboard.instance.isMetaPressed,
+        shift: HardwareKeyboard.instance.isShiftPressed,
+        alt: HardwareKeyboard.instance.isAltPressed,
+      );
       for (final item in _results) {
-        if (item.shortcut != null &&
+        if (item.chordSecondKey != null && item.chordSecondKey == pressedKey) {
+          item.onExecute();
+          return KeyEventResult.handled;
+        }
+        // Also match bare key label for simple single-character shortcuts.
+        if (item.chordSecondKey == null &&
+            item.shortcut != null &&
             item.shortcut!.length == 1 &&
             item.shortcut!.toLowerCase() ==
                 event.logicalKey.keyLabel.toLowerCase()) {

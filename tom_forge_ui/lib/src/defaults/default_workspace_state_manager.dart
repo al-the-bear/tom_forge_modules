@@ -210,6 +210,20 @@ class DefaultWorkspaceStateManager implements ForgeWorkspaceStateManager {
   }
 
   @override
+  Future<void> deleteRevision(Uri fileUri, String revisionId) async {
+    _ensureInitialized();
+    final hash = _uriHash(fileUri);
+    final file = File('$_forgeDir/revisions/$hash/$revisionId.snapshot');
+    if (await file.exists()) {
+      await file.delete();
+    }
+    final manifest = await _loadManifest(hash);
+    manifest.remove(revisionId);
+    await _saveManifest(hash, manifest);
+    _log('deleted revision $revisionId for $fileUri');
+  }
+
+  @override
   Future<int> pruneRevisions(Uri fileUri, {int maxRevisions = 50}) async {
     _ensureInitialized();
     final hash = _uriHash(fileUri);

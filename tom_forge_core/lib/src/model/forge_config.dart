@@ -8,7 +8,7 @@ class AutoSaveConfig {
 
   const AutoSaveConfig({
     this.enabled = true,
-    this.idleDelay = const Duration(seconds: 1),
+    this.idleDelay = const Duration(seconds: 2),
     this.saveOnFocusLoss = true,
   });
 }

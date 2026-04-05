@@ -31,6 +31,15 @@ class ForgeSidePanelWidget extends StatefulWidget {
   /// The panel area this side panel belongs to.
   final PanelArea panelArea;
 
+  /// Initial active tab index for state restoration.
+  final int initialActiveTabIndex;
+
+  /// Initial config panel visibility for state restoration.
+  final bool initialShowConfig;
+
+  /// Called when the active tab index or config visibility changes.
+  final void Function(int tabIndex, bool showConfig)? onTabChanged;
+
   /// Called when a panel tab is dropped from another area.
   final void Function(PanelTabDragData data)? onTabDropped;
 
@@ -46,6 +55,9 @@ class ForgeSidePanelWidget extends StatefulWidget {
     this.configurationPanelBuilder,
     this.configPanelVisible,
     this.panelArea = PanelArea.left,
+    this.initialActiveTabIndex = 0,
+    this.initialShowConfig = false,
+    this.onTabChanged,
     this.onTabDropped,
     this.onEditorDropped,
   });
@@ -61,6 +73,8 @@ class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
   @override
   void initState() {
     super.initState();
+    _activeTabIndex = widget.initialActiveTabIndex;
+    _showConfigPanel = widget.initialShowConfig;
     widget.configPanelVisible?.addListener(_onConfigPanelVisibleChanged);
   }
 
@@ -252,6 +266,7 @@ class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
             _showConfigPanel = false;
             widget.configPanelVisible?.value = false;
           });
+          widget.onTabChanged?.call(index, false);
         },
         child: Container(
           width: ForgeDimensions.sideTabBarCollapsed,
@@ -316,6 +331,7 @@ class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
             _showConfigPanel = true;
             widget.configPanelVisible?.value = true;
           });
+          widget.onTabChanged?.call(_activeTabIndex, true);
           if (widget.configurationPanelBuilder == null) {
             widget.onConfigTap?.call();
           }
@@ -1321,6 +1337,12 @@ class ForgePanelWidget extends StatefulWidget {
   /// Which panel area this bottom panel belongs to (default: bottom).
   final PanelArea panelArea;
 
+  /// Initial active tab index for state restoration.
+  final int initialActiveTabIndex;
+
+  /// Called when the active tab index changes.
+  final void Function(int tabIndex)? onTabChanged;
+
   /// Called when a tab is dropped onto this panel from a different area.
   final void Function(PanelTabDragData data)? onTabDropped;
 
@@ -1338,6 +1360,8 @@ class ForgePanelWidget extends StatefulWidget {
     super.key,
     required this.tabs,
     this.panelArea = PanelArea.bottom,
+    this.initialActiveTabIndex = 0,
+    this.onTabChanged,
     this.onTabDropped,
     this.onEditorDropped,
     this.onEditorDroppedAsSection,
@@ -1350,6 +1374,12 @@ class ForgePanelWidget extends StatefulWidget {
 
 class _ForgePanelWidgetState extends State<ForgePanelWidget> {
   int _activeTabIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _activeTabIndex = widget.initialActiveTabIndex;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1475,7 +1505,10 @@ class _ForgePanelWidgetState extends State<ForgePanelWidget> {
     final theme = Theme.of(context);
 
     return GestureDetector(
-      onTap: () => setState(() => _activeTabIndex = index),
+      onTap: () {
+        setState(() => _activeTabIndex = index);
+        widget.onTabChanged?.call(index);
+      },
       onSecondaryTapDown: (details) {
         widget.onTabContextMenu?.call(index, details.globalPosition);
       },

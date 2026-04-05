@@ -12,7 +12,7 @@ void main() {
   test('AutoSaveConfig defaults', () {
     const config = AutoSaveConfig();
     expect(config.enabled, isTrue);
-    expect(config.idleDelay, const Duration(seconds: 1));
+    expect(config.idleDelay, const Duration(seconds: 2));
     expect(config.saveOnFocusLoss, isTrue);
   });
 

@@ -143,6 +143,15 @@ class DefaultShortcutManager implements ForgeShortcutManager {
     }
   }
 
+  /// Cancels the auto-close timer without cancelling the chord state.
+  ///
+  /// Used when the chord quick-open UI opens and takes over the chord
+  /// lifecycle (user dismisses via ESC, click, or selection).
+  void cancelChordTimer() {
+    _chordTimer?.cancel();
+    _chordTimer = null;
+  }
+
   @override
   void rebind(ForgeAction action, ForgeShortcutKey key) {
     final index = _bindings.indexWhere((b) => b.action.id == action.id);

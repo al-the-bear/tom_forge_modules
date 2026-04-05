@@ -18,6 +18,7 @@ import '../components/forge_view.dart';
 import '../defaults/default_layout_controller.dart';
 import '../defaults/default_dialog_manager.dart';
 import '../defaults/default_shell_api.dart';
+import '../defaults/stub_services.dart';
 import '../services/forge_accessibility.dart';
 import '../defaults/default_system_state.dart';
 import '../defaults/default_workspace_state_manager.dart';
@@ -207,6 +208,12 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   Timer? _autoSaveTimer;
   Timer? _layoutPersistTimer;
 
+  /// Minimum interval between revisions for the same file (throttle).
+  static const _revisionMinInterval = Duration(seconds: 30);
+
+  /// Tracks the last revision timestamp per URI to throttle revision creation.
+  final Map<Uri, DateTime> _lastRevisionTime = {};
+
   bool _notificationPopupVisible = false;
 
   /// Stable view instances for terminal sections, keyed by terminal identity.
@@ -215,6 +222,12 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   /// Flex factors for middle editor panels (1.0 per panel by default).
   /// Adjusted during drag-resize of middle panel dividers.
   List<double> _middlePanelFlex = [];
+
+  /// Active tab indices per panel for persistence.
+  int _leftPanelActiveTab = 0;
+  bool _leftPanelShowConfig = false;
+  int _rightPanelActiveTab = 0;
+  int _bottomPanelActiveTab = 0;
 
   /// True while restoring layout state from preferences — suppresses
   /// persistence so we don't overwrite the saved state with a
@@ -825,10 +838,18 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     final wsState = widget.shell.workspaceState;
     if (!wsState.isInitialized) return;
     _saveSubscription = widget.shell.fileSystem.onDidSave.listen((uri) async {
+      // Throttle: skip if a revision was created less than 30s ago.
+      final now = DateTime.now();
+      final lastTime = _lastRevisionTime[uri];
+      if (lastTime != null && now.difference(lastTime) < _revisionMinInterval) {
+        _scheduleLayoutPersistence();
+        return;
+      }
       try {
         final content = await widget.shell.fileSystem.read(uri);
         await wsState.createRevision(uri, content);
         await wsState.pruneRevisions(uri);
+        _lastRevisionTime[uri] = now;
       } catch (e) {
         if (debugEnabled) {
           debugPrint('[ForgeShellScaffold] revision on save failed: $e');
@@ -1907,17 +1928,10 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         primaryActivator(LogicalKeyboardKey.keyS): const _SaveIntent(),
       };
 
-      // Also map module direct bindings so they work through the
-      // standard Shortcuts/Actions pipeline (not just the chord handler).
-      for (final binding in widget.shell.shortcuts.allBindings) {
-        if (!binding.isChord) {
-          final activator = binding.key.toActivator();
-          if (!shortcuts.containsKey(activator)) {
-            shortcuts[activator] =
-                _ModuleActionIntent(binding.action.id);
-          }
-        }
-      }
+      // Module direct (non-chord) bindings are dispatched by
+      // _handleChordKeyEvent via the allBindings lookup.  They are NOT
+      // duplicated here to avoid showing duplicate entries in the
+      // shortcut configuration UI.
 
       if (debugEnabled) {
         debugPrint('[ForgeShellScaffold] shortcut count: ${shortcuts.length}');
@@ -2040,6 +2054,11 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     ForgeShortcutKey firstKey,
     List<ForgeShortcutBinding> completions,
   ) {
+    // Cancel the auto-close timer — the UI now owns the chord lifecycle.
+    final shortcuts = widget.shell.shortcuts;
+    if (shortcuts is DefaultShortcutManager) {
+      shortcuts.cancelChordTimer();
+    }
     setState(() {
       _showCommandPalette = true;
       _quickOpenMode = QuickOpenMode.chord;
@@ -2054,6 +2073,10 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   }
 
   void _closeQuickOpen() {
+    // Cancel any pending chord state so subsequent key presses work normally.
+    if (widget.shell.shortcuts.isChordPending) {
+      widget.shell.shortcuts.cancelChord();
+    }
     setState(() {
       _showCommandPalette = false;
       _quickOpenMode = null;
@@ -2387,6 +2410,13 @@ Press "?" for this help document.
                     showConfigTab: true,
                     configurationPanelBuilder: _buildConfigurationPanel,
                     configPanelVisible: _configPanelVisible,
+                    initialActiveTabIndex: _leftPanelActiveTab,
+                    initialShowConfig: _leftPanelShowConfig,
+                    onTabChanged: (idx, showConfig) {
+                      _leftPanelActiveTab = idx;
+                      _leftPanelShowConfig = showConfig;
+                      _scheduleLayoutPersistence();
+                    },
                   ),
                 ),
                 if (leftConfig.isVisible)
@@ -2420,6 +2450,11 @@ Press "?" for this help document.
                     iconStripPosition: IconStripPosition.right,
                     panelArea: PanelArea.right,
                     showConfigTab: false,
+                    initialActiveTabIndex: _rightPanelActiveTab,
+                    onTabChanged: (idx, _) {
+                      _rightPanelActiveTab = idx;
+                      _scheduleLayoutPersistence();
+                    },
                   ),
                 ),
               ],
@@ -2579,6 +2614,19 @@ Press "?" for this help document.
       );
     }
 
+    // Restore active tab indices per panel.
+    final panelActiveTabs = snapshot['panelActiveTabs'];
+    if (panelActiveTabs is Map<String, dynamic>) {
+      final leftIdx = panelActiveTabs['left'];
+      if (leftIdx is int) _leftPanelActiveTab = leftIdx;
+      final leftConfig = panelActiveTabs['leftShowConfig'];
+      if (leftConfig is bool) _leftPanelShowConfig = leftConfig;
+      final rightIdx = panelActiveTabs['right'];
+      if (rightIdx is int) _rightPanelActiveTab = rightIdx;
+      final bottomIdx = panelActiveTabs['bottom'];
+      if (bottomIdx is int) _bottomPanelActiveTab = bottomIdx;
+    }
+
     if (debugEnabled) {
       debugPrint('[ForgeShellScaffold] restored layout snapshot');
     }
@@ -2634,6 +2682,12 @@ Press "?" for this help document.
       'right': extractEditorUris(layout.rightPanel.tabs),
       'bottom': extractEditorUris(layout.bottomPanel.tabs),
     };
+    snapshot['panelActiveTabs'] = {
+      'left': _leftPanelActiveTab,
+      'leftShowConfig': _leftPanelShowConfig,
+      'right': _rightPanelActiveTab,
+      'bottom': _bottomPanelActiveTab,
+    };
     return snapshot;
   }
 
@@ -2669,6 +2723,9 @@ Press "?" for this help document.
     VoidCallback? onConfigTap,
     WidgetBuilder? configurationPanelBuilder,
     ValueNotifier<bool>? configPanelVisible,
+    int initialActiveTabIndex = 0,
+    bool initialShowConfig = false,
+    void Function(int tabIndex, bool showConfig)? onTabChanged,
   }) {
     if (tabs.isEmpty && !showConfigTab) {
       return SizedBox(width: width);
@@ -2683,6 +2740,9 @@ Press "?" for this help document.
         configurationPanelBuilder: configurationPanelBuilder,
         configPanelVisible: configPanelVisible,
         panelArea: panelArea,
+        initialActiveTabIndex: initialActiveTabIndex,
+        initialShowConfig: initialShowConfig,
+        onTabChanged: onTabChanged,
         onTabDropped: (data) => _handlePanelTabDrop(data, panelArea),
         onEditorDropped: (data) => _handleEditorDropOnPanel(data, panelArea),
       ),
@@ -3297,6 +3357,11 @@ Press "?" for this help document.
       child: ForgePanelWidget(
         tabs: tabs,
         panelArea: PanelArea.bottom,
+        initialActiveTabIndex: _bottomPanelActiveTab,
+        onTabChanged: (idx) {
+          _bottomPanelActiveTab = idx;
+          _scheduleLayoutPersistence();
+        },
         onTabDropped: (data) => _handlePanelTabDrop(data, PanelArea.bottom),
         onEditorDropped: (data) =>
             _handleEditorDropOnPanel(data, PanelArea.bottom),

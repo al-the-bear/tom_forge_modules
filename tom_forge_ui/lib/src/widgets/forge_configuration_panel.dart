@@ -1584,6 +1584,7 @@ class _ShortcutsSettingsSectionState extends State<_ShortcutsSettingsSection> {
       final chord = await _captureChord();
       if (chord == null || !mounted) return;
       shellApi.shortcuts.rebindChord(chosen, chord);
+      widget.preferencesService.setChordOverride(chosen.id, chord);
     } else {
       final key = await _captureKey();
       if (key == null || !mounted) return;
@@ -1621,6 +1622,7 @@ class _ShortcutsSettingsSectionState extends State<_ShortcutsSettingsSection> {
     if (shellApi == null) return;
     shellApi.shortcuts.removeBinding(binding.action.id);
     widget.preferencesService.removeShortcutOverride(binding.action.id);
+    widget.preferencesService.removeChordOverride(binding.action.id);
     await widget.preferencesService.save();
     if (mounted) setState(() {});
   }
