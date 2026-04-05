@@ -1,6 +1,16 @@
 import 'package:tom_forge_core/src/types/forge_severity.dart';
 import 'package:tom_forge_core/src/types/text_range.dart';
 
+/// Category of a diagnostic, distinguishing tool analysis results from
+/// system-level operational messages.
+enum DiagnosticCategory {
+  /// Code analysis diagnostic from a tool (e.g. linter, schema validator).
+  analysis,
+
+  /// System/operational diagnostic (e.g. module load failure, file open error).
+  system,
+}
+
 /// A single diagnostic issue (error, warning, info, hint) associated
 /// with a file and a text range.
 class ForgeDiagnostic {
@@ -22,6 +32,9 @@ class ForgeDiagnostic {
   /// Optional error code.
   final String? code;
 
+  /// Category distinguishing tool analysis from system messages.
+  final DiagnosticCategory category;
+
   const ForgeDiagnostic({
     required this.uri,
     required this.range,
@@ -29,6 +42,7 @@ class ForgeDiagnostic {
     required this.severity,
     required this.source,
     this.code,
+    this.category = DiagnosticCategory.analysis,
   });
 
   @override

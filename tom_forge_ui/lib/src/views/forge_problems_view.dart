@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 
 import '../components/forge_component.dart';
@@ -83,6 +86,7 @@ class _ProblemsContentState extends State<_ProblemsContent> {
   bool _searchIsRegex = false;
   bool _searchFullWord = false;
   bool _searchCaseSensitive = false;
+  final Set<ForgeDiagnostic> _selected = {};
 
   @override
   void initState() {
@@ -108,7 +112,10 @@ class _ProblemsContentState extends State<_ProblemsContent> {
   }
 
   List<ForgeDiagnostic> get _filteredDiags {
-    var diags = widget.diagnosticManager.all;
+    // Only show analysis diagnostics (tool results), not system messages.
+    var diags = widget.diagnosticManager.all
+        .where((d) => d.category == DiagnosticCategory.analysis)
+        .toList();
     diags = switch (_filter) {
       _SeverityFilter.all => diags,
       _SeverityFilter.errors =>
@@ -622,6 +629,7 @@ class _ProblemsContentState extends State<_ProblemsContent> {
 
   Widget _buildDiagnostic(BuildContext context, ForgeDiagnostic diag) {
     final theme = Theme.of(context);
+    final isSelected = _selected.contains(diag);
     final iconData = switch (diag.severity) {
       ForgeSeverity.error => Icons.error,
       ForgeSeverity.warning => Icons.warning_amber,
@@ -635,44 +643,127 @@ class _ProblemsContentState extends State<_ProblemsContent> {
       ForgeSeverity.hint => Colors.grey,
     };
 
-    return InkWell(
-      onTap: () => widget.layoutController.openFile(
-        diag.uri,
-        line: diag.range.start.line,
-        column: diag.range.start.column,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-        child: Row(
-          children: [
-            Icon(iconData, size: 14, color: iconColor),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                diag.message,
-                style: theme.textTheme.bodySmall,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            if (diag.source.isNotEmpty) ...[
-              Text(
-                diag.source,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+    return GestureDetector(
+      onSecondaryTapUp: (details) {
+        // Right-click context menu.
+        if (!_selected.contains(diag)) {
+          setState(() {
+            _selected
+              ..clear()
+              ..add(diag);
+          });
+        }
+        _showContextMenu(context, details.globalPosition);
+      },
+      child: InkWell(
+        onTap: () {
+          final isCtrl = HardwareKeyboard.instance.logicalKeysPressed
+              .any((k) =>
+                  k == LogicalKeyboardKey.controlLeft ||
+                  k == LogicalKeyboardKey.controlRight ||
+                  k == LogicalKeyboardKey.metaLeft ||
+                  k == LogicalKeyboardKey.metaRight);
+          if (isCtrl) {
+            setState(() {
+              if (_selected.contains(diag)) {
+                _selected.remove(diag);
+              } else {
+                _selected.add(diag);
+              }
+            });
+          } else {
+            setState(() {
+              _selected
+                ..clear()
+                ..add(diag);
+            });
+            widget.layoutController.openFile(
+              diag.uri,
+              line: diag.range.start.line,
+              column: diag.range.start.column,
+            );
+          }
+        },
+        child: Container(
+          color: isSelected
+              ? theme.colorScheme.primary.withValues(alpha: 0.15)
+              : null,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+          child: Row(
+            children: [
+              Icon(iconData, size: 14, color: iconColor),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  diag.message,
+                  style: theme.textTheme.bodySmall,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const SizedBox(width: 8),
-            ],
-            Text(
-              '${diag.range.start.line + 1}:${diag.range.start.column + 1}',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+              if (diag.source.isNotEmpty) ...[
+                Text(
+                  diag.source,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color:
+                        theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              Text(
+                '${diag.range.start.line + 1}:${diag.range.start.column + 1}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color:
+                      theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  void _showContextMenu(BuildContext context, Offset position) {
+    final overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
+    showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        position & Size.zero,
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        const PopupMenuItem(
+          value: 'copy',
+          child: Text('Copy'),
+        ),
+      ],
+    ).then((value) {
+      if (value == 'copy' && _selected.isNotEmpty) {
+        _copySelectedAsJson();
+      }
+    });
+  }
+
+  void _copySelectedAsJson() {
+    final items = _selected.map((diag) {
+      final line = diag.range.start.line + 1;
+      final column = diag.range.start.column + 1;
+      return {
+        'file': diag.uri.path,
+        'line': line,
+        'column': column,
+        'message': diag.message,
+        'issueType': diag.severity.name,
+        'source': diag.source,
+      };
+    }).toList();
+
+    final json = const JsonEncoder.withIndent('  ').convert(
+      items.length == 1 ? items.first : items,
+    );
+    Clipboard.setData(ClipboardData(text: json));
   }
 }
 

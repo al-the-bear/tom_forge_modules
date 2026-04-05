@@ -131,7 +131,8 @@ export 'src/text_editor/yaml_syntax_highlighter.dart'
     show YamlSyntaxHighlighter, YamlHighlightColors;
 
 // Re-export key yaml/yaml_edit types for convenience
-export 'package:yaml/yaml.dart' show YamlMap, YamlList, YamlNode, YamlScalar;
+export 'package:yaml/yaml.dart'
+    show YamlMap, YamlList, YamlNode, YamlScalar, YamlException, loadYamlNode;
 export 'package:yaml_edit/yaml_edit.dart' show wrapAsYamlNode;
 
 // Re-export shared editor foundation types used in the public API

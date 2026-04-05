@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart'
-  show TextEditingContextImpl;
+    show TextEditingContextImpl, ValidationSeverity;
 import 'package:tom_yaml_editor/tom_yaml_editor.dart';
 
 import '../components/forge_schema_editor.dart';
@@ -22,6 +22,7 @@ class ForgeYamlEditor extends ForgeSchemaEditor {
   final _titleExtension = ValueNotifier<String?>(null);
   ShellEditorIntegration? _integration;
   ForgeTextEditorOptions _options;
+  ForgeDiagnosticCollection? _diagnosticCollection;
 
   ForgeYamlEditor({
     required this.controller,
@@ -36,6 +37,9 @@ class ForgeYamlEditor extends ForgeSchemaEditor {
     if (controller.schema != null) {
       _titleExtension.value = controller.schema!.root.title;
     }
+
+    // Push initial diagnostics.
+    _updateDiagnostics();
   }
 
   // ── ForgeComponent ──
@@ -197,12 +201,97 @@ class ForgeYamlEditor extends ForgeSchemaEditor {
     if (controller.schema != null) {
       _titleExtension.value = controller.schema!.root.title;
     }
+
+    _updateDiagnostics();
+  }
+
+  /// Converts current validation/parse errors to [ForgeDiagnostic] and
+  /// pushes them to the diagnostic manager via a named collection.
+  void _updateDiagnostics() {
+    final module = _module;
+    final shell = module is TomForgeShellModule ? module.shellApi : null;
+    if (shell == null) return;
+
+    final fileUri = controller.uri;
+    if (fileUri == null) return;
+
+    _diagnosticCollection ??=
+        shell.diagnostics.createCollection('yaml-editor');
+
+    final yamlText = controller.yamlText;
+    final diagnostics = <ForgeDiagnostic>[];
+
+    // Parse errors — extract line/column from YamlException span.
+    try {
+      loadYamlNode(yamlText);
+    } catch (error) {
+      var line = 0;
+      var column = 0;
+      if (error is YamlException && error.span != null) {
+        line = error.span!.start.line; // 0-based
+        column = error.span!.start.column; // 0-based
+      }
+      diagnostics.add(ForgeDiagnostic(
+        uri: fileUri,
+        range: ForgeTextRange(
+          start: ForgeTextPosition(line: line, column: column),
+          end: ForgeTextPosition(line: line, column: column + 1),
+        ),
+        message: error.toString(),
+        severity: ForgeSeverity.error,
+        source: 'yaml',
+      ));
+      _diagnosticCollection!.set(fileUri, diagnostics);
+      return;
+    }
+
+    // Schema validation errors — convert paths to line/column positions.
+    final errors = controller.errors;
+    if (errors.isNotEmpty) {
+      final markers = SchemaMarkerGenerator.generate(
+        yamlText: yamlText,
+        errors: errors,
+      );
+      // Match markers back to errors by index (generated in same order).
+      for (var i = 0; i < errors.length; i++) {
+        final error = errors[i];
+        final marker = i < markers.length ? markers[i] : null;
+        final line = marker != null ? (marker.line ?? 1) - 1 : 0;
+        final col = marker != null ? (marker.column ?? 1) - 1 : 0;
+        diagnostics.add(ForgeDiagnostic(
+          uri: fileUri,
+          range: ForgeTextRange(
+            start: ForgeTextPosition(line: line, column: col),
+            end: ForgeTextPosition(line: line, column: col + 1),
+          ),
+          message: error.message,
+          severity: _mapValidationSeverity(error.severity),
+          source: 'yaml-schema',
+          code: error.code,
+        ));
+      }
+    }
+
+    _diagnosticCollection!.set(fileUri, diagnostics);
+  }
+
+  static ForgeSeverity _mapValidationSeverity(ValidationSeverity s) {
+    return switch (s) {
+      ValidationSeverity.error => ForgeSeverity.error,
+      ValidationSeverity.warning => ForgeSeverity.warning,
+      ValidationSeverity.info => ForgeSeverity.info,
+    };
   }
 
   /// Release listeners.
   void dispose() {
     _integration?.dispose();
     controller.removeListener(_onControllerChanged);
+    // Clear diagnostics for this editor's file.
+    final fileUri = controller.uri;
+    if (fileUri != null) {
+      _diagnosticCollection?.set(fileUri, const []);
+    }
     _title.dispose();
     _titleExtension.dispose();
   }

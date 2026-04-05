@@ -252,6 +252,7 @@ class DefaultLayoutController implements ForgeLayoutController {
         severity: severity,
         source: 'forge-shell',
         code: ForgeErrorCodes.edLoadFailed,
+        category: DiagnosticCategory.system,
       ),
     ]);
   }
@@ -753,6 +754,7 @@ class DefaultLayoutController implements ForgeLayoutController {
         severity: ForgeSeverity.info,
         source: 'forge-shell',
         code: ForgeErrorCodes.edNoEditor,
+        category: DiagnosticCategory.system,
       ),
     ]);
   }

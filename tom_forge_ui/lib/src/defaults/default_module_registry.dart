@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:tom_forge_core/tom_forge_core.dart'
     show
+        DiagnosticCategory,
         ForgeDiagnostic,
         ForgeDiagnosticCollection,
         ForgeDiagnosticManager,
@@ -190,6 +191,7 @@ class DefaultModuleRegistry implements ForgeModuleRegistry {
           severity: ForgeSeverity.error,
           source: 'Shell',
           code: code,
+          category: DiagnosticCategory.system,
         ),
       ]);
 
@@ -206,6 +208,7 @@ class DefaultModuleRegistry implements ForgeModuleRegistry {
             severity: ForgeSeverity.error,
             source: 'Shell',
             code: code,
+            category: DiagnosticCategory.system,
           ),
         ]);
       }

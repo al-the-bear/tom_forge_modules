@@ -43,11 +43,22 @@ class DefaultNotificationManager implements ForgeNotificationManager {
   /// Duration before auto-dismissal (default 4 seconds).
   final Duration autoDismissDuration;
 
+  /// Maximum number of history items to keep.
+  final int maxHistory;
+
   final ForgeValueNotifier<List<NotificationItem>> _notifications =
       ForgeValueNotifier([]);
 
+  /// Persistent history of all notifications (most recent first).
+  final ForgeValueNotifier<List<NotificationItem>> _history =
+      ForgeValueNotifier([]);
+
+  /// Whether the notification popup is currently visible.
+  final ForgeValueNotifier<bool> popupVisible = ForgeValueNotifier(false);
+
   DefaultNotificationManager({
     this.autoDismissDuration = const Duration(seconds: 4),
+    this.maxHistory = 200,
   });
 
   @override
@@ -72,7 +83,10 @@ class DefaultNotificationManager implements ForgeNotificationManager {
   ForgeValueListenable<List<NotificationItem>> get notifications =>
       _notifications;
 
-  /// Remove a specific notification.
+  /// Reactive notification history list (most recent first).
+  ForgeValueListenable<List<NotificationItem>> get history => _history;
+
+  /// Remove a specific notification from the active list.
   void remove(NotificationItem item) {
     item.dismiss();
     _notifications.value =
@@ -91,6 +105,12 @@ class DefaultNotificationManager implements ForgeNotificationManager {
     );
     _notifications.value = [..._notifications.value, item];
 
+    // Add to persistent history (most recent first).
+    final historyList = [item, ..._history.value];
+    _history.value = historyList.length > maxHistory
+        ? historyList.sublist(0, maxHistory)
+        : historyList;
+
     if (debugEnabled) {
       // ignore: avoid_print
       print('[DefaultNotificationManager] $severity: $message');
@@ -104,11 +124,18 @@ class DefaultNotificationManager implements ForgeNotificationManager {
     return item.response;
   }
 
+  /// Clear all history items.
+  void clearHistory() {
+    _history.value = [];
+  }
+
   /// Dispose resources.
   void dispose() {
     for (final n in _notifications.value) {
       n.dismiss();
     }
     _notifications.dispose();
+    _history.dispose();
+    popupVisible.dispose();
   }
 }

@@ -35,6 +35,7 @@ import 'forge_drag_data.dart';
 import 'forge_drop_zone_overlay.dart';
 import 'forge_error_recovery_dialog.dart';
 import 'forge_input_box_overlay.dart';
+import 'forge_notification_popup.dart';
 import 'forge_quick_pick_overlay.dart';
 import 'forge_editor_tab_bar.dart';
 import 'forge_menu_bar.dart';
@@ -205,6 +206,8 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   Timer? _autoSaveTimer;
   Timer? _layoutPersistTimer;
 
+  bool _notificationPopupVisible = false;
+
   /// Stable view instances for terminal sections, keyed by terminal identity.
   final Map<ForgeTerminal, SingleTerminalView> _terminalSectionViews = {};
 
@@ -241,6 +244,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     _listenForLayoutChanges();
     _listenForChordCompletions();
     _listenForMenuSelections();
+    widget.notificationManager.popupVisible.addListener(
+      _onNotificationPopupChanged,
+    );
   }
 
   @override
@@ -295,6 +301,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     _quickOpenFocusNode.dispose();
     _configPanelVisible.dispose();
     _preferences.removeListener(_onPreferencesChanged);
+    widget.notificationManager.popupVisible.removeListener(
+      _onNotificationPopupChanged,
+    );
     _saveAllEditorStates();
     _saveLayoutState();
     _saveWorkspaceState();
@@ -483,6 +492,15 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       ..addAll(
         terminals.terminals.map((t) => _terminalSectionViews[t]!),
       );
+  }
+
+  void _onNotificationPopupChanged() {
+    if (mounted) {
+      setState(() {
+        _notificationPopupVisible =
+            widget.notificationManager.popupVisible.value;
+      });
+    }
   }
 
   void _onPreferencesChanged() {
@@ -1575,6 +1593,17 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
                     ],
                   ),
                   ForgeNotificationOverlay(manager: widget.notificationManager),
+                  // Notification popup anchored above the status bar.
+                  if (_notificationPopupVisible)
+                    Positioned(
+                      bottom: ForgeDimensions.statusBarHeight + 4,
+                      right: 12,
+                      child: ForgeNotificationPopup(
+                        manager: widget.notificationManager,
+                        onClose: () => widget
+                            .notificationManager.popupVisible.value = false,
+                      ),
+                    ),
                   // Shortcut menu overlay (concept §11.4).
                   ForgeShortcutMenuPopup(
                     shortcutManager: widget.shell.shortcuts,
