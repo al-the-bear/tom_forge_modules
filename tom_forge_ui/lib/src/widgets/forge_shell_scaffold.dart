@@ -2635,6 +2635,23 @@ Press "?" for this help document.
       }
     }
 
+    // Restore user-created tabs that are not part of the application layout.
+    final panelTabs = snapshot['panelTabs'];
+    if (panelTabs is Map<String, dynamic>) {
+      _restoreCustomTabs(
+        panelTabs['left'],
+        widget.application.layout.leftPanel.tabs,
+      );
+      _restoreCustomTabs(
+        panelTabs['right'],
+        widget.application.layout.rightPanel.tabs,
+      );
+      _restoreCustomTabs(
+        panelTabs['bottom'],
+        widget.application.layout.bottomPanel.tabs,
+      );
+    }
+
     // Restore editors in side/bottom panels.
     final sidePanelEditors = snapshot['sidePanelEditors'];
     if (sidePanelEditors is Map<String, dynamic>) {
@@ -2690,13 +2707,44 @@ Press "?" for this help document.
     }
   }
 
+  /// Restores user-created tabs that are not already in the application layout.
+  void _restoreCustomTabs(
+    dynamic tabsData,
+    List<PanelTabConfig> targetTabs,
+  ) {
+    if (tabsData is! List) return;
+    final existingTitles = targetTabs.map((t) => t.title).toSet();
+    for (final tabData in tabsData) {
+      if (tabData is! Map<String, dynamic>) continue;
+      final title = tabData['title'];
+      if (title is! String || existingTitles.contains(title)) continue;
+      final codePoint = tabData['iconCodePoint'];
+      final fontFamily = tabData['iconFontFamily'];
+      if (codePoint is! int) continue;
+      targetTabs.add(PanelTabConfig(
+        title: title,
+        icon: IconData(
+          codePoint,
+          fontFamily: fontFamily is String ? fontFamily : 'MaterialIcons',
+        ),
+        sections: [], // mutable list for later editor drops
+      ));
+      existingTitles.add(title);
+    }
+  }
+
   /// Restores editors saved within side/bottom panel tabs.
+  ///
+  /// If a tab already exists at the corresponding index (app-defined or
+  /// restored via [_restoreCustomTabs]), editors are appended to it.
+  /// Otherwise a new tab is created (legacy snapshot fallback).
   Future<void> _restorePanelEditors(
     dynamic tabsData,
     List<PanelTabConfig> targetTabs,
   ) async {
     if (tabsData is! List) return;
-    for (final tabUris in tabsData) {
+    for (var i = 0; i < tabsData.length; i++) {
+      final tabUris = tabsData[i];
       if (tabUris is! List || tabUris.isEmpty) continue;
       final sections = <ForgeView>[];
       for (final uriStr in tabUris) {
@@ -2709,7 +2757,12 @@ Press "?" for this help document.
           }
         } catch (_) {}
       }
-      if (sections.isNotEmpty) {
+      if (sections.isEmpty) continue;
+      if (i < targetTabs.length) {
+        // Add sections to the existing tab (app-defined or restored custom).
+        targetTabs[i].sections.addAll(sections);
+      } else {
+        // Legacy fallback: create a new tab from the first editor's metadata.
         final firstEditor = sections.first;
         targetTabs.add(PanelTabConfig(
           title: firstEditor.title.value,
@@ -2734,11 +2787,28 @@ Press "?" for this help document.
       }).toList();
     }
 
+    // Serialize tab metadata (title + icon) so user-created tabs survive
+    // restart.
+    List<Map<String, dynamic>> serializeTabs(List<PanelTabConfig> tabs) {
+      return tabs.map((tab) {
+        return <String, dynamic>{
+          'title': tab.title,
+          'iconCodePoint': tab.icon.codePoint,
+          'iconFontFamily': tab.icon.fontFamily,
+        };
+      }).toList();
+    }
+
     final layout = widget.application.layout;
     snapshot['sidePanelEditors'] = {
       'left': extractEditorUris(layout.leftPanel.tabs),
       'right': extractEditorUris(layout.rightPanel.tabs),
       'bottom': extractEditorUris(layout.bottomPanel.tabs),
+    };
+    snapshot['panelTabs'] = {
+      'left': serializeTabs(layout.leftPanel.tabs),
+      'right': serializeTabs(layout.rightPanel.tabs),
+      'bottom': serializeTabs(layout.bottomPanel.tabs),
     };
     snapshot['panelActiveTabs'] = {
       'left': _leftPanelActiveTab,

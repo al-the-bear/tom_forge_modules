@@ -456,16 +456,39 @@ class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
     }
 
     if (tab.sections.isEmpty) {
-      return Center(
-        child: Text(
-          'No content',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context)
-                    .colorScheme
-                    .onSurface
-                    .withValues(alpha: 0.4),
+      // Show a drag target placeholder so editors can be dropped into
+      // empty tabs (new or cleared).
+      return DragTarget<TabDragData>(
+        onWillAcceptWithDetails: (_) => true,
+        onAcceptWithDetails: (details) {
+          if (widget.onEditorDroppedAsSection != null) {
+            widget.onEditorDroppedAsSection!(details.data, _activeTabIndex);
+          }
+        },
+        builder: (context, candidateData, rejectedData) {
+          final isHovering = candidateData.isNotEmpty;
+          return Container(
+            decoration: isHovering
+                ? BoxDecoration(
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.primary,
+                      width: 2,
+                    ),
+                  )
+                : null,
+            child: Center(
+              child: Text(
+                isHovering ? 'Drop here' : 'Drop editors here',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: isHovering ? 0.7 : 0.4),
+                    ),
               ),
-        ),
+            ),
+          );
+        },
       );
     }
 
@@ -1773,16 +1796,39 @@ class _ForgePanelWidgetState extends State<ForgePanelWidget> {
 
   Widget _buildContent(BuildContext context, PanelTabConfig tab) {
     if (tab.sections.isEmpty) {
-      return Center(
-        child: Text(
-          'No content',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context)
-                    .colorScheme
-                    .onSurface
-                    .withValues(alpha: 0.4),
+      // Show a drag target placeholder so editors can be dropped into
+      // empty tabs (new or cleared).
+      return DragTarget<TabDragData>(
+        onWillAcceptWithDetails: (_) => true,
+        onAcceptWithDetails: (details) {
+          if (widget.onEditorDroppedAsSection != null) {
+            widget.onEditorDroppedAsSection!(details.data, _activeTabIndex);
+          }
+        },
+        builder: (context, candidateData, rejectedData) {
+          final isHovering = candidateData.isNotEmpty;
+          return Container(
+            decoration: isHovering
+                ? BoxDecoration(
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.primary,
+                      width: 2,
+                    ),
+                  )
+                : null,
+            child: Center(
+              child: Text(
+                isHovering ? 'Drop here' : 'Drop editors here',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: isHovering ? 0.7 : 0.4),
+                    ),
               ),
-        ),
+            ),
+          );
+        },
       );
     }
 
