@@ -60,10 +60,9 @@ void main() {
             contains(DartEditorActions.triggerCompletionAltShortcut2));
       });
 
-      test('openReference uses Ctrl+R', () {
-        final shortcut = DartEditorActions.openReferenceShortcut;
-        expect(shortcut.key, LogicalKeyboardKey.keyR);
-        expect(shortcut.usePrimaryModifier, true);
+      test('openReference has no default shortcut', () {
+        final action = DartEditorActions.openReference();
+        expect(action.defaultShortcut, isNull);
       });
 
       test('toggleComment uses Cmd/Ctrl+/', () {
@@ -109,11 +108,11 @@ void main() {
         expect(action.menu, ForgeMenuLocation.edit);
       });
 
-      test('openReference creates action with correct ID and shortcut', () {
+      test('openReference creates action with correct ID and no shortcut', () {
         final action = DartEditorActions.openReference();
         expect(action.id, DartEditorActions.openReferenceActionId);
         expect(action.label, 'Open Reference');
-        expect(action.defaultShortcut, DartEditorActions.openReferenceShortcut);
+        expect(action.defaultShortcut, isNull);
       });
 
       test('toggleComment creates action with correct ID and shortcut', () {
@@ -171,13 +170,11 @@ void main() {
     });
 
     group('defaultShortcuts', () {
-      test('contains all 7 Dart-specific actions', () {
+      test('contains all 6 Dart-specific actions with shortcuts', () {
         final shortcuts = DartEditorActions.defaultShortcuts;
-        expect(shortcuts.length, 7);
+        expect(shortcuts.length, 6);
         expect(shortcuts.containsKey(DartEditorActions.triggerCompletionActionId),
             true);
-        expect(
-            shortcuts.containsKey(DartEditorActions.openReferenceActionId), true);
         expect(
             shortcuts.containsKey(DartEditorActions.toggleCommentActionId), true);
         expect(
@@ -188,6 +185,9 @@ void main() {
             shortcuts.containsKey(DartEditorActions.moveLineUpActionId), true);
         expect(
             shortcuts.containsKey(DartEditorActions.moveLineDownActionId), true);
+        // openReference has no default shortcut (Ctrl+R is reserved for shell)
+        expect(
+            shortcuts.containsKey(DartEditorActions.openReferenceActionId), false);
       });
     });
 

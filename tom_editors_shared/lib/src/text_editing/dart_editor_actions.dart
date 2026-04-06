@@ -62,12 +62,6 @@ class DartEditorActions {
     triggerCompletionAltShortcut2,
   ];
 
-  /// Open reference: Ctrl+R.
-  static final ForgeShortcutKey openReferenceShortcut = ForgeShortcutKey(
-    key: LogicalKeyboardKey.keyR,
-    usePrimaryModifier: true,
-  );
-
   /// Toggle comment: Cmd+/ (macOS) / Ctrl+/ (Windows/Linux).
   static final ForgeShortcutKey toggleCommentShortcut = ForgeShortcutKey(
     key: LogicalKeyboardKey.slash,
@@ -125,7 +119,6 @@ class DartEditorActions {
     return ForgeAction.editing(
       id: openReferenceActionId,
       label: 'Open Reference',
-      shortcut: openReferenceShortcut,
       execute: onOpen ?? () => true,
       isEnabled: isEnabled ?? () => true,
     );
@@ -204,7 +197,6 @@ class DartEditorActions {
   /// Returns a map of all Dart-specific action IDs to their default shortcuts.
   static Map<String, ForgeShortcutKey> get defaultShortcuts => {
         triggerCompletionActionId: triggerCompletionShortcut,
-        openReferenceActionId: openReferenceShortcut,
         toggleCommentActionId: toggleCommentShortcut,
         deleteLineActionId: deleteLineShortcut,
         duplicateLineActionId: duplicateLineShortcut,
