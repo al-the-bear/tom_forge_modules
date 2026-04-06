@@ -654,6 +654,21 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       final binding = shortcuts.getBinding(entry.key);
       if (binding != null) {
         shortcuts.rebind(binding.action, entry.value);
+      } else if (entry.key.startsWith('*.')) {
+        // Wildcard action override: create a placeholder action for
+        // the wildcard binding. The actual dispatch happens in
+        // DefaultShellApi.executeAction which resolves the wildcard.
+        final suffix = entry.key.substring(2);
+        final wildcardAction = shell_action.ForgeAction(
+          id: entry.key,
+          label: '$suffix (all editors)',
+          menu: shell_action.ForgeMenuLocation.commandPalette,
+          execute: (_) async => null,
+          isEnabled: () => true,
+          isVisible: () => true,
+        );
+        widget.shell.actionRegistry.registerAction(wildcardAction);
+        shortcuts.rebind(wildcardAction, entry.value);
       } else if (isDeferrable) {
         // Action not yet registered (e.g. editor-level action).
         // Store the override so it gets applied when the action registers.
@@ -2902,6 +2917,7 @@ Press "?" for this help document.
             _handleSectionDropOnPanel(data, panelArea, tabIndex),
         onReorder: (tabIndex, from, to) =>
             _handleSectionReorder(panelArea, tabIndex, from, to),
+        onTabDelete: (tabIndex) => _handleTabDelete(panelArea, tabIndex),
         initialAccordionState: _accordionStates[panelArea.name],
         onAccordionStateChanged: (tabIndex, state) {
           _accordionStates[panelArea.name]![tabIndex] = state;
@@ -3404,6 +3420,25 @@ Press "?" for this help document.
     setState(() {});
   }
 
+  /// Deletes a tab from a panel. Only allowed when the tab has no sections.
+  void _handleTabDelete(PanelArea area, int tabIndex) {
+    final layout = widget.application.layout;
+
+    final tabs = switch (area) {
+      PanelArea.left => layout.leftPanel.tabs,
+      PanelArea.right => layout.rightPanel.tabs,
+      PanelArea.bottom => layout.bottomPanel.tabs,
+    };
+
+    if (tabIndex < 0 || tabIndex >= tabs.length) return;
+    if (tabs[tabIndex].sections.isNotEmpty) return;
+
+    setState(() {
+      tabs.removeAt(tabIndex);
+    });
+    _scheduleLayoutPersistence();
+  }
+
   /// Handles a view section being dropped onto the editor tab bar from
   /// a side/bottom panel.
   void _handleViewDropOnMiddle(SectionDragData data, int panelIndex) {
@@ -3531,27 +3566,47 @@ Press "?" for this help document.
     if (tabIndex < 0 || tabIndex >= tabs.length) return;
     final tab = tabs[tabIndex];
 
-    // Only terminal tabs have context actions now.
-    if (tab.title != 'Terminal') return;
+    final items = <PopupMenuEntry<String>>[];
+
+    // Terminal tabs have create action.
+    if (tab.title == 'Terminal') {
+      items.add(const PopupMenuItem(
+        value: 'new_terminal',
+        child: Row(
+          children: [
+            Icon(Icons.add, size: 16),
+            SizedBox(width: 8),
+            Text('New Terminal'),
+          ],
+        ),
+      ));
+    }
+
+    // Empty tabs can be deleted.
+    if (tab.sections.isEmpty) {
+      items.add(const PopupMenuItem(
+        value: 'delete_tab',
+        child: Row(
+          children: [
+            Icon(Icons.delete_outline, size: 16),
+            SizedBox(width: 8),
+            Text('Delete Tab'),
+          ],
+        ),
+      ));
+    }
+
+    if (items.isEmpty) return;
 
     showMenu<String>(
       context: context,
       position: RelativeRect.fromLTRB(position.dx, position.dy, position.dx, position.dy),
-      items: [
-        const PopupMenuItem(
-          value: 'new_terminal',
-          child: Row(
-            children: [
-              Icon(Icons.add, size: 16),
-              SizedBox(width: 8),
-              Text('New Terminal'),
-            ],
-          ),
-        ),
-      ],
+      items: items,
     ).then((value) {
       if (value == 'new_terminal') {
         widget.shell.terminals.create();
+      } else if (value == 'delete_tab') {
+        _handleTabDelete(PanelArea.bottom, tabIndex);
       }
     });
   }
@@ -3583,6 +3638,7 @@ Press "?" for this help document.
             _handleSectionReorder(PanelArea.bottom, tabIndex, from, to),
         onTabContextMenu: (tabIndex, position) =>
             _showBottomTabContextMenu(tabIndex, position, tabs),
+        onTabDelete: (tabIndex) => _handleTabDelete(PanelArea.bottom, tabIndex),
         initialAccordionState: _accordionStates['bottom'],
         onAccordionStateChanged: (tabIndex, state) {
           _accordionStates['bottom']![tabIndex] = state;
@@ -3619,6 +3675,10 @@ class _EditorViewAdapter extends ForgeView {
   Widget buildMain(BuildContext context) => editor.buildMain(context);
   @override
   Widget buildCopy(BuildContext context) => editor.buildCopy(context);
+  @override
+  List<shell_action.ForgeAction> get actions => editor.actions;
+  @override
+  List<shell_action.ForgeAction> get headerActions => editor.headerActions;
 }
 
 /// Wraps a [ForgeView] as a [ForgeEditor] so it can appear as a tab
@@ -3645,6 +3705,10 @@ class _ViewEditorAdapter extends ForgeEditor {
   Widget buildMain(BuildContext context) => view.buildMain(context);
   @override
   Widget buildCopy(BuildContext context) => view.buildCopy(context);
+  @override
+  List<shell_action.ForgeAction> get actions => view.actions;
+  @override
+  List<shell_action.ForgeAction> get headerActions => view.headerActions;
   @override
   Uri get uri => _syntheticUri;
   @override

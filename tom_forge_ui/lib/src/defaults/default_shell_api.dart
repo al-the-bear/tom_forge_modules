@@ -309,6 +309,11 @@ class DefaultShellApi implements ForgeShellApi {
 
   @override
   bool executeAction(String actionId) {
+    // Handle wildcard action IDs (e.g. '*.deleteLine').
+    if (actionId.startsWith('*.')) {
+      return _executeWildcardAction(actionId);
+    }
+
     final action = actionRegistry.getAction(actionId);
     if (action == null) {
       return false;
@@ -320,8 +325,83 @@ class DefaultShellApi implements ForgeShellApi {
     return true;
   }
 
+  /// Resolves a wildcard action ID like '*.deleteLine' by checking the
+  /// active editor's registered actions for a matching suffix.
+  bool _executeWildcardAction(String wildcardId) {
+    final actionSuffix = wildcardId.substring(2); // Remove '*.'
+    final activeEditor = systemState.activeEditor;
+
+    if (activeEditor == null) {
+      notifications.showInformation(
+        'No active editor for action "$actionSuffix"',
+      );
+      return false;
+    }
+
+    // Try to find the action by scanning all registered actions for ones
+    // that end with the same suffix and have a prefix matching the active
+    // editor's action namespace.
+    final candidates = actionRegistry.allActions
+        .where((a) => a.id.endsWith('.$actionSuffix'))
+        .toList();
+
+    if (candidates.isEmpty) {
+      notifications.showInformation(
+        'No editor supports action "$actionSuffix"',
+      );
+      return false;
+    }
+
+    // Determine the active editor's prefix by looking at its registered
+    // actions: e.g. if it registers 'dart.toggleComment', prefix is 'dart'.
+    final editorActions = activeEditor.actions;
+    final editorPrefixes = <String>{};
+    for (final action in editorActions) {
+      final dotIdx = action.id.indexOf('.');
+      if (dotIdx > 0) {
+        editorPrefixes.add(action.id.substring(0, dotIdx));
+      }
+    }
+
+    // Try each editor prefix to find a matching candidate.
+    for (final prefix in editorPrefixes) {
+      final resolvedId = '$prefix.$actionSuffix';
+      final action = actionRegistry.getAction(resolvedId);
+      if (action != null) {
+        if (!action.isEnabled()) {
+          return false;
+        }
+        action.execute({});
+        return true;
+      }
+    }
+
+    // Fallback: check generic prefixes like 'edit' or 'editor'.
+    for (final prefix in ['edit', 'editor']) {
+      final resolvedId = '$prefix.$actionSuffix';
+      final action = actionRegistry.getAction(resolvedId);
+      if (action != null && action.isEnabled()) {
+        action.execute({});
+        return true;
+      }
+    }
+
+    // Report that the active editor doesn't support this action.
+    final editorTitle = activeEditor.title.value;
+    notifications.showInformation(
+      '$editorTitle doesn\'t support "$actionSuffix" action',
+    );
+    return false;
+  }
+
   @override
   bool isActionEnabled(String actionId) {
+    if (actionId.startsWith('*.')) {
+      // Wildcard actions are enabled if any candidate exists.
+      final suffix = actionId.substring(2);
+      return actionRegistry.allActions
+          .any((a) => a.id.endsWith('.$suffix') && a.isEnabled());
+    }
     final action = actionRegistry.getAction(actionId);
     return action?.isEnabled() ?? false;
   }

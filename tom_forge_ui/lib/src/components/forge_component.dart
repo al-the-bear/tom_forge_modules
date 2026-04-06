@@ -49,6 +49,13 @@ abstract class ForgeComponent {
   /// Actions this component contributes to menus/command palette.
   List<ForgeAction> get actions => [];
 
+  /// Actions shown as icon buttons in the accordion section header.
+  ///
+  /// These appear as small icon buttons next to the pin/close controls
+  /// when this component is displayed as an accordion section. Useful
+  /// for panel-specific quick actions (e.g. "Clear" or "Kill" for terminals).
+  List<ForgeAction> get headerActions => [];
+
   /// Shortcut bindings when this component is focused.
   List<ForgeShortcutBinding> get shortcuts => [];
 }

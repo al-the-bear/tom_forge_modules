@@ -94,6 +94,9 @@ class ForgeSidePanelWidget extends StatefulWidget {
   /// Called when sections are reordered within an accordion tab.
   final void Function(int tabIndex, int fromIndex, int toIndex)? onReorder;
 
+  /// Called when a tab should be deleted (e.g. via context menu).
+  final void Function(int tabIndex)? onTabDelete;
+
   /// Initial accordion state per tab index.
   final Map<int, AccordionSectionState>? initialAccordionState;
 
@@ -118,6 +121,7 @@ class ForgeSidePanelWidget extends StatefulWidget {
     this.onEditorDroppedAsSection,
     this.onSectionDroppedFromPanel,
     this.onReorder,
+    this.onTabDelete,
     this.initialAccordionState,
     this.onAccordionStateChanged,
   });
@@ -324,7 +328,11 @@ class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
     return Tooltip(
       message: tab.title,
       waitDuration: const Duration(milliseconds: 500),
-      child: InkWell(
+      child: GestureDetector(
+        onSecondaryTapDown: (details) {
+          _showSideTabContextMenu(context, index, tab, details.globalPosition);
+        },
+        child: InkWell(
         onTap: () {
           // Unfocus text fields (e.g. from config panel) so scaffold
           // shortcuts like Ctrl+L continue to work.
@@ -365,7 +373,44 @@ class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
           ),
         ),
       ),
+      ),
     );
+  }
+
+  void _showSideTabContextMenu(
+    BuildContext context,
+    int tabIndex,
+    PanelTabConfig tab,
+    Offset position,
+  ) {
+    final items = <PopupMenuEntry<String>>[];
+
+    // Delete tab option — only for tabs with no sections.
+    if (tab.sections.isEmpty) {
+      items.add(const PopupMenuItem(
+        value: 'delete_tab',
+        child: Row(
+          children: [
+            Icon(Icons.delete_outline, size: 16),
+            SizedBox(width: 8),
+            Text('Delete Tab'),
+          ],
+        ),
+      ));
+    }
+
+    if (items.isEmpty) return;
+
+    showMenu<String>(
+      context: context,
+      position:
+          RelativeRect.fromLTRB(position.dx, position.dy, position.dx, position.dy),
+      items: items,
+    ).then((value) {
+      if (value == 'delete_tab') {
+        widget.onTabDelete?.call(tabIndex);
+      }
+    });
   }
 
   Widget _buildAddTabButton(BuildContext context) {
@@ -1088,6 +1133,17 @@ class _AccordeonSectionHeader extends StatelessWidget {
                   ),
                 ),
               ),
+              // Header action buttons from the view/editor
+              for (final action in view.headerActions)
+                IconButton(
+                  icon: Icon(action.icon ?? Icons.play_arrow, size: 14),
+                  padding: EdgeInsets.zero,
+                  constraints:
+                      const BoxConstraints(minWidth: 24, minHeight: 24),
+                  onPressed: action.isEnabled() ? () => action.execute({}) : null,
+                  tooltip: action.label,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                ),
               // Pin button
               IconButton(
                 icon: Icon(
@@ -1639,6 +1695,16 @@ class _BottomSectionHeader extends StatelessWidget {
                 ),
               ),
             ),
+            // Header action buttons from the view/editor
+            for (final action in view.headerActions)
+              IconButton(
+                icon: Icon(action.icon ?? Icons.play_arrow, size: 14),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                onPressed: action.isEnabled() ? () => action.execute({}) : null,
+                tooltip: action.label,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+              ),
             IconButton(
               icon: Icon(
                 isPinned ? Icons.push_pin : Icons.push_pin_outlined,
@@ -1845,6 +1911,9 @@ class ForgePanelWidget extends StatefulWidget {
   /// Called when a tab is right-clicked to show a context menu.
   final void Function(int tabIndex, Offset globalPosition)? onTabContextMenu;
 
+  /// Called when a tab should be deleted (e.g. via context menu).
+  final void Function(int tabIndex)? onTabDelete;
+
   /// Initial accordion state per tab index.
   final Map<int, AccordionSectionState>? initialAccordionState;
 
@@ -1864,6 +1933,7 @@ class ForgePanelWidget extends StatefulWidget {
     this.onSectionDroppedFromPanel,
     this.onReorder,
     this.onTabContextMenu,
+    this.onTabDelete,
     this.initialAccordionState,
     this.onAccordionStateChanged,
   });

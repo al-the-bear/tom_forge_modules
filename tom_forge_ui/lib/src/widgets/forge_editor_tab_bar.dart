@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -61,9 +63,16 @@ class _ForgeEditorTabBarState extends State<ForgeEditorTabBar> {
   bool _isDragOver = false;
   final FocusNode _focusNode = FocusNode();
 
+  /// Editor whose tab is currently expanded to show action icons.
+  ForgeEditor? _expandedEditor;
+
+  /// Timer that fires after 2 seconds of hover to expand the tab.
+  Timer? _expandTimer;
+
   @override
   void dispose() {
     _focusNode.dispose();
+    _expandTimer?.cancel();
     super.dispose();
   }
 
@@ -182,7 +191,18 @@ class _ForgeEditorTabBarState extends State<ForgeEditorTabBar> {
 
     final tabContent = MouseRegion(
       cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hoveredEditor = editor),
+      onEnter: (_) {
+        setState(() => _hoveredEditor = editor);
+        // Start 2-second timer for tab expansion if editor has header actions.
+        if (editor.headerActions.isNotEmpty) {
+          _expandTimer?.cancel();
+          _expandTimer = Timer(const Duration(seconds: 2), () {
+            if (mounted && _hoveredEditor == editor) {
+              setState(() => _expandedEditor = editor);
+            }
+          });
+        }
+      },
       onExit: (_) => setState(() {
         if (_hoveredEditor == editor) {
           _hoveredEditor = null;
@@ -190,6 +210,10 @@ class _ForgeEditorTabBarState extends State<ForgeEditorTabBar> {
         if (_hoveredCloseEditor == editor) {
           _hoveredCloseEditor = null;
         }
+        if (_expandedEditor == editor) {
+          _expandedEditor = null;
+        }
+        _expandTimer?.cancel();
       }),
       child: Material(
         color: Colors.transparent,
@@ -239,6 +263,30 @@ class _ForgeEditorTabBarState extends State<ForgeEditorTabBar> {
                   },
                 ),
                 const SizedBox(width: 6),
+                // Show action icons when tab is expanded (after 2s hover)
+                if (_expandedEditor == editor)
+                  for (final action in editor.headerActions)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 2),
+                      child: Tooltip(
+                        message: action.label,
+                        child: InkResponse(
+                          radius: 12,
+                          onTap: action.isEnabled()
+                              ? () => action.execute({})
+                              : null,
+                          child: Icon(
+                            action.icon ?? Icons.play_arrow,
+                            size: 14,
+                            color: action.isEnabled()
+                                ? theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.6)
+                                : theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.2),
+                          ),
+                        ),
+                      ),
+                    ),
                 MouseRegion(
                   cursor: SystemMouseCursors.click,
                   onEnter: (_) => setState(() => _hoveredCloseEditor = editor),
