@@ -1546,6 +1546,62 @@ class _ShortcutsSettingsSectionState extends State<_ShortcutsSettingsSection> {
     shellApi.shortcuts.rebind(binding.action, captured);
     widget.preferencesService.setShortcutOverride(binding.action.id, captured);
     await widget.preferencesService.save();
+
+    // If the action has a <prefix>.<suffix> pattern, offer to create
+    // a wildcard binding (*.<suffix>) so the shortcut works across all
+    // editors that support the same action suffix.
+    final actionId = binding.action.id;
+    final dotIdx = actionId.indexOf('.');
+    if (dotIdx > 0 && mounted) {
+      final prefix = actionId.substring(0, dotIdx);
+      final suffix = actionId.substring(dotIdx + 1);
+      // Only offer wildcard for editor-specific prefixes.
+      final editorPrefixes = {'md', 'dart', 'yaml', 'plaintext'};
+      if (editorPrefixes.contains(prefix)) {
+        final wildcardChoice = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Shortcut Scope'),
+            content: Text(
+              'Bind "${captured.toDisplayString()}" as:\n\n'
+              '• Specific: $prefix.$suffix (only for $prefix editor)\n'
+              '• All editors: *.$suffix (any editor supporting this action)',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: Text('Specific ($prefix)'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('All editors (*)'),
+              ),
+            ],
+          ),
+        );
+        if (wildcardChoice == true && mounted) {
+          final wildcardId = '*.$suffix';
+          final wildcardAction = ForgeAction(
+            id: wildcardId,
+            label: '${binding.action.label} (all editors)',
+            icon: binding.action.icon,
+            menu: ForgeMenuLocation.commandPalette,
+            execute: (_) async => null,
+            isEnabled: () => true,
+            isVisible: () => true,
+          );
+          shellApi.actionRegistry.registerAction(wildcardAction);
+          shellApi.shortcuts.rebind(wildcardAction, captured);
+          widget.preferencesService
+              .setShortcutOverride(wildcardId, captured);
+          // Remove the specific binding to avoid conflicts.
+          shellApi.shortcuts.removeBinding(actionId);
+          widget.preferencesService.removeShortcutOverride(actionId);
+          await widget.preferencesService.save();
+        }
+      }
+    }
+
     if (mounted) setState(() {});
   }
 

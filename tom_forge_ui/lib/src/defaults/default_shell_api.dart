@@ -326,7 +326,7 @@ class DefaultShellApi implements ForgeShellApi {
   }
 
   /// Resolves a wildcard action ID like '*.deleteLine' by checking the
-  /// active editor's registered actions for a matching suffix.
+  /// action registry for actions with a matching suffix.
   bool _executeWildcardAction(String wildcardId) {
     final actionSuffix = wildcardId.substring(2); // Remove '*.'
     final activeEditor = systemState.activeEditor;
@@ -338,9 +338,7 @@ class DefaultShellApi implements ForgeShellApi {
       return false;
     }
 
-    // Try to find the action by scanning all registered actions for ones
-    // that end with the same suffix and have a prefix matching the active
-    // editor's action namespace.
+    // Find all registered actions that end with the same suffix.
     final candidates = actionRegistry.allActions
         .where((a) => a.id.endsWith('.$actionSuffix'))
         .toList();
@@ -352,25 +350,22 @@ class DefaultShellApi implements ForgeShellApi {
       return false;
     }
 
-    // Determine the active editor's prefix by looking at its registered
-    // actions: e.g. if it registers 'dart.toggleComment', prefix is 'dart'.
-    final editorActions = activeEditor.actions;
-    final editorPrefixes = <String>{};
-    for (final action in editorActions) {
-      final dotIdx = action.id.indexOf('.');
-      if (dotIdx > 0) {
-        editorPrefixes.add(action.id.substring(0, dotIdx));
-      }
+    // If only one candidate, use it directly.
+    if (candidates.length == 1) {
+      final action = candidates.first;
+      if (!action.isEnabled()) return false;
+      action.execute({});
+      return true;
     }
 
-    // Try each editor prefix to find a matching candidate.
-    for (final prefix in editorPrefixes) {
-      final resolvedId = '$prefix.$actionSuffix';
+    // Multiple candidates — determine the active editor's prefix from its
+    // URI extension (e.g. '.dart' → 'dart', '.md' → 'md', '.yaml' → 'yaml').
+    final editorPrefix = _editorPrefixFromUri(activeEditor.uri);
+    if (editorPrefix != null) {
+      final resolvedId = '$editorPrefix.$actionSuffix';
       final action = actionRegistry.getAction(resolvedId);
       if (action != null) {
-        if (!action.isEnabled()) {
-          return false;
-        }
+        if (!action.isEnabled()) return false;
         action.execute({});
         return true;
       }
@@ -392,6 +387,18 @@ class DefaultShellApi implements ForgeShellApi {
       '$editorTitle doesn\'t support "$actionSuffix" action',
     );
     return false;
+  }
+
+  /// Maps a file URI extension to the editor action prefix.
+  String? _editorPrefixFromUri(Uri uri) {
+    final path = uri.path.toLowerCase();
+    if (path.endsWith('.dart')) return 'dart';
+    if (path.endsWith('.md') || path.endsWith('.markdown')) return 'md';
+    if (path.endsWith('.yaml') || path.endsWith('.yml')) return 'yaml';
+    if (path.endsWith('.txt')) return 'plaintext';
+    // For unknown extensions, try to match by checking which prefixes have
+    // actions registered in the registry.
+    return null;
   }
 
   @override
