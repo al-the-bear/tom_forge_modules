@@ -165,22 +165,19 @@ class DefaultShortcutManager implements ForgeShortcutManager {
     if (_suppressedActions.contains(action.id)) return;
 
     // Check for deferred chord override first — takes priority.
-    final deferredChord = _deferredChordOverrides.remove(action.id);
+    // Use bracket access (not .remove()) so the override persists for
+    // re-application when modules re-register actions.
+    final deferredChord = _deferredChordOverrides[action.id];
     if (deferredChord != null) {
+      // Store the module's default key before redirecting to chord.
+      _defaults.putIfAbsent(action.id, () => key);
       rebindChord(action, deferredChord);
       return;
     }
 
-    // If the existing binding is already a chord, preserve it — chord
-    // bindings set by the user (or restored from preferences) take
-    // precedence over module-provided default keys.
-    final existingIndex = _bindings.indexWhere((b) => b.action.id == action.id);
-    if (existingIndex >= 0 && _bindings[existingIndex].isChord) {
-      return;
-    }
-
-    // Check for deferred shortcut override.
-    final effectiveKey = _deferredShortcutOverrides.remove(action.id) ?? key;
+    // Check for deferred shortcut override. Use bracket access so the
+    // override persists across module re-registrations.
+    final effectiveKey = _deferredShortcutOverrides[action.id] ?? key;
 
     final index = _bindings.indexWhere((b) => b.action.id == action.id);
     if (index >= 0) {
@@ -276,6 +273,13 @@ class DefaultShortcutManager implements ForgeShortcutManager {
   }
 
   // ── Deferred overrides ──
+
+  /// Clears all deferred overrides. Called before re-populating from
+  /// current preferences so removed overrides don't linger.
+  void clearDeferredOverrides() {
+    _deferredShortcutOverrides.clear();
+    _deferredChordOverrides.clear();
+  }
 
   /// Stores a shortcut override to apply when the action is first registered
   /// via [rebind]. Used for editor-level actions that are not yet available

@@ -646,10 +646,18 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     // Load user-deleted bindings so rebind() skips them.
     if (isDeferrable) {
       shortcuts.loadSuppressedActions(_preferences.deletedBindings);
+      // Clear deferred overrides before re-populating from current
+      // preferences so removed overrides are cleaned up.
+      shortcuts.clearDeferredOverrides();
     }
 
     final overrides = _preferences.shortcutOverrides;
     for (final entry in overrides.entries) {
+      // Always store in deferred map so rebind() uses the override
+      // even when modules re-register actions later.
+      if (isDeferrable && !entry.key.startsWith('*.')) {
+        shortcuts.setDeferredShortcutOverride(entry.key, entry.value);
+      }
       final binding = shortcuts.getBinding(entry.key);
       if (binding != null) {
         shortcuts.rebind(binding.action, entry.value);
@@ -668,19 +676,17 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         );
         widget.shell.actionRegistry.registerAction(wildcardAction);
         shortcuts.rebind(wildcardAction, entry.value);
-      } else if (isDeferrable) {
-        // Action not yet registered (e.g. editor-level action).
-        // Store the override so it gets applied when the action registers.
-        shortcuts.setDeferredShortcutOverride(entry.key, entry.value);
       }
     }
     final chordOverrides = _preferences.chordOverrides;
     for (final entry in chordOverrides.entries) {
-      // If the user has a chord override, unsuppress the action so
-      // rebindChord doesn't silently skip it (the override takes
-      // precedence over a previous deletion).
       if (isDeferrable) {
+        // Unsuppress the action so rebindChord doesn't skip it
+        // (chord override takes precedence over a previous deletion).
         shortcuts.unsuppressAction(entry.key);
+        // Always store in deferred map so rebind() redirects to
+        // rebindChord() even when modules re-register actions later.
+        shortcuts.setDeferredChordOverride(entry.key, entry.value);
       }
       final binding = shortcuts.getBinding(entry.key);
       if (binding != null) {
@@ -688,14 +694,10 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       } else {
         // Action may be registered in the action registry but have no
         // shortcut binding yet. Look it up and create a chord binding
-        // directly instead of deferring (deferred overrides are only
-        // consumed when rebind() is later called, which never happens
-        // for actions without module-level shortcut bindings).
+        // directly instead of deferring.
         final action = widget.shell.actionRegistry.getAction(entry.key);
         if (action != null) {
           shortcuts.rebindChord(action, entry.value);
-        } else if (isDeferrable) {
-          shortcuts.setDeferredChordOverride(entry.key, entry.value);
         }
       }
     }
