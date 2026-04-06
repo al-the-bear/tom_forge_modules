@@ -2114,7 +2114,7 @@ class _AddTabDialogState extends State<_AddTabDialog> {
     if (name.isEmpty) return;
     Navigator.pop(
       context,
-      PanelTabConfig(title: name, icon: _selectedIcon),
+      PanelTabConfig(title: name, icon: _selectedIcon, sections: []),
     );
   }
 }
