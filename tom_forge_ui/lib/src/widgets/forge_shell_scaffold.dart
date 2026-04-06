@@ -2918,6 +2918,8 @@ Press "?" for this help document.
         onReorder: (tabIndex, from, to) =>
             _handleSectionReorder(panelArea, tabIndex, from, to),
         onTabDelete: (tabIndex) => _handleTabDelete(panelArea, tabIndex),
+        onSectionDroppedOnTabBar: (data) =>
+            _handleSectionDropOnTabBar(data, panelArea),
         initialAccordionState: _accordionStates[panelArea.name],
         onAccordionStateChanged: (tabIndex, state) {
           _accordionStates[panelArea.name]![tabIndex] = state;
@@ -3395,6 +3397,32 @@ Press "?" for this help document.
     _removeSectionFromPanel(data);
   }
 
+  /// Handles a section being dropped on the tab bar to create a new tab.
+  void _handleSectionDropOnTabBar(
+    SectionDragData data,
+    PanelArea targetArea,
+  ) {
+    final layout = widget.application.layout;
+
+    final targetTabs = switch (targetArea) {
+      PanelArea.left => layout.leftPanel.tabs,
+      PanelArea.right => layout.rightPanel.tabs,
+      PanelArea.bottom => layout.bottomPanel.tabs,
+    };
+
+    // Create a new tab with the section.
+    targetTabs.add(PanelTabConfig(
+      title: data.section.title.value,
+      icon: data.section.icon,
+      sections: [data.section],
+    ));
+
+    // Remove from the source panel.
+    _removeSectionFromPanel(data);
+    setState(() {});
+    _scheduleLayoutPersistence();
+  }
+
   /// Reorders sections within a panel tab's accordion.
   void _handleSectionReorder(
     PanelArea area,
@@ -3639,6 +3667,8 @@ Press "?" for this help document.
         onTabContextMenu: (tabIndex, position) =>
             _showBottomTabContextMenu(tabIndex, position, tabs),
         onTabDelete: (tabIndex) => _handleTabDelete(PanelArea.bottom, tabIndex),
+        onSectionDroppedOnTabBar: (data) =>
+            _handleSectionDropOnTabBar(data, PanelArea.bottom),
         initialAccordionState: _accordionStates['bottom'],
         onAccordionStateChanged: (tabIndex, state) {
           _accordionStates['bottom']![tabIndex] = state;

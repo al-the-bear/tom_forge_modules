@@ -7,6 +7,7 @@ import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:xterm/src/ui/input_map.dart' show keyToTerminalKey;
 import 'package:xterm/xterm.dart' as xterm;
 
+import '../actions/forge_action.dart';
 import '../components/forge_component.dart';
 import '../components/forge_view.dart';
 import '../defaults/pty_terminal.dart';
@@ -36,6 +37,35 @@ class SingleTerminalView extends ForgeView {
   ForgeComponentSizeHints get sizeHints => const ForgeComponentSizeHints(
         preferredSize: Size(400, 200),
       );
+
+  @override
+  List<ForgeAction> get headerActions => [
+    ForgeAction(
+      id: 'terminal.clear',
+      label: 'Clear Terminal',
+      icon: Icons.delete_sweep,
+      execute: (_) async {
+        if (terminal is PtyTerminal) {
+          (terminal as PtyTerminal).terminalModel.buffer.clear();
+          (terminal as PtyTerminal).terminalModel.buffer.setCursor(0, 0);
+        }
+        return null;
+      },
+      isEnabled: () => true,
+      isVisible: () => true,
+    ),
+    ForgeAction(
+      id: 'terminal.kill',
+      label: 'Kill Terminal',
+      icon: Icons.stop_circle_outlined,
+      execute: (_) async {
+        terminal.close();
+        return null;
+      },
+      isEnabled: () => true,
+      isVisible: () => true,
+    ),
+  ];
 
   @override
   Widget buildMain(BuildContext context) {

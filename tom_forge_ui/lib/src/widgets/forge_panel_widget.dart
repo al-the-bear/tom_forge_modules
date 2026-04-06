@@ -97,6 +97,9 @@ class ForgeSidePanelWidget extends StatefulWidget {
   /// Called when a tab should be deleted (e.g. via context menu).
   final void Function(int tabIndex)? onTabDelete;
 
+  /// Called when a section is dropped on the tab bar (creates a new tab).
+  final void Function(SectionDragData data)? onSectionDroppedOnTabBar;
+
   /// Initial accordion state per tab index.
   final Map<int, AccordionSectionState>? initialAccordionState;
 
@@ -122,6 +125,7 @@ class ForgeSidePanelWidget extends StatefulWidget {
     this.onSectionDroppedFromPanel,
     this.onReorder,
     this.onTabDelete,
+    this.onSectionDroppedOnTabBar,
     this.initialAccordionState,
     this.onAccordionStateChanged,
   });
@@ -244,8 +248,8 @@ class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
             widget.onTabDropped?.call(data);
           case TabDragData data:
             widget.onEditorDropped?.call(data);
-          case SectionDragData _:
-            break; // Section reorder handled by accordion
+          case SectionDragData data:
+            widget.onSectionDroppedOnTabBar?.call(data);
         }
       },
       builder: (context, candidateData, rejectedData) {
@@ -1914,6 +1918,9 @@ class ForgePanelWidget extends StatefulWidget {
   /// Called when a tab should be deleted (e.g. via context menu).
   final void Function(int tabIndex)? onTabDelete;
 
+  /// Called when a section is dropped on the tab bar (creates a new tab).
+  final void Function(SectionDragData data)? onSectionDroppedOnTabBar;
+
   /// Initial accordion state per tab index.
   final Map<int, AccordionSectionState>? initialAccordionState;
 
@@ -1934,6 +1941,7 @@ class ForgePanelWidget extends StatefulWidget {
     this.onReorder,
     this.onTabContextMenu,
     this.onTabDelete,
+    this.onSectionDroppedOnTabBar,
     this.initialAccordionState,
     this.onAccordionStateChanged,
   });
@@ -2017,8 +2025,8 @@ class _ForgePanelWidgetState extends State<ForgePanelWidget> {
             widget.onTabDropped?.call(data);
           case TabDragData data:
             widget.onEditorDropped?.call(data);
-          case SectionDragData _:
-            break;
+          case SectionDragData data:
+            widget.onSectionDroppedOnTabBar?.call(data);
         }
       },
       builder: (context, candidateData, rejectedData) {
