@@ -715,8 +715,16 @@ class _AccordeonLayoutState extends State<_AccordeonLayout> {
             onAcceptWithDetails: (details) =>
                 widget.onSectionDroppedFromPanel?.call(details.data),
             builder: (context, sectionCandidates, _) {
+              final sectionHeader = _AccordeonSectionHeader(
+                      view: widget.sections.first,
+                      isExpanded: true,
+                      isPinned: false,
+                      onToggle: () {},
+                      onTogglePin: () {},
+                    );
               final child = Column(
                 children: [
+                  if (widget.sections.first.isDraggable)
                   Draggable<SectionDragData>(
                     data: SectionDragData(
                       section: widget.sections.first,
@@ -728,22 +736,12 @@ class _AccordeonLayoutState extends State<_AccordeonLayout> {
                         _buildDragFeedback(context, widget.sections.first),
                     childWhenDragging: Opacity(
                       opacity: 0.35,
-                      child: _AccordeonSectionHeader(
-                        view: widget.sections.first,
-                        isExpanded: true,
-                        isPinned: false,
-                        onToggle: () {},
-                        onTogglePin: () {},
-                      ),
+                      child: sectionHeader,
                     ),
-                    child: _AccordeonSectionHeader(
-                      view: widget.sections.first,
-                      isExpanded: true,
-                      isPinned: false,
-                      onToggle: () {},
-                      onTogglePin: () {},
-                    ),
-                  ),
+                    child: sectionHeader,
+                  )
+                  else
+                    sectionHeader,
                   Expanded(child: widget.sections.first.buildMain(context)),
                 ],
               );
@@ -831,6 +829,7 @@ class _AccordeonLayoutState extends State<_AccordeonLayout> {
                         : Colors.transparent,
                   ),
                   // Draggable section header
+                  if (widget.sections[i].isDraggable)
                   Draggable<SectionDragData>(
                     data: SectionDragData(
                       section: widget.sections[i],
@@ -861,7 +860,19 @@ class _AccordeonLayoutState extends State<_AccordeonLayout> {
                           ? () => _hideSection(i)
                           : null,
                     ),
-                  ),
+                  )
+                  else
+                    _AccordeonSectionHeader(
+                      view: widget.sections[i],
+                      isExpanded: _expandedSections.contains(i),
+                      isPinned: _pinnedSections.contains(i),
+                      isFocused: _focusedSection == i,
+                      onToggle: () => _toggleSection(i),
+                      onTogglePin: () => _togglePin(i),
+                      onClose: widget.sections.length > 1
+                          ? () => _hideSection(i)
+                          : null,
+                    ),
                 ],
               );
             },
@@ -1356,8 +1367,16 @@ class _BottomAccordeonLayoutState extends State<_BottomAccordeonLayout> {
             onAcceptWithDetails: (details) =>
                 widget.onSectionDroppedFromPanel?.call(details.data),
             builder: (context, sectionCandidates, _) {
+              final sectionHeader = _BottomSectionHeader(
+                      view: widget.sections.first,
+                      isExpanded: true,
+                      isPinned: false,
+                      onToggle: () {},
+                      onTogglePin: () {},
+                    );
               final child = Column(
                 children: [
+                  if (widget.sections.first.isDraggable)
                   Draggable<SectionDragData>(
                     data: SectionDragData(
                       section: widget.sections.first,
@@ -1369,22 +1388,12 @@ class _BottomAccordeonLayoutState extends State<_BottomAccordeonLayout> {
                         _buildDragFeedback(context, widget.sections.first),
                     childWhenDragging: Opacity(
                       opacity: 0.35,
-                      child: _BottomSectionHeader(
-                        view: widget.sections.first,
-                        isExpanded: true,
-                        isPinned: false,
-                        onToggle: () {},
-                        onTogglePin: () {},
-                      ),
+                      child: sectionHeader,
                     ),
-                    child: _BottomSectionHeader(
-                      view: widget.sections.first,
-                      isExpanded: true,
-                      isPinned: false,
-                      onToggle: () {},
-                      onTogglePin: () {},
-                    ),
-                  ),
+                    child: sectionHeader,
+                  )
+                  else
+                    sectionHeader,
                   Expanded(child: widget.sections.first.buildMain(context)),
                 ],
               );
@@ -1474,6 +1483,7 @@ class _BottomAccordeonLayoutState extends State<_BottomAccordeonLayout> {
                       Expanded(
                         child: Column(
                           children: [
+                            if (widget.sections[i].isDraggable)
                             Draggable<SectionDragData>(
                               data: SectionDragData(
                                 section: widget.sections[i],
@@ -1500,7 +1510,15 @@ class _BottomAccordeonLayoutState extends State<_BottomAccordeonLayout> {
                                 onToggle: () => _toggleSection(i),
                                 onTogglePin: () => _togglePin(i),
                               ),
-                            ),
+                            )
+                            else
+                              _BottomSectionHeader(
+                                view: widget.sections[i],
+                                isExpanded: true,
+                                isPinned: _pinnedSections.contains(i),
+                                onToggle: () => _toggleSection(i),
+                                onTogglePin: () => _togglePin(i),
+                              ),
                             Expanded(
                                 child:
                                     widget.sections[i].buildMain(context)),

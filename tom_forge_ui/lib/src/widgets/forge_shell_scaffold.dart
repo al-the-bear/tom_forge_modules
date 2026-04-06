@@ -31,7 +31,6 @@ import '../actions/forge_action.dart' as shell_action;
 import '../actions/forge_shortcut_binding.dart';
 import '../services/forge_shortcut_manager.dart';
 import 'forge_configuration_panel.dart';
-import 'forge_chord_overlay.dart';
 import 'forge_quick_open.dart';
 import 'forge_drag_data.dart';
 import 'forge_drop_zone_overlay.dart';
@@ -1638,11 +1637,19 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     if (shortcutKey == null) return KeyEventResult.ignored;
 
     // If a shortcut menu is open, route follow-up keys to it.
+    // However, if the user presses the menu trigger combo again
+    // (Shift+PrimaryModifier+key), close the current menu first and
+    // attempt to open a new one instead of routing into handleMenuKey.
     if (widget.shell.shortcuts.activeMenu != null) {
-      // The user may still hold Shift+Cmd/Ctrl — strip modifiers and
-      // match on the bare key.
-      widget.shell.shortcuts.handleMenuKey(shortcutKey.key);
-      return KeyEventResult.handled;
+      if (shortcutKey.shift && shortcutKey.primaryModifier && !shortcutKey.alt) {
+        widget.shell.shortcuts.closeMenu();
+        // Fall through to the openMenu check below.
+      } else {
+        // The user may still hold Shift+Cmd/Ctrl — strip modifiers and
+        // match on the bare key.
+        widget.shell.shortcuts.handleMenuKey(shortcutKey.key);
+        return KeyEventResult.handled;
+      }
     }
 
     // Detect Shift+PrimaryModifier+<key> to open a shortcut menu.
@@ -1729,10 +1736,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
                   ForgeShortcutMenuPopup(
                     shortcutManager: widget.shell.shortcuts,
                   ),
-                  // Chord key overlay showing pending chord state.
-                  ForgeChordOverlay(
-                    shortcutManager: widget.shell.shortcuts,
-                  ),
+                  // Chord completions are shown via the quick-open dropdown
+                  // in chord mode (_openQuickOpenChord). The standalone
+                  // ForgeChordOverlay was removed to avoid duplicate display.
                   // Open With dialog when multiple editors can handle a file.
                   ValueListenableBuilder<(Uri, List<ForgeEditor>)?>(
                     valueListenable: _layout.pendingEditorChoice,

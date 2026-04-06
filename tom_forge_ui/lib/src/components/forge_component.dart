@@ -40,6 +40,12 @@ abstract class ForgeComponent {
   /// Whether this component supports multi-render (UI copies).
   bool get supportsMultiRender => true;
 
+  /// Whether this component can be dragged to another panel/area.
+  ///
+  /// Returns `false` for components that must remain in their current
+  /// panel (e.g. terminal sections that belong to the terminal manager).
+  bool get isDraggable => true;
+
   /// Create the main Flutter widget for this component.
   Widget buildMain(BuildContext context);
 

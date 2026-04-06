@@ -62,11 +62,14 @@ class _ForgeShortcutMenuPopupState extends State<ForgeShortcutMenuPopup>
           _menu = event.menu;
           _highlightedIndex = -1;
         });
-        _animController.forward();
+        _animController.forward(from: 0);
       case ForgeShortcutMenuState.selected:
       case ForgeShortcutMenuState.closed:
+        // Snapshot the menu reference to avoid wiping a new menu that
+        // might arrive during the reverse animation.
+        final closingMenu = _menu;
         _animController.reverse().then((_) {
-          if (mounted) {
+          if (mounted && _menu == closingMenu) {
             setState(() {
               _menu = null;
               _highlightedIndex = -1;

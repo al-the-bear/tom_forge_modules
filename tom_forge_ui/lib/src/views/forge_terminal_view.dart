@@ -34,6 +34,9 @@ class SingleTerminalView extends ForgeView {
   IconData get icon => Icons.terminal;
 
   @override
+  bool get isDraggable => false;
+
+  @override
   ForgeComponentSizeHints get sizeHints => const ForgeComponentSizeHints(
         preferredSize: Size(400, 200),
       );
