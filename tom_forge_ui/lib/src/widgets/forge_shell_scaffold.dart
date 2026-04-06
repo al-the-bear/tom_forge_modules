@@ -662,11 +662,27 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     }
     final chordOverrides = _preferences.chordOverrides;
     for (final entry in chordOverrides.entries) {
+      // If the user has a chord override, unsuppress the action so
+      // rebindChord doesn't silently skip it (the override takes
+      // precedence over a previous deletion).
+      if (isDeferrable) {
+        shortcuts.unsuppressAction(entry.key);
+      }
       final binding = shortcuts.getBinding(entry.key);
       if (binding != null) {
         shortcuts.rebindChord(binding.action, entry.value);
-      } else if (isDeferrable) {
-        shortcuts.setDeferredChordOverride(entry.key, entry.value);
+      } else {
+        // Action may be registered in the action registry but have no
+        // shortcut binding yet. Look it up and create a chord binding
+        // directly instead of deferring (deferred overrides are only
+        // consumed when rebind() is later called, which never happens
+        // for actions without module-level shortcut bindings).
+        final action = widget.shell.actionRegistry.getAction(entry.key);
+        if (action != null) {
+          shortcuts.rebindChord(action, entry.value);
+        } else if (isDeferrable) {
+          shortcuts.setDeferredChordOverride(entry.key, entry.value);
+        }
       }
     }
   }
@@ -2884,6 +2900,8 @@ Press "?" for this help document.
             _handleEditorDropAsSection(data, panelArea, tabIndex),
         onSectionDroppedFromPanel: (data, tabIndex) =>
             _handleSectionDropOnPanel(data, panelArea, tabIndex),
+        onReorder: (tabIndex, from, to) =>
+            _handleSectionReorder(panelArea, tabIndex, from, to),
         initialAccordionState: _accordionStates[panelArea.name],
         onAccordionStateChanged: (tabIndex, state) {
           _accordionStates[panelArea.name]![tabIndex] = state;
@@ -3361,6 +3379,31 @@ Press "?" for this help document.
     _removeSectionFromPanel(data);
   }
 
+  /// Reorders sections within a panel tab's accordion.
+  void _handleSectionReorder(
+    PanelArea area,
+    int tabIndex,
+    int fromIndex,
+    int toIndex,
+  ) {
+    final layout = widget.application.layout;
+
+    final tabs = switch (area) {
+      PanelArea.left => layout.leftPanel.tabs,
+      PanelArea.right => layout.rightPanel.tabs,
+      PanelArea.bottom => layout.bottomPanel.tabs,
+    };
+
+    if (tabIndex < 0 || tabIndex >= tabs.length) return;
+    final sections = tabs[tabIndex].sections;
+    if (fromIndex < 0 || fromIndex >= sections.length) return;
+    if (toIndex < 0 || toIndex > sections.length) return;
+
+    final section = sections.removeAt(fromIndex);
+    sections.insert(toIndex, section);
+    setState(() {});
+  }
+
   /// Handles a view section being dropped onto the editor tab bar from
   /// a side/bottom panel.
   void _handleViewDropOnMiddle(SectionDragData data, int panelIndex) {
@@ -3536,6 +3579,8 @@ Press "?" for this help document.
             _handleEditorDropAsSection(data, PanelArea.bottom, tabIndex),
         onSectionDroppedFromPanel: (data, tabIndex) =>
             _handleSectionDropOnPanel(data, PanelArea.bottom, tabIndex),
+        onReorder: (tabIndex, from, to) =>
+            _handleSectionReorder(PanelArea.bottom, tabIndex, from, to),
         onTabContextMenu: (tabIndex, position) =>
             _showBottomTabContextMenu(tabIndex, position, tabs),
         initialAccordionState: _accordionStates['bottom'],

@@ -91,6 +91,9 @@ class ForgeSidePanelWidget extends StatefulWidget {
   final void Function(SectionDragData data, int tabIndex)?
       onSectionDroppedFromPanel;
 
+  /// Called when sections are reordered within an accordion tab.
+  final void Function(int tabIndex, int fromIndex, int toIndex)? onReorder;
+
   /// Initial accordion state per tab index.
   final Map<int, AccordionSectionState>? initialAccordionState;
 
@@ -114,6 +117,7 @@ class ForgeSidePanelWidget extends StatefulWidget {
     this.onEditorDropped,
     this.onEditorDroppedAsSection,
     this.onSectionDroppedFromPanel,
+    this.onReorder,
     this.initialAccordionState,
     this.onAccordionStateChanged,
   });
@@ -529,6 +533,9 @@ class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
           ? (data) =>
               widget.onSectionDroppedFromPanel!(data, _activeTabIndex)
           : null,
+      onReorder: widget.onReorder != null
+          ? (from, to) => widget.onReorder!(_activeTabIndex, from, to)
+          : null,
     );
   }
 
@@ -568,6 +575,9 @@ class _AccordeonLayout extends StatefulWidget {
   /// Called when a section from another panel is dropped on this accordion.
   final void Function(SectionDragData data)? onSectionDroppedFromPanel;
 
+  /// Called when sections are reordered within this accordion.
+  final void Function(int fromIndex, int toIndex)? onReorder;
+
   const _AccordeonLayout({
     required this.sections,
     this.panelArea,
@@ -576,6 +586,7 @@ class _AccordeonLayout extends StatefulWidget {
     this.onStateChanged,
     this.onEditorDroppedAsSection,
     this.onSectionDroppedFromPanel,
+    this.onReorder,
   });
 
   @override
@@ -637,6 +648,7 @@ class _AccordeonLayoutState extends State<_AccordeonLayout> {
   @override
   Widget build(BuildContext context) {
     // If only one section, it's always expanded (per concept §3.2)
+    // but still shows a draggable header so it can be moved elsewhere.
     if (widget.sections.length == 1) {
       return DragTarget<TabDragData>(
         onWillAcceptWithDetails: (_) =>
@@ -654,7 +666,38 @@ class _AccordeonLayoutState extends State<_AccordeonLayout> {
             onAcceptWithDetails: (details) =>
                 widget.onSectionDroppedFromPanel?.call(details.data),
             builder: (context, sectionCandidates, _) {
-              final child = widget.sections.first.buildMain(context);
+              final child = Column(
+                children: [
+                  Draggable<SectionDragData>(
+                    data: SectionDragData(
+                      section: widget.sections.first,
+                      sourceIndex: 0,
+                      sourceArea: widget.panelArea,
+                      sourceTabIndex: widget.tabIndex,
+                    ),
+                    feedback:
+                        _buildDragFeedback(context, widget.sections.first),
+                    childWhenDragging: Opacity(
+                      opacity: 0.35,
+                      child: _AccordeonSectionHeader(
+                        view: widget.sections.first,
+                        isExpanded: true,
+                        isPinned: false,
+                        onToggle: () {},
+                        onTogglePin: () {},
+                      ),
+                    ),
+                    child: _AccordeonSectionHeader(
+                      view: widget.sections.first,
+                      isExpanded: true,
+                      isPinned: false,
+                      onToggle: () {},
+                      onTogglePin: () {},
+                    ),
+                  ),
+                  Expanded(child: widget.sections.first.buildMain(context)),
+                ],
+              );
               if (editorCandidates.isEmpty && sectionCandidates.isEmpty) {
                 return child;
               }
@@ -703,16 +746,15 @@ class _AccordeonLayoutState extends State<_AccordeonLayout> {
       child: Column(
       children: [
         for (var i = 0; i < widget.sections.length; i++) ...[
-          // Reorder drop target above section header
+          // Section header with reorder/cross-panel drop target
           DragTarget<SectionDragData>(
             onWillAcceptWithDetails: (details) {
               final d = details.data;
               final isSamePanel = d.sourceArea == widget.panelArea &&
                   d.sourceTabIndex == widget.tabIndex;
               if (isSamePanel) {
-                return d.sourceIndex != i && d.sourceIndex != i - 1;
+                return d.sourceIndex != i;
               }
-              // Cross-panel: always accept
               return widget.onSectionDroppedFromPanel != null;
             },
             onAcceptWithDetails: (details) {
@@ -726,48 +768,54 @@ class _AccordeonLayoutState extends State<_AccordeonLayout> {
               }
             },
             builder: (context, candidateData, rejectedData) {
-              final isDropTarget = candidateData.isNotEmpty;
-              return AnimatedContainer(
-                duration: ForgeAnimations.dropZoneFade,
-                height: isDropTarget ? 4 : 0,
-                color: isDropTarget
-                    ? (Theme.of(context).extension<ForgeShellTheme>()
-                            ?.dropZoneValid ??
-                        Theme.of(context).colorScheme.primary)
-                    : Colors.transparent,
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Drop indicator line above header
+                  AnimatedContainer(
+                    duration: ForgeAnimations.dropZoneFade,
+                    height: candidateData.isNotEmpty ? 3 : 0,
+                    color: candidateData.isNotEmpty
+                        ? (Theme.of(context).extension<ForgeShellTheme>()
+                                ?.dropZoneValid ??
+                            Theme.of(context).colorScheme.primary)
+                        : Colors.transparent,
+                  ),
+                  // Draggable section header
+                  Draggable<SectionDragData>(
+                    data: SectionDragData(
+                      section: widget.sections[i],
+                      sourceIndex: i,
+                      sourceArea: widget.panelArea,
+                      sourceTabIndex: widget.tabIndex,
+                    ),
+                    feedback:
+                        _buildDragFeedback(context, widget.sections[i]),
+                    childWhenDragging: Opacity(
+                      opacity: 0.35,
+                      child: _AccordeonSectionHeader(
+                        view: widget.sections[i],
+                        isExpanded: false,
+                        isPinned: false,
+                        onToggle: () {},
+                        onTogglePin: () {},
+                      ),
+                    ),
+                    child: _AccordeonSectionHeader(
+                      view: widget.sections[i],
+                      isExpanded: _expandedSections.contains(i),
+                      isPinned: _pinnedSections.contains(i),
+                      isFocused: _focusedSection == i,
+                      onToggle: () => _toggleSection(i),
+                      onTogglePin: () => _togglePin(i),
+                      onClose: widget.sections.length > 1
+                          ? () => _hideSection(i)
+                          : null,
+                    ),
+                  ),
+                ],
               );
             },
-          ),
-          // Draggable section header
-          Draggable<SectionDragData>(
-            data: SectionDragData(
-              section: widget.sections[i],
-              sourceIndex: i,
-              sourceArea: widget.panelArea,
-              sourceTabIndex: widget.tabIndex,
-            ),
-            feedback: _buildDragFeedback(context, widget.sections[i]),
-            childWhenDragging: Opacity(
-              opacity: 0.35,
-              child: _AccordeonSectionHeader(
-                view: widget.sections[i],
-                isExpanded: false,
-                isPinned: false,
-                onToggle: () {},
-                onTogglePin: () {},
-              ),
-            ),
-            child: _AccordeonSectionHeader(
-              view: widget.sections[i],
-              isExpanded: _expandedSections.contains(i),
-              isPinned: _pinnedSections.contains(i),
-              isFocused: _focusedSection == i,
-              onToggle: () => _toggleSection(i),
-              onTogglePin: () => _togglePin(i),
-              onClose: widget.sections.length > 1
-                  ? () => _hideSection(i)
-                  : null,
-            ),
           ),
           // Section content (expanded sections get flexible space)
           if (_expandedSections.contains(i))
@@ -896,12 +944,9 @@ class _AccordeonLayoutState extends State<_AccordeonLayout> {
       _sectionFlex.clear();
 
       // Notify parent about the reorder.
-      _onReorder?.call(fromIndex, effectiveTo);
+      widget.onReorder?.call(fromIndex, effectiveTo);
     });
   }
-
-  /// Callback set by parent to actually reorder the section list.
-  VoidCallback? Function(int from, int to)? get _onReorder => null;
 
   Widget _buildDragFeedback(BuildContext context, ForgeView view) {
     return Material(
@@ -1152,6 +1197,9 @@ class _BottomAccordeonLayout extends StatefulWidget {
   /// Called when a section is dropped from a different panel.
   final void Function(SectionDragData data)? onSectionDroppedFromPanel;
 
+  /// Called when sections are reordered within this accordion.
+  final void Function(int fromIndex, int toIndex)? onReorder;
+
   const _BottomAccordeonLayout({
     required this.sections,
     this.panelArea,
@@ -1160,6 +1208,7 @@ class _BottomAccordeonLayout extends StatefulWidget {
     this.onStateChanged,
     this.onEditorDroppedAsSection,
     this.onSectionDroppedFromPanel,
+    this.onReorder,
   });
 
   @override
@@ -1229,6 +1278,7 @@ class _BottomAccordeonLayoutState extends State<_BottomAccordeonLayout> {
 
   @override
   Widget build(BuildContext context) {
+    // Single section: always expanded, but show draggable header.
     if (widget.sections.length == 1) {
       return DragTarget<TabDragData>(
         onWillAcceptWithDetails: (_) =>
@@ -1246,7 +1296,38 @@ class _BottomAccordeonLayoutState extends State<_BottomAccordeonLayout> {
             onAcceptWithDetails: (details) =>
                 widget.onSectionDroppedFromPanel?.call(details.data),
             builder: (context, sectionCandidates, _) {
-              final child = widget.sections.first.buildMain(context);
+              final child = Column(
+                children: [
+                  Draggable<SectionDragData>(
+                    data: SectionDragData(
+                      section: widget.sections.first,
+                      sourceIndex: 0,
+                      sourceArea: widget.panelArea,
+                      sourceTabIndex: widget.tabIndex,
+                    ),
+                    feedback:
+                        _buildDragFeedback(context, widget.sections.first),
+                    childWhenDragging: Opacity(
+                      opacity: 0.35,
+                      child: _BottomSectionHeader(
+                        view: widget.sections.first,
+                        isExpanded: true,
+                        isPinned: false,
+                        onToggle: () {},
+                        onTogglePin: () {},
+                      ),
+                    ),
+                    child: _BottomSectionHeader(
+                      view: widget.sections.first,
+                      isExpanded: true,
+                      isPinned: false,
+                      onToggle: () {},
+                      onTogglePin: () {},
+                    ),
+                  ),
+                  Expanded(child: widget.sections.first.buildMain(context)),
+                ],
+              );
               if (editorCandidates.isEmpty && sectionCandidates.isEmpty) {
                 return child;
               }
@@ -1295,36 +1376,80 @@ class _BottomAccordeonLayoutState extends State<_BottomAccordeonLayout> {
           if (_expandedSections.contains(i))
             Flexible(
               flex: (_flexFor(i) * 1000).round(),
-              child: Column(
-                children: [
-                  Draggable<SectionDragData>(
-                    data: SectionDragData(
-                      section: widget.sections[i],
-                      sourceIndex: i,
-                      sourceArea: widget.panelArea,
-                      sourceTabIndex: widget.tabIndex,
-                    ),
-                    feedback: _buildDragFeedback(context, widget.sections[i]),
-                    childWhenDragging: Opacity(
-                      opacity: 0.35,
-                      child: _BottomSectionHeader(
-                        view: widget.sections[i],
-                        isExpanded: true,
-                        isPinned: _pinnedSections.contains(i),
-                        onToggle: () {},
-                        onTogglePin: () {},
+              child: DragTarget<SectionDragData>(
+                onWillAcceptWithDetails: (details) {
+                  final d = details.data;
+                  final isSamePanel = d.sourceArea == widget.panelArea &&
+                      d.sourceTabIndex == widget.tabIndex;
+                  if (isSamePanel) {
+                    return d.sourceIndex != i;
+                  }
+                  return widget.onSectionDroppedFromPanel != null;
+                },
+                onAcceptWithDetails: (details) {
+                  final d = details.data;
+                  final isSamePanel = d.sourceArea == widget.panelArea &&
+                      d.sourceTabIndex == widget.tabIndex;
+                  if (isSamePanel) {
+                    _reorderSection(d.sourceIndex, i);
+                  } else {
+                    widget.onSectionDroppedFromPanel?.call(d);
+                  }
+                },
+                builder: (context, candidateData, _) {
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Vertical drop indicator on the left
+                      AnimatedContainer(
+                        duration: ForgeAnimations.dropZoneFade,
+                        width: candidateData.isNotEmpty ? 3 : 0,
+                        color: candidateData.isNotEmpty
+                            ? (Theme.of(context)
+                                    .extension<ForgeShellTheme>()
+                                    ?.dropZoneValid ??
+                                Theme.of(context).colorScheme.primary)
+                            : Colors.transparent,
                       ),
-                    ),
-                    child: _BottomSectionHeader(
-                      view: widget.sections[i],
-                      isExpanded: true,
-                      isPinned: _pinnedSections.contains(i),
-                      onToggle: () => _toggleSection(i),
-                      onTogglePin: () => _togglePin(i),
-                    ),
-                  ),
-                  Expanded(child: widget.sections[i].buildMain(context)),
-                ],
+                      Expanded(
+                        child: Column(
+                          children: [
+                            Draggable<SectionDragData>(
+                              data: SectionDragData(
+                                section: widget.sections[i],
+                                sourceIndex: i,
+                                sourceArea: widget.panelArea,
+                                sourceTabIndex: widget.tabIndex,
+                              ),
+                              feedback: _buildDragFeedback(
+                                  context, widget.sections[i]),
+                              childWhenDragging: Opacity(
+                                opacity: 0.35,
+                                child: _BottomSectionHeader(
+                                  view: widget.sections[i],
+                                  isExpanded: true,
+                                  isPinned: _pinnedSections.contains(i),
+                                  onToggle: () {},
+                                  onTogglePin: () {},
+                                ),
+                              ),
+                              child: _BottomSectionHeader(
+                                view: widget.sections[i],
+                                isExpanded: true,
+                                isPinned: _pinnedSections.contains(i),
+                                onToggle: () => _toggleSection(i),
+                                onTogglePin: () => _togglePin(i),
+                              ),
+                            ),
+                            Expanded(
+                                child:
+                                    widget.sections[i].buildMain(context)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             )
           else
@@ -1396,6 +1521,42 @@ class _BottomAccordeonLayoutState extends State<_BottomAccordeonLayout> {
       _sectionFlex[rightIdx] = totalFlex - newLeft;
     });
     _notifyStateChanged();
+  }
+
+  void _reorderSection(int fromIndex, int toIndex) {
+    if (fromIndex == toIndex) return;
+    setState(() {
+      final wasExpanded = _expandedSections.contains(fromIndex);
+      final wasPinned = _pinnedSections.contains(fromIndex);
+      final effectiveTo = toIndex > fromIndex ? toIndex - 1 : toIndex;
+
+      final newExpanded = <int>{};
+      final newPinned = <int>{};
+      for (final idx in _expandedSections) {
+        if (idx == fromIndex) continue;
+        final adjusted = idx > fromIndex ? idx - 1 : idx;
+        final final_ = adjusted >= effectiveTo ? adjusted + 1 : adjusted;
+        newExpanded.add(final_);
+      }
+      for (final idx in _pinnedSections) {
+        if (idx == fromIndex) continue;
+        final adjusted = idx > fromIndex ? idx - 1 : idx;
+        final final_ = adjusted >= effectiveTo ? adjusted + 1 : adjusted;
+        newPinned.add(final_);
+      }
+      if (wasExpanded) newExpanded.add(effectiveTo);
+      if (wasPinned) newPinned.add(effectiveTo);
+
+      _expandedSections
+        ..clear()
+        ..addAll(newExpanded);
+      _pinnedSections
+        ..clear()
+        ..addAll(newPinned);
+      _sectionFlex.clear();
+
+      widget.onReorder?.call(fromIndex, effectiveTo);
+    });
   }
 
   void _toggleSection(int index) {
@@ -1678,6 +1839,9 @@ class ForgePanelWidget extends StatefulWidget {
   final void Function(SectionDragData data, int tabIndex)?
       onSectionDroppedFromPanel;
 
+  /// Called when sections are reordered within an accordion tab.
+  final void Function(int tabIndex, int fromIndex, int toIndex)? onReorder;
+
   /// Called when a tab is right-clicked to show a context menu.
   final void Function(int tabIndex, Offset globalPosition)? onTabContextMenu;
 
@@ -1698,6 +1862,7 @@ class ForgePanelWidget extends StatefulWidget {
     this.onEditorDropped,
     this.onEditorDroppedAsSection,
     this.onSectionDroppedFromPanel,
+    this.onReorder,
     this.onTabContextMenu,
     this.initialAccordionState,
     this.onAccordionStateChanged,
@@ -1972,6 +2137,9 @@ class _ForgePanelWidgetState extends State<ForgePanelWidget> {
       onSectionDroppedFromPanel: widget.onSectionDroppedFromPanel != null
           ? (data) =>
               widget.onSectionDroppedFromPanel!(data, _activeTabIndex)
+          : null,
+      onReorder: widget.onReorder != null
+          ? (from, to) => widget.onReorder!(_activeTabIndex, from, to)
           : null,
     );
   }

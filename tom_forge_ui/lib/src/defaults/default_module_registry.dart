@@ -101,7 +101,11 @@ class DefaultModuleRegistry implements ForgeModuleRegistry {
       final shortcutManager = _shortcutManager;
       if (shortcutManager != null) {
         for (final binding in module.shortcuts) {
-          shortcutManager.rebind(binding.action, binding.key);
+          if (binding.isChord) {
+            shortcutManager.rebindChord(binding.action, binding.chord!);
+          } else {
+            shortcutManager.rebind(binding.action, binding.key);
+          }
         }
         for (final menu in module.shortcutMenus) {
           shortcutManager.registerMenu(menu);
