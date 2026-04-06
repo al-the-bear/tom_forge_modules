@@ -87,6 +87,10 @@ class ForgeSidePanelWidget extends StatefulWidget {
   /// of the active tab (to be added as an accordion section).
   final void Function(TabDragData data, int tabIndex)? onEditorDroppedAsSection;
 
+  /// Called when a section is dropped from another panel's accordion.
+  final void Function(SectionDragData data, int tabIndex)?
+      onSectionDroppedFromPanel;
+
   /// Initial accordion state per tab index.
   final Map<int, AccordionSectionState>? initialAccordionState;
 
@@ -109,6 +113,7 @@ class ForgeSidePanelWidget extends StatefulWidget {
     this.onTabDropped,
     this.onEditorDropped,
     this.onEditorDroppedAsSection,
+    this.onSectionDroppedFromPanel,
     this.initialAccordionState,
     this.onAccordionStateChanged,
   });
@@ -542,6 +547,9 @@ class _AccordeonLayout extends StatefulWidget {
   /// accordion content area (to be added as an accordion section).
   final void Function(TabDragData data)? onEditorDroppedAsSection;
 
+  /// Called when a section from another panel is dropped on this accordion.
+  final void Function(SectionDragData data)? onSectionDroppedFromPanel;
+
   const _AccordeonLayout({
     required this.sections,
     this.panelArea,
@@ -549,6 +557,7 @@ class _AccordeonLayout extends StatefulWidget {
     this.initialState,
     this.onStateChanged,
     this.onEditorDroppedAsSection,
+    this.onSectionDroppedFromPanel,
   });
 
   @override
@@ -776,7 +785,9 @@ class _AccordeonLayoutState extends State<_AccordeonLayout> {
     final topFlex = _flexFor(topIdx);
     final bottomFlex = _flexFor(bottomIdx);
     final totalFlex = topFlex + bottomFlex;
-    final flexDelta = delta / 200.0;
+    // Scale pixel delta by actual widget height for 1:1 mouse tracking.
+    final totalHeight = context.size?.height ?? 400;
+    final flexDelta = (delta / totalHeight) * totalFlex;
     final newTop = (topFlex + flexDelta).clamp(minFlex, totalFlex - minFlex);
     setState(() {
       _sectionFlex[topIdx] = newTop;
@@ -1284,7 +1295,9 @@ class _BottomAccordeonLayoutState extends State<_BottomAccordeonLayout> {
     final leftFlex = _flexFor(leftIdx);
     final rightFlex = _flexFor(rightIdx);
     final totalFlex = leftFlex + rightFlex;
-    final flexDelta = delta / 200.0;
+    // Scale pixel delta by actual widget width for 1:1 mouse tracking.
+    final totalWidth = context.size?.width ?? 600;
+    final flexDelta = (delta / totalWidth) * totalFlex;
     final newLeft = (leftFlex + flexDelta).clamp(minFlex, totalFlex - minFlex);
     setState(() {
       _sectionFlex[leftIdx] = newLeft;
