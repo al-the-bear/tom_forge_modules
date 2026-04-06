@@ -461,8 +461,8 @@ class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
     }
 
     if (tab.sections.isEmpty) {
-      // Show a drag target placeholder so editors can be dropped into
-      // empty tabs (new or cleared).
+      // Show a drag target placeholder so editors and sections can be
+      // dropped into empty tabs (new or cleared).
       return DragTarget<TabDragData>(
         onWillAcceptWithDetails: (_) => true,
         onAcceptWithDetails: (details) {
@@ -470,28 +470,42 @@ class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
             widget.onEditorDroppedAsSection!(details.data, _activeTabIndex);
           }
         },
-        builder: (context, candidateData, rejectedData) {
-          final isHovering = candidateData.isNotEmpty;
-          return Container(
-            decoration: isHovering
-                ? BoxDecoration(
-                    border: Border.all(
-                      color: Theme.of(context).colorScheme.primary,
-                      width: 2,
-                    ),
-                  )
-                : null,
-            child: Center(
-              child: Text(
-                isHovering ? 'Drop here' : 'Drop editors here',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurface
-                          .withValues(alpha: isHovering ? 0.7 : 0.4),
-                    ),
-              ),
-            ),
+        builder: (context, editorCandidates, _) {
+          return DragTarget<SectionDragData>(
+            onWillAcceptWithDetails: (details) {
+              final d = details.data;
+              return d.sourceArea != widget.panelArea ||
+                  d.sourceTabIndex != _activeTabIndex;
+            },
+            onAcceptWithDetails: (details) {
+              widget.onSectionDroppedFromPanel
+                  ?.call(details.data, _activeTabIndex);
+            },
+            builder: (context, sectionCandidates, _) {
+              final isHovering =
+                  editorCandidates.isNotEmpty || sectionCandidates.isNotEmpty;
+              return Container(
+                decoration: isHovering
+                    ? BoxDecoration(
+                        border: Border.all(
+                          color: Theme.of(context).colorScheme.primary,
+                          width: 2,
+                        ),
+                      )
+                    : null,
+                child: Center(
+                  child: Text(
+                    isHovering ? 'Drop here' : 'Drop editors here',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: isHovering ? 0.7 : 0.4),
+                        ),
+                  ),
+                ),
+              );
+            },
           );
         },
       );
@@ -510,6 +524,10 @@ class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
       onEditorDroppedAsSection: widget.onEditorDroppedAsSection != null
           ? (data) =>
               widget.onEditorDroppedAsSection!(data, _activeTabIndex)
+          : null,
+      onSectionDroppedFromPanel: widget.onSectionDroppedFromPanel != null
+          ? (data) =>
+              widget.onSectionDroppedFromPanel!(data, _activeTabIndex)
           : null,
     );
   }
@@ -625,20 +643,34 @@ class _AccordeonLayoutState extends State<_AccordeonLayout> {
             widget.onEditorDroppedAsSection != null,
         onAcceptWithDetails: (details) =>
             widget.onEditorDroppedAsSection?.call(details.data),
-        builder: (context, candidateData, _) {
-          final child = widget.sections.first.buildMain(context);
-          if (candidateData.isEmpty) return child;
-          final shellTheme =
-              Theme.of(context).extension<ForgeShellTheme>();
-          return Container(
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: shellTheme?.dropZoneValid ??
-                    Theme.of(context).colorScheme.primary,
-                width: 2,
-              ),
-            ),
-            child: child,
+        builder: (context, editorCandidates, _) {
+          return DragTarget<SectionDragData>(
+            onWillAcceptWithDetails: (details) {
+              final d = details.data;
+              return (d.sourceArea != widget.panelArea ||
+                      d.sourceTabIndex != widget.tabIndex) &&
+                  widget.onSectionDroppedFromPanel != null;
+            },
+            onAcceptWithDetails: (details) =>
+                widget.onSectionDroppedFromPanel?.call(details.data),
+            builder: (context, sectionCandidates, _) {
+              final child = widget.sections.first.buildMain(context);
+              if (editorCandidates.isEmpty && sectionCandidates.isEmpty) {
+                return child;
+              }
+              final shellTheme =
+                  Theme.of(context).extension<ForgeShellTheme>();
+              return Container(
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: shellTheme?.dropZoneValid ??
+                        Theme.of(context).colorScheme.primary,
+                    width: 2,
+                  ),
+                ),
+                child: child,
+              );
+            },
           );
         },
       );
@@ -654,7 +686,17 @@ class _AccordeonLayoutState extends State<_AccordeonLayout> {
           widget.onEditorDroppedAsSection != null,
       onAcceptWithDetails: (details) =>
           widget.onEditorDroppedAsSection?.call(details.data),
-      builder: (context, candidateData, _) {
+      builder: (context, editorCandidates, _) {
+    return DragTarget<SectionDragData>(
+      onWillAcceptWithDetails: (details) {
+        final d = details.data;
+        return (d.sourceArea != widget.panelArea ||
+                d.sourceTabIndex != widget.tabIndex) &&
+            widget.onSectionDroppedFromPanel != null;
+      },
+      onAcceptWithDetails: (details) =>
+          widget.onSectionDroppedFromPanel?.call(details.data),
+      builder: (context, sectionCandidates, _) {
     final content = KeyboardListener(
       focusNode: _focusNode,
       onKeyEvent: _handleKeyEvent,
@@ -664,11 +706,25 @@ class _AccordeonLayoutState extends State<_AccordeonLayout> {
           // Reorder drop target above section header
           DragTarget<SectionDragData>(
             onWillAcceptWithDetails: (details) {
-              return details.data.sourceIndex != i &&
-                  details.data.sourceIndex != i - 1;
+              final d = details.data;
+              final isSamePanel = d.sourceArea == widget.panelArea &&
+                  d.sourceTabIndex == widget.tabIndex;
+              if (isSamePanel) {
+                return d.sourceIndex != i && d.sourceIndex != i - 1;
+              }
+              // Cross-panel: always accept
+              return widget.onSectionDroppedFromPanel != null;
             },
-            onAcceptWithDetails: (details) =>
-                _reorderSection(details.data.sourceIndex, i),
+            onAcceptWithDetails: (details) {
+              final d = details.data;
+              final isSamePanel = d.sourceArea == widget.panelArea &&
+                  d.sourceTabIndex == widget.tabIndex;
+              if (isSamePanel) {
+                _reorderSection(d.sourceIndex, i);
+              } else {
+                widget.onSectionDroppedFromPanel?.call(d);
+              }
+            },
             builder: (context, candidateData, rejectedData) {
               final isDropTarget = candidateData.isNotEmpty;
               return AnimatedContainer(
@@ -734,7 +790,9 @@ class _AccordeonLayoutState extends State<_AccordeonLayout> {
       ],
     ),
     );
-    if (candidateData.isEmpty) return content;
+    final isHighlighted =
+        editorCandidates.isNotEmpty || sectionCandidates.isNotEmpty;
+    if (!isHighlighted) return content;
     final shellTheme =
         Theme.of(context).extension<ForgeShellTheme>();
     return Container(
@@ -746,6 +804,8 @@ class _AccordeonLayoutState extends State<_AccordeonLayout> {
         ),
       ),
       child: content,
+    );
+      },
     );
       },
     );
@@ -1089,6 +1149,9 @@ class _BottomAccordeonLayout extends StatefulWidget {
   /// accordion content area (as opposed to the tab bar).
   final void Function(TabDragData data)? onEditorDroppedAsSection;
 
+  /// Called when a section is dropped from a different panel.
+  final void Function(SectionDragData data)? onSectionDroppedFromPanel;
+
   const _BottomAccordeonLayout({
     required this.sections,
     this.panelArea,
@@ -1096,6 +1159,7 @@ class _BottomAccordeonLayout extends StatefulWidget {
     this.initialState,
     this.onStateChanged,
     this.onEditorDroppedAsSection,
+    this.onSectionDroppedFromPanel,
   });
 
   @override
@@ -1171,20 +1235,34 @@ class _BottomAccordeonLayoutState extends State<_BottomAccordeonLayout> {
             widget.onEditorDroppedAsSection != null,
         onAcceptWithDetails: (details) =>
             widget.onEditorDroppedAsSection?.call(details.data),
-        builder: (context, candidateData, _) {
-          final child = widget.sections.first.buildMain(context);
-          if (candidateData.isEmpty) return child;
-          final shellTheme =
-              Theme.of(context).extension<ForgeShellTheme>();
-          return Container(
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: shellTheme?.dropZoneValid ??
-                    Theme.of(context).colorScheme.primary,
-                width: 2,
-              ),
-            ),
-            child: child,
+        builder: (context, editorCandidates, _) {
+          return DragTarget<SectionDragData>(
+            onWillAcceptWithDetails: (details) {
+              final d = details.data;
+              return (d.sourceArea != widget.panelArea ||
+                      d.sourceTabIndex != widget.tabIndex) &&
+                  widget.onSectionDroppedFromPanel != null;
+            },
+            onAcceptWithDetails: (details) =>
+                widget.onSectionDroppedFromPanel?.call(details.data),
+            builder: (context, sectionCandidates, _) {
+              final child = widget.sections.first.buildMain(context);
+              if (editorCandidates.isEmpty && sectionCandidates.isEmpty) {
+                return child;
+              }
+              final shellTheme =
+                  Theme.of(context).extension<ForgeShellTheme>();
+              return Container(
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: shellTheme?.dropZoneValid ??
+                        Theme.of(context).colorScheme.primary,
+                    width: 2,
+                  ),
+                ),
+                child: child,
+              );
+            },
           );
         },
       );
@@ -1199,7 +1277,17 @@ class _BottomAccordeonLayoutState extends State<_BottomAccordeonLayout> {
           widget.onEditorDroppedAsSection != null,
       onAcceptWithDetails: (details) =>
           widget.onEditorDroppedAsSection?.call(details.data),
-      builder: (context, candidateData, _) {
+      builder: (context, editorCandidates, _) {
+    return DragTarget<SectionDragData>(
+      onWillAcceptWithDetails: (details) {
+        final d = details.data;
+        return (d.sourceArea != widget.panelArea ||
+                d.sourceTabIndex != widget.tabIndex) &&
+            widget.onSectionDroppedFromPanel != null;
+      },
+      onAcceptWithDetails: (details) =>
+          widget.onSectionDroppedFromPanel?.call(details.data),
+      builder: (context, sectionCandidates, _) {
         final row = Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1260,7 +1348,9 @@ class _BottomAccordeonLayoutState extends State<_BottomAccordeonLayout> {
         ],
       ],
     );
-        if (candidateData.isEmpty) return row;
+        final isHighlighted =
+            editorCandidates.isNotEmpty || sectionCandidates.isNotEmpty;
+        if (!isHighlighted) return row;
         final shellTheme =
             Theme.of(context).extension<ForgeShellTheme>();
         return Container(
@@ -1273,6 +1363,8 @@ class _BottomAccordeonLayoutState extends State<_BottomAccordeonLayout> {
           ),
           child: row,
         );
+      },
+    );
       },
     );
   }
@@ -1582,6 +1674,10 @@ class ForgePanelWidget extends StatefulWidget {
   /// of the active tab (to be added as an accordion section, not a new tab).
   final void Function(TabDragData data, int tabIndex)? onEditorDroppedAsSection;
 
+  /// Called when a section is dropped from a different panel.
+  final void Function(SectionDragData data, int tabIndex)?
+      onSectionDroppedFromPanel;
+
   /// Called when a tab is right-clicked to show a context menu.
   final void Function(int tabIndex, Offset globalPosition)? onTabContextMenu;
 
@@ -1601,6 +1697,7 @@ class ForgePanelWidget extends StatefulWidget {
     this.onTabDropped,
     this.onEditorDropped,
     this.onEditorDroppedAsSection,
+    this.onSectionDroppedFromPanel,
     this.onTabContextMenu,
     this.initialAccordionState,
     this.onAccordionStateChanged,
@@ -1809,8 +1906,8 @@ class _ForgePanelWidgetState extends State<ForgePanelWidget> {
 
   Widget _buildContent(BuildContext context, PanelTabConfig tab) {
     if (tab.sections.isEmpty) {
-      // Show a drag target placeholder so editors can be dropped into
-      // empty tabs (new or cleared).
+      // Show a drag target placeholder so editors and sections can be
+      // dropped into empty tabs (new or cleared).
       return DragTarget<TabDragData>(
         onWillAcceptWithDetails: (_) => true,
         onAcceptWithDetails: (details) {
@@ -1818,28 +1915,42 @@ class _ForgePanelWidgetState extends State<ForgePanelWidget> {
             widget.onEditorDroppedAsSection!(details.data, _activeTabIndex);
           }
         },
-        builder: (context, candidateData, rejectedData) {
-          final isHovering = candidateData.isNotEmpty;
-          return Container(
-            decoration: isHovering
-                ? BoxDecoration(
-                    border: Border.all(
-                      color: Theme.of(context).colorScheme.primary,
-                      width: 2,
-                    ),
-                  )
-                : null,
-            child: Center(
-              child: Text(
-                isHovering ? 'Drop here' : 'Drop editors here',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurface
-                          .withValues(alpha: isHovering ? 0.7 : 0.4),
-                    ),
-              ),
-            ),
+        builder: (context, editorCandidates, _) {
+          return DragTarget<SectionDragData>(
+            onWillAcceptWithDetails: (details) {
+              final d = details.data;
+              return d.sourceArea != widget.panelArea ||
+                  d.sourceTabIndex != _activeTabIndex;
+            },
+            onAcceptWithDetails: (details) {
+              widget.onSectionDroppedFromPanel
+                  ?.call(details.data, _activeTabIndex);
+            },
+            builder: (context, sectionCandidates, _) {
+              final isHovering =
+                  editorCandidates.isNotEmpty || sectionCandidates.isNotEmpty;
+              return Container(
+                decoration: isHovering
+                    ? BoxDecoration(
+                        border: Border.all(
+                          color: Theme.of(context).colorScheme.primary,
+                          width: 2,
+                        ),
+                      )
+                    : null,
+                child: Center(
+                  child: Text(
+                    isHovering ? 'Drop here' : 'Drop editors here',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: isHovering ? 0.7 : 0.4),
+                        ),
+                  ),
+                ),
+              );
+            },
           );
         },
       );
@@ -1857,6 +1968,10 @@ class _ForgePanelWidgetState extends State<ForgePanelWidget> {
           : null,
       onEditorDroppedAsSection: widget.onEditorDroppedAsSection != null
           ? (data) => widget.onEditorDroppedAsSection!(data, _activeTabIndex)
+          : null,
+      onSectionDroppedFromPanel: widget.onSectionDroppedFromPanel != null
+          ? (data) =>
+              widget.onSectionDroppedFromPanel!(data, _activeTabIndex)
           : null,
     );
   }

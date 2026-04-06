@@ -2882,6 +2882,8 @@ Press "?" for this help document.
         onEditorDropped: (data) => _handleEditorDropOnPanel(data, panelArea),
         onEditorDroppedAsSection: (data, tabIndex) =>
             _handleEditorDropAsSection(data, panelArea, tabIndex),
+        onSectionDroppedFromPanel: (data, tabIndex) =>
+            _handleSectionDropOnPanel(data, panelArea, tabIndex),
         initialAccordionState: _accordionStates[panelArea.name],
         onAccordionStateChanged: (tabIndex, state) {
           _accordionStates[panelArea.name]![tabIndex] = state;
@@ -3336,6 +3338,29 @@ Press "?" for this help document.
     setState(() {});
   }
 
+  /// Handles a section being dropped from one side/bottom panel into another.
+  void _handleSectionDropOnPanel(
+    SectionDragData data,
+    PanelArea targetArea,
+    int tabIndex,
+  ) {
+    final layout = widget.application.layout;
+
+    final targetTabs = switch (targetArea) {
+      PanelArea.left => layout.leftPanel.tabs,
+      PanelArea.right => layout.rightPanel.tabs,
+      PanelArea.bottom => layout.bottomPanel.tabs,
+    };
+
+    if (tabIndex < 0 || tabIndex >= targetTabs.length) return;
+
+    // Add the section to the target panel tab.
+    targetTabs[tabIndex].sections.add(data.section);
+
+    // Remove from the source panel.
+    _removeSectionFromPanel(data);
+  }
+
   /// Handles a view section being dropped onto the editor tab bar from
   /// a side/bottom panel.
   void _handleViewDropOnMiddle(SectionDragData data, int panelIndex) {
@@ -3509,6 +3534,8 @@ Press "?" for this help document.
             _handleEditorDropOnPanel(data, PanelArea.bottom),
         onEditorDroppedAsSection: (data, tabIndex) =>
             _handleEditorDropAsSection(data, PanelArea.bottom, tabIndex),
+        onSectionDroppedFromPanel: (data, tabIndex) =>
+            _handleSectionDropOnPanel(data, PanelArea.bottom, tabIndex),
         onTabContextMenu: (tabIndex, position) =>
             _showBottomTabContextMenu(tabIndex, position, tabs),
         initialAccordionState: _accordionStates['bottom'],
