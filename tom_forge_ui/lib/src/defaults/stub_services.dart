@@ -171,6 +171,14 @@ class DefaultShortcutManager implements ForgeShortcutManager {
       return;
     }
 
+    // If the existing binding is already a chord, preserve it — chord
+    // bindings set by the user (or restored from preferences) take
+    // precedence over module-provided default keys.
+    final existingIndex = _bindings.indexWhere((b) => b.action.id == action.id);
+    if (existingIndex >= 0 && _bindings[existingIndex].isChord) {
+      return;
+    }
+
     // Check for deferred shortcut override.
     final effectiveKey = _deferredShortcutOverrides.remove(action.id) ?? key;
 

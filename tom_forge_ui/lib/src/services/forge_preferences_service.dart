@@ -69,6 +69,17 @@ class ForgePreferencesService extends ChangeNotifier {
       <String, Map<String, dynamic>>{};
   bool _isLoaded = false;
 
+  /// When true, layout restoration should skip workspace-level fallback.
+  bool _layoutResetRequested = false;
+
+  /// Whether a layout reset was requested (e.g. via the "Reset UI" checkbox).
+  bool get layoutResetRequested => _layoutResetRequested;
+
+  /// Clears the reset-requested flag after layout restoration is complete.
+  void clearLayoutResetRequest() {
+    _layoutResetRequested = false;
+  }
+
   static void _log(String message) {
     if (debugEnabled) {
       debugPrint('[ForgePreferencesService] $message');
@@ -302,6 +313,7 @@ class ForgePreferencesService extends ChangeNotifier {
     _layoutPanelSizes.clear();
     _layoutPanelVisibility.clear();
     _layoutOpenEditors.clear();
+    _layoutResetRequested = true;
   }
 
   /// The persisted theme mode (dark, light, or system).

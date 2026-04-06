@@ -706,6 +706,12 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   /// Tries SharedPreferences first, then falls back to `.forge/state/`
   /// files for workspace-scoped recovery.
   Future<void> _restoreLayoutState() async {
+    // If the user checked "Reset UI", skip all restoration.
+    if (_preferences.layoutResetRequested) {
+      _preferences.clearLayoutResetRequest();
+      return;
+    }
+
     final savedSnapshot = _preferences.layoutSnapshot;
     if (savedSnapshot.isNotEmpty) {
       await _applyLayoutSnapshot(savedSnapshot);

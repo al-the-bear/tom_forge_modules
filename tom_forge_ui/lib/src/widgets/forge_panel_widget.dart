@@ -2133,6 +2133,9 @@ class _ForgePanelWidgetState extends State<ForgePanelWidget> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
+          color: isActive
+              ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3)
+              : null,
           border: isActive
               ? Border(
                   bottom: BorderSide(color: theme.colorScheme.primary, width: 2))
