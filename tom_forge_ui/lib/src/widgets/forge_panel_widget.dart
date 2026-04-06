@@ -80,8 +80,12 @@ class ForgeSidePanelWidget extends StatefulWidget {
   /// Called when a panel tab is dropped from another area.
   final void Function(PanelTabDragData data)? onTabDropped;
 
-  /// Called when an editor tab from the middle panels is dropped here.
+  /// Called when an editor tab from the middle panels is dropped on icon strip.
   final void Function(TabDragData data)? onEditorDropped;
+
+  /// Called when an editor tab is dropped on the accordion content area
+  /// of the active tab (to be added as an accordion section).
+  final void Function(TabDragData data, int tabIndex)? onEditorDroppedAsSection;
 
   /// Initial accordion state per tab index.
   final Map<int, AccordionSectionState>? initialAccordionState;
@@ -104,6 +108,7 @@ class ForgeSidePanelWidget extends StatefulWidget {
     this.onTabChanged,
     this.onTabDropped,
     this.onEditorDropped,
+    this.onEditorDroppedAsSection,
     this.initialAccordionState,
     this.onAccordionStateChanged,
   });
@@ -359,9 +364,7 @@ class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
     return Tooltip(
       message: 'Add Tab',
       child: InkWell(
-        onTap: () {
-          // TODO: Show tab picker dialog
-        },
+        onTap: () => _showAddTabDialog(context),
         child: SizedBox(
           width: ForgeDimensions.sideTabBarCollapsed,
           height: ForgeDimensions.sideTabBarCollapsed,
@@ -373,6 +376,21 @@ class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
         ),
       ),
     );
+  }
+
+  Future<void> _showAddTabDialog(BuildContext context) async {
+    final result = await showDialog<PanelTabConfig>(
+      context: context,
+      builder: (ctx) => const _AddTabDialog(),
+    );
+    if (result != null && mounted) {
+      setState(() {
+        widget.tabs.add(result);
+        _activeTabIndex = widget.tabs.length - 1;
+        _showConfigPanel = false;
+      });
+      widget.onTabChanged?.call(_activeTabIndex, false);
+    }
   }
 
   Widget _buildConfigTab(BuildContext context) {
@@ -461,6 +479,10 @@ class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
           ? (state) =>
               widget.onAccordionStateChanged!(_activeTabIndex, state)
           : null,
+      onEditorDroppedAsSection: widget.onEditorDroppedAsSection != null
+          ? (data) =>
+              widget.onEditorDroppedAsSection!(data, _activeTabIndex)
+          : null,
     );
   }
 
@@ -493,12 +515,17 @@ class _AccordeonLayout extends StatefulWidget {
   final AccordionSectionState? initialState;
   final ValueChanged<AccordionSectionState>? onStateChanged;
 
+  /// Called when an editor tab from the middle panel is dropped on the
+  /// accordion content area (to be added as an accordion section).
+  final void Function(TabDragData data)? onEditorDroppedAsSection;
+
   const _AccordeonLayout({
     required this.sections,
     this.panelArea,
     this.tabIndex,
     this.initialState,
     this.onStateChanged,
+    this.onEditorDroppedAsSection,
   });
 
   @override
@@ -561,7 +588,28 @@ class _AccordeonLayoutState extends State<_AccordeonLayout> {
   Widget build(BuildContext context) {
     // If only one section, it's always expanded (per concept §3.2)
     if (widget.sections.length == 1) {
-      return widget.sections.first.buildMain(context);
+      return DragTarget<TabDragData>(
+        onWillAcceptWithDetails: (_) =>
+            widget.onEditorDroppedAsSection != null,
+        onAcceptWithDetails: (details) =>
+            widget.onEditorDroppedAsSection?.call(details.data),
+        builder: (context, candidateData, _) {
+          final child = widget.sections.first.buildMain(context);
+          if (candidateData.isEmpty) return child;
+          final shellTheme =
+              Theme.of(context).extension<ForgeShellTheme>();
+          return Container(
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: shellTheme?.dropZoneValid ??
+                    Theme.of(context).colorScheme.primary,
+                width: 2,
+              ),
+            ),
+            child: child,
+          );
+        },
+      );
     }
 
     final expandedIndices =
@@ -569,7 +617,13 @@ class _AccordeonLayoutState extends State<_AccordeonLayout> {
             .where(_expandedSections.contains)
             .toList();
 
-    return KeyboardListener(
+    return DragTarget<TabDragData>(
+      onWillAcceptWithDetails: (_) =>
+          widget.onEditorDroppedAsSection != null,
+      onAcceptWithDetails: (details) =>
+          widget.onEditorDroppedAsSection?.call(details.data),
+      builder: (context, candidateData, _) {
+    final content = KeyboardListener(
       focusNode: _focusNode,
       onKeyEvent: _handleKeyEvent,
       child: Column(
@@ -647,6 +701,21 @@ class _AccordeonLayoutState extends State<_AccordeonLayout> {
         ],
       ],
     ),
+    );
+    if (candidateData.isEmpty) return content;
+    final shellTheme =
+        Theme.of(context).extension<ForgeShellTheme>();
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: shellTheme?.dropZoneValid ??
+              Theme.of(context).colorScheme.primary,
+          width: 2,
+        ),
+      ),
+      child: content,
+    );
+      },
     );
   }
 
@@ -1524,6 +1593,20 @@ class _ForgePanelWidgetState extends State<ForgePanelWidget> {
     }
   }
 
+  Future<void> _showAddTabDialog(BuildContext context) async {
+    final result = await showDialog<PanelTabConfig>(
+      context: context,
+      builder: (ctx) => const _AddTabDialog(),
+    );
+    if (result != null && mounted) {
+      setState(() {
+        widget.tabs.add(result);
+        _activeTabIndex = widget.tabs.length - 1;
+      });
+      widget.onTabChanged?.call(_activeTabIndex);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.tabs.isEmpty) {
@@ -1599,9 +1682,7 @@ class _ForgePanelWidgetState extends State<ForgePanelWidget> {
               // Add tab button
               IconButton(
                 icon: const Icon(Icons.add, size: 16),
-                onPressed: () {
-                  // TODO: Show tab picker
-                },
+                onPressed: () => _showAddTabDialog(context),
                 tooltip: 'Add Tab',
               ),
             ],
@@ -1889,6 +1970,146 @@ class _BottomPanelEmptyPlaceholderState
           ),
         );
       },
+    );
+  }
+}
+
+/// A curated set of icons for the tab icon picker.
+const _tabIconChoices = <IconData>[
+  Icons.folder_outlined,
+  Icons.description_outlined,
+  Icons.code,
+  Icons.terminal,
+  Icons.bug_report_outlined,
+  Icons.search,
+  Icons.settings_outlined,
+  Icons.extension_outlined,
+  Icons.analytics_outlined,
+  Icons.storage_outlined,
+  Icons.account_tree_outlined,
+  Icons.view_list_outlined,
+  Icons.grid_view_outlined,
+  Icons.bookmark_outlined,
+  Icons.link_outlined,
+  Icons.language,
+];
+
+/// Dialog for adding a new panel tab with name and icon selection.
+class _AddTabDialog extends StatefulWidget {
+  const _AddTabDialog();
+
+  @override
+  State<_AddTabDialog> createState() => _AddTabDialogState();
+}
+
+class _AddTabDialogState extends State<_AddTabDialog> {
+  final _nameController = TextEditingController();
+  IconData _selectedIcon = Icons.folder_outlined;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return AlertDialog(
+      title: const Text('Add Tab'),
+      content: SizedBox(
+        width: 300,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: _nameController,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Tab Name',
+                hintText: 'Enter tab name',
+              ),
+              onSubmitted: (_) => _submit(),
+            ),
+            const SizedBox(height: 16),
+            Text('Icon', style: theme.textTheme.titleSmall),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              children: [
+                for (final icon in _tabIconChoices)
+                  _IconOption(
+                    icon: icon,
+                    isSelected: _selectedIcon == icon,
+                    onTap: () => setState(() => _selectedIcon = icon),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _submit,
+          child: const Text('Add'),
+        ),
+      ],
+    );
+  }
+
+  void _submit() {
+    final name = _nameController.text.trim();
+    if (name.isEmpty) return;
+    Navigator.pop(
+      context,
+      PanelTabConfig(title: name, icon: _selectedIcon),
+    );
+  }
+}
+
+class _IconOption extends StatelessWidget {
+  final IconData icon;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _IconOption({
+    required this.icon,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(4),
+          border: isSelected
+              ? Border.all(color: theme.colorScheme.primary, width: 2)
+              : null,
+          color: isSelected
+              ? theme.colorScheme.primary.withValues(alpha: 0.12)
+              : null,
+        ),
+        child: Icon(
+          icon,
+          size: 20,
+          color: isSelected
+              ? theme.colorScheme.primary
+              : theme.colorScheme.onSurface.withValues(alpha: 0.6),
+        ),
+      ),
     );
   }
 }

@@ -32,6 +32,7 @@ abstract class ForgeLayoutController {
 
   LayoutPanelConfig? getPanelConfig(ForgePanelLocation location);
   int get activeMiddlePanelIndex;
+  void setActiveMiddlePanelIndex(int index);
   void revealInExplorer(Uri uri);
 }
 

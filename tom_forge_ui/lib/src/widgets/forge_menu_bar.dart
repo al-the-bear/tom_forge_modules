@@ -180,32 +180,44 @@ class ForgeMenuBar extends StatelessWidget {
               ),
               const _MenuDivider(),
               _MenuItem(
-                label: 'Explorer',
+                label: 'Middle Panel 1',
                 shortcut: '⌘1',
-                onTap: () => _systemState.setFocusedPanelLocation(
-                  ForgePanelLocation.left,
-                ),
+                onTap: () {
+                  shellApi.layout.setActiveMiddlePanelIndex(0);
+                  _systemState.setFocusedPanelLocation(
+                    ForgePanelLocation.middle,
+                  );
+                },
               ),
               _MenuItem(
-                label: 'Editor',
+                label: 'Middle Panel 2',
                 shortcut: '⌘2',
-                onTap: () => _systemState.setFocusedPanelLocation(
-                  ForgePanelLocation.middle,
-                ),
+                onTap: () {
+                  shellApi.layout.setActiveMiddlePanelIndex(1);
+                  _systemState.setFocusedPanelLocation(
+                    ForgePanelLocation.middle,
+                  );
+                },
               ),
               _MenuItem(
-                label: 'Properties',
+                label: 'Middle Panel 3',
                 shortcut: '⌘3',
-                onTap: () => _systemState.setFocusedPanelLocation(
-                  ForgePanelLocation.right,
-                ),
+                onTap: () {
+                  shellApi.layout.setActiveMiddlePanelIndex(2);
+                  _systemState.setFocusedPanelLocation(
+                    ForgePanelLocation.middle,
+                  );
+                },
               ),
               _MenuItem(
-                label: 'Bottom Panel',
+                label: 'Middle Panel 4',
                 shortcut: '⌘4',
-                onTap: () => _systemState.setFocusedPanelLocation(
-                  ForgePanelLocation.bottom,
-                ),
+                onTap: () {
+                  shellApi.layout.setActiveMiddlePanelIndex(3);
+                  _systemState.setFocusedPanelLocation(
+                    ForgePanelLocation.middle,
+                  );
+                },
               ),
               const _MenuDivider(),
               _MenuSubHeader(label: 'Appearance'),

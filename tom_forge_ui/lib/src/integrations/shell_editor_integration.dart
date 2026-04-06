@@ -279,10 +279,38 @@ class ShellEditorIntegration extends shared.ForgeEditorIntegration
 
   void _registerWithShell(shared.ForgeAction action) {
     final shellAction = _toShellAction(action);
-    _shellApi.actionRegistry.registerAction(shellAction);
+    // Wrap the execute callback so that it delegates to the editor
+    // integration's action handler (stored in _actionHandlers via
+    // super.registerAction).  Without this, actions resolved via
+    // `_resolveAction` would keep the no-op default execute and
+    // chord-triggered actions would silently fail.
+    //
+    // We call the handler directly rather than going through
+    // `executeAction` to avoid infinite recursion (executeAction falls
+    // back to _shellApi.executeAction which would re-invoke this).
+    final actionId = action.id;
+    final wrappedAction = shell.ForgeAction(
+      id: shellAction.id,
+      label: shellAction.label,
+      icon: shellAction.icon,
+      menu: shellAction.menu,
+      group: shellAction.group,
+      priority: shellAction.priority,
+      execute: (_) async {
+        final handler = actionHandler(actionId);
+        handler?.call();
+        return null;
+      },
+      isEnabled: shellAction.isEnabled,
+      isVisible: shellAction.isVisible,
+      defaultShortcut: shellAction.defaultShortcut,
+      showInContextMenu: shellAction.showInContextMenu,
+      undo: shellAction.undo,
+    );
+    _shellApi.actionRegistry.registerAction(wrappedAction);
     final shortcut = action.defaultShortcut;
     if (shortcut != null) {
-      _shellApi.shortcuts.rebind(shellAction, _toShellShortcut(shortcut));
+      _shellApi.shortcuts.rebind(wrappedAction, _toShellShortcut(shortcut));
     }
   }
 

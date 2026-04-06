@@ -153,7 +153,6 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   static bool debugEnabled = false;
   static const Duration _layoutPersistDebounce = Duration(milliseconds: 500);
 
-  static const String _actionFileSaveAll = 'file.saveAll';
   static const String _actionEditorFind = 'editor.find';
   static const String _actionEditReplace = 'edit.replace';
   static const String _actionEditFormatDocument = 'edit.formatDocument';
@@ -1977,12 +1976,13 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         primaryActivator(LogicalKeyboardKey.keyR):
             const _ToggleRightPanelIntent(),
         primaryActivator(LogicalKeyboardKey.digit1):
-            const _FocusLeftPanelIntent(),
-        primaryActivator(LogicalKeyboardKey.digit2): const _FocusCenterIntent(),
+            const _FocusMiddlePanelIntent(0),
+        primaryActivator(LogicalKeyboardKey.digit2):
+            const _FocusMiddlePanelIntent(1),
         primaryActivator(LogicalKeyboardKey.digit3):
-            const _FocusRightPanelIntent(),
+            const _FocusMiddlePanelIntent(2),
         primaryActivator(LogicalKeyboardKey.digit4):
-            const _FocusBottomPanelIntent(),
+            const _FocusMiddlePanelIntent(3),
         primaryActivator(LogicalKeyboardKey.bracketRight):
             const _FocusNextPanelIntent(),
         primaryActivator(LogicalKeyboardKey.bracketLeft):
@@ -2033,31 +2033,18 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
           return null;
         },
       ),
-      _FocusLeftPanelIntent: CallbackAction<_FocusLeftPanelIntent>(
-        onInvoke: (_) {
-          widget.systemState.setFocusedPanelLocation(ForgePanelLocation.left);
-          ForgeAccessibility.announcePolite('Left panel focused');
-          return null;
-        },
-      ),
-      _FocusCenterIntent: CallbackAction<_FocusCenterIntent>(
-        onInvoke: (_) {
+      _FocusMiddlePanelIntent: CallbackAction<_FocusMiddlePanelIntent>(
+        onInvoke: (intent) {
+          final panelIndex = intent.panelIndex;
+          final panelCount =
+              (_layout.middlePanels.value).length;
+          if (panelIndex < panelCount) {
+            _layout.setActiveMiddlePanelIndex(panelIndex);
+          }
           widget.systemState.setFocusedPanelLocation(ForgePanelLocation.middle);
-          ForgeAccessibility.announcePolite('Editor panel focused');
-          return null;
-        },
-      ),
-      _FocusRightPanelIntent: CallbackAction<_FocusRightPanelIntent>(
-        onInvoke: (_) {
-          widget.systemState.setFocusedPanelLocation(ForgePanelLocation.right);
-          ForgeAccessibility.announcePolite('Right panel focused');
-          return null;
-        },
-      ),
-      _FocusBottomPanelIntent: CallbackAction<_FocusBottomPanelIntent>(
-        onInvoke: (_) {
-          widget.systemState.setFocusedPanelLocation(ForgePanelLocation.bottom);
-          ForgeAccessibility.announcePolite('Bottom panel focused');
+          ForgeAccessibility.announcePolite(
+            'Middle panel ${panelIndex + 1} focused',
+          );
           return null;
         },
       ),
@@ -2077,7 +2064,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       ),
       _SaveIntent: CallbackAction<_SaveIntent>(
         onInvoke: (_) {
-          _executeSave();
+          widget.shell.executeAction('file.saveAll');
           return null;
         },
       ),
@@ -2178,10 +2165,10 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
 |----------|--------|
 | Ctrl+L / Cmd+L | Toggle left panel |
 | Ctrl+R / Cmd+R | Toggle right panel |
-| Ctrl+1 / Cmd+1 | Focus left panel |
-| Ctrl+2 / Cmd+2 | Focus editor |
-| Ctrl+3 / Cmd+3 | Focus right panel |
-| Ctrl+4 / Cmd+4 | Focus bottom panel |
+| Ctrl+1 / Cmd+1 | Focus middle panel 1 |
+| Ctrl+2 / Cmd+2 | Focus middle panel 2 |
+| Ctrl+3 / Cmd+3 | Focus middle panel 3 |
+| Ctrl+4 / Cmd+4 | Focus middle panel 4 |
 
 ## Chord Shortcuts
 
@@ -2241,17 +2228,6 @@ Press "?" for this help document.
         ),
       ),
     );
-  }
-
-  void _executeSave() {
-    try {
-      // Concept §11.3: Cmd+S = "Save all dirty editors".
-      widget.shell.executeAction(_actionFileSaveAll);
-    } catch (error, stackTrace) {
-      debugPrint('[ForgeShellScaffold] execute save failed: $error');
-      debugPrint('$stackTrace');
-      widget.shell.notifications.showError('Save failed: $error');
-    }
   }
 
   Widget _buildTitleBar(BuildContext context) {
@@ -2834,6 +2810,8 @@ Press "?" for this help document.
         onTabChanged: onTabChanged,
         onTabDropped: (data) => _handlePanelTabDrop(data, panelArea),
         onEditorDropped: (data) => _handleEditorDropOnPanel(data, panelArea),
+        onEditorDroppedAsSection: (data, tabIndex) =>
+            _handleEditorDropAsSection(data, panelArea, tabIndex),
         initialAccordionState: _accordionStates[panelArea.name],
         onAccordionStateChanged: (tabIndex, state) {
           _accordionStates[panelArea.name]![tabIndex] = state;
@@ -3551,20 +3529,9 @@ class _ToggleRightPanelIntent extends Intent {
   const _ToggleRightPanelIntent();
 }
 
-class _FocusLeftPanelIntent extends Intent {
-  const _FocusLeftPanelIntent();
-}
-
-class _FocusCenterIntent extends Intent {
-  const _FocusCenterIntent();
-}
-
-class _FocusRightPanelIntent extends Intent {
-  const _FocusRightPanelIntent();
-}
-
-class _FocusBottomPanelIntent extends Intent {
-  const _FocusBottomPanelIntent();
+class _FocusMiddlePanelIntent extends Intent {
+  final int panelIndex;
+  const _FocusMiddlePanelIntent(this.panelIndex);
 }
 
 class _FocusNextPanelIntent extends Intent {

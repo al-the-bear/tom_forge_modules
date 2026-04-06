@@ -509,6 +509,7 @@ class DefaultLayoutController implements ForgeLayoutController {
   ValueListenable<int> get activeMiddlePanelIndexNotifier =>
       _activeMiddlePanelIndex;
 
+  @override
   void setActiveMiddlePanelIndex(int index) {
     _activeMiddlePanelIndex.value = index;
     _systemState.setActiveMiddlePanelIndex(index);

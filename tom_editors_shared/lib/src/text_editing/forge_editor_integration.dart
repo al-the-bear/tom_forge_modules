@@ -130,6 +130,9 @@ mixin StandardActionsMixin on ForgeEditorIntegration {
   /// Map of action IDs to their enabled-state queries.
   final Map<String, bool Function()> _actionEnabledQueries = {};
 
+  /// Returns the registered handler for [actionId], or null.
+  VoidCallback? actionHandler(String actionId) => _actionHandlers[actionId];
+
   /// Register a standard action with its handler and enabled query.
   @override
   void registerAction(
