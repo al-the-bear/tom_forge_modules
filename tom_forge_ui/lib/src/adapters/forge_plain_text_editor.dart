@@ -123,7 +123,7 @@ class ForgePlainTextEditor extends ForgeTextEditor {
         shellApi: shellModule.shellApi,
         editorId: 'plaintext-editor-${uri.hashCode}',
         editorTypeId: 'plaintext',
-      );
+      )..descriptors = StandardEditingActions.descriptors;
     }
     final ext = uri.pathSegments.isNotEmpty
         ? uri.pathSegments.last.split('.').last.toLowerCase()

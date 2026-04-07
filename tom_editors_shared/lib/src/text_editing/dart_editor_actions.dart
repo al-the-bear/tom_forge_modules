@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
 
+import '../forge_bridge/editor_action_descriptor.dart';
 import '../forge_bridge/forge_action.dart';
 import '../forge_bridge/forge_shortcut_key.dart';
 
@@ -208,4 +209,64 @@ class DartEditorActions {
   static Map<String, List<ForgeShortcutKey>> get alternativeShortcuts => {
         triggerCompletionActionId: triggerCompletionAltShortcuts,
       };
+
+  /// Returns action descriptors for all Dart editor-specific actions.
+  static List<EditorActionDescriptor> get descriptors => [
+        EditorActionDescriptor(
+          id: triggerCompletionActionId,
+          label: 'Trigger Completion',
+          category: 'Dart Editor',
+          description: 'Show autocomplete suggestions at cursor position',
+          contextRule: ActionContext.editorFocused,
+          suggestedShortcut: triggerCompletionShortcut,
+          suggestedAlternatives: triggerCompletionAltShortcuts,
+        ),
+        EditorActionDescriptor(
+          id: openReferenceActionId,
+          label: 'Open Reference',
+          category: 'Dart Editor',
+          description: 'Open the API reference dialog',
+          contextRule: ActionContext.editorFocused,
+        ),
+        EditorActionDescriptor(
+          id: toggleCommentActionId,
+          label: 'Toggle Comment',
+          category: 'Dart Editor',
+          description: 'Toggle line comment (prepend/remove //)',
+          contextRule: ActionContext.editable,
+          suggestedShortcut: toggleCommentShortcut,
+        ),
+        EditorActionDescriptor(
+          id: deleteLineActionId,
+          label: 'Delete Line',
+          category: 'Dart Editor',
+          description: 'Delete the current line',
+          contextRule: ActionContext.editable,
+          suggestedShortcut: deleteLineShortcut,
+        ),
+        EditorActionDescriptor(
+          id: duplicateLineActionId,
+          label: 'Duplicate Line',
+          category: 'Dart Editor',
+          description: 'Duplicate the current line below',
+          contextRule: ActionContext.editable,
+          suggestedShortcut: duplicateLineShortcut,
+        ),
+        EditorActionDescriptor(
+          id: moveLineUpActionId,
+          label: 'Move Line Up',
+          category: 'Dart Editor',
+          description: 'Move the current line up',
+          contextRule: ActionContext.editable,
+          suggestedShortcut: moveLineUpShortcut,
+        ),
+        EditorActionDescriptor(
+          id: moveLineDownActionId,
+          label: 'Move Line Down',
+          category: 'Dart Editor',
+          description: 'Move the current line down',
+          contextRule: ActionContext.editable,
+          suggestedShortcut: moveLineDownShortcut,
+        ),
+      ];
 }

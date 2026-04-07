@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
 
+import '../forge_bridge/editor_action_descriptor.dart';
 import '../forge_bridge/forge_action.dart';
 import '../forge_bridge/forge_shortcut_key.dart';
 
@@ -174,4 +175,50 @@ class StandardEditingActions {
         undoActionId: undoShortcut,
         redoActionId: redoShortcut,
       };
+
+  /// Returns action descriptors for all standard editing actions.
+  static List<EditorActionDescriptor> get descriptors => [
+        EditorActionDescriptor(
+          id: cutActionId,
+          label: 'Cut',
+          category: 'Standard',
+          contextRule: ActionContext.hasSelection,
+          suggestedShortcut: cutShortcut,
+        ),
+        EditorActionDescriptor(
+          id: copyActionId,
+          label: 'Copy',
+          category: 'Standard',
+          contextRule: ActionContext.hasSelection,
+          suggestedShortcut: copyShortcut,
+        ),
+        EditorActionDescriptor(
+          id: pasteActionId,
+          label: 'Paste',
+          category: 'Standard',
+          contextRule: ActionContext.editable,
+          suggestedShortcut: pasteShortcut,
+        ),
+        EditorActionDescriptor(
+          id: selectAllActionId,
+          label: 'Select All',
+          category: 'Standard',
+          contextRule: ActionContext.textEditorFocused,
+          suggestedShortcut: selectAllShortcut,
+        ),
+        EditorActionDescriptor(
+          id: undoActionId,
+          label: 'Undo',
+          category: 'Standard',
+          contextRule: ActionContext.editorFocused,
+          suggestedShortcut: undoShortcut,
+        ),
+        EditorActionDescriptor(
+          id: redoActionId,
+          label: 'Redo',
+          category: 'Standard',
+          contextRule: ActionContext.editorFocused,
+          suggestedShortcut: redoShortcut,
+        ),
+      ];
 }

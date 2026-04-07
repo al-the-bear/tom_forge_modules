@@ -26,6 +26,20 @@ class ShellEditorIntegration extends shared.ForgeEditorIntegration
 
   final Map<String, shared.ForgeAction> _knownActions = {};
 
+  /// Editor action descriptors set during integration setup.
+  List<shared.EditorActionDescriptor> _descriptors = const [];
+
+  /// Sets the action descriptors for this integration.
+  ///
+  /// Called by the shell when the editor module activates, providing
+  /// the descriptors from the editor's standalone integration.
+  set descriptors(List<shared.EditorActionDescriptor> value) {
+    _descriptors = value;
+  }
+
+  @override
+  List<shared.EditorActionDescriptor> get actionDescriptors => _descriptors;
+
   shared.ForgeTextContext _context = shared.TextEditingContextImpl.withValues(
     text: '',
     selections: const [TextSelection.collapsed(offset: 0)],
@@ -314,57 +328,37 @@ class ShellEditorIntegration extends shared.ForgeEditorIntegration
     }
   }
 
+  /// Resolves a [shared.ForgeAction] for the given [actionId] by looking up
+  /// the action's descriptor from the editor's [actionDescriptors] list.
+  ///
+  /// Returns `null` if no descriptor is found for the action ID.
   shared.ForgeAction? _resolveAction(
     String actionId,
     bool Function()? enabled,
   ) {
-    final allActions = <shared.ForgeAction>[
-      ...shared.StandardEditingActions.all(),
-      shared.DartEditorActions.triggerCompletion(),
-      shared.DartEditorActions.openReference(),
-      shared.DartEditorActions.toggleComment(),
-      shared.DartEditorActions.deleteLine(),
-      shared.DartEditorActions.duplicateLine(),
-      shared.DartEditorActions.moveLineUp(),
-      shared.DartEditorActions.moveLineDown(),
-      shared.MdEditorActions.toggleBold(),
-      shared.MdEditorActions.toggleItalic(),
-      shared.MdEditorActions.toggleCode(),
-      shared.MdEditorActions.insertLink(),
-      shared.MdEditorActions.insertTable(),
-      shared.MdEditorActions.insertHeading(),
-      shared.MdEditorActions.toggleList(),
-      shared.MdEditorActions.save(),
-      shared.MdEditorActions.search(),
-      shared.YamlEditorActions.addKey(),
-      shared.YamlEditorActions.removeKey(),
-      shared.YamlEditorActions.toggleTextMode(),
-      shared.YamlEditorActions.save(),
-      shared.YamlEditorActions.search(),
-    ];
-
-    for (final action in allActions) {
-      if (action.id == actionId) {
-        if (enabled == null) {
-          return action;
-        }
-        return shared.ForgeAction(
-          id: action.id,
-          label: action.label,
-          icon: action.icon,
-          menu: action.menu,
-          group: action.group,
-          priority: action.priority,
-          execute: action.execute,
-          isEnabled: enabled,
-          isVisible: action.isVisible,
-          defaultShortcut: action.defaultShortcut,
-          showInContextMenu: action.showInContextMenu,
-          undo: action.undo,
-        );
+    // Look up the descriptor from the editor's declared list.
+    shared.EditorActionDescriptor? descriptor;
+    for (final d in actionDescriptors) {
+      if (d.id == actionId) {
+        descriptor = d;
+        break;
       }
     }
-    return null;
+    if (descriptor == null) return null;
+
+    return shared.ForgeAction(
+      id: descriptor.id,
+      label: descriptor.label,
+      icon: descriptor.icon,
+      menu: descriptor.showInContextMenu
+          ? shared.ForgeMenuLocation.contextMenu
+          : shared.ForgeMenuLocation.edit,
+      execute: (_) async => null,
+      isEnabled: enabled ?? () => true,
+      isVisible: () => true,
+      defaultShortcut: descriptor.suggestedShortcut,
+      showInContextMenu: descriptor.showInContextMenu,
+    );
   }
 
   shell.ForgeAction _toShellAction(shared.ForgeAction action) {

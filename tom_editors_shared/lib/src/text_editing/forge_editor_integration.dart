@@ -1,6 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import '../forge_bridge/editor_action_descriptor.dart';
 import '../forge_bridge/forge_action.dart';
 import '../forge_bridge/forge_shortcut_key.dart';
 import 'forge_text_context.dart';
@@ -33,6 +34,15 @@ typedef SelectionChangeCallback = void Function(TextSelection newSelection);
 abstract class ForgeEditorIntegration {
   /// The current text editing context (text, selection, cursor info).
   ForgeTextContext get textContext;
+
+  /// All actions this editor can perform, as descriptors (metadata only).
+  ///
+  /// Called once during integration setup. The list is static for the
+  /// editor type — it does not change at runtime. Hosts use these
+  /// descriptors to discover capabilities and bind shortcuts.
+  ///
+  /// Returns an empty list by default for backward compatibility.
+  List<EditorActionDescriptor> get actionDescriptors => const [];
 
   /// Current text settings applied to this editor.
   ForgeTextSettings get textSettings;

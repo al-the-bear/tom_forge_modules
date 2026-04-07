@@ -4,7 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart'
-    show TextEditingContextImpl, ValidationSeverity;
+    show TextEditingContextImpl, ValidationSeverity,
+         YamlEditorActions, StandardEditingActions;
 import 'package:tom_yaml_editor/tom_yaml_editor.dart';
 
 import '../components/forge_schema_editor.dart';
@@ -82,7 +83,13 @@ class ForgeYamlEditor extends ForgeSchemaEditor {
         shellApi: shellModule.shellApi,
         editorId: 'yaml-editor-${uri.hashCode}',
         editorTypeId: 'yaml',
-      );
+      )..descriptors = [
+          ...YamlEditorActions.descriptors,
+          ...StandardEditingActions.descriptors
+              .where((d) =>
+                  d.id == StandardEditingActions.undoActionId ||
+                  d.id == StandardEditingActions.redoActionId),
+        ];
       _integration!.onContextChanged(
         TextEditingContextImpl.withValues(
           text: controller.yamlText,

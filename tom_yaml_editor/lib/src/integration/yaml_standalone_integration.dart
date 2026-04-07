@@ -156,6 +156,16 @@ class YamlStandaloneIntegration extends ForgeEditorIntegration
   }
 
   @override
+  List<EditorActionDescriptor> get actionDescriptors => [
+        ...YamlEditorActions.descriptors,
+        // Only undo/redo from standard actions (tree-based, no cut/copy/paste)
+        ...StandardEditingActions.descriptors
+            .where((d) =>
+                d.id == StandardEditingActions.undoActionId ||
+                d.id == StandardEditingActions.redoActionId),
+      ];
+
+  @override
   List<ForgeAction> get supportedActions => [
         StandardEditingActions.undo(),
         StandardEditingActions.redo(),

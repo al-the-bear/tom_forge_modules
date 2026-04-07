@@ -80,6 +80,15 @@ class YamlSchemaEditor extends StatefulWidget {
   /// When provided, the given integration is used directly.
   final ForgeEditorIntegration? integration;
 
+  /// Whether this editor should handle keyboard shortcuts internally.
+  ///
+  /// When `true` (default, standalone mode), the editor wraps its content
+  /// in `Shortcuts`/`Actions` widgets and installs `onKeyEvent` handlers.
+  /// When `false` (shell-integrated mode), all shortcut-to-action routing
+  /// comes from the host — the editor only registers action handlers for
+  /// execution.
+  final bool handleShortcuts;
+
   const YamlSchemaEditor({
     super.key,
     required this.controller,
@@ -92,6 +101,7 @@ class YamlSchemaEditor extends StatefulWidget {
     this.errorListPosition,
     this.highlightErrorRows = false,
     this.integration,
+    this.handleShortcuts = true,
   }) : editorRegistry = editorRegistry ?? const EditorRegistry();
 
   @override
@@ -241,6 +251,10 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
   }
 
   void _buildShortcutMap() {
+    if (!widget.handleShortcuts) {
+      _shortcuts = {};
+      return;
+    }
     _shortcuts = <ShortcutActivator, Intent>{};
     for (final action in _integration.supportedActions) {
       final key = _integration.getShortcutForAction(action.id);
@@ -266,6 +280,7 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
   /// Note: Ctrl+Y is intentionally NOT intercepted — it is handled by the
   /// shell's shortcut binding system (mapped to Delete Line).
   KeyEventResult _handleUndoKeyEvent(FocusNode node, KeyEvent event) {
+    if (!widget.handleShortcuts) return KeyEventResult.ignored;
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
     }
@@ -931,36 +946,42 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
 
     // Outer Focus interceptor removed — handler is now on the inner Focus
     // (autofocus: true) which fires BEFORE the Shortcuts/Actions chain.
-    var mainContent = Shortcuts(
-      shortcuts: _shortcuts,
-      child: Actions(
-        actions: <Type, Action<Intent>>{
-          _YamlEditorActionIntent:
-              CallbackAction<_YamlEditorActionIntent>(
-            onInvoke: (intent) {
-              _integration.executeAction(intent.actionId);
-              return null;
-            },
-          ),
-        },
-        // A Focus wrapper inside Actions ensures that when a tree-node
-        // text field loses focus, Flutter falls back to this node which
-        // stays inside the Actions scope.  The onKeyEvent handler
-        // intercepts undo/redo before the Shortcuts chain so that they
-        // work even when inline text fields hold primaryFocus.
-        child: Focus(
-          autofocus: true,
-          onKeyEvent: _handleUndoKeyEvent,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildModeToolbar(theme),
-              Expanded(child: editorContent),
-            ],
-          ),
-        ),
+    Widget mainContent;
+    final innerContent = Focus(
+      autofocus: true,
+      onKeyEvent: _handleUndoKeyEvent,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildModeToolbar(theme),
+          Expanded(child: editorContent),
+        ],
       ),
     );
+    if (widget.handleShortcuts) {
+      mainContent = Shortcuts(
+        shortcuts: _shortcuts,
+        child: Actions(
+          actions: <Type, Action<Intent>>{
+            _YamlEditorActionIntent:
+                CallbackAction<_YamlEditorActionIntent>(
+              onInvoke: (intent) {
+                _integration.executeAction(intent.actionId);
+                return null;
+              },
+            ),
+          },
+          // A Focus wrapper inside Actions ensures that when a tree-node
+          // text field loses focus, Flutter falls back to this node which
+          // stays inside the Actions scope.  The onKeyEvent handler
+          // intercepts undo/redo before the Shortcuts chain so that they
+          // work even when inline text fields hold primaryFocus.
+          child: innerContent,
+        ),
+      );
+    } else {
+      mainContent = innerContent;
+    }
 
     // Wrap with optional error list
     var errorListPos = widget.errorListPosition;

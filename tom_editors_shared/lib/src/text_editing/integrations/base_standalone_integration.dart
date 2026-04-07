@@ -1,6 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../forge_bridge/editor_action_descriptor.dart';
 import '../../forge_bridge/forge_action.dart';
 import '../../forge_bridge/forge_shortcut_key.dart';
 import '../forge_editor_integration.dart';
@@ -315,6 +316,10 @@ class BaseStandaloneIntegration extends ForgeEditorIntegration
   void removeSelectionChangeListener(SelectionChangeCallback callback) {
     _selectionChangeListeners.remove(callback);
   }
+
+  @override
+  List<EditorActionDescriptor> get actionDescriptors =>
+      StandardEditingActions.descriptors;
 
   @override
   List<ForgeAction> get supportedActions => [

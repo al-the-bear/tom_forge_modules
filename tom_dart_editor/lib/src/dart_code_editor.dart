@@ -617,6 +617,15 @@ class DartCodeEditor extends StatefulWidget {
   /// [initState] with sensible defaults.
   final ForgeEditorIntegration? integration;
 
+  /// Whether this editor should handle keyboard shortcuts internally.
+  ///
+  /// When `true` (default, standalone mode), the editor wraps its content
+  /// in `Shortcuts`/`Actions` widgets.
+  /// When `false` (shell-integrated mode), all shortcut-to-action routing
+  /// comes from the host — the editor only registers action handlers for
+  /// execution.
+  final bool handleShortcuts;
+
   DartCodeEditor({
     super.key,
     required this.controller,
@@ -632,6 +641,7 @@ class DartCodeEditor extends StatefulWidget {
     this.settings = const DartEditorSettings(),
     this.onSettingsChanged,
     this.integration,
+    this.handleShortcuts = true,
     DartEditorTheme? theme,
   }) : theme = theme ?? DartEditorTheme.dark();
 
@@ -834,6 +844,10 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
 
   /// Build the keyboard shortcut map from registered actions.
   void _buildShortcutMap() {
+    if (!widget.handleShortcuts) {
+      _shortcuts = {};
+      return;
+    }
     _shortcuts = <ShortcutActivator, Intent>{};
 
     // Primary shortcuts from all registered actions
@@ -1996,6 +2010,26 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
     return KeyEventResult.ignored;
   }
 
+  /// Wraps [child] with Shortcuts/Actions widgets when [handleShortcuts]
+  /// is true. Otherwise returns [child] directly.
+  Widget _wrapWithShortcuts({required Widget child}) {
+    if (!widget.handleShortcuts) return child;
+    return Shortcuts(
+      shortcuts: _shortcuts,
+      child: Actions(
+        actions: <Type, Action<Intent>>{
+          _DartEditorActionIntent: CallbackAction<_DartEditorActionIntent>(
+            onInvoke: (intent) {
+              _integration.executeAction(intent.actionId);
+              return null;
+            },
+          ),
+        },
+        child: child,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = widget.theme;
@@ -2014,25 +2048,13 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
         children: [
           if (_settings.showToolbar) _buildToolbar(),
           Expanded(
-            child: Shortcuts(
-              shortcuts: _shortcuts,
-              child: Actions(
-                actions: <Type, Action<Intent>>{
-                  _DartEditorActionIntent:
-                      CallbackAction<_DartEditorActionIntent>(
-                    onInvoke: (intent) {
-                      _integration.executeAction(intent.actionId);
-                      return null;
-                    },
-                  ),
-                },
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (_settings.showLineNumbers) _buildGutter(),
-                    Expanded(key: _editorKey, child: _buildEditor()),
-                  ],
-                ),
+            child: _wrapWithShortcuts(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (_settings.showLineNumbers) _buildGutter(),
+                  Expanded(key: _editorKey, child: _buildEditor()),
+                ],
               ),
             ),
           ),

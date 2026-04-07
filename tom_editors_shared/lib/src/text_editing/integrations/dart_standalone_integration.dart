@@ -1,6 +1,8 @@
 import 'package:flutter/widgets.dart';
 
+import '../../forge_bridge/editor_action_descriptor.dart';
 import '../dart_editor_actions.dart';
+import '../standard_editing_actions.dart';
 import '../forge_text_settings.dart';
 import 'base_standalone_integration.dart';
 
@@ -85,6 +87,12 @@ class DartStandaloneIntegration extends BaseStandaloneIntegration {
         ) {
     _log('Created DartStandaloneIntegration');
   }
+
+  @override
+  List<EditorActionDescriptor> get actionDescriptors => [
+        ...DartEditorActions.descriptors,
+        ...StandardEditingActions.descriptors,
+      ];
 
   /// Builds a map of all registered action shortcuts plus alternatives.
   ///

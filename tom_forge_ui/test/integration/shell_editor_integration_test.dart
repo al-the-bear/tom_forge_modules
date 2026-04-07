@@ -21,7 +21,10 @@ void main() {
         shellApi: shellApi,
         editorId: 'md-editor-1',
         editorTypeId: 'md',
-      );
+      )..descriptors = [
+          ...shared.MdEditorActions.descriptors,
+          ...shared.StandardEditingActions.descriptors,
+        ];
       final action = shared.ForgeAction.editing(
         id: 'md.insertTable',
         label: 'Insert Table',

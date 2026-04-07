@@ -104,7 +104,10 @@ class ForgeMdEditor extends ForgeTextEditor {
         shellApi: shellModule.shellApi,
         editorId: 'md-editor-${uri.hashCode}',
         editorTypeId: 'md',
-      );
+      )..descriptors = [
+          ...MdEditorActions.descriptors,
+          ...StandardEditingActions.descriptors,
+        ];
     }
     // Build theme with applied options.
     final theme = _buildThemeFromOptions();

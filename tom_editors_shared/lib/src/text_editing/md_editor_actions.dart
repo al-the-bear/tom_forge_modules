@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
 
+import '../forge_bridge/editor_action_descriptor.dart';
 import '../forge_bridge/forge_action.dart';
 import '../forge_bridge/forge_shortcut_key.dart';
 
@@ -274,5 +275,83 @@ class MdEditorActions {
   static List<ForgeAction> contextMenuActions() => [
         insertTable(),
         insertLink(),
+      ];
+
+  /// Returns action descriptors for all Markdown editor-specific actions.
+  static List<EditorActionDescriptor> get descriptors => [
+        EditorActionDescriptor(
+          id: toggleBoldActionId,
+          label: 'Toggle Bold',
+          category: 'Markdown',
+          description: 'Toggle bold formatting around the selection',
+          contextRule: ActionContext.editable,
+          suggestedShortcut: toggleBoldShortcut,
+        ),
+        EditorActionDescriptor(
+          id: toggleItalicActionId,
+          label: 'Toggle Italic',
+          category: 'Markdown',
+          description: 'Toggle italic formatting around the selection',
+          contextRule: ActionContext.editable,
+          suggestedShortcut: toggleItalicShortcut,
+        ),
+        EditorActionDescriptor(
+          id: toggleCodeActionId,
+          label: 'Toggle Code',
+          category: 'Markdown',
+          description: 'Toggle inline code formatting around the selection',
+          contextRule: ActionContext.editable,
+          suggestedShortcut: toggleCodeShortcut,
+        ),
+        EditorActionDescriptor(
+          id: insertLinkActionId,
+          label: 'Insert Link',
+          category: 'Markdown',
+          description: 'Insert a markdown link at the cursor',
+          contextRule: ActionContext.editable,
+          showInContextMenu: true,
+          suggestedShortcut: insertLinkShortcut,
+        ),
+        EditorActionDescriptor(
+          id: insertTableActionId,
+          label: 'Insert Table',
+          category: 'Markdown',
+          description: 'Insert a markdown table at the cursor',
+          contextRule: ActionContext.editable,
+          showInContextMenu: true,
+          suggestedShortcut: insertTableShortcut,
+        ),
+        EditorActionDescriptor(
+          id: insertHeadingActionId,
+          label: 'Insert Heading',
+          category: 'Markdown',
+          description: 'Insert a heading marker at the cursor',
+          contextRule: ActionContext.editable,
+          suggestedShortcut: insertHeadingShortcut,
+        ),
+        EditorActionDescriptor(
+          id: toggleListActionId,
+          label: 'Toggle List',
+          category: 'Markdown',
+          description: 'Toggle list formatting for the current line',
+          contextRule: ActionContext.editable,
+          suggestedShortcut: toggleListShortcut,
+        ),
+        EditorActionDescriptor(
+          id: saveActionId,
+          label: 'Save',
+          category: 'Markdown',
+          description: 'Save the document',
+          contextRule: ActionContext.editorFocused,
+          suggestedShortcut: saveShortcut,
+        ),
+        EditorActionDescriptor(
+          id: searchActionId,
+          label: 'Search',
+          category: 'Markdown',
+          description: 'Toggle the search panel',
+          contextRule: ActionContext.editorFocused,
+          suggestedShortcut: searchShortcut,
+        ),
       ];
 }

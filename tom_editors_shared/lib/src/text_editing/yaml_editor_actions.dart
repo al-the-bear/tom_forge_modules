@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
 
+import '../forge_bridge/editor_action_descriptor.dart';
 import '../forge_bridge/forge_action.dart';
 import '../forge_bridge/forge_shortcut_key.dart';
 
@@ -173,5 +174,51 @@ class YamlEditorActions {
   static List<ForgeAction> contextMenuActions() => [
         addKey(),
         removeKey(),
+      ];
+
+  /// Returns action descriptors for all YAML editor-specific actions.
+  static List<EditorActionDescriptor> get descriptors => [
+        EditorActionDescriptor(
+          id: addKeyActionId,
+          label: 'Add Key',
+          category: 'YAML Editor',
+          description: 'Add a new key to the selected node or its parent map',
+          contextRule: ActionContext.editable,
+          showInContextMenu: true,
+          suggestedShortcut: addKeyShortcut,
+        ),
+        EditorActionDescriptor(
+          id: removeKeyActionId,
+          label: 'Remove Key',
+          category: 'YAML Editor',
+          description: 'Remove the selected key from the tree',
+          contextRule: ActionContext.editable,
+          showInContextMenu: true,
+          suggestedShortcut: removeKeyShortcut,
+        ),
+        EditorActionDescriptor(
+          id: toggleTextModeActionId,
+          label: 'Toggle Text Mode',
+          category: 'YAML Editor',
+          description: 'Toggle between tree mode and raw text mode',
+          contextRule: ActionContext.editorFocused,
+          suggestedShortcut: toggleTextModeShortcut,
+        ),
+        EditorActionDescriptor(
+          id: saveActionId,
+          label: 'Save',
+          category: 'YAML Editor',
+          description: 'Save the document',
+          contextRule: ActionContext.editorFocused,
+          suggestedShortcut: saveShortcut,
+        ),
+        EditorActionDescriptor(
+          id: searchActionId,
+          label: 'Find',
+          category: 'YAML Editor',
+          description: 'Toggle the search panel',
+          contextRule: ActionContext.editorFocused,
+          suggestedShortcut: searchShortcut,
+        ),
       ];
 }

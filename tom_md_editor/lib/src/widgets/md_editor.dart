@@ -50,6 +50,7 @@ class MdEditor extends StatefulWidget {
     this.markdown,
     this.controller,
     this.integration,
+    this.handleShortcuts = true,
     this.theme,
     this.settings,
     this.eventHandlers,
@@ -88,6 +89,15 @@ class MdEditor extends StatefulWidget {
   /// When `null`, a [MdStandaloneIntegration] is created automatically in
   /// [initState] with sensible defaults.
   final ForgeEditorIntegration? integration;
+
+  /// Whether this editor should handle keyboard shortcuts internally.
+  ///
+  /// When `true` (default, standalone mode), the editor wraps its content
+  /// in `Shortcuts`/`Actions` widgets.
+  /// When `false` (shell-integrated mode), all shortcut-to-action routing
+  /// comes from the host — the editor only registers action handlers for
+  /// execution.
+  final bool handleShortcuts;
 
   /// Visual theme. Defaults to [MdEditorTheme.dark].
   final MdEditorTheme? theme;
@@ -368,6 +378,10 @@ class _MdEditorState extends State<MdEditor> {
   /// Build the keyboard shortcut map from registered actions and
   /// markdown-specific shortcuts.
   void _buildShortcutMap() {
+    if (!widget.handleShortcuts) {
+      _shortcuts = {};
+      return;
+    }
     _shortcuts = <ShortcutActivator, Intent>{};
 
     // Primary shortcuts from all registered actions
@@ -398,6 +412,16 @@ class _MdEditorState extends State<MdEditor> {
 
   @override
   Widget build(BuildContext context) {
+    final innerContent = Focus(
+      autofocus: widget.autofocus,
+      child: ListenableBuilder(
+        listenable: _controller,
+        builder: (context, _) => _buildLayout(context),
+      ),
+    );
+
+    if (!widget.handleShortcuts) return innerContent;
+
     return Shortcuts(
       shortcuts: _shortcuts,
       child: Actions(
@@ -409,13 +433,7 @@ class _MdEditorState extends State<MdEditor> {
             },
           ),
         },
-        child: Focus(
-          autofocus: widget.autofocus,
-          child: ListenableBuilder(
-            listenable: _controller,
-            builder: (context, _) => _buildLayout(context),
-          ),
-        ),
+        child: innerContent,
       ),
     );
   }

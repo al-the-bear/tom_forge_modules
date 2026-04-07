@@ -98,7 +98,10 @@ class ForgeDartEditor extends ForgeTextEditor {
         shellApi: shellModule.shellApi,
         editorId: 'dart-editor-${uri.hashCode}',
         editorTypeId: 'dart',
-      );
+      )..descriptors = [
+          ...DartEditorActions.descriptors,
+          ...StandardEditingActions.descriptors,
+        ];
     }
     // Build theme with applied options.
     final theme = _buildThemeFromOptions();
