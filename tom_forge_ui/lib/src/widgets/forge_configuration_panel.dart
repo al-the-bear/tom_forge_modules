@@ -1377,7 +1377,6 @@ class _ShortcutsSettingsSectionState extends State<_ShortcutsSettingsSection> {
       ..sort((a, b) => a.action.label.compareTo(b.action.label));
 
     return Column(
-      mainAxisSize: MainAxisSize.min,
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
@@ -1423,14 +1422,12 @@ class _ShortcutsSettingsSectionState extends State<_ShortcutsSettingsSection> {
           ),
         ),
         if (bindings.isEmpty)
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text('No matches'),
+          const Expanded(
+            child: Center(child: Text('No matches')),
           )
         else
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
+          Expanded(
+            child: ListView.builder(
             itemCount: bindings.length,
             itemBuilder: (context, index) {
               final binding = bindings[index];
@@ -1494,6 +1491,7 @@ class _ShortcutsSettingsSectionState extends State<_ShortcutsSettingsSection> {
                 ),
               );
             },
+          ),
           ),
       ],
     );
