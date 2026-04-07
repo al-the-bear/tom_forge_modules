@@ -311,6 +311,7 @@ The standard editing actions use the `forge.edit.` prefix and are **required for
 | `forge.edit.duplicateLine` | Duplicate Line | `Cmd+D` | textEditorFocused |
 | `forge.edit.moveLineUp` | Move Line Up | `Alt+↑` | textEditorFocused |
 | `forge.edit.moveLineDown` | Move Line Down | `Alt+↓` | textEditorFocused |
+| `forge.edit.toggleComment` | Toggle Comment | `Cmd+/` | textEditorFocused |
 
 These are defined as `EditorActionDescriptor` instances in `StandardEditingActions.descriptors` (in `tom_editors_shared`). Each editor's standalone integration overrides `actionDescriptors` to include them. The shell's `ShellEditorIntegration` receives them via the `descriptors` setter when the adapter creates the integration.
 
@@ -339,20 +340,19 @@ Tree-based editors (like the YAML tree editor) implement the subset that applies
 
 | Area | Change |
 |------|--------|
-| `DartEditorActions` | Retain only Dart-specific actions (triggerCompletion, openReference, toggleComment); deleteLine, duplicateLine, moveLineUp/Down moved to `StandardEditingActions` |
+| `DartEditorActions` | Retain only Dart-specific actions (triggerCompletion, openReference); deleteLine, duplicateLine, moveLineUp/Down, toggleComment moved to `StandardEditingActions` |
 | `DartCodeEditor._registerActions()` | Simplify to register handlers only (no shortcut map building) |
 | `DartCodeEditor._buildShortcutMap()` | Conditional: only build when `handleShortcuts == true` |
 | `DartCodeEditor.build()` | Conditional: wrap in `Shortcuts`/`Actions` only when `handleShortcuts == true` |
 | `DartStandaloneIntegration` | Add `actionDescriptors` getter returning standard + Dart descriptors |
 
-**Action descriptors (3 custom + 10 standard = 13 total):**
+**Action descriptors (2 custom + 11 standard = 13 total):**
 
 | ID | Label | Category | Suggested Shortcut | Context |
 |----|-------|----------|--------------------|---------|
 | `dart.triggerCompletion` | Trigger Completion | Dart Editor | `Ctrl+Space` | editorFocused |
 | `dart.openReference` | Open Reference | Dart Editor | *(none)* | editorFocused |
-| `dart.toggleComment` | Toggle Comment | Dart Editor | `Ctrl+/` | editable |
-| + 10 standard editing actions (`forge.edit.*`) | | Standard | per §11.1.3 | varies |
+| + 11 standard editing actions (`forge.edit.*`) | | Standard | per §11.1.3 | varies |
 
 ### 3.2 Markdown Editor (`tom_md_editor`)
 
@@ -370,7 +370,7 @@ Tree-based editors (like the YAML tree editor) implement the subset that applies
 | `MdEditor.build()` | Conditional `Shortcuts`/`Actions` wrapping |
 | `MdStandaloneIntegration` | Add `actionDescriptors` getter |
 
-**Action descriptors (7 custom + 10 standard = 17 total):**
+**Action descriptors (7 custom + 11 standard = 18 total):**
 
 | ID | Label | Category | Suggested Shortcut | Context |
 |----|-------|----------|--------------------|---------|
@@ -381,7 +381,7 @@ Tree-based editors (like the YAML tree editor) implement the subset that applies
 | `md.insertTable` | Insert Table | Markdown | `Alt+T` | editable |
 | `md.insertHeading` | Insert Heading | Markdown | `Alt+H` | editable |
 | `md.toggleList` | Toggle List | Markdown | `Alt+L` | editable |
-| + 10 standard editing actions (`forge.edit.*`) | | Standard | per §11.1.3 | varies |
+| + 11 standard editing actions (`forge.edit.*`) | | Standard | per §11.1.3 | varies |
 
 **Note:** `Cmd+B` is used for the Markdown Bold action (`md.toggleBold`) when the Markdown editor is focused. The shell's `forge.toggleBottomPanel` (`Cmd+B`) is a global action. The scope system (§2.1.2) resolves this: when a Markdown editor has focus, `Cmd+B` triggers Bold; otherwise it toggles the bottom panel. Users can rebind either action in the Shortcut Editor.
 
@@ -592,7 +592,7 @@ Externalize the shell's own shortcuts so they participate in the same system:
 1. Create `ShellActionDescriptors` class with descriptors for all `forge.*` actions (§2.1.3)
 2. Move shell shortcuts from hardcoded `_buildShortcuts()` in `ForgeShellScaffold` to descriptor-based registration
 3. Ensure `TomForgeShellModule` exposes `actionDescriptors` via the module contract
-4. Move `deleteLine`, `duplicateLine`, `moveLineUp`, `moveLineDown` from `DartEditorActions` to `StandardEditingActions`
+4. Move `deleteLine`, `duplicateLine`, `moveLineUp`, `moveLineDown`, `toggleComment` from `DartEditorActions` to `StandardEditingActions`
 5. Update all editors to include the expanded standard actions in their descriptor lists
 6. Add shortcut scope support (global vs editor-specific) to `DefaultShortcutManager`
 7. Update Shortcut Editor UI to show scope selection

@@ -175,6 +175,11 @@ class ShellEditorIntegration extends shared.ForgeEditorIntegration
     shared.StandardEditingActions.selectAllActionId,
     shared.StandardEditingActions.undoActionId,
     shared.StandardEditingActions.redoActionId,
+    shared.StandardEditingActions.deleteLineActionId,
+    shared.StandardEditingActions.duplicateLineActionId,
+    shared.StandardEditingActions.moveLineUpActionId,
+    shared.StandardEditingActions.moveLineDownActionId,
+    shared.StandardEditingActions.toggleCommentActionId,
   };
 
   @override

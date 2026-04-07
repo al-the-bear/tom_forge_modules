@@ -2380,6 +2380,7 @@ Every text-based editor must implement a common set of editing actions using the
 | `forge.edit.duplicateLine` | Duplicate Line | `Cmd+D` | When in text editor |
 | `forge.edit.moveLineUp` | Move Line Up | `Alt+↑` | When in text editor |
 | `forge.edit.moveLineDown` | Move Line Down | `Alt+↓` | When in text editor |
+| `forge.edit.toggleComment` | Toggle Comment | `Cmd+/` | When in text editor |
 
 Tree-based editors (like the YAML tree editor) implement the subset that applies to their editing model — at minimum `undo`, `redo`, and any operations that have a meaningful tree equivalent.
 
@@ -2411,7 +2412,7 @@ These are **global shell shortcuts** using a single modifier key (CMD on macOS, 
 | `Cmd+]` | `forge.focusNextPanel` | Focus next panel | Global |
 | `Cmd+[` | `forge.focusPrevPanel` | Focus previous panel | Global |
 
-Text editing shortcuts (`Cmd+X`, `Cmd+C`, `Cmd+V`, `Cmd+A`, `Cmd+U`, `Cmd+Z`, `Cmd+Y`, `Cmd+D`, `Alt+↑`, `Alt+↓`) are listed in §11.1.3 above. They are bound to `forge.edit.*` actions, not shell actions.
+Text editing shortcuts (`Cmd+X`, `Cmd+C`, `Cmd+V`, `Cmd+A`, `Cmd+U`, `Cmd+Z`, `Cmd+Y`, `Cmd+D`, `Cmd+/`, `Alt+↑`, `Alt+↓`) are listed in §11.1.3 above. They are bound to `forge.edit.*` actions, not shell actions.
 
 ### 11.4 Custom Shortcut Menus
 

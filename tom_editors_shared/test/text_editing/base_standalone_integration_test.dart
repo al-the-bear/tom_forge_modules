@@ -40,9 +40,9 @@ void main() {
       expect(integration.hasFocus, false);
     });
 
-    test('supportedActions returns six standard actions', () {
+    test('supportedActions returns all standard actions', () {
       final actions = integration.supportedActions;
-      expect(actions.length, 6);
+      expect(actions.length, 11);
     });
 
     test('getShortcutForAction returns correct shortcuts', () {

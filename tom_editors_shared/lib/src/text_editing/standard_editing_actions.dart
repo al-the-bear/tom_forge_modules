@@ -20,6 +20,11 @@ class StandardEditingActions {
   static const String selectAllActionId = 'forge.edit.selectAll';
   static const String undoActionId = 'forge.edit.undo';
   static const String redoActionId = 'forge.edit.redo';
+  static const String deleteLineActionId = 'forge.edit.deleteLine';
+  static const String duplicateLineActionId = 'forge.edit.duplicateLine';
+  static const String moveLineUpActionId = 'forge.edit.moveLineUp';
+  static const String moveLineDownActionId = 'forge.edit.moveLineDown';
+  static const String toggleCommentActionId = 'forge.edit.toggleComment';
 
   // Standard keyboard shortcuts (using primary modifier - Cmd on Mac, Ctrl elsewhere)
   static final ForgeShortcutKey cutShortcut = ForgeShortcutKey(
@@ -57,6 +62,36 @@ class StandardEditingActions {
   // Alternative redo shortcut (Ctrl+Y on Windows/Linux)
   static final ForgeShortcutKey redoAltShortcut = ForgeShortcutKey(
     key: LogicalKeyboardKey.keyY,
+    usePrimaryModifier: true,
+  );
+
+  // Delete line: Cmd+Y / Ctrl+Y (concept §11.1.3).
+  static final ForgeShortcutKey deleteLineShortcut = ForgeShortcutKey(
+    key: LogicalKeyboardKey.keyY,
+    usePrimaryModifier: true,
+  );
+
+  // Duplicate line: Cmd+D / Ctrl+D.
+  static final ForgeShortcutKey duplicateLineShortcut = ForgeShortcutKey(
+    key: LogicalKeyboardKey.keyD,
+    usePrimaryModifier: true,
+  );
+
+  // Move line up: Alt+ArrowUp.
+  static final ForgeShortcutKey moveLineUpShortcut = ForgeShortcutKey(
+    key: LogicalKeyboardKey.arrowUp,
+    alt: true,
+  );
+
+  // Move line down: Alt+ArrowDown.
+  static final ForgeShortcutKey moveLineDownShortcut = ForgeShortcutKey(
+    key: LogicalKeyboardKey.arrowDown,
+    alt: true,
+  );
+
+  // Toggle comment: Cmd+/ / Ctrl+/.
+  static final ForgeShortcutKey toggleCommentShortcut = ForgeShortcutKey(
+    key: LogicalKeyboardKey.slash,
     usePrimaryModifier: true,
   );
 
@@ -147,6 +182,76 @@ class StandardEditingActions {
     );
   }
 
+  /// Creates a Delete Line action.
+  static ForgeAction deleteLine({
+    bool Function()? onDeleteLine,
+    bool Function()? isEnabled,
+  }) {
+    return ForgeAction.editing(
+      id: deleteLineActionId,
+      label: 'Delete Line',
+      shortcut: deleteLineShortcut,
+      execute: onDeleteLine ?? () => true,
+      isEnabled: isEnabled ?? () => true,
+    );
+  }
+
+  /// Creates a Duplicate Line action.
+  static ForgeAction duplicateLine({
+    bool Function()? onDuplicateLine,
+    bool Function()? isEnabled,
+  }) {
+    return ForgeAction.editing(
+      id: duplicateLineActionId,
+      label: 'Duplicate Line',
+      shortcut: duplicateLineShortcut,
+      execute: onDuplicateLine ?? () => true,
+      isEnabled: isEnabled ?? () => true,
+    );
+  }
+
+  /// Creates a Move Line Up action.
+  static ForgeAction moveLineUp({
+    bool Function()? onMoveLineUp,
+    bool Function()? isEnabled,
+  }) {
+    return ForgeAction.editing(
+      id: moveLineUpActionId,
+      label: 'Move Line Up',
+      shortcut: moveLineUpShortcut,
+      execute: onMoveLineUp ?? () => true,
+      isEnabled: isEnabled ?? () => true,
+    );
+  }
+
+  /// Creates a Move Line Down action.
+  static ForgeAction moveLineDown({
+    bool Function()? onMoveLineDown,
+    bool Function()? isEnabled,
+  }) {
+    return ForgeAction.editing(
+      id: moveLineDownActionId,
+      label: 'Move Line Down',
+      shortcut: moveLineDownShortcut,
+      execute: onMoveLineDown ?? () => true,
+      isEnabled: isEnabled ?? () => true,
+    );
+  }
+
+  /// Creates a Toggle Comment action.
+  static ForgeAction toggleComment({
+    bool Function()? onToggleComment,
+    bool Function()? isEnabled,
+  }) {
+    return ForgeAction.editing(
+      id: toggleCommentActionId,
+      label: 'Toggle Comment',
+      shortcut: toggleCommentShortcut,
+      execute: onToggleComment ?? () => true,
+      isEnabled: isEnabled ?? () => true,
+    );
+  }
+
   /// Returns all standard editing actions.
   static List<ForgeAction> all({
     bool Function()? onCut,
@@ -174,6 +279,11 @@ class StandardEditingActions {
         selectAllActionId: selectAllShortcut,
         undoActionId: undoShortcut,
         redoActionId: redoShortcut,
+        deleteLineActionId: deleteLineShortcut,
+        duplicateLineActionId: duplicateLineShortcut,
+        moveLineUpActionId: moveLineUpShortcut,
+        moveLineDownActionId: moveLineDownShortcut,
+        toggleCommentActionId: toggleCommentShortcut,
       };
 
   /// Returns action descriptors for all standard editing actions.
@@ -219,6 +329,46 @@ class StandardEditingActions {
           category: 'Standard',
           contextRule: ActionContext.editorFocused,
           suggestedShortcut: redoShortcut,
+        ),
+        EditorActionDescriptor(
+          id: deleteLineActionId,
+          label: 'Delete Line',
+          category: 'Standard',
+          description: 'Delete the current line',
+          contextRule: ActionContext.textEditorFocused,
+          suggestedShortcut: deleteLineShortcut,
+        ),
+        EditorActionDescriptor(
+          id: duplicateLineActionId,
+          label: 'Duplicate Line',
+          category: 'Standard',
+          description: 'Duplicate the current line below',
+          contextRule: ActionContext.textEditorFocused,
+          suggestedShortcut: duplicateLineShortcut,
+        ),
+        EditorActionDescriptor(
+          id: moveLineUpActionId,
+          label: 'Move Line Up',
+          category: 'Standard',
+          description: 'Move the current line up',
+          contextRule: ActionContext.textEditorFocused,
+          suggestedShortcut: moveLineUpShortcut,
+        ),
+        EditorActionDescriptor(
+          id: moveLineDownActionId,
+          label: 'Move Line Down',
+          category: 'Standard',
+          description: 'Move the current line down',
+          contextRule: ActionContext.textEditorFocused,
+          suggestedShortcut: moveLineDownShortcut,
+        ),
+        EditorActionDescriptor(
+          id: toggleCommentActionId,
+          label: 'Toggle Comment',
+          category: 'Standard',
+          description: 'Toggle line comment',
+          contextRule: ActionContext.textEditorFocused,
+          suggestedShortcut: toggleCommentShortcut,
         ),
       ];
 }

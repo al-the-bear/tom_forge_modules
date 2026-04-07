@@ -11,6 +11,9 @@ import '../forge_bridge/forge_shortcut_key.dart';
 /// (as opposed to the standard editing actions like cut/copy/paste).
 ///
 /// Action IDs follow the pattern `dart.<operation>` for namespacing.
+///
+/// Line-editing actions (delete line, duplicate line, move line, toggle comment)
+/// are defined in [StandardEditingActions] and shared across all editors.
 class DartEditorActions {
   DartEditorActions._();
 
@@ -21,21 +24,6 @@ class DartEditorActions {
 
   /// Open the API reference dialog.
   static const String openReferenceActionId = 'dart.openReference';
-
-  /// Toggle line comment (prepend/remove `//`).
-  static const String toggleCommentActionId = 'dart.toggleComment';
-
-  /// Delete the current line.
-  static const String deleteLineActionId = 'dart.deleteLine';
-
-  /// Duplicate the current line below.
-  static const String duplicateLineActionId = 'dart.duplicateLine';
-
-  /// Move the current line up.
-  static const String moveLineUpActionId = 'dart.moveLineUp';
-
-  /// Move the current line down.
-  static const String moveLineDownActionId = 'dart.moveLineDown';
 
   // ── Keyboard shortcuts ─────────────────────────────────────────────────
 
@@ -62,36 +50,6 @@ class DartEditorActions {
     triggerCompletionAltShortcut1,
     triggerCompletionAltShortcut2,
   ];
-
-  /// Toggle comment: Cmd+/ (macOS) / Ctrl+/ (Windows/Linux).
-  static final ForgeShortcutKey toggleCommentShortcut = ForgeShortcutKey(
-    key: LogicalKeyboardKey.slash,
-    usePrimaryModifier: true,
-  );
-
-  /// Delete line: Cmd+Y / Ctrl+Y (concept §11.3 standard shortcut).
-  static final ForgeShortcutKey deleteLineShortcut = ForgeShortcutKey(
-    key: LogicalKeyboardKey.keyY,
-    usePrimaryModifier: true,
-  );
-
-  /// Duplicate line: Cmd+D / Ctrl+D.
-  static final ForgeShortcutKey duplicateLineShortcut = ForgeShortcutKey(
-    key: LogicalKeyboardKey.keyD,
-    usePrimaryModifier: true,
-  );
-
-  /// Move line up: Alt+ArrowUp.
-  static final ForgeShortcutKey moveLineUpShortcut = ForgeShortcutKey(
-    key: LogicalKeyboardKey.arrowUp,
-    alt: true,
-  );
-
-  /// Move line down: Alt+ArrowDown.
-  static final ForgeShortcutKey moveLineDownShortcut = ForgeShortcutKey(
-    key: LogicalKeyboardKey.arrowDown,
-    alt: true,
-  );
 
   // ── Factory methods ────────────────────────────────────────────────────
 
@@ -125,84 +83,9 @@ class DartEditorActions {
     );
   }
 
-  /// Creates a toggle comment action.
-  static ForgeAction toggleComment({
-    bool Function()? onToggle,
-    bool Function()? isEnabled,
-  }) {
-    return ForgeAction.editing(
-      id: toggleCommentActionId,
-      label: 'Toggle Comment',
-      shortcut: toggleCommentShortcut,
-      execute: onToggle ?? () => true,
-      isEnabled: isEnabled ?? () => true,
-    );
-  }
-
-  /// Creates a delete line action.
-  static ForgeAction deleteLine({
-    bool Function()? onDelete,
-    bool Function()? isEnabled,
-  }) {
-    return ForgeAction.editing(
-      id: deleteLineActionId,
-      label: 'Delete Line',
-      shortcut: deleteLineShortcut,
-      execute: onDelete ?? () => true,
-      isEnabled: isEnabled ?? () => true,
-    );
-  }
-
-  /// Creates a duplicate line action.
-  static ForgeAction duplicateLine({
-    bool Function()? onDuplicate,
-    bool Function()? isEnabled,
-  }) {
-    return ForgeAction.editing(
-      id: duplicateLineActionId,
-      label: 'Duplicate Line',
-      shortcut: duplicateLineShortcut,
-      execute: onDuplicate ?? () => true,
-      isEnabled: isEnabled ?? () => true,
-    );
-  }
-
-  /// Creates a move line up action.
-  static ForgeAction moveLineUp({
-    bool Function()? onMove,
-    bool Function()? isEnabled,
-  }) {
-    return ForgeAction.editing(
-      id: moveLineUpActionId,
-      label: 'Move Line Up',
-      shortcut: moveLineUpShortcut,
-      execute: onMove ?? () => true,
-      isEnabled: isEnabled ?? () => true,
-    );
-  }
-
-  /// Creates a move line down action.
-  static ForgeAction moveLineDown({
-    bool Function()? onMove,
-    bool Function()? isEnabled,
-  }) {
-    return ForgeAction.editing(
-      id: moveLineDownActionId,
-      label: 'Move Line Down',
-      shortcut: moveLineDownShortcut,
-      execute: onMove ?? () => true,
-      isEnabled: isEnabled ?? () => true,
-    );
-  }
-
   /// Returns a map of all Dart-specific action IDs to their default shortcuts.
   static Map<String, ForgeShortcutKey> get defaultShortcuts => {
         triggerCompletionActionId: triggerCompletionShortcut,
-        toggleCommentActionId: toggleCommentShortcut,
-        deleteLineActionId: deleteLineShortcut,
-        duplicateLineActionId: duplicateLineShortcut,
-        moveLineUpActionId: moveLineUpShortcut,
-        moveLineDownActionId: moveLineDownShortcut,
       };
 
   /// Returns a map of alternative shortcuts (action ID to list of alternatives).
@@ -227,46 +110,6 @@ class DartEditorActions {
           category: 'Dart Editor',
           description: 'Open the API reference dialog',
           contextRule: ActionContext.editorFocused,
-        ),
-        EditorActionDescriptor(
-          id: toggleCommentActionId,
-          label: 'Toggle Comment',
-          category: 'Dart Editor',
-          description: 'Toggle line comment (prepend/remove //)',
-          contextRule: ActionContext.editable,
-          suggestedShortcut: toggleCommentShortcut,
-        ),
-        EditorActionDescriptor(
-          id: deleteLineActionId,
-          label: 'Delete Line',
-          category: 'Dart Editor',
-          description: 'Delete the current line',
-          contextRule: ActionContext.editable,
-          suggestedShortcut: deleteLineShortcut,
-        ),
-        EditorActionDescriptor(
-          id: duplicateLineActionId,
-          label: 'Duplicate Line',
-          category: 'Dart Editor',
-          description: 'Duplicate the current line below',
-          contextRule: ActionContext.editable,
-          suggestedShortcut: duplicateLineShortcut,
-        ),
-        EditorActionDescriptor(
-          id: moveLineUpActionId,
-          label: 'Move Line Up',
-          category: 'Dart Editor',
-          description: 'Move the current line up',
-          contextRule: ActionContext.editable,
-          suggestedShortcut: moveLineUpShortcut,
-        ),
-        EditorActionDescriptor(
-          id: moveLineDownActionId,
-          label: 'Move Line Down',
-          category: 'Dart Editor',
-          description: 'Move the current line down',
-          contextRule: ActionContext.editable,
-          suggestedShortcut: moveLineDownShortcut,
         ),
       ];
 }

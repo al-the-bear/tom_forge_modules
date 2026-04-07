@@ -119,6 +119,31 @@ class BaseStandaloneIntegration extends ForgeEditorIntegration
       _doRedo,
       isEnabled: () => _redoStack.isNotEmpty,
     );
+    registerAction(
+      StandardEditingActions.deleteLineActionId,
+      _doDeleteLine,
+      isEnabled: () => controller.text.isNotEmpty,
+    );
+    registerAction(
+      StandardEditingActions.duplicateLineActionId,
+      _doDuplicateLine,
+      isEnabled: () => controller.text.isNotEmpty,
+    );
+    registerAction(
+      StandardEditingActions.moveLineUpActionId,
+      _doMoveLineUp,
+      isEnabled: () => controller.text.isNotEmpty,
+    );
+    registerAction(
+      StandardEditingActions.moveLineDownActionId,
+      _doMoveLineDown,
+      isEnabled: () => controller.text.isNotEmpty,
+    );
+    registerAction(
+      StandardEditingActions.toggleCommentActionId,
+      _doToggleComment,
+      isEnabled: () => controller.text.isNotEmpty,
+    );
 
     _log('Registered ${supportedActions.length} standard actions');
   }
@@ -253,6 +278,152 @@ class BaseStandaloneIntegration extends ForgeEditorIntegration
     _applyTextWithoutUndo(entry.oldText, entry.oldSelection);
   }
 
+  // Line editing action implementations
+
+  /// The comment prefix used by [_doToggleComment].
+  ///
+  /// Defaults to `// ` (Dart-style). Subclasses may override for other
+  /// languages (e.g. `# ` for YAML, `<!-- -->` for HTML).
+  String get commentPrefix => '// ';
+
+  /// Get the start and end offsets of the line containing [offset].
+  ({int start, int end}) _getLineRange(String text, int offset) {
+    final clamped = offset.clamp(0, text.length);
+    int start = clamped;
+    while (start > 0 && text[start - 1] != '\n') {
+      start--;
+    }
+    int end = clamped;
+    while (end < text.length && text[end] != '\n') {
+      end++;
+    }
+    return (start: start, end: end);
+  }
+
+  void _doDeleteLine() {
+    final text = controller.text;
+    final cursor = controller.selection.baseOffset;
+    if (cursor < 0 || cursor > text.length) return;
+
+    final lineRange = _getLineRange(text, cursor);
+    int deleteStart = lineRange.start;
+    int deleteEnd = lineRange.end;
+    if (deleteEnd < text.length && text[deleteEnd] == '\n') {
+      deleteEnd++;
+    } else if (deleteStart > 0 && text[deleteStart - 1] == '\n') {
+      deleteStart--;
+    }
+
+    final newText = text.substring(0, deleteStart) + text.substring(deleteEnd);
+    final newCursor = deleteStart.clamp(0, newText.length);
+    _log('Delete line at offset $cursor');
+
+    controller.text = newText;
+    controller.selection = TextSelection.collapsed(offset: newCursor);
+  }
+
+  void _doDuplicateLine() {
+    final text = controller.text;
+    final cursor = controller.selection.baseOffset;
+    if (cursor < 0 || cursor > text.length) return;
+
+    final lineRange = _getLineRange(text, cursor);
+    final line = text.substring(lineRange.start, lineRange.end);
+    final columnOffset = cursor - lineRange.start;
+
+    final newText =
+        '${text.substring(0, lineRange.end)}\n$line${text.substring(lineRange.end)}';
+    final newCursor =
+        (lineRange.end + 1 + columnOffset).clamp(0, newText.length);
+    _log('Duplicate line at offset $cursor');
+
+    controller.text = newText;
+    controller.selection = TextSelection.collapsed(offset: newCursor);
+  }
+
+  void _doMoveLineUp() {
+    final text = controller.text;
+    final cursor = controller.selection.baseOffset;
+    if (cursor < 0 || cursor > text.length) return;
+
+    final currentRange = _getLineRange(text, cursor);
+    if (currentRange.start == 0) return; // Already at top
+
+    final prevRange = _getLineRange(text, currentRange.start - 1);
+    final currentLine = text.substring(currentRange.start, currentRange.end);
+    final prevLine = text.substring(prevRange.start, prevRange.end);
+    final columnOffset = cursor - currentRange.start;
+
+    final newText =
+        '${text.substring(0, prevRange.start)}$currentLine\n$prevLine${text.substring(currentRange.end)}';
+    final newCursor =
+        (prevRange.start + columnOffset).clamp(0, newText.length);
+    _log('Move line up at offset $cursor');
+
+    controller.text = newText;
+    controller.selection = TextSelection.collapsed(offset: newCursor);
+  }
+
+  void _doMoveLineDown() {
+    final text = controller.text;
+    final cursor = controller.selection.baseOffset;
+    if (cursor < 0 || cursor > text.length) return;
+
+    final currentRange = _getLineRange(text, cursor);
+    if (currentRange.end >= text.length) return; // Already at bottom
+
+    final nextRange = _getLineRange(text, currentRange.end + 1);
+    final currentLine = text.substring(currentRange.start, currentRange.end);
+    final nextLine = text.substring(nextRange.start, nextRange.end);
+    final columnOffset = cursor - currentRange.start;
+
+    final newText =
+        '${text.substring(0, currentRange.start)}$nextLine\n$currentLine${text.substring(nextRange.end)}';
+    final newCursor =
+        (currentRange.start + nextLine.length + 1 + columnOffset)
+            .clamp(0, newText.length);
+    _log('Move line down at offset $cursor');
+
+    controller.text = newText;
+    controller.selection = TextSelection.collapsed(offset: newCursor);
+  }
+
+  void _doToggleComment() {
+    final text = controller.text;
+    final cursor = controller.selection.baseOffset;
+    if (cursor < 0 || cursor > text.length) return;
+
+    final prefix = commentPrefix;
+    final lineRange = _getLineRange(text, cursor);
+    final line = text.substring(lineRange.start, lineRange.end);
+    final trimmed = line.trimLeft();
+    final indent = line.length - trimmed.length;
+
+    String newLine;
+    if (trimmed.startsWith(prefix)) {
+      // Remove comment prefix
+      newLine = line.substring(0, indent) + trimmed.substring(prefix.length);
+    } else if (prefix.endsWith(' ') && trimmed.startsWith(prefix.trimRight())) {
+      // Remove comment prefix without trailing space
+      newLine = line.substring(0, indent) +
+          trimmed.substring(prefix.trimRight().length);
+    } else {
+      // Add comment prefix
+      newLine = '${line.substring(0, indent)}$prefix$trimmed';
+    }
+
+    final newText = text.substring(0, lineRange.start) +
+        newLine +
+        text.substring(lineRange.end);
+    final cursorDelta = newLine.length - line.length;
+    _log('Toggle comment at offset $cursor');
+
+    controller.text = newText;
+    controller.selection = TextSelection.collapsed(
+      offset: (cursor + cursorDelta).clamp(0, newText.length),
+    );
+  }
+
   void _applyTextWithoutUndo(String text, TextSelection? selection) {
     // Temporarily remove listener to avoid adding to undo stack
     controller.removeListener(_onControllerChanged);
@@ -329,6 +500,11 @@ class BaseStandaloneIntegration extends ForgeEditorIntegration
         StandardEditingActions.selectAll(),
         StandardEditingActions.undo(),
         StandardEditingActions.redo(),
+        StandardEditingActions.deleteLine(),
+        StandardEditingActions.duplicateLine(),
+        StandardEditingActions.moveLineUp(),
+        StandardEditingActions.moveLineDown(),
+        StandardEditingActions.toggleComment(),
       ];
 
   @override
@@ -347,6 +523,16 @@ class BaseStandaloneIntegration extends ForgeEditorIntegration
         return StandardEditingActions.undoShortcut;
       case StandardEditingActions.redoActionId:
         return StandardEditingActions.redoShortcut;
+      case StandardEditingActions.deleteLineActionId:
+        return StandardEditingActions.deleteLineShortcut;
+      case StandardEditingActions.duplicateLineActionId:
+        return StandardEditingActions.duplicateLineShortcut;
+      case StandardEditingActions.moveLineUpActionId:
+        return StandardEditingActions.moveLineUpShortcut;
+      case StandardEditingActions.moveLineDownActionId:
+        return StandardEditingActions.moveLineDownShortcut;
+      case StandardEditingActions.toggleCommentActionId:
+        return StandardEditingActions.toggleCommentShortcut;
       default:
         return null;
     }

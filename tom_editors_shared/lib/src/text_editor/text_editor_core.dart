@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../text_editing/forge_editor_integration.dart';
+import '../text_editing/standard_editing_actions.dart';
 import 'syntax_highlighter.dart';
 import 'text_editor_theme.dart';
 import 'text_marker.dart';
@@ -41,6 +43,19 @@ class TextEditorCore extends StatefulWidget {
   /// Initial cursor offset.
   final int? initialCursorOffset;
 
+  /// Optional editor integration for line-editing action dispatch.
+  ///
+  /// When provided, the widget registers standard line-editing handlers
+  /// (delete line, duplicate line, move line up/down, toggle comment) so
+  /// that shortcut-driven dispatch operates on the internal controller.
+  final ForgeEditorIntegration? integration;
+
+  /// Comment prefix used by the toggle-comment action.
+  ///
+  /// Defaults to `# ` (YAML-style). Callers may pass a different prefix
+  /// for other languages.
+  final String commentPrefix;
+
   const TextEditorCore({
     super.key,
     required this.text,
@@ -50,6 +65,8 @@ class TextEditorCore extends StatefulWidget {
     this.readOnly = false,
     this.theme = const TextEditorTheme(),
     this.initialCursorOffset,
+    this.integration,
+    this.commentPrefix = '# ',
   });
 
   @override
@@ -78,6 +95,170 @@ class _TextEditorCoreState extends State<TextEditorCore> {
         offset: widget.initialCursorOffset!,
       );
     }
+
+    _registerLineEditingActions();
+  }
+
+  // ── Line editing actions ──────────────────────────────────────────────
+
+  void _registerLineEditingActions() {
+    final integration = widget.integration;
+    if (integration == null) return;
+
+    bool isEditable() => !widget.readOnly;
+
+    integration.registerAction(
+      StandardEditingActions.deleteLineActionId,
+      _doDeleteLine,
+      isEnabled: isEditable,
+    );
+    integration.registerAction(
+      StandardEditingActions.duplicateLineActionId,
+      _doDuplicateLine,
+      isEnabled: isEditable,
+    );
+    integration.registerAction(
+      StandardEditingActions.moveLineUpActionId,
+      _doMoveLineUp,
+      isEnabled: isEditable,
+    );
+    integration.registerAction(
+      StandardEditingActions.moveLineDownActionId,
+      _doMoveLineDown,
+      isEnabled: isEditable,
+    );
+    integration.registerAction(
+      StandardEditingActions.toggleCommentActionId,
+      _doToggleComment,
+      isEnabled: isEditable,
+    );
+  }
+
+  ({int start, int end}) _getLineRange(String text, int offset) {
+    final clamped = offset.clamp(0, text.length);
+    int start = clamped;
+    while (start > 0 && text[start - 1] != '\n') {
+      start--;
+    }
+    int end = clamped;
+    while (end < text.length && text[end] != '\n') {
+      end++;
+    }
+    return (start: start, end: end);
+  }
+
+  void _doDeleteLine() {
+    final text = _textController.text;
+    final cursor = _textController.selection.baseOffset;
+    if (cursor < 0 || cursor > text.length) return;
+
+    final lineRange = _getLineRange(text, cursor);
+    int deleteStart = lineRange.start;
+    int deleteEnd = lineRange.end;
+    if (deleteEnd < text.length && text[deleteEnd] == '\n') {
+      deleteEnd++;
+    } else if (deleteStart > 0 && text[deleteStart - 1] == '\n') {
+      deleteStart--;
+    }
+
+    final newText = text.substring(0, deleteStart) + text.substring(deleteEnd);
+    _textController.text = newText;
+    _textController.selection = TextSelection.collapsed(
+      offset: deleteStart.clamp(0, newText.length),
+    );
+  }
+
+  void _doDuplicateLine() {
+    final text = _textController.text;
+    final cursor = _textController.selection.baseOffset;
+    if (cursor < 0 || cursor > text.length) return;
+
+    final lineRange = _getLineRange(text, cursor);
+    final line = text.substring(lineRange.start, lineRange.end);
+    final columnOffset = cursor - lineRange.start;
+
+    final newText =
+        '${text.substring(0, lineRange.end)}\n$line${text.substring(lineRange.end)}';
+    _textController.text = newText;
+    _textController.selection = TextSelection.collapsed(
+      offset: (lineRange.end + 1 + columnOffset).clamp(0, newText.length),
+    );
+  }
+
+  void _doMoveLineUp() {
+    final text = _textController.text;
+    final cursor = _textController.selection.baseOffset;
+    if (cursor < 0 || cursor > text.length) return;
+
+    final currentRange = _getLineRange(text, cursor);
+    if (currentRange.start == 0) return;
+
+    final prevRange = _getLineRange(text, currentRange.start - 1);
+    final currentLine = text.substring(currentRange.start, currentRange.end);
+    final prevLine = text.substring(prevRange.start, prevRange.end);
+    final columnOffset = cursor - currentRange.start;
+
+    final newText =
+        '${text.substring(0, prevRange.start)}$currentLine\n$prevLine${text.substring(currentRange.end)}';
+    _textController.text = newText;
+    _textController.selection = TextSelection.collapsed(
+      offset: (prevRange.start + columnOffset).clamp(0, newText.length),
+    );
+  }
+
+  void _doMoveLineDown() {
+    final text = _textController.text;
+    final cursor = _textController.selection.baseOffset;
+    if (cursor < 0 || cursor > text.length) return;
+
+    final currentRange = _getLineRange(text, cursor);
+    if (currentRange.end >= text.length) return;
+
+    final nextRange = _getLineRange(text, currentRange.end + 1);
+    final currentLine = text.substring(currentRange.start, currentRange.end);
+    final nextLine = text.substring(nextRange.start, nextRange.end);
+    final columnOffset = cursor - currentRange.start;
+
+    final newText =
+        '${text.substring(0, currentRange.start)}$nextLine\n$currentLine${text.substring(nextRange.end)}';
+    _textController.text = newText;
+    _textController.selection = TextSelection.collapsed(
+      offset: (currentRange.start + nextLine.length + 1 + columnOffset)
+          .clamp(0, newText.length),
+    );
+  }
+
+  void _doToggleComment() {
+    final text = _textController.text;
+    final cursor = _textController.selection.baseOffset;
+    if (cursor < 0 || cursor > text.length) return;
+
+    final prefix = widget.commentPrefix;
+    final lineRange = _getLineRange(text, cursor);
+    final line = text.substring(lineRange.start, lineRange.end);
+    final trimmed = line.trimLeft();
+    final indent = line.length - trimmed.length;
+
+    String newLine;
+    if (trimmed.startsWith(prefix)) {
+      newLine = line.substring(0, indent) + trimmed.substring(prefix.length);
+    } else if (prefix.endsWith(' ') &&
+        trimmed.startsWith(prefix.trimRight())) {
+      newLine = line.substring(0, indent) +
+          trimmed.substring(prefix.trimRight().length);
+    } else {
+      newLine = '${line.substring(0, indent)}$prefix$trimmed';
+    }
+
+    final newText = text.substring(0, lineRange.start) +
+        newLine +
+        text.substring(lineRange.end);
+    final cursorDelta = newLine.length - line.length;
+
+    _textController.text = newText;
+    _textController.selection = TextSelection.collapsed(
+      offset: (cursor + cursorDelta).clamp(0, newText.length),
+    );
   }
 
   @override

@@ -92,6 +92,7 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
     );
     _textController.addListener(_onCursorChanged);
     widget.controller.addListener(_onControllerChanged);
+    _registerLineEditingActions();
   }
 
   @override
@@ -453,6 +454,176 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
       }
     }
     return section.toHeadlineMarkdown();
+  }
+
+  // ── Line editing actions ──────────────────────────────────────────────
+
+  /// Register standard line-editing actions with the integration so that
+  /// shortcut-driven dispatch operates on the raw editor's own controller.
+  void _registerLineEditingActions() {
+    final integration = widget.integration;
+    if (integration == null) return;
+
+    bool isEditable() => !widget.settings.readOnly;
+
+    integration.registerAction(
+      StandardEditingActions.deleteLineActionId,
+      _doDeleteLine,
+      isEnabled: isEditable,
+    );
+    integration.registerAction(
+      StandardEditingActions.duplicateLineActionId,
+      _doDuplicateLine,
+      isEnabled: isEditable,
+    );
+    integration.registerAction(
+      StandardEditingActions.moveLineUpActionId,
+      _doMoveLineUp,
+      isEnabled: isEditable,
+    );
+    integration.registerAction(
+      StandardEditingActions.moveLineDownActionId,
+      _doMoveLineDown,
+      isEnabled: isEditable,
+    );
+    integration.registerAction(
+      StandardEditingActions.toggleCommentActionId,
+      _doToggleComment,
+      isEnabled: isEditable,
+    );
+  }
+
+  ({int start, int end}) _getLineRange(String text, int offset) {
+    final clamped = offset.clamp(0, text.length);
+    int start = clamped;
+    while (start > 0 && text[start - 1] != '\n') {
+      start--;
+    }
+    int end = clamped;
+    while (end < text.length && text[end] != '\n') {
+      end++;
+    }
+    return (start: start, end: end);
+  }
+
+  void _doDeleteLine() {
+    final text = _textController.text;
+    final cursor = _textController.selection.baseOffset;
+    if (cursor < 0 || cursor > text.length) return;
+
+    final lineRange = _getLineRange(text, cursor);
+    int deleteStart = lineRange.start;
+    int deleteEnd = lineRange.end;
+    if (deleteEnd < text.length && text[deleteEnd] == '\n') {
+      deleteEnd++;
+    } else if (deleteStart > 0 && text[deleteStart - 1] == '\n') {
+      deleteStart--;
+    }
+
+    final newText = text.substring(0, deleteStart) + text.substring(deleteEnd);
+    _textController.text = newText;
+    _textController.selection = TextSelection.collapsed(
+      offset: deleteStart.clamp(0, newText.length),
+    );
+    _onTextChanged(newText);
+  }
+
+  void _doDuplicateLine() {
+    final text = _textController.text;
+    final cursor = _textController.selection.baseOffset;
+    if (cursor < 0 || cursor > text.length) return;
+
+    final lineRange = _getLineRange(text, cursor);
+    final line = text.substring(lineRange.start, lineRange.end);
+    final columnOffset = cursor - lineRange.start;
+
+    final newText =
+        '${text.substring(0, lineRange.end)}\n$line${text.substring(lineRange.end)}';
+    _textController.text = newText;
+    _textController.selection = TextSelection.collapsed(
+      offset: (lineRange.end + 1 + columnOffset).clamp(0, newText.length),
+    );
+    _onTextChanged(newText);
+  }
+
+  void _doMoveLineUp() {
+    final text = _textController.text;
+    final cursor = _textController.selection.baseOffset;
+    if (cursor < 0 || cursor > text.length) return;
+
+    final currentRange = _getLineRange(text, cursor);
+    if (currentRange.start == 0) return;
+
+    final prevRange = _getLineRange(text, currentRange.start - 1);
+    final currentLine = text.substring(currentRange.start, currentRange.end);
+    final prevLine = text.substring(prevRange.start, prevRange.end);
+    final columnOffset = cursor - currentRange.start;
+
+    final newText =
+        '${text.substring(0, prevRange.start)}$currentLine\n$prevLine${text.substring(currentRange.end)}';
+    _textController.text = newText;
+    _textController.selection = TextSelection.collapsed(
+      offset: (prevRange.start + columnOffset).clamp(0, newText.length),
+    );
+    _onTextChanged(newText);
+  }
+
+  void _doMoveLineDown() {
+    final text = _textController.text;
+    final cursor = _textController.selection.baseOffset;
+    if (cursor < 0 || cursor > text.length) return;
+
+    final currentRange = _getLineRange(text, cursor);
+    if (currentRange.end >= text.length) return;
+
+    final nextRange = _getLineRange(text, currentRange.end + 1);
+    final currentLine = text.substring(currentRange.start, currentRange.end);
+    final nextLine = text.substring(nextRange.start, nextRange.end);
+    final columnOffset = cursor - currentRange.start;
+
+    final newText =
+        '${text.substring(0, currentRange.start)}$nextLine\n$currentLine${text.substring(nextRange.end)}';
+    _textController.text = newText;
+    _textController.selection = TextSelection.collapsed(
+      offset: (currentRange.start + nextLine.length + 1 + columnOffset)
+          .clamp(0, newText.length),
+    );
+    _onTextChanged(newText);
+  }
+
+  void _doToggleComment() {
+    final text = _textController.text;
+    final cursor = _textController.selection.baseOffset;
+    if (cursor < 0 || cursor > text.length) return;
+
+    // Use HTML comment style for markdown
+    const prefix = '<!-- ';
+    const suffix = ' -->';
+    final lineRange = _getLineRange(text, cursor);
+    final line = text.substring(lineRange.start, lineRange.end);
+    final trimmed = line.trimLeft();
+    final indent = line.length - trimmed.length;
+
+    String newLine;
+    if (trimmed.startsWith(prefix) && trimmed.endsWith(suffix)) {
+      // Remove comment
+      newLine = line.substring(0, indent) +
+          trimmed.substring(prefix.length, trimmed.length - suffix.length);
+    } else {
+      // Add comment
+      newLine = '${line.substring(0, indent)}$prefix$trimmed$suffix';
+    }
+
+    final newText = text.substring(0, lineRange.start) +
+        newLine +
+        text.substring(lineRange.end);
+    final cursorDelta = newLine.length - line.length;
+
+    _textController.text = newText;
+    _textController.selection = TextSelection.collapsed(
+      offset: (cursor + cursorDelta).clamp(0, newText.length),
+    );
+    _onTextChanged(newText);
   }
 
   void _onTextChanged(String value) {

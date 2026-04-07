@@ -1122,6 +1122,8 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
             onTextChanged: widget.readOnly ? null : _onTextDraftChanged,
             readOnly: widget.readOnly,
             theme: textEditorTheme,
+            integration: _integration,
+            commentPrefix: '# ',
           ),
         ),
         if (_textParseError != null)

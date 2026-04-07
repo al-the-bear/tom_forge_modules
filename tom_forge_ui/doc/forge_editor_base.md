@@ -451,6 +451,7 @@ Every text-based editor (including ForgeTextField) must support these actions. T
 | `forge.edit.duplicateLine` | ⌘D / Ctrl+D | Duplicate current line |
 | `forge.edit.moveLineUp` | ⌥↑ / Alt+Up | Move line up |
 | `forge.edit.moveLineDown` | ⌥↓ / Alt+Down | Move line down |
+| `forge.edit.toggleComment` | ⌘/ / Ctrl+/ | Toggle line comment |
 
 ### 5.2 Optional Actions
 
@@ -460,7 +461,6 @@ Editors should provide these additional actions if meaningful for the editor typ
 |-----------|-------------------|-------------|
 | `<editor>.indentLine` | ⌘] / Ctrl+] | Indent line |
 | `<editor>.outdentLine` | ⌘[ / Ctrl+[ | Outdent line |
-| `<editor>.toggleComment` | ⌘/ / Ctrl+/ | Toggle line comment |
 | `<editor>.formatDocument` | ⌥⇧F / Alt+Shift+F | Format document |
 
 ### 5.3 Shell Actions

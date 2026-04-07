@@ -12,6 +12,16 @@ void main() {
         expect(StandardEditingActions.selectAllActionId, 'forge.edit.selectAll');
         expect(StandardEditingActions.undoActionId, 'forge.edit.undo');
         expect(StandardEditingActions.redoActionId, 'forge.edit.redo');
+        expect(
+            StandardEditingActions.deleteLineActionId, 'forge.edit.deleteLine');
+        expect(StandardEditingActions.duplicateLineActionId,
+            'forge.edit.duplicateLine');
+        expect(
+            StandardEditingActions.moveLineUpActionId, 'forge.edit.moveLineUp');
+        expect(StandardEditingActions.moveLineDownActionId,
+            'forge.edit.moveLineDown');
+        expect(StandardEditingActions.toggleCommentActionId,
+            'forge.edit.toggleComment');
       });
     });
 
@@ -57,6 +67,38 @@ void main() {
       test('redo alt shortcut uses Cmd/Ctrl+Y', () {
         final shortcut = StandardEditingActions.redoAltShortcut;
         expect(shortcut.key, LogicalKeyboardKey.keyY);
+        expect(shortcut.usePrimaryModifier, true);
+      });
+
+      test('deleteLine shortcut uses Cmd/Ctrl+Y (concept §11.1.3)', () {
+        final shortcut = StandardEditingActions.deleteLineShortcut;
+        expect(shortcut.key, LogicalKeyboardKey.keyY);
+        expect(shortcut.usePrimaryModifier, true);
+      });
+
+      test('duplicateLine shortcut uses Cmd/Ctrl+D', () {
+        final shortcut = StandardEditingActions.duplicateLineShortcut;
+        expect(shortcut.key, LogicalKeyboardKey.keyD);
+        expect(shortcut.usePrimaryModifier, true);
+      });
+
+      test('moveLineUp shortcut uses Alt+ArrowUp', () {
+        final shortcut = StandardEditingActions.moveLineUpShortcut;
+        expect(shortcut.key, LogicalKeyboardKey.arrowUp);
+        expect(shortcut.alt, true);
+        expect(shortcut.usePrimaryModifier, false);
+      });
+
+      test('moveLineDown shortcut uses Alt+ArrowDown', () {
+        final shortcut = StandardEditingActions.moveLineDownShortcut;
+        expect(shortcut.key, LogicalKeyboardKey.arrowDown);
+        expect(shortcut.alt, true);
+        expect(shortcut.usePrimaryModifier, false);
+      });
+
+      test('toggleComment shortcut uses Cmd/Ctrl+/', () {
+        final shortcut = StandardEditingActions.toggleCommentShortcut;
+        expect(shortcut.key, LogicalKeyboardKey.slash);
         expect(shortcut.usePrimaryModifier, true);
       });
     });
@@ -229,7 +271,7 @@ void main() {
       test('returns map of all shortcuts', () {
         final shortcuts = StandardEditingActions.defaultShortcuts;
 
-        expect(shortcuts.length, 6);
+        expect(shortcuts.length, 11);
         expect(
           shortcuts.containsKey(StandardEditingActions.cutActionId),
           true,
@@ -237,6 +279,14 @@ void main() {
         expect(
           shortcuts[StandardEditingActions.cutActionId],
           StandardEditingActions.cutShortcut,
+        );
+        expect(
+          shortcuts.containsKey(StandardEditingActions.deleteLineActionId),
+          true,
+        );
+        expect(
+          shortcuts.containsKey(StandardEditingActions.toggleCommentActionId),
+          true,
         );
       });
     });

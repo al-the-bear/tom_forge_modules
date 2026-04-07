@@ -815,28 +815,30 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
       _showApiReference,
       isEnabled: () => widget.onCompletionRequest != null,
     );
+
+    // Override standard line-editing actions with Dart editor implementations
     _integration.registerAction(
-      DartEditorActions.toggleCommentActionId,
+      StandardEditingActions.toggleCommentActionId,
       _toggleComment,
       isEnabled: () => !widget.readOnly,
     );
     _integration.registerAction(
-      DartEditorActions.deleteLineActionId,
+      StandardEditingActions.deleteLineActionId,
       _deleteLine,
       isEnabled: () => !widget.readOnly,
     );
     _integration.registerAction(
-      DartEditorActions.duplicateLineActionId,
+      StandardEditingActions.duplicateLineActionId,
       _duplicateLine,
       isEnabled: () => !widget.readOnly,
     );
     _integration.registerAction(
-      DartEditorActions.moveLineUpActionId,
+      StandardEditingActions.moveLineUpActionId,
       _moveLineUp,
       isEnabled: () => !widget.readOnly,
     );
     _integration.registerAction(
-      DartEditorActions.moveLineDownActionId,
+      StandardEditingActions.moveLineDownActionId,
       _moveLineDown,
       isEnabled: () => !widget.readOnly,
     );
