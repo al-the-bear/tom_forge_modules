@@ -1,7 +1,7 @@
-# Editor Action Externalization — Architecture Proposal
+# Editor Action Externalization — Architecture
 
-**Date:** 2026-04-06  
-**Status:** Proposal  
+**Date:** 2026-04-06 (proposed), 2026-04-07 (implemented Phase 1-3, updated)  
+**Status:** Implemented (Phase 1-3); Phase 4 pending  
 **Companion:** [forge_panel_shell_concept.md](forge_panel_shell_concept.md) (§8 Modules, §11 Shortcuts), [forge_editor_base.md](forge_editor_base.md) (§3 Proposed Architecture)
 
 ---
@@ -40,6 +40,52 @@ These problems compound with each new editor added to the system.
 ### 2.1 Core Principle: Shell Owns All Shortcuts
 
 Editors **expose action descriptors** (what they can do) but **do not bind shortcuts**. The shell is the single owner of all keyboard bindings. Editors receive action invocations from the shell and execute them in their current context.
+
+### 2.1.1 Action Naming Convention
+
+All actions follow the naming pattern `<source>.<action>`:
+
+| Prefix | Source | Examples |
+|--------|--------|----------|
+| `forge.` | Shell (global operations) | `forge.toggleLeftPanel`, `forge.commandPalette`, `forge.saveAll` |
+| `forge.edit.` | Standard editing (all editors) | `forge.edit.cut`, `forge.edit.undo`, `forge.edit.moveLineUp` |
+| `dart.` | Dart editor | `dart.triggerCompletion`, `dart.toggleComment` |
+| `md.` | Markdown editor | `md.toggleBold`, `md.insertLink` |
+| `yaml.` | YAML editor | `yaml.addKey`, `yaml.toggleTextMode` |
+| `flow.` | Flow editor | `flow.addNode`, `flow.autoLayout` |
+
+The **prefix acts as a routing category**: when the shell dispatches an action, the prefix identifies which module/editor handles it. The Shortcut Editor (concept §11.6) and command palette group actions by prefix.
+
+### 2.1.2 Shortcut Scope
+
+When a user rebinds a shortcut in the Shortcut Editor, they choose the **scope**:
+
+- **Global** — shortcut is active regardless of which editor is focused
+- **Editor-specific** — shortcut is active only when a specific editor type has focus (e.g., "Dart Editor only")
+
+This allows the same key combination to trigger different actions in different editors without conflict. For example, `Ctrl+T` can mean "Toggle Text Mode" in the YAML editor and be unbound (or rebound to something else) in the Dart editor.
+
+### 2.1.3 Shell as Action Source
+
+The shell (`TomForgeShellModule`) exposes its own actions through the same descriptor system as any editor module. Shell actions use the `forge.` prefix and appear in the command palette and Shortcut Editor alongside editor actions. There are **no hidden, hardcoded shortcuts** — every shortcut is registered through the action/descriptor system.
+
+Shell action descriptors include:
+
+| Action ID | Label | Default Shortcut | Context |
+|-----------|-------|------------------|---------|
+| `forge.commandPalette` | Command Palette | `Cmd+P` | Global |
+| `forge.commandPaletteFull` | Command Palette (Full) | `F1` | Global |
+| `forge.toggleLeftPanel` | Toggle Left Panel | `Cmd+L` | Global |
+| `forge.toggleRightPanel` | Toggle Right Panel | `Cmd+R` | Global |
+| `forge.toggleBottomPanel` | Toggle Bottom Panel | `Cmd+B` | Global |
+| `forge.find` | Find | `Cmd+F` | When component is focused |
+| `forge.focusPanel1` | Focus Panel 1 | `Cmd+1` | Global |
+| `forge.focusPanel2` | Focus Panel 2 | `Cmd+2` | Global |
+| `forge.focusPanel3` | Focus Panel 3 | `Cmd+3` | Global |
+| `forge.focusPanel4` | Focus Panel 4 | `Cmd+4` | Global |
+| `forge.focusNextPanel` | Focus Next Panel | `Cmd+]` | Global |
+| `forge.focusPrevPanel` | Focus Previous Panel | `Cmd+[` | Global |
+| `forge.saveAll` | Save All | `Cmd+S` | Global |
 
 ### 2.2 Three-Layer Model
 
@@ -251,9 +297,24 @@ Instead, it reads descriptors from the editor and forwards `executeAction()` cal
 
 ### 2.7 Standard Editing Actions
 
-The six standard editing actions (`cut/copy/paste/selectAll/undo/redo`) follow the same pattern — they become descriptors with `ActionContext.textEditorFocused` (or `hasSelection` for cut/copy). The shell binds them to concept §11.3 shortcuts (`Cmd+X`, `Cmd+C`, `Cmd+V`, `Cmd+A`, `Cmd+U`, `Cmd+Z`).
+The standard editing actions use the `forge.edit.` prefix and are **required for all text-based editors**. The shell assigns default shortcuts from concept §11.1.3:
 
-The current `_editorInternalActions` exclusion in `ShellEditorIntegration` is eliminated. The shell owns all shortcut bindings, including standard editing operations.
+| Action ID | Label | Default Shortcut | Context |
+|-----------|-------|------------------|---------|
+| `forge.edit.cut` | Cut | `Cmd+X` | hasSelection |
+| `forge.edit.copy` | Copy | `Cmd+C` | hasSelection |
+| `forge.edit.paste` | Paste | `Cmd+V` | editable |
+| `forge.edit.selectAll` | Select All | `Cmd+A` | editorFocused |
+| `forge.edit.undo` | Undo | `Cmd+U` | editorFocused |
+| `forge.edit.redo` | Redo | `Cmd+Z` | editorFocused |
+| `forge.edit.deleteLine` | Delete Line | `Cmd+Y` | textEditorFocused |
+| `forge.edit.duplicateLine` | Duplicate Line | `Cmd+D` | textEditorFocused |
+| `forge.edit.moveLineUp` | Move Line Up | `Alt+↑` | textEditorFocused |
+| `forge.edit.moveLineDown` | Move Line Down | `Alt+↓` | textEditorFocused |
+
+These are defined as `EditorActionDescriptor` instances in `StandardEditingActions.descriptors` (in `tom_editors_shared`). Each editor's standalone integration overrides `actionDescriptors` to include them. The shell's `ShellEditorIntegration` receives them via the `descriptors` setter when the adapter creates the integration.
+
+Tree-based editors (like the YAML tree editor) implement the subset that applies to their editing model — at minimum `undo` and `redo`. Cut/copy/paste may also apply if the editor supports clipboard operations on tree nodes.
 
 **Important:** Flutter's `EditableText` widget has built-in handling for `Ctrl+C`/`Ctrl+V`/etc. When `handleShortcuts` is `false`, the editor must ensure its `TextField` does not conflict with shell-dispatched actions. This is handled by:
 
@@ -278,24 +339,20 @@ The current `_editorInternalActions` exclusion in `ShellEditorIntegration` is el
 
 | Area | Change |
 |------|--------|
-| `DartEditorActions` | Convert factory methods to `EditorActionDescriptor` list; move shortcuts to `suggestedShortcut` field |
+| `DartEditorActions` | Retain only Dart-specific actions (triggerCompletion, openReference, toggleComment); deleteLine, duplicateLine, moveLineUp/Down moved to `StandardEditingActions` |
 | `DartCodeEditor._registerActions()` | Simplify to register handlers only (no shortcut map building) |
 | `DartCodeEditor._buildShortcutMap()` | Conditional: only build when `handleShortcuts == true` |
 | `DartCodeEditor.build()` | Conditional: wrap in `Shortcuts`/`Actions` only when `handleShortcuts == true` |
 | `DartStandaloneIntegration` | Add `actionDescriptors` getter returning standard + Dart descriptors |
 
-**Action descriptors (7 custom + 6 standard = 13 total):**
+**Action descriptors (3 custom + 10 standard = 13 total):**
 
 | ID | Label | Category | Suggested Shortcut | Context |
 |----|-------|----------|--------------------|---------|
 | `dart.triggerCompletion` | Trigger Completion | Dart Editor | `Ctrl+Space` | editorFocused |
 | `dart.openReference` | Open Reference | Dart Editor | *(none)* | editorFocused |
 | `dart.toggleComment` | Toggle Comment | Dart Editor | `Ctrl+/` | editable |
-| `dart.deleteLine` | Delete Line | Dart Editor | `Ctrl+Y` | editable |
-| `dart.duplicateLine` | Duplicate Line | Dart Editor | `Ctrl+D` | editable |
-| `dart.moveLineUp` | Move Line Up | Dart Editor | `Alt+↑` | editable |
-| `dart.moveLineDown` | Move Line Down | Dart Editor | `Alt+↓` | editable |
-| + 6 standard editing actions | | Standard | per §11.3 | varies |
+| + 10 standard editing actions (`forge.edit.*`) | | Standard | per §11.1.3 | varies |
 
 ### 3.2 Markdown Editor (`tom_md_editor`)
 
@@ -313,7 +370,7 @@ The current `_editorInternalActions` exclusion in `ShellEditorIntegration` is el
 | `MdEditor.build()` | Conditional `Shortcuts`/`Actions` wrapping |
 | `MdStandaloneIntegration` | Add `actionDescriptors` getter |
 
-**Action descriptors (9 custom + 6 standard = 15 total):**
+**Action descriptors (7 custom + 10 standard = 17 total):**
 
 | ID | Label | Category | Suggested Shortcut | Context |
 |----|-------|----------|--------------------|---------|
@@ -324,9 +381,9 @@ The current `_editorInternalActions` exclusion in `ShellEditorIntegration` is el
 | `md.insertTable` | Insert Table | Markdown | `Alt+T` | editable |
 | `md.insertHeading` | Insert Heading | Markdown | `Alt+H` | editable |
 | `md.toggleList` | Toggle List | Markdown | `Alt+L` | editable |
-| `md.save` | Save | Markdown | `Ctrl+S` | editorFocused |
-| `md.search` | Search | Markdown | `Ctrl+F` | editorFocused |
-| + 6 standard editing actions | | Standard | per §11.3 | varies |
+| + 10 standard editing actions (`forge.edit.*`) | | Standard | per §11.1.3 | varies |
+
+**Note:** `Cmd+B` is used for the Markdown Bold action (`md.toggleBold`) when the Markdown editor is focused. The shell's `forge.toggleBottomPanel` (`Cmd+B`) is a global action. The scope system (§2.1.2) resolves this: when a Markdown editor has focus, `Cmd+B` triggers Bold; otherwise it toggles the bottom panel. Users can rebind either action in the Shortcut Editor.
 
 ### 3.3 YAML Editor (`tom_yaml_editor`)
 
@@ -344,19 +401,21 @@ The current `_editorInternalActions` exclusion in `ShellEditorIntegration` is el
 | `YamlSchemaEditor` | Add `handleShortcuts` parameter; conditional key handling for action shortcuts vs. navigation |
 | `YamlStandaloneIntegration` | Add `actionDescriptors` getter with YAML + undo/redo descriptors |
 
-**Action descriptors (5 custom + 2 standard = 7 total):**
+**Action descriptors (3 custom + 2 standard = 5 total):**
 
 | ID | Label | Category | Suggested Shortcut | Context |
 |----|-------|----------|--------------------|---------|
 | `yaml.addKey` | Add Key | YAML Editor | `Ctrl+N` | editable |
 | `yaml.removeKey` | Remove Key | YAML Editor | `Ctrl+Delete` | editable |
 | `yaml.toggleTextMode` | Toggle Text Mode | YAML Editor | `Ctrl+T` | editorFocused |
-| `yaml.save` | Save | YAML Editor | `Ctrl+S` | editorFocused |
-| `yaml.search` | Search | YAML Editor | `Ctrl+F` | editorFocused |
 | `forge.edit.undo` | Undo | Standard | `Ctrl+U` | editorFocused |
 | `forge.edit.redo` | Redo | Standard | `Ctrl+Z` | editorFocused |
 
-**Note:** The YAML editor registers only `undo/redo` from standard actions (no cut/copy/paste/selectAll) because it is tree-based, not text-based. Tree navigation keys (arrows, Tab, Enter, Escape, Space) remain in the editor's `KeyboardListener` regardless of the `handleShortcuts` flag — they are navigation, not actions.
+**Note:** The YAML editor is tree-based, not text-based. It registers only `undo/redo` from standard actions because cut/copy/paste, delete/duplicate line, and move line up/down operate on text selections, which don't apply to tree node editing. Tree navigation keys (arrows, Tab, Enter, Escape, Space) remain in the editor's `KeyboardListener` regardless of the `handleShortcuts` flag — they are navigation, not actions.
+
+**Note:** `yaml.toggleTextMode` switches between the tree view (structured key/value editing) and raw text mode (plain YAML source). When in raw text mode, all standard text editing actions (`forge.edit.*`) become available because the editor is then operating as a text editor.
+
+**Note:** Save (`Cmd+S`) and Find (`Cmd+F`) are shell-level actions (`forge.saveAll`, `forge.find`) — editors do not register their own save/find actions. The shell handles these globally.
 
 ### 3.4 Flow Editor (`tom_flow_editor`)
 
@@ -501,36 +560,48 @@ The `_deferredShortcutOverrides` and `_deferredChordOverrides` maps in `DefaultS
 
 ## 6. Migration Strategy
 
-### 6.1 Phase 1: Add Infrastructure (non-breaking)
+### 6.1 Phase 1: Add Infrastructure (non-breaking) — ✅ Implemented
 
-1. Add `EditorActionDescriptor` class to `tom_editors_shared`
-2. Add `actionDescriptors` getter to `ForgeEditorIntegration` (default returns empty list)
-3. Add `handleShortcuts` parameter to all three editor widgets (default `true`)
-4. No behavioral changes — everything works as before
+1. ✅ Added `EditorActionDescriptor` class and `ActionContext` enum to `tom_editors_shared`
+2. ✅ Added `actionDescriptors` getter to `ForgeEditorIntegration` (default returns empty list)
+3. ✅ Added `handleShortcuts` parameter to all three editor widgets (default `true`)
+4. ✅ Added static `descriptors` lists to all four action classes
 
-### 6.2 Phase 2: Migrate Editors One by One
+### 6.2 Phase 2: Migrate Editors — ✅ Implemented
 
-For each editor (recommended order: YAML → MD → Dart):
+For each editor (YAML → MD → Dart):
 
-1. Define `EditorActionDescriptor` list in the action class
-2. Override `actionDescriptors` in the standalone integration
-3. When `handleShortcuts == false`, skip shortcut widget setup
-4. Verify standalone mode still works (`handleShortcuts: true`)
-5. Verify shell mode works (`handleShortcuts: false`)
-6. Update tests for both modes
+1. ✅ Defined `EditorActionDescriptor` list in each action class
+2. ✅ Overrode `actionDescriptors` in all standalone integrations
+3. ✅ When `handleShortcuts == false`, editor skips shortcut widget setup
+4. ✅ Verified standalone mode (`handleShortcuts: true`) and shell mode (`handleShortcuts: false`)
+5. ✅ All editor-specific tests pass
 
-### 6.3 Phase 3: Simplify Shell Integration
+### 6.3 Phase 3: Simplify Shell Integration — ✅ Implemented
 
-1. Update `ShellEditorIntegration` to use descriptor-based registration
-2. Remove `_editorInternalActions`, `_resolveAction()`, `_registerWithShell()`
-3. Update `DefaultModuleRegistry` to process descriptors
-4. Remove deferred override maps from `DefaultShortcutManager`
-5. Update all shortcut-related tests
+1. ✅ Updated `ShellEditorIntegration` to use descriptor-based `_resolveAction()` lookup
+2. ✅ Replaced hardcoded action pool with `actionDescriptors`-based resolution
+3. ✅ Added `descriptors` setter to `ShellEditorIntegration`
+4. ✅ Wired descriptors in all four forge adapters (YAML, Dart, MD, plain text)
+5. ✅ All 693 tests pass across 6 packages
 
-### 6.4 Phase 4: Update Documentation
+### 6.4 Phase 4: Shell Action Externalization — Pending
 
-1. Update `forge_panel_shell_concept.md` §11 (shortcut architecture)
-2. Update `forge_editor_base.md` §3 (component hierarchy)
+Externalize the shell's own shortcuts so they participate in the same system:
+
+1. Create `ShellActionDescriptors` class with descriptors for all `forge.*` actions (§2.1.3)
+2. Move shell shortcuts from hardcoded `_buildShortcuts()` in `ForgeShellScaffold` to descriptor-based registration
+3. Ensure `TomForgeShellModule` exposes `actionDescriptors` via the module contract
+4. Move `deleteLine`, `duplicateLine`, `moveLineUp`, `moveLineDown` from `DartEditorActions` to `StandardEditingActions`
+5. Update all editors to include the expanded standard actions in their descriptor lists
+6. Add shortcut scope support (global vs editor-specific) to `DefaultShortcutManager`
+7. Update Shortcut Editor UI to show scope selection
+8. Remove all remaining hardcoded shortcut-to-Intent mappings from `ForgeShellScaffold`
+
+### 6.5 Phase 5: Update Documentation — Pending
+
+1. ✅ Updated `forge_panel_shell_concept.md` §8.2 (module contract), §11 (shortcuts)
+2. ✅ Updated `forge_editor_base.md` §5 (standard actions)
 3. Update `forge_feature_checklist.md` §10 (actions and shortcut framework)
 4. Update editor `how_to_embed.md` docs (standalone vs. shell mode)
 
@@ -567,11 +638,13 @@ For each editor, verify both modes:
 
 | Document | Affected Section | Nature of Change |
 |----------|-----------------|------------------|
-| [forge_panel_shell_concept.md](forge_panel_shell_concept.md) | §8.2 Module Contract | Add `actionDescriptors` to module/integration contract |
-| [forge_panel_shell_concept.md](forge_panel_shell_concept.md) | §11.1 Shortcut Architecture | Clarify shell-owned binding model |
-| [forge_panel_shell_concept.md](forge_panel_shell_concept.md) | §11.5 Component-Specific Shortcuts | Describe `handleShortcuts` switch |
-| [forge_editor_base.md](forge_editor_base.md) | §1.1 Design Principles | Reinforce "Action Registry" principle |
-| [forge_editor_base.md](forge_editor_base.md) | §3.3 Core Interfaces | Add `EditorActionDescriptor` specification |
+| [forge_panel_shell_concept.md](forge_panel_shell_concept.md) | §8.2 Module Contract | Added `actionDescriptors` to module contract; shell is a module |
+| [forge_panel_shell_concept.md](forge_panel_shell_concept.md) | §11.1 Shortcut Architecture | Added action naming convention (§11.1.1), shell-as-action-source (§11.1.2), standard text editing actions (§11.1.3) |
+| [forge_panel_shell_concept.md](forge_panel_shell_concept.md) | §11.3 Shell Shortcuts | Separated shell shortcuts from text editing shortcuts; added `Cmd+B` for bottom panel; added action IDs |
+| [forge_panel_shell_concept.md](forge_panel_shell_concept.md) | §11.6 Shortcut Editor | Added scope selection (global vs editor-specific) |
+| [forge_editor_base.md](forge_editor_base.md) | §1.1 Design Principles | Reinforced "Action Registry" principle |
+| [forge_editor_base.md](forge_editor_base.md) | §3.3 Core Interfaces | Added `EditorActionDescriptor` specification |
+| [forge_editor_base.md](forge_editor_base.md) | §5 Standard Actions | Expanded required actions: added moveLineUp/Down, duplicateLine; aligned action IDs with `forge.edit.*` naming |
 | [forge_feature_checklist.md](forge_feature_checklist.md) | §10 Actions and Shortcut Framework | Add descriptor-based registration rows |
 | [dart_editor_usage_guide.md](../tom_dart_editor/doc/dart_editor_usage_guide.md) | Embedding section | Document `handleShortcuts` parameter |
 | [how_to_embed.md](../tom_yaml_editor/doc/how_to_embed.md) | Integration section | Document `handleShortcuts` parameter |

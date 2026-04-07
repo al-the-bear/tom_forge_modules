@@ -16,7 +16,9 @@ This document specifies a **unified text editing foundation** for the Tom Forge 
 | **Standalone First** | Editors must work without the shell; shell integration is optional |
 | **Interface Contracts** | Define interfaces that the shell understands; implementations vary |
 | **Configuration Injection** | Font settings and preferences are injected, not hardcoded |
-| **Action Registry** | Editors publish available actions; shell binds shortcuts |
+| **Action Registry** | Editors publish available actions via descriptors; shell binds shortcuts. Actions use `<source>.<action>` naming (see §5.0). |
+| **No Hidden Shortcuts** | Every shortcut is registered through the action/descriptor system and appears in the Shortcut Editor |
+| **Shell is a Module** | The shell exposes its own actions (`forge.*`) through the same system as editors |
 
 ---
 
@@ -160,7 +162,7 @@ For simple synchronous editing operations, use the `ForgeAction.editing()` facto
 
 // Simple editing action using factory constructor:
 ForgeAction.editing(
-  id: 'edit.cut',
+  id: 'forge.edit.cut',
   label: 'Cut',
   icon: Icons.cut,
   shortcut: ForgeShortcutKey(key: LogicalKeyboardKey.keyX, primaryModifier: true),
@@ -197,7 +199,7 @@ ForgeAction(
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `id` | `String` | Unique identifier (e.g., 'edit.cut', 'dart.openReference') |
+| `id` | `String` | Unique identifier (e.g., 'forge.edit.cut', 'dart.openReference') |
 | `label` | `String` | Display label for menus |
 | `icon` | `IconData?` | Optional icon |
 | `menu` | `ForgeMenuLocation` | Where to show (file, edit, view, commandPalette, etc.) |
@@ -359,7 +361,7 @@ class _ForgeTextFieldState extends State<ForgeTextField> {
     final controller = widget.controller;
     
     widget.integration.registerAction(ForgeAction.editing(
-      id: 'edit.cut',
+      id: 'forge.edit.cut',
       label: 'Cut',
       shortcut: ForgeShortcutKey(
         key: LogicalKeyboardKey.keyX,
@@ -419,39 +421,63 @@ class _ForgeTextFieldState extends State<ForgeTextField> {
 
 ## 5. Standard Actions
 
+### 5.0 Action Naming Convention
+
+All actions follow the naming pattern `<source>.<action>`:
+
+| Prefix | Source | Examples |
+|--------|--------|----------|
+| `forge.` | Shell (global operations) | `forge.toggleLeftPanel`, `forge.commandPalette`, `forge.saveAll` |
+| `forge.edit.` | Standard editing (all editors) | `forge.edit.cut`, `forge.edit.undo`, `forge.edit.moveLineUp` |
+| `dart.` | Dart editor | `dart.triggerCompletion`, `dart.toggleComment` |
+| `md.` | Markdown editor | `md.toggleBold`, `md.insertLink` |
+| `yaml.` | YAML editor | `yaml.addKey`, `yaml.toggleTextMode` |
+
+The **prefix acts as a routing category**: the shell uses the prefix to identify which module/editor handles an action. The Shortcut Editor and command palette group actions by prefix.
+
 ### 5.1 Required Actions
 
-Every ForgeTextField must support these actions:
+Every text-based editor (including ForgeTextField) must support these actions. They use the `forge.edit.` prefix:
 
 | Action ID | Default Shortcut | Description |
 |-----------|------------------|-------------|
-| `edit.cut` | ⌘X / Ctrl+X | Cut selection |
-| `edit.copy` | ⌘C / Ctrl+C | Copy selection |
-| `edit.paste` | ⌘V / Ctrl+V | Paste from clipboard |
-| `edit.undo` | ⌘Z / Ctrl+Z | Undo last change |
-| `edit.redo` | ⌘⇧Z / Ctrl+Y | Redo last undone change |
-| `edit.selectAll` | ⌘A / Ctrl+A | Select all text |
-| `edit.deleteLine` | ⌘Y / Ctrl+Y | Delete current line |
+| `forge.edit.cut` | ⌘X / Ctrl+X | Cut selection |
+| `forge.edit.copy` | ⌘C / Ctrl+C | Copy selection |
+| `forge.edit.paste` | ⌘V / Ctrl+V | Paste from clipboard |
+| `forge.edit.selectAll` | ⌘A / Ctrl+A | Select all text |
+| `forge.edit.undo` | ⌘U / Ctrl+U | Undo last change |
+| `forge.edit.redo` | ⌘Z / Ctrl+Z | Redo last undone change |
+| `forge.edit.deleteLine` | ⌘Y / Ctrl+Y | Delete current line |
+| `forge.edit.duplicateLine` | ⌘D / Ctrl+D | Duplicate current line |
+| `forge.edit.moveLineUp` | ⌥↑ / Alt+Up | Move line up |
+| `forge.edit.moveLineDown` | ⌥↓ / Alt+Down | Move line down |
 
 ### 5.2 Optional Actions
 
-Editors must also provide additional actions:
+Editors should provide these additional actions if meaningful for the editor type:
 
 | Action ID | Suggested Shortcut | Description |
 |-----------|-------------------|-------------|
-| `edit.duplicateLine` | ⌘D / Ctrl+D | Duplicate current line |
-| `edit.moveLineUp` | ⌥↑ / Alt+Up | Move line up |
-| `edit.moveLineDown` | ⌥↓ / Alt+Down | Move line down |
+| `<editor>.indentLine` | ⌘] / Ctrl+] | Indent line |
+| `<editor>.outdentLine` | ⌘[ / Ctrl+[ | Outdent line |
+| `<editor>.toggleComment` | ⌘/ / Ctrl+/ | Toggle line comment |
+| `<editor>.formatDocument` | ⌥⇧F / Alt+Shift+F | Format document |
 
+### 5.3 Shell Actions
 
-Editors should also provide additional actions if this makes sense in the editor:
+The shell (`TomForgeShellModule`) exposes its own actions through the same system as editors. Shell actions use the `forge.` prefix and are registered as `EditorActionDescriptor` instances:
 
-| Action ID | Suggested Shortcut | Description |
-|-----------|-------------------|-------------|
-| `edit.indentLine` | ⌘] / Ctrl+] | Indent line |
-| `edit.outdentLine` | ⌘[ / Ctrl+[ | Outdent line |
-| `edit.toggleComment` | ⌘/ / Ctrl+/ | Toggle line comment |
-| `edit.formatDocument` | ⌥⇧F / Alt+Shift+F | Format document |
+| Action ID | Default Shortcut | Description |
+|-----------|------------------|-------------|
+| `forge.commandPalette` | ⌘P / Ctrl+P | Open command palette |
+| `forge.toggleLeftPanel` | ⌘L / Ctrl+L | Toggle left panel |
+| `forge.toggleRightPanel` | ⌘R / Ctrl+R | Toggle right panel |
+| `forge.toggleBottomPanel` | ⌘B / Ctrl+B | Toggle bottom panel |
+| `forge.find` | ⌘F / Ctrl+F | Find in focused component |
+| `forge.saveAll` | ⌘S / Ctrl+S | Save all dirty editors |
+| `forge.focusPanel1-4` | ⌘1-4 / Ctrl+1-4 | Focus middle panel slot |
+
+There are **no hidden shortcuts**. Every shortcut — from the shell, modules, or editors — is registered through the action/descriptor system and appears in the Shortcut Editor.
 
 ---
 
@@ -1189,11 +1215,13 @@ The Forge Editor Base provides:
 | Syntax highlighting | ✓ | ✓ |
 | Undo/Redo | ✓ (local stack) | ✓ (shell unified) |
 | Cut/Copy/Paste | ✓ | ✓ |
-| Keyboard shortcuts | ✓ (defaults) | ✓ (rebindable) |
+| Move/Delete/Duplicate Line | ✓ | ✓ |
+| Keyboard shortcuts | ✓ (defaults) | ✓ (rebindable, scoped) |
 | Context menus | ✓ (editor-only) | ✓ (shell-aware) |
 | Font settings | ✓ (injected) | ✓ (from config) |
 | Config panel | ✗ | ✓ |
-| Action discovery | ✗ | ✓ |
+| Action discovery | ✗ | ✓ (all actions visible) |
+| Shortcut scoping | ✗ | ✓ (global vs editor-specific) |
 | Selection sharing | ✗ | ✓ |
 
 **Key benefits of the unified integration approach:**
@@ -1267,6 +1295,7 @@ New unified class covers all use cases with sensible defaults.
 
 ```dart
 /// Creates standard editing actions for any text editor.
+/// Action IDs use the forge.edit.* naming convention.
 List<ForgeAction> createStandardEditingActions({
   required TextEditingController controller,
   required FocusNode focusNode,
@@ -1275,14 +1304,15 @@ List<ForgeAction> createStandardEditingActions({
 }) {
   return [
     ForgeAction.editing(
-      id: 'edit.cut',
+      id: 'forge.edit.cut',
       label: 'Cut',
       shortcut: ForgeShortcutKey(key: LogicalKeyboardKey.keyX, primaryModifier: true),
       showInContextMenu: true,
       execute: () => _doCut(controller),
       isEnabled: () => !isReadOnly() && controller.selection.isValid,
     ),
-    // ... copy, paste, undo, redo, selectAll, deleteLine
+    // ... copy, paste, selectAll, undo, redo, deleteLine,
+    //     duplicateLine, moveLineUp, moveLineDown
   ];
 }
 ```
@@ -1523,10 +1553,10 @@ Move to:
 ```dart
 // In integration
 List<ForgeAction> get registeredActions => [
-  ForgeAction.editing(id: 'edit.undo', ...),
-  ForgeAction.editing(id: 'edit.redo', ...),
-  ForgeAction.editing(id: 'file.save', ...),
-  ForgeAction.editing(id: 'edit.find', ...),
+  ForgeAction.editing(id: 'forge.edit.undo', ...),
+  ForgeAction.editing(id: 'forge.edit.redo', ...),
+  ForgeAction.editing(id: 'forge.saveAll', ...),
+  ForgeAction.editing(id: 'forge.find', ...),
 ];
 ```
 

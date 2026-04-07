@@ -909,7 +909,14 @@ abstract class ForgeModule {
   List<ForgeView> get views;
 
   /// Actions this module contributes to menus and command palette.
+  /// All actions use the `<source>.<action>` naming convention (see §11.1.1).
   List<ForgeAction> get actions;
+
+  /// Action descriptors for all actions this module provides.
+  /// Descriptors are metadata-only (no handlers) — the shell uses them
+  /// for shortcut binding, command palette, and the Shortcut Editor.
+  /// See [editor_action_externalization.md] for the EditorActionDescriptor class.
+  List<EditorActionDescriptor> get actionDescriptors => [];
 
   /// Shortcut bindings this module contributes.
   List<ForgeShortcutBinding> get shortcuts;
@@ -921,6 +928,8 @@ abstract class ForgeModule {
   List<StatusBarItem> get statusBarItems => [];
 }
 ```
+
+**The shell itself is a module** (`TomForgeShellModule`). It exposes its own actions (`forge.commandPalette`, `forge.toggleLeftPanel`, `forge.toggleBottomPanel`, etc.) and action descriptors through the same contract as any other module. This ensures all shell shortcuts appear in the Shortcut Editor and command palette (see §11.1.2).
 
 ### 8.3 Example: Form Editor Module
 
@@ -2330,33 +2339,79 @@ Tom Forge uses two complementary shortcut mechanisms:
 1. **Standard shortcuts** — Single-modifier shortcuts (CMD on macOS, CTRL on Windows/Linux) for universal operations. These are a **limited, fixed set** of essential operations.
 2. **Custom shortcut menus** — Module-defined popup menus opened via **Shift+CMD+\<key\>**. The menu shows available follow-up actions; the user presses a single key (or clicks) to execute.
 
+**All shortcuts and actions are discoverable.** There are no hidden, hardcoded shortcuts. Every shortcut — whether from the shell, a module, or an editor — is registered through the action/descriptor system, appears in the Shortcut Editor (§11.6), and can be rebound by the user.
+
+#### 11.1.1 Action Naming Convention
+
+All actions use the naming pattern `<source>.<action>`:
+
+| Prefix | Source | Examples |
+|--------|--------|----------|
+| `forge.` | Shell (global operations) | `forge.toggleLeftPanel`, `forge.commandPalette`, `forge.saveAll` |
+| `forge.edit.` | Standard editing (all editors) | `forge.edit.cut`, `forge.edit.undo`, `forge.edit.moveLineUp` |
+| `dart.` | Dart editor | `dart.triggerCompletion`, `dart.toggleComment` |
+| `md.` | Markdown editor | `md.toggleBold`, `md.insertLink` |
+| `yaml.` | YAML editor | `yaml.addKey`, `yaml.toggleTextMode` |
+| `flow.` | Flow editor | `flow.addNode`, `flow.autoLayout` |
+
+The **prefix acts as a category** for routing: when the shell dispatches an action, the prefix identifies which module/editor handles it. The Shortcut Editor and command palette group actions by prefix.
+
+#### 11.1.2 Shell as Action Source
+
+The shell itself is a module (`TomForgeShellModule`, see §8) and exposes its actions and shortcuts through the same `EditorActionDescriptor` / `ForgeAction` system as any other module. Shell actions use the `forge.` prefix. This means:
+
+- Shell shortcuts (Cmd+L, Cmd+R, Cmd+B, Cmd+P, etc.) appear in the Shortcut Editor and can be rebound
+- Shell actions appear in the command palette
+- There is **no distinction** between shell-owned and module-owned shortcuts in the binding system
+
+#### 11.1.3 Standard Text Editing Actions
+
+Every text-based editor must implement a common set of editing actions using the `forge.edit.` prefix. These are not optional — they are required for any editor that handles text content. The shell assigns default shortcuts to these actions:
+
+| Action ID | Label | Default Shortcut | Context |
+|-----------|-------|------------------|---------|
+| `forge.edit.cut` | Cut | `Cmd+X` | When text is selected |
+| `forge.edit.copy` | Copy | `Cmd+C` | When text is selected |
+| `forge.edit.paste` | Paste | `Cmd+V` | When text input is focused |
+| `forge.edit.selectAll` | Select All | `Cmd+A` | When editor is focused |
+| `forge.edit.undo` | Undo | `Cmd+U` | When editor is focused |
+| `forge.edit.redo` | Redo | `Cmd+Z` | When editor is focused |
+| `forge.edit.deleteLine` | Delete Line | `Cmd+Y` | When in text editor |
+| `forge.edit.duplicateLine` | Duplicate Line | `Cmd+D` | When in text editor |
+| `forge.edit.moveLineUp` | Move Line Up | `Alt+↑` | When in text editor |
+| `forge.edit.moveLineDown` | Move Line Down | `Alt+↓` | When in text editor |
+
+Tree-based editors (like the YAML tree editor) implement the subset that applies to their editing model — at minimum `undo`, `redo`, and any operations that have a meaningful tree equivalent.
+
+These actions are defined as `EditorActionDescriptor` instances in `StandardEditingActions` (see [editor_action_externalization.md](editor_action_externalization.md) §2.7). Editors expose them via `actionDescriptors`; the shell binds the shortcuts.
+
 ### 11.2 Design Rationale
 
 - Standard shortcuts intentionally avoid two-modifier combinations (no Cmd+Shift+X, no Ctrl+Alt+F, etc.) — keeping the set small and memorable
 - Custom shortcut menus provide **discoverable, context-rich** access to module-specific commands without polluting the global shortcut space
 - Multiple shortcut menus can coexist (e.g., Shift+Cmd+E for Explorer commands, Shift+Cmd+G for Git commands)
 
-### 11.3 Standard Shortcuts
+### 11.3 Shell Shortcuts
 
-These use a single modifier key (CMD on macOS, CTRL on Windows/Linux) and are always active. The list is intentionally small — no two-modifier combinations are used for standard shortcuts:
+These are **global shell shortcuts** using a single modifier key (CMD on macOS, CTRL on Windows/Linux). They control shell-level layout and navigation — not text editing. The shell registers these as `forge.` actions:
 
-| Shortcut | Action | Context |
-|----------|--------|---------|
-| `Cmd+P` | Open command palette (search bar) | Global |
-| `Cmd+L` | Toggle left panel | Global |
-| `Cmd+R` | Toggle right panel | Global |
-| `Cmd+F` | Find in focused component | When component is focused |
-| `Cmd+1` | Focus middle panel 1 | Global |
-| `Cmd+2` | Focus middle panel 2 | Global |
-| `Cmd+3` | Focus middle panel 3 | Global |
-| `Cmd+4` | Focus middle panel 4 | Global |
-| `Cmd+S` | Save all dirty editors | Global |
-| `Cmd+Y` | Delete line | When in text editor |
-| `Cmd+X` | Cut | When text is selected |
-| `Cmd+C` | Copy | When text is selected |
-| `Cmd+V` | Paste | When text input is focused |
-| `Cmd+U` | Undo | When editor is focused |
-| `Cmd+Z` | Redo | When editor is focused |
+| Shortcut | Action ID | Action | Context |
+|----------|-----------|--------|---------|
+| `Cmd+P` | `forge.commandPalette` | Open command palette (search bar) | Global |
+| `Cmd+L` | `forge.toggleLeftPanel` | Toggle left panel | Global |
+| `Cmd+R` | `forge.toggleRightPanel` | Toggle right panel | Global |
+| `Cmd+B` | `forge.toggleBottomPanel` | Toggle bottom panel | Global |
+| `Cmd+F` | `forge.find` | Find in focused component | When component is focused |
+| `Cmd+1` | `forge.focusPanel1` | Focus middle panel 1 | Global |
+| `Cmd+2` | `forge.focusPanel2` | Focus middle panel 2 | Global |
+| `Cmd+3` | `forge.focusPanel3` | Focus middle panel 3 | Global |
+| `Cmd+4` | `forge.focusPanel4` | Focus middle panel 4 | Global |
+| `Cmd+S` | `forge.saveAll` | Save all dirty editors | Global |
+| `F1` | `forge.commandPaletteFull` | Open command palette (full list) | Global |
+| `Cmd+]` | `forge.focusNextPanel` | Focus next panel | Global |
+| `Cmd+[` | `forge.focusPrevPanel` | Focus previous panel | Global |
+
+Text editing shortcuts (`Cmd+X`, `Cmd+C`, `Cmd+V`, `Cmd+A`, `Cmd+U`, `Cmd+Z`, `Cmd+Y`, `Cmd+D`, `Alt+↑`, `Alt+↓`) are listed in §11.1.3 above. They are bound to `forge.edit.*` actions, not shell actions.
 
 ### 11.4 Custom Shortcut Menus
 
@@ -2407,12 +2462,16 @@ When a shortcut targets a component (e.g., `Cmd+S`), it applies to the **focused
 
 The Shortcut Editor (in the Configuration tab, see §9.2) provides:
 
-- **Full listing** of all registered shortcuts (from shell, modules, components)
-- **Conflict detection** — highlights when two shortcuts use the same key combination
-- **Rebinding** — click a shortcut row, then press the desired key combination
+- **Full listing** of all registered shortcuts — from the shell module, editor modules, and any other module. Because the shell exposes its actions through the same system as editors (§11.1.2), all shortcuts appear in a single, unified list.
+- **Scope selection** — when rebinding a shortcut, the user chooses the scope:
+  - **Global** — shortcut is active regardless of which editor is focused
+  - **Editor-specific** — shortcut is active only when a specific editor type is focused (e.g., only in the Dart editor). This allows the same key combination to trigger different actions in different editors without conflict.
+- **Conflict detection** — highlights when two shortcuts use the same key combination in overlapping scopes
+- **Rebinding** — click a shortcut row, then press the desired key combination, then select the scope
 - **Reset** — restore individual or all shortcuts to defaults
-- **Search/filter** — find shortcuts by action name, key, or module
-- **Context column** — shows when each shortcut is active (global, editor-focused, component-specific)
+- **Search/filter** — find shortcuts by action name, key, module, or scope
+- **Source column** — shows which module/editor provides the action (e.g., "Shell", "Dart Editor", "Markdown")
+- **Context column** — shows when each shortcut is active (`global`, `editorFocused`, `textEditorFocused`, `hasSelection`, `editable`)
 
 ---
 
