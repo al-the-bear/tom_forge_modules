@@ -154,10 +154,11 @@ class TomForgeShellModule extends ForgeModule {
 
     add(
       'forge.commandPalette',
-      'Quick Open',
+      'Command Palette',
       const ForgeShortcutKey(
         key: LogicalKeyboardKey.keyP,
         primaryModifier: true,
+        shift: true,
       ),
     );
     add(

@@ -1261,7 +1261,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
 
     overrideAction(
       'forge.commandPalette',
-      'Quick Open',
+      'Command Palette',
       () => _openQuickOpen(QuickOpenMode.actions),
     );
     overrideAction(
@@ -2011,6 +2011,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
             shortcut: const SingleActivator(
               LogicalKeyboardKey.keyP,
               meta: true,
+              shift: true,
             ),
             onSelected: _toggleCommandPalette,
           ),
@@ -2046,6 +2047,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
             shortcut: const SingleActivator(
               LogicalKeyboardKey.keyP,
               meta: true,
+              shift: true,
             ),
             onSelected: _toggleCommandPalette,
           ),
@@ -2128,7 +2130,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       }
 
       final shortcuts = <ShortcutActivator, Intent>{
-        primaryActivator(LogicalKeyboardKey.keyP):
+        primaryActivator(LogicalKeyboardKey.keyP, shift: true):
             const _ActionOnlyPaletteIntent(),
         const SingleActivator(LogicalKeyboardKey.f1):
             const _CommandPaletteIntent(),
