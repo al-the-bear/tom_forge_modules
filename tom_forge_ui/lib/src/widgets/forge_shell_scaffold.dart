@@ -253,6 +253,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       _onActiveEditorChanged,
     );
     _registerFindReplaceActions();
+    _registerShellShortcuts();
     _initializePreferences();
     _wireDialogCallbacks();
     _wireTerminalCallbacks();
@@ -1231,6 +1232,169 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     );
   }
 
+  /// Registers shell-level global shortcuts with the [ForgeShortcutManager]
+  /// so they appear in the Shortcut Editor (concept doc §11.3).
+  void _registerShellShortcuts() {
+    void registerShellAction(
+      String id,
+      String label,
+      ForgeShortcutKey key,
+      VoidCallback handler, {
+      bool Function()? isEnabled,
+    }) {
+      final action = shell_action.ForgeAction(
+        id: id,
+        label: label,
+        menu: shell_action.ForgeMenuLocation.commandPalette,
+        execute: (_) async {
+          handler();
+          return null;
+        },
+        isEnabled: isEnabled ?? () => true,
+        isVisible: () => true,
+        defaultShortcut: key,
+      );
+      widget.shell.actionRegistry.registerAction(action);
+      widget.shell.shortcuts.rebind(action, key);
+    }
+
+    registerShellAction(
+      'forge.commandPalette',
+      'Quick Open',
+      const ForgeShortcutKey(
+        key: LogicalKeyboardKey.keyP,
+        primaryModifier: true,
+      ),
+      () => _openQuickOpen(QuickOpenMode.actions),
+    );
+    registerShellAction(
+      'forge.commandPaletteFull',
+      'Command Palette',
+      const ForgeShortcutKey(key: LogicalKeyboardKey.f1),
+      _toggleCommandPalette,
+    );
+    registerShellAction(
+      'forge.toggleLeftPanel',
+      'Toggle Left Panel',
+      const ForgeShortcutKey(
+        key: LogicalKeyboardKey.keyL,
+        primaryModifier: true,
+      ),
+      () => widget.shell.layout.togglePanel(ForgePanelLocation.left),
+    );
+    registerShellAction(
+      'forge.toggleRightPanel',
+      'Toggle Right Panel',
+      const ForgeShortcutKey(
+        key: LogicalKeyboardKey.keyR,
+        primaryModifier: true,
+      ),
+      () => widget.shell.layout.togglePanel(ForgePanelLocation.right),
+    );
+    registerShellAction(
+      'forge.toggleBottomPanel',
+      'Toggle Bottom Panel',
+      const ForgeShortcutKey(
+        key: LogicalKeyboardKey.keyB,
+        primaryModifier: true,
+      ),
+      () => widget.shell.layout.togglePanel(ForgePanelLocation.bottom),
+    );
+    registerShellAction(
+      'forge.focusSearch',
+      'Focus Search',
+      const ForgeShortcutKey(
+        key: LogicalKeyboardKey.keyF,
+        primaryModifier: true,
+      ),
+      () => _openFindReplaceBar(showReplaceFields: false),
+      isEnabled: () => _activeTextEditor != null,
+    );
+    registerShellAction(
+      'forge.focusPanel1',
+      'Focus Panel 1',
+      const ForgeShortcutKey(
+        key: LogicalKeyboardKey.digit1,
+        primaryModifier: true,
+      ),
+      () {
+        if ((_layout.middlePanels.value).isNotEmpty) {
+          _layout.setActiveMiddlePanelIndex(0);
+        }
+        widget.systemState.setFocusedPanelLocation(ForgePanelLocation.middle);
+      },
+    );
+    registerShellAction(
+      'forge.focusPanel2',
+      'Focus Panel 2',
+      const ForgeShortcutKey(
+        key: LogicalKeyboardKey.digit2,
+        primaryModifier: true,
+      ),
+      () {
+        if ((_layout.middlePanels.value).length > 1) {
+          _layout.setActiveMiddlePanelIndex(1);
+        }
+        widget.systemState.setFocusedPanelLocation(ForgePanelLocation.middle);
+      },
+    );
+    registerShellAction(
+      'forge.focusPanel3',
+      'Focus Panel 3',
+      const ForgeShortcutKey(
+        key: LogicalKeyboardKey.digit3,
+        primaryModifier: true,
+      ),
+      () {
+        if ((_layout.middlePanels.value).length > 2) {
+          _layout.setActiveMiddlePanelIndex(2);
+        }
+        widget.systemState.setFocusedPanelLocation(ForgePanelLocation.middle);
+      },
+    );
+    registerShellAction(
+      'forge.focusPanel4',
+      'Focus Panel 4',
+      const ForgeShortcutKey(
+        key: LogicalKeyboardKey.digit4,
+        primaryModifier: true,
+      ),
+      () {
+        if ((_layout.middlePanels.value).length > 3) {
+          _layout.setActiveMiddlePanelIndex(3);
+        }
+        widget.systemState.setFocusedPanelLocation(ForgePanelLocation.middle);
+      },
+    );
+    registerShellAction(
+      'forge.saveAll',
+      'Save All',
+      const ForgeShortcutKey(
+        key: LogicalKeyboardKey.keyS,
+        primaryModifier: true,
+      ),
+      () => widget.shell.executeAction('file.saveAll'),
+    );
+    registerShellAction(
+      'forge.focusNextPanel',
+      'Focus Next Panel',
+      const ForgeShortcutKey(
+        key: LogicalKeyboardKey.bracketRight,
+        primaryModifier: true,
+      ),
+      () => widget.systemState.focusNextPanel(),
+    );
+    registerShellAction(
+      'forge.focusPreviousPanel',
+      'Focus Previous Panel',
+      const ForgeShortcutKey(
+        key: LogicalKeyboardKey.bracketLeft,
+        primaryModifier: true,
+      ),
+      () => widget.systemState.focusPreviousPanel(),
+    );
+  }
+
   void _onActiveEditorChanged() {
     if (!_showFindReplaceBar) {
       _clearFindDecorations();
@@ -2020,6 +2184,10 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
             const _ToggleLeftPanelIntent(),
         primaryActivator(LogicalKeyboardKey.keyR):
             const _ToggleRightPanelIntent(),
+        primaryActivator(LogicalKeyboardKey.keyB):
+            const _ToggleBottomPanelIntent(),
+        primaryActivator(LogicalKeyboardKey.keyF):
+            const _FocusSearchIntent(),
         primaryActivator(LogicalKeyboardKey.digit1):
             const _FocusMiddlePanelIntent(0),
         primaryActivator(LogicalKeyboardKey.digit2):
@@ -2075,6 +2243,18 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       _ToggleRightPanelIntent: CallbackAction<_ToggleRightPanelIntent>(
         onInvoke: (_) {
           widget.shell.layout.togglePanel(ForgePanelLocation.right);
+          return null;
+        },
+      ),
+      _ToggleBottomPanelIntent: CallbackAction<_ToggleBottomPanelIntent>(
+        onInvoke: (_) {
+          widget.shell.layout.togglePanel(ForgePanelLocation.bottom);
+          return null;
+        },
+      ),
+      _FocusSearchIntent: CallbackAction<_FocusSearchIntent>(
+        onInvoke: (_) {
+          _openFindReplaceBar(showReplaceFields: false);
           return null;
         },
       ),
@@ -3777,6 +3957,14 @@ class _ToggleLeftPanelIntent extends Intent {
 
 class _ToggleRightPanelIntent extends Intent {
   const _ToggleRightPanelIntent();
+}
+
+class _ToggleBottomPanelIntent extends Intent {
+  const _ToggleBottomPanelIntent();
+}
+
+class _FocusSearchIntent extends Intent {
+  const _FocusSearchIntent();
 }
 
 class _FocusMiddlePanelIntent extends Intent {

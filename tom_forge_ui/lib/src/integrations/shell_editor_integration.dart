@@ -164,24 +164,6 @@ class ShellEditorIntegration extends shared.ForgeEditorIntegration
     _registerWithShell(action);
   }
 
-  /// Standard editing action IDs that are handled internally by the editor
-  /// or by Flutter's built-in text editing. These should NOT be registered
-  /// with the shell's shortcut manager to avoid duplicating shell-level
-  /// actions (e.g. `edit.undo` vs `forge.edit.undo`).
-  static const _editorInternalActions = {
-    shared.StandardEditingActions.cutActionId,
-    shared.StandardEditingActions.copyActionId,
-    shared.StandardEditingActions.pasteActionId,
-    shared.StandardEditingActions.selectAllActionId,
-    shared.StandardEditingActions.undoActionId,
-    shared.StandardEditingActions.redoActionId,
-    shared.StandardEditingActions.deleteLineActionId,
-    shared.StandardEditingActions.duplicateLineActionId,
-    shared.StandardEditingActions.moveLineUpActionId,
-    shared.StandardEditingActions.moveLineDownActionId,
-    shared.StandardEditingActions.toggleCommentActionId,
-  };
-
   @override
   void registerAction(
     String actionId,
@@ -199,10 +181,6 @@ class ShellEditorIntegration extends shared.ForgeEditorIntegration
     if (isEnabled != null) {
       _enabledQueries[actionId] = isEnabled;
     }
-
-    // Standard editing actions are handled by the editor's own Shortcuts
-    // widget — don't register them with the shell to avoid duplicates.
-    if (_editorInternalActions.contains(actionId)) return;
 
     final action = _knownActions[actionId] ?? _resolveAction(actionId, isEnabled);
     if (action != null) {
