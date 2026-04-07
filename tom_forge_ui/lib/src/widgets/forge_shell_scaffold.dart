@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
+import 'package:tom_editors_shared/tom_editors_shared.dart' as shared;
 
 import '../adapters/forge_dart_editor.dart';
 import '../adapters/forge_md_editor.dart';
@@ -1393,6 +1394,59 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       ),
       () => widget.systemState.focusPreviousPanel(),
     );
+
+    // Register all editor-specific action descriptors at startup so they
+    // appear in the Shortcut Editor immediately, not only after opening an
+    // editor of that type.  When an editor opens it re-registers real
+    // actions via ShellEditorIntegration._registerWithShell(), which
+    // overwrites these placeholders via actionRegistry.registerAction() and
+    // shortcuts.rebind().
+    _registerEditorDescriptors();
+  }
+
+  /// Registers placeholder [ForgeAction]s for every editor-specific
+  /// descriptor so that their shortcuts are visible in the Shortcut Editor
+  /// from application start.
+  void _registerEditorDescriptors() {
+    final allDescriptors = [
+      ...shared.StandardEditingActions.descriptors,
+      ...shared.DartEditorActions.descriptors,
+      ...shared.MdEditorActions.descriptors,
+      ...shared.YamlEditorActions.descriptors,
+    ];
+
+    for (final desc in allDescriptors) {
+      final shortcut = desc.suggestedShortcut;
+      if (shortcut == null) continue;
+
+      final shellShortcut = ForgeShortcutKey(
+        key: shortcut.key,
+        primaryModifier: shortcut.usePrimaryModifier,
+        shift: shortcut.shift,
+        alt: shortcut.alt,
+      );
+
+      final actionId = desc.id;
+      final action = shell_action.ForgeAction(
+        id: actionId,
+        label: desc.label,
+        icon: desc.icon,
+        menu: desc.showInContextMenu
+            ? shell_action.ForgeMenuLocation.contextMenu
+            : shell_action.ForgeMenuLocation.edit,
+        execute: (_) async {
+          widget.shell.executeAction(actionId);
+          return null;
+        },
+        isEnabled: () => widget.systemState.activeEditor != null,
+        isVisible: () => true,
+        defaultShortcut: shellShortcut,
+        showInContextMenu: desc.showInContextMenu,
+      );
+
+      widget.shell.actionRegistry.registerAction(action);
+      widget.shell.shortcuts.rebind(action, shellShortcut);
+    }
   }
 
   void _onActiveEditorChanged() {
