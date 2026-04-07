@@ -176,26 +176,13 @@ class YamlEditorActions {
         removeKey(),
       ];
 
-  /// Returns action descriptors for all YAML editor-specific actions.
+  /// Returns action descriptors for implemented YAML editor-specific actions.
+  ///
+  /// Only `toggleTextMode` is currently connected to the action system.
+  /// `addKey` and `removeKey` work via context menu / toolbar only.
+  /// Save and Find are handled by the shell-level `forge.saveAll` and
+  /// `forge.focusSearch` actions.
   static List<EditorActionDescriptor> get descriptors => [
-        EditorActionDescriptor(
-          id: addKeyActionId,
-          label: 'Add Key',
-          category: 'YAML Editor',
-          description: 'Add a new key to the selected node or its parent map',
-          contextRule: ActionContext.editable,
-          showInContextMenu: true,
-          suggestedShortcut: addKeyShortcut,
-        ),
-        EditorActionDescriptor(
-          id: removeKeyActionId,
-          label: 'Remove Key',
-          category: 'YAML Editor',
-          description: 'Remove the selected key from the tree',
-          contextRule: ActionContext.editable,
-          showInContextMenu: true,
-          suggestedShortcut: removeKeyShortcut,
-        ),
         EditorActionDescriptor(
           id: toggleTextModeActionId,
           label: 'Toggle Text Mode',
@@ -203,22 +190,6 @@ class YamlEditorActions {
           description: 'Toggle between tree mode and raw text mode',
           contextRule: ActionContext.editorFocused,
           suggestedShortcut: toggleTextModeShortcut,
-        ),
-        EditorActionDescriptor(
-          id: saveActionId,
-          label: 'Save',
-          category: 'YAML Editor',
-          description: 'Save the document',
-          contextRule: ActionContext.editorFocused,
-          suggestedShortcut: saveShortcut,
-        ),
-        EditorActionDescriptor(
-          id: searchActionId,
-          label: 'Find',
-          category: 'YAML Editor',
-          description: 'Toggle the search panel',
-          contextRule: ActionContext.editorFocused,
-          suggestedShortcut: searchShortcut,
         ),
       ];
 }

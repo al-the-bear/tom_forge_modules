@@ -26,10 +26,10 @@ void main() {
           ...shared.StandardEditingActions.descriptors,
         ];
       final action = shared.ForgeAction.editing(
-        id: 'md.insertTable',
-        label: 'Insert Table',
+        id: shared.StandardEditingActions.cutActionId,
+        label: 'Cut',
         shortcut: const shared.ForgeShortcutKey(
-          key: LogicalKeyboardKey.keyT,
+          key: LogicalKeyboardKey.keyX,
           usePrimaryModifier: true,
         ),
         execute: () => true,

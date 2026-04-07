@@ -148,7 +148,8 @@ class TomForgeShellModule extends ForgeModule {
         defaultShortcut: key,
       );
       _actions.add(action);
-      _shortcuts.add(ForgeShortcutBinding(action: action, key: key));
+      _shortcuts
+          .add(ForgeShortcutBinding(action: action, key: key, context: 'Shell'));
     }
 
     add(
@@ -300,7 +301,11 @@ class TomForgeShellModule extends ForgeModule {
       );
 
       _actions.add(action);
-      _shortcuts.add(ForgeShortcutBinding(action: action, key: shellShortcut));
+      _shortcuts.add(ForgeShortcutBinding(
+        action: action,
+        key: shellShortcut,
+        context: desc.category,
+      ));
     }
   }
 }

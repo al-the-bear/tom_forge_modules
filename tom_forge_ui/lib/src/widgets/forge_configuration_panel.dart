@@ -1376,6 +1376,15 @@ class _ShortcutsSettingsSectionState extends State<_ShortcutsSettingsSection> {
         .toList(growable: false)
       ..sort((a, b) => a.action.label.compareTo(b.action.label));
 
+    // Group bindings by key for multi-action detection.
+    final keyGroups = <String, List<ForgeShortcutBinding>>{};
+    for (final b in bindings) {
+      keyGroups.putIfAbsent(b.displayString, () => []).add(b);
+    }
+    final groupEntries = keyGroups.entries.toList()
+      ..sort((a, b) => a.value.first.action.label
+          .compareTo(b.value.first.action.label));
+
     return Column(
       children: [
         Padding(
@@ -1421,79 +1430,168 @@ class _ShortcutsSettingsSectionState extends State<_ShortcutsSettingsSection> {
             ],
           ),
         ),
-        if (bindings.isEmpty)
+        if (groupEntries.isEmpty)
           const Expanded(
             child: Center(child: Text('No matches')),
           )
         else
           Expanded(
             child: ListView.builder(
-            itemCount: bindings.length,
-            itemBuilder: (context, index) {
-              final binding = bindings[index];
-              return ListTile(
-                dense: true,
-                visualDensity: VisualDensity.compact,
-                title: Text(
-                  binding.action.label,
-                  style: const TextStyle(fontSize: 12),
-                ),
-                subtitle: Text(
-                  binding.context ?? 'global',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: theme.colorScheme.onSurface
-                        .withValues(alpha: 0.5),
-                  ),
-                ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      binding.displayString,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    InkWell(
-                      onTap: () => widget.isChord
-                          ? _rebindChord(binding)
-                          : _rebind(binding),
-                      child: Padding(
-                        padding: const EdgeInsets.all(4),
-                        child: Text(
-                          _capturingActionId == binding.action.id
-                              ? '...'
-                              : 'Edit',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: theme.colorScheme.primary,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 2),
-                    InkWell(
-                      onTap: () => _removeBinding(binding),
-                      child: Padding(
-                        padding: const EdgeInsets.all(4),
-                        child: Icon(
-                          Icons.close,
-                          size: 12,
-                          color: theme.colorScheme.onSurface
-                              .withValues(alpha: 0.4),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
+              itemCount: groupEntries.length,
+              itemBuilder: (context, index) {
+                final entry = groupEntries[index];
+                final group = entry.value;
+                if (group.length == 1) {
+                  return _buildSingleActionTile(theme, group.first);
+                }
+                return _buildMultiActionTile(theme, entry.key, group);
+              },
+            ),
           ),
       ],
+    );
+  }
+
+  Widget _buildSingleActionTile(
+    ThemeData theme,
+    ForgeShortcutBinding binding,
+  ) {
+    return ListTile(
+      dense: true,
+      visualDensity: VisualDensity.compact,
+      title: Text(
+        binding.action.label,
+        style: const TextStyle(fontSize: 12),
+      ),
+      subtitle: Text(
+        binding.context ?? 'global',
+        style: TextStyle(
+          fontSize: 10,
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+        ),
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            binding.displayString,
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(width: 4),
+          InkWell(
+            onTap: () => widget.isChord
+                ? _rebindChord(binding)
+                : _rebind(binding),
+            child: Padding(
+              padding: const EdgeInsets.all(4),
+              child: Text(
+                _capturingActionId == binding.action.id ? '...' : 'Edit',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 2),
+          InkWell(
+            onTap: () => _removeBinding(binding),
+            child: Padding(
+              padding: const EdgeInsets.all(4),
+              child: Icon(
+                Icons.close,
+                size: 12,
+                color:
+                    theme.colorScheme.onSurface.withValues(alpha: 0.4),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMultiActionTile(
+    ThemeData theme,
+    String keyDisplay,
+    List<ForgeShortcutBinding> group,
+  ) {
+    final warningColor = theme.colorScheme.error.withValues(alpha: 0.8);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header: key + conflict indicator + edit button.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+            child: Row(
+              children: [
+                Text(
+                  keyDisplay,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(Icons.warning_amber_rounded,
+                    size: 12, color: warningColor),
+                const SizedBox(width: 2),
+                Text(
+                  '${group.length} actions',
+                  style: TextStyle(fontSize: 10, color: warningColor),
+                ),
+              ],
+            ),
+          ),
+          // Per-action rows.
+          for (final binding in group)
+            Padding(
+              padding: const EdgeInsets.only(left: 20),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: binding.action.label,
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                          TextSpan(
+                            text: '  (${binding.context ?? "global"})',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.5),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () => _removeBinding(binding),
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Icon(
+                        Icons.close,
+                        size: 12,
+                        color: theme.colorScheme.onSurface
+                            .withValues(alpha: 0.4),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          const Divider(height: 1),
+        ],
+      ),
     );
   }
 
