@@ -6,7 +6,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
-import 'package:tom_editors_shared/tom_editors_shared.dart' as shared;
 
 import '../adapters/forge_dart_editor.dart';
 import '../adapters/forge_md_editor.dart';
@@ -1233,13 +1232,16 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     );
   }
 
-  /// Registers shell-level global shortcuts with the [ForgeShortcutManager]
-  /// so they appear in the Shortcut Editor (concept doc §11.3).
+  /// Overrides the placeholder execute callbacks registered by
+  /// [TomForgeShellModule] with widget-level implementations that have
+  /// access to scaffold state (command palette, find bar, layout, etc.).
+  ///
+  /// The module provides the actions and shortcut bindings so they appear
+  /// in the Shortcut Editor.  This method only replaces the execute logic.
   void _registerShellShortcuts() {
-    void registerShellAction(
+    void overrideAction(
       String id,
       String label,
-      ForgeShortcutKey key,
       VoidCallback handler, {
       bool Function()? isEnabled,
     }) {
@@ -1253,71 +1255,44 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         },
         isEnabled: isEnabled ?? () => true,
         isVisible: () => true,
-        defaultShortcut: key,
       );
       widget.shell.actionRegistry.registerAction(action);
-      widget.shell.shortcuts.rebind(action, key);
     }
 
-    registerShellAction(
+    overrideAction(
       'forge.commandPalette',
       'Quick Open',
-      const ForgeShortcutKey(
-        key: LogicalKeyboardKey.keyP,
-        primaryModifier: true,
-      ),
       () => _openQuickOpen(QuickOpenMode.actions),
     );
-    registerShellAction(
+    overrideAction(
       'forge.commandPaletteFull',
       'Command Palette',
-      const ForgeShortcutKey(key: LogicalKeyboardKey.f1),
       _toggleCommandPalette,
     );
-    registerShellAction(
+    overrideAction(
       'forge.toggleLeftPanel',
       'Toggle Left Panel',
-      const ForgeShortcutKey(
-        key: LogicalKeyboardKey.keyL,
-        primaryModifier: true,
-      ),
       () => widget.shell.layout.togglePanel(ForgePanelLocation.left),
     );
-    registerShellAction(
+    overrideAction(
       'forge.toggleRightPanel',
       'Toggle Right Panel',
-      const ForgeShortcutKey(
-        key: LogicalKeyboardKey.keyR,
-        primaryModifier: true,
-      ),
       () => widget.shell.layout.togglePanel(ForgePanelLocation.right),
     );
-    registerShellAction(
+    overrideAction(
       'forge.toggleBottomPanel',
       'Toggle Bottom Panel',
-      const ForgeShortcutKey(
-        key: LogicalKeyboardKey.keyB,
-        primaryModifier: true,
-      ),
       () => widget.shell.layout.togglePanel(ForgePanelLocation.bottom),
     );
-    registerShellAction(
+    overrideAction(
       'forge.focusSearch',
       'Focus Search',
-      const ForgeShortcutKey(
-        key: LogicalKeyboardKey.keyF,
-        primaryModifier: true,
-      ),
       () => _openFindReplaceBar(showReplaceFields: false),
       isEnabled: () => _activeTextEditor != null,
     );
-    registerShellAction(
+    overrideAction(
       'forge.focusPanel1',
       'Focus Panel 1',
-      const ForgeShortcutKey(
-        key: LogicalKeyboardKey.digit1,
-        primaryModifier: true,
-      ),
       () {
         if ((_layout.middlePanels.value).isNotEmpty) {
           _layout.setActiveMiddlePanelIndex(0);
@@ -1325,13 +1300,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         widget.systemState.setFocusedPanelLocation(ForgePanelLocation.middle);
       },
     );
-    registerShellAction(
+    overrideAction(
       'forge.focusPanel2',
       'Focus Panel 2',
-      const ForgeShortcutKey(
-        key: LogicalKeyboardKey.digit2,
-        primaryModifier: true,
-      ),
       () {
         if ((_layout.middlePanels.value).length > 1) {
           _layout.setActiveMiddlePanelIndex(1);
@@ -1339,13 +1310,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         widget.systemState.setFocusedPanelLocation(ForgePanelLocation.middle);
       },
     );
-    registerShellAction(
+    overrideAction(
       'forge.focusPanel3',
       'Focus Panel 3',
-      const ForgeShortcutKey(
-        key: LogicalKeyboardKey.digit3,
-        primaryModifier: true,
-      ),
       () {
         if ((_layout.middlePanels.value).length > 2) {
           _layout.setActiveMiddlePanelIndex(2);
@@ -1353,13 +1320,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         widget.systemState.setFocusedPanelLocation(ForgePanelLocation.middle);
       },
     );
-    registerShellAction(
+    overrideAction(
       'forge.focusPanel4',
       'Focus Panel 4',
-      const ForgeShortcutKey(
-        key: LogicalKeyboardKey.digit4,
-        primaryModifier: true,
-      ),
       () {
         if ((_layout.middlePanels.value).length > 3) {
           _layout.setActiveMiddlePanelIndex(3);
@@ -1367,86 +1330,21 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         widget.systemState.setFocusedPanelLocation(ForgePanelLocation.middle);
       },
     );
-    registerShellAction(
+    overrideAction(
       'forge.saveAll',
       'Save All',
-      const ForgeShortcutKey(
-        key: LogicalKeyboardKey.keyS,
-        primaryModifier: true,
-      ),
       () => widget.shell.executeAction('file.saveAll'),
     );
-    registerShellAction(
+    overrideAction(
       'forge.focusNextPanel',
       'Focus Next Panel',
-      const ForgeShortcutKey(
-        key: LogicalKeyboardKey.bracketRight,
-        primaryModifier: true,
-      ),
       () => widget.systemState.focusNextPanel(),
     );
-    registerShellAction(
+    overrideAction(
       'forge.focusPreviousPanel',
       'Focus Previous Panel',
-      const ForgeShortcutKey(
-        key: LogicalKeyboardKey.bracketLeft,
-        primaryModifier: true,
-      ),
       () => widget.systemState.focusPreviousPanel(),
     );
-
-    // Register all editor-specific action descriptors at startup so they
-    // appear in the Shortcut Editor immediately, not only after opening an
-    // editor of that type.  When an editor opens it re-registers real
-    // actions via ShellEditorIntegration._registerWithShell(), which
-    // overwrites these placeholders via actionRegistry.registerAction() and
-    // shortcuts.rebind().
-    _registerEditorDescriptors();
-  }
-
-  /// Registers placeholder [ForgeAction]s for every editor-specific
-  /// descriptor so that their shortcuts are visible in the Shortcut Editor
-  /// from application start.
-  void _registerEditorDescriptors() {
-    final allDescriptors = [
-      ...shared.StandardEditingActions.descriptors,
-      ...shared.DartEditorActions.descriptors,
-      ...shared.MdEditorActions.descriptors,
-      ...shared.YamlEditorActions.descriptors,
-    ];
-
-    for (final desc in allDescriptors) {
-      final shortcut = desc.suggestedShortcut;
-      if (shortcut == null) continue;
-
-      final shellShortcut = ForgeShortcutKey(
-        key: shortcut.key,
-        primaryModifier: shortcut.usePrimaryModifier,
-        shift: shortcut.shift,
-        alt: shortcut.alt,
-      );
-
-      final actionId = desc.id;
-      final action = shell_action.ForgeAction(
-        id: actionId,
-        label: desc.label,
-        icon: desc.icon,
-        menu: desc.showInContextMenu
-            ? shell_action.ForgeMenuLocation.contextMenu
-            : shell_action.ForgeMenuLocation.edit,
-        execute: (_) async {
-          widget.shell.executeAction(actionId);
-          return null;
-        },
-        isEnabled: () => widget.systemState.activeEditor != null,
-        isVisible: () => true,
-        defaultShortcut: shellShortcut,
-        showInContextMenu: desc.showInContextMenu,
-      );
-
-      widget.shell.actionRegistry.registerAction(action);
-      widget.shell.shortcuts.rebind(action, shellShortcut);
-    }
   }
 
   void _onActiveEditorChanged() {
