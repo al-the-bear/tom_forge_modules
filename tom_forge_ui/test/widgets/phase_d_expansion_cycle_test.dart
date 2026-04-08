@@ -26,7 +26,14 @@ void main() {
 
     await tester.pumpWidget(harness.buildPaletteApp());
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Save').first);
+    await tester.enterText(find.byType(TextField), 'Save');
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(InkWell),
+        matching: find.text('Save'),
+      ).first,
+    );
     await tester.pumpAndSettle();
 
     expect(harness.module.executedActionIds, contains('file.save'));

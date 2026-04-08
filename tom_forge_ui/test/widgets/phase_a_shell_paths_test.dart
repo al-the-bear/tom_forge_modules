@@ -15,7 +15,16 @@ void main() {
     await tester.pumpWidget(harness.buildPaletteApp());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Save'));
+    // Type in the search field to filter down to the Save action.
+    await tester.enterText(find.byType(TextField), 'Save');
+    await tester.pumpAndSettle();
+
+    // Tap the "Save" item in the list (not the search field text).
+    final saveInList = find.descendant(
+      of: find.byType(InkWell),
+      matching: find.text('Save'),
+    );
+    await tester.tap(saveInList.first);
     await tester.pumpAndSettle();
 
     expect(harness.module.executedActionIds, contains('file.save'));
