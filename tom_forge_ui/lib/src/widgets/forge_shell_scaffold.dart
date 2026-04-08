@@ -2794,7 +2794,8 @@ Press "?" for this help document.
   /// Reset all middle panel flex factors to equal distribution.
   void _resetMiddlePanelFlex() {
     setState(() {
-      _middlePanelFlex = List.filled(_middlePanelFlex.length, 1.0);
+      _middlePanelFlex =
+          List<double>.filled(_middlePanelFlex.length, 1.0, growable: true);
     });
     _scheduleLayoutPersistence();
   }
@@ -2841,7 +2842,7 @@ Press "?" for this help document.
           .whereType<num>()
           .map((value) => value.toDouble())
           .where((value) => value > 0)
-          .toList(growable: false);
+          .toList();
       if (parsed.isNotEmpty) {
         _middlePanelFlex = parsed;
       }
