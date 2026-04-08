@@ -140,7 +140,7 @@ class TomForgeShellModule extends ForgeModule {
         label: label,
         menu: ForgeMenuLocation.commandPalette,
         execute: (_) async {
-          shellApi.executeAction(id);
+          // No-op placeholder. The scaffold overrides this via registerAction.
           return null;
         },
         isEnabled: () => true,

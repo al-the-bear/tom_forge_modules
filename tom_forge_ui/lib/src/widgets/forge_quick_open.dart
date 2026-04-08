@@ -611,31 +611,27 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
       sections.add(_buildItemGroup(settings, runningIndex, isDark, theme));
     }
 
-    return Flexible(
-      child: ListView(
-        shrinkWrap: true,
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        children: sections,
-      ),
+    return ListView(
+      shrinkWrap: true,
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      children: sections,
     );
   }
 
   Widget _buildFlatList(bool isDark, ThemeData theme) {
-    return Flexible(
-      child: ListView.builder(
-        shrinkWrap: true,
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        itemCount: _results.length,
-        itemBuilder: (context, index) {
-          return _buildResultRow(
-            _results[index],
-            index,
-            index == _selectedIndex,
-            isDark,
-            theme,
-          );
-        },
-      ),
+    return ListView.builder(
+      shrinkWrap: true,
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      itemCount: _results.length,
+      itemBuilder: (context, index) {
+        return _buildResultRow(
+          _results[index],
+          index,
+          index == _selectedIndex,
+          isDark,
+          theme,
+        );
+      },
     );
   }
 

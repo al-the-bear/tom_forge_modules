@@ -255,6 +255,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     _registerFindReplaceActions();
     _registerShellShortcuts();
     _initializePreferences();
+    _quickOpenSearchController.addListener(_onSearchFieldChanged);
     _wireDialogCallbacks();
     _wireTerminalCallbacks();
     _listenForSaveRevisions();
@@ -329,6 +330,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       // Dialog callbacks (depend on shell.dialogs).
       _wireDialogCallbacks();
 
+      // Re-register shell shortcut overrides on the new shell's action registry.
+      _registerShellShortcuts();
+
       // Restore layout from preferences into the new controller.
       _initializePreferences();
     }
@@ -358,6 +362,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     _replaceValueController.dispose();
     _findFieldFocusNode.dispose();
     _replaceFieldFocusNode.dispose();
+    _quickOpenSearchController.removeListener(_onSearchFieldChanged);
     _quickOpenSearchController.dispose();
     _quickOpenFocusNode.dispose();
     _configPanelVisible.dispose();
@@ -2264,6 +2269,18 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     }
   }
 
+  /// Opens the quick-open palette when the user starts typing in the search
+  /// field while the palette is not already visible.
+  void _onSearchFieldChanged() {
+    if (_quickOpenMode != null) return;
+    if (_quickOpenSearchController.text.isNotEmpty) {
+      setState(() {
+        _showCommandPalette = true;
+        _quickOpenMode = QuickOpenMode.all;
+      });
+    }
+  }
+
   void _openQuickOpen(QuickOpenMode mode) {
     setState(() {
       _showCommandPalette = true;
@@ -2496,32 +2513,27 @@ Press "?" for this help document.
                                 ),
                               ),
                               Expanded(
-                                child: IgnorePointer(
-                                  ignoring: _quickOpenMode == null,
-                                  child: TextField(
-                                    controller: _quickOpenSearchController,
-                                    focusNode: _quickOpenFocusNode,
-                                    readOnly: _quickOpenMode == null,
-                                    showCursor: _quickOpenMode != null,
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: theme.colorScheme.onSurface,
+                                child: TextField(
+                                  controller: _quickOpenSearchController,
+                                  focusNode: _quickOpenFocusNode,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: theme.colorScheme.onSurface,
+                                  ),
+                                  decoration: InputDecoration(
+                                    hintText: _quickOpenMode == QuickOpenMode.actions
+                                        ? 'Type an action...'
+                                        : _quickOpenMode == QuickOpenMode.chord
+                                            ? 'Search shortcuts or press key...'
+                                            : 'Search files, actions, and settings',
+                                    hintStyle:
+                                        theme.textTheme.bodyMedium?.copyWith(
+                                      color: theme.colorScheme.onSurface
+                                          .withValues(alpha: 0.5),
                                     ),
-                                    decoration: InputDecoration(
-                                      hintText: _quickOpenMode == QuickOpenMode.actions
-                                          ? 'Type an action...'
-                                          : _quickOpenMode == QuickOpenMode.chord
-                                              ? 'Search shortcuts or press key...'
-                                              : 'Search files, actions, and settings',
-                                      hintStyle:
-                                          theme.textTheme.bodyMedium?.copyWith(
-                                        color: theme.colorScheme.onSurface
-                                            .withValues(alpha: 0.5),
-                                      ),
-                                      border: InputBorder.none,
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(vertical: 8),
-                                      isDense: true,
-                                    ),
+                                    border: InputBorder.none,
+                                    contentPadding:
+                                        const EdgeInsets.symmetric(vertical: 8),
+                                    isDense: true,
                                   ),
                                 ),
                               ),
@@ -2921,14 +2933,19 @@ Press "?" for this help document.
       final codePoint = tabData['iconCodePoint'];
       final fontFamily = tabData['iconFontFamily'];
       if (codePoint is! int) continue;
-      targetTabs.add(PanelTabConfig(
-        title: title,
-        icon: IconData(
-          codePoint,
-          fontFamily: fontFamily is String ? fontFamily : 'MaterialIcons',
-        ),
-        sections: [], // mutable list for later editor drops
-      ));
+      try {
+        targetTabs.add(PanelTabConfig(
+          title: title,
+          icon: IconData(
+            codePoint,
+            fontFamily: fontFamily is String ? fontFamily : 'MaterialIcons',
+          ),
+          sections: [], // mutable list for later editor drops
+        ));
+      } on UnsupportedError {
+        // Tabs list is unmodifiable (const default). Skip restoration.
+        return;
+      }
       existingTitles.add(title);
     }
   }
@@ -2960,15 +2977,25 @@ Press "?" for this help document.
       if (sections.isEmpty) continue;
       if (i < targetTabs.length) {
         // Add sections to the existing tab (app-defined or restored custom).
-        targetTabs[i].sections.addAll(sections);
+        try {
+          targetTabs[i].sections.addAll(sections);
+        } on UnsupportedError {
+          // Sections list is unmodifiable (const default). Skip.
+          continue;
+        }
       } else {
         // Legacy fallback: create a new tab from the first editor's metadata.
         final firstEditor = sections.first;
-        targetTabs.add(PanelTabConfig(
-          title: firstEditor.title.value,
-          icon: firstEditor.icon,
-          sections: sections,
-        ));
+        try {
+          targetTabs.add(PanelTabConfig(
+            title: firstEditor.title.value,
+            icon: firstEditor.icon,
+            sections: sections,
+          ));
+        } on UnsupportedError {
+          // Tabs list is unmodifiable (const default). Skip restoration.
+          return;
+        }
       }
     }
   }
