@@ -178,6 +178,47 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   final TextEditingController _quickOpenSearchController =
       TextEditingController();
   final FocusNode _quickOpenFocusNode = FocusNode();
+
+  /// Key event handler for the search field focus node.
+  /// Intercepts palette shortcuts (F1, Ctrl+Shift+P) and Escape so they
+  /// work even when the text field has focus.
+  KeyEventResult _handleSearchFieldKeyEvent(
+    FocusNode node,
+    KeyEvent event,
+  ) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    final key = event.logicalKey;
+
+    // Escape closes the palette when open.
+    if (key == LogicalKeyboardKey.escape && _quickOpenMode != null) {
+      _closeQuickOpen();
+      return KeyEventResult.handled;
+    }
+
+    // F1 toggles the command palette.
+    if (key == LogicalKeyboardKey.f1) {
+      _toggleCommandPalette();
+      return KeyEventResult.handled;
+    }
+
+    // Ctrl+Shift+P (or Cmd+Shift+P) toggles the command palette.
+    final pressed = HardwareKeyboard.instance.logicalKeysPressed;
+    final useMeta =
+        !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
+    final hasPrimary = useMeta
+        ? pressed.contains(LogicalKeyboardKey.metaLeft) ||
+              pressed.contains(LogicalKeyboardKey.metaRight)
+        : pressed.contains(LogicalKeyboardKey.controlLeft) ||
+              pressed.contains(LogicalKeyboardKey.controlRight);
+    final hasShift = pressed.contains(LogicalKeyboardKey.shiftLeft) ||
+        pressed.contains(LogicalKeyboardKey.shiftRight);
+    if (hasPrimary && hasShift && key == LogicalKeyboardKey.keyP) {
+      _toggleCommandPalette();
+      return KeyEventResult.handled;
+    }
+
+    return KeyEventResult.ignored;
+  }
   final GlobalKey _searchBoxKey = GlobalKey();
   final GlobalKey _quickOpenWidgetKey = GlobalKey();
   ForgeShortcutKey? _chordFirstKeyForQuickOpen;
@@ -1267,11 +1308,6 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     overrideAction(
       'forge.commandPalette',
       'Command Palette',
-      () => _openQuickOpen(QuickOpenMode.actions),
-    );
-    overrideAction(
-      'forge.commandPaletteFull',
-      'Command Palette',
       _toggleCommandPalette,
     );
     overrideAction(
@@ -2136,7 +2172,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
 
       final shortcuts = <ShortcutActivator, Intent>{
         primaryActivator(LogicalKeyboardKey.keyP, shift: true):
-            const _ActionOnlyPaletteIntent(),
+            const _CommandPaletteIntent(),
         const SingleActivator(LogicalKeyboardKey.f1):
             const _CommandPaletteIntent(),
         primaryActivator(LogicalKeyboardKey.keyL):
@@ -2184,12 +2220,6 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       _CommandPaletteIntent: CallbackAction<_CommandPaletteIntent>(
         onInvoke: (_) {
           _toggleCommandPalette();
-          return null;
-        },
-      ),
-      _ActionOnlyPaletteIntent: CallbackAction<_ActionOnlyPaletteIntent>(
-        onInvoke: (_) {
-          _openQuickOpen(QuickOpenMode.actions);
           return null;
         },
       ),
@@ -2513,9 +2543,11 @@ Press "?" for this help document.
                                 ),
                               ),
                               Expanded(
-                                child: TextField(
-                                  controller: _quickOpenSearchController,
-                                  focusNode: _quickOpenFocusNode,
+                                child: Focus(
+                                  onKeyEvent: _handleSearchFieldKeyEvent,
+                                  child: TextField(
+                                    controller: _quickOpenSearchController,
+                                    focusNode: _quickOpenFocusNode,
                                   style: theme.textTheme.bodyMedium?.copyWith(
                                     color: theme.colorScheme.onSurface,
                                   ),
@@ -2534,6 +2566,7 @@ Press "?" for this help document.
                                     contentPadding:
                                         const EdgeInsets.symmetric(vertical: 8),
                                     isDense: true,
+                                  ),
                                   ),
                                 ),
                               ),
@@ -3948,10 +3981,6 @@ class _ViewEditorAdapter extends ForgeEditor {
 
 class _CommandPaletteIntent extends Intent {
   const _CommandPaletteIntent();
-}
-
-class _ActionOnlyPaletteIntent extends Intent {
-  const _ActionOnlyPaletteIntent();
 }
 
 class _ToggleLeftPanelIntent extends Intent {

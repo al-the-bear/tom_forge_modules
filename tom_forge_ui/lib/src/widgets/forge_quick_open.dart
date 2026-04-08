@@ -678,16 +678,18 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
     bool isDark,
     ThemeData theme,
   ) {
-    return InkWell(
-      onTap: item.onExecute,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        color: isSelected
-            ? (isDark
-                ? const Color(0xFF094771)
-                : Colors.blue.withValues(alpha: 0.1))
-            : null,
-        child: Row(
+    final selectedColor = isDark
+        ? const Color(0xFF094771)
+        : Colors.blue.withValues(alpha: 0.1);
+    return MouseRegion(
+      onEnter: (_) => setState(() => _selectedIndex = index),
+      child: InkWell(
+        onTap: item.onExecute,
+        hoverColor: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          color: isSelected ? selectedColor : null,
+          child: Row(
           children: [
             Icon(
               item.icon,
@@ -739,6 +741,7 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
               ),
           ],
         ),
+      ),
       ),
     );
   }

@@ -152,20 +152,39 @@ class TomForgeShellModule extends ForgeModule {
           .add(ForgeShortcutBinding(action: action, key: key, context: 'Shell'));
     }
 
-    add(
-      'forge.commandPalette',
-      'Command Palette',
-      const ForgeShortcutKey(
+    // Single command palette action with two shortcut bindings.
+    final paletteAction = ForgeAction(
+      id: 'forge.commandPalette',
+      label: 'Command Palette',
+      menu: ForgeMenuLocation.commandPalette,
+      execute: (_) async {
+        // No-op placeholder. The scaffold overrides this via registerAction.
+        return null;
+      },
+      isEnabled: () => true,
+      isVisible: () => true,
+      defaultShortcut: const ForgeShortcutKey(
         key: LogicalKeyboardKey.keyP,
         primaryModifier: true,
         shift: true,
       ),
     );
-    add(
-      'forge.commandPaletteFull',
-      'Command Palette',
-      const ForgeShortcutKey(key: LogicalKeyboardKey.f1),
-    );
+    _actions.add(paletteAction);
+    _shortcuts.add(ForgeShortcutBinding(
+      action: paletteAction,
+      key: const ForgeShortcutKey(
+        key: LogicalKeyboardKey.keyP,
+        primaryModifier: true,
+        shift: true,
+      ),
+      context: 'Shell',
+    ));
+    _shortcuts.add(ForgeShortcutBinding(
+      action: paletteAction,
+      key: const ForgeShortcutKey(key: LogicalKeyboardKey.f1),
+      context: 'Shell',
+    ));
+
     add(
       'forge.toggleLeftPanel',
       'Toggle Left Panel',
