@@ -233,7 +233,11 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
           final shellApi = widget.shellApi;
           final actionId = binding.action.id;
           widget.onDismiss();
-          shellApi.executeAction(actionId);
+          // Defer to next frame so the dismiss completes before the
+          // action runs (avoids crash when the action re-opens the palette).
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            shellApi.executeAction(actionId);
+          });
         },
       ));
     }
@@ -262,11 +266,15 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
           // Capture references before dismiss (which may dispose this State).
           final shellApi = widget.shellApi;
           final actionId = action.id;
+          final actionFallback = action.execute;
           widget.onDismiss();
-          // Execute after dismiss so panel changes are visible immediately.
-          if (!shellApi.executeAction(actionId)) {
-            action.execute({});
-          }
+          // Defer to next frame so the dismiss completes before the
+          // action runs (avoids crash when the action re-opens the palette).
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!shellApi.executeAction(actionId)) {
+              actionFallback({});
+            }
+          });
         },
       );
     }

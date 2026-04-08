@@ -1195,6 +1195,11 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     if (!leftPanel.isVisible) {
       _layout.openPanel(ForgePanelLocation.left);
     }
+    // Ensure the right panel is visible so the user sees the full layout.
+    final rightPanel = _layout.rightPanel.value;
+    if (!rightPanel.isVisible) {
+      _layout.openPanel(ForgePanelLocation.right);
+    }
     // Toggle the config panel inside the left side panel.
     _configPanelVisible.value = true;
   }
