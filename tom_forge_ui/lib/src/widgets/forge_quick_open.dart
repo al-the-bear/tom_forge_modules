@@ -79,6 +79,9 @@ class ForgeQuickOpen extends StatefulWidget {
   /// Called when the user wants to open the help document.
   final VoidCallback? onOpenHelp;
 
+  /// Called when the user selects a setting entry.
+  final VoidCallback? onOpenSettings;
+
   /// Controller for the search field in the title bar.
   final TextEditingController searchController;
 
@@ -98,6 +101,7 @@ class ForgeQuickOpen extends StatefulWidget {
     this.chordCompletions = const [],
     this.onOpenFile,
     this.onOpenHelp,
+    this.onOpenSettings,
     required this.searchController,
     required this.searchFocusNode,
     this.searchConfig = const ForgeSearchConfig(),
@@ -226,8 +230,10 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
         icon: binding.action.icon ?? Icons.keyboard,
         type: _ResultType.action,
         onExecute: () {
-          widget.shellApi.executeAction(binding.action.id);
+          final shellApi = widget.shellApi;
+          final actionId = binding.action.id;
           widget.onDismiss();
+          shellApi.executeAction(actionId);
         },
       ));
     }
@@ -253,10 +259,14 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
         icon: action.icon ?? Icons.play_arrow,
         type: _ResultType.action,
         onExecute: () {
-          if (!widget.shellApi.executeAction(action.id)) {
+          // Capture references before dismiss (which may dispose this State).
+          final shellApi = widget.shellApi;
+          final actionId = action.id;
+          widget.onDismiss();
+          // Execute after dismiss so panel changes are visible immediately.
+          if (!shellApi.executeAction(actionId)) {
             action.execute({});
           }
-          widget.onDismiss();
         },
       );
     }
@@ -317,8 +327,8 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
       icon: icon,
       type: _ResultType.setting,
       onExecute: () {
-        // Open configuration dialog — dismiss quick-open first.
         widget.onDismiss();
+        widget.onOpenSettings?.call();
       },
     );
   }

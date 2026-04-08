@@ -2312,6 +2312,10 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       _chordCompletionsForQuickOpen = const [];
       _quickOpenSearchController.clear();
     });
+    // Return focus to the scaffold so keyboard shortcuts work again.
+    // The search field TextField steals focus; unfocusing it lets the
+    // scaffold's Focus(autofocus: true) reclaim events.
+    _quickOpenFocusNode.unfocus();
   }
 
   void _openHelpDocument() {
@@ -2398,6 +2402,7 @@ Press "?" for this help document.
                       searchConfig: _preferences.searchConfig,
                       onOpenFile: (uri) => _layout.openFile(uri),
                       onOpenHelp: _openHelpDocument,
+                      onOpenSettings: _openSettings,
                     ),
                   ),
                 ),
@@ -2468,43 +2473,59 @@ Press "?" for this help document.
                                 theme.colorScheme.surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: TextField(
-                            controller: _quickOpenSearchController,
-                            focusNode: _quickOpenFocusNode,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurface,
-                            ),
-                            decoration: InputDecoration(
-                              hintText: _quickOpenMode == QuickOpenMode.actions
-                                  ? 'Type an action...'
-                                  : _quickOpenMode == QuickOpenMode.chord
-                                      ? 'Search shortcuts or press key...'
-                                      : 'Search files, actions, and settings',
-                              hintStyle:
-                                  theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.colorScheme.onSurface
-                                    .withValues(alpha: 0.5),
+                          child: Row(
+                            children: [
+                              // Command Palette icon button.
+                              SizedBox(
+                                width: 32,
+                                height: 32,
+                                child: IconButton(
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(
+                                    minWidth: 32,
+                                    minHeight: 32,
+                                  ),
+                                  icon: Icon(
+                                    Icons.terminal,
+                                    size: 16,
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.5),
+                                  ),
+                                  tooltip: 'Command Palette',
+                                  onPressed: _toggleCommandPalette,
+                                ),
                               ),
-                              prefixIcon: Icon(
-                                Icons.search,
-                                size: 16,
-                                color: theme.colorScheme.onSurface
-                                    .withValues(alpha: 0.5),
+                              Expanded(
+                                child: IgnorePointer(
+                                  ignoring: _quickOpenMode == null,
+                                  child: TextField(
+                                    controller: _quickOpenSearchController,
+                                    focusNode: _quickOpenFocusNode,
+                                    readOnly: _quickOpenMode == null,
+                                    showCursor: _quickOpenMode != null,
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: theme.colorScheme.onSurface,
+                                    ),
+                                    decoration: InputDecoration(
+                                      hintText: _quickOpenMode == QuickOpenMode.actions
+                                          ? 'Type an action...'
+                                          : _quickOpenMode == QuickOpenMode.chord
+                                              ? 'Search shortcuts or press key...'
+                                              : 'Search files, actions, and settings',
+                                      hintStyle:
+                                          theme.textTheme.bodyMedium?.copyWith(
+                                        color: theme.colorScheme.onSurface
+                                            .withValues(alpha: 0.5),
+                                      ),
+                                      border: InputBorder.none,
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(vertical: 8),
+                                      isDense: true,
+                                    ),
+                                  ),
+                                ),
                               ),
-                              prefixIconConstraints: const BoxConstraints(
-                                minWidth: 32,
-                                minHeight: 32,
-                              ),
-                              border: InputBorder.none,
-                              contentPadding:
-                                  const EdgeInsets.symmetric(vertical: 8),
-                              isDense: true,
-                            ),
-                            onTap: () {
-                              if (_quickOpenMode == null) {
-                                _openQuickOpen(QuickOpenMode.all);
-                              }
-                            },
+                            ],
                           ),
                         ),
                       ),
