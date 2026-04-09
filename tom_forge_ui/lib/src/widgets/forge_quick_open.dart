@@ -25,7 +25,7 @@ enum QuickOpenMode {
 }
 
 /// Result item types for display categorization.
-enum _ResultType { file, action, setting }
+enum _ResultType { openEditor, file, action, setting }
 
 /// A single result item in the quick-open dropdown.
 class _QuickOpenItem {
@@ -173,6 +173,9 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
     final items = <_QuickOpenItem>[];
     final lowerQuery = query.toLowerCase();
 
+    // Open editors.
+    items.addAll(_getOpenEditorItems(lowerQuery));
+
     // Actions.
     items.addAll(_getActionItems(lowerQuery));
 
@@ -183,6 +186,11 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
       _results = items;
       _selectedIndex = 0;
     });
+
+    // Async workspace file search (appends results below).
+    if (query.length >= 2) {
+      _searchFiles(query);
+    }
   }
 
   // ── Mode: actions ──
@@ -387,7 +395,40 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
     );
   }
 
-  // ignore: unused_element
+  List<_QuickOpenItem> _getOpenEditorItems(String lowerQuery) {
+    final editors = widget.shellApi.systemState.openEditors;
+    final items = <_QuickOpenItem>[];
+    for (final editor in editors) {
+      final title = editor.title.value;
+      final uriStr = editor.uri.toFilePath();
+      // Show relative path from workspace root when possible.
+      final wsRoot = widget.shellApi.systemState.workspaceRootPath;
+      final detail = uriStr.startsWith(wsRoot)
+          ? uriStr.substring(wsRoot.length)
+          : uriStr;
+      if (lowerQuery.isNotEmpty &&
+          !title.toLowerCase().contains(lowerQuery) &&
+          !detail.toLowerCase().contains(lowerQuery)) {
+        continue;
+      }
+      final isDirty = editor.isDirty.value;
+      items.add(_QuickOpenItem(
+        id: 'editor:${editor.uri}',
+        label: isDirty ? '$title ●' : title,
+        detail: detail,
+        icon: _fileIcon(title),
+        type: _ResultType.openEditor,
+        onExecute: () {
+          widget.onDismiss();
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            widget.onOpenFile?.call(editor.uri);
+          });
+        },
+      ));
+    }
+    return items;
+  }
+
   Future<void> _searchFiles(String query) async {
     try {
       final workspaceRoot = widget.shellApi.systemState.workspaceRootPath;
@@ -621,7 +662,7 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
 
   Widget _buildEmpty(bool isDark) {
     final label = switch (widget.mode) {
-      QuickOpenMode.all => 'No matching files, actions, or settings',
+      QuickOpenMode.all => 'No matching editors, files, actions, or settings',
       QuickOpenMode.actions => 'No matching actions',
       QuickOpenMode.chord => 'No matching shortcuts',
     };
@@ -645,7 +686,9 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
       return _buildFlatList(isDark, theme);
     }
 
-    // Build grouped list: files → actions → settings.
+    // Build grouped list: open editors → actions → settings → files.
+    final openEditors =
+        _results.where((r) => r.type == _ResultType.openEditor).toList();
     final files = _results.where((r) => r.type == _ResultType.file).toList();
     final actions =
         _results.where((r) => r.type == _ResultType.action).toList();
@@ -655,10 +698,10 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
     final sections = <Widget>[];
     var runningIndex = 0;
 
-    if (files.isNotEmpty) {
-      sections.add(_buildSectionHeader('Files', isDark));
-      sections.add(_buildItemGroup(files, runningIndex, isDark, theme));
-      runningIndex += files.length;
+    if (openEditors.isNotEmpty) {
+      sections.add(_buildSectionHeader('Open Editors', isDark));
+      sections.add(_buildItemGroup(openEditors, runningIndex, isDark, theme));
+      runningIndex += openEditors.length;
     }
     if (actions.isNotEmpty) {
       sections.add(_buildSectionHeader('Actions', isDark));
@@ -668,6 +711,11 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
     if (settings.isNotEmpty) {
       sections.add(_buildSectionHeader('Settings', isDark));
       sections.add(_buildItemGroup(settings, runningIndex, isDark, theme));
+      runningIndex += settings.length;
+    }
+    if (files.isNotEmpty) {
+      sections.add(_buildSectionHeader('Files', isDark));
+      sections.add(_buildItemGroup(files, runningIndex, isDark, theme));
     }
 
     return ListView(
