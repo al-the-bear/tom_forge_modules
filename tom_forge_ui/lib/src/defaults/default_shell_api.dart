@@ -307,11 +307,20 @@ class DefaultShellApi implements ForgeShellApi {
     );
   }
 
+  final Set<String> _executingActions = {};
+
   @override
   bool executeAction(String actionId) {
     // Handle wildcard action IDs (e.g. '*.deleteLine').
     if (actionId.startsWith('*.')) {
       return _executeWildcardAction(actionId);
+    }
+
+    // Guard against infinite recursion: if the action's execute callback
+    // invokes executeAction with the same ID (e.g. placeholder editor
+    // descriptor actions), bail out to prevent a stack overflow.
+    if (_executingActions.contains(actionId)) {
+      return false;
     }
 
     final action = actionRegistry.getAction(actionId);
@@ -321,7 +330,12 @@ class DefaultShellApi implements ForgeShellApi {
     if (!action.isEnabled()) {
       return false;
     }
-    action.execute({});
+    _executingActions.add(actionId);
+    try {
+      action.execute({});
+    } finally {
+      _executingActions.remove(actionId);
+    }
     return true;
   }
 

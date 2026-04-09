@@ -144,5 +144,30 @@ void main() {
 
       expect(second.textSettings, equals(updated));
     });
+
+    test('executeAction recursion guard prevents stack overflow', () {
+      // Simulate the bug: a placeholder action whose execute callback
+      // calls shellApi.executeAction with its own ID.
+      int callCount = 0;
+      final recursiveAction = ForgeAction(
+        id: 'forge.edit.copy',
+        label: 'Copy',
+        execute: (_) async {
+          callCount++;
+          shellApi.executeAction('forge.edit.copy');
+          return null;
+        },
+        isEnabled: () => true,
+        isVisible: () => true,
+      );
+
+      shellApi.actionRegistry.registerAction(recursiveAction);
+      final result = shellApi.executeAction('forge.edit.copy');
+
+      // Should execute once (the outer call), but the recursive inner call
+      // should be short-circuited by the guard.
+      expect(result, isTrue);
+      expect(callCount, equals(1));
+    });
   });
 }

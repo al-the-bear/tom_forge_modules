@@ -818,6 +818,32 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
 
     // Override standard line-editing actions with Dart editor implementations
     _integration.registerAction(
+      StandardEditingActions.cutActionId,
+      _cutSelection,
+      isEnabled: () =>
+          !widget.readOnly && _textController.selection.isValid &&
+          !_textController.selection.isCollapsed,
+    );
+    _integration.registerAction(
+      StandardEditingActions.copyActionId,
+      _copySelection,
+      isEnabled: () =>
+          _textController.selection.isValid &&
+          !_textController.selection.isCollapsed,
+    );
+    _integration.registerAction(
+      StandardEditingActions.pasteActionId,
+      _pasteClipboard,
+      isEnabled: () => !widget.readOnly,
+    );
+    _integration.registerAction(
+      StandardEditingActions.selectAllActionId,
+      _selectAll,
+      isEnabled: () => _textController.text.isNotEmpty,
+    );
+
+    // Override standard line-editing actions with Dart editor implementations
+    _integration.registerAction(
       StandardEditingActions.toggleCommentActionId,
       _toggleComment,
       isEnabled: () => !widget.readOnly,
@@ -1624,6 +1650,51 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
 
   void _hideApiReference() {
     // No longer needed for overlay cleanup, but keep for compatibility
+  }
+
+  // ── Clipboard actions ───────────────────────────────────────────────
+
+  void _cutSelection() {
+    final sel = _textController.selection;
+    if (!sel.isValid || sel.isCollapsed) return;
+    final selected = sel.textInside(_textController.text);
+    Clipboard.setData(ClipboardData(text: selected));
+    final text = _textController.text;
+    final newText = text.replaceRange(sel.start, sel.end, '');
+    _textController.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: sel.start),
+    );
+  }
+
+  void _copySelection() {
+    final sel = _textController.selection;
+    if (!sel.isValid || sel.isCollapsed) return;
+    final selected = sel.textInside(_textController.text);
+    Clipboard.setData(ClipboardData(text: selected));
+  }
+
+  void _pasteClipboard() {
+    Clipboard.getData(Clipboard.kTextPlain).then((data) {
+      if (data?.text == null || !mounted) return;
+      final sel = _textController.selection;
+      final text = _textController.text;
+      final pasteText = data!.text!;
+      final newText = text.replaceRange(sel.start, sel.end, pasteText);
+      _textController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(
+          offset: sel.start + pasteText.length,
+        ),
+      );
+    });
+  }
+
+  void _selectAll() {
+    _textController.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: _textController.text.length,
+    );
   }
 
   // ── Line manipulation actions ──────────────────────────────────────────
