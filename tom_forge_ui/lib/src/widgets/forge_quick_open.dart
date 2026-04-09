@@ -432,11 +432,15 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
       if (!mounted) return;
 
       setState(() {
-        // Merge file results: files first, then existing non-file results.
+        // Merge file results: keep actions/settings on top, append files below.
         final nonFileResults =
             _results.where((r) => r.type != _ResultType.file).toList();
-        _results = [...fileItems, ...nonFileResults];
-        _selectedIndex = 0;
+        _results = [...nonFileResults, ...fileItems];
+        // Don't reset _selectedIndex — the user may have already navigated
+        // to an action result; only clamp if the list shrank.
+        if (_selectedIndex >= _results.length) {
+          _selectedIndex = _results.isEmpty ? 0 : _results.length - 1;
+        }
       });
     } catch (e) {
       // Silently ignore file search errors.
