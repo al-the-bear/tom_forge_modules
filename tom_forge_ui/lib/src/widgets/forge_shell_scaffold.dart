@@ -623,8 +623,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       _applyPreferenceFileTypeDefaults();
       _applyPreferenceShortcutOverrides();
       _propagateSettingsToActiveEditors();
-      // High-contrast mode (ThemeMode.system) activates reduced motion.
-      ForgeAnimations.reduceMotion = _preferences.themeMode == ThemeMode.system;
+      ForgeAnimations.reduceMotion = _preferences.reduceMotion;
       if (mounted) {
         setState(() {});
       }
@@ -1214,9 +1213,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   /// Resets all panel sizes (left, right, bottom) to their defaults.
   void _resetPanelSizes() {
     _layout.resetPanelSizes(
-      leftSize: ForgeDimensions.leftPanelDefaultWidth,
-      rightSize: ForgeDimensions.rightPanelDefaultWidth,
-      bottomSize: ForgeDimensions.bottomPanelDefaultHeight,
+      leftSize: _preferences.leftPanelDefaultWidth,
+      rightSize: _preferences.rightPanelDefaultWidth,
+      bottomSize: _preferences.bottomPanelDefaultHeight,
     );
     setState(() {});
   }
@@ -2725,7 +2724,7 @@ Press "?" for this help document.
                     onDragDelta: _resizeLeftPanel,
                     onDoubleTap: () => _layout.setPanelSize(
                       ForgePanelLocation.left,
-                      ForgeDimensions.leftPanelDefaultWidth,
+                      _preferences.leftPanelDefaultWidth,
                     ),
                   ),
 
@@ -2738,7 +2737,7 @@ Press "?" for this help document.
                     onDragDelta: _resizeRightPanel,
                     onDoubleTap: () => _layout.setPanelSize(
                       ForgePanelLocation.right,
-                      ForgeDimensions.rightPanelDefaultWidth,
+                      _preferences.rightPanelDefaultWidth,
                     ),
                   ),
                 Visibility(
@@ -2782,7 +2781,7 @@ Press "?" for this help document.
                 onDragDelta: _resizeBottomPanel,
                 onDoubleTap: () => _layout.setPanelSize(
                   ForgePanelLocation.bottom,
-                  ForgeDimensions.bottomPanelDefaultHeight,
+                  _preferences.bottomPanelDefaultHeight,
                 ),
               ),
             Visibility(
@@ -3113,6 +3112,7 @@ Press "?" for this help document.
       axis: Axis.horizontal,
       onDragDelta: onDragDelta,
       onDoubleTap: onDoubleTap,
+      hitTarget: _preferences.dividerHitTarget,
     );
   }
 
@@ -3124,6 +3124,7 @@ Press "?" for this help document.
       axis: Axis.vertical,
       onDragDelta: onDragDelta,
       onDoubleTap: onDoubleTap,
+      hitTarget: _preferences.dividerHitTarget,
     );
   }
 
@@ -3149,11 +3150,11 @@ Press "?" for this help document.
       child: ClipRect(
         child: OverflowBox(
           alignment: Alignment.topLeft,
-          minWidth: ForgeDimensions.panelContentMinWidth,
+          minWidth: _preferences.panelContentMinWidth,
           maxWidth: double.infinity,
           child: SizedBox(
-            width: width < ForgeDimensions.panelContentMinWidth
-                ? ForgeDimensions.panelContentMinWidth
+            width: width < _preferences.panelContentMinWidth
+                ? _preferences.panelContentMinWidth
                 : width,
             child: ForgeSidePanelWidget(
         tabs: tabs,
@@ -3244,12 +3245,13 @@ Press "?" for this help document.
                       onDragDelta: (delta) =>
                           _resizeMiddlePanelDivider(i - 1, i, delta),
                       onDoubleTap: () => _resetMiddlePanelFlex(),
+                      hitTarget: _preferences.dividerHitTarget,
                     ),
                   Flexible(
                     flex: (_middlePanelFlex[i] * 1000).round(),
                     child: LayoutBuilder(
                       builder: (context, constraints) {
-                        final minW = ForgeDimensions.panelContentMinWidth;
+                        final minW = _preferences.panelContentMinWidth;
                         final actualW = constraints.maxWidth;
                         final child = _buildEditorPanel(
                           context,
@@ -4073,11 +4075,13 @@ class _ResizeHandle extends StatefulWidget {
     required this.axis,
     required this.onDragDelta,
     this.onDoubleTap,
+    this.hitTarget = ForgeDimensions.dividerHitTarget,
   });
 
   final Axis axis;
   final ValueChanged<double> onDragDelta;
   final VoidCallback? onDoubleTap;
+  final double hitTarget;
 
   @override
   State<_ResizeHandle> createState() => _ResizeHandleState();
@@ -4108,7 +4112,7 @@ class _ResizeHandleState extends State<_ResizeHandle> {
             curve: ForgeAnimations.panelCurve,
             margin: EdgeInsets.symmetric(
               horizontal:
-                  (ForgeDimensions.dividerHitTarget - gripThickness) / 2,
+                  (widget.hitTarget - gripThickness) / 2,
             ),
             decoration: BoxDecoration(
               color: gripColor,
@@ -4119,7 +4123,7 @@ class _ResizeHandleState extends State<_ResizeHandle> {
             duration: ForgeAnimations.panelTransition,
             curve: ForgeAnimations.panelCurve,
             margin: EdgeInsets.symmetric(
-              vertical: (ForgeDimensions.dividerHitTarget - gripThickness) / 2,
+              vertical: (widget.hitTarget - gripThickness) / 2,
             ),
             decoration: BoxDecoration(
               color: gripColor,
@@ -4164,8 +4168,8 @@ class _ResizeHandleState extends State<_ResizeHandle> {
           _isDragging = false;
         }),
         child: SizedBox(
-          width: isVerticalDivider ? ForgeDimensions.dividerHitTarget : null,
-          height: isVerticalDivider ? null : ForgeDimensions.dividerHitTarget,
+          width: isVerticalDivider ? widget.hitTarget : null,
+          height: isVerticalDivider ? null : widget.hitTarget,
           child: grip,
         ),
       ),

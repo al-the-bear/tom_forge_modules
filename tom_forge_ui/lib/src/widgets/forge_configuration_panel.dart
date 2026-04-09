@@ -430,6 +430,13 @@ class _ShellSettingsSectionState extends State<_ShellSettingsSection> {
   late TextEditingController _excludedDirsController;
   late TextEditingController _fileSizeLimitController;
   late TextEditingController _maxFileResultsController;
+  // Layout dimensions
+  late TextEditingController _panelMinWidthController;
+  late TextEditingController _leftPanelWidthController;
+  late TextEditingController _rightPanelWidthController;
+  late TextEditingController _bottomPanelHeightController;
+  late TextEditingController _dividerHitTargetController;
+  late bool _reduceMotion;
 
   @override
   void initState() {
@@ -458,6 +465,23 @@ class _ShellSettingsSectionState extends State<_ShellSettingsSection> {
     _maxFileResultsController = TextEditingController(
       text: _searchConfig.maxFileResults.toString(),
     );
+    // Layout dimensions
+    _panelMinWidthController = TextEditingController(
+      text: widget.preferencesService.panelContentMinWidth.toInt().toString(),
+    );
+    _leftPanelWidthController = TextEditingController(
+      text: widget.preferencesService.leftPanelDefaultWidth.toInt().toString(),
+    );
+    _rightPanelWidthController = TextEditingController(
+      text: widget.preferencesService.rightPanelDefaultWidth.toInt().toString(),
+    );
+    _bottomPanelHeightController = TextEditingController(
+      text: widget.preferencesService.bottomPanelDefaultHeight.toInt().toString(),
+    );
+    _dividerHitTargetController = TextEditingController(
+      text: widget.preferencesService.dividerHitTarget.toInt().toString(),
+    );
+    _reduceMotion = widget.preferencesService.reduceMotion;
   }
 
   @override
@@ -468,6 +492,11 @@ class _ShellSettingsSectionState extends State<_ShellSettingsSection> {
     _excludedDirsController.dispose();
     _fileSizeLimitController.dispose();
     _maxFileResultsController.dispose();
+    _panelMinWidthController.dispose();
+    _leftPanelWidthController.dispose();
+    _rightPanelWidthController.dispose();
+    _bottomPanelHeightController.dispose();
+    _dividerHitTargetController.dispose();
     super.dispose();
   }
 
@@ -507,6 +536,23 @@ class _ShellSettingsSectionState extends State<_ShellSettingsSection> {
     );
     widget.preferencesService.searchConfig = _searchConfig;
     widget.preferencesService.save();
+    widget.onChanged?.call();
+  }
+
+  void _saveLayoutDimensions() {
+    final prefs = widget.preferencesService;
+    final minW = double.tryParse(_panelMinWidthController.text.trim());
+    if (minW != null) prefs.panelContentMinWidth = minW;
+    final leftW = double.tryParse(_leftPanelWidthController.text.trim());
+    if (leftW != null) prefs.leftPanelDefaultWidth = leftW;
+    final rightW = double.tryParse(_rightPanelWidthController.text.trim());
+    if (rightW != null) prefs.rightPanelDefaultWidth = rightW;
+    final bottomH = double.tryParse(_bottomPanelHeightController.text.trim());
+    if (bottomH != null) prefs.bottomPanelDefaultHeight = bottomH;
+    final hitT = double.tryParse(_dividerHitTargetController.text.trim());
+    if (hitT != null) prefs.dividerHitTarget = hitT;
+    prefs.reduceMotion = _reduceMotion;
+    prefs.save();
     widget.onChanged?.call();
   }
 
@@ -714,6 +760,111 @@ class _ShellSettingsSectionState extends State<_ShellSettingsSection> {
                     isDense: true,
                   ),
                   onChanged: (_) => _saveSearchConfig(),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _sectionHeader(theme, 'Layout'),
+          const SizedBox(height: 8),
+          _toggle('Reduce motion', _reduceMotion, (v) {
+            setState(() => _reduceMotion = v);
+            _saveLayoutDimensions();
+          }),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Text('Panel min width:', style: TextStyle(fontSize: 13)),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 70,
+                child: TextField(
+                  controller: _panelMinWidthController,
+                  keyboardType: TextInputType.number,
+                  style: const TextStyle(fontSize: 13),
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    isDense: true,
+                  ),
+                  onChanged: (_) => _saveLayoutDimensions(),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              SizedBox(
+                width: 90,
+                child: TextField(
+                  controller: _leftPanelWidthController,
+                  keyboardType: TextInputType.number,
+                  style: const TextStyle(fontSize: 13),
+                  decoration: const InputDecoration(
+                    labelText: 'Left panel',
+                    border: OutlineInputBorder(),
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    isDense: true,
+                  ),
+                  onChanged: (_) => _saveLayoutDimensions(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 90,
+                child: TextField(
+                  controller: _rightPanelWidthController,
+                  keyboardType: TextInputType.number,
+                  style: const TextStyle(fontSize: 13),
+                  decoration: const InputDecoration(
+                    labelText: 'Right panel',
+                    border: OutlineInputBorder(),
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    isDense: true,
+                  ),
+                  onChanged: (_) => _saveLayoutDimensions(),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              SizedBox(
+                width: 90,
+                child: TextField(
+                  controller: _bottomPanelHeightController,
+                  keyboardType: TextInputType.number,
+                  style: const TextStyle(fontSize: 13),
+                  decoration: const InputDecoration(
+                    labelText: 'Bottom panel',
+                    border: OutlineInputBorder(),
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    isDense: true,
+                  ),
+                  onChanged: (_) => _saveLayoutDimensions(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 90,
+                child: TextField(
+                  controller: _dividerHitTargetController,
+                  keyboardType: TextInputType.number,
+                  style: const TextStyle(fontSize: 13),
+                  decoration: const InputDecoration(
+                    labelText: 'Divider hit',
+                    border: OutlineInputBorder(),
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    isDense: true,
+                  ),
+                  onChanged: (_) => _saveLayoutDimensions(),
                 ),
               ),
             ],

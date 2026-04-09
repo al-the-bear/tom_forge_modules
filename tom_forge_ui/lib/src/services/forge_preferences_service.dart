@@ -40,6 +40,16 @@ class ForgePreferencesService extends ChangeNotifier {
   static const _keyTerminalFontSize = 'forge.terminal.fontSize';
   static const _keySearchConfig = 'forge.search.config';
   static const _keyEditorSpecificConfig = 'forge.editor.specificConfig';
+  static const _keyDimPanelContentMinWidth =
+      'forge.layout.dim.panelContentMinWidth';
+  static const _keyDimLeftPanelDefaultWidth =
+      'forge.layout.dim.leftPanelDefaultWidth';
+  static const _keyDimRightPanelDefaultWidth =
+      'forge.layout.dim.rightPanelDefaultWidth';
+  static const _keyDimBottomPanelDefaultHeight =
+      'forge.layout.dim.bottomPanelDefaultHeight';
+  static const _keyDimDividerHitTarget = 'forge.layout.dim.dividerHitTarget';
+  static const _keyReduceMotion = 'forge.appearance.reduceMotion';
 
   SharedPreferences? _prefs;
   ForgeStartupPreferences _startupPreferences = ForgeStartupPreferences();
@@ -67,6 +77,12 @@ class ForgePreferencesService extends ChangeNotifier {
   ForgeSearchConfig _searchConfig = const ForgeSearchConfig();
   final Map<String, Map<String, dynamic>> _editorSpecificConfig =
       <String, Map<String, dynamic>>{};
+  double _panelContentMinWidth = 400.0;
+  double _leftPanelDefaultWidth = 280.0;
+  double _rightPanelDefaultWidth = 280.0;
+  double _bottomPanelDefaultHeight = 200.0;
+  double _dividerHitTarget = 14.0;
+  bool _reduceMotion = false;
   bool _isLoaded = false;
 
   /// When true, layout restoration should skip workspace-level fallback.
@@ -407,6 +423,44 @@ class ForgePreferencesService extends ChangeNotifier {
     );
   }
 
+  // ── Layout dimensions ──
+
+  double get panelContentMinWidth => _panelContentMinWidth;
+  set panelContentMinWidth(double value) {
+    _panelContentMinWidth = value.clamp(100, 2000);
+    notifyListeners();
+  }
+
+  double get leftPanelDefaultWidth => _leftPanelDefaultWidth;
+  set leftPanelDefaultWidth(double value) {
+    _leftPanelDefaultWidth = value.clamp(100, 800);
+    notifyListeners();
+  }
+
+  double get rightPanelDefaultWidth => _rightPanelDefaultWidth;
+  set rightPanelDefaultWidth(double value) {
+    _rightPanelDefaultWidth = value.clamp(100, 800);
+    notifyListeners();
+  }
+
+  double get bottomPanelDefaultHeight => _bottomPanelDefaultHeight;
+  set bottomPanelDefaultHeight(double value) {
+    _bottomPanelDefaultHeight = value.clamp(50, 600);
+    notifyListeners();
+  }
+
+  double get dividerHitTarget => _dividerHitTarget;
+  set dividerHitTarget(double value) {
+    _dividerHitTarget = value.clamp(4, 40);
+    notifyListeners();
+  }
+
+  bool get reduceMotion => _reduceMotion;
+  set reduceMotion(bool value) {
+    _reduceMotion = value;
+    notifyListeners();
+  }
+
   Map<String, Map<String, dynamic>> _loadEditorSpecificConfig() {
     final jsonStr = _prefs?.getString(_keyEditorSpecificConfig);
     if (jsonStr == null || jsonStr.trim().isEmpty) {
@@ -482,6 +536,17 @@ class ForgePreferencesService extends ChangeNotifier {
       _editorSpecificConfig
         ..clear()
         ..addAll(_loadEditorSpecificConfig());
+      _panelContentMinWidth =
+          _prefs!.getDouble(_keyDimPanelContentMinWidth) ?? 400.0;
+      _leftPanelDefaultWidth =
+          _prefs!.getDouble(_keyDimLeftPanelDefaultWidth) ?? 280.0;
+      _rightPanelDefaultWidth =
+          _prefs!.getDouble(_keyDimRightPanelDefaultWidth) ?? 280.0;
+      _bottomPanelDefaultHeight =
+          _prefs!.getDouble(_keyDimBottomPanelDefaultHeight) ?? 200.0;
+      _dividerHitTarget =
+          _prefs!.getDouble(_keyDimDividerHitTarget) ?? 14.0;
+      _reduceMotion = _prefs!.getBool(_keyReduceMotion) ?? false;
       _isLoaded = true;
       _log(
         'loaded preferences with ${_editorTextSettings.length} editor settings entries',
@@ -553,6 +618,7 @@ class ForgePreferencesService extends ChangeNotifier {
       await _saveTerminalPreferences();
       await _saveSearchConfig();
       await _saveEditorSpecificConfig();
+      await _saveLayoutDimensions();
       _log(
         'saved preferences with ${_editorTextSettings.length} editor settings entries',
       );
@@ -602,6 +668,27 @@ class ForgePreferencesService extends ChangeNotifier {
     );
     await _prefs!.setString(_keyTerminalFontFamily, _terminalFontFamily);
     await _prefs!.setDouble(_keyTerminalFontSize, _terminalFontSize);
+  }
+
+  Future<void> _saveLayoutDimensions() async {
+    await _prefs!.setDouble(
+      _keyDimPanelContentMinWidth,
+      _panelContentMinWidth,
+    );
+    await _prefs!.setDouble(
+      _keyDimLeftPanelDefaultWidth,
+      _leftPanelDefaultWidth,
+    );
+    await _prefs!.setDouble(
+      _keyDimRightPanelDefaultWidth,
+      _rightPanelDefaultWidth,
+    );
+    await _prefs!.setDouble(
+      _keyDimBottomPanelDefaultHeight,
+      _bottomPanelDefaultHeight,
+    );
+    await _prefs!.setDouble(_keyDimDividerHitTarget, _dividerHitTarget);
+    await _prefs!.setBool(_keyReduceMotion, _reduceMotion);
   }
 
   Map<String, ForgeTextSettings> _loadEditorTextSettings() {
