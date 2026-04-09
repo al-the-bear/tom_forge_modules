@@ -91,6 +91,9 @@ class ForgeQuickOpen extends StatefulWidget {
   /// Configuration for file search behavior (extensions, directories, limits).
   final ForgeSearchConfig searchConfig;
 
+  /// Target accordion section index to expand when opening settings.
+  final ValueNotifier<int?>? configSectionTarget;
+
   const ForgeQuickOpen({
     super.key,
     required this.shellApi,
@@ -105,6 +108,7 @@ class ForgeQuickOpen extends StatefulWidget {
     required this.searchController,
     required this.searchFocusNode,
     this.searchConfig = const ForgeSearchConfig(),
+    this.configSectionTarget,
   });
 
   @override
@@ -294,24 +298,24 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
   List<_QuickOpenItem> _getSettingItems(String lowerQuery) {
     // Build searchable setting entries from known preference keys.
     final settings = <_QuickOpenItem>[
-      _settingItem('Theme Mode', 'forge.appearance.themeMode', Icons.palette),
-      _settingItem('Auto Save', 'forge.editor.autoSave', Icons.save),
-      _settingItem('Font Size', 'forge.editor.fontSize', Icons.format_size),
-      _settingItem('Font Family', 'forge.editor.fontFamily', Icons.font_download),
-      _settingItem('Terminal Shell', 'forge.terminal.defaultShell', Icons.terminal),
-      _settingItem('Terminal Font Size', 'forge.terminal.fontSize', Icons.text_fields),
-      _settingItem('Terminal Scrollback', 'forge.terminal.scrollbackLines', Icons.swap_vert),
-      _settingItem('Word Wrap', 'forge.editor.wordWrap', Icons.wrap_text),
-      _settingItem('Tab Size', 'forge.editor.tabSize', Icons.space_bar),
-      _settingItem('Line Numbers', 'forge.editor.lineNumbers', Icons.format_list_numbered),
-      _settingItem('Minimap', 'forge.editor.minimap', Icons.map),
-      _settingItem('File Type Defaults', 'forge.editor.fileTypeDefaults', Icons.file_copy),
-      _settingItem('Search: Excluded Extensions', 'forge.search.excludedExtensions', Icons.extension_off),
-      _settingItem('Search: Excluded Directories', 'forge.search.excludedDirectories', Icons.folder_off),
-      _settingItem('Search: File Size Limit', 'forge.search.fileSizeLimit', Icons.data_usage),
-      _settingItem('Search: Hide Hidden Directories', 'forge.search.excludeHiddenDirectories', Icons.visibility_off),
-      _settingItem('Search: Hide Git-Ignored Files', 'forge.search.excludeGitIgnored', Icons.rule),
-      _settingItem('Search: Max File Results', 'forge.search.maxFileResults', Icons.format_list_numbered),
+      _settingItem('Theme Mode', 'forge.appearance.themeMode', Icons.palette, 0),
+      _settingItem('Auto Save', 'forge.editor.autoSave', Icons.save, 0),
+      _settingItem('Font Size', 'forge.editor.fontSize', Icons.format_size, 2),
+      _settingItem('Font Family', 'forge.editor.fontFamily', Icons.font_download, 2),
+      _settingItem('Terminal Shell', 'forge.terminal.defaultShell', Icons.terminal, 1),
+      _settingItem('Terminal Font Size', 'forge.terminal.fontSize', Icons.text_fields, 1),
+      _settingItem('Terminal Scrollback', 'forge.terminal.scrollbackLines', Icons.swap_vert, 1),
+      _settingItem('Word Wrap', 'forge.editor.wordWrap', Icons.wrap_text, 2),
+      _settingItem('Tab Size', 'forge.editor.tabSize', Icons.space_bar, 2),
+      _settingItem('Line Numbers', 'forge.editor.lineNumbers', Icons.format_list_numbered, 2),
+      _settingItem('Minimap', 'forge.editor.minimap', Icons.map, 2),
+      _settingItem('File Type Defaults', 'forge.editor.fileTypeDefaults', Icons.file_copy, 7),
+      _settingItem('Search: Excluded Extensions', 'forge.search.excludedExtensions', Icons.extension_off, 0),
+      _settingItem('Search: Excluded Directories', 'forge.search.excludedDirectories', Icons.folder_off, 0),
+      _settingItem('Search: File Size Limit', 'forge.search.fileSizeLimit', Icons.data_usage, 0),
+      _settingItem('Search: Hide Hidden Directories', 'forge.search.excludeHiddenDirectories', Icons.visibility_off, 0),
+      _settingItem('Search: Hide Git-Ignored Files', 'forge.search.excludeGitIgnored', Icons.rule, 0),
+      _settingItem('Search: Max File Results', 'forge.search.maxFileResults', Icons.format_list_numbered, 0),
     ];
 
     if (lowerQuery.isEmpty) return settings;
@@ -322,7 +326,12 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
     }).toList();
   }
 
-  _QuickOpenItem _settingItem(String label, String key, IconData icon) {
+  _QuickOpenItem _settingItem(
+    String label,
+    String key,
+    IconData icon,
+    int sectionIndex,
+  ) {
     return _QuickOpenItem(
       id: 'setting.$key',
       label: label,
@@ -331,6 +340,8 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
       type: _ResultType.setting,
       onExecute: () {
         final shellApi = widget.shellApi;
+        // Tell the config panel which accordion section to expand.
+        widget.configSectionTarget?.value = sectionIndex;
         widget.onDismiss();
         // Defer to next frame so the dismiss completes before opening
         // settings (mirrors the action execution pattern).

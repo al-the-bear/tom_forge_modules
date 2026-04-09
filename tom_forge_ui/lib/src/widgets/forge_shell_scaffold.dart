@@ -283,6 +283,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   /// Notifier to externally open/close the left panel configuration tab.
   final ValueNotifier<bool> _configPanelVisible = ValueNotifier<bool>(false);
 
+  /// Target accordion section index to expand when the config panel opens.
+  final ValueNotifier<int?> _configSectionTarget = ValueNotifier<int?>(null);
+
   @override
   void initState() {
     super.initState();
@@ -407,6 +410,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     _quickOpenSearchController.dispose();
     _quickOpenFocusNode.dispose();
     _configPanelVisible.dispose();
+    _configSectionTarget.dispose();
     _preferences.removeListener(_onPreferencesChanged);
     widget.notificationManager.popupVisible.removeListener(
       _onNotificationPopupChanged,
@@ -2460,6 +2464,7 @@ Press "?" for this help document.
                       onOpenFile: (uri) => _layout.openFile(uri),
                       onOpenHelp: _openHelpDocument,
                       onOpenSettings: _openSettings,
+                      configSectionTarget: _configSectionTarget,
                     ),
                   ),
                 ),
@@ -3179,6 +3184,7 @@ Press "?" for this help document.
       shellApi: widget.shell,
       modulePanels: modulePanels,
       onSettingsChanged: _onPreferencesChanged,
+      expandSection: _configSectionTarget,
     );
   }
 

@@ -22,12 +22,16 @@ class ForgeConfigurationPanel extends StatefulWidget {
   final List<ForgeConfigPanel> modulePanels;
   final VoidCallback? onSettingsChanged;
 
+  /// When set to a non-null section index, the accordion expands that section.
+  final ValueNotifier<int?>? expandSection;
+
   const ForgeConfigurationPanel({
     super.key,
     required this.preferencesService,
     this.shellApi,
     this.modulePanels = const [],
     this.onSettingsChanged,
+    this.expandSection,
   });
 
   @override
@@ -56,6 +60,36 @@ class _ForgeConfigurationPanelState extends State<ForgeConfigurationPanel> {
 
   int get _totalSections =>
       _builtInSections.length + widget.modulePanels.length;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.expandSection?.addListener(_onExpandSectionChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant ForgeConfigurationPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.expandSection != widget.expandSection) {
+      oldWidget.expandSection?.removeListener(_onExpandSectionChanged);
+      widget.expandSection?.addListener(_onExpandSectionChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.expandSection?.removeListener(_onExpandSectionChanged);
+    super.dispose();
+  }
+
+  void _onExpandSectionChanged() {
+    final target = widget.expandSection?.value;
+    if (target != null && target >= 0 && target < _totalSections) {
+      _toggleSection(target);
+      // Consume the request so it doesn't fire again.
+      widget.expandSection?.value = null;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
