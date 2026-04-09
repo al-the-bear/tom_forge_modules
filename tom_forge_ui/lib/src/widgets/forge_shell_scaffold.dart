@@ -84,6 +84,9 @@ class ForgeDimensions {
   static const double bottomPanelDefaultHeight = 200;
   static const double middlePanelMinWidth = 200;
 
+  /// Minimum width at which panel content stops shrinking and gets clipped.
+  static const double panelContentMinWidth = 400;
+
   // Fixed elements
   static const double titleBarHeight = 48;
   static const double menuBarHeight = 32;
@@ -3143,7 +3146,16 @@ Press "?" for this help document.
     }
     return SizedBox(
       width: width,
-      child: ForgeSidePanelWidget(
+      child: ClipRect(
+        child: OverflowBox(
+          alignment: Alignment.topLeft,
+          minWidth: ForgeDimensions.panelContentMinWidth,
+          maxWidth: double.infinity,
+          child: SizedBox(
+            width: width < ForgeDimensions.panelContentMinWidth
+                ? ForgeDimensions.panelContentMinWidth
+                : width,
+            child: ForgeSidePanelWidget(
         tabs: tabs,
         iconStripPosition: iconStripPosition,
         showConfigTab: showConfigTab,
@@ -3170,6 +3182,9 @@ Press "?" for this help document.
           _accordionStates[panelArea.name]![tabIndex] = state;
           _scheduleLayoutPersistence();
         },
+      ),
+      ),
+      ),
       ),
     );
   }
@@ -3232,11 +3247,26 @@ Press "?" for this help document.
                     ),
                   Flexible(
                     flex: (_middlePanelFlex[i] * 1000).round(),
-                    child: _buildEditorPanel(
-                      context,
-                      editors: panels[i],
-                      isActive: i == activeIdx,
-                      panelIndex: i,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final minW = ForgeDimensions.panelContentMinWidth;
+                        final actualW = constraints.maxWidth;
+                        final child = _buildEditorPanel(
+                          context,
+                          editors: panels[i],
+                          isActive: i == activeIdx,
+                          panelIndex: i,
+                        );
+                        if (actualW >= minW) return child;
+                        return ClipRect(
+                          child: OverflowBox(
+                            alignment: Alignment.topLeft,
+                            minWidth: minW,
+                            maxWidth: minW,
+                            child: child,
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ],
