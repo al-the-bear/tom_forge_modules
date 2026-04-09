@@ -298,42 +298,59 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
   List<_QuickOpenItem> _getSettingItems(String lowerQuery) {
     // Build searchable setting entries from known preference keys.
     final settings = <_QuickOpenItem>[
+      // Shell (section 0) — Appearance
       _settingItem('Theme Mode', 'forge.appearance.themeMode', Icons.palette, 0),
-      _settingItem('Auto Save', 'forge.editor.autoSave', Icons.save, 0),
-      // Dart Editor (section 2)
-      _settingItem('Dart: Font Size', 'forge.editor.dart.fontSize', Icons.format_size, 2),
-      _settingItem('Dart: Font Family', 'forge.editor.dart.fontFamily', Icons.font_download, 2),
-      _settingItem('Dart: Word Wrap', 'forge.editor.dart.wordWrap', Icons.wrap_text, 2),
-      _settingItem('Dart: Tab Size', 'forge.editor.dart.tabSize', Icons.space_bar, 2),
-      _settingItem('Dart: Line Numbers', 'forge.editor.dart.lineNumbers', Icons.format_list_numbered, 2),
-      _settingItem('Dart: Minimap', 'forge.editor.dart.minimap', Icons.map, 2),
-      // YAML Editor (section 3)
-      _settingItem('YAML: Font Size', 'forge.editor.yaml.fontSize', Icons.format_size, 3),
-      _settingItem('YAML: Font Family', 'forge.editor.yaml.fontFamily', Icons.font_download, 3),
-      _settingItem('YAML: Word Wrap', 'forge.editor.yaml.wordWrap', Icons.wrap_text, 3),
-      _settingItem('YAML: Tab Size', 'forge.editor.yaml.tabSize', Icons.space_bar, 3),
-      _settingItem('YAML: Line Numbers', 'forge.editor.yaml.lineNumbers', Icons.format_list_numbered, 3),
-      _settingItem('YAML: Minimap', 'forge.editor.yaml.minimap', Icons.map, 3),
-      // Markdown Editor (section 4)
-      _settingItem('Markdown: Font Size', 'forge.editor.md.fontSize', Icons.format_size, 4),
-      _settingItem('Markdown: Font Family', 'forge.editor.md.fontFamily', Icons.font_download, 4),
-      _settingItem('Markdown: Word Wrap', 'forge.editor.md.wordWrap', Icons.wrap_text, 4),
-      _settingItem('Markdown: Tab Size', 'forge.editor.md.tabSize', Icons.space_bar, 4),
-      _settingItem('Markdown: Line Numbers', 'forge.editor.md.lineNumbers', Icons.format_list_numbered, 4),
-      _settingItem('Markdown: Minimap', 'forge.editor.md.minimap', Icons.map, 4),
-      // Terminal (section 1)
-      _settingItem('Terminal Shell', 'forge.terminal.defaultShell', Icons.terminal, 1),
-      _settingItem('Terminal Font Size', 'forge.terminal.fontSize', Icons.text_fields, 1),
-      _settingItem('Terminal Scrollback', 'forge.terminal.scrollbackLines', Icons.swap_vert, 1),
-      // File Types (section 7)
-      _settingItem('File Type Defaults', 'forge.editor.fileTypeDefaults', Icons.file_copy, 7),
-      // Search (section 0 – Shell)
+      _settingItem('Max Recent Workspaces', 'forge.startup.maxRecentWorkspaces', Icons.history, 0),
+      // Shell (section 0) — Auto Save
+      _settingItem('Auto Save: Enabled', 'forge.autoSave.enabled', Icons.save, 0),
+      _settingItem('Auto Save: Idle Delay', 'forge.autoSave.idleDelay', Icons.timer, 0),
+      _settingItem('Auto Save: On Focus Loss', 'forge.autoSave.saveOnFocusLoss', Icons.visibility_off, 0),
+      // Shell (section 0) — Search
       _settingItem('Search: Excluded Extensions', 'forge.search.excludedExtensions', Icons.extension_off, 0),
       _settingItem('Search: Excluded Directories', 'forge.search.excludedDirectories', Icons.folder_off, 0),
       _settingItem('Search: File Size Limit', 'forge.search.fileSizeLimit', Icons.data_usage, 0),
-      _settingItem('Search: Hide Hidden Directories', 'forge.search.excludeHiddenDirectories', Icons.visibility_off, 0),
-      _settingItem('Search: Hide Git-Ignored Files', 'forge.search.excludeGitIgnored', Icons.rule, 0),
       _settingItem('Search: Max File Results', 'forge.search.maxFileResults', Icons.format_list_numbered, 0),
+      _settingItem('Search: Hide Hidden Directories', 'forge.search.excludeHiddenDirectories', Icons.visibility_off, 0),
+      _settingItem('Search: Use .gitignore', 'forge.search.excludeGitIgnored', Icons.rule, 0),
+      // Terminal (section 1)
+      _settingItem('Terminal Shell', 'forge.terminal.defaultShell', Icons.terminal, 1),
+      _settingItem('Terminal Start Folder', 'forge.terminal.startFolder', Icons.folder_open, 1),
+      _settingItem('Terminal Font Family', 'forge.terminal.fontFamily', Icons.font_download, 1),
+      _settingItem('Terminal Font Size', 'forge.terminal.fontSize', Icons.text_fields, 1),
+      _settingItem('Terminal Scrollback', 'forge.terminal.scrollbackLines', Icons.swap_vert, 1),
+      // Dart Editor (section 2)
+      _settingItem('Dart: Font Family', 'forge.editor.dart.fontFamily', Icons.font_download, 2),
+      _settingItem('Dart: Font Size', 'forge.editor.dart.fontSize', Icons.format_size, 2),
+      _settingItem('Dart: Line Height', 'forge.editor.dart.lineHeight', Icons.height, 2),
+      _settingItem('Dart: Tab Size', 'forge.editor.dart.tabSize', Icons.space_bar, 2),
+      _settingItem('Dart: Word Wrap', 'forge.editor.dart.wordWrap', Icons.wrap_text, 2),
+      _settingItem('Dart: Line Numbers', 'forge.editor.dart.lineNumbers', Icons.format_list_numbered, 2),
+      _settingItem('Dart: Highlight Line', 'forge.editor.dart.highlightLine', Icons.highlight, 2),
+      _settingItem('Dart: Whitespace', 'forge.editor.dart.showWhitespace', Icons.space_bar, 2),
+      _settingItem('Dart: Max Undo', 'forge.editor.dart.maxUndo', Icons.undo, 2),
+      // YAML Editor (section 3)
+      _settingItem('YAML: Font Family', 'forge.editor.yaml.fontFamily', Icons.font_download, 3),
+      _settingItem('YAML: Font Size', 'forge.editor.yaml.fontSize', Icons.format_size, 3),
+      _settingItem('YAML: Line Height', 'forge.editor.yaml.lineHeight', Icons.height, 3),
+      _settingItem('YAML: Tab Size', 'forge.editor.yaml.tabSize', Icons.space_bar, 3),
+      _settingItem('YAML: Word Wrap', 'forge.editor.yaml.wordWrap', Icons.wrap_text, 3),
+      _settingItem('YAML: Line Numbers', 'forge.editor.yaml.lineNumbers', Icons.format_list_numbered, 3),
+      _settingItem('YAML: Tree Lines', 'forge.editor.yaml.treeLines', Icons.account_tree, 3),
+      // Markdown Editor (section 4)
+      _settingItem('Markdown: Font Family', 'forge.editor.md.fontFamily', Icons.font_download, 4),
+      _settingItem('Markdown: Font Size', 'forge.editor.md.fontSize', Icons.format_size, 4),
+      _settingItem('Markdown: Line Height', 'forge.editor.md.lineHeight', Icons.height, 4),
+      _settingItem('Markdown: Tab Size', 'forge.editor.md.tabSize', Icons.space_bar, 4),
+      _settingItem('Markdown: Word Wrap', 'forge.editor.md.wordWrap', Icons.wrap_text, 4),
+      _settingItem('Markdown: Line Numbers', 'forge.editor.md.lineNumbers', Icons.format_list_numbered, 4),
+      _settingItem('Markdown: Mermaid', 'forge.editor.md.enableMermaid', Icons.schema, 4),
+      _settingItem('Markdown: Math (KaTeX)', 'forge.editor.md.enableMath', Icons.functions, 4),
+      // Shortcuts (section 5)
+      _settingItem('Shortcuts', 'forge.shortcuts', Icons.keyboard, 5),
+      // Chord Shortcuts (section 6)
+      _settingItem('Chord Shortcuts', 'forge.shortcuts.chords', Icons.piano, 6),
+      // File Types (section 7)
+      _settingItem('File Type Defaults', 'forge.editor.fileTypeDefaults', Icons.file_copy, 7),
     ];
 
     if (lowerQuery.isEmpty) return settings;

@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart'
     show ForgeTextSettings;
+import 'package:tom_forge_core/tom_forge_core.dart'
+    show AutoSaveConfig, ForgeSearchConfig;
 
 import '../actions/forge_action.dart';
 import '../actions/forge_shortcut_binding.dart';
@@ -205,6 +207,7 @@ class _ForgeConfigurationPanelState extends State<ForgeConfigurationPanel> {
       return switch (index) {
         0 => _ShellSettingsSection(
             preferencesService: widget.preferencesService,
+            shellApi: widget.shellApi,
             onChanged: widget.onSettingsChanged,
           ),
         1 => _TerminalSettingsSection(
@@ -403,10 +406,12 @@ class _SectionDef {
 
 class _ShellSettingsSection extends StatefulWidget {
   final ForgePreferencesService preferencesService;
+  final ForgeShellApi? shellApi;
   final VoidCallback? onChanged;
 
   const _ShellSettingsSection({
     required this.preferencesService,
+    this.shellApi,
     this.onChanged,
   });
 
@@ -417,6 +422,14 @@ class _ShellSettingsSection extends StatefulWidget {
 class _ShellSettingsSectionState extends State<_ShellSettingsSection> {
   late ThemeMode _selectedThemeMode;
   late TextEditingController _maxRecentController;
+  late bool _autoSaveEnabled;
+  late TextEditingController _autoSaveDelayController;
+  late bool _autoSaveFocusLoss;
+  late ForgeSearchConfig _searchConfig;
+  late TextEditingController _excludedExtController;
+  late TextEditingController _excludedDirsController;
+  late TextEditingController _fileSizeLimitController;
+  late TextEditingController _maxFileResultsController;
 
   @override
   void initState() {
@@ -425,11 +438,36 @@ class _ShellSettingsSectionState extends State<_ShellSettingsSection> {
     _maxRecentController = TextEditingController(
       text: widget.preferencesService.maxRecentWorkspaces.toString(),
     );
+    final autoSave = widget.shellApi?.config.current.autoSave ??
+        const AutoSaveConfig();
+    _autoSaveEnabled = autoSave.enabled;
+    _autoSaveDelayController = TextEditingController(
+      text: autoSave.idleDelay.inSeconds.toString(),
+    );
+    _autoSaveFocusLoss = autoSave.saveOnFocusLoss;
+    _searchConfig = widget.preferencesService.searchConfig;
+    _excludedExtController = TextEditingController(
+      text: _searchConfig.excludedExtensions.join(', '),
+    );
+    _excludedDirsController = TextEditingController(
+      text: _searchConfig.excludedDirectories.join(', '),
+    );
+    _fileSizeLimitController = TextEditingController(
+      text: (_searchConfig.fileSizeLimit ~/ (1024 * 1024)).toString(),
+    );
+    _maxFileResultsController = TextEditingController(
+      text: _searchConfig.maxFileResults.toString(),
+    );
   }
 
   @override
   void dispose() {
     _maxRecentController.dispose();
+    _autoSaveDelayController.dispose();
+    _excludedExtController.dispose();
+    _excludedDirsController.dispose();
+    _fileSizeLimitController.dispose();
+    _maxFileResultsController.dispose();
     super.dispose();
   }
 
@@ -442,6 +480,49 @@ class _ShellSettingsSectionState extends State<_ShellSettingsSection> {
     }
     prefs.save();
     widget.onChanged?.call();
+  }
+
+  void _saveSearchConfig() {
+    final excludedExt = _excludedExtController.text
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet();
+    final excludedDirs = _excludedDirsController.text
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet();
+    final fileSizeMB =
+        int.tryParse(_fileSizeLimitController.text.trim()) ?? 10;
+    final maxFiles =
+        int.tryParse(_maxFileResultsController.text.trim()) ?? 50;
+    _searchConfig = _searchConfig.copyWith(
+      excludedExtensions: excludedExt,
+      excludedDirectories: excludedDirs,
+      fileSizeLimit: fileSizeMB * 1024 * 1024,
+      excludeHiddenDirectories: _searchConfig.excludeHiddenDirectories,
+      excludeGitIgnored: _searchConfig.excludeGitIgnored,
+      maxFileResults: maxFiles.clamp(1, 1000),
+    );
+    widget.preferencesService.searchConfig = _searchConfig;
+    widget.preferencesService.save();
+    widget.onChanged?.call();
+  }
+
+  Widget _toggle(String label, bool value, ValueChanged<bool> onChanged) {
+    return SizedBox(
+      width: 180,
+      child: CheckboxListTile(
+        dense: true,
+        contentPadding: EdgeInsets.zero,
+        controlAffinity: ListTileControlAffinity.leading,
+        title: Text(label, style: const TextStyle(fontSize: 12)),
+        value: value,
+        onChanged: (next) => onChanged(next ?? false),
+        visualDensity: VisualDensity.compact,
+      ),
+    );
   }
 
   @override
@@ -503,6 +584,136 @@ class _ShellSettingsSectionState extends State<_ShellSettingsSection> {
                     isDense: true,
                   ),
                   onChanged: (_) => _save(),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _sectionHeader(theme, 'Auto Save'),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 4,
+            runSpacing: 4,
+            children: [
+              _toggle('Enabled', _autoSaveEnabled, (v) {
+                setState(() => _autoSaveEnabled = v);
+              }),
+              _toggle('Save on focus loss', _autoSaveFocusLoss, (v) {
+                setState(() => _autoSaveFocusLoss = v);
+              }),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Text('Idle delay (s):', style: TextStyle(fontSize: 13)),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 60,
+                child: TextField(
+                  controller: _autoSaveDelayController,
+                  keyboardType: TextInputType.number,
+                  style: const TextStyle(fontSize: 13),
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    isDense: true,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _sectionHeader(theme, 'Search'),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 4,
+            runSpacing: 4,
+            children: [
+              _toggle('Hide hidden dirs', _searchConfig.excludeHiddenDirectories,
+                  (v) {
+                setState(() {
+                  _searchConfig = _searchConfig.copyWith(
+                    excludeHiddenDirectories: v,
+                  );
+                });
+                _saveSearchConfig();
+              }),
+              _toggle('Use .gitignore', _searchConfig.excludeGitIgnored, (v) {
+                setState(() {
+                  _searchConfig = _searchConfig.copyWith(
+                    excludeGitIgnored: v,
+                  );
+                });
+                _saveSearchConfig();
+              }),
+            ],
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _excludedExtController,
+            style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+            decoration: const InputDecoration(
+              labelText: 'Excluded extensions',
+              hintText: 'png, jpg, exe, lock',
+              border: OutlineInputBorder(),
+              contentPadding:
+                  EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              isDense: true,
+            ),
+            maxLines: 2,
+            onChanged: (_) => _saveSearchConfig(),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _excludedDirsController,
+            style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+            decoration: const InputDecoration(
+              labelText: 'Excluded directories',
+              hintText: 'node_modules, build, .dart_tool',
+              border: OutlineInputBorder(),
+              contentPadding:
+                  EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              isDense: true,
+            ),
+            maxLines: 2,
+            onChanged: (_) => _saveSearchConfig(),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              SizedBox(
+                width: 90,
+                child: TextField(
+                  controller: _fileSizeLimitController,
+                  keyboardType: TextInputType.number,
+                  style: const TextStyle(fontSize: 13),
+                  decoration: const InputDecoration(
+                    labelText: 'Size (MB)',
+                    border: OutlineInputBorder(),
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    isDense: true,
+                  ),
+                  onChanged: (_) => _saveSearchConfig(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 90,
+                child: TextField(
+                  controller: _maxFileResultsController,
+                  keyboardType: TextInputType.number,
+                  style: const TextStyle(fontSize: 13),
+                  decoration: const InputDecoration(
+                    labelText: 'Max results',
+                    border: OutlineInputBorder(),
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    isDense: true,
+                  ),
+                  onChanged: (_) => _saveSearchConfig(),
                 ),
               ),
             ],
