@@ -330,12 +330,12 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
       icon: icon,
       type: _ResultType.setting,
       onExecute: () {
-        final openSettings = widget.onOpenSettings;
+        final shellApi = widget.shellApi;
         widget.onDismiss();
         // Defer to next frame so the dismiss completes before opening
         // settings (mirrors the action execution pattern).
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          openSettings?.call();
+          shellApi.executeAction('forge.openSettings');
         });
       },
     );

@@ -1316,6 +1316,11 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       _toggleCommandPalette,
     );
     overrideAction(
+      'forge.openSettings',
+      'Open Settings',
+      _openSettings,
+    );
+    overrideAction(
       'forge.toggleLeftPanel',
       'Toggle Left Panel',
       () => widget.shell.layout.togglePanel(ForgePanelLocation.left),
