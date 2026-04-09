@@ -175,11 +175,6 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
     // Settings.
     items.addAll(_getSettingItems(lowerQuery));
 
-    // Files (async, but we start it and update when done).
-    if (query.isNotEmpty) {
-      _searchFiles(query);
-    }
-
     setState(() {
       _results = items;
       _selectedIndex = 0;
@@ -341,6 +336,7 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
     );
   }
 
+  // ignore: unused_element
   Future<void> _searchFiles(String query) async {
     try {
       final workspaceRoot = widget.shellApi.systemState.workspaceRootPath;
