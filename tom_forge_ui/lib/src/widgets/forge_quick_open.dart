@@ -119,6 +119,11 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
   List<_QuickOpenItem> _results = [];
   int _selectedIndex = 0;
   Timer? _searchDebounce;
+  bool _caseSensitive = false;
+  bool _wholeWord = false;
+  bool _useRegex = false;
+  String? _regexError;
+  RegExp? _activePattern;
 
   @override
   void initState() {
@@ -170,17 +175,18 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
   // ── Mode: all ──
 
   void _buildAllResults(String query) {
+    _preparePattern(query);
+
     final items = <_QuickOpenItem>[];
-    final lowerQuery = query.toLowerCase();
 
     // Open editors.
-    items.addAll(_getOpenEditorItems(lowerQuery));
+    items.addAll(_getOpenEditorItems(query));
 
     // Actions.
-    items.addAll(_getActionItems(lowerQuery));
+    items.addAll(_getActionItems(query));
 
     // Settings.
-    items.addAll(_getSettingItems(lowerQuery));
+    items.addAll(_getSettingItems(query));
 
     setState(() {
       _results = items;
@@ -188,7 +194,7 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
     });
 
     // Async workspace file search (appends results below).
-    if (query.length >= 2) {
+    if (query.length >= 2 && _regexError == null) {
       _searchFiles(query);
     }
   }
@@ -196,9 +202,9 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
   // ── Mode: actions ──
 
   void _buildActionResults(String query) {
-    final lowerQuery = query.toLowerCase();
+    _preparePattern(query);
     setState(() {
-      _results = _getActionItems(lowerQuery);
+      _results = _getActionItems(query);
       _selectedIndex = 0;
     });
   }
@@ -257,7 +263,7 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
 
   // ── Helpers ──
 
-  List<_QuickOpenItem> _getActionItems(String lowerQuery) {
+  List<_QuickOpenItem> _getActionItems(String query) {
     final commandsById = <String, _QuickOpenItem>{};
 
     void addAction(ForgeAction action) {
@@ -295,15 +301,15 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
       }
     }
 
-    if (lowerQuery.isEmpty) return commandsById.values.toList();
+    if (query.isEmpty) return commandsById.values.toList();
 
     return commandsById.values.where((item) {
-      return item.label.toLowerCase().contains(lowerQuery) ||
-          item.id.toLowerCase().contains(lowerQuery);
+      return _matches(item.label, query) ||
+          _matches(item.id, query);
     }).toList();
   }
 
-  List<_QuickOpenItem> _getSettingItems(String lowerQuery) {
+  List<_QuickOpenItem> _getSettingItems(String query) {
     // Build searchable setting entries from known preference keys.
     final settings = <_QuickOpenItem>[
       // Shell (section 0) — Appearance
@@ -361,11 +367,11 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
       _settingItem('File Type Defaults', 'forge.editor.fileTypeDefaults', Icons.file_copy, 7),
     ];
 
-    if (lowerQuery.isEmpty) return settings;
+    if (query.isEmpty) return settings;
 
     return settings.where((item) {
-      return item.label.toLowerCase().contains(lowerQuery) ||
-          (item.detail ?? '').toLowerCase().contains(lowerQuery);
+      return _matches(item.label, query) ||
+          _matches(item.detail ?? '', query);
     }).toList();
   }
 
@@ -395,7 +401,7 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
     );
   }
 
-  List<_QuickOpenItem> _getOpenEditorItems(String lowerQuery) {
+  List<_QuickOpenItem> _getOpenEditorItems(String query) {
     final editors = widget.shellApi.systemState.openEditors;
     final items = <_QuickOpenItem>[];
     for (final editor in editors) {
@@ -406,9 +412,9 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
       final detail = uriStr.startsWith(wsRoot)
           ? uriStr.substring(wsRoot.length)
           : uriStr;
-      if (lowerQuery.isNotEmpty &&
-          !title.toLowerCase().contains(lowerQuery) &&
-          !detail.toLowerCase().contains(lowerQuery)) {
+      if (query.isNotEmpty &&
+          !_matches(title, query) &&
+          !_matches(detail, query)) {
         continue;
       }
       final isDirty = editor.isDirty.value;
@@ -425,6 +431,11 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
           });
         },
       ));
+    }
+    // Sort by relevance: name starts-with > name contains > path only.
+    if (query.isNotEmpty) {
+      items.sort((a, b) =>
+          _matchPriority(a.label, query).compareTo(_matchPriority(b.label, query)));
     }
     return items;
   }
@@ -444,7 +455,25 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
         await gitIgnore.loadFromRoot(workspaceRoot);
       }
 
-      final lowerQuery = query.toLowerCase();
+      // Capture current search options — they may change during async iteration.
+      final pattern = _activePattern;
+      final caseSens = _caseSensitive;
+
+      bool matchText(String text) {
+        if (pattern != null) return pattern.hasMatch(text);
+        if (caseSens) return text.contains(query);
+        return text.toLowerCase().contains(query.toLowerCase());
+      }
+
+      int sortPriority(String name) {
+        if (pattern != null) return pattern.hasMatch(name) ? 0 : 1;
+        final n = caseSens ? name : name.toLowerCase();
+        final q = caseSens ? query : query.toLowerCase();
+        if (n.startsWith(q)) return 0;
+        if (n.contains(q)) return 1;
+        return 2;
+      }
+
       final fileItems = <_QuickOpenItem>[];
       var count = 0;
 
@@ -486,8 +515,7 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
             continue;
           }
 
-          if (name.toLowerCase().contains(lowerQuery) ||
-              relativePath.toLowerCase().contains(lowerQuery)) {
+          if (matchText(name) || matchText(relativePath)) {
             fileItems.add(_QuickOpenItem(
               id: 'file:${entity.path}',
               label: name,
@@ -495,8 +523,10 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
               icon: _fileIcon(name),
               type: _ResultType.file,
               onExecute: () {
-                widget.onOpenFile?.call(entity.uri);
                 widget.onDismiss();
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  widget.onOpenFile?.call(entity.uri);
+                });
               },
             ));
             count++;
@@ -518,6 +548,10 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
       }
 
       if (!mounted) return;
+
+      // Sort by relevance: name starts-with > name contains > path only.
+      fileItems.sort(
+          (a, b) => sortPriority(a.label).compareTo(sortPriority(b.label)));
 
       setState(() {
         // Merge file results: keep actions/settings on top, append files below.
@@ -567,6 +601,68 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
       _selectedIndex =
           (_selectedIndex + delta).clamp(0, _results.length - 1);
     });
+  }
+
+  // ── Search Options ──
+
+  void _preparePattern(String query) {
+    _regexError = null;
+    _activePattern = null;
+    if (query.isEmpty) return;
+
+    if (_useRegex) {
+      try {
+        _activePattern = RegExp(query, caseSensitive: _caseSensitive);
+      } on FormatException {
+        _regexError = 'Invalid regex';
+      }
+      return;
+    }
+
+    if (_wholeWord) {
+      final escaped = RegExp.escape(query);
+      _activePattern = RegExp(
+        '(?:^|[^a-zA-Z0-9])$escaped(?:[^a-zA-Z0-9]|\$)',
+        caseSensitive: _caseSensitive,
+      );
+    }
+  }
+
+  bool _matches(String text, String query) {
+    if (query.isEmpty) return true;
+    if (_regexError != null) return false;
+    if (_activePattern != null) return _activePattern!.hasMatch(text);
+    if (_caseSensitive) return text.contains(query);
+    return text.toLowerCase().contains(query.toLowerCase());
+  }
+
+  int _matchPriority(String name, String query) {
+    if (query.isEmpty) return 0;
+    if (_activePattern != null) {
+      return _activePattern!.hasMatch(name) ? 0 : 1;
+    }
+    final n = _caseSensitive ? name : name.toLowerCase();
+    final q = _caseSensitive ? query : query.toLowerCase();
+    if (n.startsWith(q)) return 0;
+    if (n.contains(q)) return 1;
+    return 2;
+  }
+
+  void _toggleCaseSensitive() {
+    _caseSensitive = !_caseSensitive;
+    _buildResults(widget.searchController.text);
+  }
+
+  void _toggleWholeWord() {
+    _wholeWord = !_wholeWord;
+    if (_wholeWord) _useRegex = false;
+    _buildResults(widget.searchController.text);
+  }
+
+  void _toggleRegex() {
+    _useRegex = !_useRegex;
+    if (_useRegex) _wholeWord = false;
+    _buildResults(widget.searchController.text);
   }
 
   /// Handle keyboard events in quick-open mode.
@@ -654,9 +750,17 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
           ),
         ],
       ),
-      child: _results.isEmpty
-          ? _buildEmpty(isDark)
-          : _buildResultList(isDark, theme),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (widget.mode == QuickOpenMode.all) _buildSearchOptions(isDark),
+          Flexible(
+            child: _results.isEmpty
+                ? _buildEmpty(isDark)
+                : _buildResultList(isDark, theme),
+          ),
+        ],
+      ),
     );
   }
 
@@ -849,6 +953,92 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
           ],
         ),
       ),
+      ),
+    );
+  }
+
+  Widget _buildSearchOptions(bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+      child: Row(
+        children: [
+          _optionToggle(
+            'Aa',
+            'Match Case',
+            _caseSensitive,
+            _toggleCaseSensitive,
+            isDark,
+          ),
+          const SizedBox(width: 4),
+          _optionToggle(
+            'ab',
+            'Match Whole Word',
+            _wholeWord,
+            _toggleWholeWord,
+            isDark,
+          ),
+          const SizedBox(width: 4),
+          _optionToggle(
+            '.*',
+            'Use Regex',
+            _useRegex,
+            _toggleRegex,
+            isDark,
+          ),
+          if (_regexError != null) ...[
+            const SizedBox(width: 8),
+            Text(
+              _regexError!,
+              style: TextStyle(
+                color: Colors.red[300],
+                fontSize: 11,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _optionToggle(
+    String label,
+    String tooltip,
+    bool active,
+    VoidCallback onTap,
+    bool isDark,
+  ) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(3),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+          decoration: BoxDecoration(
+            color: active
+                ? (isDark
+                    ? const Color(0xFF094771)
+                    : Colors.blue.withValues(alpha: 0.2))
+                : Colors.transparent,
+            border: Border.all(
+              color: active
+                  ? (isDark ? Colors.blue[300]! : Colors.blue)
+                  : (isDark ? Colors.grey[600]! : Colors.grey[400]!),
+            ),
+            borderRadius: BorderRadius.circular(3),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontFamily: 'monospace',
+              fontWeight: FontWeight.w500,
+              color: active
+                  ? (isDark ? Colors.blue[200]! : Colors.blue[700]!)
+                  : (isDark ? Colors.grey[400]! : Colors.grey[600]!),
+            ),
+          ),
+        ),
       ),
     );
   }
