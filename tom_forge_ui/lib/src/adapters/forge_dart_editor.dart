@@ -36,7 +36,7 @@ class ForgeDartEditor extends ForgeTextEditor {
 
   /// Summary-backed analysis adapter for autocompletion and diagnostics.
   final SummaryBackedDartAnalysisAdapter _analysisAdapter;
-  List<CodeError> _analysisErrors = const [];
+  final _analysisErrors = ValueNotifier<List<CodeError>>(const []);
   Timer? _analysisDebounce;
   ForgeDiagnosticCollection? _diagnosticCollection;
 
@@ -106,17 +106,22 @@ class ForgeDartEditor extends ForgeTextEditor {
     // Build theme with applied options.
     final theme = _buildThemeFromOptions();
     final settings = _buildSettingsFromConfig();
-    final errors = errorsProvider?.call() ?? _analysisErrors;
-    return DartCodeEditor(
-      controller: controller,
-      integration: _integration,
-      theme: theme,
-      settings: settings,
-      errors: errors,
-      onCompletionRequest: _analysisAdapter.completions,
-      onCursorChanged: _onCursorOffset,
-      onSelectionChanged: _onSelectionRange,
-      onVisibleRangeChanged: _onVisibleRangeLines,
+    return ValueListenableBuilder<List<CodeError>>(
+      valueListenable: _analysisErrors,
+      builder: (context, analysisErrors, _) {
+        final errors = errorsProvider?.call() ?? analysisErrors;
+        return DartCodeEditor(
+          controller: controller,
+          integration: _integration,
+          theme: theme,
+          settings: settings,
+          errors: errors,
+          onCompletionRequest: _analysisAdapter.completions,
+          onCursorChanged: _onCursorOffset,
+          onSelectionChanged: _onSelectionRange,
+          onVisibleRangeChanged: _onVisibleRangeLines,
+        );
+      },
     );
   }
 
@@ -428,7 +433,7 @@ class ForgeDartEditor extends ForgeTextEditor {
   Future<void> _runAnalysis() async {
     try {
       final errors = await _analysisAdapter.analyzeCode(controller.userCode);
-      _analysisErrors = errors;
+      _analysisErrors.value = errors;
       _updateDiagnostics();
     } catch (_) {
       // Analysis may fail if assets are unavailable (e.g. in unit tests).
@@ -448,7 +453,7 @@ class ForgeDartEditor extends ForgeTextEditor {
     _diagnosticCollection ??=
         shell.diagnostics.createCollection('dart-editor');
 
-    final diagnostics = _analysisErrors.map((e) {
+    final diagnostics = _analysisErrors.value.map((e) {
       final severity = switch (e.severity.toUpperCase()) {
         'ERROR' => ForgeSeverity.error,
         'WARNING' => ForgeSeverity.warning,
@@ -476,6 +481,7 @@ class ForgeDartEditor extends ForgeTextEditor {
   /// Release listeners.
   void dispose() {
     _analysisDebounce?.cancel();
+    _analysisErrors.dispose();
     if (_diagnosticCollection != null && controller.uri != null) {
       _diagnosticCollection!.set(controller.uri!, const []);
     }

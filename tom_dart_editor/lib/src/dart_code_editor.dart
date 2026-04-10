@@ -2449,7 +2449,6 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
                 hintStyle: TextStyle(color: theme.editor.placeholder),
                 contentPadding: EdgeInsets.all(theme.editor.contentPadding),
                 border: InputBorder.none,
-                isDense: true,
               ),
               contextMenuBuilder: (context, editableTextState) =>
                   const SizedBox.shrink(),

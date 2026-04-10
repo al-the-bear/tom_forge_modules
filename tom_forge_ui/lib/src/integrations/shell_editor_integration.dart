@@ -182,8 +182,27 @@ class ShellEditorIntegration extends shared.ForgeEditorIntegration
       _enabledQueries[actionId] = isEnabled;
     }
 
-    final action = _knownActions[actionId] ?? _resolveAction(actionId, isEnabled);
+    var action = _knownActions[actionId] ?? _resolveAction(actionId, isEnabled);
     if (action != null) {
+      // When the editor provides a new isEnabled closure, replace the cached
+      // action so stale placeholder closures (e.g. from
+      // _buildEditorDescriptorActions) are overwritten.
+      if (isEnabled != null && action.isEnabled != isEnabled) {
+        action = shared.ForgeAction(
+          id: action.id,
+          label: action.label,
+          icon: action.icon,
+          menu: action.menu,
+          group: action.group,
+          priority: action.priority,
+          execute: action.execute,
+          isEnabled: isEnabled,
+          isVisible: action.isVisible,
+          defaultShortcut: action.defaultShortcut,
+          showInContextMenu: action.showInContextMenu,
+          undo: action.undo,
+        );
+      }
       _knownActions[actionId] = action;
       _registerWithShell(action);
     }
