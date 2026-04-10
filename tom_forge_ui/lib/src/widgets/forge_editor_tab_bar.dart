@@ -38,6 +38,12 @@ class ForgeEditorTabBar extends StatefulWidget {
   /// Called when a panel tab is dropped here from a side/bottom panel.
   final PanelTabDropCallback? onPanelTabDropped;
 
+  /// Called when "Close Others" is selected (receives list to close).
+  final void Function(List<ForgeEditor>)? onCloseMultiple;
+
+  /// Called when "Edit Action Bar" is selected.
+  final ValueChanged<ForgeEditor>? onEditActionBar;
+
   /// Index of the panel this tab bar belongs to (for drag identity).
   final int panelIndex;
 
@@ -50,6 +56,8 @@ class ForgeEditorTabBar extends StatefulWidget {
     this.onEditorDropped,
     this.onViewDropped,
     this.onPanelTabDropped,
+    this.onCloseMultiple,
+    this.onEditActionBar,
     this.panelIndex = 0,
   });
 
@@ -332,45 +340,137 @@ class _ForgeEditorTabBarState extends State<ForgeEditorTabBar> {
       selected: isActive,
       label: editor.title.value,
       hint: isActive ? 'Active editor tab' : 'Editor tab',
-      child: Draggable<TabDragData>(
-      data: TabDragData(editor: editor, sourcePanelIndex: widget.panelIndex),
-      feedback: MouseRegion(
-        cursor: SystemMouseCursors.grabbing,
-        child: Material(
-          elevation: 4,
-          borderRadius: BorderRadius.circular(4),
-          child: Opacity(
-            opacity: 0.85,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(editor.icon, size: 14, color: theme.colorScheme.onSurface),
-                  const SizedBox(width: 6),
-                  ValueListenableBuilder<String>(
-                    valueListenable: editor.title,
-                    builder: (context, title, _) => Text(
-                      title,
-                      style: theme.textTheme.bodySmall,
-                    ),
+      child: GestureDetector(
+        onSecondaryTapUp: (details) => _showTabContextMenu(
+          details.globalPosition,
+          editor,
+        ),
+        child: Draggable<TabDragData>(
+          data: TabDragData(editor: editor, sourcePanelIndex: widget.panelIndex),
+          feedback: MouseRegion(
+            cursor: SystemMouseCursors.grabbing,
+            child: Material(
+              elevation: 4,
+              borderRadius: BorderRadius.circular(4),
+              child: Opacity(
+                opacity: 0.85,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(4),
                   ),
-                ],
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(editor.icon, size: 14, color: theme.colorScheme.onSurface),
+                      const SizedBox(width: 6),
+                      ValueListenableBuilder<String>(
+                        valueListenable: editor.title,
+                        builder: (context, title, _) => Text(
+                          title,
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
+          childWhenDragging: Opacity(
+            opacity: 0.35,
+            child: tabContent,
+          ),
+          child: tabContent,
         ),
       ),
-      childWhenDragging: Opacity(
-        opacity: 0.35,
-        child: tabContent,
-      ),
-      child: tabContent,
-      ),
     );
+  }
+
+  /// Shows the tab context menu.
+  Future<void> _showTabContextMenu(
+    Offset globalPosition,
+    ForgeEditor editor,
+  ) async {
+    final overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox?;
+    if (overlay == null) return;
+
+    final editors = widget.editors;
+    final editorIndex = editors.indexOf(editor);
+    final hasOthers = editors.length > 1;
+    final hasToRight = editorIndex >= 0 && editorIndex < editors.length - 1;
+
+    final selected = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        Rect.fromLTWH(globalPosition.dx, globalPosition.dy, 1, 1),
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        const PopupMenuItem<String>(
+          value: 'close',
+          child: Text('Close'),
+        ),
+        PopupMenuItem<String>(
+          value: 'closeOthers',
+          enabled: hasOthers,
+          child: const Text('Close Others'),
+        ),
+        PopupMenuItem<String>(
+          value: 'closeToRight',
+          enabled: hasToRight,
+          child: const Text('Close to the Right'),
+        ),
+        const PopupMenuDivider(),
+        const PopupMenuItem<String>(
+          value: 'closeAll',
+          child: Text('Close All'),
+        ),
+        const PopupMenuDivider(),
+        const PopupMenuItem<String>(
+          value: 'editActionBar',
+          child: Text('Edit Action Bar...'),
+        ),
+      ],
+    );
+
+    if (!mounted || selected == null) return;
+
+    switch (selected) {
+      case 'close':
+        widget.onClose(editor);
+      case 'closeOthers':
+        final toClose = editors.where((e) => e != editor).toList();
+        if (widget.onCloseMultiple != null) {
+          widget.onCloseMultiple!(toClose);
+        } else {
+          for (final e in toClose) {
+            widget.onClose(e);
+          }
+        }
+      case 'closeToRight':
+        if (editorIndex >= 0) {
+          final toClose = editors.sublist(editorIndex + 1);
+          if (widget.onCloseMultiple != null) {
+            widget.onCloseMultiple!(toClose);
+          } else {
+            for (final e in toClose) {
+              widget.onClose(e);
+            }
+          }
+        }
+      case 'closeAll':
+        if (widget.onCloseMultiple != null) {
+          widget.onCloseMultiple!(List.from(editors));
+        } else {
+          for (final e in List.from(editors)) {
+            widget.onClose(e);
+          }
+        }
+      case 'editActionBar':
+        widget.onEditActionBar?.call(editor);
+    }
   }
 }

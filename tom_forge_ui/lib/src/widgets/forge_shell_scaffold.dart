@@ -1657,6 +1657,11 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         enabled: widget.shell.isActionEnabled(_actionEditFormatDocument),
         child: const Text('Format Document'),
       ),
+      const PopupMenuDivider(),
+      const PopupMenuItem<String>(
+        value: 'cmd.editActionBar',
+        child: Text('Edit Action Bar...'),
+      ),
     ];
 
     if (contextActions.isNotEmpty) {
@@ -1715,12 +1720,82 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       case 'cmd.format':
         _executeActionWithFallback([_actionEditFormatDocument]);
         break;
+      case 'cmd.editActionBar':
+        _showEditActionBarDialog(editor);
+        break;
       default:
         if (selected.startsWith('action.')) {
           final actionId = selected.substring('action.'.length);
           widget.shell.executeAction(actionId);
         }
         break;
+    }
+  }
+
+  /// Shows a dialog to edit the action bar for the current editor type.
+  Future<void> _showEditActionBarDialog(ForgeEditor editor) async {
+    final editorTypeId = _editorTypeId(editor);
+    if (editorTypeId == null) {
+      widget.shell.notifications.showWarning(
+        'Cannot edit action bar for this editor type',
+      );
+      return;
+    }
+
+    // Get current action bar configuration.
+    final currentActions = _preferences.getActionBarActions(editorTypeId);
+    final effectiveActions = currentActions.isNotEmpty
+        ? currentActions
+        : List<String>.from(_defaultActionBarActions);
+
+    // Get all available actions with icons from the action registry.
+    // This includes actions without shortcuts (like Open Reference).
+    final allActions = widget.shell.actionRegistry.allActions;
+    final availableActions = <(String, String, IconData?)>[];
+    final seenIds = <String>{};
+    for (final action in allActions) {
+      if (!seenIds.add(action.id)) continue;
+      if (action.icon == null) continue; // Only show actions with icons.
+      availableActions.add((action.id, action.label, action.icon));
+    }
+
+    // Sort available actions: current editor first, then by label.
+    final editorPrefix = _actionPrefixForEditorType(editorTypeId);
+    availableActions.sort((a, b) {
+      final aIsEditor = a.$1.startsWith(editorPrefix);
+      final bIsEditor = b.$1.startsWith(editorPrefix);
+      if (aIsEditor && !bIsEditor) return -1;
+      if (bIsEditor && !aIsEditor) return 1;
+      return a.$2.compareTo(b.$2);
+    });
+
+    final result = await showDialog<List<String>>(
+      context: context,
+      builder: (ctx) => _EditActionBarDialog(
+        editorTypeId: editorTypeId,
+        currentActions: effectiveActions,
+        availableActions: availableActions,
+      ),
+    );
+
+    if (result != null && mounted) {
+      _preferences.setActionBarActions(editorTypeId, result);
+      await _preferences.save();
+      setState(() {}); // Rebuild to show new action bar.
+    }
+  }
+
+  /// Returns the action ID prefix for an editor type.
+  String _actionPrefixForEditorType(String editorTypeId) {
+    switch (editorTypeId) {
+      case 'dart':
+        return 'dart.';
+      case 'md':
+        return 'md.';
+      case 'yaml':
+        return 'yaml.';
+      default:
+        return 'forge.edit.';
     }
   }
 
@@ -2482,7 +2557,6 @@ Press "?" for this help document.
   }
 
   Widget _buildTitleBar(BuildContext context) {
-    const navClusterWidth = 112.0;
     final theme = Theme.of(context);
     return Container(
       height: ForgeDimensions.titleBarHeight,
@@ -2490,32 +2564,10 @@ Press "?" for this help document.
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
         children: [
-          // Back/Forward navigation (per concept §2.1)
-          SizedBox(
-            width: navClusterWidth,
-            child: Row(
-              children: [
-                IconButton(
-                  icon: Icon(
-                    Icons.arrow_back,
-                    size: ForgeDimensions.iconToolbar,
-                  ),
-                  onPressed:
-                      null, // Disabled until component history is implemented
-                  tooltip: 'Back',
-                ),
-                IconButton(
-                  icon: Icon(
-                    Icons.arrow_forward,
-                    size: ForgeDimensions.iconToolbar,
-                  ),
-                  onPressed: null,
-                  tooltip: 'Forward',
-                ),
-              ],
-            ),
-          ),
-          // Center cluster: search field + application switcher.
+          // Left cluster: action bar.
+          _buildActionBar(context),
+          const SizedBox(width: 8),
+          // Center cluster: nav buttons + search field + application switcher.
           Expanded(
             child: Align(
               alignment: Alignment.center,
@@ -2530,6 +2582,25 @@ Press "?" for this help document.
                   return Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      // Back/Forward navigation (per concept §2.1)
+                      IconButton(
+                        icon: Icon(
+                          Icons.arrow_back,
+                          size: ForgeDimensions.iconToolbar,
+                        ),
+                        onPressed:
+                            null, // Disabled until component history is implemented
+                        tooltip: 'Back',
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          Icons.arrow_forward,
+                          size: ForgeDimensions.iconToolbar,
+                        ),
+                        onPressed: null,
+                        tooltip: 'Forward',
+                      ),
+                      const SizedBox(width: 8),
                       SizedBox(
                         key: _searchBoxKey,
                         width: searchWidth,
@@ -2662,32 +2733,98 @@ Press "?" for this help document.
             ),
           ),
           // Right cluster: layout reset buttons.
-          SizedBox(
-            width: navClusterWidth,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                IconButton(
-                  icon: Icon(
-                    Icons.flip_to_front,
-                    size: ForgeDimensions.iconToolbar,
-                  ),
-                  onPressed: _resetPanelLocations,
-                  tooltip: 'Reset Panel Locations',
-                ),
-                IconButton(
-                  icon: Icon(
-                    Icons.fit_screen_outlined,
-                    size: ForgeDimensions.iconToolbar,
-                  ),
-                  onPressed: _resetPanelSizes,
-                  tooltip: 'Reset Panel Sizes',
-                ),
-              ],
+          const SizedBox(width: 8),
+          IconButton(
+            icon: Icon(
+              Icons.flip_to_front,
+              size: ForgeDimensions.iconToolbar,
             ),
+            onPressed: _resetPanelLocations,
+            tooltip: 'Reset Panel Locations',
+          ),
+          IconButton(
+            icon: Icon(
+              Icons.fit_screen_outlined,
+              size: ForgeDimensions.iconToolbar,
+            ),
+            onPressed: _resetPanelSizes,
+            tooltip: 'Reset Panel Sizes',
           ),
         ],
       ),
+    );
+  }
+
+  /// Default action IDs shown in the action bar when no custom config exists.
+  static const List<String> _defaultActionBarActions = [
+    'forge.edit.cut',
+    'forge.edit.copy',
+    'forge.edit.paste',
+    'forge.edit.undo',
+    'forge.edit.redo',
+  ];
+
+  /// Builds the action bar with quick-access action buttons.
+  ///
+  /// Shows actions from the user's preference, or defaults if none configured.
+  Widget _buildActionBar(BuildContext context) {
+    final theme = Theme.of(context);
+    final activeEditor = widget.systemState.activeEditor;
+    final editorTypeId = activeEditor != null ? _editorTypeId(activeEditor) : null;
+
+    // Get configured actions for current editor type, or fall back to defaults.
+    List<String> actionIds;
+    if (editorTypeId != null) {
+      final configured = _preferences.getActionBarActions(editorTypeId);
+      actionIds = configured.isNotEmpty ? configured : _defaultActionBarActions;
+    } else {
+      actionIds = _defaultActionBarActions;
+    }
+
+    // Build action buttons.
+    final buttons = <Widget>[];
+    for (final actionId in actionIds) {
+      // Find the action in the registry (includes actions without shortcuts).
+      final action = widget.shell.actionRegistry.getAction(actionId);
+      if (action == null) continue;
+
+      final isEnabled = action.isEnabled();
+
+      // Get shortcut display string if available.
+      final binding = widget.shell.shortcuts.getBinding(actionId);
+
+      buttons.add(
+        Tooltip(
+          message: binding != null
+              ? '${action.label}\n${binding.displayString}'
+              : action.label,
+          child: InkWell(
+            onTap: isEnabled
+                ? () => widget.shell.executeAction(actionId)
+                : null,
+            borderRadius: BorderRadius.circular(4),
+            child: Padding(
+              padding: const EdgeInsets.all(4),
+              child: Icon(
+                action.icon ?? Icons.extension,
+                size: ForgeDimensions.iconToolbar,
+                color: isEnabled
+                    ? theme.colorScheme.onSurface
+                    : theme.colorScheme.onSurface.withValues(alpha: 0.3),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (buttons.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: buttons,
     );
   }
 
@@ -3349,6 +3486,7 @@ Press "?" for this help document.
                 onPanelTabDropped: (data) {
                   _handleDropZone(data, DropPosition.center, panelIndex);
                 },
+                onEditActionBar: _showEditActionBarDialog,
               ),
               if (showFindBar) _buildFindReplaceBar(),
               Expanded(
@@ -4183,6 +4321,183 @@ class _ResizeHandleState extends State<_ResizeHandle> {
           child: grip,
         ),
       ),
+    );
+  }
+}
+
+/// Dialog for editing the action bar configuration.
+class _EditActionBarDialog extends StatefulWidget {
+  const _EditActionBarDialog({
+    required this.editorTypeId,
+    required this.currentActions,
+    required this.availableActions,
+  });
+
+  final String editorTypeId;
+  final List<String> currentActions;
+  final List<(String, String, IconData?)> availableActions;
+
+  @override
+  State<_EditActionBarDialog> createState() => _EditActionBarDialogState();
+}
+
+class _EditActionBarDialogState extends State<_EditActionBarDialog> {
+  late List<String> _selectedActions;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedActions = List<String>.from(widget.currentActions);
+  }
+
+  String get _editorTitle {
+    switch (widget.editorTypeId) {
+      case 'dart':
+        return 'Dart Editor';
+      case 'md':
+        return 'Markdown Editor';
+      case 'yaml':
+        return 'YAML Editor';
+      case 'plaintext':
+        return 'Plain Text Editor';
+      default:
+        return 'Editor';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return AlertDialog(
+      title: Text('Edit Action Bar - $_editorTitle'),
+      content: SizedBox(
+        width: 400,
+        height: 500,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Current action bar:',
+              style: theme.textTheme.titleSmall,
+            ),
+            const SizedBox(height: 8),
+            _buildCurrentActions(theme),
+            const SizedBox(height: 16),
+            Text(
+              'Available actions:',
+              style: theme.textTheme.titleSmall,
+            ),
+            const SizedBox(height: 8),
+            Expanded(child: _buildAvailableActions(theme)),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            setState(() {
+              _selectedActions.clear();
+              _selectedActions.addAll(
+                _ForgeShellScaffoldState._defaultActionBarActions,
+              );
+            });
+          },
+          child: const Text('Reset to Defaults'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.of(context).pop(_selectedActions),
+          child: const Text('Save'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCurrentActions(ThemeData theme) {
+    if (_selectedActions.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          'No actions selected',
+          style: TextStyle(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: _selectedActions.map((actionId) {
+          final actionInfo = widget.availableActions
+              .cast<(String, String, IconData?)?>()
+              .firstWhere((a) => a?.$1 == actionId, orElse: () => null);
+          final label = actionInfo?.$2 ?? actionId;
+          final icon = actionInfo?.$3;
+
+          return Chip(
+            avatar: icon != null ? Icon(icon, size: 16) : null,
+            label: Text(label, style: const TextStyle(fontSize: 12)),
+            deleteIcon: const Icon(Icons.close, size: 16),
+            onDeleted: () {
+              setState(() => _selectedActions.remove(actionId));
+            },
+            visualDensity: VisualDensity.compact,
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildAvailableActions(ThemeData theme) {
+    return ListView.builder(
+      itemCount: widget.availableActions.length,
+      itemBuilder: (context, index) {
+        final (actionId, label, icon) = widget.availableActions[index];
+        final isSelected = _selectedActions.contains(actionId);
+
+        return ListTile(
+          dense: true,
+          visualDensity: VisualDensity.compact,
+          leading: icon != null
+              ? Icon(icon, size: 20)
+              : const Icon(Icons.extension, size: 20),
+          title: Text(label, style: const TextStyle(fontSize: 13)),
+          subtitle: Text(
+            actionId,
+            style: TextStyle(
+              fontSize: 10,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+            ),
+          ),
+          trailing: isSelected
+              ? Icon(Icons.check, size: 18, color: theme.colorScheme.primary)
+              : null,
+          onTap: () {
+            setState(() {
+              if (isSelected) {
+                _selectedActions.remove(actionId);
+              } else {
+                _selectedActions.add(actionId);
+              }
+            });
+          },
+        );
+      },
     );
   }
 }

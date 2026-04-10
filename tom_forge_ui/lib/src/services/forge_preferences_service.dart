@@ -50,6 +50,7 @@ class ForgePreferencesService extends ChangeNotifier {
       'forge.layout.dim.bottomPanelDefaultHeight';
   static const _keyDimDividerHitTarget = 'forge.layout.dim.dividerHitTarget';
   static const _keyReduceMotion = 'forge.appearance.reduceMotion';
+  static const _keyActionBarActions = 'forge.actionBar.actions';
 
   SharedPreferences? _prefs;
   ForgeStartupPreferences _startupPreferences = ForgeStartupPreferences();
@@ -83,6 +84,12 @@ class ForgePreferencesService extends ChangeNotifier {
   double _bottomPanelDefaultHeight = 200.0;
   double _dividerHitTarget = 14.0;
   bool _reduceMotion = false;
+
+  /// Action bar per editor type: editorTypeId → list of action ids.
+  /// An empty list means no custom configuration (use defaults).
+  final Map<String, List<String>> _actionBarActions =
+      <String, List<String>>{};
+
   bool _isLoaded = false;
 
   /// When true, layout restoration should skip workspace-level fallback.
@@ -461,6 +468,24 @@ class ForgePreferencesService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Gets the action bar actions for a specific editor type.
+  ///
+  /// Returns an empty list if no custom configuration exists.
+  List<String> getActionBarActions(String editorTypeId) {
+    return List<String>.unmodifiable(
+        _actionBarActions[editorTypeId] ?? <String>[]);
+  }
+
+  /// Sets the action bar actions for a specific editor type.
+  void setActionBarActions(String editorTypeId, List<String> actionIds) {
+    _actionBarActions[editorTypeId] = List<String>.from(actionIds);
+    notifyListeners();
+  }
+
+  /// All action bar configurations keyed by editor type id.
+  Map<String, List<String>> get actionBarActions =>
+      Map<String, List<String>>.unmodifiable(_actionBarActions);
+
   Map<String, Map<String, dynamic>> _loadEditorSpecificConfig() {
     final jsonStr = _prefs?.getString(_keyEditorSpecificConfig);
     if (jsonStr == null || jsonStr.trim().isEmpty) {
@@ -547,6 +572,7 @@ class ForgePreferencesService extends ChangeNotifier {
       _dividerHitTarget =
           _prefs!.getDouble(_keyDimDividerHitTarget) ?? 14.0;
       _reduceMotion = _prefs!.getBool(_keyReduceMotion) ?? false;
+      _loadActionBarActions();
       _isLoaded = true;
       _log(
         'loaded preferences with ${_editorTextSettings.length} editor settings entries',
@@ -689,6 +715,36 @@ class ForgePreferencesService extends ChangeNotifier {
     );
     await _prefs!.setDouble(_keyDimDividerHitTarget, _dividerHitTarget);
     await _prefs!.setBool(_keyReduceMotion, _reduceMotion);
+    await _saveActionBarActions();
+  }
+
+  void _loadActionBarActions() {
+    final jsonStr = _prefs?.getString(_keyActionBarActions);
+    if (jsonStr == null || jsonStr.trim().isEmpty) {
+      return;
+    }
+    try {
+      final decoded = jsonDecode(jsonStr);
+      if (decoded is Map) {
+        _actionBarActions.clear();
+        for (final entry in decoded.entries) {
+          if (entry.key is String && entry.value is List) {
+            _actionBarActions[entry.key as String] =
+                (entry.value as List).cast<String>();
+          }
+        }
+      }
+    } catch (e) {
+      _log('failed to load action bar actions: $e');
+    }
+  }
+
+  Future<void> _saveActionBarActions() async {
+    if (_prefs == null) return;
+    await _prefs!.setString(
+      _keyActionBarActions,
+      jsonEncode(_actionBarActions),
+    );
   }
 
   Map<String, ForgeTextSettings> _loadEditorTextSettings() {

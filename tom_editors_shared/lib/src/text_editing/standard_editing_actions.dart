@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/services.dart';
 
 import '../forge_bridge/editor_action_descriptor.dart';
@@ -291,6 +292,7 @@ class StandardEditingActions {
         EditorActionDescriptor(
           id: cutActionId,
           label: 'Cut',
+          icon: Icons.content_cut,
           category: 'Standard',
           contextRule: ActionContext.hasSelection,
           suggestedShortcut: cutShortcut,
@@ -298,6 +300,7 @@ class StandardEditingActions {
         EditorActionDescriptor(
           id: copyActionId,
           label: 'Copy',
+          icon: Icons.copy,
           category: 'Standard',
           contextRule: ActionContext.hasSelection,
           suggestedShortcut: copyShortcut,
@@ -305,6 +308,7 @@ class StandardEditingActions {
         EditorActionDescriptor(
           id: pasteActionId,
           label: 'Paste',
+          icon: Icons.paste,
           category: 'Standard',
           contextRule: ActionContext.editable,
           suggestedShortcut: pasteShortcut,
@@ -312,6 +316,7 @@ class StandardEditingActions {
         EditorActionDescriptor(
           id: selectAllActionId,
           label: 'Select All',
+          icon: Icons.select_all,
           category: 'Standard',
           contextRule: ActionContext.textEditorFocused,
           suggestedShortcut: selectAllShortcut,
@@ -319,6 +324,7 @@ class StandardEditingActions {
         EditorActionDescriptor(
           id: undoActionId,
           label: 'Undo',
+          icon: Icons.undo,
           category: 'Standard',
           contextRule: ActionContext.editorFocused,
           suggestedShortcut: undoShortcut,
@@ -326,6 +332,7 @@ class StandardEditingActions {
         EditorActionDescriptor(
           id: redoActionId,
           label: 'Redo',
+          icon: Icons.redo,
           category: 'Standard',
           contextRule: ActionContext.editorFocused,
           suggestedShortcut: redoShortcut,
@@ -333,6 +340,7 @@ class StandardEditingActions {
         EditorActionDescriptor(
           id: deleteLineActionId,
           label: 'Delete Line',
+          icon: Icons.delete_sweep,
           category: 'Standard',
           description: 'Delete the current line',
           contextRule: ActionContext.textEditorFocused,
@@ -341,6 +349,7 @@ class StandardEditingActions {
         EditorActionDescriptor(
           id: duplicateLineActionId,
           label: 'Duplicate Line',
+          icon: Icons.content_copy,
           category: 'Standard',
           description: 'Duplicate the current line below',
           contextRule: ActionContext.textEditorFocused,
@@ -349,6 +358,7 @@ class StandardEditingActions {
         EditorActionDescriptor(
           id: moveLineUpActionId,
           label: 'Move Line Up',
+          icon: Icons.arrow_upward,
           category: 'Standard',
           description: 'Move the current line up',
           contextRule: ActionContext.textEditorFocused,
@@ -357,6 +367,7 @@ class StandardEditingActions {
         EditorActionDescriptor(
           id: moveLineDownActionId,
           label: 'Move Line Down',
+          icon: Icons.arrow_downward,
           category: 'Standard',
           description: 'Move the current line down',
           contextRule: ActionContext.textEditorFocused,
@@ -365,6 +376,7 @@ class StandardEditingActions {
         EditorActionDescriptor(
           id: toggleCommentActionId,
           label: 'Toggle Comment',
+          icon: Icons.code_off,
           category: 'Standard',
           description: 'Toggle line comment',
           contextRule: ActionContext.textEditorFocused,

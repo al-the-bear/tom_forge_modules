@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/services.dart';
 
 import '../forge_bridge/editor_action_descriptor.dart';
@@ -186,6 +187,7 @@ class YamlEditorActions {
         EditorActionDescriptor(
           id: toggleTextModeActionId,
           label: 'Toggle Text Mode',
+          icon: Icons.text_fields,
           category: 'YAML Editor',
           description: 'Toggle between tree mode and raw text mode',
           contextRule: ActionContext.editorFocused,

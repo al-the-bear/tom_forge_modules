@@ -26,6 +26,24 @@ class DefaultShortcutManager implements ForgeShortcutManager {
   final List<ForgeShortcutBinding> _bindings = [];
   final Map<String, ForgeShortcutKey> _defaults = {};
 
+  /// Infers context/scope from action ID prefix.
+  ///
+  /// Returns a human-readable scope label based on the action ID pattern:
+  /// - `forge.edit.*` → "Standard" (standard editing actions)
+  /// - `forge.*` → "Shell" (shell-level actions)
+  /// - `dart.*` → "Dart Editor"
+  /// - `yaml.*` → "YAML Editor"
+  /// - `md.*` → "Markdown Editor"
+  /// - Otherwise → "Global"
+  static String _inferContext(String actionId) {
+    if (actionId.startsWith('forge.edit.')) return 'Standard';
+    if (actionId.startsWith('forge.')) return 'Shell';
+    if (actionId.startsWith('dart.')) return 'Dart Editor';
+    if (actionId.startsWith('yaml.')) return 'YAML Editor';
+    if (actionId.startsWith('md.')) return 'Markdown Editor';
+    return 'Global';
+  }
+
   // Deferred overrides — applied when the action is first registered.
   final Map<String, ForgeShortcutKey> _deferredShortcutOverrides = {};
   final Map<String, ForgeChordKey> _deferredChordOverrides = {};
@@ -189,7 +207,11 @@ class DefaultShortcutManager implements ForgeShortcutManager {
         context: old.context,
       );
     } else {
-      _bindings.add(ForgeShortcutBinding(action: action, key: effectiveKey));
+      _bindings.add(ForgeShortcutBinding(
+        action: action,
+        key: effectiveKey,
+        context: _inferContext(action.id),
+      ));
       _defaults.putIfAbsent(action.id, () => key);
     }
   }
@@ -213,6 +235,7 @@ class DefaultShortcutManager implements ForgeShortcutManager {
         action: action,
         key: chord.firstKey,
         chord: chord,
+        context: _inferContext(action.id),
       ));
     }
   }

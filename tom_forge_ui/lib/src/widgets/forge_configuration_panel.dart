@@ -1860,7 +1860,7 @@ class _ShortcutsSettingsSectionState extends State<_ShortcutsSettingsSection> {
         style: const TextStyle(fontSize: 12),
       ),
       subtitle: Text(
-        binding.context ?? 'global',
+        binding.context ?? 'Global',
         style: TextStyle(
           fontSize: 10,
           color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
@@ -1959,7 +1959,7 @@ class _ShortcutsSettingsSectionState extends State<_ShortcutsSettingsSection> {
                             style: const TextStyle(fontSize: 11),
                           ),
                           TextSpan(
-                            text: '  (${binding.context ?? "global"})',
+                            text: '  (${binding.context ?? "Global"})',
                             style: TextStyle(
                               fontSize: 10,
                               color: theme.colorScheme.onSurface
@@ -1997,7 +1997,7 @@ class _ShortcutsSettingsSectionState extends State<_ShortcutsSettingsSection> {
       binding.action.id,
       binding.action.label,
       binding.displayString,
-      binding.context ?? 'global',
+      binding.context ?? 'Global',
     ].join(' ').toLowerCase();
     return haystack.contains(_searchTerm);
   }

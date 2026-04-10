@@ -139,9 +139,9 @@ class ForgeDartEditor extends ForgeTextEditor {
     };
     final config = shellApi?.getEditorSpecificConfig('dart')
         ?? const <String, dynamic>{};
-    if (config.isEmpty) return const DartEditorSettings();
+    if (config.isEmpty) return const DartEditorSettings(showToolbar: false);
     return DartEditorSettings(
-      showToolbar: (config['showToolbar'] as bool?) ?? true,
+      showToolbar: (config['showToolbar'] as bool?) ?? false,
       showLineNumbers: (config['showLineNumbers'] as bool?) ?? true,
       autoCompleteEnabled: (config['autoCompleteEnabled'] as bool?) ?? true,
       maxCompletionItems:

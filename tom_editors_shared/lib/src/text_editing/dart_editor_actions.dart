@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/services.dart';
 
 import '../forge_bridge/editor_action_descriptor.dart';
@@ -98,6 +99,7 @@ class DartEditorActions {
         EditorActionDescriptor(
           id: triggerCompletionActionId,
           label: 'Trigger Completion',
+          icon: Icons.auto_awesome,
           category: 'Dart Editor',
           description: 'Show autocomplete suggestions at cursor position',
           contextRule: ActionContext.editorFocused,
@@ -107,6 +109,7 @@ class DartEditorActions {
         EditorActionDescriptor(
           id: openReferenceActionId,
           label: 'Open Reference',
+          icon: Icons.menu_book,
           category: 'Dart Editor',
           description: 'Open the API reference dialog',
           contextRule: ActionContext.editorFocused,

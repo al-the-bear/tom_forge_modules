@@ -1,4 +1,6 @@
+import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart' as shared;
 
 import '../actions/forge_action.dart';
@@ -134,10 +136,11 @@ class TomForgeShellModule extends ForgeModule {
   /// overrides them with widget-level implementations via
   /// [ForgeActionRegistry.registerAction].
   void _buildShellActions() {
-    void add(String id, String label, ForgeShortcutKey key) {
+    void add(String id, String label, ForgeShortcutKey key, {IconData? icon}) {
       final action = ForgeAction(
         id: id,
         label: label,
+        icon: icon,
         menu: ForgeMenuLocation.commandPalette,
         execute: (_) async {
           // No-op placeholder. The scaffold overrides this via registerAction.
@@ -156,6 +159,7 @@ class TomForgeShellModule extends ForgeModule {
     final paletteAction = ForgeAction(
       id: 'forge.commandPalette',
       label: 'Command Palette',
+      icon: Icons.terminal,
       menu: ForgeMenuLocation.commandPalette,
       execute: (_) async {
         // No-op placeholder. The scaffold overrides this via registerAction.
@@ -192,6 +196,7 @@ class TomForgeShellModule extends ForgeModule {
         key: LogicalKeyboardKey.keyL,
         primaryModifier: true,
       ),
+      icon: Icons.view_sidebar,
     );
     add(
       'forge.toggleRightPanel',
@@ -200,6 +205,7 @@ class TomForgeShellModule extends ForgeModule {
         key: LogicalKeyboardKey.keyR,
         primaryModifier: true,
       ),
+      icon: Icons.vertical_split,
     );
     add(
       'forge.toggleBottomPanel',
@@ -208,6 +214,7 @@ class TomForgeShellModule extends ForgeModule {
         key: LogicalKeyboardKey.keyB,
         primaryModifier: true,
       ),
+      icon: Icons.view_stream,
     );
     add(
       'forge.focusSearch',
@@ -216,6 +223,7 @@ class TomForgeShellModule extends ForgeModule {
         key: LogicalKeyboardKey.keyF,
         primaryModifier: true,
       ),
+      icon: Icons.search,
     );
     add(
       'forge.focusPanel1',
@@ -224,6 +232,7 @@ class TomForgeShellModule extends ForgeModule {
         key: LogicalKeyboardKey.digit1,
         primaryModifier: true,
       ),
+      icon: Icons.looks_one,
     );
     add(
       'forge.focusPanel2',
@@ -232,6 +241,7 @@ class TomForgeShellModule extends ForgeModule {
         key: LogicalKeyboardKey.digit2,
         primaryModifier: true,
       ),
+      icon: Icons.looks_two,
     );
     add(
       'forge.focusPanel3',
@@ -240,6 +250,7 @@ class TomForgeShellModule extends ForgeModule {
         key: LogicalKeyboardKey.digit3,
         primaryModifier: true,
       ),
+      icon: Icons.looks_3,
     );
     add(
       'forge.focusPanel4',
@@ -248,6 +259,7 @@ class TomForgeShellModule extends ForgeModule {
         key: LogicalKeyboardKey.digit4,
         primaryModifier: true,
       ),
+      icon: Icons.looks_4,
     );
     add(
       'forge.saveAll',
@@ -256,6 +268,7 @@ class TomForgeShellModule extends ForgeModule {
         key: LogicalKeyboardKey.keyS,
         primaryModifier: true,
       ),
+      icon: Icons.save,
     );
     add(
       'forge.focusNextPanel',
@@ -264,6 +277,7 @@ class TomForgeShellModule extends ForgeModule {
         key: LogicalKeyboardKey.bracketRight,
         primaryModifier: true,
       ),
+      icon: Icons.chevron_right,
     );
     add(
       'forge.focusPreviousPanel',
@@ -272,6 +286,7 @@ class TomForgeShellModule extends ForgeModule {
         key: LogicalKeyboardKey.bracketLeft,
         primaryModifier: true,
       ),
+      icon: Icons.chevron_left,
     );
   }
 
