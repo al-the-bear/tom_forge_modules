@@ -265,6 +265,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   /// Adjusted during drag-resize of middle panel dividers.
   List<double> _middlePanelFlex = [];
 
+  /// Cached pixel width of the middle editor area for accurate drag-resize.
+  double _middleAreaWidth = 0;
+
   /// Active tab indices per panel for persistence.
   int _leftPanelActiveTab = 0;
   bool _leftPanelShowConfig = false;
@@ -2827,8 +2830,10 @@ Press "?" for this help document.
     if (leftIdx < 0 || rightIdx >= _middlePanelFlex.length) return;
     const minFlex = 0.15;
     final totalFlex = _middlePanelFlex[leftIdx] + _middlePanelFlex[rightIdx];
-    // Convert pixel delta to flex delta (rough: assume equal share baseline).
-    final flexDelta = delta / 300.0;
+    // Convert pixel delta to flex delta using actual middle-area width.
+    final width = _middleAreaWidth;
+    if (width <= 0) return;
+    final flexDelta = delta * totalFlex / width;
     var newLeft = (_middlePanelFlex[leftIdx] + flexDelta).clamp(
       minFlex,
       totalFlex - minFlex,
@@ -3236,7 +3241,10 @@ Press "?" for this help document.
             if (_middlePanelFlex.length > panels.length) {
               _middlePanelFlex = _middlePanelFlex.sublist(0, panels.length);
             }
-            return Row(
+            return LayoutBuilder(
+              builder: (context, outerConstraints) {
+                _middleAreaWidth = outerConstraints.maxWidth;
+                return Row(
               children: [
                 for (var i = 0; i < panels.length; i++) ...[
                   if (i > 0)
@@ -3273,6 +3281,8 @@ Press "?" for this help document.
                   ),
                 ],
               ],
+            );
+              },
             );
           },
         );
