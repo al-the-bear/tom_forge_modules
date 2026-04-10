@@ -305,6 +305,21 @@ class ShellEditorIntegration extends shared.ForgeEditorIntegration
     // `executeAction` to avoid infinite recursion (executeAction falls
     // back to _shellApi.executeAction which would re-invoke this).
     final actionId = action.id;
+
+    // For cut/copy, use system-state selection check instead of the
+    // editor-specific isEnabled closure.  Each editor registers its own
+    // closure that captures its local text controller, but only one
+    // registration survives in the global action registry.  When a
+    // different editor becomes active, the stale closure would return
+    // false.  Delegating to systemState.hasTextSelection always checks
+    // the *active* editor's selection.
+    final isSelectionAction =
+        actionId == shared.StandardEditingActions.cutActionId ||
+        actionId == shared.StandardEditingActions.copyActionId;
+    final isEnabled = isSelectionAction
+        ? () => _shellApi.systemState.hasTextSelection
+        : shellAction.isEnabled;
+
     final wrappedAction = shell.ForgeAction(
       id: shellAction.id,
       label: shellAction.label,
@@ -317,7 +332,7 @@ class ShellEditorIntegration extends shared.ForgeEditorIntegration
         handler?.call();
         return null;
       },
-      isEnabled: shellAction.isEnabled,
+      isEnabled: isEnabled,
       isVisible: shellAction.isVisible,
       defaultShortcut: shellAction.defaultShortcut,
       showInContextMenu: shellAction.showInContextMenu,
