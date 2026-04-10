@@ -2330,9 +2330,10 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
         child: ListView.builder(
           controller: _gutterScrollController,
           itemCount: lineCount,
-          padding: const EdgeInsets.only(
-            top: 7,
-          ), // Adjusted to align with TextField
+          itemExtent: lineHeight,
+          padding: EdgeInsets.only(
+            top: theme.editor.contentPadding,
+          ),
           itemBuilder: (context, index) {
             final lineNum = index + 1;
             final hasError = errorLines.contains(lineNum);

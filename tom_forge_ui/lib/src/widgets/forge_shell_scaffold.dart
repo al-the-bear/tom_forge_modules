@@ -247,6 +247,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   StreamSubscription<ForgeTerminal>? _terminalOpenSubscription;
   StreamSubscription<ForgeTerminal>? _terminalCloseSubscription;
   StreamSubscription<ForgeTerminal?>? _terminalActiveSubscription;
+  StreamSubscription<TextSelectionChangeEvent>? _selectionChangeSubscription;
   Timer? _autoSaveTimer;
   Timer? _layoutPersistTimer;
 
@@ -401,6 +402,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     _terminalOpenSubscription?.cancel();
     _terminalCloseSubscription?.cancel();
     _terminalActiveSubscription?.cancel();
+    _selectionChangeSubscription?.cancel();
     _layoutPersistTimer?.cancel();
     _detachLayoutListeners();
     widget.systemState.activeEditorListenable.removeListener(
@@ -569,6 +571,13 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       terminal,
     ) {
       // Refresh state to update status bar or other reactive UI.
+      if (mounted) setState(() {});
+    });
+
+    // Listen for text selection changes so the action bar re-evaluates
+    // isEnabled (e.g. copy/cut become active when text is selected).
+    _selectionChangeSubscription =
+        widget.systemState.onTextSelectionChanged.listen((_) {
       if (mounted) setState(() {});
     });
   }
