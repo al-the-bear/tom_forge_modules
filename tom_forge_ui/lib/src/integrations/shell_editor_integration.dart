@@ -306,19 +306,10 @@ class ShellEditorIntegration extends shared.ForgeEditorIntegration
     // back to _shellApi.executeAction which would re-invoke this).
     final actionId = action.id;
 
-    // For cut/copy, use system-state selection check instead of the
-    // editor-specific isEnabled closure.  Each editor registers its own
-    // closure that captures its local text controller, but only one
-    // registration survives in the global action registry.  When a
-    // different editor becomes active, the stale closure would return
-    // false.  Delegating to systemState.hasTextSelection always checks
-    // the *active* editor's selection.
-    final isSelectionAction =
-        actionId == shared.StandardEditingActions.cutActionId ||
-        actionId == shared.StandardEditingActions.copyActionId;
-    final isEnabled = isSelectionAction
-        ? () => _shellApi.systemState.hasTextSelection
-        : shellAction.isEnabled;
+    // Note: Standard editing actions (cut, copy, etc.) are routed through
+    // EditorActionProvider in DefaultShellApi, not through the global
+    // registry. The registry's isEnabled is only used for command palette
+    // and context menu display.
 
     final wrappedAction = shell.ForgeAction(
       id: shellAction.id,
@@ -332,7 +323,7 @@ class ShellEditorIntegration extends shared.ForgeEditorIntegration
         handler?.call();
         return null;
       },
-      isEnabled: isEnabled,
+      isEnabled: shellAction.isEnabled,
       isVisible: shellAction.isVisible,
       defaultShortcut: shellAction.defaultShortcut,
       showInContextMenu: shellAction.showInContextMenu,

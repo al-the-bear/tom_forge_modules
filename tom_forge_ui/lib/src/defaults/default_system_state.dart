@@ -245,6 +245,10 @@ class DefaultSystemState implements ForgeSystemState {
   /// Used by adapters (e.g. YAML text mode) that report selection changes
   /// through the integration context rather than a [ForgeTextEditor]
   /// selection [ValueListenable].
+  ///
+  /// Deprecated: The scaffold now listens to `activeEditor.onStateChanged`
+  /// instead of `onTextSelectionChanged`. This method is no longer called.
+  @Deprecated('Use EditorActionProvider.onStateChanged instead')
   void notifyTextSelectionChanged(ForgeEditor editor) {
     _onTextSelectionChanged.add(TextSelectionChangeEvent(
       editor: editor,

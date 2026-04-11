@@ -319,10 +319,9 @@ class TomForgeShellModule extends ForgeModule {
 
       final actionId = desc.id;
 
-      // Cut/copy depend on a text selection, not just an open editor.
-      final isSelectionAction =
-          actionId == shared.StandardEditingActions.cutActionId ||
-          actionId == shared.StandardEditingActions.copyActionId;
+      // Note: Standard editing actions are routed through EditorActionProvider
+      // in DefaultShellApi, not through the global registry. The registry's
+      // isEnabled is only used for command palette and context menu display.
 
       final action = ForgeAction(
         id: actionId,
@@ -335,9 +334,7 @@ class TomForgeShellModule extends ForgeModule {
           shellApi.executeAction(actionId);
           return null;
         },
-        isEnabled: isSelectionAction
-            ? () => shellApi.systemState.hasTextSelection
-            : () => shellApi.systemState.activeEditor != null,
+        isEnabled: () => shellApi.systemState.activeEditor != null,
         isVisible: () => true,
         defaultShortcut: shellShortcut,
         showInContextMenu: desc.showInContextMenu,

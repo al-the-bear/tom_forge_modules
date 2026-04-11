@@ -12,7 +12,6 @@ import 'package:tom_yaml_editor/tom_yaml_editor.dart';
 
 import '../components/forge_schema_editor.dart';
 import '../components/forge_component.dart';
-import '../defaults/default_system_state.dart';
 import '../integrations/shell_editor_integration.dart';
 import '../module/forge_module.dart';
 import 'tom_forge_shell_module.dart';
@@ -136,13 +135,8 @@ class ForgeYamlEditor extends ForgeSchemaEditor {
       );
     }
     _stateStreamController.add(null);
-    // Notify the system state so the scaffold rebuilds its action bar.
-    if (_module case final TomForgeShellModule shellModule) {
-      final systemState = shellModule.shellApi.systemState;
-      if (systemState is DefaultSystemState) {
-        systemState.notifyTextSelectionChanged(this);
-      }
-    }
+    // Note: The scaffold now listens to onStateChanged (above) instead of
+    // onTextSelectionChanged, so manual notification is no longer needed.
   }
 
   ForgeTextEditorOptions get options => _options;
