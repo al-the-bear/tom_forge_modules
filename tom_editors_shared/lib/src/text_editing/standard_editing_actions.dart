@@ -2,6 +2,7 @@ import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/services.dart';
 
 import '../forge_bridge/editor_action_descriptor.dart';
+import '../forge_bridge/editor_state_snapshot.dart';
 import '../forge_bridge/forge_action.dart';
 import '../forge_bridge/forge_shortcut_key.dart';
 
@@ -383,4 +384,43 @@ class StandardEditingActions {
           suggestedShortcut: toggleCommentShortcut,
         ),
       ];
+
+  /// Set of all standard editing action IDs.
+  static const Set<String> standardActionIds = {
+    cutActionId,
+    copyActionId,
+    pasteActionId,
+    selectAllActionId,
+    undoActionId,
+    redoActionId,
+    deleteLineActionId,
+    duplicateLineActionId,
+    moveLineUpActionId,
+    moveLineDownActionId,
+    toggleCommentActionId,
+  };
+
+  /// Returns the enablement rule for the given [actionId] as a pure
+  /// function of [EditorStateSnapshot].
+  ///
+  /// This replaces all ad-hoc isEnabled closures. The rule is evaluated
+  /// by the shell against the active editor's current state snapshot.
+  ///
+  /// Returns a function that always returns false for unknown action IDs.
+  static bool Function(EditorStateSnapshot) enablementRule(String actionId) {
+    return switch (actionId) {
+      cutActionId => (s) => s.isEditable && s.hasSelection,
+      copyActionId => (s) => s.hasSelection,
+      pasteActionId => (s) => s.isEditable,
+      selectAllActionId => (s) => s.hasContent && s.isTextMode,
+      undoActionId => (s) => s.canUndo,
+      redoActionId => (s) => s.canRedo,
+      deleteLineActionId => (s) => s.isEditable && s.isTextMode,
+      duplicateLineActionId => (s) => s.isEditable && s.isTextMode,
+      moveLineUpActionId => (s) => s.isEditable && s.isTextMode,
+      moveLineDownActionId => (s) => s.isEditable && s.isTextMode,
+      toggleCommentActionId => (s) => s.isEditable && s.isTextMode,
+      _ => (_) => false,
+    };
+  }
 }

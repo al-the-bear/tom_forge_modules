@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:tom_editors_shared/tom_editors_shared.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 
 import 'component_history_manager.dart';
@@ -8,7 +9,12 @@ import 'forge_component.dart';
 ///
 /// Editors are closable, track dirty state, and participate in the
 /// shell's file-handling resolution protocol (canHandle/canHandleContent).
-abstract class ForgeEditor extends ForgeComponent {
+///
+/// Implements [EditorActionProvider] so the shell can route standard
+/// editing actions (cut, copy, paste, undo, redo, etc.) to the active
+/// editor without stale closures or single-slot registry problems.
+abstract class ForgeEditor extends ForgeComponent
+    implements EditorActionProvider {
   @override
   bool get isEditor => true;
 
@@ -71,4 +77,37 @@ abstract class ForgeEditor extends ForgeComponent {
   /// Subclasses override this to report selection state.  Used by the
   /// shell to decide enablement of cut/copy actions.
   bool get hasTextSelection => false;
+
+  // -- EditorActionProvider defaults --
+  // Subclasses override these to provide real implementations.
+
+  @override
+  Set<String> get supportedActionIds => const {};
+
+  @override
+  bool isActionEnabled(String actionId) {
+    if (!supportedActionIds.contains(actionId)) return false;
+    return StandardEditingActions.enablementRule(actionId)(stateSnapshot);
+  }
+
+  @override
+  bool executeAction(String actionId) => false;
+
+  @override
+  EditorCapabilities get capabilities => const EditorCapabilities(
+        hasTextBuffer: false,
+        supportsUndoRedo: false,
+        supportsClipboard: false,
+        supportsLineEditing: false,
+        supportsSelection: false,
+      );
+
+  @override
+  EditorStateSnapshot get stateSnapshot => const EditorStateSnapshot();
+
+  /// Stream that fires when [stateSnapshot] has changed.
+  ///
+  /// The shell subscribes to this for the active editor. A rebuild of
+  /// the action bar is triggered on every event.
+  Stream<void> get onStateChanged => const Stream.empty();
 }

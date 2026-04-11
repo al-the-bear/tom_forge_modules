@@ -56,6 +56,9 @@ export 'src/debug/editor_logger.dart';
 export 'src/forge_bridge/forge_shortcut_key.dart';
 export 'src/forge_bridge/forge_action.dart';
 export 'src/forge_bridge/editor_action_descriptor.dart';
+export 'src/forge_bridge/editor_action_provider.dart';
+export 'src/forge_bridge/editor_capabilities.dart';
+export 'src/forge_bridge/editor_state_snapshot.dart';
 
 // Text Editing (Forge Integration)
 export 'src/text_editing/forge_text_settings.dart';
