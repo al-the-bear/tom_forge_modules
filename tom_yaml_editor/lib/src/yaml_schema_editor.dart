@@ -392,20 +392,19 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
         context: ErrorDescription('_rebuildTree in _onControllerChanged'),
       ));
     }
-    if (!_textMode) {
-      _textDraft = widget.controller.yamlText;
-      try {
-        final preview = _computeTextDiagnostics(_textDraft);
-        _textParseError = preview.parseError;
-        _textMarkers = preview.markers;
-      } catch (e, st) {
-        trailEvent('onControllerChanged: _computeTextDiagnostics THREW $e');
-        FlutterError.reportError(FlutterErrorDetails(
-          exception: e, stack: st,
-          library: 'yaml_schema_editor',
-          context: ErrorDescription('_computeTextDiagnostics in _onControllerChanged'),
-        ));
-      }
+    // Always sync _textDraft so undo/redo are reflected in text mode.
+    _textDraft = widget.controller.yamlText;
+    try {
+      final preview = _computeTextDiagnostics(_textDraft);
+      _textParseError = preview.parseError;
+      _textMarkers = preview.markers;
+    } catch (e, st) {
+      trailEvent('onControllerChanged: _computeTextDiagnostics THREW $e');
+      FlutterError.reportError(FlutterErrorDetails(
+        exception: e, stack: st,
+        library: 'yaml_schema_editor',
+        context: ErrorDescription('_computeTextDiagnostics in _onControllerChanged'),
+      ));
     }
     if (mounted) {
       // Guard against being called while the framework tree is locked

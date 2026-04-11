@@ -421,7 +421,6 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
       // from the TextField.onChanged callback.  Programmatic text updates
       // should not trigger a round-trip through updateSectionText.
       _isUpdating = true;
-      final selection = _textController.selection;
       _textController.text = newText;
       // Cancel the debounce AFTER setting text — the setter synchronously
       // fires TextField.onChanged which creates a new debounce timer.
@@ -431,9 +430,22 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
         // internal _showCaretOnScreen scrolls to the top, not the end.
         _textController.selection =
             const TextSelection.collapsed(offset: 0);
-      } else if (selection.isValid && selection.end <= newText.length) {
-        // Same-section update: try to preserve cursor position.
-        _textController.selection = selection;
+      } else {
+        // Text changed externally (undo, redo, etc.) — position cursor
+        // from the controller's offset rather than restoring the stale
+        // pre-change selection.
+        final globalOffset = widget.controller.cursorOffset;
+        final selected = widget.controller.selectedSection;
+        int localOffset;
+        if (selected != null) {
+          final sectionStart = _findSectionTextStart(selected);
+          localOffset = globalOffset - sectionStart;
+        } else {
+          localOffset = globalOffset;
+        }
+        localOffset = localOffset.clamp(0, newText.length);
+        _textController.selection =
+            TextSelection.collapsed(offset: localOffset);
       }
       _isUpdating = false;
     }
