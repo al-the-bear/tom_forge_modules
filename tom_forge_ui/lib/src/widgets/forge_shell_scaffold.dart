@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
+import 'package:tom_editors_shared/tom_editors_shared.dart'
+    show StandardEditingActions;
 
 import '../adapters/forge_dart_editor.dart';
 import '../adapters/forge_md_editor.dart';
@@ -247,7 +249,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   StreamSubscription<ForgeTerminal>? _terminalOpenSubscription;
   StreamSubscription<ForgeTerminal>? _terminalCloseSubscription;
   StreamSubscription<ForgeTerminal?>? _terminalActiveSubscription;
-  StreamSubscription<TextSelectionChangeEvent>? _selectionChangeSubscription;
+  StreamSubscription<void>? _selectionChangeSubscription;
   Timer? _autoSaveTimer;
   Timer? _layoutPersistTimer;
 
@@ -574,12 +576,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       if (mounted) setState(() {});
     });
 
-    // Listen for text selection changes so the action bar re-evaluates
-    // isEnabled (e.g. copy/cut become active when text is selected).
-    _selectionChangeSubscription =
-        widget.systemState.onTextSelectionChanged.listen((_) {
-      if (mounted) setState(() {});
-    });
+    // Listen for editor state changes (e.g. selection, undo stack) so the
+    // action bar re-evaluates enablement via EditorActionProvider.
+    _subscribeToEditorStateChanges();
   }
 
   /// Finds the Terminal tab in the bottom panel configuration.
@@ -1416,7 +1415,25 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     );
   }
 
+  /// Subscribes to the active editor's [onStateChanged] stream so the
+  /// action bar re-evaluates enablement when selection or undo state changes.
+  /// Cancels any previous subscription first.
+  void _subscribeToEditorStateChanges() {
+    _selectionChangeSubscription?.cancel();
+    _selectionChangeSubscription = null;
+    final editor = widget.systemState.activeEditor;
+    if (editor != null) {
+      _selectionChangeSubscription = editor.onStateChanged.listen((_) {
+        if (mounted) setState(() {});
+      });
+    }
+  }
+
   void _onActiveEditorChanged() {
+    // Re-subscribe to the new active editor's state-change stream so the
+    // action bar refreshes enablement when selection/undo state changes.
+    _subscribeToEditorStateChanges();
+
     if (!_showFindReplaceBar) {
       _clearFindDecorations();
       return;
@@ -2792,12 +2809,22 @@ Press "?" for this help document.
 
     // Build action buttons.
     final buttons = <Widget>[];
+    final isStandardAction = StandardEditingActions.standardActionIds.contains;
+    final snapshot = activeEditor?.stateSnapshot;
     for (final actionId in actionIds) {
-      // Find the action in the registry (includes actions without shortcuts).
+      // Find the action in the registry for icon/label/shortcut metadata.
       final action = widget.shell.actionRegistry.getAction(actionId);
       if (action == null) continue;
 
-      final isEnabled = action.isEnabled();
+      // Standard editing actions derive enablement from the editor's
+      // state snapshot; other actions use the registry's isEnabled().
+      final bool isEnabled;
+      if (isStandardAction(actionId) && snapshot != null) {
+        final rule = StandardEditingActions.enablementRule(actionId);
+        isEnabled = rule(snapshot);
+      } else {
+        isEnabled = action.isEnabled();
+      }
 
       // Get shortcut display string if available.
       final binding = widget.shell.shortcuts.getBinding(actionId);

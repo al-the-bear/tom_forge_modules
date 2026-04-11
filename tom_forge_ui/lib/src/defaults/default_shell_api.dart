@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart'
-    show ForgeTextSettings;
+    show ForgeTextSettings, StandardEditingActions;
 
 import '../model/forge_config.dart';
 import '../actions/forge_action.dart';
@@ -323,6 +323,21 @@ class DefaultShellApi implements ForgeShellApi {
       return false;
     }
 
+    // Route standard editing actions through the active editor's
+    // EditorActionProvider interface instead of the global registry.
+    if (StandardEditingActions.standardActionIds.contains(actionId)) {
+      final editor = systemState.activeEditor;
+      if (editor != null && editor.isActionEnabled(actionId)) {
+        _executingActions.add(actionId);
+        try {
+          return editor.executeAction(actionId);
+        } finally {
+          _executingActions.remove(actionId);
+        }
+      }
+      return false;
+    }
+
     final action = actionRegistry.getAction(actionId);
     if (action == null) {
       return false;
@@ -422,6 +437,11 @@ class DefaultShellApi implements ForgeShellApi {
       final suffix = actionId.substring(2);
       return actionRegistry.allActions
           .any((a) => a.id.endsWith('.$suffix') && a.isEnabled());
+    }
+    // Route standard editing actions through the active editor.
+    if (StandardEditingActions.standardActionIds.contains(actionId)) {
+      final editor = systemState.activeEditor;
+      return editor?.isActionEnabled(actionId) ?? false;
     }
     final action = actionRegistry.getAction(actionId);
     return action?.isEnabled() ?? false;
