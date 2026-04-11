@@ -2316,6 +2316,39 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
     final fontSize = theme.font.fontSize;
     final lineHeight = _lineHeight;
 
+    // DEBUG: measure actual first-line offset in both gutter and editor
+    final editorTP = TextPainter(
+      text: TextSpan(
+        text: 'X',
+        style: TextStyle(
+          fontFamily: theme.font.fontFamily,
+          fontSize: fontSize,
+          height: theme.font.lineHeight,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    final gutterTP = TextPainter(
+      text: TextSpan(
+        text: '1',
+        style: TextStyle(
+          fontFamily: theme.font.fontFamily,
+          fontSize: fontSize - 2,
+          height: lineHeight / (fontSize - 2),
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    debugPrint('[Gutter] editorTP: height=${editorTP.height}, '
+        'baseline=${editorTP.computeDistanceToActualBaseline(TextBaseline.alphabetic)}, '
+        'preferredLineHeight=${editorTP.preferredLineHeight}');
+    debugPrint('[Gutter] gutterTP: height=${gutterTP.height}, '
+        'baseline=${gutterTP.computeDistanceToActualBaseline(TextBaseline.alphabetic)}, '
+        'preferredLineHeight=${gutterTP.preferredLineHeight}');
+    debugPrint('[Gutter] lineHeight=$lineHeight, contentPadding=${theme.editor.contentPadding}');
+    editorTP.dispose();
+    gutterTP.dispose();
+
     return Container(
       width: theme.editor.gutterWidth,
       decoration: BoxDecoration(
@@ -2332,7 +2365,7 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
           itemCount: lineCount,
           itemExtent: lineHeight,
           padding: EdgeInsets.only(
-            top: theme.editor.contentPadding,
+            top: theme.editor.contentPadding - 5,  // DEBUG: trying -5
           ),
           itemBuilder: (context, index) {
             final lineNum = index + 1;
@@ -2374,10 +2407,11 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
                   onExit: (_) => _hideTooltip(),
                   child: Container(
                     height: lineHeight,
-                    alignment: Alignment.centerRight,
                     padding: const EdgeInsets.only(right: 8),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.end,
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
                       children: [
                         if (hasError)
                           Icon(
@@ -2397,6 +2431,7 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
                           style: TextStyle(
                             fontFamily: theme.font.fontFamily,
                             fontSize: fontSize - 2,
+                            height: lineHeight / (fontSize - 2),
                             color: hasError
                                 ? theme.diagnostics.error
                                 : hasWarning
@@ -2449,6 +2484,7 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
                 hintStyle: TextStyle(color: theme.editor.placeholder),
                 contentPadding: EdgeInsets.all(theme.editor.contentPadding),
                 border: InputBorder.none,
+                isDense: true,
               ),
               contextMenuBuilder: (context, editableTextState) =>
                   const SizedBox.shrink(),

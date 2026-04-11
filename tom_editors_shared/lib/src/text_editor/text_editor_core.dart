@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../text_editing/forge_editor_integration.dart';
 import '../text_editing/standard_editing_actions.dart';
@@ -110,6 +111,34 @@ class _TextEditorCoreState extends State<TextEditorCore> {
     if (integration == null) return;
 
     bool isEditable() => !widget.readOnly;
+    bool hasNonCollapsedSelection() =>
+        _textController.selection.isValid &&
+        !_textController.selection.isCollapsed;
+
+    // ── Clipboard actions ──
+
+    integration.registerAction(
+      StandardEditingActions.cutActionId,
+      _doCut,
+      isEnabled: () => isEditable() && hasNonCollapsedSelection(),
+    );
+    integration.registerAction(
+      StandardEditingActions.copyActionId,
+      _doCopy,
+      isEnabled: hasNonCollapsedSelection,
+    );
+    integration.registerAction(
+      StandardEditingActions.pasteActionId,
+      _doPaste,
+      isEnabled: isEditable,
+    );
+    integration.registerAction(
+      StandardEditingActions.selectAllActionId,
+      _doSelectAll,
+      isEnabled: () => _textController.text.isNotEmpty,
+    );
+
+    // ── Line editing actions ──
 
     integration.registerAction(
       StandardEditingActions.deleteLineActionId,
@@ -262,6 +291,47 @@ class _TextEditorCoreState extends State<TextEditorCore> {
     _textController.text = newText;
     _textController.selection = TextSelection.collapsed(
       offset: (cursor + cursorDelta).clamp(0, newText.length),
+    );
+  }
+
+  // ── Clipboard actions ──
+
+  void _doCut() {
+    final sel = _textController.selection;
+    if (!sel.isValid || sel.isCollapsed) return;
+    final text = _textController.text;
+    final selected = sel.textInside(text);
+    Clipboard.setData(ClipboardData(text: selected));
+    _textController.text =
+        sel.textBefore(text) + sel.textAfter(text);
+    _textController.selection =
+        TextSelection.collapsed(offset: sel.start);
+  }
+
+  void _doCopy() {
+    final sel = _textController.selection;
+    if (!sel.isValid || sel.isCollapsed) return;
+    final selected = sel.textInside(_textController.text);
+    Clipboard.setData(ClipboardData(text: selected));
+  }
+
+  void _doPaste() async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    if (data?.text == null) return;
+    final sel = _textController.selection;
+    final text = _textController.text;
+    final newText =
+        sel.textBefore(text) + data!.text! + sel.textAfter(text);
+    _textController.text = newText;
+    _textController.selection = TextSelection.collapsed(
+      offset: sel.start + data.text!.length,
+    );
+  }
+
+  void _doSelectAll() {
+    _textController.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: _textController.text.length,
     );
   }
 
