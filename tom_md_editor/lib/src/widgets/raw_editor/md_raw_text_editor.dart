@@ -294,16 +294,25 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
 
     // Convert the local cursor offset to a global markdown offset.
     final selected = widget.controller.selectedSection;
-    int globalOffset;
+    int sectionStart = 0;
     if (selected != null) {
       // The raw editor is showing a single section's text.
       // Find that section's position in the full markdown.
-      final sectionStart = _findSectionTextStart(selected);
-      globalOffset = sectionStart + selection.baseOffset;
-    } else {
-      globalOffset = selection.baseOffset;
+      sectionStart = _findSectionTextStart(selected);
     }
+    final globalOffset = sectionStart + selection.baseOffset;
     widget.controller.setCursorOffset(globalOffset, notify: false);
+
+    // Update the selection notifier so forge shell adapters track the
+    // current text selection (needed for cut/copy enablement).
+    if (selection.isCollapsed) {
+      widget.controller.selectionNotifier.value = null;
+    } else {
+      widget.controller.selectionNotifier.value = (
+        start: sectionStart + selection.start,
+        end: sectionStart + selection.end,
+      );
+    }
   }
 
   /// Find the character offset where [section]'s text starts in the full
@@ -465,6 +474,34 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
     if (integration == null) return;
 
     bool isEditable() => !widget.settings.readOnly;
+    bool hasNonCollapsedSelection() =>
+        _textController.selection.isValid &&
+        !_textController.selection.isCollapsed;
+
+    // ── Clipboard actions ──
+
+    integration.registerAction(
+      StandardEditingActions.cutActionId,
+      _doCut,
+      isEnabled: () => isEditable() && hasNonCollapsedSelection(),
+    );
+    integration.registerAction(
+      StandardEditingActions.copyActionId,
+      _doCopy,
+      isEnabled: hasNonCollapsedSelection,
+    );
+    integration.registerAction(
+      StandardEditingActions.pasteActionId,
+      _doPaste,
+      isEnabled: isEditable,
+    );
+    integration.registerAction(
+      StandardEditingActions.selectAllActionId,
+      _doSelectAll,
+      isEnabled: () => _textController.text.isNotEmpty,
+    );
+
+    // ── Line editing actions ──
 
     integration.registerAction(
       StandardEditingActions.deleteLineActionId,
@@ -492,6 +529,50 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
       isEnabled: isEditable,
     );
   }
+
+  // ── Clipboard action handlers ──
+
+  void _doCut() {
+    final sel = _textController.selection;
+    if (!sel.isValid || sel.isCollapsed) return;
+    final text = _textController.text;
+    final selected = text.substring(sel.start, sel.end);
+    Clipboard.setData(ClipboardData(text: selected));
+    final newText = text.substring(0, sel.start) + text.substring(sel.end);
+    _textController.text = newText;
+    _textController.selection = TextSelection.collapsed(offset: sel.start);
+    _onTextChanged(newText);
+  }
+
+  void _doCopy() {
+    final sel = _textController.selection;
+    if (!sel.isValid || sel.isCollapsed) return;
+    final selected = _textController.text.substring(sel.start, sel.end);
+    Clipboard.setData(ClipboardData(text: selected));
+  }
+
+  void _doPaste() async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    if (data?.text == null) return;
+    final sel = _textController.selection;
+    if (!sel.isValid) return;
+    final text = _textController.text;
+    final newText =
+        text.substring(0, sel.start) + data!.text! + text.substring(sel.end);
+    _textController.text = newText;
+    final newOffset = sel.start + data.text!.length;
+    _textController.selection = TextSelection.collapsed(offset: newOffset);
+    _onTextChanged(newText);
+  }
+
+  void _doSelectAll() {
+    _textController.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: _textController.text.length,
+    );
+  }
+
+  // ── Line editing action handlers ──
 
   ({int start, int end}) _getLineRange(String text, int offset) {
     final clamped = offset.clamp(0, text.length);
