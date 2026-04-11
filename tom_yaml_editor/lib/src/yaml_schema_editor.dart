@@ -152,6 +152,11 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
   bool _textMode = false;
   String _textDraft = '';
   String? _textParseError;
+
+  /// True while [_onTextDraftChanged] is pushing text into the controller.
+  /// Prevents [_onControllerChanged] from overwriting [_textDraft] with the
+  /// YAML-normalized round-trip, which would cause text/selection oscillation.
+  bool _isSyncingFromTextEditor = false;
   List<TextMarker> _textMarkers = const [];
 
   /// Heartbeat timer: fires every second to show the main isolate is still
@@ -392,19 +397,25 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
         context: ErrorDescription('_rebuildTree in _onControllerChanged'),
       ));
     }
-    // Always sync _textDraft so undo/redo are reflected in text mode.
-    _textDraft = widget.controller.yamlText;
-    try {
-      final preview = _computeTextDiagnostics(_textDraft);
-      _textParseError = preview.parseError;
-      _textMarkers = preview.markers;
-    } catch (e, st) {
-      trailEvent('onControllerChanged: _computeTextDiagnostics THREW $e');
-      FlutterError.reportError(FlutterErrorDetails(
-        exception: e, stack: st,
-        library: 'yaml_schema_editor',
-        context: ErrorDescription('_computeTextDiagnostics in _onControllerChanged'),
-      ));
+    // Sync _textDraft when the change was NOT originated from the text
+    // editor (e.g. undo/redo, tree edits, external load).  When the text
+    // editor pushed the change we keep its raw draft to avoid the
+    // YAML-round-trip overwriting the user's text and collapsing the
+    // selection.
+    if (!_isSyncingFromTextEditor) {
+      _textDraft = widget.controller.yamlText;
+      try {
+        final preview = _computeTextDiagnostics(_textDraft);
+        _textParseError = preview.parseError;
+        _textMarkers = preview.markers;
+      } catch (e, st) {
+        trailEvent('onControllerChanged: _computeTextDiagnostics THREW $e');
+        FlutterError.reportError(FlutterErrorDetails(
+          exception: e, stack: st,
+          library: 'yaml_schema_editor',
+          context: ErrorDescription('_computeTextDiagnostics in _onControllerChanged'),
+        ));
+      }
     }
     if (mounted) {
       // Guard against being called while the framework tree is locked
@@ -475,7 +486,9 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
     });
 
     if (_textParseError == null && text != widget.controller.yamlText) {
+      _isSyncingFromTextEditor = true;
       widget.controller.setYaml(text);
+      _isSyncingFromTextEditor = false;
     }
   }
 

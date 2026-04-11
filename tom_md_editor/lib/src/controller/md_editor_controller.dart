@@ -699,6 +699,7 @@ class MdEditorController extends ChangeNotifier {
       if (entry != null) {
         MdEditorDebug.logger.info('Undo: ${entry.description}');
         _setMarkdownInternal(entry.oldState.oldMarkdown);
+        _refreshSelectedSection();
         // Restore cursor position from undo entry if available.
         final cursor = entry.oldState.cursorOffset;
         if (cursor != null) {
@@ -718,6 +719,7 @@ class MdEditorController extends ChangeNotifier {
       if (entry != null) {
         MdEditorDebug.logger.info('Redo: ${entry.description}');
         _setMarkdownInternal(entry.newState.newMarkdown);
+        _refreshSelectedSection();
         // Restore cursor position from redo entry if available.
         final cursor = entry.newState.cursorOffset;
         if (cursor != null) {
