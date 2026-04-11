@@ -18,6 +18,7 @@ import 'tom_forge_shell_module.dart';
 class ForgeDartEditor extends ForgeTextEditor {
   final DartCodeController controller;
   final ForgeModule _module;
+  final _stateStreamController = StreamController<void>.broadcast();
   final List<CodeError> Function()? errorsProvider;
 
   final _title = ValueNotifier<String>('Dart');
@@ -283,6 +284,47 @@ class ForgeDartEditor extends ForgeTextEditor {
     return sel != null && !sel.isEmpty;
   }
 
+  // ── EditorActionProvider ──
+
+  @override
+  Set<String> get supportedActionIds => const {
+    ...StandardEditingActions.standardActionIds,
+    DartEditorActions.triggerCompletionActionId,
+    DartEditorActions.openReferenceActionId,
+  };
+
+  @override
+  EditorCapabilities get capabilities => const EditorCapabilities(
+    hasTextBuffer: true,
+    supportsUndoRedo: true,
+    supportsClipboard: true,
+    supportsLineEditing: true,
+    supportsSelection: true,
+  );
+
+  @override
+  EditorStateSnapshot get stateSnapshot {
+    final integration = _integration;
+    return EditorStateSnapshot(
+      hasSelection: hasSelection,
+      hasContent: controller.userCode.isNotEmpty,
+      isEditable: true,
+      canUndo: integration?.isActionEnabled(StandardEditingActions.undoActionId) ?? false,
+      canRedo: integration?.isActionEnabled(StandardEditingActions.redoActionId) ?? false,
+      isTextMode: true,
+    );
+  }
+
+  @override
+  bool executeAction(String actionId) {
+    final integration = _integration;
+    if (integration == null) return false;
+    return integration.executeAction(actionId);
+  }
+
+  @override
+  Stream<void> get onStateChanged => _stateStreamController.stream;
+
   @override
   ValueListenable<ForgeTextRange> get visibleRange => _visibleRange;
 
@@ -395,6 +437,7 @@ class ForgeDartEditor extends ForgeTextEditor {
     );
     _selection.value = range;
     _selections.value = [range];
+    _stateStreamController.add(null);
   }
 
   void _onVisibleRangeLines(({int startLine, int endLine}) vr) {
@@ -413,6 +456,7 @@ class ForgeDartEditor extends ForgeTextEditor {
       _document.updateConverter(_positionConverter);
       _document.notifyContentChanged();
       _scheduleAnalysis();
+      _stateStreamController.add(null);
     }
     if (controller.uri != null) {
       _title.value = controller.uri!.pathSegments.last;
@@ -480,6 +524,7 @@ class ForgeDartEditor extends ForgeTextEditor {
 
   /// Release listeners.
   void dispose() {
+    _stateStreamController.close();
     _analysisDebounce?.cancel();
     _analysisErrors.dispose();
     if (_diagnosticCollection != null && controller.uri != null) {

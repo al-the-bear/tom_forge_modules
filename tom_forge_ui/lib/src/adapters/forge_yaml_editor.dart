@@ -1,10 +1,12 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart'
-    show TextEditingContextImpl, ValidationSeverity,
+    show EditorCapabilities, EditorStateSnapshot,
+         TextEditingContextImpl, ValidationSeverity,
          YamlEditorActions, StandardEditingActions;
 import 'package:tom_yaml_editor/tom_yaml_editor.dart';
 
@@ -22,9 +24,11 @@ class ForgeYamlEditor extends ForgeSchemaEditor {
   final ForgeModule _module;
   final _title = ValueNotifier<String>('YAML');
   final _titleExtension = ValueNotifier<String?>(null);
+  final _stateStreamController = StreamController<void>.broadcast();
   ShellEditorIntegration? _integration;
   ForgeTextEditorOptions _options;
   ForgeDiagnosticCollection? _diagnosticCollection;
+  bool _isTextMode = false;
 
   /// Tracks text-mode selection for action bar enablement.
   TextSelection _textModeSelection = const TextSelection.collapsed(offset: 0);
@@ -107,7 +111,13 @@ class ForgeYamlEditor extends ForgeSchemaEditor {
       integration: _integration,
       theme: _buildThemeFromOptions(),
       onTextModeSelectionChanged: _onTextModeSelectionChanged,
+      onTextModeChanged: _onTextModeChanged,
     );
+  }
+
+  void _onTextModeChanged(bool isTextMode) {
+    _isTextMode = isTextMode;
+    _stateStreamController.add(null);
   }
 
   void _onTextModeSelectionChanged(TextSelection selection) {
@@ -125,6 +135,7 @@ class ForgeYamlEditor extends ForgeSchemaEditor {
         ),
       );
     }
+    _stateStreamController.add(null);
     // Notify the system state so the scaffold rebuilds its action bar.
     if (_module case final TomForgeShellModule shellModule) {
       final systemState = shellModule.shellApi.systemState;
@@ -203,6 +214,47 @@ class ForgeYamlEditor extends ForgeSchemaEditor {
   bool get hasTextSelection =>
       _textModeSelection.isValid && !_textModeSelection.isCollapsed;
 
+  // ── EditorActionProvider ──
+
+  /// Undo/redo are always available. Clipboard and line-editing actions
+  /// are only supported when the editor is in text mode.
+  @override
+  Set<String> get supportedActionIds => _isTextMode
+      ? StandardEditingActions.standardActionIds
+      : const {
+          StandardEditingActions.undoActionId,
+          StandardEditingActions.redoActionId,
+        };
+
+  @override
+  EditorCapabilities get capabilities => EditorCapabilities(
+    hasTextBuffer: _isTextMode,
+    supportsUndoRedo: true,
+    supportsClipboard: _isTextMode,
+    supportsLineEditing: _isTextMode,
+    supportsSelection: _isTextMode,
+  );
+
+  @override
+  EditorStateSnapshot get stateSnapshot => EditorStateSnapshot(
+    hasSelection: _isTextMode && hasTextSelection,
+    hasContent: controller.yamlText.isNotEmpty,
+    isEditable: true,
+    canUndo: controller.canUndo,
+    canRedo: controller.canRedo,
+    isTextMode: _isTextMode,
+  );
+
+  @override
+  bool executeAction(String actionId) {
+    final integration = _integration;
+    if (integration == null) return false;
+    return integration.executeAction(actionId);
+  }
+
+  @override
+  Stream<void> get onStateChanged => _stateStreamController.stream;
+
   // ── ForgeSchemaEditor ──
 
   @override
@@ -247,6 +299,7 @@ class ForgeYamlEditor extends ForgeSchemaEditor {
         ),
       );
     }
+    _stateStreamController.add(null);
 
     if (controller.uri != null) {
       _title.value = controller.uri!.pathSegments.last;
@@ -338,6 +391,7 @@ class ForgeYamlEditor extends ForgeSchemaEditor {
 
   /// Release listeners.
   void dispose() {
+    _stateStreamController.close();
     _integration?.dispose();
     controller.removeListener(_onControllerChanged);
     // Clear diagnostics for this editor's file.

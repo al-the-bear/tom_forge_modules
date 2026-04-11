@@ -95,6 +95,11 @@ class YamlSchemaEditor extends StatefulWidget {
   /// selection state of the internal text editor.
   final ValueChanged<TextSelection>? onTextModeSelectionChanged;
 
+  /// Callback when text mode is toggled.
+  ///
+  /// Fires with `true` when entering text mode, `false` when leaving.
+  final ValueChanged<bool>? onTextModeChanged;
+
   const YamlSchemaEditor({
     super.key,
     required this.controller,
@@ -109,6 +114,7 @@ class YamlSchemaEditor extends StatefulWidget {
     this.integration,
     this.handleShortcuts = true,
     this.onTextModeSelectionChanged,
+    this.onTextModeChanged,
   }) : editorRegistry = editorRegistry ?? const EditorRegistry();
 
   @override
@@ -460,6 +466,7 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
       setState(() {
         _textMode = false;
       });
+      widget.onTextModeChanged?.call(false);
       // Notify that selection is collapsed when leaving text mode.
       widget.onTextModeSelectionChanged
           ?.call(const TextSelection.collapsed(offset: 0));
@@ -475,6 +482,7 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
       _textParseError = diagnostics.parseError;
       _textMarkers = diagnostics.markers;
     });
+    widget.onTextModeChanged?.call(true);
   }
 
   void _onTextDraftChanged(String text) {

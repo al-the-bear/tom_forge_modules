@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -16,6 +17,7 @@ import 'tom_forge_shell_module.dart';
 class ForgeMdEditor extends ForgeTextEditor {
   final MdEditorController controller;
   final ForgeModule _module;
+  final _stateStreamController = StreamController<void>.broadcast();
   final _title = ValueNotifier<String>('Markdown');
   final _titleExtension = ValueNotifier<String?>(null);
   final _isDirty = ValueNotifier<bool>(false);
@@ -295,6 +297,41 @@ class ForgeMdEditor extends ForgeTextEditor {
     return sel != null && !sel.isEmpty;
   }
 
+  // ── EditorActionProvider ──
+
+  @override
+  Set<String> get supportedActionIds =>
+      StandardEditingActions.standardActionIds;
+
+  @override
+  EditorCapabilities get capabilities => const EditorCapabilities(
+    hasTextBuffer: true,
+    supportsUndoRedo: true,
+    supportsClipboard: true,
+    supportsLineEditing: true,
+    supportsSelection: true,
+  );
+
+  @override
+  EditorStateSnapshot get stateSnapshot => EditorStateSnapshot(
+    hasSelection: hasSelection,
+    hasContent: controller.markdown.isNotEmpty,
+    isEditable: true,
+    canUndo: controller.canUndo,
+    canRedo: controller.canRedo,
+    isTextMode: true,
+  );
+
+  @override
+  bool executeAction(String actionId) {
+    final integration = _integration;
+    if (integration == null) return false;
+    return integration.executeAction(actionId);
+  }
+
+  @override
+  Stream<void> get onStateChanged => _stateStreamController.stream;
+
   @override
   ValueListenable<ForgeTextRange> get visibleRange => _visibleRange;
 
@@ -435,6 +472,7 @@ class ForgeMdEditor extends ForgeTextEditor {
       _selection.value = range;
       _selections.value = [range];
     }
+    _stateStreamController.add(null);
   }
 
   void _onVisibleRangeChanged() {
@@ -450,6 +488,7 @@ class ForgeMdEditor extends ForgeTextEditor {
     _isDirty.value = controller.canUndo;
     _document.updateConverter(_positionConverter);
     _document.notifyContentChanged();
+    _stateStreamController.add(null);
     if (controller.uri != null) {
       _title.value = controller.uri!.pathSegments.last;
     }
@@ -556,6 +595,7 @@ class ForgeMdEditor extends ForgeTextEditor {
 
   /// Release listeners.
   void dispose() {
+    _stateStreamController.close();
     if (_diagnosticCollection != null && controller.uri != null) {
       _diagnosticCollection!.set(controller.uri!, const []);
     }
