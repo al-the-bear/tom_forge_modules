@@ -89,6 +89,12 @@ class YamlSchemaEditor extends StatefulWidget {
   /// execution.
   final bool handleShortcuts;
 
+  /// Callback when text mode selection changes.
+  ///
+  /// Only fires while in text mode. The [TextSelection] reflects the
+  /// selection state of the internal text editor.
+  final ValueChanged<TextSelection>? onTextModeSelectionChanged;
+
   const YamlSchemaEditor({
     super.key,
     required this.controller,
@@ -102,6 +108,7 @@ class YamlSchemaEditor extends StatefulWidget {
     this.highlightErrorRows = false,
     this.integration,
     this.handleShortcuts = true,
+    this.onTextModeSelectionChanged,
   }) : editorRegistry = editorRegistry ?? const EditorRegistry();
 
   @override
@@ -443,6 +450,9 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
       setState(() {
         _textMode = false;
       });
+      // Notify that selection is collapsed when leaving text mode.
+      widget.onTextModeSelectionChanged
+          ?.call(const TextSelection.collapsed(offset: 0));
       return;
     }
 
@@ -1120,6 +1130,7 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
             ),
             markers: _textMarkers,
             onTextChanged: widget.readOnly ? null : _onTextDraftChanged,
+            onSelectionChanged: widget.onTextModeSelectionChanged,
             readOnly: widget.readOnly,
             theme: textEditorTheme,
             integration: _integration,

@@ -56,12 +56,16 @@ class TextEditorCore extends StatefulWidget {
   /// for other languages.
   final String commentPrefix;
 
+  /// Callback when the text selection changes.
+  final ValueChanged<TextSelection>? onSelectionChanged;
+
   const TextEditorCore({
     super.key,
     required this.text,
     this.highlighter,
     this.markers = const [],
     this.onTextChanged,
+    this.onSelectionChanged,
     this.readOnly = false,
     this.theme = const TextEditorTheme(),
     this.initialCursorOffset,
@@ -295,8 +299,11 @@ class _TextEditorCoreState extends State<TextEditorCore> {
   void _onTextChanged() {
     // Update current line tracking
     var text = _textController.text;
-    var offset = _textController.selection.baseOffset;
+    final selection = _textController.selection;
+    var offset = selection.baseOffset;
     _currentLine = _lineAtOffset(text, offset);
+
+    widget.onSelectionChanged?.call(selection);
 
     if (text != widget.text) {
       widget.onTextChanged?.call(text);

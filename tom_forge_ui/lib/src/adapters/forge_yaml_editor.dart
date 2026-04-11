@@ -10,6 +10,7 @@ import 'package:tom_yaml_editor/tom_yaml_editor.dart';
 
 import '../components/forge_schema_editor.dart';
 import '../components/forge_component.dart';
+import '../defaults/default_system_state.dart';
 import '../integrations/shell_editor_integration.dart';
 import '../module/forge_module.dart';
 import 'tom_forge_shell_module.dart';
@@ -24,6 +25,9 @@ class ForgeYamlEditor extends ForgeSchemaEditor {
   ShellEditorIntegration? _integration;
   ForgeTextEditorOptions _options;
   ForgeDiagnosticCollection? _diagnosticCollection;
+
+  /// Tracks text-mode selection for action bar enablement.
+  TextSelection _textModeSelection = const TextSelection.collapsed(offset: 0);
 
   /// Optional path to the directory containing JSON Schema files.
   ///
@@ -85,10 +89,7 @@ class ForgeYamlEditor extends ForgeSchemaEditor {
         editorTypeId: 'yaml',
       )..descriptors = [
           ...YamlEditorActions.descriptors,
-          ...StandardEditingActions.descriptors
-              .where((d) =>
-                  d.id == StandardEditingActions.undoActionId ||
-                  d.id == StandardEditingActions.redoActionId),
+          ...StandardEditingActions.descriptors,
         ];
       _integration!.onContextChanged(
         TextEditingContextImpl.withValues(
@@ -105,7 +106,32 @@ class ForgeYamlEditor extends ForgeSchemaEditor {
       controller: controller,
       integration: _integration,
       theme: _buildThemeFromOptions(),
+      onTextModeSelectionChanged: _onTextModeSelectionChanged,
     );
+  }
+
+  void _onTextModeSelectionChanged(TextSelection selection) {
+    _textModeSelection = selection;
+    // Push updated context so the shell fires onTextSelectionChanged.
+    final integration = _integration;
+    if (integration != null) {
+      integration.onContextChanged(
+        TextEditingContextImpl.withValues(
+          text: controller.yamlText,
+          selections: [selection],
+          isDirty: controller.isDirtyNotifier.value,
+          canUndo: controller.canUndo,
+          canRedo: controller.canRedo,
+        ),
+      );
+    }
+    // Notify the system state so the scaffold rebuilds its action bar.
+    if (_module case final TomForgeShellModule shellModule) {
+      final systemState = shellModule.shellApi.systemState;
+      if (systemState is DefaultSystemState) {
+        systemState.notifyTextSelectionChanged(this);
+      }
+    }
   }
 
   ForgeTextEditorOptions get options => _options;
@@ -172,6 +198,10 @@ class ForgeYamlEditor extends ForgeSchemaEditor {
       'schemaLabel': schemaLabel,
     };
   }
+
+  @override
+  bool get hasTextSelection =>
+      _textModeSelection.isValid && !_textModeSelection.isCollapsed;
 
   // ── ForgeSchemaEditor ──
 

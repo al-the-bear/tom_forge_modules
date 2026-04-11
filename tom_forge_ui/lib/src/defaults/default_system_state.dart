@@ -128,10 +128,8 @@ class DefaultSystemState implements ForgeSystemState {
   @override
   bool get hasTextSelection {
     final active = _activeEditor.value;
-    if (active is ForgeTextEditor) {
-      return active.hasSelection;
-    }
-    return false;
+    if (active == null) return false;
+    return active.hasTextSelection;
   }
 
   @override
@@ -240,6 +238,18 @@ class DefaultSystemState implements ForgeSystemState {
       setFocusedComponent(editor);
       _setupSelectionListener(editor);
     }
+  }
+
+  /// Fire a text-selection-changed event for the given editor.
+  ///
+  /// Used by adapters (e.g. YAML text mode) that report selection changes
+  /// through the integration context rather than a [ForgeTextEditor]
+  /// selection [ValueListenable].
+  void notifyTextSelectionChanged(ForgeEditor editor) {
+    _onTextSelectionChanged.add(TextSelectionChangeEvent(
+      editor: editor,
+      selection: null,
+    ));
   }
 
   void addOpenEditor(ForgeEditor editor) {

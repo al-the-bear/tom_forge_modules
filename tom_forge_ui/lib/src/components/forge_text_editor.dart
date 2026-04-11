@@ -71,4 +71,7 @@ abstract class ForgeTextEditor extends ForgeEditor {
 
   /// Remove all decorations of the given type.
   void clearDecorations(ForgeDecorationType type);
+
+  @override
+  bool get hasTextSelection => hasSelection;
 }
