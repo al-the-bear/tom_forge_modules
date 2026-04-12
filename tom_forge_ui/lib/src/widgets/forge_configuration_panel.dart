@@ -5,7 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart'
     show ForgeTextSettings;
 import 'package:tom_forge_core/tom_forge_core.dart'
-    show AutoSaveConfig, ForgeSearchConfig;
+  show AutoSaveConfig, DefaultConfigManager, ForgeConfig, ForgeSearchConfig;
 
 import '../actions/forge_action.dart';
 import '../actions/forge_shortcut_binding.dart';
@@ -507,6 +507,29 @@ class _ShellSettingsSectionState extends State<_ShellSettingsSection> {
     if (maxRecent != null && maxRecent >= 1 && maxRecent <= 50) {
       prefs.maxRecentWorkspaces = maxRecent;
     }
+
+    final shellApi = widget.shellApi;
+    if (shellApi != null) {
+      final delaySeconds = int.tryParse(_autoSaveDelayController.text.trim());
+      final effectiveDelaySeconds =
+          delaySeconds != null && delaySeconds > 0 ? delaySeconds : 2;
+      final nextAutoSave = AutoSaveConfig(
+        enabled: _autoSaveEnabled,
+        idleDelay: Duration(seconds: effectiveDelaySeconds),
+        saveOnFocusLoss: _autoSaveFocusLoss,
+      );
+      final currentConfig = shellApi.config.current;
+      final nextConfig = ForgeConfig(
+        autoSave: nextAutoSave,
+        performance: currentConfig.performance,
+      );
+
+      final configManager = shellApi.config;
+      if (configManager is DefaultConfigManager) {
+        configManager.setCurrent(nextConfig, key: 'autoSave');
+      }
+    }
+
     prefs.save();
     widget.onChanged?.call();
   }
@@ -643,9 +666,11 @@ class _ShellSettingsSectionState extends State<_ShellSettingsSection> {
             children: [
               _toggle('Enabled', _autoSaveEnabled, (v) {
                 setState(() => _autoSaveEnabled = v);
+                _save();
               }),
               _toggle('Save on focus loss', _autoSaveFocusLoss, (v) {
                 setState(() => _autoSaveFocusLoss = v);
+                _save();
               }),
             ],
           ),
@@ -666,6 +691,7 @@ class _ShellSettingsSectionState extends State<_ShellSettingsSection> {
                         EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                     isDense: true,
                   ),
+                  onChanged: (_) => _save(),
                 ),
               ),
             ],

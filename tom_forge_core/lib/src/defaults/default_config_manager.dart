@@ -19,6 +19,15 @@ class DefaultConfigManager implements ForgeConfigManager {
   @override
   ForgeConfig get current => _current;
 
+  /// Replaces the current top-level configuration and emits a change event.
+  ///
+  /// This is used by runtime settings surfaces that build a full immutable
+  /// [ForgeConfig] snapshot and need to apply it atomically.
+  void setCurrent(ForgeConfig config, {String key = ''}) {
+    _current = config;
+    _changeController.add(ConfigChangeEvent(key: key));
+  }
+
   @override
   void update(void Function(ForgeConfig config) updater) {
     try {

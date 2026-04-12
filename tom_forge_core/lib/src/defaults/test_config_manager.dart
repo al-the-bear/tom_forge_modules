@@ -27,6 +27,13 @@ class TestConfigManager implements ForgeConfigManager {
   @override
   ForgeConfig get current => _current;
 
+  /// Replaces the current top-level configuration and emits a change event.
+  void setCurrent(ForgeConfig config, {String key = ''}) {
+    _current = config;
+    lastChangeKey = key;
+    _changeController.add(ConfigChangeEvent(key: key));
+  }
+
   @override
   void update(void Function(ForgeConfig config) updater) {
     updateCount++;
