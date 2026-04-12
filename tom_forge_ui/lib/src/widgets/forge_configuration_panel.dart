@@ -600,6 +600,30 @@ class _ShellSettingsSectionState extends State<_ShellSettingsSection> {
     );
   }
 
+  Widget _themeModeButton(
+    BuildContext context,
+    ThemeMode mode,
+    String label,
+  ) {
+    final selected = _selectedThemeMode == mode;
+    final scheme = Theme.of(context).colorScheme;
+    return TextButton(
+      onPressed: () {
+        setState(() => _selectedThemeMode = mode);
+        _save();
+      },
+      style: TextButton.styleFrom(
+        minimumSize: const Size(0, 30),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        backgroundColor: selected ? scheme.primaryContainer : null,
+        foregroundColor: selected ? scheme.onPrimaryContainer : null,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+      ),
+      child: Text(label, style: const TextStyle(fontSize: 11)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -610,33 +634,15 @@ class _ShellSettingsSectionState extends State<_ShellSettingsSection> {
         children: [
           _sectionHeader(theme, 'Appearance'),
           const SizedBox(height: 8),
-          Row(
+          const Text('Theme:', style: TextStyle(fontSize: 13)),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
             children: [
-              const Text('Theme:', style: TextStyle(fontSize: 13)),
-              const SizedBox(width: 8),
-              Flexible(
-                child: SegmentedButton<ThemeMode>(
-                  segments: const [
-                    ButtonSegment(
-                      value: ThemeMode.dark,
-                      label: Text('Dark', style: TextStyle(fontSize: 11)),
-                    ),
-                    ButtonSegment(
-                      value: ThemeMode.light,
-                      label: Text('Light', style: TextStyle(fontSize: 11)),
-                    ),
-                    ButtonSegment(
-                      value: ThemeMode.system,
-                      label: Text('System', style: TextStyle(fontSize: 11)),
-                    ),
-                  ],
-                  selected: {_selectedThemeMode},
-                  onSelectionChanged: (values) {
-                    setState(() => _selectedThemeMode = values.first);
-                    _save();
-                  },
-                ),
-              ),
+              _themeModeButton(context, ThemeMode.dark, 'Dark'),
+              _themeModeButton(context, ThemeMode.light, 'Light'),
+              _themeModeButton(context, ThemeMode.system, 'System'),
             ],
           ),
           const SizedBox(height: 16),
