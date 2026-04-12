@@ -1,7 +1,7 @@
 # Tom Dart Editor
 
 A Flutter widget for editing and analyzing Dart code with syntax highlighting, code completion, error display, and comprehensive theming support — **without requiring a Dart SDK on the target device**. 
-support 
+support support 
 ## Features
 
 - **SDK-Free Analysis** — Full diagnostics and completions via pre-built summary bundles
