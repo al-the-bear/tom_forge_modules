@@ -612,11 +612,31 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     }
 
     // Update the sections list preserving terminal manager order.
-    tab.sections
-      ..clear()
-      ..addAll(
-        terminals.terminals.map((t) => _terminalSectionViews[t]!),
-      );
+    // Some layouts declare tabs/sections with const constructors, making
+    // `tab.sections` unmodifiable at runtime. In that case we replace the
+    // terminal tab entry with a new mutable sections list.
+    final nextSections =
+        terminals.terminals.map((t) => _terminalSectionViews[t]!).toList();
+    try {
+      tab.sections
+        ..clear()
+        ..addAll(nextSections);
+    } on UnsupportedError {
+      final tabs = widget.application.layout.bottomPanel.tabs;
+      final index = tabs.indexOf(tab);
+      if (index >= 0) {
+        try {
+          tabs[index] = PanelTabConfig(
+            title: tab.title,
+            icon: tab.icon,
+            sections: nextSections,
+          );
+        } on UnsupportedError {
+          // If the tabs list itself is immutable, skip syncing instead of
+          // crashing the scaffold. Existing sections remain as-is.
+        }
+      }
+    }
   }
 
   void _onNotificationPopupChanged() {
