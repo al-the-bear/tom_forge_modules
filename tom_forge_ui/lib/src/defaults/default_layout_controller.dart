@@ -493,6 +493,43 @@ class DefaultLayoutController implements ForgeLayoutController {
     _systemState.updateDirtyEditors();
   }
 
+  /// Close one rendered copy of an editor in a specific panel.
+  ///
+  /// If no copies remain after removal, the editor is fully closed.
+  void closeEditorInPanel(ForgeEditor editor, int panelIndex) {
+    final panels = List<List<ForgeEditor>>.from(_middlePanels.value);
+    if (panelIndex < 0 || panelIndex >= panels.length) {
+      closeEditor(editor);
+      return;
+    }
+
+    final idx = panels[panelIndex].lastIndexOf(editor);
+    if (idx == -1) {
+      closeEditor(editor);
+      return;
+    }
+
+    panels[panelIndex] = List<ForgeEditor>.from(panels[panelIndex])
+      ..removeAt(idx);
+
+    final stillOpen = panels.any((panel) => panel.contains(editor));
+    if (!stillOpen) {
+      _systemState.removeOpenEditor(editor);
+      _editorLastFocused.remove(editor);
+    }
+
+    panels.removeWhere((p) => p.isEmpty);
+    if (panels.isEmpty) panels.add([]);
+
+    _middlePanels.value = panels;
+    _activeMiddlePanelIndex.value = _activeMiddlePanelIndex.value.clamp(
+      0,
+      panels.length - 1,
+    );
+    _systemState.setMiddlePanelCount(panels.length);
+    _systemState.updateDirtyEditors();
+  }
+
   /// Close all open editors.
   void closeAllEditors() {
     for (final editor in List.of(_systemState.openEditors)) {

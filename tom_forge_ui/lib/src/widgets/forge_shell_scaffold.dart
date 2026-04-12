@@ -3550,7 +3550,8 @@ Press "?" for this help document.
                     widget.systemState.setActiveEditor(editor);
                   });
                 },
-                onClose: (editor) => _handleCloseEditor(editor),
+                onClose: (editor) =>
+                  _handleCloseEditor(editor, panelIndex: panelIndex),
                 onEditorDropped: (editor, {bool isCopy = false}) {
                   if (isCopy) {
                     _layout.copyComponent(editor, panelIndex);
@@ -4027,7 +4028,18 @@ Press "?" for this help document.
   ///
   /// If the editor has unsaved changes, prompts the user to save, discard,
   /// or cancel before closing.
-  Future<void> _handleCloseEditor(ForgeEditor editor) async {
+  Future<void> _handleCloseEditor(
+    ForgeEditor editor, {
+    int? panelIndex,
+  }) async {
+    void closeRequestedEditor() {
+      if (panelIndex != null) {
+        _layout.closeEditorInPanel(editor, panelIndex);
+      } else {
+        _layout.closeEditor(editor);
+      }
+    }
+
     if (editor.isDirty.value) {
       final result = await showDialog<_DirtyCloseAction>(
         context: context,
@@ -4058,7 +4070,7 @@ Press "?" for this help document.
         case _DirtyCloseAction.save:
           try {
             widget.shell.executeAction('file.save');
-            _layout.closeEditor(editor);
+            closeRequestedEditor();
           } catch (e) {
             if (!mounted) return;
             final recovery = await ForgeErrorRecoveryDialog.show(
@@ -4069,23 +4081,26 @@ Press "?" for this help document.
             );
             switch (recovery) {
               case ErrorRecoveryAction.retry:
-                _handleCloseEditor(editor); // retry the whole flow
+                _handleCloseEditor(
+                  editor,
+                  panelIndex: panelIndex,
+                ); // retry the whole flow
               case ErrorRecoveryAction.overwrite:
-                _layout.closeEditor(editor); // discard and close
+                closeRequestedEditor(); // discard and close
               case ErrorRecoveryAction.cancel:
               case null:
                 break; // stay open
             }
           }
         case _DirtyCloseAction.discard:
-          _layout.closeEditor(editor);
+          closeRequestedEditor();
         case _DirtyCloseAction.cancel:
         case null:
           // Do nothing — user cancelled.
           break;
       }
     } else {
-      _layout.closeEditor(editor);
+      closeRequestedEditor();
     }
   }
 

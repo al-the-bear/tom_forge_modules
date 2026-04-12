@@ -444,13 +444,21 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
     try {
       final workspaceRoot = widget.shellApi.systemState.workspaceRootPath;
       final config = widget.searchConfig;
+      final rootUri = Uri.file(workspaceRoot.endsWith('/')
+          ? workspaceRoot
+          : '$workspaceRoot/');
 
-      final rootDir = Directory(workspaceRoot);
-      if (!rootDir.existsSync()) return;
+      final entities = await widget.shellApi.fileSystem.list(
+        rootUri,
+        recursive: true,
+      );
 
-      // Load .gitignore rules when enabled.
+      // Load .gitignore rules when enabled and the root exists on disk.
+      // In-memory test/workspace file systems do not necessarily map to
+      // real host paths, so attempting to scan host .gitignore files can
+      // become non-deterministic.
       GitIgnoreMatcher? gitIgnore;
-      if (config.excludeGitIgnored) {
+      if (config.excludeGitIgnored && Directory(workspaceRoot).existsSync()) {
         gitIgnore = GitIgnoreMatcher();
         await gitIgnore.loadFromRoot(workspaceRoot);
       }
@@ -477,10 +485,20 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
       final fileItems = <_QuickOpenItem>[];
       var count = 0;
 
-      await for (final entity in rootDir.list(recursive: true)) {
-        if (entity is File) {
+      for (final entity in entities) {
+        FileSystemEntityType type;
+        try {
+          type = entity.statSync().type;
+        } catch (_) {
+          continue;
+        }
+
+        if (type == FileSystemEntityType.file) {
           final name = entity.uri.pathSegments.last;
-          final relativePath = entity.path.substring(workspaceRoot.length);
+          final entityPath = entity.path;
+          final relativePath = entityPath.startsWith(workspaceRoot)
+              ? entityPath.substring(workspaceRoot.length)
+              : entityPath;
           // Relative path without leading slash for gitignore matching.
           final relPathClean = relativePath.startsWith('/')
               ? relativePath.substring(1)
@@ -517,7 +535,7 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
 
           if (matchText(name) || matchText(relativePath)) {
             fileItems.add(_QuickOpenItem(
-              id: 'file:${entity.path}',
+              id: 'file:$entityPath',
               label: name,
               detail: relativePath,
               icon: _fileIcon(name),
@@ -525,21 +543,24 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
               onExecute: () {
                 widget.onDismiss();
                 WidgetsBinding.instance.addPostFrameCallback((_) {
-                  widget.onOpenFile?.call(entity.uri);
+                  widget.onOpenFile?.call(Uri.file(entityPath));
                 });
               },
             ));
             count++;
             if (count >= config.maxFileResults) break;
           }
-        } else if (entity is Directory) {
+        } else if (type == FileSystemEntityType.directory) {
           // Skip excluded directories eagerly by name.
           final dirName = entity.uri.pathSegments
               .lastWhere((s) => s.isNotEmpty, orElse: () => '');
           if (config.isDirectoryExcluded(dirName)) continue;
           // Also skip git-ignored directories.
           if (gitIgnore != null) {
-            final relDir = entity.path.substring(workspaceRoot.length);
+            final entityPath = entity.path;
+            final relDir = entityPath.startsWith(workspaceRoot)
+                ? entityPath.substring(workspaceRoot.length)
+                : entityPath;
             final relDirClean =
                 relDir.startsWith('/') ? relDir.substring(1) : relDir;
             if (gitIgnore.isIgnored(relDirClean, isDirectory: true)) continue;
@@ -554,18 +575,38 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
           (a, b) => sortPriority(a.label).compareTo(sortPriority(b.label)));
 
       setState(() {
-        // Merge file results: keep actions/settings on top, append files below.
-        final nonFileResults =
-            _results.where((r) => r.type != _ResultType.file).toList();
-        _results = [...nonFileResults, ...fileItems];
+        // Merge file results with stable section ordering used in the UI:
+        // open editors -> files -> actions -> settings.
+        final openEditorResults = _results
+            .where((r) => r.type == _ResultType.openEditor)
+            .toList();
+        final actionResults = _results
+            .where((r) => r.type == _ResultType.action)
+            .toList();
+        final settingResults = _results
+            .where((r) => r.type == _ResultType.setting)
+            .toList();
+        _results = [
+          ...openEditorResults,
+          ...fileItems,
+          ...actionResults,
+          ...settingResults,
+        ];
         // Don't reset _selectedIndex — the user may have already navigated
         // to an action result; only clamp if the list shrank.
         if (_selectedIndex >= _results.length) {
           _selectedIndex = _results.isEmpty ? 0 : _results.length - 1;
         }
       });
-    } catch (e) {
-      // Silently ignore file search errors.
+    } catch (e, st) {
+      // Silently ignore file search errors in production, but allow
+      // diagnostics in tests when explicitly enabled.
+      if (ForgeQuickOpen.debugEnabled) {
+        // ignore: avoid_print
+        print('[ForgeQuickOpen] searchFiles error: $e');
+        // ignore: avoid_print
+        print(st);
+      }
     }
   }
 
@@ -790,7 +831,7 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
       return _buildFlatList(isDark, theme);
     }
 
-    // Build grouped list: open editors → actions → settings → files.
+    // Build grouped list: open editors → files → actions → settings.
     final openEditors =
         _results.where((r) => r.type == _ResultType.openEditor).toList();
     final files = _results.where((r) => r.type == _ResultType.file).toList();
@@ -807,6 +848,11 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
       sections.add(_buildItemGroup(openEditors, runningIndex, isDark, theme));
       runningIndex += openEditors.length;
     }
+    if (files.isNotEmpty) {
+      sections.add(_buildSectionHeader('Files', isDark));
+      sections.add(_buildItemGroup(files, runningIndex, isDark, theme));
+      runningIndex += files.length;
+    }
     if (actions.isNotEmpty) {
       sections.add(_buildSectionHeader('Actions', isDark));
       sections.add(_buildItemGroup(actions, runningIndex, isDark, theme));
@@ -816,10 +862,6 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
       sections.add(_buildSectionHeader('Settings', isDark));
       sections.add(_buildItemGroup(settings, runningIndex, isDark, theme));
       runningIndex += settings.length;
-    }
-    if (files.isNotEmpty) {
-      sections.add(_buildSectionHeader('Files', isDark));
-      sections.add(_buildItemGroup(files, runningIndex, isDark, theme));
     }
 
     return ListView(
