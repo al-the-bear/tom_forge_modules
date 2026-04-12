@@ -30,7 +30,7 @@
 /// - Auto-indentation
 /// - Dark and light themes
 /// - Fully customizable theming
-library tom_dart_editor; // comment 
+library tom_dart_editor; // comment tom_dart_editor _editor    
 
 // Core editor widget and controller
 export 'src/dart_code_editor.dart'

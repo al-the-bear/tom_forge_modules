@@ -147,6 +147,14 @@ class _HighlightingTextController extends TextEditingController {
     super.text = newText;
   }
 
+  @override
+  set value(TextEditingValue newValue) {
+    if (newValue.text != text) {
+      _needsRetokenize = true;
+    }
+    super.value = newValue;
+  }
+
   void invalidate() {
     _needsRetokenize = true;
   }
@@ -1675,6 +1683,8 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
   }
 
   void _pasteClipboard() {
+    // Flush pending undo state so each paste becomes a separate undo entry.
+    _flushPendingUndoSave();
     Clipboard.getData(Clipboard.kTextPlain).then((data) {
       if (data?.text == null || !mounted) return;
       final sel = _textController.selection;
@@ -1682,12 +1692,21 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
       final text = _textController.text;
       final pasteText = data!.text!;
       final newText = text.replaceRange(sel.start, sel.end, pasteText);
+      final newSelection = TextSelection.collapsed(
+        offset: sel.start + pasteText.length,
+      );
       _textController.value = TextEditingValue(
         text: newText,
-        selection: TextSelection.collapsed(
-          offset: sel.start + pasteText.length,
-        ),
+        selection: newSelection,
       );
+      // Programmatic value change doesn't trigger onChanged, so update
+      // state manually: sync controller, record undo state, notify listeners.
+      _previousText = newText;
+      widget.controller.userCode = newText;
+      _pushUndoState(text, sel);
+      _lastSavedText = newText;
+      _lastSavedSelection = newSelection;
+      widget.onChanged?.call(newText);
     });
   }
 
