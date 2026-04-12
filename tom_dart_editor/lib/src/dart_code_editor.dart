@@ -1678,6 +1678,7 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
     Clipboard.getData(Clipboard.kTextPlain).then((data) {
       if (data?.text == null || !mounted) return;
       final sel = _textController.selection;
+      if (!sel.isValid) return; // No valid cursor position
       final text = _textController.text;
       final pasteText = data!.text!;
       final newText = text.replaceRange(sel.start, sel.end, pasteText);
