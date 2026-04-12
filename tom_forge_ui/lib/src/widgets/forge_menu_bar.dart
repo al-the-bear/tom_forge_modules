@@ -183,7 +183,9 @@ class ForgeMenuBar extends StatelessWidget {
                 label: 'Middle Panel 1',
                 shortcut: '⌘1',
                 onTap: () {
-                  shellApi.layout.setActiveMiddlePanelIndex(0);
+                  if (_systemState.middlePanelCount > 0) {
+                    shellApi.layout.setActiveMiddlePanelIndex(0);
+                  }
                   _systemState.setFocusedPanelLocation(
                     ForgePanelLocation.middle,
                   );
@@ -193,7 +195,9 @@ class ForgeMenuBar extends StatelessWidget {
                 label: 'Middle Panel 2',
                 shortcut: '⌘2',
                 onTap: () {
-                  shellApi.layout.setActiveMiddlePanelIndex(1);
+                  if (_systemState.middlePanelCount > 1) {
+                    shellApi.layout.setActiveMiddlePanelIndex(1);
+                  }
                   _systemState.setFocusedPanelLocation(
                     ForgePanelLocation.middle,
                   );
@@ -203,7 +207,9 @@ class ForgeMenuBar extends StatelessWidget {
                 label: 'Middle Panel 3',
                 shortcut: '⌘3',
                 onTap: () {
-                  shellApi.layout.setActiveMiddlePanelIndex(2);
+                  if (_systemState.middlePanelCount > 2) {
+                    shellApi.layout.setActiveMiddlePanelIndex(2);
+                  }
                   _systemState.setFocusedPanelLocation(
                     ForgePanelLocation.middle,
                   );
@@ -213,7 +219,9 @@ class ForgeMenuBar extends StatelessWidget {
                 label: 'Middle Panel 4',
                 shortcut: '⌘4',
                 onTap: () {
-                  shellApi.layout.setActiveMiddlePanelIndex(3);
+                  if (_systemState.middlePanelCount > 3) {
+                    shellApi.layout.setActiveMiddlePanelIndex(3);
+                  }
                   _systemState.setFocusedPanelLocation(
                     ForgePanelLocation.middle,
                   );

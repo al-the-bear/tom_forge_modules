@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/semantics.dart';
 import 'package:flutter/widgets.dart';
 

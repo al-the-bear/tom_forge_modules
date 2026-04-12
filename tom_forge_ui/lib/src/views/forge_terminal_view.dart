@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
+// ignore: implementation_imports
 import 'package:xterm/src/ui/input_map.dart' show keyToTerminalKey;
 import 'package:xterm/xterm.dart' as xterm;
 

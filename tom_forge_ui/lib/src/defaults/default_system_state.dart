@@ -59,7 +59,7 @@ class DefaultSystemState implements ForgeSystemState {
       StreamController<ApplicationChangeEvent>.broadcast();
 
   /// Per-application state storage for open editors and layout.
-  /// Maps application title to { 'openEditors': List<Uri>, 'activeEditor': Uri? }.
+  /// Maps application title to a state map with open editors and active editor.
   final Map<String, Map<String, dynamic>> _applicationStates = {};
 
   /// Tracks last-active timestamp per application for resource management.
