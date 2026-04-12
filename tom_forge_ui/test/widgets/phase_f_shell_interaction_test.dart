@@ -5,25 +5,22 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 import 'package:tom_forge_ui/src/widgets/forge_quick_open.dart';
 
+import 'support/shell_test_utils.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('Phase F: Shell interaction coverage', () {
-
     testWidgets('01: primary+shift+P opens quick open, Escape closes it', (
       WidgetTester tester,
     ) async {
-      _suppressOverflowErrorsForTest();
+      suppressOverflowErrorsForTest();
       final harness = _PhaseFHarness.create();
 
       await tester.pumpWidget(harness.buildShellApp());
       await tester.pumpAndSettle();
 
-      await _sendPrimaryShortcut(
-        tester,
-        LogicalKeyboardKey.keyP,
-        shift: true,
-      );
+      await sendPrimaryShortcut(tester, LogicalKeyboardKey.keyP, shift: true);
       await tester.pumpAndSettle();
 
       expect(find.byType(ForgeQuickOpen), findsOneWidget);
@@ -37,7 +34,7 @@ void main() {
     testWidgets('02: File > Settings opens configuration panel', (
       WidgetTester tester,
     ) async {
-      _suppressOverflowErrorsForTest();
+      suppressOverflowErrorsForTest();
       final harness = _PhaseFHarness.create();
 
       await tester.pumpWidget(harness.buildShellApp());
@@ -56,7 +53,7 @@ void main() {
     testWidgets('03: Terminal settings section shows default shell input', (
       WidgetTester tester,
     ) async {
-      _suppressOverflowErrorsForTest();
+      suppressOverflowErrorsForTest();
       final harness = _PhaseFHarness.create();
 
       await tester.pumpWidget(harness.buildShellApp());
@@ -76,7 +73,7 @@ void main() {
     testWidgets('04: Dart Editor settings section exposes core controls', (
       WidgetTester tester,
     ) async {
-      _suppressOverflowErrorsForTest();
+      suppressOverflowErrorsForTest();
       final harness = _PhaseFHarness.create();
 
       await tester.pumpWidget(harness.buildShellApp());
@@ -96,7 +93,7 @@ void main() {
     testWidgets('05: primary+L toggles left panel visibility', (
       WidgetTester tester,
     ) async {
-      _suppressOverflowErrorsForTest();
+      suppressOverflowErrorsForTest();
       final harness = _PhaseFHarness.create();
 
       await tester.pumpWidget(harness.buildShellApp());
@@ -105,11 +102,11 @@ void main() {
       final layout = harness.shell.layout as DefaultLayoutController;
       expect(layout.leftPanel.value.isVisible, isTrue);
 
-      await _sendPrimaryShortcut(tester, LogicalKeyboardKey.keyL);
+      await sendPrimaryShortcut(tester, LogicalKeyboardKey.keyL);
       await tester.pumpAndSettle();
       expect(layout.leftPanel.value.isVisible, isFalse);
 
-      await _sendPrimaryShortcut(tester, LogicalKeyboardKey.keyL);
+      await sendPrimaryShortcut(tester, LogicalKeyboardKey.keyL);
       await tester.pumpAndSettle();
       expect(layout.leftPanel.value.isVisible, isTrue);
     });
@@ -117,7 +114,7 @@ void main() {
     testWidgets('06: primary+R toggles right panel visibility', (
       WidgetTester tester,
     ) async {
-      _suppressOverflowErrorsForTest();
+      suppressOverflowErrorsForTest();
       final harness = _PhaseFHarness.create();
 
       await tester.pumpWidget(harness.buildShellApp());
@@ -126,11 +123,11 @@ void main() {
       final layout = harness.shell.layout as DefaultLayoutController;
       expect(layout.rightPanel.value.isVisible, isTrue);
 
-      await _sendPrimaryShortcut(tester, LogicalKeyboardKey.keyR);
+      await sendPrimaryShortcut(tester, LogicalKeyboardKey.keyR);
       await tester.pumpAndSettle();
       expect(layout.rightPanel.value.isVisible, isFalse);
 
-      await _sendPrimaryShortcut(tester, LogicalKeyboardKey.keyR);
+      await sendPrimaryShortcut(tester, LogicalKeyboardKey.keyR);
       await tester.pumpAndSettle();
       expect(layout.rightPanel.value.isVisible, isTrue);
     });
@@ -138,7 +135,7 @@ void main() {
     testWidgets('07: primary+B toggles bottom panel visibility', (
       WidgetTester tester,
     ) async {
-      _suppressOverflowErrorsForTest();
+      suppressOverflowErrorsForTest();
       final harness = _PhaseFHarness.create();
 
       await tester.pumpWidget(harness.buildShellApp());
@@ -147,11 +144,11 @@ void main() {
       final layout = harness.shell.layout as DefaultLayoutController;
       expect(layout.bottomPanel.value.isVisible, isTrue);
 
-      await _sendPrimaryShortcut(tester, LogicalKeyboardKey.keyB);
+      await sendPrimaryShortcut(tester, LogicalKeyboardKey.keyB);
       await tester.pumpAndSettle();
       expect(layout.bottomPanel.value.isVisible, isFalse);
 
-      await _sendPrimaryShortcut(tester, LogicalKeyboardKey.keyB);
+      await sendPrimaryShortcut(tester, LogicalKeyboardKey.keyB);
       await tester.pumpAndSettle();
       expect(layout.bottomPanel.value.isVisible, isTrue);
     });
@@ -159,7 +156,7 @@ void main() {
     testWidgets('08: primary+2 focuses middle panel 2', (
       WidgetTester tester,
     ) async {
-      _suppressOverflowErrorsForTest();
+      suppressOverflowErrorsForTest();
       final harness = _PhaseFHarness.create();
 
       await tester.pumpWidget(harness.buildShellApp());
@@ -170,7 +167,7 @@ void main() {
       layout.setActiveMiddlePanelIndex(0);
       expect(layout.activeMiddlePanelIndex, equals(0));
 
-      await _sendPrimaryShortcut(tester, LogicalKeyboardKey.digit2);
+      await sendPrimaryShortcut(tester, LogicalKeyboardKey.digit2);
       await tester.pumpAndSettle();
 
       expect(layout.activeMiddlePanelIndex, equals(1));
@@ -179,7 +176,7 @@ void main() {
     testWidgets('09: Tools menu executes module-contributed tool action', (
       WidgetTester tester,
     ) async {
-      _suppressOverflowErrorsForTest();
+      suppressOverflowErrorsForTest();
       final harness = _PhaseFHarness.create();
 
       await tester.pumpWidget(harness.buildShellApp());
@@ -196,7 +193,7 @@ void main() {
     testWidgets('10: terminal creation updates terminal tab sections', (
       WidgetTester tester,
     ) async {
-      _suppressOverflowErrorsForTest();
+      suppressOverflowErrorsForTest();
       final harness = _PhaseFHarness.create();
 
       await tester.pumpWidget(harness.buildShellApp());
@@ -213,43 +210,11 @@ void main() {
       final rendered = find.byWidgetPredicate((widget) {
         if (widget is! Text) return false;
         final text = widget.data;
-        return text != null &&
-            text.toLowerCase().contains('spec terminal');
+        return text != null && text.toLowerCase().contains('spec terminal');
       });
       expect(rendered, findsWidgets);
     });
   });
-}
-
-Future<void> _sendPrimaryShortcut(
-  WidgetTester tester,
-  LogicalKeyboardKey key, {
-  bool shift = false,
-}) async {
-  final usesMeta = defaultTargetPlatform == TargetPlatform.macOS;
-  final primary = usesMeta
-      ? LogicalKeyboardKey.metaLeft
-      : LogicalKeyboardKey.controlLeft;
-
-  await tester.sendKeyDownEvent(primary);
-  if (shift) {
-    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
-  }
-  await tester.sendKeyDownEvent(key);
-  await tester.sendKeyUpEvent(key);
-  if (shift) {
-    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
-  }
-  await tester.sendKeyUpEvent(primary);
-}
-
-void _suppressOverflowErrorsForTest() {
-  final oldOnError = FlutterError.onError;
-  addTearDown(() => FlutterError.onError = oldOnError);
-  FlutterError.onError = (details) {
-    if (details.toString().contains('overflowed')) return;
-    oldOnError?.call(details);
-  };
 }
 
 class _PhaseFHarness {
@@ -321,19 +286,12 @@ class _PhaseFHarness {
             ),
           ],
         ),
-        middlePanels: const [
-          MiddlePanelConfig(),
-          MiddlePanelConfig(),
-        ],
+        middlePanels: const [MiddlePanelConfig(), MiddlePanelConfig()],
       ),
     );
 
     final layout = shell.layout as DefaultLayoutController;
-    layout.openEditor(
-      module.editor,
-      module.editor.uri,
-      middlePanelIndex: 0,
-    );
+    layout.openEditor(module.editor, module.editor.uri, middlePanelIndex: 0);
     layout.splitMiddlePanel();
 
     return _PhaseFHarness._(
@@ -409,18 +367,18 @@ class _PhaseFModule extends ForgeModule {
 
   @override
   List<ForgeAction> get actions => <ForgeAction>[
-        ForgeAction(
-          id: 'tool.runFixture',
-          label: 'Run Fixture Tool',
-          menu: ForgeMenuLocation.tools,
-          execute: (_) async {
-            executedActionIds.add('tool.runFixture');
-            return null;
-          },
-          isEnabled: () => true,
-          isVisible: () => true,
-        ),
-      ];
+    ForgeAction(
+      id: 'tool.runFixture',
+      label: 'Run Fixture Tool',
+      menu: ForgeMenuLocation.tools,
+      execute: (_) async {
+        executedActionIds.add('tool.runFixture');
+        return null;
+      },
+      isEnabled: () => true,
+      isVisible: () => true,
+    ),
+  ];
 }
 
 class _StubView extends ForgeView {

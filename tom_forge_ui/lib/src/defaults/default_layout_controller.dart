@@ -408,8 +408,10 @@ class DefaultLayoutController implements ForgeLayoutController {
     // Find the panel that now contains the editor.
     final newIdx = panels.indexWhere((p) => p.contains(editor));
     _middlePanels.value = panels;
-    _activeMiddlePanelIndex.value =
-        (newIdx >= 0 ? newIdx : 0).clamp(0, panels.length - 1);
+    _activeMiddlePanelIndex.value = (newIdx >= 0 ? newIdx : 0).clamp(
+      0,
+      panels.length - 1,
+    );
     _systemState.setMiddlePanelCount(panels.length);
   }
 
@@ -483,8 +485,10 @@ class DefaultLayoutController implements ForgeLayoutController {
     panels.removeWhere((p) => p.isEmpty);
     if (panels.isEmpty) panels.add([]);
     _middlePanels.value = panels;
-    _activeMiddlePanelIndex.value =
-        _activeMiddlePanelIndex.value.clamp(0, panels.length - 1);
+    _activeMiddlePanelIndex.value = _activeMiddlePanelIndex.value.clamp(
+      0,
+      panels.length - 1,
+    );
     _systemState.setMiddlePanelCount(panels.length);
     _systemState.updateDirtyEditors();
   }
@@ -738,6 +742,9 @@ class DefaultLayoutController implements ForgeLayoutController {
       return extension;
     }
     final lowered = extension.toLowerCase();
+    if (lowered == '*') {
+      return lowered;
+    }
     return lowered.startsWith('.') ? lowered : '.$lowered';
   }
 

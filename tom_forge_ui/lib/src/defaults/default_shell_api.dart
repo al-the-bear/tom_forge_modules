@@ -258,18 +258,16 @@ class DefaultShellApi implements ForgeShellApi {
 
     final outlineManager = DefaultOutlineManager();
     // Use PTY-backed terminals on desktop (RealFileSystem), fallback for tests.
-    final ForgeTerminalManager terminalManager =
-        fileSystem is RealFileSystem
-            ? PtyTerminalManager()
-            : DefaultTerminalManager();
+    final ForgeTerminalManager terminalManager = fileSystem is RealFileSystem
+        ? PtyTerminalManager()
+        : DefaultTerminalManager();
     final storageService = storage ?? DefaultModuleStorage();
     final environmentService = DefaultEnvironment();
     final executionMonitor = DefaultExecutionMonitor();
     // Use platform keychain on desktop, in-memory for tests.
-    final ForgeSecretStorage secretStorage =
-        fileSystem is RealFileSystem
-            ? PlatformSecretStorage()
-            : DefaultSecretStorage();
+    final ForgeSecretStorage secretStorage = fileSystem is RealFileSystem
+        ? PlatformSecretStorage()
+        : DefaultSecretStorage();
     final fileDecorationManager = DefaultFileDecorationManager();
 
     // Auto-bridge: sync diagnostics from manager into system state so
@@ -435,8 +433,9 @@ class DefaultShellApi implements ForgeShellApi {
     if (actionId.startsWith('*.')) {
       // Wildcard actions are enabled if any candidate exists.
       final suffix = actionId.substring(2);
-      return actionRegistry.allActions
-          .any((a) => a.id.endsWith('.$suffix') && a.isEnabled());
+      return actionRegistry.allActions.any(
+        (a) => a.id.endsWith('.$suffix') && a.isEnabled(),
+      );
     }
     // Route standard editing actions through the active editor.
     if (StandardEditingActions.standardActionIds.contains(actionId)) {
@@ -471,12 +470,15 @@ class DefaultShellApi implements ForgeShellApi {
   @override
   Map<String, dynamic> getEditorSpecificConfig(String editorTypeId) {
     return Map<String, dynamic>.from(
-        _editorSpecificConfig[editorTypeId] ?? <String, dynamic>{});
+      _editorSpecificConfig[editorTypeId] ?? <String, dynamic>{},
+    );
   }
 
   @override
   void setEditorSpecificConfig(
-      String editorTypeId, Map<String, dynamic> config) {
+    String editorTypeId,
+    Map<String, dynamic> config,
+  ) {
     _editorSpecificConfig[editorTypeId] = Map<String, dynamic>.from(config);
   }
 
@@ -499,6 +501,9 @@ class DefaultShellApi implements ForgeShellApi {
   String _normalizeExtension(String extension) {
     final trimmed = extension.trim().toLowerCase();
     if (trimmed.isEmpty) {
+      return trimmed;
+    }
+    if (trimmed == '*') {
       return trimmed;
     }
     return trimmed.startsWith('.') ? trimmed : '.$trimmed';

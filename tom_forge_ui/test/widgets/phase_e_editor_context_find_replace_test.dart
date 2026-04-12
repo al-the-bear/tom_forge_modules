@@ -3,17 +3,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
+import 'support/shell_test_utils.dart';
+
 void main() {
   testWidgets('editor area context menu shows base and editor actions', (
     WidgetTester tester,
   ) async {
-    _suppressOverflowErrorsForTest();
+    suppressOverflowErrorsForTest();
     final harness = _Step5Harness.create();
 
     await tester.pumpWidget(harness.buildShellApp());
     await tester.pumpAndSettle();
 
-    final target = find.byKey(const ValueKey<String>('editor-area-context-target-0'));
+    final target = find.byKey(
+      const ValueKey<String>('editor-area-context-target-0'),
+    );
     expect(target, findsOneWidget);
 
     final center = tester.getCenter(target);
@@ -35,13 +39,16 @@ void main() {
     await tester.tap(find.text('Custom Editor Action'));
     await tester.pumpAndSettle();
 
-    expect(harness.module.executedActionIds, contains('editor.customContextAction'));
+    expect(
+      harness.module.executedActionIds,
+      contains('editor.customContextAction'),
+    );
   });
 
   testWidgets('find/replace bar replaces all matches in active text editor', (
     WidgetTester tester,
   ) async {
-    _suppressOverflowErrorsForTest();
+    suppressOverflowErrorsForTest();
     await tester.binding.setSurfaceSize(const Size(1400, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final harness = _Step5Harness.create();
@@ -72,24 +79,20 @@ void main() {
     await tester.enterText(replaceField, 'qux');
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.byKey(const Key('find-replace-all-button')));
+    await tester.ensureVisible(
+      find.byKey(const Key('find-replace-all-button')),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('find-replace-all-button')));
     await tester.pumpAndSettle();
     await tester.pump(const Duration(seconds: 5));
 
-    expect(harness.module.editor.document.text, 'qux alpha\nbeta qux\nqux gamma');
+    expect(
+      harness.module.editor.document.text,
+      'qux alpha\nbeta qux\nqux gamma',
+    );
     expect(harness.module.editor.document.text.contains('foo'), isFalse);
   });
-}
-
-void _suppressOverflowErrorsForTest() {
-  final oldOnError = FlutterError.onError;
-  addTearDown(() => FlutterError.onError = oldOnError);
-  FlutterError.onError = (details) {
-    if (details.toString().contains('overflowed')) return;
-    oldOnError?.call(details);
-  };
 }
 
 class _Step5Harness {
@@ -188,28 +191,28 @@ class _Step5Module extends ForgeModule {
 
   @override
   List<ForgeAction> get actions => <ForgeAction>[
-        ForgeAction(
-          id: 'edit.formatDocument',
-          label: 'Format Document',
-          menu: ForgeMenuLocation.edit,
-          execute: (_) async {
-            executedActionIds.add('edit.formatDocument');
-            return null;
-          },
-          isEnabled: () => true,
-          isVisible: () => true,
-        ),
-        ForgeAction(
-          id: 'editor.customContextAction',
-          label: 'Custom Editor Action',
-          menu: ForgeMenuLocation.contextMenu,
-          showInContextMenu: true,
-          execute: (_) async {
-            executedActionIds.add('editor.customContextAction');
-            return null;
-          },
-          isEnabled: () => true,
-          isVisible: () => true,
-        ),
-      ];
+    ForgeAction(
+      id: 'edit.formatDocument',
+      label: 'Format Document',
+      menu: ForgeMenuLocation.edit,
+      execute: (_) async {
+        executedActionIds.add('edit.formatDocument');
+        return null;
+      },
+      isEnabled: () => true,
+      isVisible: () => true,
+    ),
+    ForgeAction(
+      id: 'editor.customContextAction',
+      label: 'Custom Editor Action',
+      menu: ForgeMenuLocation.contextMenu,
+      showInContextMenu: true,
+      execute: (_) async {
+        executedActionIds.add('editor.customContextAction');
+        return null;
+      },
+      isEnabled: () => true,
+      isVisible: () => true,
+    ),
+  ];
 }
