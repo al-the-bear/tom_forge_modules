@@ -335,6 +335,7 @@ class _ConfigAccordionHeader extends StatelessWidget {
               ),
               // Pin button
               GestureDetector(
+                key: Key('config-pin-$label'),
                 onTap: onTogglePin,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 2),
