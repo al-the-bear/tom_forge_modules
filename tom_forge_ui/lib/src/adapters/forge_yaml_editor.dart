@@ -204,10 +204,6 @@ class ForgeYamlEditor extends ForgeSchemaEditor {
     };
   }
 
-  @override
-  bool get hasTextSelection =>
-      _textModeSelection.isValid && !_textModeSelection.isCollapsed;
-
   // ── EditorActionProvider ──
 
   /// Undo/redo are always available. Clipboard and line-editing actions
@@ -231,7 +227,9 @@ class ForgeYamlEditor extends ForgeSchemaEditor {
 
   @override
   EditorStateSnapshot get stateSnapshot => EditorStateSnapshot(
-    hasSelection: _isTextMode && hasTextSelection,
+    hasSelection: _isTextMode &&
+        _textModeSelection.isValid &&
+        !_textModeSelection.isCollapsed,
     hasContent: controller.yamlText.isNotEmpty,
     isEditable: true,
     canUndo: controller.canUndo,

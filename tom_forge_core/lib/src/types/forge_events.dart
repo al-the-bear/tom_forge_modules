@@ -1,5 +1,4 @@
 import 'package:tom_forge_core/src/types/forge_enums.dart';
-import 'package:tom_forge_core/src/types/text_range.dart';
 
 /// Event fired when focus changes between components.
 class FocusChangeEvent {
@@ -21,28 +20,6 @@ class DirtyStateEvent {
   final bool isDirty;
 
   const DirtyStateEvent({required this.editor, required this.isDirty});
-}
-
-/// Event fired when selection changes in a component.
-class SelectionChangeEvent {
-  /// The component whose selection changed.
-  final Object component;
-
-  /// The new selection.
-  final Object? selection;
-
-  const SelectionChangeEvent({required this.component, this.selection});
-}
-
-/// Event fired when text selection changes in a text editor.
-class TextSelectionChangeEvent {
-  /// The text editor whose selection changed.
-  final Object editor;
-
-  /// The new text selection.
-  final ForgeTextRange? selection;
-
-  const TextSelectionChangeEvent({required this.editor, this.selection});
 }
 
 /// Event fired when diagnostics change.

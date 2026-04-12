@@ -40,9 +40,6 @@ class DefaultSystemState implements ForgeSystemState {
   /// Tracks dirty-state listeners attached to open editors.
   final Map<ForgeEditor, VoidCallback> _editorDirtyListeners = {};
 
-  /// Cleanup callback for selection listener on active editor.
-  VoidCallback? _selectionCleanup;
-
   late ForgeApplication _activeApplication;
   List<ForgeApplication> _applications = [];
   String _workspaceRootPath;
@@ -50,10 +47,6 @@ class DefaultSystemState implements ForgeSystemState {
   // ── Event streams ──
   final _onFocusChanged = StreamController<FocusChangeEvent>.broadcast();
   final _onDirtyStateChanged = StreamController<DirtyStateEvent>.broadcast();
-  final _onSelectionChanged =
-      StreamController<SelectionChangeEvent>.broadcast();
-  final _onTextSelectionChanged =
-      StreamController<TextSelectionChangeEvent>.broadcast();
   final _onDiagnosticsChanged =
       StreamController<DiagnosticChangeEvent>.broadcast();
   final _onEditorsChanged =
@@ -126,13 +119,6 @@ class DefaultSystemState implements ForgeSystemState {
   }
 
   @override
-  bool get hasTextSelection {
-    final active = _activeEditor.value;
-    if (active == null) return false;
-    return active.hasTextSelection;
-  }
-
-  @override
   List<Uri> get selectedExplorerItems => _selectedExplorerItems.value;
 
   ValueListenable<List<Uri>> get selectedExplorerItemsListenable =>
@@ -184,14 +170,6 @@ class DefaultSystemState implements ForgeSystemState {
       _onDirtyStateChanged.stream;
 
   @override
-  Stream<SelectionChangeEvent> get onSelectionChanged =>
-      _onSelectionChanged.stream;
-
-  @override
-  Stream<TextSelectionChangeEvent> get onTextSelectionChanged =>
-      _onTextSelectionChanged.stream;
-
-  @override
   Stream<DiagnosticChangeEvent> get onDiagnosticsChanged =>
       _onDiagnosticsChanged.stream;
 
@@ -232,28 +210,10 @@ class DefaultSystemState implements ForgeSystemState {
   }
 
   void setActiveEditor(ForgeEditor? editor) {
-    _cleanupSelectionListener();
     _activeEditor.value = editor;
     if (editor != null) {
       setFocusedComponent(editor);
-      _setupSelectionListener(editor);
     }
-  }
-
-  /// Fire a text-selection-changed event for the given editor.
-  ///
-  /// Used by adapters (e.g. YAML text mode) that report selection changes
-  /// through the integration context rather than a [ForgeTextEditor]
-  /// selection [ValueListenable].
-  ///
-  /// Deprecated: The scaffold now listens to `activeEditor.onStateChanged`
-  /// instead of `onTextSelectionChanged`. This method is no longer called.
-  @Deprecated('Use EditorActionProvider.onStateChanged instead')
-  void notifyTextSelectionChanged(ForgeEditor editor) {
-    _onTextSelectionChanged.add(TextSelectionChangeEvent(
-      editor: editor,
-      selection: null,
-    ));
   }
 
   void addOpenEditor(ForgeEditor editor) {
@@ -500,36 +460,8 @@ class DefaultSystemState implements ForgeSystemState {
     _applicationStates[appTitle] = state;
   }
 
-  /// Sets up selection/cursor listeners on the active editor.
-  void _setupSelectionListener(ForgeEditor editor) {
-    if (editor is ForgeTextEditor) {
-      void onSelChanged() {
-        final sel = editor.selection.value;
-        _onSelectionChanged.add(SelectionChangeEvent(
-          component: editor,
-          selection: sel,
-        ));
-        _onTextSelectionChanged.add(TextSelectionChangeEvent(
-          editor: editor,
-          selection: sel,
-        ));
-      }
-      editor.selection.addListener(onSelChanged);
-      _selectionCleanup = () {
-        editor.selection.removeListener(onSelChanged);
-      };
-    }
-  }
-
-  /// Removes selection listener from the previously active editor.
-  void _cleanupSelectionListener() {
-    _selectionCleanup?.call();
-    _selectionCleanup = null;
-  }
-
   /// Dispose all controllers and notifiers.
   void dispose() {
-    _cleanupSelectionListener();
     // Clean up all dirty-state listeners.
     for (final entry in _editorDirtyListeners.entries) {
       entry.key.isDirty.removeListener(entry.value);
@@ -551,8 +483,6 @@ class DefaultSystemState implements ForgeSystemState {
     _activeMiddlePanelIndex.dispose();
     _onFocusChanged.close();
     _onDirtyStateChanged.close();
-    _onSelectionChanged.close();
-    _onTextSelectionChanged.close();
     _onDiagnosticsChanged.close();
     _onEditorsChanged.close();
     _onWindowFocusChanged.close();

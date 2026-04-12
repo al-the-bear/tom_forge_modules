@@ -32,7 +32,6 @@ abstract class ForgeSystemState {
 
   // ── Component Context ──
   String? get focusedSelectedText;
-  bool get hasTextSelection;
 
   // ── Explorer / Selection ──
   List<Uri> get selectedExplorerItems;
@@ -64,8 +63,6 @@ abstract class ForgeSystemState {
   // ── Streams ──
   Stream<FocusChangeEvent> get onFocusChanged;
   Stream<DirtyStateEvent> get onDirtyStateChanged;
-  Stream<SelectionChangeEvent> get onSelectionChanged;
-  Stream<TextSelectionChangeEvent> get onTextSelectionChanged;
   Stream<DiagnosticChangeEvent> get onDiagnosticsChanged;
   Stream<EditorListChangeEvent> get onEditorsChanged;
   Stream<WindowFocusEvent> get onWindowFocusChanged;

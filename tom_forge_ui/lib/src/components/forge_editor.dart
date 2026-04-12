@@ -72,12 +72,6 @@ abstract class ForgeEditor extends ForgeComponent
   /// History manager for back/forward navigation. Null if unsupported.
   ComponentHistoryManager? get historyManager => null;
 
-  /// Whether this editor currently has a non-empty text selection.
-  ///
-  /// Subclasses override this to report selection state.  Used by the
-  /// shell to decide enablement of cut/copy actions.
-  bool get hasTextSelection => false;
-
   // -- EditorActionProvider defaults --
   // Subclasses override these to provide real implementations.
 
