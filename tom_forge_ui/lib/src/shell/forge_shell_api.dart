@@ -134,4 +134,7 @@ abstract class ForgeShellApi {
 
   /// Sets the preferred default editor id for a file extension.
   void setFileTypeDefault(String extension, String editorTypeId);
+
+  /// Clears a preferred default editor id for a file extension.
+  void clearFileTypeDefault(String extension);
 }

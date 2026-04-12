@@ -2552,6 +2552,19 @@ class _FileTypesSettingsSectionState extends State<_FileTypesSettingsSection> {
   }
 
   void _save() {
+    final previousPreferenceKeys =
+        widget.preferencesService.fileTypeDefaultEditors.keys.toSet();
+    final previousShellKeys =
+        widget.shellApi?.getFileTypeDefaults().keys.toSet() ?? <String>{};
+    final nextKeys = <String>{..._mappings.keys, '*'};
+
+    for (final key in previousPreferenceKeys.difference(nextKeys)) {
+      widget.preferencesService.clearFileTypeDefaultEditor(key);
+    }
+    for (final key in previousShellKeys.difference(nextKeys)) {
+      widget.shellApi?.clearFileTypeDefault(key);
+    }
+
     for (final entry in _mappings.entries) {
       widget.preferencesService.setFileTypeDefaultEditor(
           entry.key, entry.value);
@@ -2604,6 +2617,7 @@ class _FileTypesSettingsSectionState extends State<_FileTypesSettingsSection> {
           _sectionHeader(theme, 'Default Editor (unmapped extensions)'),
           const SizedBox(height: 8),
           DropdownButtonFormField<String>(
+            key: const Key('file-type-default-editor'),
             initialValue: _defaultEditor,
             decoration: const InputDecoration(
               border: OutlineInputBorder(),
@@ -2630,6 +2644,7 @@ class _FileTypesSettingsSectionState extends State<_FileTypesSettingsSection> {
             Padding(
               padding: const EdgeInsets.only(bottom: 6),
               child: Row(
+                key: Key('file-type-row-${entry.key}'),
                 children: [
                   SizedBox(
                     width: 80,
@@ -2646,6 +2661,7 @@ class _FileTypesSettingsSectionState extends State<_FileTypesSettingsSection> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: DropdownButtonFormField<String>(
+                      key: Key('file-type-editor-${entry.key}'),
                       initialValue: _editorTypeIds.contains(entry.value)
                           ? entry.value
                           : _editorTypeIds.first,
@@ -2670,6 +2686,7 @@ class _FileTypesSettingsSectionState extends State<_FileTypesSettingsSection> {
                   ),
                   const SizedBox(width: 4),
                   InkWell(
+                    key: Key('file-type-remove-${entry.key}'),
                     onTap: () => _removeExtension(entry.key),
                     child: Padding(
                       padding: const EdgeInsets.all(4),
@@ -2690,6 +2707,7 @@ class _FileTypesSettingsSectionState extends State<_FileTypesSettingsSection> {
               SizedBox(
                 width: 80,
                 child: TextField(
+                  key: const Key('file-type-new-extension'),
                   controller: _newExtController,
                   style: const TextStyle(
                     fontFamily: 'monospace',

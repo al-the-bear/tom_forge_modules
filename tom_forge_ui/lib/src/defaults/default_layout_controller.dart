@@ -375,6 +375,11 @@ class DefaultLayoutController implements ForgeLayoutController {
     _fileTypeDefaultEditors[_normalizeExtension(extension)] = editorTypeId;
   }
 
+  /// Clears the preferred default editor id for a file extension.
+  void clearFileTypeDefaultEditor(String extension) {
+    _fileTypeDefaultEditors.remove(_normalizeExtension(extension));
+  }
+
   /// Returns preferred default editor id for a file extension.
   String? getFileTypeDefaultEditor(String extension) {
     return _fileTypeDefaultEditors[_normalizeExtension(extension)];

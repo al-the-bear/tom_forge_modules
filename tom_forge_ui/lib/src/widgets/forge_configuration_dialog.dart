@@ -266,9 +266,20 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
         }
       }
 
+      final previousPreferenceKeys = prefs.fileTypeDefaultEditors.keys.toSet();
+      final previousShellKeys =
+          shellApi?.getFileTypeDefaults().keys.toSet() ?? <String>{};
+      final nextKeys = _fileTypeDefaults.keys.toSet();
+
       for (final entry in _fileTypeDefaults.entries) {
         prefs.setFileTypeDefaultEditor(entry.key, entry.value);
         shellApi?.setFileTypeDefault(entry.key, entry.value);
+      }
+      for (final key in previousPreferenceKeys.difference(nextKeys)) {
+        prefs.clearFileTypeDefaultEditor(key);
+      }
+      for (final key in previousShellKeys.difference(nextKeys)) {
+        shellApi?.clearFileTypeDefault(key);
       }
 
       // Theme mode.

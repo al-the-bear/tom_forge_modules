@@ -166,6 +166,17 @@ class ForgePreferencesService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Clears preferred editor id for a file extension.
+  void clearFileTypeDefaultEditor(String extension) {
+    final normalized = _normalizeExtension(extension);
+    if (normalized.isEmpty) {
+      return;
+    }
+    if (_fileTypeDefaultEditors.remove(normalized) != null) {
+      notifyListeners();
+    }
+  }
+
   /// Shortcut overrides keyed by action id.
   Map<String, ForgeShortcutKey> get shortcutOverrides =>
       Map<String, ForgeShortcutKey>.unmodifiable(_shortcutOverrides);

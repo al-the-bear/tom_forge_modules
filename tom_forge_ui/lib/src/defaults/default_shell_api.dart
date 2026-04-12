@@ -498,6 +498,17 @@ class DefaultShellApi implements ForgeShellApi {
     }
   }
 
+  @override
+  void clearFileTypeDefault(String extension) {
+    final normalized = _normalizeExtension(extension);
+    _fileTypeDefaults.remove(normalized);
+
+    final layoutController = layout;
+    if (layoutController is DefaultLayoutController) {
+      layoutController.clearFileTypeDefaultEditor(normalized);
+    }
+  }
+
   String _normalizeExtension(String extension) {
     final trimmed = extension.trim().toLowerCase();
     if (trimmed.isEmpty) {
