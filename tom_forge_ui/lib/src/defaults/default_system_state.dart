@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart'
-  show ForgeTextContext;
+    show ForgeTextContext;
 
 import '../components/forge_component.dart';
 import '../components/forge_editor.dart';
@@ -20,19 +20,22 @@ class DefaultSystemState implements ForgeSystemState {
   static bool debugEnabled = false;
 
   final _focusedComponent = ValueNotifier<ForgeComponent?>(null);
+  final _focusedPanelLocation = ValueNotifier<ForgePanelLocation?>(null);
   final _openEditors = ValueNotifier<List<ForgeEditor>>([]);
   final _activeEditor = ValueNotifier<ForgeEditor?>(null);
   final _dirtyEditors = ValueNotifier<List<ForgeEditor>>([]);
   final _selectedExplorerItems = ValueNotifier<List<Uri>>([]);
   final _hoveredExplorerItem = ValueNotifier<Uri?>(null);
-  final _diagnosticSummary =
-      ValueNotifier<DiagnosticSummary>(const DiagnosticSummary());
+  final _diagnosticSummary = ValueNotifier<DiagnosticSummary>(
+    const DiagnosticSummary(),
+  );
   final _diagnostics = ValueNotifier<List<ForgeDiagnostic>>([]);
   final _searchQuery = ValueNotifier<String>('');
   final _isSearchActive = ValueNotifier<bool>(false);
   final _isWindowFocused = ValueNotifier<bool>(true);
-  final _visiblePanels =
-      ValueNotifier<Set<ForgePanelLocation>>(Set.of(ForgePanelLocation.values));
+  final _visiblePanels = ValueNotifier<Set<ForgePanelLocation>>(
+    Set.of(ForgePanelLocation.values),
+  );
   final _middlePanelCount = ValueNotifier<int>(1);
   final _activeMiddlePanelIndex = ValueNotifier<int>(0);
   final Map<String, ForgeTextContext> _editorContexts = {};
@@ -49,10 +52,8 @@ class DefaultSystemState implements ForgeSystemState {
   final _onDirtyStateChanged = StreamController<DirtyStateEvent>.broadcast();
   final _onDiagnosticsChanged =
       StreamController<DiagnosticChangeEvent>.broadcast();
-  final _onEditorsChanged =
-      StreamController<EditorListChangeEvent>.broadcast();
-  final _onWindowFocusChanged =
-      StreamController<WindowFocusEvent>.broadcast();
+  final _onEditorsChanged = StreamController<EditorListChangeEvent>.broadcast();
+  final _onWindowFocusChanged = StreamController<WindowFocusEvent>.broadcast();
   final _onLayoutChanged = StreamController<LayoutChangeEvent>.broadcast();
   final _onApplicationChanged =
       StreamController<ApplicationChangeEvent>.broadcast();
@@ -73,7 +74,8 @@ class DefaultSystemState implements ForgeSystemState {
     ForgeApplication? initialApplication,
     this.maxApplicationStates = 10,
   }) : _workspaceRootPath = workspaceRootPath {
-    _activeApplication = initialApplication ??
+    _activeApplication =
+        initialApplication ??
         ForgeApplication(title: 'Default', isActive: true);
     _applications = [_activeApplication];
   }
@@ -88,12 +90,7 @@ class DefaultSystemState implements ForgeSystemState {
       _focusedComponent.value == _activeEditor.value;
 
   @override
-  ForgePanelLocation? get focusedPanelLocation {
-    if (_focusedComponent.value is ForgeEditor) {
-      return ForgePanelLocation.middle;
-    }
-    return null;
-  }
+  ForgePanelLocation? get focusedPanelLocation => _focusedPanelLocation.value;
 
   @override
   List<ForgeEditor> get openEditors => _openEditors.value;
@@ -203,10 +200,12 @@ class DefaultSystemState implements ForgeSystemState {
   void setFocusedComponent(ForgeComponent? component) {
     final previous = _focusedComponent.value;
     _focusedComponent.value = component;
-    _onFocusChanged.add(FocusChangeEvent(
-      previous: previous,
-      current: component,
-    ));
+    if (component is ForgeEditor) {
+      _focusedPanelLocation.value = ForgePanelLocation.middle;
+    }
+    _onFocusChanged.add(
+      FocusChangeEvent(previous: previous, current: component),
+    );
   }
 
   void setActiveEditor(ForgeEditor? editor) {
@@ -223,18 +222,17 @@ class DefaultSystemState implements ForgeSystemState {
     // Track dirty state changes for this editor.
     void dirtyChanged() {
       updateDirtyEditors();
-      _onDirtyStateChanged.add(DirtyStateEvent(
-        editor: editor,
-        isDirty: editor.isDirty.value,
-      ));
+      _onDirtyStateChanged.add(
+        DirtyStateEvent(editor: editor, isDirty: editor.isDirty.value),
+      );
     }
+
     _editorDirtyListeners[editor] = dirtyChanged;
     editor.isDirty.addListener(dirtyChanged);
   }
 
   void removeOpenEditor(ForgeEditor editor) {
-    _openEditors.value =
-        _openEditors.value.where((e) => e != editor).toList();
+    _openEditors.value = _openEditors.value.where((e) => e != editor).toList();
     _onEditorsChanged.add(EditorListChangeEvent(closed: [editor]));
 
     // Clean up dirty-state listener.
@@ -244,14 +242,16 @@ class DefaultSystemState implements ForgeSystemState {
     }
 
     if (_activeEditor.value == editor) {
-      _activeEditor.value =
-          _openEditors.value.isNotEmpty ? _openEditors.value.last : null;
+      _activeEditor.value = _openEditors.value.isNotEmpty
+          ? _openEditors.value.last
+          : null;
     }
   }
 
   void updateDirtyEditors() {
-    _dirtyEditors.value =
-        _openEditors.value.where((e) => e.isDirty.value).toList();
+    _dirtyEditors.value = _openEditors.value
+        .where((e) => e.isDirty.value)
+        .toList();
   }
 
   void setDiagnostics(List<ForgeDiagnostic> diags) {
@@ -276,7 +276,8 @@ class DefaultSystemState implements ForgeSystemState {
       infos: infos,
     );
     _onDiagnosticsChanged.add(
-        DiagnosticChangeEvent(uris: diags.map((d) => d.uri).toSet().toList()));
+      DiagnosticChangeEvent(uris: diags.map((d) => d.uri).toSet().toList()),
+    );
   }
 
   void setSelectedExplorerItems(List<Uri> items) {
@@ -317,13 +318,13 @@ class DefaultSystemState implements ForgeSystemState {
     // Update visible panels to include this location if not visible
     if (!_visiblePanels.value.contains(location)) {
       _visiblePanels.value = {..._visiblePanels.value, location};
-      _onLayoutChanged.add(LayoutChangeEvent(
-        type: LayoutChangeType.panelOpened,
-        panel: location,
-      ));
+      _onLayoutChanged.add(
+        LayoutChangeEvent(type: LayoutChangeType.panelOpened, panel: location),
+      );
     }
+    _focusedPanelLocation.value = location;
     // Clear component focus when moving to a panel
-    _focusedComponent.value = null;
+    setFocusedComponent(null);
   }
 
   /// Panel cycle order for focus navigation.
@@ -395,11 +396,13 @@ class DefaultSystemState implements ForgeSystemState {
     _evictStaleApplicationStates();
 
     // Emit application change event
-    _onApplicationChanged.add(ApplicationChangeEvent(
-      previous: previous,
-      current: app,
-      isInitial: false,
-    ));
+    _onApplicationChanged.add(
+      ApplicationChangeEvent(
+        previous: previous,
+        current: app,
+        isInitial: false,
+      ),
+    );
   }
 
   /// Evicts the least-recently-active application state entries when
@@ -411,8 +414,7 @@ class DefaultSystemState implements ForgeSystemState {
       DateTime? oldestTime;
       for (final title in _applicationStates.keys) {
         if (title == _activeApplication.title) continue;
-        final lastActive =
-            _applicationLastActive[title] ?? DateTime(2000);
+        final lastActive = _applicationLastActive[title] ?? DateTime(2000);
         if (oldestTime == null || lastActive.isBefore(oldestTime)) {
           oldestTime = lastActive;
           oldest = title;
@@ -427,7 +429,10 @@ class DefaultSystemState implements ForgeSystemState {
   /// Saves the current state of an application (open editors, active editor).
   void _saveApplicationState(ForgeApplication app) {
     _applicationStates[app.title] = {
-      'openEditors': _openEditors.value.map((e) => e.uri).whereType<Uri>().toList(),
+      'openEditors': _openEditors.value
+          .map((e) => e.uri)
+          .whereType<Uri>()
+          .toList(),
       'activeEditor': _activeEditor.value?.uri,
     };
   }
@@ -440,7 +445,9 @@ class DefaultSystemState implements ForgeSystemState {
       // First time activating this app — start fresh
       _openEditors.value = [];
       _activeEditor.value = null;
-      _onEditorsChanged.add(const EditorListChangeEvent(opened: [], closed: []));
+      _onEditorsChanged.add(
+        const EditorListChangeEvent(opened: [], closed: []),
+      );
       return;
     }
     // Note: The actual editor instances are managed by the layout controller.

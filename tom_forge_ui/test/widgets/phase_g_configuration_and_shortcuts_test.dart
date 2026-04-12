@@ -14,7 +14,7 @@ void main() {
       WidgetTester tester,
     ) async {
       suppressOverflowErrorsForTest();
-      await _prepareLargeSurface(tester);
+      await prepareLargeSurface(tester);
       final harness = _PhaseGHarness.create();
 
       await tester.pumpWidget(harness.buildShellApp());
@@ -39,7 +39,7 @@ void main() {
       WidgetTester tester,
     ) async {
       suppressOverflowErrorsForTest();
-      await _prepareLargeSurface(tester);
+      await prepareLargeSurface(tester);
       final harness = _PhaseGHarness.create();
 
       await tester.pumpWidget(harness.buildShellApp());
@@ -65,7 +65,7 @@ void main() {
       WidgetTester tester,
     ) async {
       suppressOverflowErrorsForTest();
-      await _prepareLargeSurface(tester);
+      await prepareLargeSurface(tester);
       final harness = _PhaseGHarness.create();
 
       await tester.pumpWidget(harness.buildShellApp());
@@ -91,7 +91,7 @@ void main() {
       WidgetTester tester,
     ) async {
       suppressOverflowErrorsForTest();
-      await _prepareLargeSurface(tester);
+      await prepareLargeSurface(tester);
       final harness = _PhaseGHarness.create();
 
       await tester.pumpWidget(harness.buildShellApp());
@@ -112,7 +112,7 @@ void main() {
       WidgetTester tester,
     ) async {
       suppressOverflowErrorsForTest();
-      await _prepareLargeSurface(tester);
+      await prepareLargeSurface(tester);
       final harness = _PhaseGHarness.create();
 
       await tester.pumpWidget(harness.buildShellApp());
@@ -154,7 +154,7 @@ void main() {
       WidgetTester tester,
     ) async {
       suppressOverflowErrorsForTest();
-      await _prepareLargeSurface(tester);
+      await prepareLargeSurface(tester);
       final harness = _PhaseGHarness.create();
 
       await tester.pumpWidget(harness.buildShellApp());
@@ -187,7 +187,7 @@ void main() {
       WidgetTester tester,
     ) async {
       suppressOverflowErrorsForTest();
-      await _prepareLargeSurface(tester);
+      await prepareLargeSurface(tester);
       final harness = _PhaseGHarness.create();
 
       await tester.pumpWidget(harness.buildShellApp());
@@ -255,7 +255,7 @@ void main() {
       WidgetTester tester,
     ) async {
       suppressOverflowErrorsForTest();
-      await _prepareLargeSurface(tester);
+      await prepareLargeSurface(tester);
       final harness = _PhaseGHarness.create();
 
       await tester.pumpWidget(harness.buildShellApp());
@@ -274,7 +274,7 @@ void main() {
       WidgetTester tester,
     ) async {
       suppressOverflowErrorsForTest();
-      await _prepareLargeSurface(tester);
+      await prepareLargeSurface(tester);
       final harness = _PhaseGHarness.create();
 
       await tester.pumpWidget(harness.buildShellApp());
@@ -296,7 +296,7 @@ void main() {
       WidgetTester tester,
     ) async {
       suppressOverflowErrorsForTest();
-      await _prepareLargeSurface(tester);
+      await prepareLargeSurface(tester);
       final harness = _PhaseGHarness.create();
 
       await tester.pumpWidget(harness.buildShellApp());
@@ -343,11 +343,6 @@ Future<void> _selectDefaultFileTypeEditor(
   await tester.pumpAndSettle();
   await tester.tap(find.text(next).last);
   await tester.pumpAndSettle();
-}
-
-Future<void> _prepareLargeSurface(WidgetTester tester) async {
-  await tester.binding.setSurfaceSize(const Size(2200, 2400));
-  addTearDown(() => tester.binding.setSurfaceSize(null));
 }
 
 class _PhaseGHarness {

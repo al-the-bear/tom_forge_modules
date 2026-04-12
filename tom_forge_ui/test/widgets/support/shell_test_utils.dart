@@ -2,6 +2,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+Future<void> prepareLargeSurface(
+  WidgetTester tester, {
+  Size size = const Size(2200, 2400),
+}) async {
+  await tester.binding.setSurfaceSize(size);
+  addTearDown(() => tester.binding.setSurfaceSize(null));
+}
+
 Future<void> sendPrimaryShortcut(
   WidgetTester tester,
   LogicalKeyboardKey key, {
