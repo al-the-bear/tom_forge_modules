@@ -67,6 +67,12 @@ class _ForgeConfigurationPanelState extends State<ForgeConfigurationPanel> {
   void initState() {
     super.initState();
     widget.expandSection?.addListener(_onExpandSectionChanged);
+    // Apply an already-requested section target when the panel is first built.
+    // Quick-open may set the target before this widget is mounted.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _onExpandSectionChanged();
+    });
   }
 
   @override

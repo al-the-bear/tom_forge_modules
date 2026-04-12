@@ -222,6 +222,16 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       return KeyEventResult.handled;
     }
 
+    // Ctrl+P (or Cmd+P) toggles the actions-only quick open.
+    if (hasPrimary && !hasShift && key == LogicalKeyboardKey.keyP) {
+      if (_quickOpenMode == QuickOpenMode.actions) {
+        _closeQuickOpen();
+      } else {
+        _openQuickOpen(QuickOpenMode.actions);
+      }
+      return KeyEventResult.handled;
+    }
+
     return KeyEventResult.ignored;
   }
   final GlobalKey _searchBoxKey = GlobalKey();
@@ -2311,6 +2321,8 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       }
 
       final shortcuts = <ShortcutActivator, Intent>{
+        primaryActivator(LogicalKeyboardKey.keyP):
+          const _ActionPaletteIntent(),
         primaryActivator(LogicalKeyboardKey.keyP, shift: true):
             const _CommandPaletteIntent(),
         const SingleActivator(LogicalKeyboardKey.f1):
@@ -2357,6 +2369,16 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
 
   Map<Type, Action<Intent>> _buildActions() {
     return {
+      _ActionPaletteIntent: CallbackAction<_ActionPaletteIntent>(
+        onInvoke: (_) {
+          if (_quickOpenMode == QuickOpenMode.actions) {
+            _closeQuickOpen();
+          } else {
+            _openQuickOpen(QuickOpenMode.actions);
+          }
+          return null;
+        },
+      ),
       _CommandPaletteIntent: CallbackAction<_CommandPaletteIntent>(
         onInvoke: (_) {
           _toggleCommandPalette();
@@ -4233,6 +4255,10 @@ class _ViewEditorAdapter extends ForgeEditor {
 
 class _CommandPaletteIntent extends Intent {
   const _CommandPaletteIntent();
+}
+
+class _ActionPaletteIntent extends Intent {
+  const _ActionPaletteIntent();
 }
 
 class _ToggleLeftPanelIntent extends Intent {
