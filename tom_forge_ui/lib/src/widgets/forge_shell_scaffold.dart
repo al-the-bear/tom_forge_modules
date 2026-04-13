@@ -1164,6 +1164,49 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     }
   }
 
+  /// Saves the active editor's content to the file system and marks it clean.
+  void _saveActiveEditor() {
+    final editor = widget.systemState.activeEditor;
+    if (editor == null || !editor.isDirty.value) return;
+    final content = editor.getContent();
+    if (content == null) return;
+    widget.shell.fileSystem.write(editor.uri, content).then((_) {
+      return widget.shell.fileSystem.save(editor.uri);
+    }).then((_) {
+      editor.markClean();
+      if (debugEnabled) {
+        debugPrint('[ForgeShellScaffold] saved: ${editor.uri}');
+      }
+    }).catchError((Object e) {
+      if (debugEnabled) {
+        debugPrint('[ForgeShellScaffold] save failed for ${editor.uri}: $e');
+      }
+    });
+  }
+
+  /// Saves all dirty editors' content to the file system and marks them clean.
+  void _saveAllDirtyEditors() {
+    final dirtyEditors = widget.systemState.dirtyEditors.toList();
+    for (final editor in dirtyEditors) {
+      final content = editor.getContent();
+      if (content == null) continue;
+      widget.shell.fileSystem.write(editor.uri, content).then((_) {
+        return widget.shell.fileSystem.save(editor.uri);
+      }).then((_) {
+        editor.markClean();
+        if (debugEnabled) {
+          debugPrint('[ForgeShellScaffold] saved all: ${editor.uri}');
+        }
+      }).catchError((Object e) {
+        if (debugEnabled) {
+          debugPrint(
+            '[ForgeShellScaffold] save all failed for ${editor.uri}: $e',
+          );
+        }
+      });
+    }
+  }
+
   /// Listens for config changes and persists to `.forge/config.json`.
   void _listenForConfigChanges() {
     final wsState = widget.shell.workspaceState;
@@ -1442,6 +1485,20 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       'forge.focusPreviousPanel',
       'Focus Previous Panel',
       () => widget.systemState.focusPreviousPanel(),
+    );
+
+    // ── File save actions ──
+    // These are the concrete save implementations that menu items
+    // and keyboard shortcuts delegate to (file.save, file.saveAll).
+    overrideAction(
+      'file.save',
+      'Save',
+      () => _saveActiveEditor(),
+    );
+    overrideAction(
+      'file.saveAll',
+      'Save All',
+      () => _saveAllDirtyEditors(),
     );
   }
 
