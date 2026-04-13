@@ -175,6 +175,7 @@ class DefaultShellApi implements ForgeShellApi {
     required String appName,
     required GlobalKey<NavigatorState> navigatorKey,
     ForgeConfig initialConfig = const ForgeConfig(),
+    int maxOpenEditors = 20,
   }) {
     final memFs = MemoryFileSystem(seed: fileSystemSeed);
     return DefaultShellApi.withDefaultsAndFileSystem(
@@ -182,6 +183,7 @@ class DefaultShellApi implements ForgeShellApi {
       appName: appName,
       navigatorKey: navigatorKey,
       initialConfig: initialConfig,
+      maxOpenEditors: maxOpenEditors,
     );
   }
 
@@ -198,6 +200,7 @@ class DefaultShellApi implements ForgeShellApi {
     ForgeWorkspaceStateManager? workspaceState,
     ForgeModuleStorage? storage,
     ForgeConfig initialConfig = const ForgeConfig(),
+    int maxOpenEditors = 20,
   }) {
     final systemState = DefaultSystemState();
     final actionRegistry = DefaultActionRegistry();
@@ -212,6 +215,7 @@ class DefaultShellApi implements ForgeShellApi {
       fileSystem: fileSystem,
       moduleRegistry: moduleRegistry,
       virtualDocuments: virtualDocumentManager,
+      maxOpenEditors: maxOpenEditors,
     );
     final statusBarController = DefaultStatusBarController(
       registry: moduleRegistry,

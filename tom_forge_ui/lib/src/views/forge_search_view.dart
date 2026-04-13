@@ -78,6 +78,11 @@ class _SearchContent extends StatefulWidget {
 }
 
 class _SearchContentState extends State<_SearchContent> {
+  static const _caseToggleKey = ValueKey<String>('forge.search.toggle.case');
+  static const _wordToggleKey = ValueKey<String>('forge.search.toggle.word');
+  static const _regexToggleKey = ValueKey<String>('forge.search.toggle.regex');
+  static const _stopSearchKey = ValueKey<String>('forge.search.stop');
+
   final _queryController = TextEditingController();
   bool _isCaseSensitive = false;
   bool _isWordMatch = false;
@@ -230,15 +235,15 @@ class _SearchContentState extends State<_SearchContent> {
                   _buildToggle('Aa', _isCaseSensitive, () {
                     setState(() => _isCaseSensitive = !_isCaseSensitive);
                     _doSearch();
-                  }),
+                  }, key: _caseToggleKey, tooltip: 'Match Case'),
                   _buildToggle('W', _isWordMatch, () {
                     setState(() => _isWordMatch = !_isWordMatch);
                     _doSearch();
-                  }),
+                  }, key: _wordToggleKey, tooltip: 'Match Whole Word'),
                   _buildToggle('.*', _isRegExp, () {
                     setState(() => _isRegExp = !_isRegExp);
                     _doSearch();
-                  }),
+                  }, key: _regexToggleKey, tooltip: 'Use Regular Expression'),
                 ],
               ),
               if (_results.isNotEmpty || _isSearching || _searchError != null)
@@ -262,18 +267,23 @@ class _SearchContentState extends State<_SearchContent> {
                         ),
                       ),
                       if (_isSearching)
-                        InkWell(
-                          onTap: () {
+                        IconButton(
+                          key: _stopSearchKey,
+                          tooltip: 'Stop Search',
+                          onPressed: () {
                             _cancelSearch();
                             setState(() => _isSearching = false);
                           },
-                          child: Padding(
-                            padding: const EdgeInsets.all(2),
-                            child: Icon(
-                              Icons.stop,
-                              size: 14,
-                              color: theme.colorScheme.error,
-                            ),
+                          icon: Icon(
+                            Icons.stop,
+                            size: 14,
+                            color: theme.colorScheme.error,
+                          ),
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.all(2),
+                          constraints: const BoxConstraints(
+                            minWidth: 20,
+                            minHeight: 20,
                           ),
                         ),
                     ],
@@ -289,29 +299,46 @@ class _SearchContentState extends State<_SearchContent> {
     );
   }
 
-  Widget _buildToggle(String label, bool active, VoidCallback onTap) {
+  Widget _buildToggle(
+    String label,
+    bool active,
+    VoidCallback onTap, {
+    required Key key,
+    required String tooltip,
+  }) {
     final theme = Theme.of(context);
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 24,
-        height: 24,
-        margin: const EdgeInsets.only(left: 2),
-        decoration: BoxDecoration(
-          color: active ? theme.colorScheme.primary.withValues(alpha: 0.2) : null,
+    return Tooltip(
+      message: tooltip,
+      child: Semantics(
+        button: true,
+        toggled: active,
+        child: InkWell(
+          key: key,
           borderRadius: BorderRadius.circular(2),
-          border: Border.all(
-            color: active
-                ? theme.colorScheme.primary
-                : theme.colorScheme.outline,
-          ),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          label,
-          style: theme.textTheme.labelSmall?.copyWith(
-            fontSize: 10,
-            fontWeight: active ? FontWeight.bold : FontWeight.normal,
+          onTap: onTap,
+          child: Container(
+            width: 24,
+            height: 24,
+            margin: const EdgeInsets.only(left: 2),
+            decoration: BoxDecoration(
+              color: active
+                  ? theme.colorScheme.primary.withValues(alpha: 0.2)
+                  : null,
+              borderRadius: BorderRadius.circular(2),
+              border: Border.all(
+                color: active
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.outline,
+              ),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              label,
+              style: theme.textTheme.labelSmall?.copyWith(
+                fontSize: 10,
+                fontWeight: active ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
           ),
         ),
       ),
