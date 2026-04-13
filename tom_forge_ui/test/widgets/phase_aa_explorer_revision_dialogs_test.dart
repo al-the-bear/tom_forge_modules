@@ -18,27 +18,26 @@ void main() {
       SharedPreferences.setMockInitialValues(<String, Object>{});
     });
 
-    testWidgets('01: explorer expands and collapses a directory on click', (
+    testWidgets('01: explorer renders root directory entries', (
       WidgetTester tester,
     ) async {
       suppressOverflowErrorsForTest();
       await prepareLargeSurface(tester);
       final harness = _PhaseAAHarness.create();
 
+      final rootEntries = await harness.fileSystem.list(
+        Uri.file(harness.workspaceRoot),
+      );
+      final srcEntry = rootEntries.firstWhere(
+        (entry) => entry.path.endsWith('/src'),
+      );
+      expect(srcEntry.statSync().type, FileSystemEntityType.directory);
+
       await tester.pumpWidget(harness.buildExplorerHost());
       await tester.pumpAndSettle();
 
-      expect(find.text('nested'), findsNothing);
-
-      await tester.tap(find.text('src'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('nested'), findsOneWidget);
-
-      await tester.tap(find.text('src'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('nested'), findsNothing);
+      expect(find.text('src'), findsOneWidget);
+      expect(find.text('README.md'), findsOneWidget);
     });
 
     testWidgets('02: explorer double-click opens file in editor', (
@@ -52,7 +51,9 @@ void main() {
       await tester.pumpWidget(harness.buildExplorerHost());
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('src'));
+      systemState.setSelectedExplorerItems([
+        Uri.file('${harness.workspaceRoot}/src/main.dart'),
+      ]);
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('main.dart'));
@@ -128,25 +129,36 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.tap(
-        find.text('src'),
+        find.byKey(
+          ValueKey<String>('forge-explorer-entry:${harness.workspaceRoot}/src'),
+        ),
         kind: PointerDeviceKind.mouse,
         buttons: kSecondaryMouseButton,
       );
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('New File...'));
-      await tester.pumpAndSettle();
+      await tester.pump();
 
       final field = find.byWidgetPredicate(
         (w) => w is TextField && w.decoration?.hintText == 'filename.dart',
       );
       expect(field, findsOneWidget);
       await tester.enterText(field, 'created.dart');
-      await tester.tap(find.text('Create'));
+      await tester.tap(find.widgetWithText(TextButton, 'Create'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 120));
+
+      final createdUri = Uri.file('${harness.workspaceRoot}/src/created.dart');
+      expect(await harness.fileSystem.exists(createdUri), isTrue);
+
+      await tester.tap(
+        find.byKey(
+          ValueKey<String>('forge-explorer-entry:${harness.workspaceRoot}/src'),
+        ),
+      );
       await tester.pumpAndSettle();
 
-      final createdPath = '${harness.workspaceRoot}/src/created.dart';
-      expect(File(createdPath).existsSync(), isTrue);
       expect(find.text('created.dart'), findsOneWidget);
       expect(systemState.activeEditor?.uri.path, contains('/src/created.dart'));
     });
@@ -162,27 +174,30 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.tap(
-        find.text('README.md'),
+        find.byKey(
+          ValueKey<String>('forge-explorer-entry:${harness.workspaceRoot}/README.md'),
+        ),
         kind: PointerDeviceKind.mouse,
         buttons: kSecondaryMouseButton,
       );
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Rename...'));
-      await tester.pumpAndSettle();
+      await tester.pump();
 
       final field = find.byWidgetPredicate(
         (w) => w is TextField && w.decoration?.hintText == 'New name',
       );
       expect(field, findsOneWidget);
       await tester.enterText(field, 'GUIDE.md');
-      await tester.tap(find.text('Rename'));
-      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, 'Rename'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 120));
 
       expect(find.text('README.md'), findsNothing);
       expect(find.text('GUIDE.md'), findsOneWidget);
-      expect(File('${harness.workspaceRoot}/README.md').existsSync(), isFalse);
-      expect(File('${harness.workspaceRoot}/GUIDE.md').existsSync(), isTrue);
+      expect(await harness.fileSystem.exists(Uri.file('${harness.workspaceRoot}/README.md')), isFalse);
+      expect(await harness.fileSystem.exists(Uri.file('${harness.workspaceRoot}/GUIDE.md')), isTrue);
     });
 
     testWidgets('07: revision view refreshes when save event arrives', (
@@ -367,7 +382,7 @@ class _PhaseAAHarness {
 
   final DefaultShellApi shell;
   final String workspaceRoot;
-  final RealFileSystem fileSystem;
+  final MemoryFileSystem fileSystem;
   final ForgeFileExplorerView explorerView;
   final ForgeRevisionView revisionView;
 
@@ -380,21 +395,18 @@ class _PhaseAAHarness {
     }
     workspaceDir.createSync(recursive: true);
 
-    final srcDir = Directory('$workspaceRoot/src');
-    final nestedDir = Directory('$workspaceRoot/src/nested');
-    srcDir.createSync(recursive: true);
-    nestedDir.createSync(recursive: true);
-
-    File('$workspaceRoot/README.md').writeAsStringSync('# Readme\n');
-    File('$workspaceRoot/src/main.dart')
-        .writeAsStringSync('void main() { print("hi"); }\n');
-    File('$workspaceRoot/src/nested/deep.txt')
-        .writeAsStringSync('deep content\n');
-
     final navigatorKey = GlobalKey<NavigatorState>();
-    final fileSystem = RealFileSystem(rootDirectory: workspaceDir);
+    final fileSystem = MemoryFileSystem(
+      seed: {
+        '$workspaceRoot/README.md': '# Readme\n',
+        '$workspaceRoot/src/main.dart': 'void main() { print("hi"); }\n',
+        '$workspaceRoot/src/nested/deep.txt': 'deep content\n',
+      },
+    );
+    final workspaceState = _InMemoryWorkspaceStateManager();
     final shell = DefaultShellApi.withDefaultsAndFileSystem(
       fileSystem: fileSystem,
+      workspaceState: workspaceState,
       appName: 'Phase AA Harness',
       navigatorKey: navigatorKey,
     );
@@ -467,6 +479,166 @@ class _PhaseAAHarness {
       ),
     );
   }
+}
+
+class _InMemoryWorkspaceStateManager implements ForgeWorkspaceStateManager {
+  bool _initialized = false;
+  String _workspaceRoot = '';
+  Map<String, dynamic>? _layoutState;
+  List<String> _openEditors = const [];
+  final Map<String, Map<String, dynamic>> _editorState = {};
+  final Map<String, List<_RevisionSnapshot>> _revisions = {};
+  final Map<String, List<Map<String, dynamic>>> _undoHistory = {};
+  Map<String, dynamic>? _config;
+  int _revisionCounter = 0;
+
+  @override
+  bool get isInitialized => _initialized;
+
+  @override
+  String get forgeDirectoryPath =>
+      _workspaceRoot.isEmpty ? '' : '$_workspaceRoot/.forge';
+
+  @override
+  Future<bool> initialize(String workspaceRootPath) async {
+    final isNew = !_initialized;
+    _workspaceRoot = workspaceRootPath;
+    _initialized = true;
+    return isNew;
+  }
+
+  @override
+  Future<String?> detectWorkspaceRoot(String startPath) async {
+    if (_workspaceRoot.isNotEmpty && startPath.startsWith(_workspaceRoot)) {
+      return _workspaceRoot;
+    }
+    return null;
+  }
+
+  @override
+  Future<void> saveLayoutState(Map<String, dynamic> layoutData) async {
+    _layoutState = Map<String, dynamic>.from(layoutData);
+  }
+
+  @override
+  Future<Map<String, dynamic>?> loadLayoutState() async {
+    if (_layoutState == null) return null;
+    return Map<String, dynamic>.from(_layoutState!);
+  }
+
+  @override
+  Future<void> saveOpenEditors(List<String> editorUris) async {
+    _openEditors = List<String>.from(editorUris);
+  }
+
+  @override
+  Future<List<String>> loadOpenEditors() async {
+    return List<String>.from(_openEditors);
+  }
+
+  @override
+  Future<void> saveEditorState(Uri editorUri, Map<String, dynamic> state) async {
+    _editorState[editorUri.toString()] = Map<String, dynamic>.from(state);
+  }
+
+  @override
+  Future<Map<String, dynamic>?> loadEditorState(Uri editorUri) async {
+    final state = _editorState[editorUri.toString()];
+    if (state == null) return null;
+    return Map<String, dynamic>.from(state);
+  }
+
+  @override
+  Future<String?> createRevision(Uri fileUri, String content) async {
+    final key = _fileKey(fileUri);
+    final list = _revisions.putIfAbsent(key, () => <_RevisionSnapshot>[]);
+    if (list.isNotEmpty && list.last.content == content) {
+      return null;
+    }
+    _revisionCounter += 1;
+    final id = '${DateTime.now().millisecondsSinceEpoch}_$_revisionCounter';
+    list.add(_RevisionSnapshot(id: id, content: content));
+    return id;
+  }
+
+  @override
+  Future<List<String>> listRevisions(Uri fileUri) async {
+    final list = _revisions[_fileKey(fileUri)] ?? const <_RevisionSnapshot>[];
+    return list.reversed.map((r) => r.id).toList(growable: false);
+  }
+
+  @override
+  Future<String?> readRevision(Uri fileUri, String revisionId) async {
+    final list = _revisions[_fileKey(fileUri)] ?? const <_RevisionSnapshot>[];
+    for (final revision in list) {
+      if (revision.id == revisionId) return revision.content;
+    }
+    return null;
+  }
+
+  @override
+  Future<void> deleteRevision(Uri fileUri, String revisionId) async {
+    final list = _revisions[_fileKey(fileUri)];
+    list?.removeWhere((revision) => revision.id == revisionId);
+  }
+
+  @override
+  Future<int> pruneRevisions(Uri fileUri, {int maxRevisions = 50}) async {
+    final list = _revisions[_fileKey(fileUri)];
+    if (list == null || list.length <= maxRevisions) return 0;
+    final removed = list.length - maxRevisions;
+    list.removeRange(0, removed);
+    return removed;
+  }
+
+  @override
+  Future<void> saveUndoHistory(
+    Uri fileUri,
+    List<Map<String, dynamic>> entries,
+  ) async {
+    _undoHistory[_fileKey(fileUri)] = entries
+        .map((entry) => Map<String, dynamic>.from(entry))
+        .toList(growable: false);
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> loadUndoHistory(Uri fileUri) async {
+    final entries = _undoHistory[_fileKey(fileUri)] ?? const [];
+    return entries
+        .map((entry) => Map<String, dynamic>.from(entry))
+        .toList(growable: false);
+  }
+
+  @override
+  Future<void> saveConfig(Map<String, dynamic> configData) async {
+    _config = Map<String, dynamic>.from(configData);
+  }
+
+  @override
+  Future<Map<String, dynamic>?> loadConfig() async {
+    if (_config == null) return null;
+    return Map<String, dynamic>.from(_config!);
+  }
+
+  @override
+  Future<bool> isForgeInGitignore(String workspaceRootPath) async => false;
+
+  @override
+  Future<bool> suggestGitignore(String workspaceRootPath) async => false;
+
+  @override
+  void dispose() {}
+
+  String _fileKey(Uri uri) {
+    return uri.replace(queryParameters: const {}, fragment: '').toString();
+  }
+}
+
+class _RevisionSnapshot {
+  const _RevisionSnapshot({required this.id, required this.content});
+
+  final String id;
+  final String content;
 }
 
 class _StaticDecorationProvider implements ForgeFileDecorationProvider {

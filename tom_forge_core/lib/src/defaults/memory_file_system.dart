@@ -188,7 +188,13 @@ class MemoryFileSystem implements ForgeFileSystem {
 
   @override
   Future<void> delete(Uri uri) async {
-    _files.remove(uri.path);
+    final key = uri.path;
+    final dirPrefix = key.endsWith('/') ? key : '$key/';
+    _files.remove(key);
+    final nested = _files.keys.where((p) => p.startsWith(dirPrefix)).toList();
+    for (final path in nested) {
+      _files.remove(path);
+    }
     _changeController.add(FileChangeEvent(
       uri: uri,
       type: FileChangeType.deleted,
@@ -196,13 +202,25 @@ class MemoryFileSystem implements ForgeFileSystem {
   }
 
   @override
-  Future<bool> exists(Uri uri) async => _files.containsKey(uri.path);
+  Future<bool> exists(Uri uri) async {
+    final key = uri.path;
+    if (_files.containsKey(key)) return true;
+    final dirPrefix = key.endsWith('/') ? key : '$key/';
+    return _files.keys.any((p) => p.startsWith(dirPrefix));
+  }
 
   @override
   Future<FileStat> stat(Uri uri) async {
     final bytes = _files[uri.path];
-    if (bytes == null) return MemoryFileStat(size: 0);
-    return MemoryFileStat(size: bytes.length);
+    if (bytes != null) {
+      return MemoryFileStat(size: bytes.length);
+    }
+    final key = uri.path;
+    final dirPrefix = key.endsWith('/') ? key : '$key/';
+    if (_files.keys.any((p) => p.startsWith(dirPrefix))) {
+      return MemoryFileStat(isDirectory: true);
+    }
+    return MemoryFileStat(size: 0);
   }
 
   @override
@@ -301,13 +319,50 @@ class MemoryFileSystem implements ForgeFileSystem {
           case ForgeRenameFileOperation(:final oldUri, :final newUri, :final overwrite):
             final oldKey = oldUri.path;
             final newKey = newUri.path;
-            if (!_files.containsKey(oldKey)) {
+
+            final hasFile = _files.containsKey(oldKey);
+            final oldPrefix = oldKey.endsWith('/') ? oldKey : '$oldKey/';
+            final nested = _files.keys
+                .where((p) => p.startsWith(oldPrefix))
+                .toList();
+
+            if (!hasFile && nested.isEmpty) {
               throw StateError('Source file not found: $oldKey');
             }
-            if (_files.containsKey(newKey) && !overwrite) {
-              throw StateError('Target file already exists: $newKey');
+
+            if (hasFile) {
+              if (_files.containsKey(newKey) && !overwrite) {
+                throw StateError('Target file already exists: $newKey');
+              }
+              if (overwrite) {
+                _files.remove(newKey);
+              }
+              _files[newKey] = _files.remove(oldKey)!;
+            } else {
+              final newPrefix = newKey.endsWith('/') ? newKey : '$newKey/';
+              if (!overwrite) {
+                final conflict = _files.containsKey(newKey) ||
+                    _files.keys.any((p) => p.startsWith(newPrefix));
+                if (conflict) {
+                  throw StateError('Target file already exists: $newKey');
+                }
+              } else {
+                _files.remove(newKey);
+                final conflicts = _files.keys
+                    .where((p) => p.startsWith(newPrefix))
+                    .toList();
+                for (final path in conflicts) {
+                  _files.remove(path);
+                }
+              }
+
+              for (final oldPath in nested) {
+                final suffix = oldPath.substring(oldPrefix.length);
+                final mappedPath = '$newPrefix$suffix';
+                _files[mappedPath] = _files.remove(oldPath)!;
+              }
             }
-            _files[newKey] = _files.remove(oldKey)!;
+
             renamedPaths.add((oldKey, newKey));
             _changeController.add(FileChangeEvent(
               uri: newUri,

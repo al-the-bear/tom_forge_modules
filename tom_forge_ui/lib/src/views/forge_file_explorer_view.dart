@@ -1,14 +1,14 @@
 import 'dart:async';
-import 'dart:io' show Directory, File, FileSystemEntity;
+import 'dart:io' show Directory, FileSystemEntity, FileSystemEntityType;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:tom_forge_core/tom_forge_core.dart';
 
 import '../components/forge_component.dart';
 import '../components/forge_view.dart';
 import '../defaults/default_system_state.dart';
 import '../defaults/stub_services.dart';
-import '../services/forge_file_system.dart';
 import '../shell/forge_layout_controller.dart';
 
 /// File explorer tree view.
@@ -245,7 +245,7 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
 
   Widget _buildEntry(BuildContext context, FileSystemEntity entry, int depth) {
     final theme = Theme.of(context);
-    final isDirectory = entry is Directory;
+    final isDirectory = _isDirectoryEntry(entry);
     final path = entry.path;
     final name = _nameForPath(path);
     final isExpanded = _expandedDirs.contains(path);
@@ -272,97 +272,96 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
               widget.systemState?.setHoveredExplorerItem(null);
             }
           },
-          child: GestureDetector(
+          child: InkWell(
+            key: ValueKey<String>('forge-explorer-entry:$path'),
+            onTap: () async {
+              setState(() => _selectedUri = entryUri);
+              widget.systemState?.setSelectedExplorerItems([entryUri]);
+              if (isDirectory) {
+                await _toggleDirectory(path, isExpanded);
+              }
+            },
             onDoubleTap: () {
               if (!isDirectory) {
                 widget.layoutController.openFile(entryUri);
               }
             },
-            onSecondaryTapUp: (details) {
+            onSecondaryTapDown: (details) {
               _showContextMenu(context, details.globalPosition, entry);
             },
-            child: InkWell(
-              onTap: () async {
-                setState(() => _selectedUri = entryUri);
-                widget.systemState?.setSelectedExplorerItems([entryUri]);
-                if (isDirectory) {
-                  await _toggleDirectory(path, isExpanded);
-                }
-              },
-              child: Container(
-                color: isSelected
-                    ? theme.colorScheme.primary.withValues(alpha: 0.15)
-                    : isHovered
-                        ? theme.colorScheme.onSurface.withValues(alpha: 0.05)
-                        : null,
-                padding: EdgeInsets.only(
-                    left: 8.0 + depth * 16.0, top: 2, bottom: 2),
-                child: Row(
-                  children: [
-                    if (isDirectory)
-                      Icon(
-                        isExpanded
-                            ? Icons.keyboard_arrow_down
-                            : Icons.chevron_right,
-                        size: 16,
-                      )
-                    else
-                      const SizedBox(width: 16),
-                    const SizedBox(width: 2),
+            child: Container(
+              color: isSelected
+                  ? theme.colorScheme.primary.withValues(alpha: 0.15)
+                  : isHovered
+                      ? theme.colorScheme.onSurface.withValues(alpha: 0.05)
+                      : null,
+              padding:
+                  EdgeInsets.only(left: 8.0 + depth * 16.0, top: 2, bottom: 2),
+              child: Row(
+                children: [
+                  if (isDirectory)
                     Icon(
-                      isDirectory
-                          ? (isExpanded
-                              ? Icons.folder_open_outlined
-                              : Icons.folder_outlined)
-                          : _iconForExtension(name),
+                      isExpanded
+                          ? Icons.keyboard_arrow_down
+                          : Icons.chevron_right,
                       size: 16,
-                      color: decoration?.color ??
-                          (isDirectory
-                              ? Colors.amber
-                              : theme.colorScheme.onSurface),
+                    )
+                  else
+                    const SizedBox(width: 16),
+                  const SizedBox(width: 2),
+                  Icon(
+                    isDirectory
+                        ? (isExpanded
+                            ? Icons.folder_open_outlined
+                            : Icons.folder_outlined)
+                        : _iconForExtension(name),
+                    size: 16,
+                    color: decoration?.color ??
+                        (isDirectory
+                            ? Colors.amber
+                            : theme.colorScheme.onSurface),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      name,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: decoration?.color,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        name,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: decoration?.color,
+                  ),
+                  if (decoration?.badge != null)
+                    Tooltip(
+                      message: decoration!.tooltip ?? '',
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 4, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: (decoration.color ?? theme.colorScheme.primary)
+                              .withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(3),
                         ),
-                        overflow: TextOverflow.ellipsis,
+                        child: Text(
+                          decoration.badge!,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            fontSize: 9,
+                            color: decoration.color,
+                          ),
+                        ),
                       ),
                     ),
-                    if (decoration?.badge != null)
-                      Tooltip(
-                        message: decoration!.tooltip ?? '',
-                        child: Container(
-                          margin: const EdgeInsets.only(right: 4),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 4, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: (decoration.color ?? theme.colorScheme.primary)
-                                .withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                          child: Text(
-                            decoration.badge!,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              fontSize: 9,
-                              color: decoration.color,
-                            ),
-                          ),
-                        ),
+                  if (isDirectory && isLoading)
+                    SizedBox(
+                      width: 12,
+                      height: 12,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 1.5,
+                        color: theme.colorScheme.primary,
                       ),
-                    if (isDirectory && isLoading)
-                      SizedBox(
-                        width: 12,
-                        height: 12,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 1.5,
-                          color: theme.colorScheme.primary,
-                        ),
-                      ),
-                  ],
-                ),
+                    ),
+                ],
               ),
             ),
           ),
@@ -379,7 +378,7 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
     Offset position,
     FileSystemEntity entry,
   ) {
-    final isDirectory = entry is Directory;
+    final isDirectory = _isDirectoryEntry(entry);
     final entryUri = Uri.file(entry.path);
     showMenu<String>(
       context: context,
@@ -450,11 +449,16 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
     try {
       final parentDir = _parentPath(entry.path);
       final newPath = '$parentDir/$newName';
-      if (entry is Directory) {
-        await Directory(entry.path).rename(newPath);
-      } else {
-        await File(entry.path).rename(newPath);
-      }
+      await widget.fileSystem.applyWorkspaceEdit(
+        ForgeWorkspaceEdit(
+          fileOperations: [
+            ForgeRenameFileOperation(
+              oldUri: Uri.file(entry.path),
+              newUri: Uri.file(newPath),
+            ),
+          ],
+        ),
+      );
       await _loadEntries();
       // Reload affected directory children.
       if (_directoryChildren.containsKey(parentDir)) {
@@ -603,14 +607,22 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
   List<FileSystemEntity> _sortEntries(List<FileSystemEntity> entries) {
     final sorted = List<FileSystemEntity>.of(entries);
     sorted.sort((a, b) {
-      final aIsDir = a is Directory;
-      final bIsDir = b is Directory;
+      final aIsDir = _isDirectoryEntry(a);
+      final bIsDir = _isDirectoryEntry(b);
       if (aIsDir != bIsDir) {
         return aIsDir ? -1 : 1;
       }
       return _nameForPath(a.path).compareTo(_nameForPath(b.path));
     });
     return sorted;
+  }
+
+  bool _isDirectoryEntry(FileSystemEntity entry) {
+    try {
+      return entry.statSync().type == FileSystemEntityType.directory;
+    } catch (_) {
+      return false;
+    }
   }
 
   String _nameForPath(String path) {

@@ -327,8 +327,30 @@ class RealFileSystem implements ForgeFileSystem {
             if (await exists(newUri) && !overwrite) {
               throw StateError('Target file already exists: ${newUri.toFilePath()}');
             }
-            final file = File(oldUri.toFilePath());
-            await file.rename(newUri.toFilePath());
+
+            final oldPath = oldUri.toFilePath();
+            final newPath = newUri.toFilePath();
+            final oldFile = File(oldPath);
+            final oldDir = Directory(oldPath);
+            final targetFile = File(newPath);
+            final targetDir = Directory(newPath);
+
+            if (overwrite) {
+              if (await targetFile.exists()) {
+                await targetFile.delete();
+              } else if (await targetDir.exists()) {
+                await targetDir.delete(recursive: true);
+              }
+            }
+
+            if (await oldFile.exists()) {
+              await oldFile.rename(newPath);
+            } else if (await oldDir.exists()) {
+              await oldDir.rename(newPath);
+            } else {
+              throw StateError('Source path not found: $oldPath');
+            }
+
             renamedFiles.add((oldUri, newUri));
             _changeController.add(FileChangeEvent(
               uri: newUri,
