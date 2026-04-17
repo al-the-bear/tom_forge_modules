@@ -137,6 +137,11 @@ class ForgeShellScaffold extends StatefulWidget {
   /// The parent widget should handle rebuilding the scaffold with the new application.
   final void Function(ForgeApplication)? onApplicationSwitch;
 
+  /// Callback invoked when the user selects File > Open Folder.
+  /// The selected [Directory] is passed to the callback so the parent can
+  /// reinitialise the workspace. When null, the action is a no-op.
+  final void Function(Directory)? onOpenFolder;
+
   const ForgeShellScaffold({
     super.key,
     required this.shell,
@@ -147,6 +152,7 @@ class ForgeShellScaffold extends StatefulWidget {
     required this.notificationManager,
     this.preferencesService,
     this.onApplicationSwitch,
+    this.onOpenFolder,
   });
 
   @override
@@ -1512,6 +1518,22 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       },
       isEnabled: () => widget.systemState.activeEditor != null,
     );
+    overrideAction(
+      'file.openFolder',
+      'Open Folder...',
+      () {
+        // ignore: discarded_futures
+        _handleOpenFolder();
+      },
+    );
+  }
+
+  Future<void> _handleOpenFolder() async {
+    final result = await FilePicker.platform.getDirectoryPath(
+      dialogTitle: 'Open Workspace Folder',
+    );
+    if (result == null || !mounted) return;
+    widget.onOpenFolder?.call(Directory(result));
   }
 
   /// Subscribes to the active editor's [onStateChanged] stream so the
