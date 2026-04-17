@@ -1500,6 +1500,18 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       'Save All',
       () => _saveAllDirtyEditors(),
     );
+    overrideAction(
+      'file.close',
+      'Close Editor',
+      () {
+        final editor = widget.systemState.activeEditor;
+        if (editor != null && mounted) {
+          // ignore: discarded_futures
+          _handleCloseEditor(editor);
+        }
+      },
+      isEnabled: () => widget.systemState.activeEditor != null,
+    );
   }
 
   /// Subscribes to the active editor's [onStateChanged] stream so the
