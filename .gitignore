@@ -7,4 +7,4 @@ pubspec.lock
 .vscode/
 *.g.dart
 .forge/
-tom_forge_app/assets/*.sum
+
