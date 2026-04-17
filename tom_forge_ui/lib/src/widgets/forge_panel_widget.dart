@@ -2057,22 +2057,31 @@ class _ForgePanelWidgetState extends State<ForgePanelWidget> {
               : theme.colorScheme.surface,
           child: Row(
             children: [
-              for (var i = 0; i < widget.tabs.length; i++)
-                Draggable<PanelTabDragData>(
-                  data: PanelTabDragData(
-                    title: widget.tabs[i].title,
-                    tabIndex: i,
-                    sourceArea: widget.panelArea,
-                    sections: widget.tabs[i].sections,
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (var i = 0; i < widget.tabs.length; i++)
+                        Draggable<PanelTabDragData>(
+                          data: PanelTabDragData(
+                            title: widget.tabs[i].title,
+                            tabIndex: i,
+                            sourceArea: widget.panelArea,
+                            sections: widget.tabs[i].sections,
+                          ),
+                          feedback: _buildHorizTabDragFeedback(context, widget.tabs[i]),
+                          childWhenDragging: Opacity(
+                            opacity: 0.35,
+                            child: _buildHorizontalTab(context, i, widget.tabs[i]),
+                          ),
+                          child: _buildHorizontalTab(context, i, widget.tabs[i]),
+                        ),
+                    ],
                   ),
-                  feedback: _buildHorizTabDragFeedback(context, widget.tabs[i]),
-                  childWhenDragging: Opacity(
-                    opacity: 0.35,
-                    child: _buildHorizontalTab(context, i, widget.tabs[i]),
-                  ),
-                  child: _buildHorizontalTab(context, i, widget.tabs[i]),
                 ),
-              const Spacer(),
+              ),
               // Add tab button
               IconButton(
                 icon: const Icon(Icons.add, size: 16),

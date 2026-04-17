@@ -134,7 +134,21 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
   /// Scroll the heading for [section] to the top of the preview viewport.
   void _scrollToSection(MdSection section) {
     try {
-      final targetKey = ValueKey(_headingKeyFor(section.level, section.headline));
+      // Compute ordinal: position of this section among all same-level
+      // headings so the key matches the _HeadingBuilder ordinal counter.
+      final allSections = widget.controller.document.allSections;
+      var ordinal = 0;
+      for (final s in allSections) {
+        if (s.level == section.level) {
+          if (identical(s, section) ||
+              (s.headline.trim() == section.headline.trim() &&
+               s.sourceLineStart == section.sourceLineStart)) {
+            break;
+          }
+          ordinal++;
+        }
+      }
+      final targetKey = ValueKey('${section.level}:$ordinal:${section.headline.trim()}');
       BuildContext? headingCtx;
       void search(Element element) {
         if (headingCtx != null) return;
@@ -156,9 +170,6 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
       MdEditorDebug.logger.error('Error scrolling to section', e, st);
     }
   }
-
-  String _headingKeyFor(int level, String headline) =>
-      '$level:${headline.trim()}';
 
   @override
   Widget build(BuildContext context) {
@@ -1816,6 +1827,9 @@ class _HeadingBuilder extends MarkdownElementBuilder {
   final void Function(Offset position, int level, String text) onContextMenu;
   final List<ValidationError> Function(MdSection section) getValidationErrors;
 
+  /// Per-build ordinal counter to disambiguate headings with identical text.
+  int _ordinal = 0;
+
   /// Regex to strip ALL HTML comments from rendered heading text.
   static final _htmlCommentRegex = RegExp(r'<!--[\s\S]*?-->');
 
@@ -1864,7 +1878,8 @@ class _HeadingBuilder extends MarkdownElementBuilder {
     final sectionId = section?.id;
 
     final headingStyle = preferredStyle ?? theme.headingStyle(level);
-    final headingKey = ValueKey('$level:${headline.trim()}');
+    final currentOrdinal = _ordinal++;
+    final headingKey = ValueKey('$level:$currentOrdinal:${headline.trim()}');
     final commentMeta = section?.commentMetadata ?? const {};
 
     // Use ValueKey (not GlobalKey) to avoid duplicate-key crashes
