@@ -2194,6 +2194,21 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   List<PlatformMenuItem> _buildPlatformMenus() {
     return [
       PlatformMenu(
+        label: widget.application.title,
+        menus: [
+          PlatformMenuItemGroup(members: [
+            const PlatformProvidedMenuItem(
+              type: PlatformProvidedMenuItemType.about,
+            ),
+          ]),
+          PlatformMenuItemGroup(members: [
+            const PlatformProvidedMenuItem(
+              type: PlatformProvidedMenuItemType.quit,
+            ),
+          ]),
+        ],
+      ),
+      PlatformMenu(
         label: 'File',
         menus: [
           PlatformMenuItemGroup(members: [
