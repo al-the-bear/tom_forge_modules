@@ -8,3 +8,4 @@ pubspec.lock
 *.g.dart
 .forge/
 
+ztmp/
