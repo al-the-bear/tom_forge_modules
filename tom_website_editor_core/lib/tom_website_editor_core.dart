@@ -14,3 +14,4 @@ export 'src/config/field_spec.dart';
 export 'src/model/website_editor_config.dart';
 export 'src/placeholder/placeholder_exception.dart';
 export 'src/placeholder/placeholder_resolver.dart';
+export 'src/registry/website_registry.dart';
