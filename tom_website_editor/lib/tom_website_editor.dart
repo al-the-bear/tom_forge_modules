@@ -9,3 +9,5 @@ library;
 export 'src/website_config_panel.dart';
 export 'src/website_editor_controller.dart';
 export 'src/website_editor_module.dart';
+export 'src/website_preview_controller.dart';
+export 'src/website_preview_view.dart';

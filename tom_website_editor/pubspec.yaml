@@ -15,6 +15,10 @@ dependencies:
     path: ../tom_website_editor_core
   tom_forge_ui:
     path: ../tom_forge_ui
+  # Vendored fork consumed via path across the monorepo (same as
+  # tom_editors_shared); powers the embedded website preview webview (§4).
+  flutter_inappwebview:
+    path: ../../tom_ai/xternal/tom_flutter_inappwebview/flutter_inappwebview
 
 dev_dependencies:
   flutter_test:

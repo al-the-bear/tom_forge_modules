@@ -6,6 +6,8 @@ import 'package:tom_forge_ui/tom_forge_ui.dart';
 
 import 'website_config_panel.dart';
 import 'website_editor_controller.dart';
+import 'website_preview_controller.dart';
+import 'website_preview_view.dart';
 
 /// Forge module that loads `tom.website-editor.yaml` and contributes the
 /// website selection / reload config panel (§9.2).
@@ -16,9 +18,9 @@ import 'website_editor_controller.dart';
 /// at the workspace root, wires the controller's reader to the shell file
 /// system, and kicks off the initial load.
 ///
-/// The preview view (§9.3), control view (§9.4), and the dedicated
-/// `WebsiteConfigEditor` (§6) are added in later steps; this module already
-/// exposes the [controller] they will share.
+/// The preview view (§9.3) is contributed here on the shared [controller]. The
+/// control view (§9.4) and the dedicated `WebsiteConfigEditor` (§6) are added in
+/// later steps.
 class WebsiteEditorModule extends ForgeModule {
   WebsiteEditorModule({this.configFileName = 'tom.website-editor.yaml'});
 
@@ -26,6 +28,8 @@ class WebsiteEditorModule extends ForgeModule {
   final String configFileName;
 
   WebsiteEditorController? _controller;
+  WebsitePreviewController? _previewController;
+  WebsitePreviewView? _previewView;
 
   /// The active controller, available after [activate].
   WebsiteEditorController? get controller => _controller;
@@ -40,11 +44,17 @@ class WebsiteEditorModule extends ForgeModule {
       configReader: () => shell.fileSystem.read(configUri),
     );
     _controller = controller;
+    final previewController = WebsitePreviewController(editor: controller);
+    _previewController = previewController;
+    _previewView = WebsitePreviewView(controller: previewController);
     unawaited(controller.load());
   }
 
   @override
   void deactivate() {
+    _previewView = null;
+    _previewController?.dispose();
+    _previewController = null;
     _controller?.dispose();
     _controller = null;
   }
@@ -58,7 +68,10 @@ class WebsiteEditorModule extends ForgeModule {
   List<ForgeEditor> get editors => const [];
 
   @override
-  List<ForgeView> get views => const [];
+  List<ForgeView> get views {
+    final view = _previewView;
+    return view == null ? const [] : [view];
+  }
 
   @override
   List<ForgeAction> get actions => const [];
