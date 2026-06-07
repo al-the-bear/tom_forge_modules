@@ -69,9 +69,29 @@ const ObjectSpec _websiteSpec = ObjectSpec(
       StringSpec(),
       description: 'Action name → external command template (§7 contract).',
     ),
-    // §6a content block — kept optional and lenient until that step pins it.
-    'content': AnySpec(
-        description: 'Optional content-browser configuration (§6a).'),
+    'content': _contentSpec,
+  },
+);
+
+/// The per-website `content:` block (§6a). Optional; when present, `dir` is the
+/// only required key — the rest fall back to the conventional defaults.
+const ObjectSpec _contentSpec = ObjectSpec(
+  description: 'Content-browser configuration (§6a). Omit to disable it.',
+  required: {'dir'},
+  properties: {
+    'dir': StringSpec(
+        description: 'Root of the content tree (placeholder-expanded).'),
+    'components': StringSpec(
+        description: 'Glob (relative to dir) for catalog records.'),
+    'site': StringSpec(description: 'Site-level copy file, relative to dir.'),
+    'pages': StringSpec(
+        description: 'Glob (relative to dir) for standalone pages.'),
+    'editableFields': ListSpec(
+      StringSpec(),
+      description: 'Curated, hand-editable field names; the rest are managed.',
+    ),
+    'manualPin': StringSpec(
+        description: 'YAML comment that pins a managed field (e.g. "# @manual").'),
   },
 );
 

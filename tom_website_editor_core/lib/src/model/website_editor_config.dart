@@ -51,6 +51,7 @@ class WebsiteEntry {
     this.preview = const {},
     this.cwd,
     this.commands = const {},
+    this.content,
   });
 
   /// Unique website identifier.
@@ -70,4 +71,66 @@ class WebsiteEntry {
 
   /// Action name → external command template (§7 contract).
   final Map<String, String> commands;
+
+  /// Content-browser configuration (§6a), or `null` when this website opts out
+  /// (in which case the content browser is disabled for it).
+  final WebsiteContentConfig? content;
 }
+
+/// The per-website `content:` block (§6a) — where the data-model files live and
+/// which fields are hand-editable. When absent the content browser is disabled.
+///
+/// All paths are raw templates: [dir] is placeholder-expanded, and [components]
+/// / [site] / [pages] are resolved relative to the expanded [dir].
+class WebsiteContentConfig {
+  const WebsiteContentConfig({
+    required this.dir,
+    this.components = kDefaultContentComponents,
+    this.site = kDefaultContentSite,
+    this.pages = kDefaultContentPages,
+    this.editableFields = kDefaultEditableFields,
+    this.manualPin = kDefaultManualPin,
+  });
+
+  /// Root of the website's content tree (placeholder-expanded).
+  final String dir;
+
+  /// Glob (relative to [dir]) for catalog records: component → module →
+  /// optional submodule.
+  final String components;
+
+  /// Site-level copy file, relative to [dir].
+  final String site;
+
+  /// Glob (relative to [dir]) for standalone pages with override/managed
+  /// regions.
+  final String pages;
+
+  /// Curated field names that are hand-editable; every other field is managed
+  /// (read-only) unless it carries the [manualPin].
+  final List<String> editableFields;
+
+  /// The YAML comment that pins a managed field so manual edits survive
+  /// regeneration (e.g. `# @manual`).
+  final String manualPin;
+}
+
+/// Default [WebsiteContentConfig.components] glob.
+const String kDefaultContentComponents = 'components/*.yaml';
+
+/// Default [WebsiteContentConfig.site] file.
+const String kDefaultContentSite = 'site.yaml';
+
+/// Default [WebsiteContentConfig.pages] glob.
+const String kDefaultContentPages = 'pages/*.md';
+
+/// Default [WebsiteContentConfig.editableFields] (§2 / §6a curated copy).
+const List<String> kDefaultEditableFields = [
+  'tagline',
+  'summary-md',
+  'overview-md',
+  'enables',
+];
+
+/// Default [WebsiteContentConfig.manualPin].
+const String kDefaultManualPin = '# @manual';

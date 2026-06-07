@@ -5,10 +5,10 @@ wraps the pure-Dart [`tom_website_editor_core`](../tom_website_editor_core)
 (config + placeholders + registry) in a [`ForgeModule`] that contributes the
 active-website selection / reload config panel to the forge shell.
 
-This package implements **steps 2, 3, 4 and 5** (§9.2, §9.3, §9.4, §9.5) of the
-implementation plan in `tom_website_editor_specification.md`. The dedicated
-`WebsiteConfigEditor` (§6) is added in a later step; it builds on the shared
-`WebsiteEditorController` this module exposes.
+This package implements **steps 2, 3, 4, 5 and 6** (§9.2, §9.3, §9.4, §9.5,
+§9.6 / §6a) of the implementation plan in `tom_website_editor_specification.md`.
+The dedicated `WebsiteConfigEditor` (§6) is added in a later step; it builds on
+the shared `WebsiteEditorController` this module exposes.
 
 ## What it provides
 
@@ -22,6 +22,9 @@ implementation plan in `tom_website_editor_specification.md`. The dedicated
 | `WebsiteControlController` | `ChangeNotifier` wrapping the editor controller: renders one action button per configured command (§7), expands the command + `cwd` via the placeholder resolver, spawns the external process through an injected `WebsiteProcessRunner`, streams stdout→info / stderr→warning into a levelled log, and maps the exit code via the §7 taxonomy. |
 | `WebsiteControlView` | `ForgeView` (the control panel, §5) rendering the command buttons, a filterable message log with pinned errors, a website picker, and a status line (active website, error/warning counts, last-run time). |
 | `WebsiteProcessRunner` | Injectable seam (`WebsiteCommandSpec` → `WebsiteProcessHandle`) for spawning commands. The `DartIoWebsiteProcessRunner` default uses `Process.start`; tests inject a fake that replays output + an exit code. |
+| `WebsiteContentController` | `ChangeNotifier` wrapping the editor controller: builds the §6a content catalog (component → module → optional submodule, plus `site.yaml` and `pages/`) from the active website's `content:` block through the injectable `WebsiteContentFs` seam, classifies each field managed vs editable, writes `# @manual` pins back to disk, and disables itself for websites without a `content:` block. |
+| `WebsiteContentBrowser` | `ForgeView` (the content browser, §6a): the catalog tree on the left and a field/page detail pane on the right. Managed fields are read-only/badged with a pin affordance; curated / pinned fields route to the inline editor named by their typed suffix (`-md` → Markdown, `-json` → JSON, else plain string). |
+| `WebsiteContentFs` / `ForgeContentFs` | Narrow file-system seam (list/read/write/exists) for the content layer; `ForgeContentFs` adapts the shell's `ForgeFileSystem`, while tests inject an in-memory fake. |
 
 ## Architecture
 
@@ -136,6 +139,80 @@ button while running) instead of the generic command button.
   forge spawn service (so the shell's execution monitor reflects website runs) is
   deferred. Tracked in `completion_steps.tom_forge.md`.
 
+## Content browser + manual-copy editors (§6a)
+
+The content browser surfaces the website's **data model** — its catalog of
+component records and standalone pages — so hand-owned copy can be edited
+without touching the generator's output. Reading and writing these YAML/MD data
+files is plain file I/O (allowed by §1's process-only rule, which only forbids
+linking the website's *Dart code*).
+
+A website opts in with a `content:` block in `tom.website-editor.yaml`:
+
+```yaml
+content:
+  dir:            "{websiteRoot}/content"   # placeholder-expanded root
+  components:     "components/*.yaml"        # glob, relative to dir
+  site:           "site.yaml"               # relative to dir
+  pages:          "pages/*.md"              # glob, relative to dir
+  editableFields: [tagline, summary-md, overview-md, enables]
+  manualPin:      "# @manual"
+```
+
+When the block is **absent** the browser is **disabled** for that website
+(`WebsiteContentController.isEnabled == false`) and the view shows a disabled
+state.
+
+**Catalog tree.** Each `components/*.yaml` file is parsed into a record tree —
+component → `modules:` → optional `submodules:` — rendered on the left alongside
+`site.yaml` and each page. `WebsiteContentController.refresh()` rebuilds the
+tree from disk; the module also refreshes it when the active website changes.
+The `dir` template is placeholder-expanded via `PlaceholderResolver`; a
+resolution failure surfaces as an inline error (with the offending token), never
+a silent blank tree.
+
+**Managed vs editable fields.** A field is **editable** when its name is one of
+the website's curated `editableFields` (`tagline` / `summary-md` / `overview-md`
+/ `enables`) **or** it carries the `# @manual` pin; every other field is
+**generator-managed** and shown read-only with a badge. Editable fields route to
+the inline editor named by their **typed suffix** (enterprise spec §4.1): a
+`-md` field opens the Markdown editor, a `-json` field the JSON editor, anything
+else a plain string field.
+
+**Pinning.** Editing a managed field is opt-in: the detail pane offers a **Pin**
+action that appends the configured `manualPin` comment to the field's source
+line (`pinFieldLine`) and writes the file back. Because the pin is a real YAML
+trailing comment, the manual edit **survives the next `generateContent`** — on
+the next refresh the field is re-classified as editable. Pin detection is
+**span-precise**: each key's source line is read from the raw YAML, so the pin
+is recognised even on block scalars and nested module fields.
+
+**Pages.** Standalone `pages/*.md` use `@tom:override` / `@tom:managed`
+insert-marker regions: `ContentPage.parse` splits a page into regions, exposes
+the editable (override) bodies, and `serialize()` reproduces the source exactly,
+so generated regions and the markers themselves are never disturbed when an
+override region is edited.
+
+### Deferred (gated on enterprise_flutter_web)
+
+- **Live component field set.** The authoritative curated-field list and the
+  exact component-YAML shape live in the website's
+  `module_and_component_web_information.md`, which is not present in this
+  checkout. The browser is built generically against the §2 defaults and
+  fixtures; reconciling the precise field set is deferred to §9.7. Tracked in
+  `completion_steps.tom_forge.md`.
+- **Exact page-region grammar.** The precise `@tom:override` / `@tom:managed`
+  marker grammar lives in the website's spec (enterprise §6.2), absent here. The
+  region classifier is injectable (`PageMarkerClassifier`) so the exact form can
+  be supplied without touching the region model; confirming it is deferred to
+  §9.7. Tracked in `completion_steps.tom_forge.md`.
+- **Rich inline-editor embedding + value write-back.** Editable fields render in
+  the correct inline editor *by kind* now; binding `tom_yaml_editor`'s
+  `YamlSchemaEditor` (record editing, against the live component JSON Schema) and
+  `tom_md_editor` (page override regions) for two-way value persistence is
+  reconciled in §9.7, where the live schema lands. Tracked in
+  `completion_steps.tom_forge.md`.
+
 ## Reload contract (§6)
 
 `reload()` re-reads the config source and applies it. On **valid** source the
@@ -174,3 +251,14 @@ flutter test
   no-serveStart error, stop/kill, single-spawn, restart, self-exit clearing,
   auto-refresh on matching stdout, output→log levels, default matcher
   (TWE-SRV-01..11).
+- `test/content/content_model_test.dart` — typed-suffix editor routing, record
+  tree parsing, field classification (managed/editable/pinned), span-precise
+  `# @manual` read + `pinFieldLine` write, and the override/managed page-region
+  round-trip (TWE-MODEL-01..05).
+- `test/content/website_content_controller_test.dart` — catalog build (component
+  → module → submodule, incl. a module with and without submodules), site/pages
+  discovery, pin-writes-to-disk + re-parse, disabled-without-content, refresh
+  reload, placeholder-failure surfacing (TWE-CTRL-01..05).
+- `test/content/website_content_browser_test.dart` — disabled state, tree
+  render, managed pin button vs editable field, pin writes the pin, typed
+  inline-editor routing (TWE-BROWSE-01..05).

@@ -79,6 +79,22 @@ WebsiteEntry _buildWebsite(Map<dynamic, dynamic> raw) {
     preview: _stringMap(raw['preview']),
     cwd: raw['cwd'] as String?,
     commands: _stringMap(raw['commands']),
+    content: _buildContent(raw['content']),
+  );
+}
+
+WebsiteContentConfig? _buildContent(Object? raw) {
+  if (raw is! Map) return null;
+  return WebsiteContentConfig(
+    dir: raw['dir'] as String,
+    components:
+        raw['components'] as String? ?? kDefaultContentComponents,
+    site: raw['site'] as String? ?? kDefaultContentSite,
+    pages: raw['pages'] as String? ?? kDefaultContentPages,
+    editableFields: raw.containsKey('editableFields')
+        ? toStringList(raw['editableFields'])
+        : kDefaultEditableFields,
+    manualPin: raw['manualPin'] as String? ?? kDefaultManualPin,
   );
 }
 

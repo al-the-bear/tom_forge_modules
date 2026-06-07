@@ -19,6 +19,9 @@ dependencies:
   # tom_editors_shared); powers the embedded website preview webview (§4).
   flutter_inappwebview:
     path: ../../tom_ai/xternal/tom_flutter_inappwebview/flutter_inappwebview
+  # Span-precise YAML parsing for the §6a content browser: key spans locate each
+  # field's source line so `# @manual` pins can be read + written exactly.
+  yaml: ^3.1.2
 
 dev_dependencies:
   flutter_test:
