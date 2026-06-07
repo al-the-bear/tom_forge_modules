@@ -1,6 +1,8 @@
 // WebsiteControlView — the control panel (§5): one button per configured
 // command, a levelled/filterable message log, and a status line. The view holds
 // no state; it renders the [WebsiteControlController] and drives it on tap.
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_website_editor/tom_website_editor.dart';
@@ -18,6 +20,7 @@ websites:
     commands:
       generateAll: "dart run tool/gen_all.dart"
       build: "jaspr build"
+      serveStart: "jaspr serve"
   - id: beta
     label: Beta
     paths:
@@ -54,7 +57,34 @@ class _FakeRunner implements WebsiteProcessRunner {
   }
 }
 
-Future<WebsiteControlController> _loadedController(_FakeRunner runner) async {
+/// A long-lived handle whose exit is gated by the test — needed for the
+/// dev-server toggle, where the process must stay "running" after the tap.
+class _GatedHandle implements WebsiteProcessHandle {
+  final _exit = Completer<int>();
+  @override
+  Stream<WebsiteProcessLine> get output => const Stream.empty();
+  @override
+  Future<int> get exitCode => _exit.future;
+  @override
+  Future<void> kill() async {
+    if (!_exit.isCompleted) _exit.complete(0);
+  }
+}
+
+class _GatedRunner implements WebsiteProcessRunner {
+  final List<WebsiteCommandSpec> specs = [];
+  final List<_GatedHandle> handles = [];
+  @override
+  WebsiteProcessHandle start(WebsiteCommandSpec spec) {
+    specs.add(spec);
+    final handle = _GatedHandle();
+    handles.add(handle);
+    return handle;
+  }
+}
+
+Future<WebsiteControlController> _loadedController(
+    WebsiteProcessRunner runner) async {
   final editor = WebsiteEditorController(configReader: _StubReader(_config).read);
   await editor.load();
   return WebsiteControlController(editor: editor, runner: runner);
@@ -162,5 +192,34 @@ void main() {
 
     expect(find.textContaining('failed (exit 1)'), findsOneWidget);
     expect(find.textContaining('completed'), findsNothing);
+  });
+
+  testWidgets('TWE-CTRLV-08: dev-server button toggles start → stop + status',
+      (tester) async {
+    final runner = _GatedRunner();
+    final controller = await _loadedController(runner);
+    await _pump(tester, WebsiteControlView(controller: controller));
+
+    // Before starting: the toggle reads "Start dev server" and status is stopped.
+    expect(find.widgetWithText(ElevatedButton, 'Start dev server'),
+        findsOneWidget);
+    expect(find.textContaining('server: stopped'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Start dev server'));
+    await tester.pumpAndSettle();
+
+    // The server stays running (gated handle): the toggle flips and the status
+    // line + restart control reflect the running server.
+    expect(controller.isServerRunning, isTrue);
+    expect(runner.specs.single.display, 'jaspr serve');
+    expect(find.widgetWithText(ElevatedButton, 'Stop dev server'),
+        findsOneWidget);
+    expect(find.textContaining('server: running'), findsOneWidget);
+    expect(find.byTooltip('Restart dev server'), findsOneWidget);
+
+    // Stop it again so the controller's supervisor future settles cleanly.
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Stop dev server'));
+    await tester.pumpAndSettle();
+    expect(controller.isServerRunning, isFalse);
   });
 }

@@ -141,24 +141,57 @@ class _ControlContentState extends State<_ControlContent> {
       child: Wrap(
         spacing: 8,
         runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           for (final button in controller.buttons)
-            ElevatedButton.icon(
-              icon: button.isRunning
-                  ? const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.play_arrow, size: 16),
-              label: Text(button.label),
-              onPressed: button.isAvailable && !button.isRunning
-                  ? () => controller.runCommand(button.name)
-                  : null,
-            ),
+            if (button.name == WebsiteControlController.serveCommand)
+              ..._buildServerControls(button)
+            else
+              _buildCommandButton(button),
         ],
       ),
     );
+  }
+
+  Widget _buildCommandButton(WebsiteCommandButton button) {
+    final controller = widget.controller;
+    return ElevatedButton.icon(
+      icon: button.isRunning
+          ? const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.play_arrow, size: 16),
+      label: Text(button.label),
+      onPressed: button.isAvailable && !button.isRunning
+          ? () => controller.runCommand(button.name)
+          : null,
+    );
+  }
+
+  /// The dev-server (`serveStart`) controls: a start/stop toggle and, while
+  /// running, a restart button. Unlike one-shot commands the server is a
+  /// long-lived child, so it is driven by [WebsiteControlController.startServer]
+  /// / `stopServer` / `restartServer` rather than `runCommand`.
+  List<Widget> _buildServerControls(WebsiteCommandButton button) {
+    final controller = widget.controller;
+    final running = controller.isServerRunning;
+    return [
+      ElevatedButton.icon(
+        icon: Icon(running ? Icons.stop : Icons.play_arrow, size: 16),
+        label: Text(running ? 'Stop dev server' : 'Start dev server'),
+        onPressed: !button.isAvailable
+            ? null
+            : (running ? controller.stopServer : controller.startServer),
+      ),
+      if (running)
+        IconButton(
+          icon: const Icon(Icons.restart_alt, size: 18),
+          tooltip: 'Restart dev server',
+          onPressed: controller.restartServer,
+        ),
+    ];
   }
 
   Widget _buildFilters(BuildContext context) {
@@ -209,6 +242,7 @@ class _ControlContentState extends State<_ControlContent> {
     final warnings = controller.warningCount;
     final parts = <String>[
       id,
+      'server: ${controller.isServerRunning ? 'running' : 'stopped'}',
       '$errors error${errors == 1 ? '' : 's'}',
       '$warnings warning${warnings == 1 ? '' : 's'}',
     ];

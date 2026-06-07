@@ -1,9 +1,18 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:tom_website_editor_core/tom_website_editor_core.dart';
 
 import 'website_control_log.dart';
 import 'website_editor_controller.dart';
 import 'website_process_runner.dart';
+
+/// Predicate over a dev-server stdout line that returns `true` when the line
+/// signals a completed (re)build — the cue to auto-refresh the preview (§5).
+///
+/// Injected so the exact marker can be tuned per dev server; the default
+/// [WebsiteControlController.isRebuildCompleteLine] matches common reload cues.
+typedef ServerOutputMatcher = bool Function(String line);
 
 /// One action button in the control view (§5).
 class WebsiteCommandButton {
@@ -58,14 +67,21 @@ class WebsiteControlController extends ChangeNotifier {
     Map<String, String>? environment,
     String? homeDir,
     DateTime Function()? clock,
+    VoidCallback? onRebuildComplete,
+    ServerOutputMatcher? rebuildMatcher,
   })  : _editor = editor,
         _runner = runner,
         _builtins = builtins,
         _environment = environment,
         _homeDir = homeDir,
-        _clock = clock ?? DateTime.now {
+        _clock = clock ?? DateTime.now,
+        _onRebuildComplete = onRebuildComplete,
+        _rebuildMatcher = rebuildMatcher ?? isRebuildCompleteLine {
     _editor.addListener(_onEditorChanged);
   }
+
+  /// The §7 command that runs the long-lived dev server.
+  static const String serveCommand = 'serveStart';
 
   final WebsiteEditorController _editor;
   final WebsiteProcessRunner _runner;
@@ -73,10 +89,28 @@ class WebsiteControlController extends ChangeNotifier {
   final Map<String, String>? _environment;
   final String? _homeDir;
   final DateTime Function() _clock;
+  final VoidCallback? _onRebuildComplete;
+  final ServerOutputMatcher _rebuildMatcher;
 
   final List<WebsiteLogEntry> _log = [];
   final Map<String, WebsiteProcessHandle> _running = {};
   DateTime? _lastRunAt;
+
+  WebsiteProcessHandle? _serverHandle;
+  String? _serverWebsiteId;
+  Future<void>? _serverDone;
+
+  /// Matches common dev-server "(re)build complete / reloading" stdout cues.
+  /// Best-effort default; the precise `jaspr serve` marker is confirmed against
+  /// the live website in §9.7. Injectable via `rebuildMatcher`.
+  static final RegExp _defaultRebuildPattern = RegExp(
+    r'reload|rebuilt|recompiled|compiled|serving at|served',
+    caseSensitive: false,
+  );
+
+  /// The default [ServerOutputMatcher] used when none is injected.
+  static bool isRebuildCompleteLine(String line) =>
+      _defaultRebuildPattern.hasMatch(line);
 
   /// The active website id, or `null` until the editor has loaded.
   String? get activeWebsiteId => _editor.activeWebsiteId;
@@ -100,6 +134,12 @@ class WebsiteControlController extends ChangeNotifier {
 
   /// `true` while [name]'s process is in flight.
   bool isRunning(String name) => _running.containsKey(name);
+
+  /// `true` while the dev server child process is running.
+  bool get isServerRunning => _serverHandle != null;
+
+  /// The id of the website the dev server is running for, or `null`.
+  String? get serverWebsiteId => _serverWebsiteId;
 
   /// The action buttons for the active website, in canonical order followed by
   /// any extra (non-canonical) configured commands.
@@ -139,6 +179,93 @@ class WebsiteControlController extends ChangeNotifier {
   /// or `null` when the command is unconfigured or a placeholder failed (in
   /// which case nothing is spawned and the reason is logged).
   Future<int?> runCommand(String name, {bool dryRun = false}) async {
+    final spec = _buildSpec(name, dryRun: dryRun);
+    if (spec == null) return null;
+
+    _add(WebsiteLogLevel.info, '\$ ${spec.display}  (cwd: ${spec.workingDirectory})');
+
+    final handle = _runner.start(spec);
+    _running[name] = handle;
+    notifyListeners();
+
+    await for (final line in handle.output) {
+      _add(_levelFor(line.stream), line.text);
+    }
+    final code = await handle.exitCode;
+    _running.remove(name);
+    _lastRunAt = _clock();
+    _logExit(name, code);
+    notifyListeners();
+    return code;
+  }
+
+  /// Kills [name]'s running one-shot process, if any.
+  Future<void> stop(String name) async {
+    final handle = _running[name];
+    if (handle == null) return;
+    await handle.kill();
+  }
+
+  /// Starts the long-lived dev server (`serveStart`) for the active website.
+  ///
+  /// Unlike [runCommand] this does **not** block on the process exit: the
+  /// handle is tracked, its output streamed into the log, and each stdout line
+  /// matching the rebuild marker triggers the injected `onRebuildComplete`
+  /// (auto-refresh, §5). Returns `false` (and logs) when a server is already
+  /// running or `serveStart` is unconfigured / unresolvable.
+  Future<bool> startServer() async {
+    if (_serverHandle != null) return false;
+    final spec = _buildSpec(serveCommand);
+    if (spec == null) return false;
+
+    _add(WebsiteLogLevel.info,
+        '\$ ${spec.display}  (cwd: ${spec.workingDirectory})');
+    final handle = _runner.start(spec);
+    _serverHandle = handle;
+    _serverWebsiteId = _editor.activeWebsiteId;
+    notifyListeners();
+    _serverDone = _superviseServer(handle);
+    return true;
+  }
+
+  /// Stops the running dev server (if any) and waits for it to exit.
+  Future<void> stopServer() async {
+    final handle = _serverHandle;
+    if (handle == null) return;
+    await handle.kill();
+    await _serverDone;
+  }
+
+  /// Restarts the dev server: stops the current child (if any), then starts a
+  /// fresh one for the active website.
+  Future<bool> restartServer() async {
+    await stopServer();
+    return startServer();
+  }
+
+  /// Watches the server's output (streaming into the log + firing the rebuild
+  /// callback) and clears the server state when it exits.
+  Future<void> _superviseServer(WebsiteProcessHandle handle) async {
+    final outputDone = handle.output.forEach((line) {
+      _add(_levelFor(line.stream), line.text);
+      if (line.stream == ProcessStream.stdout && _rebuildMatcher(line.text)) {
+        _onRebuildComplete?.call();
+      }
+    });
+    final code = await handle.exitCode;
+    await outputDone;
+    _serverHandle = null;
+    _serverWebsiteId = null;
+    _serverDone = null;
+    _add(code == 0 ? WebsiteLogLevel.info : WebsiteLogLevel.warning,
+        'dev server stopped (exit $code)');
+    notifyListeners();
+  }
+
+  /// Resolves [name]'s command template + `cwd` for the active website into a
+  /// spawnable [WebsiteCommandSpec], logging (and returning `null`) when no
+  /// config is loaded, the command is unconfigured, or a placeholder fails.
+  WebsiteCommandSpec? _buildSpec(String name, {bool dryRun = false}) {
     final registry = _editor.registry;
     if (registry == null) {
       _add(WebsiteLogLevel.error, 'No website configuration is loaded.',
@@ -163,56 +290,30 @@ class WebsiteControlController extends ChangeNotifier {
       clock: _clock,
     );
 
-    final String command;
-    final String cwd;
     try {
       final resolved = resolver.resolve(template,
           location: 'websites.${website.id}.commands.$name');
-      command = dryRun ? '$resolved --dry-run' : resolved;
-      cwd = resolver.resolve('{cwd}',
-          location: 'websites.${website.id}.cwd');
+      final command = dryRun ? '$resolved --dry-run' : resolved;
+      final cwd =
+          resolver.resolve('{cwd}', location: 'websites.${website.id}.cwd');
+      final shell = registry.config.defaults.shell;
+      return WebsiteCommandSpec(
+        executable: shell.isEmpty ? command : shell.first,
+        arguments: shell.isEmpty ? const [] : [...shell.skip(1), command],
+        workingDirectory: cwd,
+        display: command,
+      );
     } on PlaceholderException catch (e) {
       _add(WebsiteLogLevel.error, 'Cannot run "$name": ${e.message}',
           pinned: true);
       return null;
     }
-
-    final shell = registry.config.defaults.shell;
-    final spec = WebsiteCommandSpec(
-      executable: shell.isEmpty ? command : shell.first,
-      arguments: shell.isEmpty ? const [] : [...shell.skip(1), command],
-      workingDirectory: cwd,
-      display: command,
-    );
-
-    _add(WebsiteLogLevel.info, '\$ $command  (cwd: $cwd)');
-
-    final handle = _runner.start(spec);
-    _running[name] = handle;
-    notifyListeners();
-
-    await for (final line in handle.output) {
-      _add(
-        line.stream == ProcessStream.stderr
-            ? WebsiteLogLevel.warning
-            : WebsiteLogLevel.info,
-        line.text,
-      );
-    }
-    final code = await handle.exitCode;
-    _running.remove(name);
-    _lastRunAt = _clock();
-    _logExit(name, code);
-    notifyListeners();
-    return code;
   }
 
-  /// Kills [name]'s running process, if any (e.g. stopping the dev server).
-  Future<void> stop(String name) async {
-    final handle = _running[name];
-    if (handle == null) return;
-    await handle.kill();
-  }
+  static WebsiteLogLevel _levelFor(ProcessStream stream) =>
+      stream == ProcessStream.stderr
+          ? WebsiteLogLevel.warning
+          : WebsiteLogLevel.info;
 
   /// Clears the message log.
   void clearLog() {
@@ -255,6 +356,8 @@ class WebsiteControlController extends ChangeNotifier {
   @override
   void dispose() {
     _editor.removeListener(_onEditorChanged);
+    // Don't leave the dev server orphaned when the module deactivates.
+    unawaited(_serverHandle?.kill());
     super.dispose();
   }
 }

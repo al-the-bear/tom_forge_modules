@@ -51,7 +51,12 @@ class WebsiteEditorModule extends ForgeModule {
     final previewController = WebsitePreviewController(editor: controller);
     _previewController = previewController;
     _previewView = WebsitePreviewView(controller: previewController);
-    final controlController = WebsiteControlController(editor: controller);
+    final controlController = WebsiteControlController(
+      editor: controller,
+      // Auto-refresh the embedded preview when the dev server signals a
+      // completed rebuild (§5, §9.5).
+      onRebuildComplete: previewController.refresh,
+    );
     _controlController = controlController;
     _controlView = WebsiteControlView(controller: controlController);
     unawaited(controller.load());

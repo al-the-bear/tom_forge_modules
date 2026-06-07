@@ -5,11 +5,10 @@ wraps the pure-Dart [`tom_website_editor_core`](../tom_website_editor_core)
 (config + placeholders + registry) in a [`ForgeModule`] that contributes the
 active-website selection / reload config panel to the forge shell.
 
-This package implements **steps 2, 3 and 4** (§9.2, §9.3, §9.4) of the
-implementation plan in `tom_website_editor_specification.md`. The dev-server
-lifecycle / auto-refresh (§9.5) and the dedicated `WebsiteConfigEditor` (§6) are
-added in later steps; they build on the shared `WebsiteEditorController` this
-module exposes.
+This package implements **steps 2, 3, 4 and 5** (§9.2, §9.3, §9.4, §9.5) of the
+implementation plan in `tom_website_editor_specification.md`. The dedicated
+`WebsiteConfigEditor` (§6) is added in a later step; it builds on the shared
+`WebsiteEditorController` this module exposes.
 
 ## What it provides
 
@@ -85,10 +84,43 @@ On tap, `WebsiteControlController.runCommand(name)`:
    2)" (a template/config bug, distinct from a real failure).
 
 `--dry-run` is offered by appending the flag to the resolved command (the §2/§7
-safe-probe contract). The status line surfaces the active website, error/warning
-counts, and the last-run time; the log is filterable by level, and pinned errors
-stay visible even when their level is filtered out. **No website code is
-imported** — every action is a process (§1).
+safe-probe contract). The status line surfaces the active website, the dev-server
+state, error/warning counts, and the last-run time; the log is filterable by
+level, and pinned errors stay visible even when their level is filtered out. **No
+website code is imported** — every action is a process (§1).
+
+## Dev-server lifecycle + auto-refresh (§9.5)
+
+`serveStart` is **not** a one-shot command: it is a long-lived child the
+controller owns. So it is driven by a dedicated lifecycle rather than
+`runCommand` (which awaits the exit code and would block on a server that never
+returns):
+
+- `startServer()` expands `serveStart` (same placeholder/shell/cwd path as
+  `runCommand`), spawns the child, and returns **without** awaiting its exit. The
+  handle is tracked (`isServerRunning`, `serverWebsiteId`), its stdout→info /
+  stderr→warning streamed into the log. Starting while a server is already
+  running, or when `serveStart` is unconfigured/unresolvable, logs and returns
+  `false` (single spawn).
+- `stopServer()` kills the child and waits for the supervisor to settle, clearing
+  the tracked state. The controller's `dispose()` also kills any orphaned server.
+- `restartServer()` stops the current child then starts a fresh one for the
+  active website.
+- When the server exits on its own, the supervisor clears the state and logs the
+  exit code (info on `0`, warning otherwise).
+
+**Auto-refresh.** Each dev-server **stdout** line is matched against a
+`ServerOutputMatcher`; a match fires the injected `onRebuildComplete` callback,
+which the module wires to `WebsitePreviewController.refresh` so the embedded
+preview reloads on every rebuild. The matcher is injectable; the default
+(`WebsiteControlController.isRebuildCompleteLine`) is a **best-effort** regex over
+common reload cues (`reload`, `recompiled`, `serving at`, …). Confirming the
+exact `jaspr serve` rebuild marker against the live website is deferred to the
+§9.7 e2e step (gated on `enterprise_flutter_web`); tracked in
+`completion_steps.tom_forge.md`.
+
+In the view, `serveStart` renders as a **start/stop toggle** (plus a restart
+button while running) instead of the generic command button.
 
 ### Deferred (gated on enterprise_flutter_web)
 
@@ -137,4 +169,8 @@ flutter test
   running/stop lifecycle (TWE-CTRL-01..15).
 - `test/website_control_view_test.dart` — command buttons (enabled/disabled),
   tap-spawns-process, log echo + completion, website picker, status line, reactive
-  title, level filtering (TWE-CTRLV-01..07).
+  title, level filtering, dev-server start/stop toggle (TWE-CTRLV-01..08).
+- `test/website_dev_server_test.dart` — dev-server lifecycle: non-blocking start,
+  no-serveStart error, stop/kill, single-spawn, restart, self-exit clearing,
+  auto-refresh on matching stdout, output→log levels, default matcher
+  (TWE-SRV-01..11).
