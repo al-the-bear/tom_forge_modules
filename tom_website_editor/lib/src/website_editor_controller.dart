@@ -23,6 +23,7 @@ class WebsiteEditorController extends ChangeNotifier {
   WebsiteRegistry? _registry;
   List<ConfigIssue> _issues = const [];
   bool _isLoading = false;
+  bool _disposed = false;
 
   /// The active registry, or `null` until a valid config has been loaded.
   WebsiteRegistry? get registry => _registry;
@@ -49,7 +50,16 @@ class WebsiteEditorController extends ChangeNotifier {
   Future<bool> load() async {
     _setLoading(true);
     try {
-      final source = await _configReader();
+      final String source;
+      try {
+        source = await _configReader();
+      } catch (error) {
+        // A missing/unreadable config file is a load failure, not a crash:
+        // surface it as an error issue so callers that run load() unawaited
+        // (e.g. module activation on shell startup) never throw into the zone.
+        _issues = [_readFailureIssue(error)];
+        return false;
+      }
       final result = WebsiteRegistry.load(source);
       _issues = result.issues;
       if (result.isValid) {
@@ -72,7 +82,15 @@ class WebsiteEditorController extends ChangeNotifier {
     if (current == null) return load();
     _setLoading(true);
     try {
-      final source = await _configReader();
+      final String source;
+      try {
+        source = await _configReader();
+      } catch (error) {
+        // Read failure on reload keeps the last-good registry (§6) and exposes
+        // the failure as an issue rather than throwing.
+        _issues = [_readFailureIssue(error)];
+        return false;
+      }
       final outcome = current.reload(source);
       _issues = outcome.issues;
       return outcome.applied;
@@ -80,6 +98,12 @@ class WebsiteEditorController extends ChangeNotifier {
       _setLoading(false);
     }
   }
+
+  /// Builds the error issue surfaced when the config source cannot be read.
+  ConfigIssue _readFailureIssue(Object error) => ConfigIssue(
+        path: '(config source)',
+        message: 'failed to read configuration source: $error',
+      );
 
   /// Makes the website with [id] active and notifies listeners.
   ///
@@ -90,11 +114,27 @@ class WebsiteEditorController extends ChangeNotifier {
     final registry = _registry;
     if (registry == null) return;
     registry.selectWebsite(id);
-    notifyListeners();
+    _safeNotify();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 
   void _setLoading(bool value) {
     _isLoading = value;
+    _safeNotify();
+  }
+
+  /// Notifies listeners unless the controller has been disposed.
+  ///
+  /// An initial [load] kicked unawaited on module activation can settle after
+  /// the shell tears the module down (disposing this controller); notifying a
+  /// disposed [ChangeNotifier] would throw into the zone.
+  void _safeNotify() {
+    if (_disposed) return;
     notifyListeners();
   }
 }

@@ -43,6 +43,19 @@ class WebsiteEditorModule extends ForgeModule {
   /// The active controller, available after [activate].
   WebsiteEditorController? get controller => _controller;
 
+  /// The embedded site preview (§9.3), available after [activate].
+  ///
+  /// Exposed individually so a host shell can place each surface in the panel
+  /// that fits its shape (e.g. the wide preview across the bottom, the
+  /// management views in a side panel) rather than parsing [views] by title.
+  WebsitePreviewView? get previewView => _previewView;
+
+  /// The dev-server / generator control panel (§9.4), available after [activate].
+  WebsiteControlView? get controlView => _controlView;
+
+  /// The content catalog browser (§6a), available after [activate].
+  WebsiteContentBrowser? get contentView => _contentView;
+
   @override
   String get displayName => 'Website Editor';
 

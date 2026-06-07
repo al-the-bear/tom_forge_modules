@@ -4,6 +4,8 @@
 // tom_website_editor_core; these tests cover the controller's added behaviour:
 // async config reading, loading flag, change notifications, and that an invalid
 // reload keeps the last-good registry while exposing the new issues (§6).
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_website_editor/tom_website_editor.dart';
 import 'package:tom_website_editor_core/tom_website_editor_core.dart';
@@ -143,6 +145,71 @@ websites:
       // last-good preserved
       expect(controller.websites.map((w) => w.id), ['alpha', 'beta']);
       expect(controller.activeWebsiteId, 'beta');
+      expect(
+        controller.issues.any((i) => i.severity == ConfigSeverity.error),
+        isTrue,
+      );
+    });
+  });
+
+  group('WebsiteEditorController read-failure handling', () {
+    // The reader is wired to ForgeShellApi.fileSystem.read, which throws when
+    // the config file is absent. A missing/unreadable config is a load failure,
+    // not a crash: it must surface as an error issue (so default-startup
+    // wiring that runs load() unawaited never throws into the zone).
+    Future<String> throwingReader() =>
+        Future<String>.error(const FileSystemException('no such file'));
+
+    test('TWE-CTL-09: load surfaces a read failure as an error issue', () async {
+      final controller = WebsiteEditorController(configReader: throwingReader);
+      final ok = await controller.load();
+      expect(ok, isFalse);
+      expect(controller.isLoaded, isFalse);
+      expect(controller.isLoading, isFalse);
+      expect(
+        controller.issues.any((i) => i.severity == ConfigSeverity.error),
+        isTrue,
+      );
+    });
+
+    test('TWE-CTL-10: reload before load surfaces a read failure, no throw',
+        () async {
+      final controller = WebsiteEditorController(configReader: throwingReader);
+      final applied = await controller.reload();
+      expect(applied, isFalse);
+      expect(controller.isLoaded, isFalse);
+      expect(
+        controller.issues.any((i) => i.severity == ConfigSeverity.error),
+        isTrue,
+      );
+    });
+
+    test('TWE-CTL-12: a load settling after dispose does not notify/throw',
+        () async {
+      // On shell teardown the module is deactivated (controller disposed) which
+      // can race an initial load() still in flight. The settling load must not
+      // call notifyListeners() on the disposed controller.
+      final controller = WebsiteEditorController(configReader: throwingReader);
+      final pending = controller.load();
+      controller.dispose();
+      expect(await pending, isFalse);
+    });
+
+    test('TWE-CTL-11: read failure on reload keeps the last-good registry',
+        () async {
+      var fail = false;
+      final controller = WebsiteEditorController(
+        configReader: () =>
+            fail ? throwingReader() : Future<String>.value(_twoSites),
+      );
+      await controller.load();
+      expect(controller.isLoaded, isTrue);
+
+      fail = true;
+      final applied = await controller.reload();
+      expect(applied, isFalse);
+      // last-good registry preserved despite the read failure
+      expect(controller.websites.map((w) => w.id), ['alpha', 'beta']);
       expect(
         controller.issues.any((i) => i.severity == ConfigSeverity.error),
         isTrue,
