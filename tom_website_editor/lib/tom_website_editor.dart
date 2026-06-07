@@ -7,7 +7,11 @@
 library;
 
 export 'src/website_config_panel.dart';
+export 'src/website_control_controller.dart';
+export 'src/website_control_log.dart';
+export 'src/website_control_view.dart';
 export 'src/website_editor_controller.dart';
 export 'src/website_editor_module.dart';
 export 'src/website_preview_controller.dart';
 export 'src/website_preview_view.dart';
+export 'src/website_process_runner.dart';

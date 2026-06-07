@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
 import 'website_config_panel.dart';
+import 'website_control_controller.dart';
+import 'website_control_view.dart';
 import 'website_editor_controller.dart';
 import 'website_preview_controller.dart';
 import 'website_preview_view.dart';
@@ -30,6 +32,8 @@ class WebsiteEditorModule extends ForgeModule {
   WebsiteEditorController? _controller;
   WebsitePreviewController? _previewController;
   WebsitePreviewView? _previewView;
+  WebsiteControlController? _controlController;
+  WebsiteControlView? _controlView;
 
   /// The active controller, available after [activate].
   WebsiteEditorController? get controller => _controller;
@@ -47,11 +51,17 @@ class WebsiteEditorModule extends ForgeModule {
     final previewController = WebsitePreviewController(editor: controller);
     _previewController = previewController;
     _previewView = WebsitePreviewView(controller: previewController);
+    final controlController = WebsiteControlController(editor: controller);
+    _controlController = controlController;
+    _controlView = WebsiteControlView(controller: controlController);
     unawaited(controller.load());
   }
 
   @override
   void deactivate() {
+    _controlView = null;
+    _controlController?.dispose();
+    _controlController = null;
     _previewView = null;
     _previewController?.dispose();
     _previewController = null;
@@ -68,10 +78,7 @@ class WebsiteEditorModule extends ForgeModule {
   List<ForgeEditor> get editors => const [];
 
   @override
-  List<ForgeView> get views {
-    final view = _previewView;
-    return view == null ? const [] : [view];
-  }
+  List<ForgeView> get views => [?_previewView, ?_controlView];
 
   @override
   List<ForgeAction> get actions => const [];
