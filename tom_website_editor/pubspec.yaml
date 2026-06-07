@@ -1,0 +1,25 @@
+name: tom_website_editor
+description: "Forge module for editing and driving enterprise_flutter_web websites."
+publish_to: none
+version: 0.0.1
+homepage:
+
+environment:
+  sdk: ^3.10.8
+  flutter: ">=1.17.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  tom_website_editor_core:
+    path: ../tom_website_editor_core
+  tom_forge_ui:
+    path: ../tom_forge_ui
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
