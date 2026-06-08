@@ -116,3 +116,44 @@ String pinFieldLine(String rawYaml, int sourceLine, String manualPin) {
   lines[sourceLine] = '${line.trimRight()}  $manualPin';
   return lines.join('\n');
 }
+
+/// Returns [rawYaml] with the scalar value of the field on [sourceLine]
+/// (0-based) replaced by [value], used by the §6a inline editor to persist a
+/// curated scalar edit.
+///
+/// Preserves the line's indentation and its `key:`; when [preserveComment] is a
+/// trailing comment on that line (e.g. the manual pin) it is re-appended so a
+/// pinned field stays pinned. The new value is double-quoted only when bare YAML
+/// would be ambiguous (empty, leading/trailing space, or a YAML-special
+/// character), so simple words stay unquoted.
+String setFieldLineValue(
+  String rawYaml,
+  int sourceLine,
+  String value, {
+  String? preserveComment,
+}) {
+  final lines = rawYaml.split('\n');
+  if (sourceLine < 0 || sourceLine >= lines.length) return rawYaml;
+  final line = lines[sourceLine];
+  final colon = line.indexOf(':');
+  if (colon < 0) return rawYaml;
+
+  final keyPart = line.substring(0, colon + 1);
+  final comment = (preserveComment != null &&
+          line.indexOf(preserveComment, colon + 1) > colon)
+      ? '  $preserveComment'
+      : '';
+  lines[sourceLine] = '$keyPart ${_encodeScalar(value)}$comment';
+  return lines.join('\n');
+}
+
+/// Renders [value] as a YAML flow scalar, quoting only when a bare scalar would
+/// be misread.
+String _encodeScalar(String value) {
+  if (value.isEmpty) return '""';
+  final needsQuote = value != value.trim() ||
+      value.contains(RegExp(r'[:#]')) ||
+      RegExp(r'^[!&*\[\]{}>|@`"' "'" r'%-]').hasMatch(value);
+  if (!needsQuote) return value;
+  return '"${value.replaceAll(r'\', r'\\').replaceAll('"', r'\"')}"';
+}

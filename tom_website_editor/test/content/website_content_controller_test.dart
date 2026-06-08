@@ -212,6 +212,72 @@ void main() {
     });
   });
 
+  group('TWE-CTRL-06: edit an editable field', () {
+    test('writes the new value to disk and re-parses', () async {
+      final (controller, fs) = await _loaded(_config);
+      final document = controller.components.first;
+      final tagline =
+          document.record.fields.firstWhere((f) => f.name == 'tagline');
+      expect(tagline.isEditable, isTrue);
+
+      final wrote =
+          await controller.setFieldValue(document, tagline, 'Pressable');
+      expect(wrote, isTrue);
+      expect(fs.files[document.uri], contains('tagline: Pressable'));
+      expect(fs.files[document.uri], contains('id: button'),
+          reason: 'the rest of the document is intact');
+
+      // The controller re-parsed: the new value is reflected.
+      final reTagline = controller.components.first.record.fields
+          .firstWhere((f) => f.name == 'tagline');
+      expect(reTagline.value, 'Pressable');
+    });
+
+    test('a managed field is a no-op', () async {
+      final (controller, fs) = await _loaded(_config);
+      final document = controller.components.first;
+      final status =
+          document.record.fields.firstWhere((f) => f.name == 'status');
+      expect(status.isEditable, isFalse);
+
+      final wrote =
+          await controller.setFieldValue(document, status, 'beta');
+      expect(wrote, isFalse);
+      expect(fs.writes, isEmpty);
+    });
+
+    test('an unchanged value is a no-op', () async {
+      final (controller, fs) = await _loaded(_config);
+      final document = controller.components.first;
+      final tagline =
+          document.record.fields.firstWhere((f) => f.name == 'tagline');
+
+      final wrote =
+          await controller.setFieldValue(document, tagline, tagline.value);
+      expect(wrote, isFalse);
+      expect(fs.writes, isEmpty);
+    });
+
+    test('a pinned field keeps its # @manual marker', () async {
+      final (controller, fs) = await _loaded(_config);
+      // Pin the managed "status" field, then edit it through the refreshed doc.
+      final document = controller.components.first;
+      final status =
+          document.record.fields.firstWhere((f) => f.name == 'status');
+      await controller.pinField(document, status);
+
+      final pinnedDoc = controller.components.first;
+      final pinnedStatus = pinnedDoc.record.fields
+          .firstWhere((f) => f.name == 'status');
+      expect(pinnedStatus.isPinned, isTrue);
+
+      final wrote =
+          await controller.setFieldValue(pinnedDoc, pinnedStatus, 'beta');
+      expect(wrote, isTrue);
+      expect(fs.files[pinnedDoc.uri], contains('status: beta  # @manual'));
+    });
+  });
+
   group('TWE-CTRL-05: placeholder failure', () {
     test('surfaces an error and leaves the catalog empty', () async {
       final (controller, _) = await _loaded(_badConfig);

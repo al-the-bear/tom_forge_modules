@@ -179,10 +179,26 @@ a silent blank tree.
 **Managed vs editable fields.** A field is **editable** when its name is one of
 the website's curated `editableFields` (`tagline` / `summary-md` / `overview-md`
 / `enables`) **or** it carries the `# @manual` pin; every other field is
-**generator-managed** and shown read-only with a badge. Editable fields route to
-the inline editor named by their **typed suffix** (enterprise spec §4.1): a
-`-md` field opens the Markdown editor, a `-json` field the JSON editor, anything
-else a plain string field.
+**generator-managed** and shown read-only (no inline editor, only the **Pin**
+affordance).
+
+**Inline editing + save.** The inline/full-editor boundary follows each field's
+**typed suffix** (enterprise spec §4.1):
+
+- A **plain string** field binds a persistent `TextEditingController` and writes
+  on submit through `WebsiteContentController.setFieldValue` →
+  `setFieldLineValue`, which rewrites only that key's source line (preserving
+  indentation, a trailing `# @manual` pin, and quoting only when a bare scalar
+  would be misread) and re-parses the document. The edit persists to disk and
+  survives a reload.
+- A `-md` or `-json` field is **not** edited inline — its rich body belongs in
+  the full editor. The detail pane shows a read-only preview plus an **Open in
+  editor** button that routes the backing file through the same `onOpenFile`
+  seam as catalog navigation (below), so the typed editor opens via `canHandle`.
+
+This keeps the short-scalar inline path and the rich-body full-editor path from
+fighting: inline for simple values, full editor for Markdown / JSON / page
+bodies.
 
 **Pinning.** Editing a managed field is opt-in: the detail pane offers a **Pin**
 action that appends the configured `manualPin` comment to the field's source
@@ -356,15 +372,19 @@ flutter test
   (TWE-SRV-01..11).
 - `test/content/content_model_test.dart` — typed-suffix editor routing, record
   tree parsing, field classification (managed/editable/pinned), span-precise
-  `# @manual` read + `pinFieldLine` write, and the override/managed page-region
-  round-trip (TWE-MODEL-01..05).
+  `# @manual` read + `pinFieldLine` write, `setFieldLineValue` scalar rewrite
+  (quote/indent/pin-preserve), and the override/managed page-region round-trip
+  (TWE-MODEL-01..06).
 - `test/content/website_content_controller_test.dart` — catalog build (component
   → module → submodule, incl. a module with and without submodules), site/pages
-  discovery, pin-writes-to-disk + re-parse, disabled-without-content, refresh
-  reload, placeholder-failure surfacing (TWE-CTRL-01..05).
+  discovery, pin-writes-to-disk + re-parse, editable-field save + re-parse
+  (managed/unchanged no-op, pinned keeps marker), disabled-without-content,
+  refresh reload, placeholder-failure surfacing (TWE-CTRL-01..06).
 - `test/content/website_content_browser_test.dart` — disabled state, tree
   render, managed pin button vs editable field, pin writes the pin, typed
-  inline-editor routing (TWE-BROWSE-01..05).
+  inline-editor routing, tap-opens-backing-file navigation, detail-pane open
+  button, inline scalar save, managed has no inline editor, `-md` routes to the
+  full editor (TWE-BROWSE-01..10).
 - `test/structure/copy_naming_test.dart` — §16 copy-file naming: parse/encode
   round-trip per kind, arity validation, non-convention files preserved, and the
   `component → module → submodule` grouping (CN-01..11).

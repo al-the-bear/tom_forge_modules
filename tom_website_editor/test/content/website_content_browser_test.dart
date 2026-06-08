@@ -207,4 +207,68 @@ void main() {
       Uri.file('/sites/a/content/site.yaml'),
     ]);
   });
+
+  testWidgets('TWE-BROWSE-08: editing a scalar field persists on submit',
+      (tester) async {
+    final (controller, fs) = await _loaded();
+    final uri = Uri.file('/sites/a/content/components/button.yaml');
+    final view = WebsiteContentBrowser(controller: controller);
+    await _pump(tester, view);
+
+    await tester.tap(find.text('Button'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+        find.byKey(const ValueKey('content-field-tagline')), 'Pressable');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+
+    expect(fs.files[uri], contains('tagline: Pressable'));
+    // The edit round-trips: re-parsing keeps the rest of the document intact.
+    expect(fs.files[uri], contains('id: button'));
+    expect(fs.files[uri], contains('summary-md:'));
+  });
+
+  testWidgets('TWE-BROWSE-09: a managed field has no inline editor',
+      (tester) async {
+    final (controller, _) = await _loaded();
+    final view = WebsiteContentBrowser(controller: controller);
+    await _pump(tester, view);
+
+    await tester.tap(find.text('Button'));
+    await tester.pumpAndSettle();
+
+    // The managed "status" field renders read-only (a Pin affordance), never an
+    // editable text field keyed for it.
+    expect(find.text('status'), findsOneWidget);
+    expect(find.byKey(const ValueKey('content-field-status')), findsNothing);
+  });
+
+  testWidgets('TWE-BROWSE-10: an -md field routes to the full editor, not inline',
+      (tester) async {
+    final (controller, _) = await _loaded();
+    final uri = Uri.file('/sites/a/content/components/button.yaml');
+    final opened = <Uri>[];
+    final view = WebsiteContentBrowser(
+      controller: controller,
+      onOpenFile: opened.add,
+    );
+    await _pump(tester, view);
+
+    await tester.tap(find.text('Button'));
+    await tester.pumpAndSettle();
+    opened.clear(); // ignore the open triggered by selecting the record
+
+    // The -md field is not an inline TextField; it offers an open-in-editor
+    // affordance that routes the backing file to the full editor.
+    final mdField = find.byKey(const ValueKey('content-field-summary-md'));
+    expect(
+        find.descendant(of: mdField, matching: find.byType(TextField)),
+        findsNothing);
+    await tester.tap(find.descendant(
+        of: mdField, matching: find.byType(OutlinedButton)));
+    await tester.pumpAndSettle();
+
+    expect(opened, [uri]);
+  });
 }

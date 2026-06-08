@@ -130,6 +130,55 @@ void main() {
     });
   });
 
+  group('TWE-MODEL-06: setFieldLineValue', () {
+    test('replaces a scalar value and re-parses', () {
+      final record = parseComponentRecord(_component,
+          editableFields: _editableFields, manualPin: _manualPin);
+      final tagline = record.fields.firstWhere((f) => f.name == 'tagline');
+
+      final edited =
+          setFieldLineValue(_component, tagline.sourceLine, 'Pressable');
+      expect(edited, contains('tagline: Pressable'));
+      expect(edited, contains('id: button'),
+          reason: 'other lines are untouched');
+
+      final reparsed = parseComponentRecord(edited,
+          editableFields: _editableFields, manualPin: _manualPin);
+      expect(reparsed.fields.firstWhere((f) => f.name == 'tagline').value,
+          'Pressable');
+    });
+
+    test('quotes a value with YAML-special characters', () {
+      final record = parseComponentRecord(_component,
+          editableFields: _editableFields, manualPin: _manualPin);
+      final tagline = record.fields.firstWhere((f) => f.name == 'tagline');
+
+      final edited =
+          setFieldLineValue(_component, tagline.sourceLine, 'a: b # c');
+      expect(edited, contains('tagline: "a: b # c"'));
+
+      final reparsed = parseComponentRecord(edited,
+          editableFields: _editableFields, manualPin: _manualPin);
+      expect(reparsed.fields.firstWhere((f) => f.name == 'tagline').value,
+          'a: b # c');
+    });
+
+    test('preserves a pin comment when asked', () {
+      final record = parseComponentRecord(_component,
+          editableFields: _editableFields, manualPin: _manualPin);
+      final extra = record.fields.firstWhere((f) => f.name == 'extra');
+      expect(extra.isPinned, isTrue);
+
+      final edited = setFieldLineValue(_component, extra.sourceLine, 'changed',
+          preserveComment: _manualPin);
+      expect(edited, contains('extra: changed  # @manual'));
+    });
+
+    test('returns the source unchanged for an out-of-range line', () {
+      expect(setFieldLineValue(_component, 9999, 'x'), _component);
+    });
+  });
+
   group('TWE-MODEL-05: ContentPage override regions', () {
     const raw = 'intro line\n'
         '<!-- @tom:managed -->\n'

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
@@ -293,6 +295,18 @@ class _ContentBrowserBodyState extends State<_ContentBrowserBody> {
             onPin: field.isEditable
                 ? null
                 : () => widget.controller.pinField(document, field),
+            // Inline edit for short scalar fields; `-md` / `-json` route to the
+            // full editor (item 4) so the two paths don't fight.
+            onCommit: field.isEditable &&
+                    field.editorKind == ContentEditorKind.string
+                ? (value) => unawaited(
+                    widget.controller.setFieldValue(document, field, value))
+                : null,
+            onOpenFull: field.isEditable &&
+                    field.editorKind != ContentEditorKind.string &&
+                    _canOpen
+                ? () => _open(document.uri)
+                : null,
           ),
       ],
     );
@@ -338,12 +352,25 @@ class _ContentBrowserBodyState extends State<_ContentBrowserBody> {
 /// pin button; editable fields show the inline editor named by their typed
 /// suffix.
 class _FieldRow extends StatelessWidget {
-  const _FieldRow({required this.field, required this.onPin});
+  const _FieldRow({
+    required this.field,
+    required this.onPin,
+    this.onCommit,
+    this.onOpenFull,
+  });
 
   final ContentField field;
 
   /// Pin callback (managed fields only); `null` for editable fields.
   final VoidCallback? onPin;
+
+  /// Persist an inline scalar edit (editable string fields only); `null` when
+  /// the field is managed or routes to the full editor.
+  final ValueChanged<String>? onCommit;
+
+  /// Open the field's backing file in the full editor (editable `-md` / `-json`
+  /// fields); `null` when no open seam is wired or the field edits inline.
+  final VoidCallback? onOpenFull;
 
   @override
   Widget build(BuildContext context) {
@@ -365,7 +392,11 @@ class _FieldRow extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           if (field.isEditable)
-            _EditableField(field: field)
+            _EditableField(
+              field: field,
+              onCommit: onCommit,
+              onOpenFull: onOpenFull,
+            )
           else
             _ManagedValue(field: field, onPin: onPin),
         ],
@@ -430,29 +461,68 @@ class _ManagedValue extends StatelessWidget {
   }
 }
 
-/// An editable field rendered with the inline editor named by its typed suffix:
-/// `-md` Markdown, `-json` JSON (both multi-line, monospace), else a plain
-/// single-line string.
-class _EditableField extends StatelessWidget {
-  const _EditableField({required this.field});
+/// An editable field. Short scalar (`string`) fields edit inline and persist on
+/// submit via [onCommit]; `-md` / `-json` fields are not edited inline (that
+/// would fight the full editor item 4 routes to) — they show a read-only preview
+/// and an open-in-editor affordance ([onOpenFull]).
+class _EditableField extends StatefulWidget {
+  const _EditableField({required this.field, this.onCommit, this.onOpenFull});
 
   final ContentField field;
 
+  /// Persist the committed scalar value (string fields).
+  final ValueChanged<String>? onCommit;
+
+  /// Open the backing file in the full editor (`-md` / `-json` fields).
+  final VoidCallback? onOpenFull;
+
+  @override
+  State<_EditableField> createState() => _EditableFieldState();
+}
+
+class _EditableFieldState extends State<_EditableField> {
+  late final TextEditingController _controller =
+      TextEditingController(text: widget.field.value);
+
+  @override
+  void didUpdateWidget(covariant _EditableField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Sync when the bound field's value changes underneath us (e.g. a refresh
+    // after a save), without clobbering text the user is actively typing.
+    if (oldWidget.field.value != widget.field.value &&
+        _controller.text != widget.field.value) {
+      _controller.text = widget.field.value;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final multiline = field.editorKind != ContentEditorKind.string;
-    return TextField(
-      key: ValueKey('content-field-${field.name}'),
-      controller: TextEditingController(text: field.value),
-      maxLines: multiline ? 6 : 1,
-      style: multiline
-          ? const TextStyle(fontFamily: 'monospace', fontSize: 13)
-          : null,
-      decoration: InputDecoration(
-        isDense: true,
-        border: const OutlineInputBorder(),
-        helperText: _editorLabel(field.editorKind),
-      ),
+    final field = widget.field;
+    final key = ValueKey('content-field-${field.name}');
+    if (field.editorKind == ContentEditorKind.string) {
+      return TextField(
+        key: key,
+        controller: _controller,
+        maxLines: 1,
+        onSubmitted: widget.onCommit,
+        decoration: InputDecoration(
+          isDense: true,
+          border: const OutlineInputBorder(),
+          helperText: _editorLabel(field.editorKind),
+        ),
+      );
+    }
+    return _FullEditorField(
+      fieldKey: key,
+      value: field.value,
+      label: _editorLabel(field.editorKind),
+      onOpenFull: widget.onOpenFull,
     );
   }
 
@@ -461,4 +531,56 @@ class _EditableField extends StatelessWidget {
         ContentEditorKind.json => 'JSON',
         ContentEditorKind.string => 'Text',
       };
+}
+
+/// A read-only preview of a `-md` / `-json` field with an open-in-editor button
+/// that routes the backing file to the full editor (item 4).
+class _FullEditorField extends StatelessWidget {
+  const _FullEditorField({
+    required this.fieldKey,
+    required this.value,
+    required this.label,
+    required this.onOpenFull,
+  });
+
+  final Key fieldKey;
+  final String value;
+  final String label;
+  final VoidCallback? onOpenFull;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      key: fieldKey,
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(label, style: theme.textTheme.labelSmall),
+          const SizedBox(height: 4),
+          Text(
+            value.isEmpty ? '—' : value,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style:
+                theme.textTheme.bodySmall?.copyWith(fontFamily: 'monospace'),
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              onPressed: onOpenFull,
+              icon: const Icon(Icons.open_in_new, size: 14),
+              label: const Text('Open in editor'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

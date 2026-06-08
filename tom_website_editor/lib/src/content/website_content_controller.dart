@@ -212,6 +212,47 @@ class WebsiteContentController extends ChangeNotifier {
     return true;
   }
 
+  /// Persists a curated scalar edit (§6a): replaces [field]'s value with [value]
+  /// in [document], writes the file back through [writeFile], and re-parses.
+  ///
+  /// Only editable fields are written; a managed field, an unchanged value, or a
+  /// website without a content config is a no-op (`false`). A pinned field keeps
+  /// its `# @manual` marker. Returns `true` when the file was rewritten.
+  Future<bool> setFieldValue(
+    ContentComponentDocument document,
+    ContentField field,
+    String value,
+  ) async {
+    final content = _content;
+    if (content == null || !field.isEditable || value == field.value) {
+      return false;
+    }
+
+    final updated = setFieldLineValue(
+      document.source,
+      field.sourceLine,
+      value,
+      preserveComment: field.isPinned ? content.manualPin : null,
+    );
+    if (updated == document.source) return false;
+
+    await writeFile(document.uri, updated);
+    final record = parseComponentRecord(
+      updated,
+      editableFields: content.editableFields,
+      manualPin: content.manualPin,
+    );
+    final index = _components.indexWhere((d) => d.uri == document.uri);
+    if (index >= 0) {
+      final next = List.of(_components);
+      next[index] = ContentComponentDocument(
+          uri: document.uri, source: updated, record: record);
+      _components = next;
+    }
+    notifyListeners();
+    return true;
+  }
+
   /// Reads [uri] as text through the content file system (for the inline editors
   /// and page panes).
   Future<String> readFile(Uri uri) => _fs.read(uri);
