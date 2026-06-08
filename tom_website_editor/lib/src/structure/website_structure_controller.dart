@@ -140,6 +140,42 @@ class WebsiteStructureController extends ChangeNotifier {
     return uri;
   }
 
+  /// Creates a new file at [uri] with [content] (default empty) if it does not
+  /// already exist, then refreshes the tree. Returns the created file's [Uri].
+  ///
+  /// Unlike [createCopyFile] this is a free-form create the §6b explorer drives
+  /// from its per-directory "new file" affordance; the caller chooses the path.
+  Future<Uri> createFile(Uri uri, {String content = ''}) async {
+    if (!await _fs.exists(uri)) {
+      await _fs.write(uri, content);
+    }
+    await refresh();
+    return uri;
+  }
+
+  /// Deletes the file at [uri] through the FS seam, then refreshes the tree.
+  Future<void> deleteFile(Uri uri) async {
+    await _fs.delete(uri);
+    await refresh();
+  }
+
+  /// Renames the file at [from] to a sibling named [newName] (a bare file name,
+  /// not a path), then refreshes the tree. Returns the new [Uri].
+  ///
+  /// Throws [ArgumentError] when [newName] is blank or contains a path
+  /// separator — a rename stays within the file's own directory.
+  Future<Uri> renameFile(Uri from, String newName) async {
+    final trimmed = newName.trim();
+    if (trimmed.isEmpty || trimmed.contains('/')) {
+      throw ArgumentError.value(
+          newName, 'newName', 'must be a non-empty file name without "/"');
+    }
+    final to = from.resolve(trimmed);
+    await _fs.rename(from, to);
+    await refresh();
+    return to;
+  }
+
   Future<StructureNode?> _siteSection(
       Uri dirUri, WebsiteContentConfig content) async {
     final siteUri = dirUri.resolve(content.site);

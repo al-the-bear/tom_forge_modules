@@ -68,6 +68,19 @@ class _FakeContentFs implements WebsiteContentFs {
     final prefix = uri.path.endsWith('/') ? uri.path : '${uri.path}/';
     return files.keys.any((u) => u.path.startsWith(prefix));
   }
+
+  @override
+  Future<void> delete(Uri uri) async {
+    files.remove(uri);
+    final prefix = uri.path.endsWith('/') ? uri.path : '${uri.path}/';
+    files.removeWhere((u, _) => u.path.startsWith(prefix));
+  }
+
+  @override
+  Future<void> rename(Uri from, Uri to) async {
+    final content = files.remove(from);
+    if (content != null) files[to] = content;
+  }
 }
 
 Future<(WebsiteContentController, _FakeContentFs)> _loaded({
@@ -270,5 +283,22 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(opened, [uri]);
+  });
+
+  // TWE-BROWSE-11: the §9 search box narrows the visible catalog to matches.
+  testWidgets('TWE-BROWSE-11: the filter narrows the visible nodes',
+      (tester) async {
+    final (controller, _) = await _loaded();
+    await _pump(tester, WebsiteContentBrowser(controller: controller));
+    expect(find.text('Button'), findsOneWidget);
+    expect(find.text('home.md'), findsOneWidget);
+    expect(find.text('site.yaml'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'home');
+    await tester.pumpAndSettle();
+
+    expect(find.text('home.md'), findsOneWidget);
+    expect(find.text('Button'), findsNothing);
+    expect(find.text('site.yaml'), findsNothing);
   });
 }

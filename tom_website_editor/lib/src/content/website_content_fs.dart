@@ -1,5 +1,7 @@
 import 'dart:io' show Directory;
 
+import 'package:tom_forge_core/tom_forge_core.dart'
+    show ForgeRenameFileOperation, ForgeWorkspaceEdit;
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
 /// A directory entry with its file-vs-directory kind, returned by
@@ -35,6 +37,12 @@ abstract class WebsiteContentFs {
 
   /// Whether [uri] exists.
   Future<bool> exists(Uri uri);
+
+  /// Deletes the file at [uri] (§9 tree affordance).
+  Future<void> delete(Uri uri);
+
+  /// Renames/moves the file from [from] to [to] (§9 tree affordance).
+  Future<void> rename(Uri from, Uri to);
 }
 
 /// Adapts a [ForgeFileSystem] to the [WebsiteContentFs] seam.
@@ -71,6 +79,23 @@ class ForgeContentFs implements WebsiteContentFs {
 
   @override
   Future<bool> exists(Uri uri) => _fs.exists(uri);
+
+  @override
+  Future<void> delete(Uri uri) => _fs.delete(uri);
+
+  @override
+  Future<void> rename(Uri from, Uri to) async {
+    // ForgeFileSystem has no direct rename; the atomic file-operation edit is
+    // the supported path. A `false` return means the edit was rolled back.
+    final ok = await _fs.applyWorkspaceEdit(
+      ForgeWorkspaceEdit(
+        fileOperations: [ForgeRenameFileOperation(oldUri: from, newUri: to)],
+      ),
+    );
+    if (!ok) {
+      throw StateError('Failed to rename $from to $to');
+    }
+  }
 }
 
 /// A `dir/glob` pattern from the `content:` block (e.g. `components/*.yaml`),

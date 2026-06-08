@@ -87,6 +87,19 @@ class _FakeFs implements WebsiteContentFs {
     final prefix = _prefix(uri);
     return files.keys.any((u) => u.path.startsWith(prefix));
   }
+
+  @override
+  Future<void> delete(Uri uri) async {
+    files.remove(uri);
+    final prefix = _prefix(uri);
+    files.removeWhere((u, _) => u.path.startsWith(prefix));
+  }
+
+  @override
+  Future<void> rename(Uri from, Uri to) async {
+    final content = files.remove(from);
+    if (content != null) files[to] = content;
+  }
 }
 
 Future<(WebsiteStructureController, _FakeFs)> _loaded({
@@ -189,6 +202,99 @@ void main() {
       expect(controller.error, isNotNull);
       expect(controller.error, contains('unknownToken'));
       expect(controller.nodes, isEmpty);
+    });
+
+    // WSC-08: createFile writes a new file and the tree shows it after refresh.
+    test('WSC-08: createFile writes and surfaces the new file', () async {
+      final (controller, fs) = await _loaded(activeId: 'alpha');
+      final uri = Uri.file('/sites/a/content/components/hero.yaml');
+      final created =
+          await controller.createFile(uri, content: 'id: hero\n');
+      expect(created, uri);
+      expect(fs.files[uri], 'id: hero\n');
+      final components = _section(controller, 'components');
+      expect(components.children.map((n) => n.label), contains('hero.yaml'));
+    });
+
+    // WSC-09: deleteFile removes the file from disk and from the tree.
+    test('WSC-09: deleteFile removes the file', () async {
+      final (controller, fs) = await _loaded(activeId: 'alpha');
+      final uri = Uri.file('/sites/a/content/components/button.yaml');
+      expect(fs.files.containsKey(uri), isTrue);
+      await controller.deleteFile(uri);
+      expect(fs.files.containsKey(uri), isFalse);
+      final components = _section(controller, 'components');
+      expect(components.children.map((n) => n.label),
+          isNot(contains('button.yaml')));
+      expect(components.children.map((n) => n.label), contains('card.yaml'));
+    });
+
+    // WSC-10: renameFile moves the file to a sibling path and updates the tree.
+    test('WSC-10: renameFile renames within the directory', () async {
+      final (controller, fs) = await _loaded(activeId: 'alpha');
+      final from = Uri.file('/sites/a/content/components/button.yaml');
+      final to = await controller.renameFile(from, 'pressable.yaml');
+      expect(to, Uri.file('/sites/a/content/components/pressable.yaml'));
+      expect(fs.files.containsKey(from), isFalse);
+      expect(fs.files.containsKey(to), isTrue);
+      final components = _section(controller, 'components');
+      final labels = components.children.map((n) => n.label).toList();
+      expect(labels, contains('pressable.yaml'));
+      expect(labels, isNot(contains('button.yaml')));
+    });
+
+    // WSC-11: renameFile rejects an empty name or a name with a path separator.
+    test('WSC-11: renameFile validates the new name', () async {
+      final (controller, _) = await _loaded(activeId: 'alpha');
+      final from = Uri.file('/sites/a/content/components/button.yaml');
+      expect(() => controller.renameFile(from, ''), throwsArgumentError);
+      expect(() => controller.renameFile(from, '   '), throwsArgumentError);
+      expect(
+          () => controller.renameFile(from, 'sub/x.yaml'), throwsArgumentError);
+    });
+  });
+
+  group('filterStructureNodes', () {
+    StructureNode dir(String label, List<StructureNode> children) =>
+        StructureNode(
+          label: label,
+          kind: StructureNodeKind.directory,
+          children: children,
+        );
+    StructureNode file(String label) =>
+        fileNode(Uri.file('/x/$label'), label: label);
+
+    final tree = [
+      dir('components', [file('button.yaml'), file('card.yaml')]),
+      dir('pages', [file('about.md')]),
+    ];
+
+    // WSC-FILTER-01: an empty query returns the original list unchanged.
+    test('WSC-FILTER-01: empty query is a no-op', () {
+      expect(identical(filterStructureNodes(tree, ''), tree), isTrue);
+      expect(identical(filterStructureNodes(tree, '   '), tree), isTrue);
+    });
+
+    // WSC-FILTER-02: a leaf match keeps the leaf and its ancestor directory,
+    // pruning non-matching siblings and subtrees.
+    test('WSC-FILTER-02: leaf match keeps matching leaf + ancestor', () {
+      final filtered = filterStructureNodes(tree, 'button');
+      expect(filtered, hasLength(1));
+      expect(filtered.single.label, 'components');
+      expect(filtered.single.children.map((n) => n.label), ['button.yaml']);
+    });
+
+    // WSC-FILTER-03: a directory-label match keeps the whole subtree.
+    test('WSC-FILTER-03: directory match keeps the whole subtree', () {
+      final filtered = filterStructureNodes(tree, 'pages');
+      expect(filtered, hasLength(1));
+      expect(filtered.single.label, 'pages');
+      expect(filtered.single.children.map((n) => n.label), ['about.md']);
+    });
+
+    // WSC-FILTER-04: a no-match query prunes everything.
+    test('WSC-FILTER-04: no match yields an empty list', () {
+      expect(filterStructureNodes(tree, 'zzz'), isEmpty);
     });
   });
 }

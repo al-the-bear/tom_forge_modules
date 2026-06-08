@@ -77,6 +77,19 @@ class _FakeFs implements WebsiteContentFs {
     final prefix = _prefix(uri);
     return files.keys.any((u) => u.path.startsWith(prefix));
   }
+
+  @override
+  Future<void> delete(Uri uri) async {
+    files.remove(uri);
+    final prefix = _prefix(uri);
+    files.removeWhere((u, _) => u.path.startsWith(prefix));
+  }
+
+  @override
+  Future<void> rename(Uri from, Uri to) async {
+    final content = files.remove(from);
+    if (content != null) files[to] = content;
+  }
 }
 
 Map<Uri, String> _seed() => {
@@ -145,5 +158,78 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('the Markdown editor'), findsOneWidget);
+  });
+
+  // TWE-STRUCT-05: the §9 search box narrows the visible tree to matches.
+  testWidgets('TWE-STRUCT-05: the filter narrows the visible nodes',
+      (tester) async {
+    final controller = await _loaded(activeId: 'alpha');
+    await _pump(tester, WebsiteStructureExplorer(controller: controller));
+    expect(find.text('site.yaml'), findsOneWidget);
+    expect(find.text('about.md'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'button');
+    await tester.pumpAndSettle();
+
+    expect(find.text('button.yaml'), findsOneWidget);
+    expect(find.text('components'), findsOneWidget);
+    expect(find.text('site.yaml'), findsNothing);
+    expect(find.text('about.md'), findsNothing);
+    expect(find.text('pages'), findsNothing);
+  });
+
+  // TWE-STRUCT-06: the per-directory new-file affordance creates a file.
+  testWidgets('TWE-STRUCT-06: new-file affordance creates a file',
+      (tester) async {
+    final controller = await _loaded(activeId: 'alpha');
+    await _pump(tester, WebsiteStructureExplorer(controller: controller));
+
+    await tester.tap(find.byTooltip('New file in components'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, 'hero.yaml');
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('hero.yaml'), findsOneWidget);
+  });
+
+  // TWE-STRUCT-07: the per-file Rename affordance renames the file.
+  testWidgets('TWE-STRUCT-07: rename affordance renames a file',
+      (tester) async {
+    final controller = await _loaded(activeId: 'alpha');
+    await _pump(tester, WebsiteStructureExplorer(controller: controller));
+
+    await tester.tap(find.descendant(
+      of: find.widgetWithText(ListTile, 'button.yaml'),
+      matching: find.byIcon(Icons.more_vert),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Rename'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, 'pressable.yaml');
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('pressable.yaml'), findsOneWidget);
+    expect(find.text('button.yaml'), findsNothing);
+  });
+
+  // TWE-STRUCT-08: the per-file Delete affordance removes the file (confirmed).
+  testWidgets('TWE-STRUCT-08: delete affordance removes a file',
+      (tester) async {
+    final controller = await _loaded(activeId: 'alpha');
+    await _pump(tester, WebsiteStructureExplorer(controller: controller));
+
+    await tester.tap(find.descendant(
+      of: find.widgetWithText(ListTile, 'button.yaml'),
+      matching: find.byIcon(Icons.more_vert),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('button.yaml'), findsNothing);
   });
 }

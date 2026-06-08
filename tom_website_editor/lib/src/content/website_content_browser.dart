@@ -104,6 +104,7 @@ class _ContentBrowserBody extends StatefulWidget {
 
 class _ContentBrowserBodyState extends State<_ContentBrowserBody> {
   _Selection? _selection;
+  String _query = '';
 
   /// Routes [uri] to the host's editor (via the open seam) when one is wired.
   void _open(Uri uri) => widget.onOpenFile?.call(uri);
@@ -185,44 +186,85 @@ class _ContentBrowserBodyState extends State<_ContentBrowserBody> {
   }
 
   Widget _buildTree(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(8),
+          child: TextField(
+            decoration: const InputDecoration(
+              isDense: true,
+              prefixIcon: Icon(Icons.search, size: 18),
+              hintText: 'Filter content',
+              border: OutlineInputBorder(),
+            ),
+            onChanged: (value) => setState(() => _query = value),
+          ),
+        ),
+        Expanded(child: _buildTreeList(context)),
+      ],
+    );
+  }
+
+  Widget _buildTreeList(BuildContext context) {
     final controller = widget.controller;
+    final needle = _query.trim().toLowerCase();
     final children = <Widget>[];
+    var total = 0;
 
     for (final document in controller.components) {
-      children.add(_buildRecordTile(document.record, document));
+      total++;
+      if (needle.isEmpty || _recordMatches(document.record, needle)) {
+        children.add(_buildRecordTile(document.record, document));
+      }
     }
 
     final site = controller.siteFile;
     if (site != null) {
-      children.add(ListTile(
-        dense: true,
-        leading: const Icon(Icons.description_outlined, size: 18),
-        title: Text(_fileName(site)),
-        selected: _selection?.site ?? false,
-        onTap: () {
-          setState(() => _selection = const _Selection.site());
-          _open(site);
-        },
-      ));
+      total++;
+      if (needle.isEmpty || _fileName(site).toLowerCase().contains(needle)) {
+        children.add(ListTile(
+          dense: true,
+          leading: const Icon(Icons.description_outlined, size: 18),
+          title: Text(_fileName(site)),
+          selected: _selection?.site ?? false,
+          onTap: () {
+            setState(() => _selection = const _Selection.site());
+            _open(site);
+          },
+        ));
+      }
     }
 
     for (final page in controller.pages) {
-      children.add(ListTile(
-        dense: true,
-        leading: const Icon(Icons.article_outlined, size: 18),
-        title: Text(_fileName(page)),
-        selected: _selection?.page == page,
-        onTap: () {
-          setState(() => _selection = _Selection.page(page));
-          _open(page);
-        },
-      ));
+      total++;
+      if (needle.isEmpty || _fileName(page).toLowerCase().contains(needle)) {
+        children.add(ListTile(
+          dense: true,
+          leading: const Icon(Icons.article_outlined, size: 18),
+          title: Text(_fileName(page)),
+          selected: _selection?.page == page,
+          onTap: () {
+            setState(() => _selection = _Selection.page(page));
+            _open(page);
+          },
+        ));
+      }
     }
 
-    if (children.isEmpty) {
+    if (total == 0) {
       return const Center(child: Text('No content found.'));
     }
+    if (children.isEmpty) {
+      return const Center(child: Text('No content matches the filter.'));
+    }
     return ListView(children: children);
+  }
+
+  /// Whether [record] or any descendant has a label containing [needle].
+  static bool _recordMatches(ContentRecord record, String needle) {
+    if (record.label.toLowerCase().contains(needle)) return true;
+    return record.children.any((child) => _recordMatches(child, needle));
   }
 
   Widget _buildRecordTile(

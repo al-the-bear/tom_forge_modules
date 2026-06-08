@@ -94,6 +94,19 @@ class _FakeContentFs implements WebsiteContentFs {
     return files.keys.any((u) => u.path.startsWith(prefix));
   }
 
+  @override
+  Future<void> delete(Uri uri) async {
+    files.remove(uri);
+    final prefix = _dirPrefix(uri);
+    files.removeWhere((u, _) => u.path.startsWith(prefix));
+  }
+
+  @override
+  Future<void> rename(Uri from, Uri to) async {
+    final content = files.remove(from);
+    if (content != null) files[to] = content;
+  }
+
   static String _dirPrefix(Uri uri) =>
       uri.path.endsWith('/') ? uri.path : '${uri.path}/';
 }

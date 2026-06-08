@@ -78,3 +78,40 @@ StructureNode fileNode(Uri uri, {String? label}) => StructureNode(
       uri: uri,
       editorKind: editorKindForFile(uri),
     );
+
+/// Filters a structure tree to the nodes matching [query] (§9 tree search).
+///
+/// Matching is case-insensitive on the node label. A leaf is kept when its own
+/// label matches; a directory/group is kept when its label matches (in which
+/// case its whole subtree is preserved so the user can browse into it) or when
+/// any descendant matches (in which case only the matching descendants remain).
+/// An empty/whitespace [query] is a no-op and returns [nodes] unchanged.
+List<StructureNode> filterStructureNodes(
+    List<StructureNode> nodes, String query) {
+  final trimmed = query.trim();
+  if (trimmed.isEmpty) return nodes;
+  final needle = trimmed.toLowerCase();
+  final result = <StructureNode>[];
+  for (final node in nodes) {
+    final selfMatches = node.label.toLowerCase().contains(needle);
+    if (node.children.isEmpty) {
+      if (selfMatches) result.add(node);
+      continue;
+    }
+    if (selfMatches) {
+      result.add(node); // Keep the whole subtree under a matching parent.
+      continue;
+    }
+    final filteredChildren = filterStructureNodes(node.children, trimmed);
+    if (filteredChildren.isNotEmpty) {
+      result.add(StructureNode(
+        label: node.label,
+        kind: node.kind,
+        uri: node.uri,
+        editorKind: node.editorKind,
+        children: filteredChildren,
+      ));
+    }
+  }
+  return result;
+}

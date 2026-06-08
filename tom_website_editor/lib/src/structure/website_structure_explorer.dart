@@ -59,6 +59,7 @@ class _StructureExplorerBody extends StatefulWidget {
 
 class _StructureExplorerBodyState extends State<_StructureExplorerBody> {
   StructureNode? _selection;
+  String _query = '';
 
   @override
   void initState() {
@@ -104,7 +105,7 @@ class _StructureExplorerBodyState extends State<_StructureExplorerBody> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              SizedBox(width: 280, child: _buildTree(context)),
+              SizedBox(width: 280, child: _buildTreePane(context)),
               const VerticalDivider(width: 1),
               Expanded(child: _buildDetail(context)),
             ],
@@ -133,23 +134,50 @@ class _StructureExplorerBodyState extends State<_StructureExplorerBody> {
     );
   }
 
-  Widget _buildTree(BuildContext context) {
-    final nodes = widget.controller.nodes;
-    if (nodes.isEmpty) {
-      return const Center(child: Text('No content found.'));
-    }
-    return ListView(
-      children: [for (final node in nodes) _buildNode(node)],
+  Widget _buildTreePane(BuildContext context) {
+    final allNodes = widget.controller.nodes;
+    final nodes = filterStructureNodes(allNodes, _query);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(8),
+          child: TextField(
+            decoration: const InputDecoration(
+              isDense: true,
+              prefixIcon: Icon(Icons.search, size: 18),
+              hintText: 'Filter files',
+              border: OutlineInputBorder(),
+            ),
+            onChanged: (value) => setState(() => _query = value),
+          ),
+        ),
+        Expanded(child: _buildTreeList(context, allNodes, nodes)),
+      ],
     );
   }
 
-  Widget _buildNode(StructureNode node) {
-    if (node.children.isEmpty) {
+  Widget _buildTreeList(BuildContext context, List<StructureNode> allNodes,
+      List<StructureNode> nodes) {
+    if (allNodes.isEmpty) {
+      return const Center(child: Text('No content found.'));
+    }
+    if (nodes.isEmpty) {
+      return const Center(child: Text('No files match the filter.'));
+    }
+    return ListView(
+      children: [for (final node in nodes) _buildNode(context, node)],
+    );
+  }
+
+  Widget _buildNode(BuildContext context, StructureNode node) {
+    if (node.kind == StructureNodeKind.file) {
       return ListTile(
         dense: true,
         leading: Icon(_iconFor(node), size: 18),
         title: Text(node.label),
         selected: identical(_selection, node),
+        trailing: _fileActions(context, node),
         onTap: node.isOpenable
             ? () => setState(() => _selection = node)
             : null,
@@ -159,10 +187,99 @@ class _StructureExplorerBodyState extends State<_StructureExplorerBody> {
       dense: true,
       initiallyExpanded: true,
       leading: Icon(_iconFor(node), size: 18),
-      title: Text(node.label),
+      title: Row(
+        children: [
+          Expanded(child: Text(node.label)),
+          if (node.uri != null)
+            IconButton(
+              icon: const Icon(Icons.add, size: 16),
+              tooltip: 'New file in ${node.label}',
+              visualDensity: VisualDensity.compact,
+              onPressed: () => _createIn(context, node),
+            ),
+        ],
+      ),
       childrenPadding: const EdgeInsets.only(left: 12),
-      children: [for (final child in node.children) _buildNode(child)],
+      children: [for (final child in node.children) _buildNode(context, child)],
     );
+  }
+
+  Widget? _fileActions(BuildContext context, StructureNode node) {
+    if (node.uri == null) return null;
+    return PopupMenuButton<String>(
+      icon: const Icon(Icons.more_vert, size: 16),
+      tooltip: 'File actions',
+      onSelected: (value) {
+        if (value == 'rename') _renameFile(context, node);
+        if (value == 'delete') _deleteFile(context, node);
+      },
+      itemBuilder: (_) => const [
+        PopupMenuItem(value: 'rename', child: Text('Rename')),
+        PopupMenuItem(value: 'delete', child: Text('Delete')),
+      ],
+    );
+  }
+
+  Future<void> _createIn(BuildContext context, StructureNode dir) async {
+    final name = await _promptName(context, title: 'New file', initial: '');
+    if (name == null || name.trim().isEmpty) return;
+    try {
+      await widget.controller.createFile(dir.uri!.resolve(name.trim()));
+    } catch (e) {
+      _showError('Could not create file: $e');
+    }
+  }
+
+  Future<void> _renameFile(BuildContext context, StructureNode node) async {
+    final name =
+        await _promptName(context, title: 'Rename file', initial: node.label);
+    if (name == null) return;
+    try {
+      await widget.controller.renameFile(node.uri!, name);
+    } catch (e) {
+      _showError('Could not rename file: $e');
+    }
+  }
+
+  Future<void> _deleteFile(BuildContext context, StructureNode node) async {
+    if (!await _confirmDelete(context, node.label)) return;
+    try {
+      await widget.controller.deleteFile(node.uri!);
+    } catch (e) {
+      _showError('Could not delete file: $e');
+    }
+  }
+
+  Future<String?> _promptName(BuildContext context,
+      {required String title, required String initial}) {
+    return showDialog<String>(
+      context: context,
+      builder: (_) => _NameDialog(title: title, initial: initial),
+    );
+  }
+
+  Future<bool> _confirmDelete(BuildContext context, String label) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete file'),
+        content: Text('Delete "$label"? This cannot be undone.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Delete')),
+        ],
+      ),
+    );
+    return confirmed ?? false;
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Widget _buildDetail(BuildContext context) {
@@ -206,4 +323,47 @@ class _StructureExplorerBodyState extends State<_StructureExplorerBody> {
         FileEditorKind.markdown => 'the Markdown editor',
         _ => 'a read-only viewer',
       };
+}
+
+/// A small file-name prompt that owns its [TextEditingController] so it is
+/// disposed only after the dialog route is fully removed (avoids using a
+/// disposed controller during the dialog's exit animation).
+class _NameDialog extends StatefulWidget {
+  const _NameDialog({required this.title, required this.initial});
+
+  final String title;
+  final String initial;
+
+  @override
+  State<_NameDialog> createState() => _NameDialogState();
+}
+
+class _NameDialogState extends State<_NameDialog> {
+  late final TextEditingController _field =
+      TextEditingController(text: widget.initial);
+
+  @override
+  void dispose() {
+    _field.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: Text(widget.title),
+        content: TextField(
+          controller: _field,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'File name'),
+          onSubmitted: (value) => Navigator.of(context).pop(value),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.of(context).pop(_field.text),
+              child: const Text('OK')),
+        ],
+      );
 }

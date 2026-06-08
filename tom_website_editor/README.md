@@ -236,6 +236,11 @@ path plus an **Open in editor** button (the same seam); the record pane keeps th
 field / pin affordances. When `onOpenFile` is `null` (the view rendered in
 isolation) taps only update the detail pane.
 
+**Filtering.** A search box above the catalog narrows the visible tree to nodes
+whose label matches (case-insensitive): a component is kept when its record — or
+any descendant module/submodule — matches, and `site.yaml` / pages are kept when
+their file name matches. Clearing the box restores the full catalog.
+
 ### Deferred (gated on enterprise_flutter_web)
 
 - **Live component field set.** The authoritative curated-field list and the
@@ -288,6 +293,25 @@ selection; embedding the rich editor widgets is deferred (see below).
 `createCopyFile(CopyFileKind.component, parts: ['billing'])` →
 `copy/billing_component.md`), then refreshes so the new group appears. Arity is
 validated — a malformed request throws rather than writing a bad path.
+
+**File CRUD affordances.** The explorer owns the file-management actions (the
+content browser stays read-navigation only — single responsibility). Each
+directory/group section header carries a **＋** button that prompts for a name and
+calls `createFile(uri)`; each file row carries a **⋮** menu with **Rename** and
+**Delete**. The controller exposes the three operations through the
+`WebsiteContentFs` seam (extended with `delete` / `rename`; `ForgeContentFs` maps
+`rename` onto a `ForgeWorkspaceEdit` file operation, the only supported path):
+
+- `createFile(uri, {content})` — writes the file if absent, then refreshes.
+- `renameFile(from, newName)` — moves the file to a sibling of `from`;
+  `newName` must be a bare file name (a blank name or one containing `/` throws
+  `ArgumentError`).
+- `deleteFile(uri)` — deletes through the seam, after a confirmation dialog.
+
+**Filtering.** A search box above the tree narrows the view via the pure
+`filterStructureNodes(nodes, query)` helper: a leaf is kept when its label
+matches (case-insensitive), a directory is kept whole when its own label matches
+or pruned to just its matching descendants otherwise. An empty query is a no-op.
 
 Like the content browser, the explorer is **disabled** for websites without a
 `content:` block, and a placeholder-resolution failure on `dir` surfaces as an
@@ -434,13 +458,16 @@ flutter test
   render, managed pin button vs editable field, pin writes the pin, typed
   inline-editor routing, tap-opens-backing-file navigation, detail-pane open
   button, inline scalar save, managed has no inline editor, `-md` routes to the
-  full editor (TWE-BROWSE-01..10).
+  full editor, and the search box narrowing the catalog (TWE-BROWSE-01..11).
 - `test/structure/copy_naming_test.dart` — §16 copy-file naming: parse/encode
   round-trip per kind, arity validation, non-convention files preserved, and the
   `component → module → submodule` grouping (CN-01..11).
 - `test/structure/website_structure_controller_test.dart` — disabled state, tree
   mirroring `content/`, §16 copy grouping, editor-kind routing, convention-path
-  file creation, placeholder-failure surfacing (WSC-01..07).
+  file creation, placeholder-failure surfacing (WSC-01..07), free-form
+  create/delete/rename + rename validation (WSC-08..11), and the pure
+  `filterStructureNodes` helper (WSC-FILTER-01..04).
 - `test/structure/website_structure_explorer_test.dart` — disabled state, tree
-  render with grouped copy, and yaml/md editor-routing on selection
-  (TWE-STRUCT-01..04).
+  render with grouped copy, yaml/md editor-routing on selection
+  (TWE-STRUCT-01..04), the search box narrowing the tree, and the new-file /
+  rename / delete affordances (TWE-STRUCT-05..08).
