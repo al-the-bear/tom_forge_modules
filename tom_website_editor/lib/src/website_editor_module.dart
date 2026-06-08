@@ -15,6 +15,7 @@ import 'website_config_panel.dart';
 import 'website_control_controller.dart';
 import 'website_control_view.dart';
 import 'website_editor_controller.dart';
+import 'website_process_runner.dart';
 import 'website_preview_controller.dart';
 import 'website_preview_view.dart';
 
@@ -31,10 +32,17 @@ import 'website_preview_view.dart';
 /// (§6a/§6b), and the dedicated [WebsiteConfigEditor] (§6) are all contributed
 /// here on the shared [controller].
 class WebsiteEditorModule extends ForgeModule {
-  WebsiteEditorModule({this.configFileName = 'tom.website-editor.yaml'});
+  WebsiteEditorModule({
+    this.configFileName = 'tom.website-editor.yaml',
+    WebsiteProcessRunner runner = const DartIoWebsiteProcessRunner(),
+  }) : _runner = runner;
 
   /// Name of the config file resolved against the workspace root.
   final String configFileName;
+
+  /// Spawns the external generator/build/dev-server processes (§5). Injectable
+  /// so tests can drive the control panel without starting real processes.
+  final WebsiteProcessRunner _runner;
 
   ForgeShellApi? _shell;
   Uri? _configUri;
@@ -52,6 +60,16 @@ class WebsiteEditorModule extends ForgeModule {
 
   /// The active controller, available after [activate].
   WebsiteEditorController? get controller => _controller;
+
+  /// The dev-server / generator control controller (§5), available after
+  /// [activate]. Exposed so a host (or test) can drive command runs directly.
+  WebsiteControlController? get controlController => _controlController;
+
+  /// The content catalog controller (§6a), available after [activate].
+  WebsiteContentController? get contentController => _contentController;
+
+  /// The filesystem structure controller (§6b), available after [activate].
+  WebsiteStructureController? get structureController => _structureController;
 
   /// The embedded site preview (§9.3), available after [activate].
   ///
@@ -101,9 +119,14 @@ class WebsiteEditorModule extends ForgeModule {
     _previewView = WebsitePreviewView(controller: previewController);
     final controlController = WebsiteControlController(
       editor: controller,
+      runner: _runner,
       // Auto-refresh the embedded preview when the dev server signals a
       // completed rebuild (§5, §9.5).
       onRebuildComplete: previewController.refresh,
+      // After a control-panel generate run, refresh the content tree and the
+      // structure explorer from disk so they reflect what the generator wrote
+      // (§5) — no manual reload needed.
+      onContentRegenerated: _refreshContentTrees,
     );
     _controlController = controlController;
     _controlView = WebsiteControlView(controller: controlController);
@@ -138,6 +161,14 @@ class WebsiteEditorModule extends ForgeModule {
   /// The shared open seam (item 1) the content/structure browsers call so a tap
   /// on a content file routes through `ForgeLayoutController.openFile`.
   void _openFile(Uri uri) => _shell?.layout.openFile(uri);
+
+  /// Refreshes the content tree and structure explorer from disk after a
+  /// control-panel generate run (§5). Both controllers already debounce to the
+  /// active website, so this is a cheap no-op when nothing on disk changed.
+  void _refreshContentTrees() {
+    unawaited(_contentController?.refresh());
+    unawaited(_structureController?.refresh());
+  }
 
   /// Forwards the config editor's schema/placeholder diagnostics to the shell.
   void _pushConfigDiagnostics() {

@@ -130,6 +130,17 @@ exact `jaspr serve` rebuild marker against the live website is deferred to the
 In the view, `serveStart` renders as a **start/stop toggle** (plus a restart
 button while running) instead of the generic command button.
 
+**Refresh after a generate run.** A real (non dry-run) `generateContent` /
+`generateAll` run from the control panel rewrites content on disk, so on
+completion the controller fires an injected `onContentRegenerated` callback. The
+module wires this to refresh **both** the §6a content tree and the §6b structure
+explorer from disk — the user sees the regenerated catalog without a manual
+reload. The callback fires regardless of exit code (a partial/failed run still
+mutates disk, and the trees should reflect reality), and is skipped for
+dry-runs (which never touch disk). The generator's drift report is part of the
+run's stdout, so it is already surfaced verbatim in the message log (structured
+drift parsing remains deferred — see below).
+
 ### Deferred (gated on enterprise_flutter_web)
 
 - **Structured drift-report parsing.** §5 asks the control view to parse the
@@ -386,7 +397,10 @@ flutter test
 - `test/website_editor_module_test.dart` — the §7 in-shell surface: the module
   forwards the config editor's diagnostics into the shell diagnostic manager, so
   editing the open config to an invalid command surfaces a shell issue, fixing it
-  clears the issue, and `deactivate()` retracts it (TWE-MOD-01..04).
+  clears the issue, and `deactivate()` retracts it (TWE-MOD-01..04); plus the §5
+  refresh-after-generate wiring — a control-panel `generateAll` run refreshes
+  both the content tree and the structure explorer from disk and logs the drift
+  output (TWE-MOD-05).
 - `test/website_preview_controller_test.dart` — URL resolution per source,
   recompute on selection, refresh token, resolve-error surfacing, external open
   (TWE-PREV-CTL-01..10).
@@ -396,7 +410,9 @@ flutter test
 - `test/website_control_controller_test.dart` — button availability, shell-argv
   + cwd expansion, log-before-run echo, stdout/stderr log levels, the 0/1/2
   exit-code mapping, `--dry-run`, unconfigured-command + resolve-error handling,
-  running/stop lifecycle (TWE-CTRL-01..15).
+  running/stop lifecycle (TWE-CTRL-01..15), and the content-regeneration refresh
+  callback (`generateContent`/`generateAll` fire `onContentRegenerated`, `build`
+  does not, dry-runs do not) (TWE-CTRL-16..18).
 - `test/website_control_view_test.dart` — command buttons (enabled/disabled),
   tap-spawns-process, log echo + completion, website picker, status line, reactive
   title, level filtering, dev-server start/stop toggle (TWE-CTRLV-01..08).

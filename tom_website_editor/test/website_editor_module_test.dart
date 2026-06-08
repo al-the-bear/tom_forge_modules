@@ -12,6 +12,8 @@
 // those diagnostics into the shell's diagnostic manager, so editing the open
 // config to something invalid (an invalid command) surfaces as a shell issue —
 // the "invalid edits surface as issues" definition of done.
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
@@ -43,6 +45,59 @@ websites:
 ''';
 
 final _configUri = Uri.parse('file:///tom.website-editor.yaml');
+
+// A config with a content: block + a generateAll command, used to prove the
+// refresh-after-generate wiring (§5): a control-panel generate run refreshes
+// the content tree and structure explorer from disk without a manual reload.
+const _contentConfig = '''
+version: 1
+defaults:
+  shell: ["bash", "-lc"]
+websites:
+  - id: ef
+    paths:
+      websiteRoot: "/site"
+    cwd: "{websiteRoot}"
+    commands:
+      generateAll: "dart run tool/gen_all.dart"
+    content:
+      dir: "{websiteRoot}/content"
+''';
+
+const _componentA = 'id: a\nname: A\ntagline: First\n';
+const _componentB = 'id: b\nname: B\ntagline: Second\n';
+
+/// A handle that replays [_lines] then completes with exit 0.
+class _FakeHandle implements WebsiteProcessHandle {
+  _FakeHandle(this._lines);
+  final List<WebsiteProcessLine> _lines;
+
+  @override
+  Stream<WebsiteProcessLine> get output => Stream.fromIterable(_lines);
+
+  @override
+  Future<int> get exitCode => Future.value(0);
+
+  @override
+  Future<void> kill() async {}
+}
+
+/// Returns a [_FakeHandle] emitting [lines] then exit 0 for every spec.
+class _FakeRunner implements WebsiteProcessRunner {
+  _FakeRunner({this.lines = const []});
+  final List<WebsiteProcessLine> lines;
+
+  @override
+  WebsiteProcessHandle start(WebsiteCommandSpec spec) => _FakeHandle(lines);
+}
+
+/// Collects every file node's label in the structure tree (depth-first).
+List<String> _fileLabels(List<StructureNode> nodes) => [
+      for (final node in nodes) ...[
+        if (node.kind == StructureNodeKind.file) node.label,
+        ..._fileLabels(node.children),
+      ],
+    ];
 
 void main() {
   group('WebsiteEditorModule — config diagnostics forwarded to the shell', () {
@@ -119,6 +174,67 @@ void main() {
 
       // Re-activate so tearDown's deactivate()/dispose() stay balanced.
       module = WebsiteEditorModule()..activate(shell);
+    });
+  });
+
+  group('WebsiteEditorModule — refresh after a control-panel generate run', () {
+    late DefaultShellApi shell;
+    late WebsiteEditorModule module;
+    late _FakeRunner runner;
+
+    setUp(() async {
+      shell = DefaultShellApi.withDefaults(
+        fileSystemSeed: const {
+          '/tom.website-editor.yaml': _contentConfig,
+          '/site/content/components/a.yaml': _componentA,
+        },
+        appName: 'Test',
+        navigatorKey: GlobalKey<NavigatorState>(),
+      );
+      (shell.systemState as DefaultSystemState).setWorkspaceRootPath('/');
+      runner = _FakeRunner(lines: const [
+        WebsiteProcessLine(ProcessStream.stdout, 'drift: 1 added, 0 removed'),
+      ]);
+      module = WebsiteEditorModule(runner: runner);
+      module.activate(shell);
+      (shell.modules as DefaultModuleRegistry).register(module);
+      // Let the editor load + the content/structure trees do their first read.
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    });
+
+    tearDown(() {
+      module.deactivate();
+      shell.dispose();
+    });
+
+    test('TWE-MOD-05: generateAll refreshes both trees from disk + logs drift',
+        () async {
+      // Baseline: only the seeded component is in the catalog/tree.
+      expect(module.contentController!.components, hasLength(1));
+      expect(_fileLabels(module.structureController!.nodes), contains('a.yaml'));
+      expect(_fileLabels(module.structureController!.nodes),
+          isNot(contains('b.yaml')));
+
+      // The generator writes a new component file on disk...
+      await shell.fileSystem
+          .write(Uri.file('/site/content/components/b.yaml'), _componentB);
+
+      // ...and the user runs the generate command from the control panel.
+      final code = await module.controlController!.runCommand('generateAll');
+      expect(code, 0);
+
+      // The refresh-after-generate seam re-reads disk (both refreshes are
+      // fire-and-forget, so let them settle).
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      expect(module.contentController!.components, hasLength(2));
+      expect(_fileLabels(module.structureController!.nodes), contains('b.yaml'));
+      // The raw generator drift output is surfaced verbatim in the control log.
+      expect(
+        module.controlController!.log
+            .any((e) => e.message.contains('drift: 1 added')),
+        isTrue,
+      );
     });
   });
 }

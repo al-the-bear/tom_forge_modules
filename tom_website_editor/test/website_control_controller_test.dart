@@ -26,6 +26,7 @@ websites:
       websiteRoot: "/sites/a"
     cwd: "{websiteRoot}"
     commands:
+      generateContent: "dart run tool/gen_content.dart"
       generateAll: "dart run tool/gen_all.dart"
       build: "jaspr build"
       deploy: "./deploy.sh"
@@ -309,6 +310,57 @@ void main() {
       controller.dispose();
       editor.selectWebsite('beta');
       expect(editor.activeWebsiteId, 'beta');
+    });
+  });
+
+  group('WebsiteControlController content-regeneration refresh', () {
+    test('TWE-CTRL-16: generateAll fires onContentRegenerated once + logs drift',
+        () async {
+      final editor = await _loadedEditor();
+      final runner = _FakeRunner(lines: const [
+        WebsiteProcessLine(ProcessStream.stdout, 'drift: 2 added, 0 removed'),
+      ]);
+      var regen = 0;
+      final controller = WebsiteControlController(
+        editor: editor,
+        runner: runner,
+        onContentRegenerated: () => regen++,
+      );
+      await controller.runCommand('generateAll');
+      expect(regen, 1);
+      expect(
+        controller.log.any((e) => e.message.contains('drift: 2 added')),
+        isTrue,
+      );
+    });
+
+    test('TWE-CTRL-17: generateContent fires it; build does not', () async {
+      final editor = await _loadedEditor();
+      final runner = _FakeRunner();
+      var regen = 0;
+      final controller = WebsiteControlController(
+        editor: editor,
+        runner: runner,
+        onContentRegenerated: () => regen++,
+      );
+      await controller.runCommand('generateContent');
+      expect(regen, 1);
+      await controller.runCommand('build');
+      expect(regen, 1);
+    });
+
+    test('TWE-CTRL-18: dry-run generate does not fire onContentRegenerated',
+        () async {
+      final editor = await _loadedEditor();
+      final runner = _FakeRunner();
+      var regen = 0;
+      final controller = WebsiteControlController(
+        editor: editor,
+        runner: runner,
+        onContentRegenerated: () => regen++,
+      );
+      await controller.runCommand('generateAll', dryRun: true);
+      expect(regen, 0);
     });
   });
 }

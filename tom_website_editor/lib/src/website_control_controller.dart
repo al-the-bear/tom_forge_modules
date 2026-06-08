@@ -36,6 +36,15 @@ class WebsiteCommandButton {
   final bool isRunning;
 }
 
+/// The §7 commands that (re)generate on-disk content. A successful or failed
+/// run of any of these means the website's content/structure on disk may have
+/// changed, so the content tree and structure explorer must refresh (§5).
+/// Dry-runs are excluded — they never touch disk.
+const Set<String> _contentRegeneratingCommands = {
+  'generateContent',
+  'generateAll',
+};
+
 /// The canonical §7 commands, in the order the control view renders them.
 /// Every website may configure any subset; missing ones render disabled.
 const List<(String, String)> _canonicalCommands = [
@@ -68,6 +77,7 @@ class WebsiteControlController extends ChangeNotifier {
     String? homeDir,
     DateTime Function()? clock,
     VoidCallback? onRebuildComplete,
+    VoidCallback? onContentRegenerated,
     ServerOutputMatcher? rebuildMatcher,
   })  : _editor = editor,
         _runner = runner,
@@ -76,6 +86,7 @@ class WebsiteControlController extends ChangeNotifier {
         _homeDir = homeDir,
         _clock = clock ?? DateTime.now,
         _onRebuildComplete = onRebuildComplete,
+        _onContentRegenerated = onContentRegenerated,
         _rebuildMatcher = rebuildMatcher ?? isRebuildCompleteLine {
     _editor.addListener(_onEditorChanged);
   }
@@ -90,6 +101,7 @@ class WebsiteControlController extends ChangeNotifier {
   final String? _homeDir;
   final DateTime Function() _clock;
   final VoidCallback? _onRebuildComplete;
+  final VoidCallback? _onContentRegenerated;
   final ServerOutputMatcher _rebuildMatcher;
 
   final List<WebsiteLogEntry> _log = [];
@@ -196,6 +208,13 @@ class WebsiteControlController extends ChangeNotifier {
     _lastRunAt = _clock();
     _logExit(name, code);
     notifyListeners();
+    // §5: a real (non dry-run) generate run may have changed content on disk —
+    // signal the host so it can refresh the content tree + structure explorer.
+    // Fire regardless of exit code: a partial/failed run still mutates disk, and
+    // the trees should reflect reality, not the last clean state.
+    if (!dryRun && _contentRegeneratingCommands.contains(name)) {
+      _onContentRegenerated?.call();
+    }
     return code;
   }
 
