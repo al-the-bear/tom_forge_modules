@@ -90,6 +90,41 @@ websites:
           websiteEditorJsonSchema()['properties'] as Map<String, dynamic>;
       expect((props['version'] as Map)['type'], 'integer');
     });
+
+    test('TWEC-SCH-09: malformed commands — validator rejects, schema types it',
+        () {
+      final result = loadWebsiteEditorConfig('''
+version: 1
+websites:
+  - id: ef
+    paths: { websiteRoot: "/a" }
+    commands: "jaspr build"
+''');
+      expect(result.isValid, isFalse);
+      final item = ((websiteEditorJsonSchema()['properties']
+              as Map<String, dynamic>)['websites'] as Map<String, dynamic>)['items']
+          as Map<String, dynamic>;
+      final commands =
+          (item['properties'] as Map<String, dynamic>)['commands'] as Map;
+      expect(commands['type'], 'object');
+    });
+
+    test('TWEC-SCH-10: malformed paths — validator rejects, schema requires '
+        'websiteRoot', () {
+      final result = loadWebsiteEditorConfig('''
+version: 1
+websites:
+  - id: ef
+    paths: { designDir: "/a/design" }
+''');
+      expect(result.isValid, isFalse);
+      final item = ((websiteEditorJsonSchema()['properties']
+              as Map<String, dynamic>)['websites'] as Map<String, dynamic>)['items']
+          as Map<String, dynamic>;
+      final paths =
+          (item['properties'] as Map<String, dynamic>)['paths'] as Map;
+      expect((paths['required'] as List).cast<String>(), contains('websiteRoot'));
+    });
   });
 
   group('committed schema file is in sync', () {
