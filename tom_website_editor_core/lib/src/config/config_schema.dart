@@ -83,6 +83,10 @@ const ObjectSpec _contentSpec = ObjectSpec(
         description: 'Root of the content tree (placeholder-expanded).'),
     'components': StringSpec(
         description: 'Glob (relative to dir) for catalog records.'),
+    'copy': StringSpec(
+        description: 'Glob (relative to dir) for editorial copy files (§16).'),
+    'areas': StringSpec(
+        description: 'Glob (relative to dir) for area definitions (§17).'),
     'site': StringSpec(description: 'Site-level copy file, relative to dir.'),
     'pages': StringSpec(
         description: 'Glob (relative to dir) for standalone pages.'),

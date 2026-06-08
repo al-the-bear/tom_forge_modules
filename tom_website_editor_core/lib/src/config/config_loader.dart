@@ -89,6 +89,8 @@ WebsiteContentConfig? _buildContent(Object? raw) {
     dir: raw['dir'] as String,
     components:
         raw['components'] as String? ?? kDefaultContentComponents,
+    copy: raw['copy'] as String? ?? kDefaultContentCopy,
+    areas: raw['areas'] as String? ?? kDefaultContentAreas,
     site: raw['site'] as String? ?? kDefaultContentSite,
     pages: raw['pages'] as String? ?? kDefaultContentPages,
     editableFields: raw.containsKey('editableFields')

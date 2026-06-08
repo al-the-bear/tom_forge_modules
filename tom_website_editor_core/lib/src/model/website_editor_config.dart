@@ -86,6 +86,8 @@ class WebsiteContentConfig {
   const WebsiteContentConfig({
     required this.dir,
     this.components = kDefaultContentComponents,
+    this.copy = kDefaultContentCopy,
+    this.areas = kDefaultContentAreas,
     this.site = kDefaultContentSite,
     this.pages = kDefaultContentPages,
     this.editableFields = kDefaultEditableFields,
@@ -98,6 +100,15 @@ class WebsiteContentConfig {
   /// Glob (relative to [dir]) for catalog records: component → module →
   /// optional submodule.
   final String components;
+
+  /// Glob (relative to [dir]) for editorial copy — one Markdown file per
+  /// component/module/submodule/home whose front-matter carries the
+  /// hand-editable fields and whose body is the overview (website spec §16).
+  final String copy;
+
+  /// Glob (relative to [dir]) for auto-discovered area definitions
+  /// (website spec §17).
+  final String areas;
 
   /// Site-level copy file, relative to [dir].
   final String site;
@@ -117,6 +128,12 @@ class WebsiteContentConfig {
 
 /// Default [WebsiteContentConfig.components] glob.
 const String kDefaultContentComponents = 'components/*.yaml';
+
+/// Default [WebsiteContentConfig.copy] glob (website spec §16).
+const String kDefaultContentCopy = 'copy/*.md';
+
+/// Default [WebsiteContentConfig.areas] glob (website spec §17).
+const String kDefaultContentAreas = 'areas/*.md';
 
 /// Default [WebsiteContentConfig.site] file.
 const String kDefaultContentSite = 'site.yaml';

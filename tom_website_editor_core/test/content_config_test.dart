@@ -58,6 +58,37 @@ void main() {
       expect(result.isValid, isTrue, reason: result.issues.toString());
       expect(result.config!.websites.single.content, isNull);
     });
+
+    test('TWEC-CONT-07: parses the copy/areas globs (live §16/§17 shape)', () {
+      // The live enterprise_flutter_web config adds editorial `copy` (spec §16)
+      // and auto-discovered `areas` (spec §17) globs alongside components/pages.
+      final result = loadWebsiteEditorConfig(_withContent('''
+    content:
+      dir: "{websiteRoot}/content"
+      components: "components/*.yaml"
+      copy: "copy/*.md"
+      areas: "areas/*.md"
+      site: "site.yaml"
+      pages: "pages/*.md"
+      editableFields: [tagline, summary, enables]
+      manualPin: "# @manual"
+'''));
+      expect(result.isValid, isTrue, reason: result.issues.toString());
+      final content = result.config!.websites.single.content!;
+      expect(content.copy, 'copy/*.md');
+      expect(content.areas, 'areas/*.md');
+    });
+
+    test('TWEC-CONT-08: copy/areas fall back to the conventional defaults', () {
+      final result = loadWebsiteEditorConfig(_withContent('''
+    content:
+      dir: "{websiteRoot}/content"
+'''));
+      expect(result.isValid, isTrue, reason: result.issues.toString());
+      final content = result.config!.websites.single.content!;
+      expect(content.copy, kDefaultContentCopy);
+      expect(content.areas, kDefaultContentAreas);
+    });
   });
 
   group('content block — validator/schema agreement', () {

@@ -47,8 +47,22 @@ websites:                        # required, at least one entry
 ```
 
 Unknown keys are rejected (typo guard) except within `paths`/`preview`
-(which accept extra string leaves) and the forward-compatible `content:`
-block (§6a, currently lenient).
+(which accept extra string leaves). The optional `content:` block (§6a) has a
+fixed key set — `dir` (required) plus `components`, `copy` (§16), `areas` (§17),
+`site`, `pages`, `editableFields`, `manualPin` — and likewise rejects unknown
+keys:
+
+```yaml
+content:
+  dir:            "{websiteRoot}/content"
+  components:     "components/*.yaml"   # mechanical catalog records
+  copy:           "copy/*.md"           # editorial copy (one md per node)
+  areas:          "areas/*.md"          # auto-discovered area definitions
+  site:           "site.yaml"           # nav, categories, featured
+  pages:          "pages/*.md"          # standalone pages
+  editableFields: [tagline, summary, enables]
+  manualPin:      "# @manual"
+```
 
 ## Placeholders (§3)
 
