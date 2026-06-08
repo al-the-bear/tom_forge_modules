@@ -3,12 +3,14 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_yaml_editor/tom_yaml_editor.dart';
 
 import 'content/website_content_browser.dart';
 import 'content/website_content_controller.dart';
 import 'content/website_content_fs.dart';
 import 'structure/website_structure_controller.dart';
 import 'structure/website_structure_explorer.dart';
+import 'website_config_editor.dart';
 import 'website_config_panel.dart';
 import 'website_control_controller.dart';
 import 'website_control_view.dart';
@@ -25,15 +27,19 @@ import 'website_preview_view.dart';
 /// at the workspace root, wires the controller's reader to the shell file
 /// system, and kicks off the initial load.
 ///
-/// The preview view (§9.3) is contributed here on the shared [controller]. The
-/// control view (§9.4) and the dedicated `WebsiteConfigEditor` (§6) are added in
-/// later steps.
+/// The preview view (§9.3), control view (§9.4), content/structure browsers
+/// (§6a/§6b), and the dedicated [WebsiteConfigEditor] (§6) are all contributed
+/// here on the shared [controller].
 class WebsiteEditorModule extends ForgeModule {
   WebsiteEditorModule({this.configFileName = 'tom.website-editor.yaml'});
 
   /// Name of the config file resolved against the workspace root.
   final String configFileName;
 
+  ForgeShellApi? _shell;
+  Uri? _configUri;
+  WebsiteConfigEditor? _configEditor;
+  ForgeDiagnosticCollection? _configDiagnostics;
   WebsiteEditorController? _controller;
   WebsitePreviewController? _previewController;
   WebsitePreviewView? _previewView;
@@ -68,11 +74,28 @@ class WebsiteEditorModule extends ForgeModule {
 
   @override
   void activate(ForgeShellApi shell) {
+    _shell = shell;
     final configUri = _resolveConfigUri(shell);
+    _configUri = configUri;
     final controller = WebsiteEditorController(
       configReader: () => shell.fileSystem.read(configUri),
     );
     _controller = controller;
+    // §6 config editor: built on ForgeYamlEditor, self-loads the on-disk config,
+    // and on save reloads the registry (an invalid save is rejected, last-good
+    // kept). Its schema/placeholder diagnostics are forwarded to the shell.
+    final configEditor = WebsiteConfigEditor(
+      controller: YamlEditorController(uri: configUri),
+      module: this,
+      configFileName: configFileName,
+      onSaveReload: controller.reload,
+      configReader: () => shell.fileSystem.read(configUri),
+    );
+    _configEditor = configEditor;
+    final diagnostics = shell.diagnostics.createCollection('website-editor-config');
+    _configDiagnostics = diagnostics;
+    configEditor.configDiagnostics.addListener(_pushConfigDiagnostics);
+    _pushConfigDiagnostics();
     final previewController = WebsitePreviewController(editor: controller);
     _previewController = previewController;
     _previewView = WebsitePreviewView(controller: previewController);
@@ -99,8 +122,33 @@ class WebsiteEditorModule extends ForgeModule {
     unawaited(controller.load());
   }
 
+  /// Opens `tom.website-editor.yaml` in the dedicated [WebsiteConfigEditor]
+  /// (§6). Routing matches on the filename via [WebsiteConfigEditor.canHandle].
+  void _openConfigEditor() {
+    final shell = _shell;
+    final uri = _configUri;
+    if (shell != null && uri != null) shell.layout.openFile(uri);
+  }
+
+  /// Forwards the config editor's schema/placeholder diagnostics to the shell.
+  void _pushConfigDiagnostics() {
+    final uri = _configUri;
+    final editor = _configEditor;
+    if (uri != null && editor != null) {
+      _configDiagnostics?.set(uri, editor.configDiagnostics.value);
+    }
+  }
+
   @override
   void deactivate() {
+    final uri = _configUri;
+    _configEditor?.configDiagnostics.removeListener(_pushConfigDiagnostics);
+    if (uri != null) _configDiagnostics?.set(uri, const []);
+    _configEditor?.dispose();
+    _configEditor = null;
+    _configDiagnostics = null;
+    _configUri = null;
+    _shell = null;
     _structureView = null;
     _structureController?.dispose();
     _structureController = null;
@@ -123,7 +171,7 @@ class WebsiteEditorModule extends ForgeModule {
   }
 
   @override
-  List<ForgeEditor> get editors => const [];
+  List<ForgeEditor> get editors => [?_configEditor];
 
   @override
   List<ForgeView> get views =>
@@ -145,7 +193,10 @@ class WebsiteEditorModule extends ForgeModule {
         title: 'Website Editor',
         icon: Icons.public,
         priority: 120,
-        builder: (_) => WebsiteConfigPanel(controller: controller),
+        builder: (_) => WebsiteConfigPanel(
+          controller: controller,
+          onEditConfiguration: _openConfigEditor,
+        ),
       ),
     ];
   }

@@ -17,6 +17,8 @@ export 'src/structure/copy_naming.dart';
 export 'src/structure/website_structure_controller.dart';
 export 'src/structure/website_structure_explorer.dart';
 export 'src/structure/website_structure_node.dart';
+export 'src/config/website_config_diagnostics.dart';
+export 'src/website_config_editor.dart';
 export 'src/website_config_panel.dart';
 export 'src/website_control_controller.dart';
 export 'src/website_control_log.dart';

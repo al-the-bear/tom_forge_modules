@@ -15,6 +15,13 @@ dependencies:
     path: ../tom_website_editor_core
   tom_forge_ui:
     path: ../tom_forge_ui
+  # Direct deps for the §6 config editor: ForgeDiagnostic/ForgeTextRange/
+  # FileHandlingResult come from tom_forge_core; the YAML controller the
+  # WebsiteConfigEditor is built on comes from tom_yaml_editor.
+  tom_forge_core:
+    path: ../tom_forge_core
+  tom_yaml_editor:
+    path: ../tom_yaml_editor
   # Vendored fork consumed via path across the monorepo (same as
   # tom_editors_shared); powers the embedded website preview webview (§4).
   flutter_inappwebview:

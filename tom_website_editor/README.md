@@ -6,9 +6,9 @@ wraps the pure-Dart [`tom_website_editor_core`](../tom_website_editor_core)
 active-website selection / reload config panel to the forge shell.
 
 This package implements **steps 2, 3, 4, 5 and 6** (§9.2, §9.3, §9.4, §9.5,
-§9.6 / §6a) of the implementation plan in `tom_website_editor_specification.md`.
-The dedicated `WebsiteConfigEditor` (§6) is added in a later step; it builds on
-the shared `WebsiteEditorController` this module exposes.
+§9.6 / §6a) of the implementation plan in `tom_website_editor_specification.md`,
+including the dedicated `WebsiteConfigEditor` (§6) that edits
+`tom.website-editor.yaml` itself and reloads the registry on save.
 
 ## What it provides
 
@@ -16,7 +16,9 @@ the shared `WebsiteEditorController` this module exposes.
 | --- | --- |
 | `WebsiteEditorModule` | `ForgeModule` that loads `tom.website-editor.yaml` from the workspace root on activation, contributes the website config panel, and registers the preview view. |
 | `WebsiteEditorController` | `ChangeNotifier` owning the `WebsiteRegistry`: async load/reload of the config source, the active-website selection, and the loading/issues state for the UI. |
-| `WebsiteConfigPanel` | Settings-dialog widget to pick the active website and reload the config; lists validation issues inline. |
+| `WebsiteConfigPanel` | Settings-dialog widget to pick the active website, reload the config, and open the config editor (the *Edit configuration* action); lists validation issues inline. |
+| `WebsiteConfigEditor` | `ForgeYamlEditor` subclass (§6) that handles `tom.website-editor.yaml` itself: self-loads the on-disk text, recomputes schema + placeholder diagnostics on every edit, and on save reloads the registry (an invalid save is rejected, last-good kept). |
+| `websiteConfigDiagnostics` | Pure function turning config text into `ForgeDiagnostic`s — reuses the runtime loader/validator/resolver so editor and registry agree on validity (single source of truth). |
 | `WebsitePreviewController` | `ChangeNotifier` wrapping the editor controller: resolves the active website's `preview.devUrl` / `preview.builtIndex` via the placeholder resolver, exposes a reload token, a dev/built source toggle, and external-browser open through an injected opener. |
 | `WebsitePreviewView` | `ForgeView` embedding the resolved preview URL in a webview, with a toolbar to pick the website, toggle the source, reload, and open in an external browser. |
 | `WebsiteControlController` | `ChangeNotifier` wrapping the editor controller: renders one action button per configured command (§7), expands the command + `cwd` via the placeholder resolver, spawns the external process through an injected `WebsiteProcessRunner`, streams stdout→info / stderr→warning into a levelled log, and maps the exit code via the §7 taxonomy. |
@@ -260,6 +262,41 @@ inline error rather than a silent blank tree.
   detail pane for in-place editing is reconciled in §9.7 alongside the content
   browser's editor embedding. Tracked in `completion_steps.tom_forge.md`.
 
+## Config editor (§6)
+
+`WebsiteConfigEditor` is the first-class editor for `tom.website-editor.yaml`
+itself. It **extends `tom_yaml_editor`'s `ForgeYamlEditor`** — YAML syntax,
+folding, dirty-state, undo/redo, and the save lifecycle all come from that
+component — and layers website-config semantics on top:
+
+- **Routing.** `canHandle` accepts the workspace file whose name matches
+  `configFileName` (default `tom.website-editor.yaml`, the §2 naming
+  convention), so opening it routes here rather than to the generic YAML editor.
+- **Self-load.** Module-contributed editors are not handed file content by the
+  shell, so the editor reads the on-disk text once via an injected
+  `configReader` and marks the loaded document clean. A read failure leaves an
+  empty document whose structural diagnostics tell the author the config is
+  missing.
+- **Schema + placeholder diagnostics.** On every edit it recomputes
+  `configDiagnostics` via `websiteConfigDiagnostics` — the *same* runtime
+  loader/validator and placeholder resolver the registry uses, so editor and
+  runtime agree on validity (single source of truth). Unresolvable
+  `{placeholder}` templates are flagged as warnings carrying the token and its
+  location. The owning module forwards these to the shell diagnostic manager.
+- **Save → reload.** The shell writes `getContent()` to disk and then calls
+  `markClean()`; that triggers `onSaveReload`, wired to
+  `WebsiteEditorController.reload`, which rebuilds the registry. An invalid
+  document is rejected by the registry, which keeps the last-good config.
+
+The config panel's **Edit configuration** action opens the file in this editor
+via `ForgeShellApi.layout.openFile`.
+
+> Diagnostics are currently anchored at line 0 — `tom_website_editor_core`'s
+> `ConfigIssue` carries no source line/column, so the offending path travels in
+> the diagnostic `code`. Precise line mapping is a deferred refinement (an
+> owning-package change in `tom_website_editor_core`); tracked in
+> `completion_steps.tom_forge.md`.
+
 ## Reload contract (§6)
 
 `reload()` re-reads the config source and applies it. On **valid** source the
@@ -281,6 +318,14 @@ flutter test
   notifications, loading flag, last-good-on-invalid (TWE-CTL-01..08).
 - `test/website_config_panel_test.dart` — panel rendering, selection, reload
   button, issue listing (TWE-PANEL-01..04).
+- `test/config/website_config_diagnostics_test.dart` — schema agreement with the
+  runtime loader (valid → none, missing version / malformed commands / malformed
+  paths → errors) and placeholder awareness (unknown → warning, resolvable /
+  built-in → none, no placeholder noise on invalid config) (TWE-CFGDIAG-01..08).
+- `test/website_config_editor_test.dart` — routing (`canHandle`), the one-time
+  self-load (loaded clean, read-failure → empty clean), diagnostics recompute on
+  edit, and the save → reload hook (markClean triggers reload, self-load does not)
+  (TWE-CFGED-01..09).
 - `test/website_preview_controller_test.dart` — URL resolution per source,
   recompute on selection, refresh token, resolve-error surfacing, external open
   (TWE-PREV-CTL-01..10).

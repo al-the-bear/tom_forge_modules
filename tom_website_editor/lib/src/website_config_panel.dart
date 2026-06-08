@@ -10,10 +10,19 @@ import 'website_editor_controller.dart';
 /// from the most recent load/reload are listed so an invalid config is visible
 /// without leaving the panel.
 class WebsiteConfigPanel extends StatelessWidget {
-  const WebsiteConfigPanel({super.key, required this.controller});
+  const WebsiteConfigPanel({
+    super.key,
+    required this.controller,
+    this.onEditConfiguration,
+  });
 
   /// Owns the registry and active-website selection.
   final WebsiteEditorController controller;
+
+  /// Opens `tom.website-editor.yaml` in the dedicated [WebsiteConfigEditor]
+  /// (§6). When null the "Edit configuration" action is hidden (e.g. a host
+  /// that has no editor surface).
+  final VoidCallback? onEditConfiguration;
 
   @override
   Widget build(BuildContext context) {
@@ -33,6 +42,12 @@ class WebsiteConfigPanel extends StatelessWidget {
             Expanded(
               child: Text('Websites', style: theme.textTheme.titleMedium),
             ),
+            if (onEditConfiguration != null)
+              TextButton.icon(
+                onPressed: onEditConfiguration,
+                icon: const Icon(Icons.edit_note),
+                label: const Text('Edit configuration'),
+              ),
             TextButton.icon(
               onPressed: controller.isLoading ? null : controller.reload,
               icon: const Icon(Icons.refresh),
