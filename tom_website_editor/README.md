@@ -324,6 +324,26 @@ component — and layers website-config semantics on top:
   `WebsiteEditorController.reload`, which rebuilds the registry. An invalid
   document is rejected by the registry, which keeps the last-good config.
 
+**Design decision (§7): YAML editor + schema, not a bespoke form.** The §6
+spec asks for editing `tom.website-editor.yaml` (commands, content paths,
+`editableFields`) "with validation against the sample/contract". Rather than a
+hand-built form per field, the surface is the full `ForgeYamlEditor` plus the
+runtime-shared `websiteConfigDiagnostics` — the author edits the YAML directly
+and the *same* loader/resolver the runtime uses tells them, live, what is
+invalid. This keeps one source of truth (no form schema that can drift from the
+loader), and any structure the loader understands (new commands, new websites)
+is editable the day the loader supports it, with no editor change. The
+config-specific value `WebsiteConfigEditor` adds over a plain YAML editor is
+exactly the three layers above: filename routing, the schema/placeholder
+diagnostics, and the save→reload hook.
+
+**Invalid edits surface as shell issues (§7 "done when").** The module creates a
+`website-editor-config` diagnostic collection and forwards the editor's
+`configDiagnostics` into it on every edit (`WebsiteEditorModule`), so an invalid
+edit — e.g. a malformed `commands:` value — appears in the shell's diagnostic
+manager keyed to the config URI, not just inside the editor. `deactivate()`
+retracts them. This module→shell forwarding is pinned by `TWE-MOD-01..04`.
+
 The config panel's **Edit configuration** action opens the file in this editor
 via `ForgeShellApi.layout.openFile`.
 
@@ -363,6 +383,10 @@ flutter test
   standard editors), the one-time self-load (loaded clean, read-failure → empty
   clean), diagnostics recompute on edit, and the save → reload hook (markClean
   triggers reload, self-load does not) (TWE-CFGED-01..10).
+- `test/website_editor_module_test.dart` — the §7 in-shell surface: the module
+  forwards the config editor's diagnostics into the shell diagnostic manager, so
+  editing the open config to an invalid command surfaces a shell issue, fixing it
+  clears the issue, and `deactivate()` retracts it (TWE-MOD-01..04).
 - `test/website_preview_controller_test.dart` — URL resolution per source,
   recompute on selection, refresh token, resolve-error surfacing, external open
   (TWE-PREV-CTL-01..10).
