@@ -1,50 +1,51 @@
-ID,Groups,Description,Baseline [06-07 16:25],[06-07 16:26],[06-07 16:39],[06-08 11:57],[06-08 12:15],[06-08 19:15],[06-08 19:16]
-TWEC-SCH-05,websiteEditorJsonSchema — structure,commands is a map of string command templates,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-RES-02,PlaceholderResolver — resolution priority,defaults win over built-ins,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-RES-03,PlaceholderResolver — resolution priority,built-in used when neither override defines it,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-RES-04,PlaceholderResolver — recursion,a placeholder expands to a string with more placeholders,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-RES-05,PlaceholderResolver — recursion,leading ~ in a resolved value expands to home,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-RES-06,PlaceholderResolver — errors,"cycle detection throws, does not hang",OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-RES-07,PlaceholderResolver — errors,max depth guard throws,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-RES-08,PlaceholderResolver — errors,unknown placeholder is an error carrying token + location,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-RES-09,PlaceholderResolver — built-ins,{env:VAR} resolves from the injected environment,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-RES-10,PlaceholderResolver — built-ins,{env:VAR} unset is an error,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-RES-11,PlaceholderResolver — built-ins,~ and {home} both expand to home,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-RES-12,PlaceholderResolver — built-ins,{date} and {time} use the injected clock,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-SCH-01,websiteEditorJsonSchema — structure,draft-07 object schema with the expected envelope,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-RES-01,PlaceholderResolver — resolution priority,per-website key wins over defaults and built-ins,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-SCH-03,websiteEditorJsonSchema — structure,version is a const integer; websites is a non-empty array,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-SCH-02,websiteEditorJsonSchema — structure,top-level required mirrors the validator rules,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-SCH-04,websiteEditorJsonSchema — structure,a website requires id and paths.websiteRoot,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-RES-13,PlaceholderResolver.forWebsite,builds scope from a loaded website + defaults,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-SCH-06,schema ⇄ validator agreement (single source of truth),"missing version — validator rejects, schema requires it",OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-SCH-07,schema ⇄ validator agreement (single source of truth),"wrong version type — validator rejects, schema types it",OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-SCH-08,committed schema file is in sync,.tom/json-schema file equals the generated schema,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-CFG-01,loadWebsiteEditorConfig — valid configs,accepts the canonical sample,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-CFG-02,loadWebsiteEditorConfig — valid configs,parses the model fields,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-CFG-03,loadWebsiteEditorConfig — valid configs,"defaults.shell falls back to [bash, -lc]",OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-CFG-04,loadWebsiteEditorConfig — rejects malformed configs,missing required key (version),OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-REG-07,WebsiteRegistry.reload,invalid reload is rejected; last-good registry stays,--/OK,--/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-CFG-06,loadWebsiteEditorConfig — rejects malformed configs,"malformed commands (string, not a map)",OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-CFG-07,loadWebsiteEditorConfig — rejects malformed configs,malformed paths (missing websiteRoot),OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-CFG-08,loadWebsiteEditorConfig — rejects malformed configs,empty websites list,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-CONT-06,content block — validator/schema agreement,unknown key inside content is rejected (typo guard),--/OK,--/OK,--/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-CFG-10,loadWebsiteEditorConfig — rejects malformed configs,"invalid YAML surfaces as an error, not an exception",OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-CFG-11,semantic validation,duplicate website ids are an error,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-SCH-10,schema ⇄ validator agreement (single source of truth),"malformed paths — validator rejects, schema requires websiteRoot",--/OK,--/OK,--/OK,--/OK,--/OK,--/OK,OK/OK
-TWEC-REG-02,WebsiteRegistry.load,invalid config yields no registry + issues,--/OK,--/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-REG-03,WebsiteRegistry.selectWebsite,selecting a known id changes the active website,--/OK,--/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-REG-04,WebsiteRegistry.selectWebsite,selecting an unknown id throws and leaves active intact,--/OK,--/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-REG-05,WebsiteRegistry.reload,"valid reload replaces config, preserves active id",--/OK,--/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-REG-06,WebsiteRegistry.reload,valid reload that drops the active id resets to first,--/OK,--/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-CFG-05,loadWebsiteEditorConfig — rejects malformed configs,wrong type (version as string),OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-CONT-01,content block — loader,parses every key,--/OK,--/OK,--/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-CONT-02,content block — loader,omitted keys fall back to the conventional defaults,--/OK,--/OK,--/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-CONT-03,content block — loader,a website without a content block opts out (null),--/OK,--/OK,--/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-CONT-04,content block — validator/schema agreement,missing required dir — validator + schema agree,--/OK,--/OK,--/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-CONT-05,content block — validator/schema agreement,wrong type for editableFields — rejected,--/OK,--/OK,--/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-CFG-09,loadWebsiteEditorConfig — rejects malformed configs,unknown top-level key is rejected (typo guard),OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
-TWEC-CONT-07,content block — loader,parses the copy/areas globs (live §16/§17 shape),--/OK,--/OK,--/OK,--/OK,OK/OK,OK/OK,OK/OK
-TWEC-CONT-08,content block — loader,copy/areas fall back to the conventional defaults,--/OK,--/OK,--/OK,--/OK,OK/OK,OK/OK,OK/OK
-TWEC-SCH-09,schema ⇄ validator agreement (single source of truth),"malformed commands — validator rejects, schema types it",--/OK,--/OK,--/OK,--/OK,--/OK,--/OK,OK/OK
-TWEC-REG-01,WebsiteRegistry.load,builds from a valid config; active defaults to first,--/OK,--/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+ID,Groups,Description,Baseline [06-07 16:25],[06-07 16:26],[06-07 16:39],[06-08 11:57],[06-08 12:15],[06-08 19:15],[06-08 19:16],[06-08 21:33]
+TWEC-SCH-04,websiteEditorJsonSchema — structure,a website requires id and paths.websiteRoot,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-RES-02,PlaceholderResolver — resolution priority,defaults win over built-ins,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-RES-03,PlaceholderResolver — resolution priority,built-in used when neither override defines it,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-RES-04,PlaceholderResolver — recursion,a placeholder expands to a string with more placeholders,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-RES-05,PlaceholderResolver — recursion,leading ~ in a resolved value expands to home,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-RES-06,PlaceholderResolver — errors,"cycle detection throws, does not hang",OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-RES-07,PlaceholderResolver — errors,max depth guard throws,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-RES-08,PlaceholderResolver — errors,unknown placeholder is an error carrying token + location,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-RES-09,PlaceholderResolver — built-ins,{env:VAR} resolves from the injected environment,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-RES-10,PlaceholderResolver — built-ins,{env:VAR} unset is an error,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-RES-11,PlaceholderResolver — built-ins,~ and {home} both expand to home,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-RES-12,PlaceholderResolver — built-ins,{date} and {time} use the injected clock,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-SCH-01,websiteEditorJsonSchema — structure,draft-07 object schema with the expected envelope,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-RES-01,PlaceholderResolver — resolution priority,per-website key wins over defaults and built-ins,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-SCH-03,websiteEditorJsonSchema — structure,version is a const integer; websites is a non-empty array,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-SCH-02,websiteEditorJsonSchema — structure,top-level required mirrors the validator rules,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-SCH-05,websiteEditorJsonSchema — structure,commands is a map of string command templates,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-RES-13,PlaceholderResolver.forWebsite,builds scope from a loaded website + defaults,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-SCH-06,schema ⇄ validator agreement (single source of truth),"missing version — validator rejects, schema requires it",OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-SCH-07,schema ⇄ validator agreement (single source of truth),"wrong version type — validator rejects, schema types it",OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-SCH-08,committed schema file is in sync,.tom/json-schema file equals the generated schema,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-CFG-01,loadWebsiteEditorConfig — valid configs,accepts the canonical sample,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-CFG-02,loadWebsiteEditorConfig — valid configs,parses the model fields,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-CFG-03,loadWebsiteEditorConfig — valid configs,"defaults.shell falls back to [bash, -lc]",OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-CFG-04,loadWebsiteEditorConfig — rejects malformed configs,missing required key (version),OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-REG-07,WebsiteRegistry.reload,invalid reload is rejected; last-good registry stays,--/OK,--/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-CFG-06,loadWebsiteEditorConfig — rejects malformed configs,"malformed commands (string, not a map)",OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-CFG-07,loadWebsiteEditorConfig — rejects malformed configs,malformed paths (missing websiteRoot),OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-CFG-08,loadWebsiteEditorConfig — rejects malformed configs,empty websites list,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-CONT-06,content block — validator/schema agreement,unknown key inside content is rejected (typo guard),--/OK,--/OK,--/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-CFG-10,loadWebsiteEditorConfig — rejects malformed configs,"invalid YAML surfaces as an error, not an exception",OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-CFG-11,semantic validation,duplicate website ids are an error,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-CFG-12,loadWebsiteEditorConfig — valid configs,the canonical sample editableFields match the code default,--/OK,--/OK,--/OK,--/OK,--/OK,--/OK,--/OK,OK/OK
+TWEC-REG-02,WebsiteRegistry.load,invalid config yields no registry + issues,--/OK,--/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-REG-03,WebsiteRegistry.selectWebsite,selecting a known id changes the active website,--/OK,--/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-REG-04,WebsiteRegistry.selectWebsite,selecting an unknown id throws and leaves active intact,--/OK,--/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-REG-05,WebsiteRegistry.reload,"valid reload replaces config, preserves active id",--/OK,--/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-REG-06,WebsiteRegistry.reload,valid reload that drops the active id resets to first,--/OK,--/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-CFG-05,loadWebsiteEditorConfig — rejects malformed configs,wrong type (version as string),OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-CONT-01,content block — loader,parses every key,--/OK,--/OK,--/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-CONT-02,content block — loader,omitted keys fall back to the conventional defaults,--/OK,--/OK,--/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-CONT-03,content block — loader,a website without a content block opts out (null),--/OK,--/OK,--/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-CONT-04,content block — validator/schema agreement,missing required dir — validator + schema agree,--/OK,--/OK,--/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-CONT-05,content block — validator/schema agreement,wrong type for editableFields — rejected,--/OK,--/OK,--/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-CFG-09,loadWebsiteEditorConfig — rejects malformed configs,unknown top-level key is rejected (typo guard),OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-CONT-07,content block — loader,parses the copy/areas globs (live §16/§17 shape),--/OK,--/OK,--/OK,--/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-CONT-08,content block — loader,copy/areas fall back to the conventional defaults,--/OK,--/OK,--/OK,--/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-SCH-09,schema ⇄ validator agreement (single source of truth),"malformed commands — validator rejects, schema types it",--/OK,--/OK,--/OK,--/OK,--/OK,--/OK,OK/OK,OK/OK
+TWEC-REG-01,WebsiteRegistry.load,builds from a valid config; active defaults to first,--/OK,--/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK,OK/OK
+TWEC-SCH-10,schema ⇄ validator agreement (single source of truth),"malformed paths — validator rejects, schema requires websiteRoot",--/OK,--/OK,--/OK,--/OK,--/OK,--/OK,OK/OK,OK/OK

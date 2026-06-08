@@ -66,6 +66,22 @@ websites:
       expect(result.isValid, isTrue, reason: result.issues.toString());
       expect(result.config!.defaults.shell, ['bash', '-lc']);
     });
+
+    test('TWEC-CFG-12: the canonical sample editableFields match the code default',
+        () {
+      // Single source of truth: the sample's curated content fields must equal
+      // the package default `kDefaultEditableFields`, which the spec §2 sample
+      // and §6a prose mirror. This guards the §11 reconciliation against drift.
+      final file = File(_canonicalSamplePath);
+      final result = loadWebsiteEditorConfig(file.readAsStringSync());
+      final content = result.config!.websites.first.content;
+      expect(content, isNotNull,
+          reason: 'the canonical sample must declare a content: block');
+      expect(content!.editableFields, kDefaultEditableFields,
+          reason: 'sample editableFields must equal the canonical default');
+      expect(content.editableFields,
+          ['tagline', 'summary-md', 'overview-md', 'enables']);
+    });
   });
 
   group('loadWebsiteEditorConfig — rejects malformed configs', () {
