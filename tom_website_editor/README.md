@@ -296,9 +296,18 @@ itself. It **extends `tom_yaml_editor`'s `ForgeYamlEditor`** — YAML syntax,
 folding, dirty-state, undo/redo, and the save lifecycle all come from that
 component — and layers website-config semantics on top:
 
-- **Routing.** `canHandle` accepts the workspace file whose name matches
-  `configFileName` (default `tom.website-editor.yaml`, the §2 naming
-  convention), so opening it routes here rather than to the generic YAML editor.
+- **Routing (self-registration, §2/§6).** The module contributes this editor
+  through the standard `ForgeModule.editors` getter, so the Forge layout
+  resolves it by `canHandle` like any other editor — no filename hand-wiring in
+  the host app. `canHandle` **accepts only** the workspace file whose name
+  matches `configFileName` (default `tom.website-editor.yaml`, the §2 naming
+  convention) and **rejects everything else**. Rejecting (rather than
+  `inspect`-ing) matters: this is a single instance bound to the on-disk config,
+  and `ForgeYamlEditor`'s inherited `canHandleContent` accepts *any* `.yaml`, so
+  an `inspect` result would let the config editor hijack every content `.yaml`
+  opened from the browser. With `reject`, the config file routes here while the
+  website's content files (`components/*.yaml`, `pages/*.md`, `site.yaml`) route
+  to the standard YAML / Markdown editors via the layout's extension fallback.
 - **Self-load.** Module-contributed editors are not handed file content by the
   shell, so the editor reads the on-disk text once via an injected
   `configReader` and marks the loaded document clean. A read failure leaves an
@@ -349,10 +358,11 @@ flutter test
   runtime loader (valid → none, missing version / malformed commands / malformed
   paths → errors) and placeholder awareness (unknown → warning, resolvable /
   built-in → none, no placeholder noise on invalid config) (TWE-CFGDIAG-01..08).
-- `test/website_config_editor_test.dart` — routing (`canHandle`), the one-time
-  self-load (loaded clean, read-failure → empty clean), diagnostics recompute on
-  edit, and the save → reload hook (markClean triggers reload, self-load does not)
-  (TWE-CFGED-01..09).
+- `test/website_config_editor_test.dart` — routing (`canHandle` accepts the
+  config, rejects other YAML/Markdown/unrelated files so content routes to the
+  standard editors), the one-time self-load (loaded clean, read-failure → empty
+  clean), diagnostics recompute on edit, and the save → reload hook (markClean
+  triggers reload, self-load does not) (TWE-CFGED-01..10).
 - `test/website_preview_controller_test.dart` — URL resolution per source,
   recompute on selection, refresh token, resolve-error surfacing, external open
   (TWE-PREV-CTL-01..10).

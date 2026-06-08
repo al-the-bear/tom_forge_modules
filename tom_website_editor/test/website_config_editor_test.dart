@@ -66,11 +66,36 @@ void main() {
       editor.dispose();
     });
 
-    test('TWE-CFGED-02: does not accept other YAML files', () {
+    test('TWE-CFGED-02: rejects another YAML file (does not hijack content)',
+        () {
+      // The config editor is a single instance bound to the on-disk config; it
+      // must NOT claim arbitrary YAML. Returning `inspect` here would defer to
+      // the inherited ForgeYamlEditor.canHandleContent, which accepts ANY yaml —
+      // so every content `.yaml` opened from the browser would route to the
+      // config editor instead of opening that file. `reject` lets content yaml
+      // fall through to the standard YAML editor.
       final editor = _editor(initialYaml: _validConfig);
       expect(
         editor.canHandle(Uri.parse('file:///ws/pubspec.yaml')),
-        FileHandlingResult.inspect,
+        FileHandlingResult.reject,
+      );
+      expect(
+        editor.canHandle(
+            Uri.parse('file:///ws/content/components/button.yaml')),
+        FileHandlingResult.reject,
+      );
+      editor.dispose();
+    });
+
+    test('TWE-CFGED-10: rejects content Markdown and unrelated files', () {
+      final editor = _editor(initialYaml: _validConfig);
+      expect(
+        editor.canHandle(Uri.parse('file:///ws/content/pages/home.md')),
+        FileHandlingResult.reject,
+      );
+      expect(
+        editor.canHandle(Uri.parse('file:///ws/lib/main.dart')),
+        FileHandlingResult.reject,
       );
       editor.dispose();
     });

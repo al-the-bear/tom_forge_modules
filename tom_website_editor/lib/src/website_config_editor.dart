@@ -12,9 +12,10 @@ import 'config/website_config_diagnostics.dart';
 /// syntax, folding, dirty-state, undo/redo, and the save lifecycle all come from
 /// that component — and layers website-config semantics on top:
 ///
-/// - **Routing.** [canHandle] accepts the workspace file whose name matches
-///   [configFileName] (the §2 naming convention), so opening it from the
-///   navigator routes here rather than to the generic YAML editor.
+/// - **Routing.** [canHandle] accepts *only* the workspace file whose name
+///   matches [configFileName] (the §2 naming convention) and rejects everything
+///   else, so opening the config routes here while every other YAML/Markdown
+///   file (incl. the website's content files) routes to the standard editors.
 /// - **Schema + placeholder diagnostics.** On every edit it recomputes
 ///   [configDiagnostics] via [websiteConfigDiagnostics] — the *same* runtime
 ///   loader/validator and resolver the registry uses, so editor and runtime
@@ -95,7 +96,14 @@ class WebsiteConfigEditor extends ForgeYamlEditor {
   FileHandlingResult canHandle(Uri uri) {
     final segments = uri.pathSegments;
     final isConfig = segments.isNotEmpty && segments.last == configFileName;
-    return isConfig ? FileHandlingResult.accept : FileHandlingResult.inspect;
+    // Filename-routed: accept only the config file, reject everything else.
+    // Returning `inspect` would defer to the inherited
+    // ForgeYamlEditor.canHandleContent, which accepts ANY `.yaml` — and since
+    // this is a single instance bound to the on-disk config, it would hijack
+    // every content `.yaml` opened from the browser. `reject` lets content
+    // files route to the standard YAML / Markdown editors (§6 "follow the
+    // standard": this editor claims only its own config).
+    return isConfig ? FileHandlingResult.accept : FileHandlingResult.reject;
   }
 
   @override
