@@ -1,4 +1,19 @@
+import 'dart:io' show Directory;
+
 import 'package:tom_forge_ui/tom_forge_ui.dart';
+
+/// A directory entry with its file-vs-directory kind, returned by
+/// [WebsiteContentFs.listEntries]. The structure explorer (§6b) needs the kind
+/// to build a filesystem tree; the content browser (§6a) only needs file Uris.
+class ContentFsEntry {
+  const ContentFsEntry({required this.uri, required this.isDirectory});
+
+  /// The entry's location.
+  final Uri uri;
+
+  /// Whether the entry is a directory (vs a file).
+  final bool isDirectory;
+}
 
 /// Narrow file-system seam the content browser needs (§6a): list a directory,
 /// read/write a file, test existence. Kept minimal (and separate from
@@ -7,6 +22,10 @@ import 'package:tom_forge_ui/tom_forge_ui.dart';
 abstract class WebsiteContentFs {
   /// Lists the files directly under [directory] (non-recursive).
   Future<List<Uri>> listFiles(Uri directory);
+
+  /// Lists the entries directly under [directory] (non-recursive), with each
+  /// entry's file/directory kind. Used by the §6b structure explorer.
+  Future<List<ContentFsEntry>> listEntries(Uri directory);
 
   /// Reads [uri] as text.
   Future<String> read(Uri uri);
@@ -29,6 +48,19 @@ class ForgeContentFs implements WebsiteContentFs {
     if (!await _fs.exists(directory)) return const [];
     final entities = await _fs.list(directory);
     return [for (final entity in entities) entity.uri];
+  }
+
+  @override
+  Future<List<ContentFsEntry>> listEntries(Uri directory) async {
+    if (!await _fs.exists(directory)) return const [];
+    final entities = await _fs.list(directory);
+    return [
+      for (final entity in entities)
+        ContentFsEntry(
+          uri: entity.uri,
+          isDirectory: entity is Directory,
+        ),
+    ];
   }
 
   @override

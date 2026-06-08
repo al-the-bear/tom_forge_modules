@@ -73,6 +73,12 @@ class _FakeContentFs implements WebsiteContentFs {
   }
 
   @override
+  Future<List<ContentFsEntry>> listEntries(Uri directory) async => [
+        for (final uri in await listFiles(directory))
+          ContentFsEntry(uri: uri, isDirectory: false),
+      ];
+
+  @override
   Future<String> read(Uri uri) async => files[uri]!;
 
   @override

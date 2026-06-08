@@ -7,6 +7,8 @@ import 'package:tom_forge_ui/tom_forge_ui.dart';
 import 'content/website_content_browser.dart';
 import 'content/website_content_controller.dart';
 import 'content/website_content_fs.dart';
+import 'structure/website_structure_controller.dart';
+import 'structure/website_structure_explorer.dart';
 import 'website_config_panel.dart';
 import 'website_control_controller.dart';
 import 'website_control_view.dart';
@@ -39,6 +41,8 @@ class WebsiteEditorModule extends ForgeModule {
   WebsiteControlView? _controlView;
   WebsiteContentController? _contentController;
   WebsiteContentBrowser? _contentView;
+  WebsiteStructureController? _structureController;
+  WebsiteStructureExplorer? _structureView;
 
   /// The active controller, available after [activate].
   WebsiteEditorController? get controller => _controller;
@@ -55,6 +59,9 @@ class WebsiteEditorModule extends ForgeModule {
 
   /// The content catalog browser (§6a), available after [activate].
   WebsiteContentBrowser? get contentView => _contentView;
+
+  /// The filesystem-driven structure explorer (§6b), available after [activate].
+  WebsiteStructureExplorer? get structureView => _structureView;
 
   @override
   String get displayName => 'Website Editor';
@@ -83,11 +90,20 @@ class WebsiteEditorModule extends ForgeModule {
     );
     _contentController = contentController;
     _contentView = WebsiteContentBrowser(controller: contentController);
+    final structureController = WebsiteStructureController(
+      editor: controller,
+      fileSystem: ForgeContentFs(shell.fileSystem),
+    );
+    _structureController = structureController;
+    _structureView = WebsiteStructureExplorer(controller: structureController);
     unawaited(controller.load());
   }
 
   @override
   void deactivate() {
+    _structureView = null;
+    _structureController?.dispose();
+    _structureController = null;
     _contentView = null;
     _contentController?.dispose();
     _contentController = null;
@@ -110,7 +126,8 @@ class WebsiteEditorModule extends ForgeModule {
   List<ForgeEditor> get editors => const [];
 
   @override
-  List<ForgeView> get views => [?_previewView, ?_controlView, ?_contentView];
+  List<ForgeView> get views =>
+      [?_previewView, ?_controlView, ?_contentView, ?_structureView];
 
   @override
   List<ForgeAction> get actions => const [];

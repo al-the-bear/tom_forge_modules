@@ -24,7 +24,10 @@ the shared `WebsiteEditorController` this module exposes.
 | `WebsiteProcessRunner` | Injectable seam (`WebsiteCommandSpec` → `WebsiteProcessHandle`) for spawning commands. The `DartIoWebsiteProcessRunner` default uses `Process.start`; tests inject a fake that replays output + an exit code. |
 | `WebsiteContentController` | `ChangeNotifier` wrapping the editor controller: builds the §6a content catalog (component → module → optional submodule, plus `site.yaml` and `pages/`) from the active website's `content:` block through the injectable `WebsiteContentFs` seam, classifies each field managed vs editable, writes `# @manual` pins back to disk, and disables itself for websites without a `content:` block. |
 | `WebsiteContentBrowser` | `ForgeView` (the content browser, §6a): the catalog tree on the left and a field/page detail pane on the right. Managed fields are read-only/badged with a pin affordance; curated / pinned fields route to the inline editor named by their typed suffix (`-md` → Markdown, `-json` → JSON, else plain string). |
-| `WebsiteContentFs` / `ForgeContentFs` | Narrow file-system seam (list/read/write/exists) for the content layer; `ForgeContentFs` adapts the shell's `ForgeFileSystem`, while tests inject an in-memory fake. |
+| `WebsiteContentFs` / `ForgeContentFs` | Narrow file-system seam (list/read/write/exists, plus typed `listEntries` for the structure tree) for the content layer; `ForgeContentFs` adapts the shell's `ForgeFileSystem`, while tests inject an in-memory fake. |
+| `WebsiteStructureController` | `ChangeNotifier` wrapping the editor controller: scans the active website's `content/` tree through the `WebsiteContentFs` seam and builds the §6b structure tree (`site.yaml`, `areas/`, `components/`, `copy/` [grouped by the §16 naming convention], `pages/`, recursive `diagrams/`). Each file node routes to an editor by extension (`.yaml` → YAML, `.md` → Markdown). Creates new copy files at the §16 convention path, and disables itself / surfaces placeholder errors like the content controller. |
+| `WebsiteStructureExplorer` | `ForgeView` (the structure explorer, §6b): the filesystem-driven `content/` tree on the left and a detail pane on the right naming the editor a selected file opens in. |
+| `StructureNode` / `groupCopyFiles` / `copyFileName` | Pure-Dart structure-tree model and §16 copy-file naming helpers (parse/encode/group) used by the controller; no Flutter dependency, fully unit-tested. |
 
 ## Architecture
 
@@ -213,6 +216,50 @@ override region is edited.
   reconciled in §9.7, where the live schema lands. Tracked in
   `completion_steps.tom_forge.md`.
 
+## Structure explorer (§6b)
+
+Where the content browser (§6a) presents the website's **parsed catalog**, the
+structure explorer presents the **filesystem layout** of the same `content/`
+tree, so contributors can navigate and open files by their on-disk shape. It is
+driven by `WebsiteStructureController` over the same `WebsiteContentFs` seam (now
+extended with a typed `listEntries` so it can distinguish files from
+directories) and reuses the `content:` block — no extra configuration.
+
+`WebsiteStructureController.refresh()` builds the top-level sections in order:
+
+- **`site.yaml`** — the site-level file (when present).
+- **`areas/`**, **`components/`**, **`pages/`** — directory sections listing the
+  files matched by each config glob.
+- **`copy/`** — grouped by the **§16 naming convention** rather than shown flat:
+  `home.md`, `<A>_area.md`, `<C>_component.md`, `<C>_<M>_module.md`,
+  `<C>_<M>_<S>_submodule.md` fold into a `component → module → submodule` tree
+  plus an `areas` group and the `home` file. Files that don't follow the
+  convention are surfaced verbatim, never dropped (`groupCopyFiles`).
+- **`diagrams/`** — listed recursively (e.g. `diagrams/<feature>/flow.svg`).
+
+**Editor routing.** Each file node carries a `FileEditorKind` derived from its
+extension: `.yaml` / `.yml` → the YAML editor (`tom_yaml_editor`), `.md` /
+`.markdown` → the Markdown editor (`tom_md_editor`), everything else → a
+read-only viewer. The explorer's detail pane names the routed editor on
+selection; embedding the rich editor widgets is deferred (see below).
+
+**New-file creation.** `createCopyFile(kind, parts: …)` encodes the §16 file name
+(`copyFileName`) and writes it at the convention path under `copy/` (e.g.
+`createCopyFile(CopyFileKind.component, parts: ['billing'])` →
+`copy/billing_component.md`), then refreshes so the new group appears. Arity is
+validated — a malformed request throws rather than writing a bad path.
+
+Like the content browser, the explorer is **disabled** for websites without a
+`content:` block, and a placeholder-resolution failure on `dir` surfaces as an
+inline error rather than a silent blank tree.
+
+### Deferred (gated on enterprise_flutter_web)
+
+- **Rich editor embedding.** File nodes route to the correct editor *by kind*
+  now; binding the live `tom_yaml_editor` / `tom_md_editor` widgets into the
+  detail pane for in-place editing is reconciled in §9.7 alongside the content
+  browser's editor embedding. Tracked in `completion_steps.tom_forge.md`.
+
 ## Reload contract (§6)
 
 `reload()` re-reads the config source and applies it. On **valid** source the
@@ -262,3 +309,12 @@ flutter test
 - `test/content/website_content_browser_test.dart` — disabled state, tree
   render, managed pin button vs editable field, pin writes the pin, typed
   inline-editor routing (TWE-BROWSE-01..05).
+- `test/structure/copy_naming_test.dart` — §16 copy-file naming: parse/encode
+  round-trip per kind, arity validation, non-convention files preserved, and the
+  `component → module → submodule` grouping (CN-01..11).
+- `test/structure/website_structure_controller_test.dart` — disabled state, tree
+  mirroring `content/`, §16 copy grouping, editor-kind routing, convention-path
+  file creation, placeholder-failure surfacing (WSC-01..07).
+- `test/structure/website_structure_explorer_test.dart` — disabled state, tree
+  render with grouped copy, and yaml/md editor-routing on selection
+  (TWE-STRUCT-01..04).
