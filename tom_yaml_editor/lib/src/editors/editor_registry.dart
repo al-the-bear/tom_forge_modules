@@ -117,7 +117,19 @@ class EditorSuffix {
 /// });
 /// ```
 class EditorRegistry {
+  /// Built-in shorthand → canonical suffix aliases.
+  ///
+  /// Lets common shorthand key suffixes route to the canonical editor that is
+  /// registered under its full name. For example a `summary-md` key extracts
+  /// the suffix `md`, which maps here to the `markdown` editor so the typed
+  /// `-md` convention (spec §4.1) opens the inline Markdown editor without the
+  /// host having to register a separate `md` editor.
+  static const Map<String, String> defaultAliases = {'md': 'markdown'};
+
   final Map<String, EditorSuffix> _editors;
+
+  /// Shorthand-suffix aliases consulted after an exact-suffix lookup miss.
+  final Map<String, String> _aliases;
 
   /// Optional callback that overrides suffix-based resolution.
   ///
@@ -126,15 +138,21 @@ class EditorRegistry {
   /// lookup proceeds.
   final EditorResolver? resolver;
 
-  /// Creates an empty registry.
-  const EditorRegistry({this.resolver}) : _editors = const {};
+  /// Creates an empty registry (with the built-in [defaultAliases]).
+  const EditorRegistry({this.resolver})
+    : _editors = const {},
+      _aliases = defaultAliases;
 
   /// Creates a registry with default built-in editors.
   factory EditorRegistry.defaults({EditorResolver? resolver}) {
     return EditorRegistry._withEditors({}, resolver: resolver);
   }
 
-  EditorRegistry._withEditors(this._editors, {this.resolver});
+  EditorRegistry._withEditors(
+    this._editors, {
+    Map<String, String>? aliases,
+    this.resolver,
+  }) : _aliases = aliases ?? defaultAliases;
 
   /// Register a new editor suffix.
   ///
@@ -144,7 +162,7 @@ class EditorRegistry {
     return EditorRegistry._withEditors({
       ..._editors,
       editor.suffix: editor,
-    }, resolver: resolver);
+    }, aliases: _aliases, resolver: resolver);
   }
 
   /// Remove a registered editor suffix.
@@ -153,7 +171,25 @@ class EditorRegistry {
   EditorRegistry unregister(String suffix) {
     var copy = Map<String, EditorSuffix>.from(_editors);
     copy.remove(suffix);
-    return EditorRegistry._withEditors(copy, resolver: resolver);
+    return EditorRegistry._withEditors(
+      copy,
+      aliases: _aliases,
+      resolver: resolver,
+    );
+  }
+
+  /// Register a shorthand-suffix [alias] that resolves to [canonicalSuffix].
+  ///
+  /// Returns a new registry with the alias added (immutable pattern). A key
+  /// whose extracted suffix equals [alias] resolves to the editor registered
+  /// under [canonicalSuffix] when no exact-suffix editor exists. Exact-suffix
+  /// matches always take precedence over aliases.
+  EditorRegistry registerAlias(String alias, String canonicalSuffix) {
+    return EditorRegistry._withEditors(
+      _editors,
+      aliases: {..._aliases, alias: canonicalSuffix},
+      resolver: resolver,
+    );
   }
 
   /// Return a new registry with a custom [resolver] callback.
@@ -161,15 +197,20 @@ class EditorRegistry {
   /// The resolver is called before suffix lookup, giving the host app
   /// full control over which editor renders for any given key.
   EditorRegistry withResolver(EditorResolver? resolver) {
-    return EditorRegistry._withEditors(_editors, resolver: resolver);
+    return EditorRegistry._withEditors(
+      _editors,
+      aliases: _aliases,
+      resolver: resolver,
+    );
   }
 
   /// Resolve the editor for a specific [key] at [path].
   ///
   /// Resolution order:
   /// 1. Custom [resolver] callback (if set)
-  /// 2. Suffix extracted from [key] looked up in the registry
-  /// 3. [schemaEditorType] from JSON Schema `x-editor-type` looked up
+  /// 2. [schemaEditorType] from JSON Schema `x-editor-type` looked up
+  /// 3. Suffix extracted from [key] looked up in the registry, then via
+  ///    [defaultAliases] / registered aliases (e.g. `md` → `markdown`)
   /// 4. Returns `null` → host uses a default scalar widget
   EditorSuffix? resolve(
     String key,
@@ -187,10 +228,16 @@ class EditorRegistry {
       return _editors[schemaEditorType];
     }
 
-    // 3. Key suffix convention
+    // 3. Key suffix convention (exact match first, then alias)
     var suffix = _extractSuffix(key);
-    if (suffix != null && _editors.containsKey(suffix)) {
-      return _editors[suffix];
+    if (suffix != null) {
+      if (_editors.containsKey(suffix)) {
+        return _editors[suffix];
+      }
+      var canonical = _aliases[suffix];
+      if (canonical != null && _editors.containsKey(canonical)) {
+        return _editors[canonical];
+      }
     }
 
     return null;

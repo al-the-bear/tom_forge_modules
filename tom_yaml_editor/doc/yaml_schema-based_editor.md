@@ -177,6 +177,7 @@ Keys ending with a type suffix automatically trigger specialized inline editors.
 |--------|-------------|-------------|-------|
 | `-dart` | Dart code editor | `script-dart` | Syntax highlighting, basic completion |
 | `-markdown` | Markdown editor | `description-markdown` | Preview toggle |
+| `-md` | Markdown editor (alias of `-markdown`) | `summary-md` | Resolves via the built-in `md`→`markdown` alias |
 | `-regex` | Regex editor | `filter-regex` | Live match testing |
 | `-json` | JSON editor | `payload-json` | Pretty-print, validation |
 | `-yaml` | YAML sub-editor | `config-yaml` | Recursive schema editor |
@@ -229,8 +230,21 @@ When rendering a scalar value, the editor is chosen by a 3-tier resolution:
 |----------|--------|-------------|
 | 1 (highest) | **Custom `EditorResolver` callback** | Full programmatic override — inspect key, path, schema type |
 | 2 | **`x-editor-type`** in JSON Schema | Schema-declared editor type, looked up in the registry |
-| 3 | **Key suffix convention** | `key-<suffix>` pattern extracted and looked up in the registry |
+| 3 | **Key suffix convention** | `key-<suffix>` pattern extracted and looked up in the registry — first by exact suffix, then via a shorthand **alias** (e.g. `md` → `markdown`) |
 | 4 (fallback) | **Built-in type editor** | Schema type maps to the default built-in widget (string → TextField, boolean → toggle, etc.) |
+
+#### Suffix aliases
+
+Shorthand suffixes route to a canonical editor via `EditorRegistry`'s alias map.
+The built-in `EditorRegistry.defaultAliases` maps `md` → `markdown`, so a
+`summary-md` / `overview-md` key opens the registered **Markdown** editor
+without the host registering a separate `md` editor. `-json` keys resolve
+directly to the `json` editor (no alias needed). Exact-suffix matches always
+win over aliases. Register additional aliases with `registerAlias`:
+
+```dart
+registry = registry.registerAlias('yml', 'yaml');
+```
 
 ```dart
 // Custom resolver example
