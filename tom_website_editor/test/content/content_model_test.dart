@@ -216,4 +216,47 @@ void main() {
           'text');
     });
   });
+
+  group('TWE-MODEL-07: _generated provenance', () {
+    const withGen = '''
+id: button
+name: Button
+status: stable
+_generated:
+  by: tom-generate
+  at: 2026-06-01T10:00:00Z
+''';
+
+    test('captures the _generated block as record provenance, not a field', () {
+      final record = parseComponentRecord(withGen,
+          editableFields: _editableFields, manualPin: _manualPin);
+
+      expect(record.provenance, isNotNull);
+      expect(record.provenance, contains('by: tom-generate'));
+      expect(record.provenance, contains('at: 2026-06-01T10:00:00Z'));
+      expect(record.fields.map((f) => f.name), isNot(contains('_generated')),
+          reason: '_generated is provenance, never an inline field');
+    });
+
+    test('provenance is null when there is no _generated block', () {
+      final record = parseComponentRecord(_component,
+          editableFields: _editableFields, manualPin: _manualPin);
+      expect(record.provenance, isNull);
+    });
+  });
+
+  group('TWE-MODEL-08: valueHasPlaceholder', () {
+    test('detects bare {placeholder} tokens', () {
+      expect(valueHasPlaceholder('{websiteRoot}/docs'), isTrue);
+      expect(valueHasPlaceholder('see {env:HOME}'), isTrue);
+      expect(valueHasPlaceholder('{date}'), isTrue);
+    });
+
+    test('ignores literals and flow-map-like values', () {
+      expect(valueHasPlaceholder('plain value'), isFalse);
+      expect(valueHasPlaceholder('{ a: 1 }'), isFalse,
+          reason: 'a YAML flow map (space after brace) is not a placeholder');
+      expect(valueHasPlaceholder(r'price is $5'), isFalse);
+    });
+  });
 }

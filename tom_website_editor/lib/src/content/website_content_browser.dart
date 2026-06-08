@@ -334,6 +334,7 @@ class _ContentBrowserBodyState extends State<_ContentBrowserBody> {
         for (final field in record.fields)
           _FieldRow(
             field: field,
+            provenance: record.provenance,
             onPin: field.isEditable
                 ? null
                 : () => widget.controller.pinField(document, field),
@@ -397,11 +398,16 @@ class _FieldRow extends StatelessWidget {
   const _FieldRow({
     required this.field,
     required this.onPin,
+    this.provenance,
     this.onCommit,
     this.onOpenFull,
   });
 
   final ContentField field;
+
+  /// The owning record's `_generated` provenance (§6a); shown as a tooltip on
+  /// managed fields. `null` when the record has no `_generated` block.
+  final String? provenance;
 
   /// Pin callback (managed fields only); `null` for editable fields.
   final VoidCallback? onPin;
@@ -430,6 +436,10 @@ class _FieldRow extends StatelessWidget {
                         ?.copyWith(fontWeight: FontWeight.w600)),
               ),
               _badge(context),
+              if (!field.isEditable && provenance != null) ...[
+                const SizedBox(width: 4),
+                _provenanceBadge(context, provenance!),
+              ],
             ],
           ),
           const SizedBox(height: 4),
@@ -441,26 +451,99 @@ class _FieldRow extends StatelessWidget {
             )
           else
             _ManagedValue(field: field, onPin: onPin),
+          if (valueHasPlaceholder(field.value)) _placeholderHint(context),
         ],
       ),
     );
   }
 
+  /// The classification badge — pinned / editable / managed — with a tooltip
+  /// explaining its lifecycle. Keyed `badge-<name>` so tests can target it.
   Widget _badge(BuildContext context) {
     final theme = Theme.of(context);
-    final (label, color) = field.isPinned
-        ? ('pinned', theme.colorScheme.primary)
+    final (label, color, tip) = field.isPinned
+        ? (
+            'pinned',
+            theme.colorScheme.primary,
+            'Pinned with the manual marker (@manual) — protected from '
+                'regeneration.',
+          )
         : field.isEditable
-            ? ('editable', theme.colorScheme.tertiary)
-            : ('managed', theme.colorScheme.outline);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(4),
+            ? (
+                'editable',
+                theme.colorScheme.tertiary,
+                'Hand-curated — edits are kept across regeneration.',
+              )
+            : (
+                'managed',
+                theme.colorScheme.outline,
+                'Generator-managed — replaced on the next regenerate unless '
+                    'pinned.',
+              );
+    return Tooltip(
+      message: tip,
+      child: Container(
+        key: ValueKey('badge-${field.name}'),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(label,
+            style: theme.textTheme.labelSmall?.copyWith(color: color)),
       ),
-      child: Text(label,
-          style: theme.textTheme.labelSmall?.copyWith(color: color)),
+    );
+  }
+
+  /// A "generated" badge whose tooltip carries the record's `_generated`
+  /// provenance. Keyed `provenance-<name>` for tests.
+  Widget _provenanceBadge(BuildContext context, String detail) {
+    final theme = Theme.of(context);
+    final color = theme.colorScheme.secondary;
+    return Tooltip(
+      message: 'Generated · $detail',
+      child: Container(
+        key: ValueKey('provenance-${field.name}'),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.auto_awesome, size: 11, color: color),
+            const SizedBox(width: 3),
+            Text('generated',
+                style: theme.textTheme.labelSmall?.copyWith(color: color)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// A hint marking a value that contains a §3 placeholder, which resolves only
+  /// when the generator runs. Keyed `placeholder-hint-<name>` for tests.
+  Widget _placeholderHint(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = theme.colorScheme.tertiary;
+    return Padding(
+      key: ValueKey('placeholder-hint-${field.name}'),
+      padding: const EdgeInsets.only(top: 4),
+      child: Tooltip(
+        message: 'Contains a {placeholder} (§3) — the literal value is '
+            'computed when the website regenerates.',
+        child: Row(
+          children: [
+            Icon(Icons.bolt_outlined, size: 13, color: color),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text('Placeholder — resolves at generate time',
+                  style: theme.textTheme.labelSmall?.copyWith(color: color)),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -29,6 +29,21 @@ summary-md: "## Button"
 status: stable
 ''';
 
+// A component carrying a `_generated` provenance block, a pinned field, and a
+// managed field whose value contains a §3 placeholder — used by the step-10
+// provenance/placeholder-hint tests.
+// Kept short so every field row fits the default 800x600 test viewport (the
+// detail pane is a lazy ListView — off-screen rows are not built).
+const _buttonGen = '''
+name: Button
+status: stable
+version: "1.0.0"  # @manual
+docsUrl: "{websiteRoot}/docs/button"
+_generated:
+  by: tom-generate
+  at: 2026-06-01T10:00:00Z
+''';
+
 class _FakeContentFs implements WebsiteContentFs {
   _FakeContentFs(this.files);
   final Map<Uri, String> files;
@@ -93,6 +108,18 @@ Future<(WebsiteContentController, _FakeContentFs)> _loaded({
     Uri.file('/sites/a/content/components/button.yaml'): _button,
     Uri.file('/sites/a/content/site.yaml'): 'title: Alpha\n',
     Uri.file('/sites/a/content/pages/home.md'): '# Home\n',
+  });
+  final controller =
+      WebsiteContentController(editor: editor, fileSystem: fs);
+  await controller.refresh();
+  return (controller, fs);
+}
+
+Future<(WebsiteContentController, _FakeContentFs)> _loadedGen() async {
+  final editor = WebsiteEditorController(configReader: () async => _config);
+  await editor.load();
+  final fs = _FakeContentFs({
+    Uri.file('/sites/a/content/components/button.yaml'): _buttonGen,
   });
   final controller =
       WebsiteContentController(editor: editor, fileSystem: fs);
@@ -300,5 +327,56 @@ void main() {
     expect(find.text('home.md'), findsOneWidget);
     expect(find.text('Button'), findsNothing);
     expect(find.text('site.yaml'), findsNothing);
+  });
+
+  // TWE-BROWSE-12: a managed field surfaces the record's `_generated`
+  // provenance as a badge whose tooltip names the generator.
+  testWidgets('TWE-BROWSE-12: managed field renders a provenance badge',
+      (tester) async {
+    final (controller, _) = await _loadedGen();
+    await _pump(tester, WebsiteContentBrowser(controller: controller));
+
+    await tester.tap(find.text('Button'));
+    await tester.pumpAndSettle();
+
+    final badge = find.byKey(const ValueKey('provenance-status'));
+    expect(badge, findsOneWidget);
+    final tooltip = tester.widget<Tooltip>(
+        find.ancestor(of: badge, matching: find.byType(Tooltip)));
+    expect(tooltip.message, contains('tom-generate'));
+  });
+
+  // TWE-BROWSE-13: a value containing a §3 placeholder is visually
+  // distinguished with a "resolves at generate time" hint.
+  testWidgets('TWE-BROWSE-13: a placeholder value renders a generate-time hint',
+      (tester) async {
+    final (controller, _) = await _loadedGen();
+    await _pump(tester, WebsiteContentBrowser(controller: controller));
+
+    await tester.tap(find.text('Button'));
+    await tester.pumpAndSettle();
+
+    final hint = find.byKey(const ValueKey('placeholder-hint-docsUrl'));
+    expect(hint, findsOneWidget);
+    expect(
+        find.descendant(
+            of: hint, matching: find.textContaining('resolves at generate time')),
+        findsOneWidget);
+  });
+
+  // TWE-BROWSE-14: a pinned field's badge carries a pin-state tooltip.
+  testWidgets('TWE-BROWSE-14: a pinned field badge carries a pin-state tooltip',
+      (tester) async {
+    final (controller, _) = await _loadedGen();
+    await _pump(tester, WebsiteContentBrowser(controller: controller));
+
+    await tester.tap(find.text('Button'));
+    await tester.pumpAndSettle();
+
+    final badge = find.byKey(const ValueKey('badge-version'));
+    expect(badge, findsOneWidget);
+    final tooltip = tester.widget<Tooltip>(
+        find.ancestor(of: badge, matching: find.byType(Tooltip)));
+    expect(tooltip.message!.toLowerCase(), contains('manual'));
   });
 }

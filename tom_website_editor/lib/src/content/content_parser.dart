@@ -59,6 +59,7 @@ ContentRecord _buildRecord(
   final childKey = _childKey(kind);
   final fields = <ContentField>[];
   final children = <ContentRecord>[];
+  String? provenance;
 
   for (final entry in map.nodes.entries) {
     final keyNode = entry.key as YamlNode;
@@ -74,6 +75,13 @@ ContentRecord _buildRecord(
           childIndex++;
         }
       }
+      continue;
+    }
+
+    // The `_generated` block is generator provenance, not a content field: it
+    // is captured as the record's [provenance] and never rendered inline.
+    if (name == _provenanceKey) {
+      provenance = _provenanceOf(valueNode);
       continue;
     }
 
@@ -94,7 +102,26 @@ ContentRecord _buildRecord(
     name: map['name']?.toString(),
     fields: fields,
     children: children,
+    provenance: provenance,
   );
+}
+
+/// The reserved key holding a record's generator provenance (§6a).
+const String _provenanceKey = '_generated';
+
+/// Renders a record's `_generated` [node] as a one-line provenance string. A
+/// mapping becomes `key: value · key: value` (document order); a scalar becomes
+/// its text. Returns `null` for an empty block so the UI shows no badge.
+String? _provenanceOf(YamlNode node) {
+  if (node is YamlMap) {
+    final parts = [
+      for (final entry in node.nodes.entries)
+        '${(entry.key as YamlNode).value}: ${entry.value.value}',
+    ];
+    return parts.isEmpty ? null : parts.join(' · ');
+  }
+  final value = node.value?.toString();
+  return (value == null || value.isEmpty) ? null : value;
 }
 
 /// Renders a field value for display: scalars as text, flow lists comma-joined,

@@ -219,6 +219,20 @@ the next refresh the field is re-classified as editable. Pin detection is
 **span-precise**: each key's source line is read from the raw YAML, so the pin
 is recognised even on block scalars and nested module fields.
 
+**Provenance + lifecycle hints.** Every field row carries a classification badge
+(**managed** / **editable** / **pinned**) whose tooltip spells out its
+regeneration lifecycle (a managed field is replaced on the next regenerate; a
+pinned field is protected; an editable field is hand-curated). When the
+component's YAML has a `_generated` block, the parser captures it as the
+record's `provenance` (one line, `key: value · key: value` in document order)
+— it is **never** rendered as an ordinary field — and each managed field shows a
+**generated** badge whose tooltip names what produced the value. Any field whose
+value contains a §3 `{placeholder}` is visually distinguished with a
+*"Placeholder — resolves at generate time"* hint, since the literal is only
+computed when the generator runs. `valueHasPlaceholder` matches a bare `{name}`
+token (a leading letter, then word chars plus `:` `.` `-`), so built-ins like
+`{env:HOME}` and `{date}` count while a YAML flow map (`{ a: 1 }`) does not.
+
 **Pages.** Standalone `pages/*.md` use `@tom:override` / `@tom:managed`
 insert-marker regions: `ContentPage.parse` splits a page into regions, exposes
 the editable (override) bodies, and `serialize()` reproduces the source exactly,
@@ -447,8 +461,9 @@ flutter test
 - `test/content/content_model_test.dart` — typed-suffix editor routing, record
   tree parsing, field classification (managed/editable/pinned), span-precise
   `# @manual` read + `pinFieldLine` write, `setFieldLineValue` scalar rewrite
-  (quote/indent/pin-preserve), and the override/managed page-region round-trip
-  (TWE-MODEL-01..06).
+  (quote/indent/pin-preserve), the override/managed page-region round-trip, the
+  `_generated`-block→record-provenance capture, and `valueHasPlaceholder` token
+  detection (TWE-MODEL-01..08).
 - `test/content/website_content_controller_test.dart` — catalog build (component
   → module → submodule, incl. a module with and without submodules), site/pages
   discovery, pin-writes-to-disk + re-parse, editable-field save + re-parse
@@ -458,7 +473,9 @@ flutter test
   render, managed pin button vs editable field, pin writes the pin, typed
   inline-editor routing, tap-opens-backing-file navigation, detail-pane open
   button, inline scalar save, managed has no inline editor, `-md` routes to the
-  full editor, and the search box narrowing the catalog (TWE-BROWSE-01..11).
+  full editor, the search box narrowing the catalog, the managed-field
+  provenance badge + tooltip, the placeholder-value generate-time hint, and the
+  pinned-field pin-state tooltip (TWE-BROWSE-01..14).
 - `test/structure/copy_naming_test.dart` — §16 copy-file naming: parse/encode
   round-trip per kind, arity validation, non-convention files preserved, and the
   `component → module → submodule` grouping (CN-01..11).

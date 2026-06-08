@@ -12,6 +12,18 @@ ContentEditorKind contentEditorKindForField(String fieldName) {
   return ContentEditorKind.string;
 }
 
+/// Matches a §3 placeholder token: a bare `{name}` brace pair (no leading `$`),
+/// where the name starts with a letter and may contain word chars plus the
+/// `:` `.` `-` separators used by built-ins (e.g. `{websiteRoot}`, `{env:HOME}`,
+/// `{date}`). The space-requiring forms of YAML flow maps (`{ a: 1 }`) do not
+/// match, so structured values are not mistaken for placeholders.
+final RegExp _placeholderPattern = RegExp(r'\{[A-Za-z][\w.:-]*\}');
+
+/// Whether [value] contains a §3 `{placeholder}` token that the generator
+/// resolves at build time. The browser uses this to flag a field's value as a
+/// deferred-resolution hint rather than a literal.
+bool valueHasPlaceholder(String value) => _placeholderPattern.hasMatch(value);
+
 /// One field of a content record (§6a), classified for the browser.
 ///
 /// A field is [isEditable] when its name is in the website's

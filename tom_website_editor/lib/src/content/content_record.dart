@@ -17,6 +17,7 @@ class ContentRecord {
     required this.fields,
     required this.children,
     this.name,
+    this.provenance,
   });
 
   /// component / module / submodule.
@@ -27,6 +28,12 @@ class ContentRecord {
 
   /// Optional `name` for display; falls back to [id] in the UI.
   final String? name;
+
+  /// Human-readable provenance from the record's `_generated` block (§6a), e.g.
+  /// `by: tom-generate · at: 2026-06-01T10:00:00Z`. `null` when the record has
+  /// no `_generated` block. Surfaced on managed fields so it is always clear
+  /// what produced a generated value.
+  final String? provenance;
 
   /// Classified fields, in document order.
   final List<ContentField> fields;
