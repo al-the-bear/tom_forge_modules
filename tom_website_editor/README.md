@@ -25,7 +25,7 @@ including the dedicated `WebsiteConfigEditor` (§6) that edits
 | `WebsiteControlView` | `ForgeView` (the control panel, §5) rendering the command buttons, a filterable message log with pinned errors, a website picker, and a status line (active website, error/warning counts, last-run time). |
 | `WebsiteProcessRunner` | Injectable seam (`WebsiteCommandSpec` → `WebsiteProcessHandle`) for spawning commands. The `DartIoWebsiteProcessRunner` default uses `Process.start`; tests inject a fake that replays output + an exit code. |
 | `WebsiteContentController` | `ChangeNotifier` wrapping the editor controller: builds the §6a content catalog (component → module → optional submodule, plus `site.yaml` and `pages/`) from the active website's `content:` block through the injectable `WebsiteContentFs` seam, classifies each field managed vs editable, writes `# @manual` pins back to disk, and disables itself for websites without a `content:` block. |
-| `WebsiteContentBrowser` | `ForgeView` (the content browser, §6a): the catalog tree on the left and a field/page detail pane on the right. Managed fields are read-only/badged with a pin affordance; curated / pinned fields route to the inline editor named by their typed suffix (`-md` → Markdown, `-json` → JSON, else plain string). |
+| `WebsiteContentBrowser` | `ForgeView` (the content browser, §6a): the catalog tree on the left and a field/page detail pane on the right. Managed fields are read-only/badged with a pin affordance; curated / pinned fields route to the inline editor named by their typed suffix (`-md` → Markdown, `-json` → JSON, else plain string). Tapping a leaf opens its backing file through the injected `onOpenFile` seam (a record → its `components/<c>.yaml`, a page → `pages/<p>.md`, `site.yaml` → itself). |
 | `WebsiteContentFs` / `ForgeContentFs` | Narrow file-system seam (list/read/write/exists, plus typed `listEntries` for the structure tree) for the content layer; `ForgeContentFs` adapts the shell's `ForgeFileSystem`, while tests inject an in-memory fake. |
 | `WebsiteStructureController` | `ChangeNotifier` wrapping the editor controller: scans the active website's `content/` tree through the `WebsiteContentFs` seam and builds the §6b structure tree (`site.yaml`, `areas/`, `components/`, `copy/` [grouped by the §16 naming convention], `pages/`, recursive `diagrams/`). Each file node routes to an editor by extension (`.yaml` → YAML, `.md` → Markdown). Creates new copy files at the §16 convention path, and disables itself / surfaces placeholder errors like the content controller. |
 | `WebsiteStructureExplorer` | `ForgeView` (the structure explorer, §6b): the filesystem-driven `content/` tree on the left and a detail pane on the right naming the editor a selected file opens in. |
@@ -197,6 +197,17 @@ insert-marker regions: `ContentPage.parse` splits a page into regions, exposes
 the editable (override) bodies, and `serialize()` reproduces the source exactly,
 so generated regions and the markers themselves are never disturbed when an
 override region is edited.
+
+**Navigation (open the backing file).** Tapping any leaf in the catalog routes
+its backing file to the host editor through the injected
+`WebsiteContentBrowser.onOpenFile` seam — the module wires it to
+`ForgeShellApi.layout.openFile`, so routing to the matching editor is automatic
+via each editor's `canHandle` (no per-extension branching here). A component
+record opens its `components/<c>.yaml`, a page opens `pages/<p>.md`, and
+`site.yaml` opens itself. The `site.yaml` / page detail pane shows the resolved
+path plus an **Open in editor** button (the same seam); the record pane keeps the
+field / pin affordances. When `onOpenFile` is `null` (the view rendered in
+isolation) taps only update the detail pane.
 
 ### Deferred (gated on enterprise_flutter_web)
 

@@ -112,7 +112,10 @@ class WebsiteEditorModule extends ForgeModule {
       fileSystem: ForgeContentFs(shell.fileSystem),
     );
     _contentController = contentController;
-    _contentView = WebsiteContentBrowser(controller: contentController);
+    _contentView = WebsiteContentBrowser(
+      controller: contentController,
+      onOpenFile: _openFile,
+    );
     final structureController = WebsiteStructureController(
       editor: controller,
       fileSystem: ForgeContentFs(shell.fileSystem),
@@ -129,6 +132,12 @@ class WebsiteEditorModule extends ForgeModule {
     final uri = _configUri;
     if (shell != null && uri != null) shell.layout.openFile(uri);
   }
+
+  /// Opens [uri] in the shell, routing to the matching editor via `canHandle`.
+  ///
+  /// The shared open seam (item 1) the content/structure browsers call so a tap
+  /// on a content file routes through `ForgeLayoutController.openFile`.
+  void _openFile(Uri uri) => _shell?.layout.openFile(uri);
 
   /// Forwards the config editor's schema/placeholder diagnostics to the shell.
   void _pushConfigDiagnostics() {

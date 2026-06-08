@@ -78,6 +78,8 @@ Future<(WebsiteContentController, _FakeContentFs)> _loaded({
   if (activeId != null) editor.selectWebsite(activeId);
   final fs = _FakeContentFs({
     Uri.file('/sites/a/content/components/button.yaml'): _button,
+    Uri.file('/sites/a/content/site.yaml'): 'title: Alpha\n',
+    Uri.file('/sites/a/content/pages/home.md'): '# Home\n',
   });
   final controller =
       WebsiteContentController(editor: editor, fileSystem: fs);
@@ -155,5 +157,54 @@ void main() {
         findsOneWidget);
     expect(find.byKey(const ValueKey('content-field-summary-md')),
         findsOneWidget);
+  });
+
+  testWidgets(
+      'TWE-BROWSE-06: tapping a record/page/site opens its backing file',
+      (tester) async {
+    final (controller, _) = await _loaded();
+    final opened = <Uri>[];
+    final view = WebsiteContentBrowser(
+      controller: controller,
+      onOpenFile: opened.add,
+    );
+    await _pump(tester, view);
+
+    // A component record opens content/components/<c>.yaml.
+    await tester.tap(find.text('Button'));
+    await tester.pumpAndSettle();
+    // site.yaml opens itself; a page opens content/pages/<p>.md.
+    await tester.tap(find.text('site.yaml'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('home.md'));
+    await tester.pumpAndSettle();
+
+    expect(opened, [
+      Uri.file('/sites/a/content/components/button.yaml'),
+      Uri.file('/sites/a/content/site.yaml'),
+      Uri.file('/sites/a/content/pages/home.md'),
+    ]);
+  });
+
+  testWidgets('TWE-BROWSE-07: detail pane Open-in-editor reopens the file',
+      (tester) async {
+    final (controller, _) = await _loaded();
+    final opened = <Uri>[];
+    final view = WebsiteContentBrowser(
+      controller: controller,
+      onOpenFile: opened.add,
+    );
+    await _pump(tester, view);
+
+    // Select site.yaml (tap opens once), then use the detail-pane button.
+    await tester.tap(find.text('site.yaml'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Open in editor'));
+    await tester.pumpAndSettle();
+
+    expect(opened, [
+      Uri.file('/sites/a/content/site.yaml'),
+      Uri.file('/sites/a/content/site.yaml'),
+    ]);
   });
 }

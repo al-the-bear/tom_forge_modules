@@ -18,11 +18,22 @@ import 'website_content_controller.dart';
 /// block the view shows a disabled state. The controller is owned by the module
 /// (created in `activate`, disposed in `deactivate`) — the view does not dispose
 /// it.
+///
+/// Tapping a leaf opens its backing file through [onOpenFile] (§6a navigation):
+/// a component record opens `content/components/<c>.yaml`, a page opens
+/// `content/pages/<p>.md`, and `site.yaml` opens itself. Editor routing is then
+/// automatic via each editor's `canHandle`, so no per-extension branching lives
+/// here. When [onOpenFile] is `null` (e.g. the view rendered in isolation) taps
+/// only update the detail pane.
 class WebsiteContentBrowser extends ForgeView {
-  WebsiteContentBrowser({required this.controller});
+  WebsiteContentBrowser({required this.controller, this.onOpenFile});
 
   /// Owns the catalog, refresh, and pin flow.
   final WebsiteContentController controller;
+
+  /// Open-file seam: the host wires this to `ForgeLayoutController.openFile`
+  /// so a tap routes the file to the matching editor.
+  final void Function(Uri uri)? onOpenFile;
 
   final _title = ValueNotifier<String>('Content');
   final _titleExtension = ValueNotifier<String?>(null);
@@ -43,8 +54,11 @@ class WebsiteContentBrowser extends ForgeView {
       );
 
   @override
-  Widget buildMain(BuildContext context) =>
-      _ContentBrowserBody(controller: controller, title: _title);
+  Widget buildMain(BuildContext context) => _ContentBrowserBody(
+        controller: controller,
+        title: _title,
+        onOpenFile: onOpenFile,
+      );
 
   @override
   Widget buildCopy(BuildContext context) => buildMain(context);
@@ -72,10 +86,15 @@ class _Selection {
 }
 
 class _ContentBrowserBody extends StatefulWidget {
-  const _ContentBrowserBody({required this.controller, required this.title});
+  const _ContentBrowserBody({
+    required this.controller,
+    required this.title,
+    this.onOpenFile,
+  });
 
   final WebsiteContentController controller;
   final ValueNotifier<String> title;
+  final void Function(Uri uri)? onOpenFile;
 
   @override
   State<_ContentBrowserBody> createState() => _ContentBrowserBodyState();
@@ -83,6 +102,12 @@ class _ContentBrowserBody extends StatefulWidget {
 
 class _ContentBrowserBodyState extends State<_ContentBrowserBody> {
   _Selection? _selection;
+
+  /// Routes [uri] to the host's editor (via the open seam) when one is wired.
+  void _open(Uri uri) => widget.onOpenFile?.call(uri);
+
+  /// `true` when an open seam is wired, so open affordances are enabled.
+  bool get _canOpen => widget.onOpenFile != null;
 
   @override
   void initState() {
@@ -172,7 +197,10 @@ class _ContentBrowserBodyState extends State<_ContentBrowserBody> {
         leading: const Icon(Icons.description_outlined, size: 18),
         title: Text(_fileName(site)),
         selected: _selection?.site ?? false,
-        onTap: () => setState(() => _selection = const _Selection.site()),
+        onTap: () {
+          setState(() => _selection = const _Selection.site());
+          _open(site);
+        },
       ));
     }
 
@@ -182,7 +210,10 @@ class _ContentBrowserBodyState extends State<_ContentBrowserBody> {
         leading: const Icon(Icons.article_outlined, size: 18),
         title: Text(_fileName(page)),
         selected: _selection?.page == page,
-        onTap: () => setState(() => _selection = _Selection.page(page)),
+        onTap: () {
+          setState(() => _selection = _Selection.page(page));
+          _open(page);
+        },
       ));
     }
 
@@ -200,8 +231,10 @@ class _ContentBrowserBodyState extends State<_ContentBrowserBody> {
         leading: Icon(_recordIcon(record.kind), size: 18),
         title: Text(record.label),
         selected: identical(_selection?.record, record),
-        onTap: () =>
-            setState(() => _selection = _Selection.record(record, document)),
+        onTap: () {
+          setState(() => _selection = _Selection.record(record, document));
+          _open(document.uri);
+        },
       );
     }
     return ExpansionTile(
@@ -217,8 +250,10 @@ class _ContentBrowserBodyState extends State<_ContentBrowserBody> {
           leading: const Icon(Icons.tune, size: 16),
           title: const Text('Fields'),
           selected: identical(_selection?.record, record),
-          onTap: () =>
-              setState(() => _selection = _Selection.record(record, document)),
+          onTap: () {
+            setState(() => _selection = _Selection.record(record, document));
+            _open(document.uri);
+          },
         ),
         for (final child in record.children)
           _buildRecordTile(child, document),
@@ -272,7 +307,18 @@ class _ContentBrowserBodyState extends State<_ContentBrowserBody> {
         children: [
           Text(_fileName(uri), style: theme.textTheme.titleMedium),
           const SizedBox(height: 4),
+          SelectableText(uri.path, style: theme.textTheme.bodySmall),
+          const SizedBox(height: 4),
           Text(note, style: theme.textTheme.bodySmall),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FilledButton.icon(
+              onPressed: _canOpen ? () => _open(uri) : null,
+              icon: const Icon(Icons.open_in_new, size: 16),
+              label: const Text('Open in editor'),
+            ),
+          ),
         ],
       ),
     );
