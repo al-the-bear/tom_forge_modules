@@ -24,6 +24,15 @@ final RegExp _placeholderPattern = RegExp(r'\{[A-Za-z][\w.:-]*\}');
 /// deferred-resolution hint rather than a literal.
 bool valueHasPlaceholder(String value) => _placeholderPattern.hasMatch(value);
 
+/// Renders a parsed YAML value as the display text the browser shows (§6a):
+/// a list becomes its comma-joined items, a scalar its `toString`, and `null`
+/// the empty string. Shared by the component-record parser and the copy-file
+/// front-matter model so both stringify values identically.
+String stringifyContentValue(Object? value) {
+  if (value is List) return value.join(', ');
+  return value?.toString() ?? '';
+}
+
 /// One field of a content record (§6a), classified for the browser.
 ///
 /// A field is [isEditable] when its name is in the website's

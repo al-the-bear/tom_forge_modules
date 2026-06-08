@@ -24,7 +24,8 @@ including the dedicated `WebsiteConfigEditor` (§6) that edits
 | `WebsiteControlController` | `ChangeNotifier` wrapping the editor controller: renders one action button per configured command (§7), expands the command + `cwd` via the placeholder resolver, spawns the external process through an injected `WebsiteProcessRunner`, streams stdout→info / stderr→warning into a levelled log, and maps the exit code via the §7 taxonomy. |
 | `WebsiteControlView` | `ForgeView` (the control panel, §5) rendering the command buttons, a filterable message log with pinned errors, a website picker, and a status line (active website, error/warning counts, last-run time). |
 | `WebsiteProcessRunner` | Injectable seam (`WebsiteCommandSpec` → `WebsiteProcessHandle`) for spawning commands. The `DartIoWebsiteProcessRunner` default uses `Process.start`; tests inject a fake that replays output + an exit code. |
-| `WebsiteContentController` | `ChangeNotifier` wrapping the editor controller: builds the §6a content catalog (component → module → optional submodule, plus `site.yaml` and `pages/`) from the active website's `content:` block through the injectable `WebsiteContentFs` seam, classifies each field managed vs editable, writes `# @manual` pins back to disk, and disables itself for websites without a `content:` block. |
+| `WebsiteContentController` | `ChangeNotifier` wrapping the editor controller: builds the §6a content catalog (component → module → optional submodule, plus `site.yaml`, `pages/`, and the external `copy/*.md` files) from the active website's `content:` block through the injectable `WebsiteContentFs` seam, classifies each field managed vs editable, writes `# @manual` pins and copy-file edits back to disk, and disables itself for websites without a `content:` block. |
+| `ContentCopyFile` / `ContentCopyDocument` | Pure-Dart model for an external editorial copy file (§16): YAML front-matter + a region-aware Markdown body. Parses, round-trips byte-for-byte, edits a front-matter field or a body override region in place, and preserves the §6.2 managed regions + markers so a hand edit survives `generateContent`. No Flutter dependency. |
 | `WebsiteContentBrowser` | `ForgeView` (the content browser, §6a): the catalog tree on the left and a field/page detail pane on the right. Managed fields are read-only/badged with a pin affordance; curated / pinned fields route to the inline editor named by their typed suffix (`-md` → Markdown, `-json` → JSON, else plain string). Tapping a leaf opens its backing file through the injected `onOpenFile` seam (a record → its `components/<c>.yaml`, a page → `pages/<p>.md`, `site.yaml` → itself). |
 | `WebsiteContentFs` / `ForgeContentFs` | Narrow file-system seam (list/read/write/exists, plus typed `listEntries` for the structure tree) for the content layer; `ForgeContentFs` adapts the shell's `ForgeFileSystem`, while tests inject an in-memory fake. |
 | `WebsiteStructureController` | `ChangeNotifier` wrapping the editor controller: scans the active website's `content/` tree through the `WebsiteContentFs` seam and builds the §6b structure tree (`site.yaml`, `areas/`, `components/`, `copy/` [grouped by the §16 naming convention], `pages/`, recursive `diagrams/`). Each file node routes to an editor by extension (`.yaml` → YAML, `.md` → Markdown). Creates new copy files at the §16 convention path, and disables itself / surfaces placeholder errors like the content controller. |
@@ -238,6 +239,23 @@ insert-marker regions: `ContentPage.parse` splits a page into regions, exposes
 the editable (override) bodies, and `serialize()` reproduces the source exactly,
 so generated regions and the markers themselves are never disturbed when an
 override region is edited.
+
+**External copy files (§16, front-matter + body).** Editorial copy now lives as
+one Markdown file per component/module/submodule/area/home under `content/copy/`
+(website §16) — YAML front-matter (`tagline`, `summary-md`, `enables`, …) plus a
+Markdown body that is the overview — rather than inline `-md` fields on a record.
+`ContentCopyFile.parse` splits the two halves: `frontMatter` exposes the editable
+fields (with `-md`/`-json` editor-kind routing), and `body` is a region-aware
+`ContentPage`, so the §6.2 `@tom:override` / `@tom:managed` markers and the
+managed regions they protect round-trip untouched. `withFrontMatterValue(name,
+value)` edits one front-matter field line-precisely; `withBody(page)` (paired with
+`ContentPage.withRegionBody`) edits a body override region; `serialize()`
+reproduces the source byte-for-byte, so a hand edit survives the next
+`generateContent`. The controller loads these from the `content.copy` glob into
+`copyFiles` (`ContentCopyDocument`), and `setCopyFrontMatterValue` /
+`setCopyBody` write the edit back through the `WebsiteContentFs` seam and
+re-parse in place. Both browsers open the same files: the §6a browser by node,
+the §6b explorer by path (grouped via `groupCopyFiles`).
 
 **Navigation (open the backing file).** Tapping any leaf in the catalog routes
 its backing file to the host editor through the injected
@@ -468,7 +486,13 @@ flutter test
   → module → submodule, incl. a module with and without submodules), site/pages
   discovery, pin-writes-to-disk + re-parse, editable-field save + re-parse
   (managed/unchanged no-op, pinned keeps marker), disabled-without-content,
-  refresh reload, placeholder-failure surfacing (TWE-CTRL-01..06).
+  refresh reload, placeholder-failure surfacing (TWE-CTRL-01..06), and copy-file
+  load + front-matter/body save surviving generate (TWE-CTRL-07).
+- `test/content/content_copy_file_test.dart` — the §16 copy-file model: parse
+  front-matter + body, editor-kind routing, byte-for-byte round-trip (with and
+  without front-matter), front-matter-field edit (unknown-field no-op), and a
+  body override-region edit preserving the managed region + markers
+  (TWE-COPY-01..04).
 - `test/content/website_content_browser_test.dart` — disabled state, tree
   render, managed pin button vs editable field, pin writes the pin, typed
   inline-editor routing, tap-opens-backing-file navigation, detail-pane open

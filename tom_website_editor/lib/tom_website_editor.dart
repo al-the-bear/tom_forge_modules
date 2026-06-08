@@ -6,6 +6,7 @@
 /// control views (§9.3/§9.4) build on the shared [WebsiteEditorController].
 library;
 
+export 'src/content/content_copy_file.dart';
 export 'src/content/content_field.dart';
 export 'src/content/content_page.dart';
 export 'src/content/content_parser.dart';

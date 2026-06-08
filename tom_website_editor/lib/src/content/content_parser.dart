@@ -126,11 +126,7 @@ String? _provenanceOf(YamlNode node) {
 
 /// Renders a field value for display: scalars as text, flow lists comma-joined,
 /// anything else via its parsed value.
-String _stringify(YamlNode node) {
-  final value = node.value;
-  if (value is List) return value.join(', ');
-  return value?.toString() ?? '';
-}
+String _stringify(YamlNode node) => stringifyContentValue(node.value);
 
 /// Returns [rawYaml] with the [manualPin] appended to the field whose key is on
 /// [sourceLine] (0-based), unless the pin is already present. Used when the user

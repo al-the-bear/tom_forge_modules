@@ -291,6 +291,79 @@ void main() {
     });
   });
 
+  group('TWE-CTRL-07: copy files (§16 front-matter + body)', () {
+    const copySource = '''
+---
+tagline: A clickable thing
+summary-md: A **button**.
+---
+<!-- @tom:override -->
+# Overview
+
+Hand text.
+
+<!-- @tom:managed -->
+Generated rollup.
+''';
+
+    Map<Uri, String> seedWithCopy() => {
+          ..._seed(),
+          _file('/sites/a/content/copy/button_component.md'): copySource,
+          _file('/sites/a/content/copy/home.md'): '---\ntitle: Home\n---\nHi.\n',
+        };
+
+    test('loads copy files from the content.copy glob, sorted by path',
+        () async {
+      final (controller, _) = await _loaded(_config, seed: seedWithCopy());
+      expect(controller.copyFiles, hasLength(2));
+      expect(controller.copyFiles.first.uri.pathSegments.last,
+          'button_component.md');
+      expect(controller.copyFiles.first.file.frontMatterValue('tagline'),
+          'A clickable thing');
+    });
+
+    test('editing a front-matter field writes to disk and re-parses', () async {
+      final (controller, fs) = await _loaded(_config, seed: seedWithCopy());
+      final document = controller.copyFiles.first;
+
+      final wrote = await controller.setCopyFrontMatterValue(
+          document, 'tagline', 'A pressable thing');
+      expect(wrote, isTrue);
+      expect(fs.files[document.uri], contains('tagline: A pressable thing'));
+      // Re-parsed in place.
+      expect(controller.copyFiles.first.file.frontMatterValue('tagline'),
+          'A pressable thing');
+      // An unchanged value is a no-op.
+      final again = await controller.setCopyFrontMatterValue(
+          controller.copyFiles.first, 'tagline', 'A pressable thing');
+      expect(again, isFalse);
+    });
+
+    test('editing the body override region survives generate (markers + '
+        'managed region preserved)', () async {
+      final (controller, fs) = await _loaded(_config, seed: seedWithCopy());
+      final document = controller.copyFiles.first;
+      final overrideIndex = document.file.body.regions
+          .indexWhere((r) => r.kind == ContentRegionKind.editable);
+
+      final newBody =
+          document.file.body.withRegionBody(overrideIndex, '# Overview\n\nEdited.');
+      final wrote = await controller.setCopyBody(document, newBody);
+      expect(wrote, isTrue);
+
+      final onDisk = fs.files[document.uri]!;
+      expect(onDisk, contains('Edited.'));
+      expect(onDisk, contains('<!-- @tom:managed -->'));
+      expect(onDisk, contains('Generated rollup.'));
+      expect(onDisk, contains('tagline: A clickable thing'),
+          reason: 'front-matter preserved');
+
+      // A post-generate refresh from disk keeps the edit.
+      await controller.refresh();
+      expect(controller.copyFiles.first.file.serialize(), contains('Edited.'));
+    });
+  });
+
   group('TWE-CTRL-05: placeholder failure', () {
     test('surfaces an error and leaves the catalog empty', () async {
       final (controller, _) = await _loaded(_badConfig);
