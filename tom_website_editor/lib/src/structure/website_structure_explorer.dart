@@ -9,18 +9,26 @@ import 'website_structure_node.dart';
 /// of the active website's `content/` directory on the left, and a detail pane
 /// on the right naming the editor a selected file routes to.
 ///
-/// All tree state lives in the [WebsiteStructureController]; this view renders it
-/// and (on tap of a file node) shows which editor opens it — `.yaml` →
-/// `tom_yaml_editor`, `.md` → `tom_md_editor`. The rich editor widgets are
-/// embedded in a later step (§9.6); for now the pane is a functional routing
-/// summary. When the active website has no `content:` block the view shows a
-/// disabled state. The controller is owned by the module (created in `activate`,
-/// disposed in `deactivate`) — the view does not dispose it.
+/// All tree state lives in the [WebsiteStructureController]; this view renders
+/// it. Tapping a file node opens its backing file through [onOpenFile] (§6b
+/// navigation); editor routing is then automatic via each editor's `canHandle`
+/// (`.yaml` → `tom_yaml_editor`, `.md` → `tom_md_editor`), so no per-extension
+/// branching lives here. The detail pane names the routing target and offers an
+/// **Open in editor** button that re-opens the selected file through the same
+/// seam. When [onOpenFile] is `null` (e.g. the view rendered in isolation) taps
+/// only update the detail pane. When the active website has no `content:` block
+/// the view shows a disabled state. The controller is owned by the module
+/// (created in `activate`, disposed in `deactivate`) — the view does not dispose
+/// it.
 class WebsiteStructureExplorer extends ForgeView {
-  WebsiteStructureExplorer({required this.controller});
+  WebsiteStructureExplorer({required this.controller, this.onOpenFile});
 
   /// Owns the structure tree, refresh, and copy-file creation.
   final WebsiteStructureController controller;
+
+  /// Open-file seam: the host wires this to `ForgeLayoutController.openFile`
+  /// so a tap on a file node routes it to the matching editor.
+  final void Function(Uri uri)? onOpenFile;
 
   final _title = ValueNotifier<String>('Structure');
   final _titleExtension = ValueNotifier<String?>(null);
@@ -42,16 +50,17 @@ class WebsiteStructureExplorer extends ForgeView {
 
   @override
   Widget buildMain(BuildContext context) =>
-      _StructureExplorerBody(controller: controller);
+      _StructureExplorerBody(controller: controller, onOpenFile: onOpenFile);
 
   @override
   Widget buildCopy(BuildContext context) => buildMain(context);
 }
 
 class _StructureExplorerBody extends StatefulWidget {
-  const _StructureExplorerBody({required this.controller});
+  const _StructureExplorerBody({required this.controller, this.onOpenFile});
 
   final WebsiteStructureController controller;
+  final void Function(Uri uri)? onOpenFile;
 
   @override
   State<_StructureExplorerBody> createState() => _StructureExplorerBodyState();
@@ -78,6 +87,10 @@ class _StructureExplorerBodyState extends State<_StructureExplorerBody> {
     // A refresh rebuilds nodes, so a stale selection must be dropped.
     setState(() => _selection = null);
   }
+
+  bool get _canOpen => widget.onOpenFile != null;
+
+  void _open(Uri uri) => widget.onOpenFile?.call(uri);
 
   @override
   Widget build(BuildContext context) {
@@ -179,7 +192,10 @@ class _StructureExplorerBodyState extends State<_StructureExplorerBody> {
         selected: identical(_selection, node),
         trailing: _fileActions(context, node),
         onTap: node.isOpenable
-            ? () => setState(() => _selection = node)
+            ? () {
+                setState(() => _selection = node);
+                _open(node.uri!);
+              }
             : null,
       );
     }
@@ -302,6 +318,15 @@ class _StructureExplorerBodyState extends State<_StructureExplorerBody> {
             SelectableText(node.uri!.path,
                 style: theme.textTheme.bodySmall
                     ?.copyWith(fontFamily: 'monospace')),
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: FilledButton.icon(
+                onPressed: _canOpen ? () => _open(node.uri!) : null,
+                icon: const Icon(Icons.open_in_new, size: 16),
+                label: const Text('Open in editor'),
+              ),
+            ),
           ],
         ],
       ),

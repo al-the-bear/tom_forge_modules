@@ -144,7 +144,10 @@ class WebsiteEditorModule extends ForgeModule {
       fileSystem: ForgeContentFs(shell.fileSystem),
     );
     _structureController = structureController;
-    _structureView = WebsiteStructureExplorer(controller: structureController);
+    _structureView = WebsiteStructureExplorer(
+      controller: structureController,
+      onOpenFile: _openFile,
+    );
     unawaited(controller.load());
   }
 

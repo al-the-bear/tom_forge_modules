@@ -29,7 +29,7 @@ including the dedicated `WebsiteConfigEditor` (§6) that edits
 | `WebsiteContentBrowser` | `ForgeView` (the content browser, §6a): the catalog tree on the left and a field/page detail pane on the right. Managed fields are read-only/badged with a pin affordance; curated / pinned fields route to the inline editor named by their typed suffix (`-md` → Markdown, `-json` → JSON, else plain string). Tapping a leaf opens its backing file through the injected `onOpenFile` seam (a record → its `components/<c>.yaml`, a page → `pages/<p>.md`, `site.yaml` → itself). |
 | `WebsiteContentFs` / `ForgeContentFs` | Narrow file-system seam (list/read/write/exists, plus typed `listEntries` for the structure tree) for the content layer; `ForgeContentFs` adapts the shell's `ForgeFileSystem`, while tests inject an in-memory fake. |
 | `WebsiteStructureController` | `ChangeNotifier` wrapping the editor controller: scans the active website's `content/` tree through the `WebsiteContentFs` seam and builds the §6b structure tree (`site.yaml`, `areas/`, `components/`, `copy/` [grouped by the §16 naming convention], `pages/`, recursive `diagrams/`). Each file node routes to an editor by extension (`.yaml` → YAML, `.md` → Markdown). Creates new copy files at the §16 convention path, and disables itself / surfaces placeholder errors like the content controller. |
-| `WebsiteStructureExplorer` | `ForgeView` (the structure explorer, §6b): the filesystem-driven `content/` tree on the left and a detail pane on the right naming the editor a selected file opens in. |
+| `WebsiteStructureExplorer` | `ForgeView` (the structure explorer, §6b): the filesystem-driven `content/` tree on the left and a detail pane on the right. Tapping a file node opens its backing file through the `onOpenFile` seam (wired by the module to `ForgeLayoutController.openFile`); the detail pane names the routed editor and offers an **Open in editor** button. |
 | `StructureNode` / `groupCopyFiles` / `copyFileName` | Pure-Dart structure-tree model and §16 copy-file naming helpers (parse/encode/group) used by the controller; no Flutter dependency, fully unit-tested. |
 
 ## Architecture
@@ -314,11 +314,18 @@ directories) and reuses the `content:` block — no extra configuration.
   convention are surfaced verbatim, never dropped (`groupCopyFiles`).
 - **`diagrams/`** — listed recursively (e.g. `diagrams/<feature>/flow.svg`).
 
-**Editor routing.** Each file node carries a `FileEditorKind` derived from its
-extension: `.yaml` / `.yml` → the YAML editor (`tom_yaml_editor`), `.md` /
-`.markdown` → the Markdown editor (`tom_md_editor`), everything else → a
-read-only viewer. The explorer's detail pane names the routed editor on
-selection; embedding the rich editor widgets is deferred (see below).
+**Editor routing + opening.** Each file node carries a `FileEditorKind` derived
+from its extension: `.yaml` / `.yml` → the YAML editor (`tom_yaml_editor`),
+`.md` / `.markdown` → the Markdown editor (`tom_md_editor`), everything else → a
+read-only viewer. **Tapping a file node opens its backing file** through the
+`void Function(Uri)? onOpenFile` ctor seam — the module wires it to
+`ForgeLayoutController.openFile`, and editor routing is then automatic via each
+editor's `canHandle`, so no per-extension branching lives in the view. The
+detail pane names the routed editor, shows the resolved on-disk path, and offers
+an **Open in editor** button that re-opens the selected file through the same
+seam. When `onOpenFile` is `null` (e.g. the view rendered in isolation) taps only
+update the detail pane. Embedding the rich editor widgets *inline* (vs. routing
+to the shell's editor area) is deferred (see below).
 
 **New-file creation.** `createCopyFile(kind, parts: …)` encodes the §16 file name
 (`copyFileName`) and writes it at the convention path under `copy/` (e.g.
@@ -510,5 +517,8 @@ flutter test
   `filterStructureNodes` helper (WSC-FILTER-01..04).
 - `test/structure/website_structure_explorer_test.dart` — disabled state, tree
   render with grouped copy, yaml/md editor-routing on selection
-  (TWE-STRUCT-01..04), the search box narrowing the tree, and the new-file /
-  rename / delete affordances (TWE-STRUCT-05..08).
+  (TWE-STRUCT-01..04), the search box narrowing the tree, the new-file /
+  rename / delete affordances (TWE-STRUCT-05..08), and the open-file seam —
+  tapping a yaml / page-md / grouped copy-md node and the detail-pane
+  **Open in editor** button both fire `onOpenFile` with the resolved uri
+  (TWE-STRUCT-09..10).

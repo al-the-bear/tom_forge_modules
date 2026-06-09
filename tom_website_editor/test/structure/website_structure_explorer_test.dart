@@ -232,4 +232,51 @@ void main() {
 
     expect(find.text('button.yaml'), findsNothing);
   });
+
+  // TWE-STRUCT-09: tapping a file node opens its backing file through the
+  // onOpenFile seam — a yaml file, a page .md, and a grouped copy/*.md.
+  testWidgets('TWE-STRUCT-09: tapping a file node opens it', (tester) async {
+    final controller = await _loaded(activeId: 'alpha');
+    final opened = <Uri>[];
+    await _pump(
+      tester,
+      WebsiteStructureExplorer(controller: controller, onOpenFile: opened.add),
+    );
+
+    await tester.tap(find.text('button.yaml'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('about.md'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('home')); // copy/home.md (grouped §16)
+    await tester.pumpAndSettle();
+
+    expect(opened, [
+      Uri.file('/sites/a/content/components/button.yaml'),
+      Uri.file('/sites/a/content/pages/about.md'),
+      Uri.file('/sites/a/content/copy/home.md'),
+    ]);
+  });
+
+  // TWE-STRUCT-10: the detail-pane Open-in-editor button re-opens the selected
+  // file through the same seam.
+  testWidgets('TWE-STRUCT-10: detail pane Open-in-editor reopens the file',
+      (tester) async {
+    final controller = await _loaded(activeId: 'alpha');
+    final opened = <Uri>[];
+    await _pump(
+      tester,
+      WebsiteStructureExplorer(controller: controller, onOpenFile: opened.add),
+    );
+
+    // Tap opens once; the detail-pane button opens it a second time.
+    await tester.tap(find.text('button.yaml'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Open in editor'));
+    await tester.pumpAndSettle();
+
+    expect(opened, [
+      Uri.file('/sites/a/content/components/button.yaml'),
+      Uri.file('/sites/a/content/components/button.yaml'),
+    ]);
+  });
 }
