@@ -79,8 +79,9 @@ websites:
           reason: 'the canonical sample must declare a content: block');
       expect(content!.editableFields, kDefaultEditableFields,
           reason: 'sample editableFields must equal the canonical default');
-      expect(content.editableFields,
-          ['tagline', 'summary-md', 'overview-md', 'enables']);
+      // The canonical list is the unsuffixed §16 copy-file front-matter keys
+      // (overview lives in the body, not an `overview-md` key) — forge web todo 14.
+      expect(content.editableFields, ['tagline', 'summary', 'enables']);
     });
   });
 

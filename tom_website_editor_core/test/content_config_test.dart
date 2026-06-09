@@ -23,7 +23,7 @@ void main() {
       components: "components/*.yaml"
       site: "site.yaml"
       pages: "pages/*.md"
-      editableFields: [tagline, summary-md, overview-md, enables]
+      editableFields: [tagline, summary, enables]
       manualPin: "# @manual"
 '''));
       expect(result.isValid, isTrue, reason: result.issues.toString());
@@ -32,8 +32,7 @@ void main() {
       expect(content.components, 'components/*.yaml');
       expect(content.site, 'site.yaml');
       expect(content.pages, 'pages/*.md');
-      expect(content.editableFields,
-          ['tagline', 'summary-md', 'overview-md', 'enables']);
+      expect(content.editableFields, ['tagline', 'summary', 'enables']);
       expect(content.manualPin, '# @manual');
     });
 

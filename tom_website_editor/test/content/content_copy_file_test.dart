@@ -7,12 +7,13 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_website_editor/tom_website_editor.dart';
 
-/// A copy file with front-matter, an editable overview body, and a managed
-/// region the generator owns.
+/// A copy file shaped like the live website §16 files: unsuffixed front-matter
+/// keys (`tagline` / `summary` / `enables` — the canonical `editableFields`),
+/// an editable overview **body**, and a managed region the generator owns.
 const _copy = '''
 ---
 tagline: A clickable thing
-summary-md: A **button** users press.
+summary: A button users press.
 enables: [forms, dialogs]
 ---
 <!-- @tom:override -->
@@ -30,7 +31,7 @@ void main() {
       final file = ContentCopyFile.parse(_copy);
       expect(file.hasFrontMatter, isTrue);
       expect(file.frontMatterValue('tagline'), 'A clickable thing');
-      expect(file.frontMatterValue('summary-md'), 'A **button** users press.');
+      expect(file.frontMatterValue('summary'), 'A button users press.');
       expect(file.frontMatterValue('enables'), 'forms, dialogs');
       expect(file.frontMatterValue('missing'), isNull);
       expect(file.body.serialize(), contains('# Overview'));
@@ -40,10 +41,11 @@ void main() {
     test('exposes front-matter fields with editor-kind routing', () {
       final file = ContentCopyFile.parse(_copy);
       final names = file.frontMatter.map((f) => f.name).toList();
-      expect(names, ['tagline', 'summary-md', 'enables']);
-      final summary =
-          file.frontMatter.firstWhere((f) => f.name == 'summary-md');
-      expect(summary.editorKind, ContentEditorKind.markdown);
+      expect(names, ['tagline', 'summary', 'enables']);
+      // The live §16 keys are unsuffixed scalars → plain-string routing; the
+      // Markdown surface (the overview) is the body, not a front-matter field.
+      final summary = file.frontMatter.firstWhere((f) => f.name == 'summary');
+      expect(summary.editorKind, ContentEditorKind.string);
       final tagline = file.frontMatter.firstWhere((f) => f.name == 'tagline');
       expect(tagline.editorKind, ContentEditorKind.string);
     });
@@ -71,8 +73,7 @@ void main() {
 
       expect(edited.frontMatterValue('tagline'), 'A pressable thing');
       // The other front-matter fields and the whole body are intact.
-      expect(edited.frontMatterValue('summary-md'),
-          'A **button** users press.');
+      expect(edited.frontMatterValue('summary'), 'A button users press.');
       expect(edited.frontMatterValue('enables'), 'forms, dialogs');
       expect(edited.serialize(), contains('# Overview'));
       expect(edited.serialize(), contains('Generated: do not edit.'));

@@ -14,7 +14,7 @@ class CopyFrontMatterField {
     required this.sourceLine,
   });
 
-  /// The front-matter key (e.g. `summary-md`).
+  /// The front-matter key (e.g. `summary`).
   final String name;
 
   /// The current value as text (scalars stringified; flow lists comma-joined).
@@ -31,9 +31,10 @@ class CopyFrontMatterField {
 /// An external editorial copy file `content/copy/<…>.md` (website §16): YAML
 /// front-matter delimited by `---` lines, followed by a Markdown [body].
 ///
-/// The front-matter carries the curated copy fields (`tagline`, `summary-md`,
-/// `enables`, …) and the body is the overview — the §6a editable surface,
-/// living in the file rather than as inline YAML `-md` on a record. The body is
+/// The front-matter carries the curated copy fields (`tagline`, `summary`,
+/// `enables`, … — the unsuffixed `kDefaultEditableFields`) and the body is the
+/// overview — the §6a editable surface, living in the file rather than as inline
+/// YAML `-md` on a record. The body is
 /// a region-aware [ContentPage], so the §6.2 `@tom:override` / `@tom:managed`
 /// insert markers and the managed regions they protect round-trip untouched
 /// when an override region is edited.

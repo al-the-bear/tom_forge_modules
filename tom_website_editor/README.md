@@ -172,7 +172,7 @@ content:
   components:     "components/*.yaml"        # glob, relative to dir
   site:           "site.yaml"               # relative to dir
   pages:          "pages/*.md"              # glob, relative to dir
-  editableFields: [tagline, summary-md, overview-md, enables]
+  editableFields: [tagline, summary, enables]   # unsuffixed §16 copy-file front-matter; overview is the body
   manualPin:      "# @manual"
 ```
 
@@ -189,10 +189,10 @@ resolution failure surfaces as an inline error (with the offending token), never
 a silent blank tree.
 
 **Managed vs editable fields.** A field is **editable** when its name is one of
-the website's curated `editableFields` (`tagline` / `summary-md` / `overview-md`
-/ `enables`) **or** it carries the `# @manual` pin; every other field is
-**generator-managed** and shown read-only (no inline editor, only the **Pin**
-affordance).
+the website's curated `editableFields` (`tagline` / `summary` / `enables` — the
+unsuffixed §16 copy-file front-matter keys) **or** it carries the `# @manual`
+pin; every other field is **generator-managed** and shown read-only (no inline
+editor, only the **Pin** affordance).
 
 **Inline editing + save.** The inline/full-editor boundary follows each field's
 **typed suffix** (enterprise spec §4.1):
@@ -242,10 +242,12 @@ override region is edited.
 
 **External copy files (§16, front-matter + body).** Editorial copy now lives as
 one Markdown file per component/module/submodule/area/home under `content/copy/`
-(website §16) — YAML front-matter (`tagline`, `summary-md`, `enables`, …) plus a
-Markdown body that is the overview — rather than inline `-md` fields on a record.
-`ContentCopyFile.parse` splits the two halves: `frontMatter` exposes the editable
-fields (with `-md`/`-json` editor-kind routing), and `body` is a region-aware
+(website §16) — YAML front-matter (`tagline`, `summary`, `enables` — the
+canonical unsuffixed `editableFields`) plus a Markdown body that is the overview
+— rather than inline `-md` fields on a record. `ContentCopyFile.parse` splits the
+two halves: `frontMatter` exposes the editable fields (a typed `-md`/`-json`
+suffix still routes to the matching editor, but the live copy files use plain
+scalars), and `body` is a region-aware
 `ContentPage`, so the §6.2 `@tom:override` / `@tom:managed` markers and the
 managed regions they protect round-trip untouched. `withFrontMatterValue(name,
 value)` edits one front-matter field line-precisely; `withBody(page)` (paired with

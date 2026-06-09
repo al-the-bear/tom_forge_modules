@@ -60,7 +60,7 @@ content:
   areas:          "areas/*.md"          # auto-discovered area definitions
   site:           "site.yaml"           # nav, categories, featured
   pages:          "pages/*.md"          # standalone pages
-  editableFields: [tagline, summary-md, overview-md, enables]
+  editableFields: [tagline, summary, enables]   # unsuffixed §16 copy-file front-matter; overview is the body
   manualPin:      "# @manual"
 ```
 

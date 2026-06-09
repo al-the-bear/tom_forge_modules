@@ -292,10 +292,13 @@ void main() {
   });
 
   group('TWE-CTRL-07: copy files (§16 front-matter + body)', () {
+    // A live-shaped §16 copy file: unsuffixed `tagline` / `summary` / `enables`
+    // front-matter (the canonical editableFields) + the overview as the body.
     const copySource = '''
 ---
 tagline: A clickable thing
-summary-md: A **button**.
+summary: A button.
+enables: [forms, dialogs]
 ---
 <!-- @tom:override -->
 # Overview
@@ -318,8 +321,30 @@ Generated rollup.
       expect(controller.copyFiles, hasLength(2));
       expect(controller.copyFiles.first.uri.pathSegments.last,
           'button_component.md');
-      expect(controller.copyFiles.first.file.frontMatterValue('tagline'),
-          'A clickable thing');
+      final loaded = controller.copyFiles.first.file;
+      expect(loaded.frontMatterValue('tagline'), 'A clickable thing');
+      // The canonical §16 editableFields all round-trip from disk.
+      expect(loaded.frontMatterValue('summary'), 'A button.');
+      expect(loaded.frontMatterValue('enables'), 'forms, dialogs');
+    });
+
+    test('editing the summary / enables front-matter writes + re-parses',
+        () async {
+      final (controller, fs) = await _loaded(_config, seed: seedWithCopy());
+      final document = controller.copyFiles.first;
+
+      final wroteSummary = await controller.setCopyFrontMatterValue(
+          document, 'summary', 'A pressable button.');
+      expect(wroteSummary, isTrue);
+      expect(fs.files[document.uri], contains('summary: A pressable button.'));
+      expect(controller.copyFiles.first.file.frontMatterValue('summary'),
+          'A pressable button.');
+
+      final wroteEnables = await controller.setCopyFrontMatterValue(
+          controller.copyFiles.first, 'enables', 'forms');
+      expect(wroteEnables, isTrue);
+      expect(controller.copyFiles.first.file.frontMatterValue('enables'),
+          'forms');
     });
 
     test('editing a front-matter field writes to disk and re-parses', () async {

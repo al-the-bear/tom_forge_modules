@@ -142,10 +142,14 @@ const String kDefaultContentSite = 'site.yaml';
 const String kDefaultContentPages = 'pages/*.md';
 
 /// Default [WebsiteContentConfig.editableFields] (§2 / §6a curated copy).
+///
+/// These are the unsuffixed front-matter keys of the website §16 external copy
+/// files (`content/copy/*.md`) — the overview is the Markdown body, not an
+/// `overview-md` front-matter key. (Earlier revisions listed the now-defunct
+/// inline `-md` record fields `summary-md`/`overview-md`; see forge web todo 14.)
 const List<String> kDefaultEditableFields = [
   'tagline',
-  'summary-md',
-  'overview-md',
+  'summary',
   'enables',
 ];
 

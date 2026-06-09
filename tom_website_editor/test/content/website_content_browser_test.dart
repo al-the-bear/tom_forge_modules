@@ -16,6 +16,11 @@ websites:
       websiteRoot: "/sites/a"
     content:
       dir: "{websiteRoot}/content"
+      # This suite exercises the typed-suffix inline editor on the `summary-md`
+      # record field, so it configures that suffixed field explicitly rather than
+      # depending on the canonical default (which lists the unsuffixed §16
+      # copy-file front-matter keys `tagline`/`summary`/`enables`; forge web todo 14).
+      editableFields: [tagline, summary-md]
   - id: beta
     paths:
       websiteRoot: "/sites/b"
