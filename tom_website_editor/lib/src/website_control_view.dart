@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
 import 'website_control_controller.dart';
@@ -125,6 +126,11 @@ class _ControlContentState extends State<_ControlContent> {
             ),
           const Spacer(),
           IconButton(
+            icon: const Icon(Icons.copy_all_outlined, size: 18),
+            tooltip: 'Copy log',
+            onPressed: _visibleEntries().isEmpty ? null : _copyLog,
+          ),
+          IconButton(
             icon: const Icon(Icons.delete_sweep_outlined, size: 18),
             tooltip: 'Clear log',
             onPressed: controller.log.isEmpty ? null : controller.clearLog,
@@ -132,6 +138,15 @@ class _ControlContentState extends State<_ControlContent> {
         ],
       ),
     );
+  }
+
+  /// Copies the currently visible log entries (one per line) to the clipboard.
+  /// Drag-selection across lines is also possible via the [SelectionArea] around
+  /// the log; this button is the quick "copy everything shown" affordance.
+  Future<void> _copyLog() async {
+    final text = _visibleEntries().map((e) => e.message).join('\n');
+    if (text.isEmpty) return;
+    await Clipboard.setData(ClipboardData(text: text));
   }
 
   Widget _buildButtons(BuildContext context) {
@@ -219,18 +234,27 @@ class _ControlContentState extends State<_ControlContent> {
     );
   }
 
+  /// The log entries currently shown, after the level filter (pinned errors
+  /// always survive). Shared by the log view and the "Copy log" action.
+  List<WebsiteLogEntry> _visibleEntries() => widget.controller.log
+      // Pinned errors stay visible even when their level is filtered out.
+      .where((e) => e.pinned || _visibleLevels.contains(e.level))
+      .toList();
+
   Widget _buildLog(BuildContext context) {
-    final entries = widget.controller.log
-        // Pinned errors stay visible even when their level is filtered out.
-        .where((e) => e.pinned || _visibleLevels.contains(e.level))
-        .toList();
+    final entries = _visibleEntries();
     if (entries.isEmpty) {
       return const Center(child: Text('No output yet.'));
     }
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      itemCount: entries.length,
-      itemBuilder: (context, index) => _LogLine(entry: entries[index]),
+    // SelectionArea lets the user drag-select across multiple log lines (and
+    // copy with the platform shortcut); each line renders plain Text so the
+    // selection spans them instead of being trapped per-line.
+    return SelectionArea(
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        itemCount: entries.length,
+        itemBuilder: (context, index) => _LogLine(entry: entries[index]),
+      ),
     );
   }
 
@@ -300,7 +324,7 @@ class _LogLine extends StatelessWidget {
               child: Icon(Icons.push_pin, size: 12, color: color),
             ),
           Expanded(
-            child: SelectableText(
+            child: Text(
               entry.message,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: color,

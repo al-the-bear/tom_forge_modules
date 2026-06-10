@@ -140,6 +140,23 @@ String pinFieldLine(String rawYaml, int sourceLine, String manualPin) {
   return lines.join('\n');
 }
 
+/// Returns [rawYaml] with the [manualPin] marker removed from the field whose
+/// key is on [sourceLine] (0-based), reverting a pinned field to generator-
+/// managed status. The inverse of [pinFieldLine]: the trailing marker (and the
+/// whitespace that separated it from the value) is stripped, so the next
+/// regenerate is free to overwrite the field's value again (§6a).
+///
+/// Returns [rawYaml] unchanged when the line is out of range or carries no pin.
+String unpinFieldLine(String rawYaml, int sourceLine, String manualPin) {
+  final lines = rawYaml.split('\n');
+  if (sourceLine < 0 || sourceLine >= lines.length) return rawYaml;
+  final line = lines[sourceLine];
+  final markerAt = line.indexOf(manualPin);
+  if (markerAt < 0) return rawYaml;
+  lines[sourceLine] = line.substring(0, markerAt).trimRight();
+  return lines.join('\n');
+}
+
 /// Returns [rawYaml] with the scalar value of the field on [sourceLine]
 /// (0-based) replaced by [value], used by the §6a inline editor to persist a
 /// curated scalar edit.

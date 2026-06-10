@@ -258,6 +258,43 @@ class WebsiteContentController extends ChangeNotifier {
     return true;
   }
 
+  /// Unpins [field] of [document]: removes the `# @manual` marker so the field
+  /// reverts to generator-managed status and the next regenerate is free to
+  /// overwrite its value again (§6a). Writes the change to disk and re-parses the
+  /// document. The inverse of [pinField].
+  ///
+  /// Returns `true` when the marker was removed, `false` when the field was not
+  /// pinned or the website has no content config. Note: unpin reverts the field's
+  /// *status*, not its value — the current on-disk value is kept until the next
+  /// generate run replaces it (the model stores no separate "generated original").
+  Future<bool> unpinField(
+    ContentComponentDocument document,
+    ContentField field,
+  ) async {
+    final content = _content;
+    if (content == null || !field.isPinned) return false;
+
+    final updated =
+        unpinFieldLine(document.source, field.sourceLine, content.manualPin);
+    if (updated == document.source) return false;
+
+    await _fs.write(document.uri, updated);
+    final record = parseComponentRecord(
+      updated,
+      editableFields: content.editableFields,
+      manualPin: content.manualPin,
+    );
+    final index = _components.indexWhere((d) => d.uri == document.uri);
+    if (index >= 0) {
+      final next = List.of(_components);
+      next[index] = ContentComponentDocument(
+          uri: document.uri, source: updated, record: record);
+      _components = next;
+    }
+    notifyListeners();
+    return true;
+  }
+
   /// Persists a curated scalar edit (§6a): replaces [field]'s value with [value]
   /// in [document], writes the file back through [writeFile], and re-parses.
   ///

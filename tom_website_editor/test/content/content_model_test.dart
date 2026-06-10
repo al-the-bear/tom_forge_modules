@@ -130,6 +130,52 @@ void main() {
     });
   });
 
+  group('TWE-MODEL-09: unpinFieldLine', () {
+    test('removes the pin marker and reverts the field to managed', () {
+      final record = parseComponentRecord(_component,
+          editableFields: _editableFields, manualPin: _manualPin);
+      final extra = record.fields.firstWhere((f) => f.name == 'extra');
+      expect(extra.isPinned, isTrue);
+
+      final unpinned =
+          unpinFieldLine(_component, extra.sourceLine, _manualPin);
+      expect(unpinned, contains('extra: keep-me\n'),
+          reason: 'the marker (and its separating whitespace) is gone');
+      expect(unpinned, isNot(contains('# @manual')));
+
+      final reparsed = parseComponentRecord(unpinned,
+          editableFields: _editableFields, manualPin: _manualPin);
+      final reExtra = reparsed.fields.firstWhere((f) => f.name == 'extra');
+      expect(reExtra.isPinned, isFalse);
+      expect(reExtra.isEditable, isFalse,
+          reason: 'extra is not in editableFields, so it is managed again');
+    });
+
+    test('round-trips with pinFieldLine (pin then unpin → original)', () {
+      final record = parseComponentRecord(_component,
+          editableFields: _editableFields, manualPin: _manualPin);
+      final status = record.fields.firstWhere((f) => f.name == 'status');
+
+      final pinned = pinFieldLine(_component, status.sourceLine, _manualPin);
+      expect(pinned, isNot(_component));
+      final unpinned = unpinFieldLine(pinned, status.sourceLine, _manualPin);
+      expect(unpinned, _component, reason: 'pin then unpin is a no-op');
+    });
+
+    test('returns the source unchanged when the line carries no pin', () {
+      final record = parseComponentRecord(_component,
+          editableFields: _editableFields, manualPin: _manualPin);
+      final status = record.fields.firstWhere((f) => f.name == 'status');
+      expect(status.isPinned, isFalse);
+      expect(unpinFieldLine(_component, status.sourceLine, _manualPin),
+          _component);
+    });
+
+    test('returns the source unchanged for an out-of-range line', () {
+      expect(unpinFieldLine(_component, 9999, _manualPin), _component);
+    });
+  });
+
   group('TWE-MODEL-06: setFieldLineValue', () {
     test('replaces a scalar value and re-parses', () {
       final record = parseComponentRecord(_component,

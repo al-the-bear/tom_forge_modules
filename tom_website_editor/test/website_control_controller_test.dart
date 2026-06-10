@@ -38,6 +38,25 @@ websites:
       build: "jaspr build"
 ''';
 
+/// Like [_config]'s alpha but with `serveStart` configured, so tests can start
+/// the long-lived dev server and exercise the build-lock guard.
+const _configWithServe = '''
+version: 1
+defaults:
+  shell: ["bash", "-lc"]
+  placeholders:
+    port: "8080"
+websites:
+  - id: alpha
+    label: Alpha
+    paths:
+      websiteRoot: "/sites/a"
+    cwd: "{websiteRoot}"
+    commands:
+      build: "jaspr build"
+      serveStart: "jaspr serve --port {port}"
+''';
+
 class _StubReader {
   _StubReader(this.source);
   String source;
@@ -302,6 +321,41 @@ void main() {
       expect(runner.handles.single.killed, isTrue);
       runner.handles.single.finish(0);
       await future;
+    });
+
+    test('TWE-CTRL-19: build is refused (pinned error, no dispatch) while the '
+        'dev server is running', () async {
+      final editor = WebsiteEditorController(
+          configReader: _StubReader(_configWithServe).read);
+      await editor.load();
+      final runner = _GatedRunner();
+      final controller =
+          WebsiteControlController(editor: editor, runner: runner);
+
+      // Start the long-lived dev server (handle stays open).
+      expect(await controller.startServer(), isTrue);
+      expect(controller.isServerRunning, isTrue);
+      final serverHandle = runner.handles.single;
+
+      final code = await controller.runCommand('build');
+      expect(code, isNull, reason: 'build must not run while server is up');
+      // Only the server was started — build was never dispatched.
+      expect(runner.handles.length, 1);
+      final err =
+          controller.log.lastWhere((e) => e.level == WebsiteLogLevel.error);
+      expect(err.pinned, isTrue);
+      expect(err.message, contains('dev server'));
+      expect(err.message.toLowerCase(), contains('build_runner'));
+
+      // Once the server stops, build runs normally.
+      serverHandle.finish(0);
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      expect(controller.isServerRunning, isFalse);
+      final buildFuture = controller.runCommand('build');
+      await Future<void>.delayed(Duration.zero);
+      runner.handles[1].finish(0);
+      expect(await buildFuture, 0);
+      expect(runner.handles.length, 2);
     });
 
     test('TWE-CTRL-15: dispose stops reacting to editor changes', () async {

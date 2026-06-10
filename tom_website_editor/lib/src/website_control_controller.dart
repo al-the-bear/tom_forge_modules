@@ -45,6 +45,15 @@ const Set<String> _contentRegeneratingCommands = {
   'generateAll',
 };
 
+/// Commands that drive `build_runner` and therefore contend for the single
+/// `.dart_tool` build lock the dev server already holds while it is running.
+/// Running one of these concurrently with the dev server fails with "another
+/// process is using build_runner" (§5), so the controller refuses to start it
+/// and tells the user to stop the dev server first.
+const Set<String> _buildLockCommands = {
+  'build',
+};
+
 /// The canonical §7 commands, in the order the control view renders them.
 /// Every website may configure any subset; missing ones render disabled.
 const List<(String, String)> _canonicalCommands = [
@@ -191,6 +200,20 @@ class WebsiteControlController extends ChangeNotifier {
   /// or `null` when the command is unconfigured or a placeholder failed (in
   /// which case nothing is spawned and the reason is logged).
   Future<int?> runCommand(String name, {bool dryRun = false}) async {
+    // A build_runner command can't share the build lock with the dev server.
+    // Refuse early with an actionable message instead of letting build_runner
+    // fail deep inside the process with the opaque "another process is using
+    // build_runner" error (§5).
+    if (_buildLockCommands.contains(name) && isServerRunning) {
+      _add(
+        WebsiteLogLevel.error,
+        'Cannot run "$name" while the dev server is running — both use '
+        'build_runner and share one build lock. Stop the dev server first.',
+        pinned: true,
+      );
+      return null;
+    }
+
     final spec = _buildSpec(name, dryRun: dryRun);
     if (spec == null) return null;
 

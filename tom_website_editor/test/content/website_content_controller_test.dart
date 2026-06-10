@@ -195,6 +195,44 @@ void main() {
     });
   });
 
+  group('TWE-CTRL-08: unpin a pinned field', () {
+    test('removes the pin from disk and re-parses as managed', () async {
+      final (controller, fs) = await _loaded(_config);
+      final document = controller.components.first;
+      final status =
+          document.record.fields.firstWhere((f) => f.name == 'status');
+
+      // Pin it first, then unpin from the refreshed document.
+      await controller.pinField(document, status);
+      final pinnedDoc = controller.components.first;
+      final pinnedStatus =
+          pinnedDoc.record.fields.firstWhere((f) => f.name == 'status');
+      expect(pinnedStatus.isPinned, isTrue);
+
+      final unpinned = await controller.unpinField(pinnedDoc, pinnedStatus);
+      expect(unpinned, isTrue);
+
+      // The marker is gone from disk.
+      expect(fs.files[document.uri], isNot(contains('# @manual')));
+      expect(fs.files[document.uri], contains('status: stable'));
+
+      // The controller re-parsed: the field reverts to managed.
+      final reStatus = controller.components.first.record.fields
+          .firstWhere((f) => f.name == 'status');
+      expect(reStatus.isPinned, isFalse);
+      expect(reStatus.isEditable, isFalse);
+    });
+
+    test('returns false when the field is not pinned', () async {
+      final (controller, _) = await _loaded(_config);
+      final document = controller.components.first;
+      final status =
+          document.record.fields.firstWhere((f) => f.name == 'status');
+      expect(status.isPinned, isFalse);
+      expect(await controller.unpinField(document, status), isFalse);
+    });
+  });
+
   group('TWE-CTRL-03: disabled without a content block', () {
     test('isEnabled is false and the catalog is empty', () async {
       final editor =

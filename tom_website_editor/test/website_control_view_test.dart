@@ -4,6 +4,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_website_editor/tom_website_editor.dart';
 
@@ -192,6 +193,57 @@ void main() {
 
     expect(find.textContaining('failed (exit 1)'), findsOneWidget);
     expect(find.textContaining('completed'), findsNothing);
+  });
+
+  testWidgets('TWE-CTRLV-09: log is wrapped in a SelectionArea (multi-line '
+      'selectable), not per-line SelectableText', (tester) async {
+    final controller = await _loadedController(_FakeRunner());
+    await _pump(tester, WebsiteControlView(controller: controller));
+
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Build'));
+    await tester.pumpAndSettle();
+
+    // The log content is wrapped in one SelectionArea so a drag spans lines.
+    expect(find.byType(SelectionArea), findsOneWidget);
+    // The old per-line SelectableText (which trapped selection to one line) is
+    // gone from the log.
+    expect(find.byType(SelectableText), findsNothing);
+  });
+
+  testWidgets('TWE-CTRLV-10: Copy log puts all visible lines on the clipboard',
+      (tester) async {
+    final copied = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copied.add((call.arguments as Map)['text'] as String);
+        }
+        return null;
+      },
+    );
+    addTearDown(() => tester.binding.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, null));
+
+    final controller = await _loadedController(_FakeRunner(code: 0));
+    await _pump(tester, WebsiteControlView(controller: controller));
+
+    final copyButton =
+        find.widgetWithIcon(IconButton, Icons.copy_all_outlined);
+    // Empty log → Copy log disabled.
+    expect(tester.widget<IconButton>(copyButton).onPressed, isNull);
+
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Build'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(copyButton);
+    await tester.pumpAndSettle();
+
+    expect(copied, isNotEmpty);
+    // Multiple log lines joined by newlines (the echo line + completion line).
+    expect(copied.last, contains('jaspr build'));
+    expect(copied.last, contains('completed'));
+    expect(copied.last, contains('\n'));
   });
 
   testWidgets('TWE-CTRLV-08: dev-server button toggles start → stop + status',

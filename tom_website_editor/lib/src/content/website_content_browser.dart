@@ -87,6 +87,27 @@ class _Selection {
   final bool site;
 }
 
+/// A tree-visible record paired with its owning document and path label (e.g.
+/// `Button › Primary › Large`). Used to scope the attribute search (item 2b).
+class _RecordHit {
+  const _RecordHit(this.record, this.document, this.path);
+
+  final ContentRecord record;
+  final ContentComponentDocument document;
+  final String path;
+}
+
+/// One attribute-search result: a field, its owning record/document, and the
+/// record's path label so hits from several modules can be told apart.
+class _AttrHit {
+  const _AttrHit(this.record, this.document, this.field, this.path);
+
+  final ContentRecord record;
+  final ContentComponentDocument document;
+  final ContentField field;
+  final String path;
+}
+
 class _ContentBrowserBody extends StatefulWidget {
   const _ContentBrowserBody({
     required this.controller,
@@ -104,7 +125,21 @@ class _ContentBrowserBody extends StatefulWidget {
 
 class _ContentBrowserBodyState extends State<_ContentBrowserBody> {
   _Selection? _selection;
+
+  /// Tree search (§9, item 2a): matches a record's label by case-insensitive
+  /// `contains`. A matched node reveals its full subtree; components with no
+  /// matching descendant are pruned from the tree.
   String _query = '';
+
+  /// Detail-pane attribute search (item 2b): two needles that filter fields by
+  /// name and by value across the tree-visible records. When either is set the
+  /// detail pane shows aggregated attribute hits instead of the selection.
+  String _attrNameQuery = '';
+  String _attrValueQuery = '';
+
+  /// `true` when an attribute search is active (either needle is non-empty).
+  bool get _attrSearchActive =>
+      _attrNameQuery.trim().isNotEmpty || _attrValueQuery.trim().isNotEmpty;
 
   /// Routes [uri] to the host's editor (via the open seam) when one is wired.
   void _open(Uri uri) => widget.onOpenFile?.call(uri);
@@ -192,10 +227,11 @@ class _ContentBrowserBodyState extends State<_ContentBrowserBody> {
         Padding(
           padding: const EdgeInsets.all(8),
           child: TextField(
+            key: const ValueKey('tree-filter'),
             decoration: const InputDecoration(
               isDense: true,
               prefixIcon: Icon(Icons.search, size: 18),
-              hintText: 'Filter content',
+              hintText: 'Filter by name',
               border: OutlineInputBorder(),
             ),
             onChanged: (value) => setState(() => _query = value),
@@ -214,9 +250,8 @@ class _ContentBrowserBodyState extends State<_ContentBrowserBody> {
 
     for (final document in controller.components) {
       total++;
-      if (needle.isEmpty || _recordMatches(document.record, needle)) {
-        children.add(_buildRecordTile(document.record, document));
-      }
+      final tile = _buildRecordTile(document.record, document, needle);
+      if (tile != null) children.add(tile);
     }
 
     final site = controller.siteFile;
@@ -261,14 +296,23 @@ class _ContentBrowserBodyState extends State<_ContentBrowserBody> {
     return ListView(children: children);
   }
 
-  /// Whether [record] or any descendant has a label containing [needle].
-  static bool _recordMatches(ContentRecord record, String needle) {
-    if (record.label.toLowerCase().contains(needle)) return true;
-    return record.children.any((child) => _recordMatches(child, needle));
-  }
+  /// Builds the tile for [record], or `null` when the record is pruned (item
+  /// 2a): with a non-empty [needle], a record is shown only if its own label
+  /// matches or one of its descendants does. A record whose own label matches
+  /// reveals its full subtree (the child needle is cleared); an unmatched
+  /// container keeps only the descendants that themselves match.
+  Widget? _buildRecordTile(
+      ContentRecord record, ContentComponentDocument document, String needle) {
+    final selfMatch =
+        needle.isEmpty || record.label.toLowerCase().contains(needle);
+    final childNeedle = selfMatch ? '' : needle;
+    final childTiles = <Widget>[];
+    for (final child in record.children) {
+      final tile = _buildRecordTile(child, document, childNeedle);
+      if (tile != null) childTiles.add(tile);
+    }
+    if (!selfMatch && childTiles.isEmpty) return null;
 
-  Widget _buildRecordTile(
-      ContentRecord record, ContentComponentDocument document) {
     if (record.children.isEmpty) {
       return ListTile(
         dense: true,
@@ -299,13 +343,65 @@ class _ContentBrowserBodyState extends State<_ContentBrowserBody> {
             _open(document.uri);
           },
         ),
-        for (final child in record.children)
-          _buildRecordTile(child, document),
+        ...childTiles,
       ],
     );
   }
 
   Widget _buildDetail(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildAttrSearchBar(context),
+        const Divider(height: 1),
+        Expanded(
+          child: _attrSearchActive
+              ? _buildAttrResults(context)
+              : _buildSelectionDetail(context),
+        ),
+      ],
+    );
+  }
+
+  /// The two attribute search fields (item 2b): one filters fields by name, the
+  /// other by value. When either is active, [_buildAttrResults] replaces the
+  /// selection detail with the aggregated hits across the tree-visible records.
+  Widget _buildAttrSearchBar(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(8),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              key: const ValueKey('attr-name-search'),
+              decoration: const InputDecoration(
+                isDense: true,
+                prefixIcon: Icon(Icons.label_outline, size: 18),
+                hintText: 'Search attribute names',
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (value) => setState(() => _attrNameQuery = value),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: TextField(
+              key: const ValueKey('attr-value-search'),
+              decoration: const InputDecoration(
+                isDense: true,
+                prefixIcon: Icon(Icons.search, size: 18),
+                hintText: 'Search attribute values',
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (value) => setState(() => _attrValueQuery = value),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSelectionDetail(BuildContext context) {
     final selection = _selection;
     if (selection == null) {
       return const Center(child: Text('Select a record or page.'));
@@ -332,27 +428,125 @@ class _ContentBrowserBodyState extends State<_ContentBrowserBody> {
         Text(record.kind.name, style: theme.textTheme.labelSmall),
         const SizedBox(height: 12),
         for (final field in record.fields)
-          _FieldRow(
-            field: field,
-            provenance: record.provenance,
-            onPin: field.isEditable
-                ? null
-                : () => widget.controller.pinField(document, field),
-            // Inline edit for short scalar fields; `-md` / `-json` route to the
-            // full editor (item 4) so the two paths don't fight.
-            onCommit: field.isEditable &&
-                    field.editorKind == ContentEditorKind.string
-                ? (value) => unawaited(
-                    widget.controller.setFieldValue(document, field, value))
-                : null,
-            onOpenFull: field.isEditable &&
-                    field.editorKind != ContentEditorKind.string &&
-                    _canOpen
-                ? () => _open(document.uri)
-                : null,
+          _fieldRow(context, record, document, field),
+      ],
+    );
+  }
+
+  /// The aggregated attribute hits (item 2b): every field, across the records
+  /// the tree currently shows, whose name and value match the active needles.
+  /// Each hit is labelled with its owning record's path so attributes from
+  /// several modules can be told apart.
+  Widget _buildAttrResults(BuildContext context) {
+    final theme = Theme.of(context);
+    final hits = _attributeHits();
+    if (hits.isEmpty) {
+      return const Center(child: Text('No attributes match the search.'));
+    }
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        for (final hit in hits)
+          Padding(
+            key: ValueKey('attr-hit-${hit.record.id}-${hit.field.name}'),
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(hit.path,
+                    style: theme.textTheme.labelSmall
+                        ?.copyWith(color: theme.colorScheme.primary)),
+                const SizedBox(height: 4),
+                _fieldRow(context, hit.record, hit.document, hit.field),
+              ],
+            ),
           ),
       ],
     );
+  }
+
+  /// Builds a [_FieldRow] with the pin / unpin / edit / open seams wired to the
+  /// controller. Shared by the record pane and the attribute-search results so
+  /// both render and act on fields identically.
+  Widget _fieldRow(BuildContext context, ContentRecord record,
+      ContentComponentDocument document, ContentField field) {
+    return _FieldRow(
+      field: field,
+      provenance: record.provenance,
+      onPin: field.isEditable
+          ? null
+          : () => widget.controller.pinField(document, field),
+      // Unpin reverts a pinned field to generator-managed status; the value
+      // stays until the next generate run replaces it (§6a).
+      onUnpin: field.isPinned
+          ? () => unawaited(widget.controller.unpinField(document, field))
+          : null,
+      // Inline edit for short scalar fields; `-md` / `-json` route to the full
+      // editor (item 4) so the two paths don't fight.
+      onCommit:
+          field.isEditable && field.editorKind == ContentEditorKind.string
+              ? (value) => unawaited(
+                  widget.controller.setFieldValue(document, field, value))
+              : null,
+      onOpenFull: field.isEditable &&
+              field.editorKind != ContentEditorKind.string &&
+              _canOpen
+          ? () => _open(document.uri)
+          : null,
+    );
+  }
+
+  /// Walks the components, collecting the records the tree currently shows
+  /// (item 2a's visibility rule) with their path label. This is the scope the
+  /// attribute search operates over — "only the modules that have been found".
+  List<_RecordHit> _visibleRecords() {
+    final needle = _query.trim().toLowerCase();
+    final hits = <_RecordHit>[];
+    for (final document in widget.controller.components) {
+      _collectVisible(document.record, document, needle, '', hits);
+    }
+    return hits;
+  }
+
+  /// Appends [record] and its visible descendants to [out] when they pass the
+  /// tree needle, mirroring [_buildRecordTile]'s pruning. The parent is inserted
+  /// before its descendants so paths read top-down.
+  void _collectVisible(ContentRecord record, ContentComponentDocument document,
+      String needle, String parentPath, List<_RecordHit> out) {
+    final selfMatch =
+        needle.isEmpty || record.label.toLowerCase().contains(needle);
+    final path =
+        parentPath.isEmpty ? record.label : '$parentPath › ${record.label}';
+    final childNeedle = selfMatch ? '' : needle;
+    final before = out.length;
+    for (final child in record.children) {
+      _collectVisible(child, document, childNeedle, path, out);
+    }
+    final hasVisibleChild = out.length > before;
+    if (selfMatch || hasVisibleChild) {
+      out.insert(before, _RecordHit(record, document, path));
+    }
+  }
+
+  /// Every field (across [_visibleRecords]) whose name contains the name needle
+  /// and whose value contains the value needle (each empty needle matches all).
+  List<_AttrHit> _attributeHits() {
+    final nameNeedle = _attrNameQuery.trim().toLowerCase();
+    final valueNeedle = _attrValueQuery.trim().toLowerCase();
+    if (nameNeedle.isEmpty && valueNeedle.isEmpty) return const [];
+    final hits = <_AttrHit>[];
+    for (final rec in _visibleRecords()) {
+      for (final field in rec.record.fields) {
+        final nameOk = nameNeedle.isEmpty ||
+            field.name.toLowerCase().contains(nameNeedle);
+        final valueOk = valueNeedle.isEmpty ||
+            field.value.toLowerCase().contains(valueNeedle);
+        if (nameOk && valueOk) {
+          hits.add(_AttrHit(rec.record, rec.document, field, rec.path));
+        }
+      }
+    }
+    return hits;
   }
 
   Widget _buildFilePane(BuildContext context, Uri uri, String note) {
@@ -398,6 +592,7 @@ class _FieldRow extends StatelessWidget {
   const _FieldRow({
     required this.field,
     required this.onPin,
+    this.onUnpin,
     this.provenance,
     this.onCommit,
     this.onOpenFull,
@@ -411,6 +606,10 @@ class _FieldRow extends StatelessWidget {
 
   /// Pin callback (managed fields only); `null` for editable fields.
   final VoidCallback? onPin;
+
+  /// Unpin callback (pinned fields only); `null` for non-pinned fields. Reverts
+  /// the field to generator-managed status.
+  final VoidCallback? onUnpin;
 
   /// Persist an inline scalar edit (editable string fields only); `null` when
   /// the field is managed or routes to the full editor.
@@ -439,6 +638,20 @@ class _FieldRow extends StatelessWidget {
               if (!field.isEditable && provenance != null) ...[
                 const SizedBox(width: 4),
                 _provenanceBadge(context, provenance!),
+              ],
+              if (field.isPinned && onUnpin != null) ...[
+                const SizedBox(width: 4),
+                TextButton.icon(
+                  key: ValueKey('unpin-${field.name}'),
+                  icon: const Icon(Icons.push_pin, size: 14),
+                  label: const Text('Unpin'),
+                  onPressed: onUnpin,
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: const Size(0, 32),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
               ],
             ],
           ),

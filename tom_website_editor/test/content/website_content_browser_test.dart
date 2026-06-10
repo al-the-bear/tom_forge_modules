@@ -49,6 +49,30 @@ _generated:
   at: 2026-06-01T10:00:00Z
 ''';
 
+// Two components with modules, used by the tree-pruning (2a) and attribute
+// search (2b) tests. Each module carries a managed `color` field so the
+// attribute search has cross-module hits to aggregate.
+const _buttonTree = '''
+id: button
+name: Button
+modules:
+  - id: primary
+    name: Primary
+    color: blue
+  - id: secondary
+    name: Secondary
+    color: gray
+''';
+
+const _cardTree = '''
+id: card
+name: Card
+modules:
+  - id: header
+    name: Header
+    color: white
+''';
+
 class _FakeContentFs implements WebsiteContentFs {
   _FakeContentFs(this.files);
   final Map<Uri, String> files;
@@ -125,6 +149,19 @@ Future<(WebsiteContentController, _FakeContentFs)> _loadedGen() async {
   await editor.load();
   final fs = _FakeContentFs({
     Uri.file('/sites/a/content/components/button.yaml'): _buttonGen,
+  });
+  final controller =
+      WebsiteContentController(editor: editor, fileSystem: fs);
+  await controller.refresh();
+  return (controller, fs);
+}
+
+Future<(WebsiteContentController, _FakeContentFs)> _loadedTree() async {
+  final editor = WebsiteEditorController(configReader: () async => _config);
+  await editor.load();
+  final fs = _FakeContentFs({
+    Uri.file('/sites/a/content/components/button.yaml'): _buttonTree,
+    Uri.file('/sites/a/content/components/card.yaml'): _cardTree,
   });
   final controller =
       WebsiteContentController(editor: editor, fileSystem: fs);
@@ -326,7 +363,7 @@ void main() {
     expect(find.text('home.md'), findsOneWidget);
     expect(find.text('site.yaml'), findsOneWidget);
 
-    await tester.enterText(find.byType(TextField), 'home');
+    await tester.enterText(find.byKey(const ValueKey('tree-filter')), 'home');
     await tester.pumpAndSettle();
 
     expect(find.text('home.md'), findsOneWidget);
@@ -383,5 +420,135 @@ void main() {
     final tooltip = tester.widget<Tooltip>(
         find.ancestor(of: badge, matching: find.byType(Tooltip)));
     expect(tooltip.message!.toLowerCase(), contains('manual'));
+  });
+
+  // TWE-BROWSE-15: a pinned field shows an Unpin affordance that removes the
+  // `# @manual` marker from disk; a managed field shows none.
+  testWidgets('TWE-BROWSE-15: unpin button reverts a pinned field to managed',
+      (tester) async {
+    final (controller, fs) = await _loadedGen();
+    final uri = Uri.file('/sites/a/content/components/button.yaml');
+    await _pump(tester, WebsiteContentBrowser(controller: controller));
+
+    await tester.tap(find.text('Button'));
+    await tester.pumpAndSettle();
+
+    // The pinned `version` field has an Unpin button; the managed `status`
+    // field has none (it offers Pin instead).
+    final unpin = find.byKey(const ValueKey('unpin-version'));
+    expect(unpin, findsOneWidget);
+    expect(find.byKey(const ValueKey('unpin-status')), findsNothing);
+
+    await tester.tap(unpin);
+    await tester.pumpAndSettle();
+
+    // The marker is gone from disk; the value itself is kept.
+    expect(fs.files[uri], isNot(contains('# @manual')));
+    expect(fs.files[uri], contains('version: "1.0.0"'));
+
+    // After the re-parse the Unpin affordance is gone (field is managed again).
+    expect(find.byKey(const ValueKey('unpin-version')), findsNothing);
+  });
+
+  // TWE-BROWSE-16: the tree filter prunes by record name (contains, case-
+  // insensitive) — a matched module keeps its component ancestor but hides
+  // sibling modules and non-matching components.
+  testWidgets('TWE-BROWSE-16: tree filter prunes to matching modules',
+      (tester) async {
+    final (controller, _) = await _loadedTree();
+    await _pump(tester, WebsiteContentBrowser(controller: controller));
+
+    // Everything is visible before filtering.
+    expect(find.text('Button'), findsOneWidget);
+    expect(find.text('Primary'), findsOneWidget);
+    expect(find.text('Secondary'), findsOneWidget);
+    expect(find.text('Card'), findsOneWidget);
+    expect(find.text('Header'), findsOneWidget);
+
+    await tester.enterText(
+        find.byKey(const ValueKey('tree-filter')), 'primary');
+    await tester.pumpAndSettle();
+
+    // Only Primary matches; its Button ancestor stays as a container, but the
+    // sibling module and the other component are pruned.
+    expect(find.text('Primary'), findsOneWidget);
+    expect(find.text('Button'), findsOneWidget);
+    expect(find.text('Secondary'), findsNothing);
+    expect(find.text('Card'), findsNothing);
+    expect(find.text('Header'), findsNothing);
+  });
+
+  // TWE-BROWSE-17: matching a component name reveals its full subtree.
+  testWidgets('TWE-BROWSE-17: matching a component reveals its whole subtree',
+      (tester) async {
+    final (controller, _) = await _loadedTree();
+    await _pump(tester, WebsiteContentBrowser(controller: controller));
+
+    await tester.enterText(find.byKey(const ValueKey('tree-filter')), 'card');
+    await tester.pumpAndSettle();
+
+    // Card matches by name, so its Header module shows even though "header"
+    // does not contain "card"; the Button subtree is pruned.
+    expect(find.text('Card'), findsOneWidget);
+    expect(find.text('Header'), findsOneWidget);
+    expect(find.text('Button'), findsNothing);
+    expect(find.text('Primary'), findsNothing);
+  });
+
+  // TWE-BROWSE-18: the attribute name search aggregates matching fields across
+  // every visible module, each labelled with its record path.
+  testWidgets('TWE-BROWSE-18: attribute name search aggregates across modules',
+      (tester) async {
+    final (controller, _) = await _loadedTree();
+    await _pump(tester, WebsiteContentBrowser(controller: controller));
+
+    await tester.enterText(
+        find.byKey(const ValueKey('attr-name-search')), 'color');
+    await tester.pumpAndSettle();
+
+    // All three modules expose a `color` field; each is a distinct hit.
+    expect(find.byKey(const ValueKey('attr-hit-primary-color')), findsOneWidget);
+    expect(
+        find.byKey(const ValueKey('attr-hit-secondary-color')), findsOneWidget);
+    expect(find.byKey(const ValueKey('attr-hit-header-color')), findsOneWidget);
+    expect(find.text('Button › Primary'), findsOneWidget);
+    expect(find.text('Card › Header'), findsOneWidget);
+  });
+
+  // TWE-BROWSE-19: the attribute value search narrows hits by value.
+  testWidgets('TWE-BROWSE-19: attribute value search narrows by value',
+      (tester) async {
+    final (controller, _) = await _loadedTree();
+    await _pump(tester, WebsiteContentBrowser(controller: controller));
+
+    await tester.enterText(
+        find.byKey(const ValueKey('attr-value-search')), 'blue');
+    await tester.pumpAndSettle();
+
+    // Only Primary's color is blue.
+    expect(find.byKey(const ValueKey('attr-hit-primary-color')), findsOneWidget);
+    expect(find.byKey(const ValueKey('attr-hit-secondary-color')), findsNothing);
+    expect(find.byKey(const ValueKey('attr-hit-header-color')), findsNothing);
+  });
+
+  // TWE-BROWSE-20: the attribute search is scoped to the records the tree
+  // currently shows — filtering the tree first narrows the attribute hits.
+  testWidgets('TWE-BROWSE-20: attribute search is scoped to found modules',
+      (tester) async {
+    final (controller, _) = await _loadedTree();
+    await _pump(tester, WebsiteContentBrowser(controller: controller));
+
+    // Restrict the tree to Primary, then search attribute names.
+    await tester.enterText(
+        find.byKey(const ValueKey('tree-filter')), 'primary');
+    await tester.pumpAndSettle();
+    await tester.enterText(
+        find.byKey(const ValueKey('attr-name-search')), 'color');
+    await tester.pumpAndSettle();
+
+    // Only Primary's color is in scope; the hidden modules contribute nothing.
+    expect(find.byKey(const ValueKey('attr-hit-primary-color')), findsOneWidget);
+    expect(find.byKey(const ValueKey('attr-hit-secondary-color')), findsNothing);
+    expect(find.byKey(const ValueKey('attr-hit-header-color')), findsNothing);
   });
 }

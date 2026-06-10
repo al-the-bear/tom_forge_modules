@@ -76,8 +76,35 @@ abstract interface class WebsiteProcessRunner {
 /// A failure to even spawn the process (`ProcessException` — e.g. the shell is
 /// missing or the cwd does not exist) is reported as exit code `2`, matching the
 /// §7 "usage/config bug" tag rather than masquerading as a real failure (`1`).
+///
+/// ## Process-group ownership (why the perl wrapper)
+///
+/// The control panel runs commands through `bash -lc <command>` (the website's
+/// `defaults.shell`). Long-lived commands such as `serveStart`/`build` spawn a
+/// grandchild daemon (jaspr → build_runner). A plain `Process.kill()` signals
+/// only the `bash` parent; non-interactive bash does **not** forward the signal
+/// to its background jobs, so the build_runner daemon is **orphaned** and keeps
+/// holding the `.dart_tool` build lock. The next `jaspr build` then fails with
+/// "another process is using build_runner" even though the panel shows the
+/// server stopped.
+///
+/// The fix is to make the child its own session/process-group leader so we can
+/// signal the **whole tree** with a single negative-pid kill. On POSIX we launch
+/// via `perl -e 'use POSIX qw(setsid); setsid(); exec(@ARGV)'` (perl is present
+/// on macOS and Linux; the standalone `setsid` binary is absent on macOS). After
+/// `setsid()` the exec'd shell's pid equals its process-group id, so
+/// `Process.killPid(-pid, …)` terminates the shell and every descendant. On
+/// Windows there is no `setsid`; we fall back to a plain `Process.kill()` (tree
+/// kill there would need `taskkill /T /F`, tracked for the Windows host).
 class DartIoWebsiteProcessRunner implements WebsiteProcessRunner {
   const DartIoWebsiteProcessRunner();
+
+  /// A perl one-liner that detaches into a new session (becoming a process-group
+  /// leader) and then execs the real argv. Used to wrap POSIX spawns so the
+  /// whole process tree can be killed via a negative-pid signal.
+  static const String _setsidScript =
+      r'use POSIX qw(setsid); setsid() or die "setsid: $!"; '
+      r'exec(@ARGV) or die "exec: $!";';
 
   @override
   WebsiteProcessHandle start(WebsiteCommandSpec spec) {
@@ -85,11 +112,19 @@ class DartIoWebsiteProcessRunner implements WebsiteProcessRunner {
     final exitCompleter = Completer<int>();
     Future<Process>? processFuture;
 
+    // On POSIX, launch the command as a session leader so kill() can signal the
+    // entire process group (see class doc). On Windows, run it directly.
+    final bool wrapWithSetsid = !Platform.isWindows;
+    final String executable = wrapWithSetsid ? 'perl' : spec.executable;
+    final List<String> arguments = wrapWithSetsid
+        ? ['-e', _setsidScript, spec.executable, ...spec.arguments]
+        : spec.arguments;
+
     Future<void> run() async {
       try {
         final process = await Process.start(
-          spec.executable,
-          spec.arguments,
+          executable,
+          arguments,
           workingDirectory: spec.workingDirectory,
         );
         processFuture = Future.value(process);
@@ -122,6 +157,7 @@ class DartIoWebsiteProcessRunner implements WebsiteProcessRunner {
       output: controller.stream,
       exitCode: exitCompleter.future,
       processFuture: () => processFuture,
+      killsProcessGroup: wrapWithSetsid,
     );
   }
 }
@@ -132,13 +168,19 @@ class _DartIoProcessHandle implements WebsiteProcessHandle {
     required Stream<WebsiteProcessLine> output,
     required Future<int> exitCode,
     required Future<Process>? Function() processFuture,
+    required bool killsProcessGroup,
   })  : _output = output.asBroadcastStream(),
         _exitCode = exitCode,
-        _processFuture = processFuture;
+        _processFuture = processFuture,
+        _killsProcessGroup = killsProcessGroup;
 
   final Stream<WebsiteProcessLine> _output;
   final Future<int> _exitCode;
   final Future<Process>? Function() _processFuture;
+
+  /// `true` when the child was spawned as a session leader, so killing the
+  /// negative pid terminates the whole process group (see runner doc).
+  final bool _killsProcessGroup;
 
   @override
   Stream<WebsiteProcessLine> get output => _output;
@@ -149,6 +191,17 @@ class _DartIoProcessHandle implements WebsiteProcessHandle {
   @override
   Future<void> kill() async {
     final process = await _processFuture();
-    process?.kill();
+    if (process == null) return;
+    if (_killsProcessGroup) {
+      // Signal the whole process group (negative pid): the session leader plus
+      // every descendant (e.g. the orphan-prone build_runner daemon). SIGTERM
+      // first for a graceful stop; fall back to a single-process kill if the
+      // group signal is rejected (e.g. the leader already exited).
+      final delivered =
+          Process.killPid(-process.pid, ProcessSignal.sigterm);
+      if (!delivered) process.kill();
+    } else {
+      process.kill();
+    }
   }
 }
