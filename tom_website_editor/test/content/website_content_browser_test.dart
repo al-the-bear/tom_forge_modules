@@ -236,6 +236,36 @@ Future<(WebsiteContentController, _FakeContentFs)> _loadedSiteCopy() async {
   return (controller, fs);
 }
 
+/// A standalone page with `title` / `route` front-matter above a region-aware
+/// body (§9 item 3) — the `impressum.md` case the spec calls out.
+const _impressum = '''
+---
+title: Impressum
+route: /impressum
+---
+<!-- @tom:override -->
+# Impressum
+
+Hand-authored legal text.
+
+<!-- @tom:managed -->
+Generated footer.
+''';
+
+Future<(WebsiteContentController, _FakeContentFs)> _loadedPage() async {
+  final editor = WebsiteEditorController(configReader: () async => _config);
+  await editor.load();
+  final fs = _FakeContentFs({
+    Uri.file('/sites/a/content/components/button.yaml'): _button,
+    Uri.file('/sites/a/content/site.yaml'): 'title: Alpha\n',
+    Uri.file('/sites/a/content/pages/impressum.md'): _impressum,
+  });
+  final controller =
+      WebsiteContentController(editor: editor, fileSystem: fs);
+  await controller.refresh();
+  return (controller, fs);
+}
+
 Future<void> _pump(WidgetTester tester, WebsiteContentBrowser view) async {
   await tester.pumpWidget(MaterialApp(
     home: Scaffold(body: Builder(builder: view.buildMain)),
@@ -839,5 +869,53 @@ void main() {
     expect(opened, [Uri.file('/sites/a/content/copy/news.md')]);
     // The detail pane names the site-level copy routing target.
     expect(find.textContaining('Site-level copy'), findsOneWidget);
+  });
+
+  // TWE-BROWSE-32: selecting a standalone page surfaces its title / route
+  // front-matter as editable inline fields (§9 item 3). The route is also shown
+  // in the tree so the page's URL is visible without opening the pane.
+  testWidgets('TWE-BROWSE-32: page pane surfaces editable title/route',
+      (tester) async {
+    final (controller, _) = await _loadedPage();
+    await _pumpTall(tester, WebsiteContentBrowser(controller: controller));
+
+    // The route is visible in the tree as the page's subtitle.
+    expect(find.text('/impressum'), findsWidgets);
+
+    await tester.tap(find.text('impressum.md'));
+    await tester.pumpAndSettle();
+
+    // The front-matter scalars render as inline text fields keyed per name.
+    expect(find.byKey(const ValueKey('page-field-title')), findsOneWidget);
+    expect(find.byKey(const ValueKey('page-field-route')), findsOneWidget);
+    expect(
+        find.byKey(const ValueKey('page-field-input-title')), findsOneWidget);
+    expect(
+        find.byKey(const ValueKey('page-field-input-route')), findsOneWidget);
+  });
+
+  // TWE-BROWSE-33: editing the route front-matter field persists on submit and
+  // preserves the body (the @tom:override / @tom:managed regions round-trip).
+  testWidgets('TWE-BROWSE-33: editing the route persists and preserves body',
+      (tester) async {
+    final (controller, fs) = await _loadedPage();
+    final uri = Uri.file('/sites/a/content/pages/impressum.md');
+    await _pumpTall(tester, WebsiteContentBrowser(controller: controller));
+
+    await tester.tap(find.text('impressum.md'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+        find.byKey(const ValueKey('page-field-input-route')),
+        '/legal/impressum');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+
+    final onDisk = fs.files[uri]!;
+    expect(onDisk, contains('route: /legal/impressum'));
+    expect(onDisk, contains('title: Impressum'));
+    expect(onDisk, contains('Hand-authored legal text.'));
+    expect(onDisk, contains('<!-- @tom:managed -->'));
+    expect(onDisk, contains('Generated footer.'));
   });
 }

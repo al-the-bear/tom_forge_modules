@@ -51,6 +51,28 @@ class ContentCopyDocument {
   final ContentCopyFile file;
 }
 
+/// A parsed standalone page file (`pages/*.md`, §9 item 3): its source [uri],
+/// the raw Markdown [source] it was parsed from, and the front-matter + body
+/// [file] model. Pages carry `title` / `route` front-matter scalars (the
+/// `route` determines the page's URL) above a region-aware Markdown body, so
+/// they share the [ContentCopyFile] shape with §16 copy files.
+class ContentPageDocument {
+  const ContentPageDocument({
+    required this.uri,
+    required this.source,
+    required this.file,
+  });
+
+  /// The page file's location, for writes and identity.
+  final Uri uri;
+
+  /// The raw text the [file] was parsed from.
+  final String source;
+
+  /// The front-matter (`title` / `route`) + body model parsed from [source].
+  final ContentCopyFile file;
+}
+
 /// Drives the §6a content browser: turns the active website's `content:` config
 /// into a catalog of component [components], the `site.yaml` file, and the
 /// standalone [pages], all loaded through the injectable [WebsiteContentFs] seam.
@@ -87,7 +109,7 @@ class WebsiteContentController extends ChangeNotifier {
 
   List<ContentComponentDocument> _components = const [];
   List<ContentCopyDocument> _copyFiles = const [];
-  List<Uri> _pages = const [];
+  List<ContentPageDocument> _pages = const [];
   Uri? _siteFile;
   bool _isLoading = false;
   String? _error;
@@ -123,8 +145,8 @@ class WebsiteContentController extends ChangeNotifier {
     return parsed != null && siteLevelCopyKinds.contains(parsed.kind);
   }
 
-  /// The standalone page files (`pages/*.md`), sorted by path.
-  List<Uri> get pages => List.unmodifiable(_pages);
+  /// The parsed standalone page files (`pages/*.md`, §9 item 3), sorted by path.
+  List<ContentPageDocument> get pages => List.unmodifiable(_pages);
 
   /// The site-level copy file (`site.yaml`), or `null` when it is absent.
   Uri? get siteFile => _siteFile;
@@ -235,13 +257,20 @@ class WebsiteContentController extends ChangeNotifier {
     return await _fs.exists(siteUri) ? siteUri : null;
   }
 
-  Future<List<Uri>> _loadPages(
+  Future<List<ContentPageDocument>> _loadPages(
       Uri dirUri, WebsiteContentConfig content) async {
     final glob = ContentGlob(content.pages, base: dirUri);
     if (!await _fs.exists(glob.directory)) return const [];
     final files = await _fs.listFiles(glob.directory);
-    return files.where(glob.matches).toList()
+    final matches = files.where(glob.matches).toList()
       ..sort((a, b) => a.path.compareTo(b.path));
+    final docs = <ContentPageDocument>[];
+    for (final uri in matches) {
+      final source = await _fs.read(uri);
+      docs.add(ContentPageDocument(
+          uri: uri, source: source, file: ContentCopyFile.parse(source)));
+    }
+    return docs;
   }
 
   /// Pins [field] of [document] with the configured `# @manual` marker so the
@@ -442,6 +471,57 @@ class WebsiteContentController extends ChangeNotifier {
           source: source,
           file: ContentCopyFile.parse(source));
       _copyFiles = next;
+    }
+    notifyListeners();
+    return true;
+  }
+
+  /// Persists a page front-matter edit (§9 item 3): replaces field [name]'s
+  /// value with [value] in [document] (e.g. the `route` that determines the
+  /// page URL), writes the file back, and re-parses it in place. An unknown
+  /// field or an unchanged value is a no-op (`false`); the body and every other
+  /// front-matter line are preserved. Returns `true` when the file was
+  /// rewritten.
+  Future<bool> setPageFrontMatterValue(
+    ContentPageDocument document,
+    String name,
+    String value,
+  ) async {
+    final updated = document.file.withFrontMatterValue(name, value);
+    return _savePage(document, updated);
+  }
+
+  /// Persists a page body edit (§9 item 3): writes [document] with its body
+  /// replaced by [newBody] and re-parses it in place. The `@tom:override` /
+  /// `@tom:managed` regions and their markers round-trip untouched; pair with
+  /// [ContentPage.withRegionBody] to edit a single override region. A no-op edit
+  /// returns `false`.
+  Future<bool> setPageBody(
+    ContentPageDocument document,
+    ContentPage newBody,
+  ) async {
+    final updated = document.file.withBody(newBody);
+    return _savePage(document, updated);
+  }
+
+  /// Writes [updated] for page [document] when it differs from the source,
+  /// re-parses the document in place, and notifies. Returns `false` for a no-op.
+  Future<bool> _savePage(
+    ContentPageDocument document,
+    ContentCopyFile updated,
+  ) async {
+    final source = updated.serialize();
+    if (source == document.source) return false;
+
+    await writeFile(document.uri, source);
+    final index = _pages.indexWhere((d) => d.uri == document.uri);
+    if (index >= 0) {
+      final next = List.of(_pages);
+      next[index] = ContentPageDocument(
+          uri: document.uri,
+          source: source,
+          file: ContentCopyFile.parse(source));
+      _pages = next;
     }
     notifyListeners();
     return true;

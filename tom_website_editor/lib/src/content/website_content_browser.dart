@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
+import 'content_copy_file.dart';
 import 'content_field.dart';
 import 'content_group.dart';
 import 'content_record.dart';
@@ -191,7 +192,7 @@ class _ContentBrowserBodyState extends State<_ContentBrowserBody> {
       return controller.siteFile != null ? const _Selection.site() : null;
     }
     if (previous.page != null) {
-      return controller.pages.contains(previous.page)
+      return controller.pages.any((d) => d.uri == previous.page)
           ? _Selection.page(previous.page!)
           : null;
     }
@@ -351,15 +352,20 @@ class _ContentBrowserBodyState extends State<_ContentBrowserBody> {
 
     for (final page in controller.pages) {
       total++;
-      if (needle.isEmpty || _fileName(page).toLowerCase().contains(needle)) {
+      if (needle.isEmpty ||
+          _fileName(page.uri).toLowerCase().contains(needle)) {
+        final route = page.file.frontMatterValue('route');
         children.add(ListTile(
           dense: true,
           leading: const Icon(Icons.article_outlined, size: 18),
-          title: Text(_fileName(page)),
-          selected: _selection?.page == page,
+          title: Text(_fileName(page.uri)),
+          // Surface the page's route inline so its URL is visible in the tree
+          // without opening the detail pane (§9 item 3).
+          subtitle: route == null ? null : Text(route),
+          selected: _selection?.page == page.uri,
           onTap: () {
-            setState(() => _selection = _Selection.page(page));
-            _open(page);
+            setState(() => _selection = _Selection.page(page.uri));
+            _open(page.uri);
           },
         ));
       }
@@ -489,9 +495,7 @@ class _ContentBrowserBodyState extends State<_ContentBrowserBody> {
           'Site-level copy (site.yaml).');
     }
     if (selection.page != null) {
-      return _buildFilePane(context, selection.page!,
-          'Standalone page. Override (@tom:override) regions are editable; '
-          'managed (@tom:managed) regions are regenerated.');
+      return _buildPagePane(context, selection.page!);
     }
     if (selection.copy != null) {
       return _buildFilePane(context, selection.copy!,
@@ -667,6 +671,81 @@ class _ContentBrowserBodyState extends State<_ContentBrowserBody> {
           ),
         ],
       ),
+    );
+  }
+
+  /// The detail pane for a standalone page (§9 item 3): its `title` / `route`
+  /// front-matter scalars are editable inline (the `route` determines the page's
+  /// URL), and the region-aware body opens in the Markdown editor where the
+  /// `@tom:override` / `@tom:managed` regions round-trip. Edits persist through
+  /// [WebsiteContentController.setPageFrontMatterValue].
+  Widget _buildPagePane(BuildContext context, Uri uri) {
+    final theme = Theme.of(context);
+    final controller = widget.controller;
+    ContentPageDocument? document;
+    for (final doc in controller.pages) {
+      if (doc.uri == uri) {
+        document = doc;
+        break;
+      }
+    }
+    // A page whose backing file vanished (e.g. mid-refresh) falls back to the
+    // read-only file pane rather than throwing.
+    if (document == null) {
+      return _buildFilePane(context, uri, 'Standalone page.');
+    }
+
+    final frontMatter = document.file.frontMatter;
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Text(_fileName(uri), style: theme.textTheme.titleMedium),
+        const SizedBox(height: 4),
+        SelectableText(uri.path, style: theme.textTheme.bodySmall),
+        const SizedBox(height: 4),
+        Text(
+          'Standalone page. The front-matter scalars below are editable; the '
+          'route determines the page URL. Override (@tom:override) body '
+          'regions are editable in the Markdown editor; managed '
+          '(@tom:managed) regions are regenerated.',
+          style: theme.textTheme.bodySmall,
+        ),
+        const SizedBox(height: 16),
+        if (frontMatter.isEmpty)
+          Text('This page has no front-matter.',
+              style: theme.textTheme.bodySmall)
+        else ...[
+          Text('Front matter', style: theme.textTheme.labelLarge),
+          const SizedBox(height: 8),
+          for (final field in frontMatter)
+            _PageFrontMatterRow(
+              key: ValueKey('page-field-${field.name}'),
+              field: field,
+              // Inline edit for short scalar fields; `-md` / `-json` route to
+              // the full editor so the two paths don't fight.
+              onCommit:
+                  field.editorKind == ContentEditorKind.string
+                      ? (value) => unawaited(controller.setPageFrontMatterValue(
+                          document!, field.name, value))
+                      : null,
+              onOpenFull: field.editorKind != ContentEditorKind.string &&
+                      _canOpen
+                  ? () => _open(uri)
+                  : null,
+            ),
+        ],
+        const SizedBox(height: 16),
+        Text('Body', style: theme.textTheme.labelLarge),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton.icon(
+            onPressed: _canOpen ? () => _open(uri) : null,
+            icon: const Icon(Icons.open_in_new, size: 16),
+            label: const Text('Open in editor'),
+          ),
+        ),
+      ],
     );
   }
 
@@ -964,6 +1043,90 @@ class _EditableFieldState extends State<_EditableField> {
         ContentEditorKind.json => 'JSON',
         ContentEditorKind.string => 'Text',
       };
+}
+
+/// One editable page front-matter row (§9 item 3): the field [name] as a label
+/// and an inline [TextField] for short scalars (`title`, `route`), or a
+/// full-editor handoff for `-md` / `-json` typed fields. Mirrors [_EditableField]
+/// but binds to a [CopyFrontMatterField] (page/copy front-matter), persisting on
+/// submit via [onCommit].
+class _PageFrontMatterRow extends StatefulWidget {
+  const _PageFrontMatterRow({
+    super.key,
+    required this.field,
+    this.onCommit,
+    this.onOpenFull,
+  });
+
+  final CopyFrontMatterField field;
+
+  /// Persist the committed scalar value (string fields).
+  final ValueChanged<String>? onCommit;
+
+  /// Open the backing file in the full editor (`-md` / `-json` fields).
+  final VoidCallback? onOpenFull;
+
+  @override
+  State<_PageFrontMatterRow> createState() => _PageFrontMatterRowState();
+}
+
+class _PageFrontMatterRowState extends State<_PageFrontMatterRow> {
+  late final TextEditingController _controller =
+      TextEditingController(text: widget.field.value);
+
+  @override
+  void didUpdateWidget(covariant _PageFrontMatterRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Sync when the bound field's value changes underneath us (e.g. a refresh
+    // after a save), without clobbering text the user is actively typing.
+    if (oldWidget.field.value != widget.field.value &&
+        _controller.text != widget.field.value) {
+      _controller.text = widget.field.value;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final field = widget.field;
+    final key = ValueKey('page-field-input-${field.name}');
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(field.name, style: theme.textTheme.labelSmall),
+          const SizedBox(height: 4),
+          if (field.editorKind == ContentEditorKind.string)
+            TextField(
+              key: key,
+              controller: _controller,
+              maxLines: 1,
+              onSubmitted: widget.onCommit,
+              decoration: const InputDecoration(
+                isDense: true,
+                border: OutlineInputBorder(),
+              ),
+            )
+          else
+            _FullEditorField(
+              fieldKey: key,
+              value: field.value,
+              label: field.editorKind == ContentEditorKind.markdown
+                  ? 'Markdown'
+                  : 'JSON',
+              onOpenFull: widget.onOpenFull,
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 /// The component's module-groups editor (§9 item 1): add / rename / reorder

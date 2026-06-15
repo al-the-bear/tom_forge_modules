@@ -156,7 +156,7 @@ void main() {
       expect(controller.siteFile, isNotNull);
       expect(controller.siteFile!.pathSegments.last, 'site.yaml');
       expect(controller.pages, hasLength(1));
-      expect(controller.pages.single.pathSegments.last, 'intro.md');
+      expect(controller.pages.single.uri.pathSegments.last, 'intro.md');
     });
   });
 
@@ -444,6 +444,100 @@ Generated rollup.
       expect(names, isNot(contains('button_component.md')));
       // All three are still in the flat copy listing.
       expect(controller.copyFiles, hasLength(3));
+    });
+  });
+
+  group('TWE-CTRL-10: standalone pages (§9 item 3: front-matter + body)', () {
+    // A live-shaped standalone page: `title` / `route` front-matter scalars
+    // above a region-aware Markdown body (override + managed regions).
+    const pageSource = '''
+---
+title: Impressum
+route: /impressum
+---
+<!-- @tom:override -->
+# Impressum
+
+Hand-authored legal text.
+
+<!-- @tom:managed -->
+Generated footer.
+''';
+
+    Map<Uri, String> seedWithPage() => {
+          ..._seed(),
+          _file('/sites/a/content/pages/impressum.md'): pageSource,
+        };
+
+    test('parses page front-matter (title/route) and body', () async {
+      final (controller, _) = await _loaded(_config, seed: seedWithPage());
+      // Sorted by path: impressum.md before intro.md.
+      final page = controller.pages.first;
+      expect(page.uri.pathSegments.last, 'impressum.md');
+      expect(page.file.frontMatterValue('title'), 'Impressum');
+      expect(page.file.frontMatterValue('route'), '/impressum');
+      // The override region body is present.
+      expect(
+        page.file.body.regions
+            .any((r) => r.kind == ContentRegionKind.editable),
+        isTrue,
+      );
+    });
+
+    test('editing the route front-matter writes to disk and re-parses',
+        () async {
+      final (controller, fs) = await _loaded(_config, seed: seedWithPage());
+      final page = controller.pages.first;
+
+      final wrote = await controller.setPageFrontMatterValue(
+          page, 'route', '/legal/impressum');
+      expect(wrote, isTrue);
+      expect(fs.files[page.uri], contains('route: /legal/impressum'));
+      // The body and other front-matter are preserved.
+      expect(fs.files[page.uri], contains('title: Impressum'));
+      expect(fs.files[page.uri], contains('Hand-authored legal text.'));
+      // Re-parsed in place.
+      expect(controller.pages.first.file.frontMatterValue('route'),
+          '/legal/impressum');
+
+      // An unchanged value is a no-op.
+      final again = await controller.setPageFrontMatterValue(
+          controller.pages.first, 'route', '/legal/impressum');
+      expect(again, isFalse);
+    });
+
+    test('editing the body override region preserves managed regions + markers',
+        () async {
+      final (controller, fs) = await _loaded(_config, seed: seedWithPage());
+      final page = controller.pages.first;
+      final overrideIndex = page.file.body.regions
+          .indexWhere((r) => r.kind == ContentRegionKind.editable);
+
+      final newBody = page.file.body
+          .withRegionBody(overrideIndex, '# Impressum\n\nEdited legal text.');
+      final wrote = await controller.setPageBody(page, newBody);
+      expect(wrote, isTrue);
+
+      final onDisk = fs.files[page.uri]!;
+      expect(onDisk, contains('Edited legal text.'));
+      expect(onDisk, contains('<!-- @tom:managed -->'));
+      expect(onDisk, contains('Generated footer.'));
+      expect(onDisk, contains('route: /impressum'),
+          reason: 'front-matter preserved');
+
+      // A post-generate refresh from disk keeps the edit.
+      await controller.refresh();
+      expect(controller.pages.first.file.serialize(),
+          contains('Edited legal text.'));
+    });
+
+    test('a page without front-matter still loads (body-only)', () async {
+      final (controller, _) = await _loaded(_config);
+      // The default seed has pages/intro.md = '# Intro' (no front-matter).
+      final page = controller.pages.single;
+      expect(page.uri.pathSegments.last, 'intro.md');
+      expect(page.file.frontMatter, isEmpty);
+      expect(page.file.serialize(), '# Intro');
     });
   });
 
