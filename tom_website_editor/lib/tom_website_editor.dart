@@ -8,6 +8,7 @@ library;
 
 export 'src/content/content_copy_file.dart';
 export 'src/content/content_field.dart';
+export 'src/content/content_group.dart';
 export 'src/content/content_page.dart';
 export 'src/content/content_parser.dart';
 export 'src/content/content_record.dart';

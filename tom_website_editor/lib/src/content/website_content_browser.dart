@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
 import 'content_field.dart';
+import 'content_group.dart';
 import 'content_record.dart';
 import 'website_content_controller.dart';
 
@@ -70,20 +71,31 @@ class WebsiteContentBrowser extends ForgeView {
 class _Selection {
   const _Selection.record(this.record, this.document)
       : page = null,
+        copy = null,
         site = false;
   const _Selection.page(this.page)
       : record = null,
         document = null,
+        copy = null,
         site = false;
   const _Selection.site()
       : record = null,
         document = null,
         page = null,
+        copy = null,
         site = true;
+
+  /// A site-level copy file (`home.md` / `news.md`, §16).
+  const _Selection.copy(this.copy)
+      : record = null,
+        document = null,
+        page = null,
+        site = false;
 
   final ContentRecord? record;
   final ContentComponentDocument? document;
   final Uri? page;
+  final Uri? copy;
   final bool site;
 }
 
@@ -161,8 +173,55 @@ class _ContentBrowserBodyState extends State<_ContentBrowserBody> {
 
   void _onChanged() {
     if (!mounted) return;
-    // A refresh rebuilds documents, so a stale selection must be dropped.
-    setState(() => _selection = null);
+    // An in-place edit (pin / field / groups) rebuilds the owning document, so
+    // the selection's object references go stale. Re-resolve the selection
+    // against the live controller state by identity (file uri + record id) so
+    // the detail pane survives an edit; a selection whose backing file is gone
+    // (e.g. after a website switch) is dropped.
+    setState(() => _selection = _reresolveSelection(_selection));
+  }
+
+  /// Maps [previous] onto the current controller state by identity, returning a
+  /// refreshed selection (new record/document instances) or `null` when its
+  /// backing file/record no longer exists.
+  _Selection? _reresolveSelection(_Selection? previous) {
+    if (previous == null) return null;
+    final controller = widget.controller;
+    if (previous.site) {
+      return controller.siteFile != null ? const _Selection.site() : null;
+    }
+    if (previous.page != null) {
+      return controller.pages.contains(previous.page)
+          ? _Selection.page(previous.page!)
+          : null;
+    }
+    if (previous.copy != null) {
+      final stillPresent = controller.siteLevelCopyFiles
+          .any((doc) => doc.uri == previous.copy);
+      return stillPresent ? _Selection.copy(previous.copy!) : null;
+    }
+    final oldRecord = previous.record!;
+    final oldUri = previous.document!.uri;
+    for (final document in controller.components) {
+      if (document.uri != oldUri) continue;
+      final found =
+          _findRecord(document.record, oldRecord.id, oldRecord.kind);
+      if (found != null) return _Selection.record(found, document);
+    }
+    return null;
+  }
+
+  /// Depth-first search for the record with [id] and [kind] within [root]'s
+  /// tree (component → module → submodule), used to re-resolve a selection
+  /// after the owning document is rebuilt.
+  static ContentRecord? _findRecord(
+      ContentRecord root, String id, ContentRecordKind kind) {
+    if (root.id == id && root.kind == kind) return root;
+    for (final child in root.children) {
+      final found = _findRecord(child, id, kind);
+      if (found != null) return found;
+    }
+    return null;
   }
 
   @override
@@ -266,6 +325,25 @@ class _ContentBrowserBodyState extends State<_ContentBrowserBody> {
           onTap: () {
             setState(() => _selection = const _Selection.site());
             _open(site);
+          },
+        ));
+      }
+    }
+
+    for (final doc in controller.siteLevelCopyFiles) {
+      total++;
+      final name = _fileName(doc.uri);
+      if (needle.isEmpty || name.toLowerCase().contains(needle)) {
+        children.add(ListTile(
+          dense: true,
+          key: ValueKey('site-copy-$name'),
+          leading: const Icon(Icons.menu_book_outlined, size: 18),
+          title: Text(name),
+          subtitle: const Text('Site copy'),
+          selected: _selection?.copy == doc.uri,
+          onTap: () {
+            setState(() => _selection = _Selection.copy(doc.uri));
+            _open(doc.uri);
           },
         ));
       }
@@ -415,12 +493,22 @@ class _ContentBrowserBodyState extends State<_ContentBrowserBody> {
           'Standalone page. Override (@tom:override) regions are editable; '
           'managed (@tom:managed) regions are regenerated.');
     }
+    if (selection.copy != null) {
+      return _buildFilePane(context, selection.copy!,
+          'Site-level copy (§16). Edits the Markdown body in tom_md_editor; '
+          'news.md feeds the home page news band.');
+    }
     return _buildRecordPane(context, selection.record!, selection.document!);
   }
 
   Widget _buildRecordPane(BuildContext context, ContentRecord record,
       ContentComponentDocument document) {
     final theme = Theme.of(context);
+    // The groups editor applies to components that have modules to group (or
+    // already carry a hand-authored groups block). Modules/submodules and
+    // module-less components show none.
+    final showGroups = record.kind == ContentRecordKind.component &&
+        (record.children.isNotEmpty || record.groups.isNotEmpty);
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -429,6 +517,13 @@ class _ContentBrowserBodyState extends State<_ContentBrowserBody> {
         const SizedBox(height: 12),
         for (final field in record.fields)
           _fieldRow(context, record, document, field),
+        if (showGroups)
+          _GroupsEditor(
+            key: ValueKey('groups-editor-${document.uri}'),
+            record: record,
+            document: document,
+            controller: widget.controller,
+          ),
       ],
     );
   }
@@ -869,6 +964,331 @@ class _EditableFieldState extends State<_EditableField> {
         ContentEditorKind.json => 'JSON',
         ContentEditorKind.string => 'Text',
       };
+}
+
+/// The component's module-groups editor (§9 item 1): add / rename / reorder
+/// groups and assign module ids to them. The groups are hand-authored and
+/// survive regeneration; this section reads [ContentRecord.groups] and persists
+/// every edit through [WebsiteContentController.setGroups], which validates that
+/// each assigned id resolves to a real module of the component.
+///
+/// The "Add member" menu offers only the component's real modules not already
+/// in the group, so an unresolvable id can never be introduced from the UI; a
+/// stale member left over from a hand edit is surfaced as a read-only warning.
+class _GroupsEditor extends StatelessWidget {
+  const _GroupsEditor({
+    super.key,
+    required this.record,
+    required this.document,
+    required this.controller,
+  });
+
+  final ContentRecord record;
+  final ContentComponentDocument document;
+  final WebsiteContentController controller;
+
+  /// Persists [groups] (the validated, member-resolving list) for this
+  /// component's document.
+  void _apply(List<ContentGroup> groups) =>
+      unawaited(controller.setGroups(document, groups));
+
+  void _addGroup() => _apply([
+        ...record.groups,
+        const ContentGroup(label: 'New group', members: []),
+      ]);
+
+  void _renameGroup(int index, String label) {
+    final next = List.of(record.groups);
+    next[index] = next[index].copyWith(label: label);
+    _apply(next);
+  }
+
+  void _deleteGroup(int index) {
+    final next = List.of(record.groups)..removeAt(index);
+    _apply(next);
+  }
+
+  void _moveGroup(int index, int delta) {
+    final target = index + delta;
+    if (target < 0 || target >= record.groups.length) return;
+    final next = List.of(record.groups);
+    final moved = next.removeAt(index);
+    next.insert(target, moved);
+    _apply(next);
+  }
+
+  void _addMember(int index, String moduleId) {
+    final next = List.of(record.groups);
+    next[index] =
+        next[index].copyWith(members: [...next[index].members, moduleId]);
+    _apply(next);
+  }
+
+  void _removeMember(int index, String moduleId) {
+    final next = List.of(record.groups);
+    next[index] = next[index].copyWith(
+        members: next[index].members.where((m) => m != moduleId).toList());
+    _apply(next);
+  }
+
+  /// The module label for [id], falling back to the id when unresolved.
+  String _moduleLabel(String id) {
+    for (final child in record.children) {
+      if (child.id == id) return child.label;
+    }
+    return id;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final groups = record.groups;
+    final ungrouped = record.ungroupedModuleIds;
+    final unknown = record.unknownGroupMembers;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 8),
+        const Divider(),
+        Row(
+          children: [
+            Expanded(
+              child: Text('Module groups',
+                  style: theme.textTheme.titleSmall
+                      ?.copyWith(fontWeight: FontWeight.w600)),
+            ),
+            TextButton.icon(
+              key: const ValueKey('add-group'),
+              icon: const Icon(Icons.add, size: 16),
+              label: const Text('Add group'),
+              onPressed: _addGroup,
+            ),
+          ],
+        ),
+        Text(
+          'Hand-authored groupings of this component’s modules. Editable '
+          'and preserved across regeneration; modules left out fall under '
+          '“Other modules” on the page.',
+          style: theme.textTheme.bodySmall
+              ?.copyWith(color: theme.colorScheme.outline),
+        ),
+        const SizedBox(height: 8),
+        if (unknown.isNotEmpty) _buildUnknownWarning(context, unknown),
+        if (groups.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text('No groups yet.',
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(fontStyle: FontStyle.italic)),
+          )
+        else
+          for (var i = 0; i < groups.length; i++)
+            _buildGroupCard(context, i, groups[i]),
+        const SizedBox(height: 12),
+        _buildOtherModules(context, ungrouped),
+      ],
+    );
+  }
+
+  Widget _buildUnknownWarning(BuildContext context, Set<String> unknown) {
+    final theme = Theme.of(context);
+    return Container(
+      key: const ValueKey('groups-unknown-warning'),
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.errorContainer,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.warning_amber_rounded,
+              size: 16, color: theme.colorScheme.onErrorContainer),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Unknown member id(s): ${unknown.join(', ')} — these do not '
+              'resolve to a module of this component. Remove them to clear the '
+              'warning.',
+              style: TextStyle(color: theme.colorScheme.onErrorContainer),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGroupCard(BuildContext context, int index, ContentGroup group) {
+    final theme = Theme.of(context);
+    final available = [
+      for (final child in record.children)
+        if (!group.members.contains(child.id)) child.id,
+    ];
+    return Card(
+      key: ValueKey('group-card-$index'),
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: _GroupLabelField(
+                    key: ValueKey('group-label-$index'),
+                    label: group.label,
+                    onCommit: (value) => _renameGroup(index, value),
+                  ),
+                ),
+                IconButton(
+                  key: ValueKey('group-up-$index'),
+                  icon: const Icon(Icons.arrow_upward, size: 18),
+                  tooltip: 'Move up',
+                  onPressed: index == 0 ? null : () => _moveGroup(index, -1),
+                ),
+                IconButton(
+                  key: ValueKey('group-down-$index'),
+                  icon: const Icon(Icons.arrow_downward, size: 18),
+                  tooltip: 'Move down',
+                  onPressed: index == record.groups.length - 1
+                      ? null
+                      : () => _moveGroup(index, 1),
+                ),
+                IconButton(
+                  key: ValueKey('group-delete-$index'),
+                  icon: const Icon(Icons.delete_outline, size: 18),
+                  tooltip: 'Delete group',
+                  onPressed: () => _deleteGroup(index),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                for (final member in group.members)
+                  InputChip(
+                    key: ValueKey('group-member-$index-$member'),
+                    label: Text(_moduleLabel(member)),
+                    onDeleted: () => _removeMember(index, member),
+                    deleteIcon: Icon(Icons.close,
+                        key: ValueKey('group-member-remove-$index-$member'),
+                        size: 16),
+                  ),
+                if (available.isEmpty && group.members.isEmpty)
+                  Text('No modules assigned.',
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(fontStyle: FontStyle.italic)),
+                if (available.isNotEmpty)
+                  PopupMenuButton<String>(
+                    key: ValueKey('group-add-member-$index'),
+                    tooltip: 'Assign a module',
+                    onSelected: (moduleId) => _addMember(index, moduleId),
+                    itemBuilder: (context) => [
+                      for (final moduleId in available)
+                        PopupMenuItem<String>(
+                          key: ValueKey('group-assign-$index-$moduleId'),
+                          value: moduleId,
+                          child: Text(_moduleLabel(moduleId)),
+                        ),
+                    ],
+                    child: Chip(
+                      avatar: const Icon(Icons.add, size: 16),
+                      label: const Text('Add module'),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOtherModules(BuildContext context, List<String> ungrouped) {
+    final theme = Theme.of(context);
+    return Column(
+      key: const ValueKey('groups-other-modules'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('Other modules',
+            style: theme.textTheme.labelMedium
+                ?.copyWith(fontWeight: FontWeight.w600)),
+        const SizedBox(height: 4),
+        if (ungrouped.isEmpty)
+          Text('All modules are grouped.',
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(fontStyle: FontStyle.italic))
+        else
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: [
+              for (final id in ungrouped)
+                Chip(
+                  key: ValueKey('other-module-$id'),
+                  label: Text(_moduleLabel(id)),
+                ),
+            ],
+          ),
+      ],
+    );
+  }
+}
+
+/// An inline, commit-on-submit text field for a group's label. Keeps its own
+/// [TextEditingController] and re-syncs when the bound [label] changes under it
+/// (e.g. after a save re-parses the document), mirroring [_EditableFieldState].
+class _GroupLabelField extends StatefulWidget {
+  const _GroupLabelField({
+    super.key,
+    required this.label,
+    required this.onCommit,
+  });
+
+  final String label;
+  final ValueChanged<String> onCommit;
+
+  @override
+  State<_GroupLabelField> createState() => _GroupLabelFieldState();
+}
+
+class _GroupLabelFieldState extends State<_GroupLabelField> {
+  late final TextEditingController _controller =
+      TextEditingController(text: widget.label);
+
+  @override
+  void didUpdateWidget(covariant _GroupLabelField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.label != widget.label &&
+        _controller.text != widget.label) {
+      _controller.text = widget.label;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: _controller,
+      maxLines: 1,
+      onSubmitted: widget.onCommit,
+      decoration: const InputDecoration(
+        isDense: true,
+        labelText: 'Group label',
+        border: OutlineInputBorder(),
+      ),
+    );
+  }
 }
 
 /// A read-only preview of a `-md` / `-json` field with an open-in-editor button

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
+import 'copy_naming.dart';
 import 'website_structure_controller.dart';
 import 'website_structure_node.dart';
 
@@ -237,12 +238,41 @@ class _StructureExplorerBodyState extends State<_StructureExplorerBody> {
   }
 
   Future<void> _createIn(BuildContext context, StructureNode dir) async {
+    // The `copy/` section is the grouped node (§16). There a plain file name is
+    // not enough — we offer the site-level copy files (home.md, news.md) as
+    // one-tap quick-creates so the convention is discoverable, plus a free-form
+    // name for everything else.
+    if (dir.kind == StructureNodeKind.group) {
+      await _createCopy(context, dir);
+      return;
+    }
     final name = await _promptName(context, title: 'New file', initial: '');
     if (name == null || name.trim().isEmpty) return;
     try {
       await widget.controller.createFile(dir.uri!.resolve(name.trim()));
     } catch (e) {
       _showError('Could not create file: $e');
+    }
+  }
+
+  Future<void> _createCopy(BuildContext context, StructureNode copyGroup) async {
+    final existing = copyGroup.children.map((n) => n.label).toSet();
+    final result = await showDialog<_CopyCreateResult>(
+      context: context,
+      builder: (_) => _CopyCreateDialog(existingLabels: existing),
+    );
+    if (result == null) return;
+    try {
+      final kind = result.kind;
+      if (kind != null) {
+        await widget.controller.createCopyFile(kind);
+      } else {
+        final name = result.name!.trim();
+        if (name.isEmpty) return;
+        await widget.controller.createFile(copyGroup.uri!.resolve(name));
+      }
+    } catch (e) {
+      _showError('Could not create copy file: $e');
     }
   }
 
@@ -391,4 +421,87 @@ class _NameDialogState extends State<_NameDialog> {
               child: const Text('OK')),
         ],
       );
+}
+
+/// The outcome of [_CopyCreateDialog]: either a site-level copy [kind] to create
+/// at its convention path, or a free-form [name] for any other copy file.
+class _CopyCreateResult {
+  const _CopyCreateResult.kind(this.kind) : name = null;
+  const _CopyCreateResult.named(this.name) : kind = null;
+
+  final CopyFileKind? kind;
+  final String? name;
+}
+
+/// The §16 copy-file creation dialog: site-level copy files (home.md, news.md)
+/// as one-tap quick-creates (disabled when they already exist), plus a free-form
+/// name field for per-entity and other copy files.
+class _CopyCreateDialog extends StatefulWidget {
+  const _CopyCreateDialog({required this.existingLabels});
+
+  /// Labels already present in the copy group (e.g. `home`, `news`), used to
+  /// disable a quick-create chip for a file that already exists.
+  final Set<String> existingLabels;
+
+  @override
+  State<_CopyCreateDialog> createState() => _CopyCreateDialogState();
+}
+
+class _CopyCreateDialogState extends State<_CopyCreateDialog> {
+  late final TextEditingController _field = TextEditingController();
+
+  @override
+  void dispose() {
+    _field.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return AlertDialog(
+      title: const Text('New copy file'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Site-level copy', style: theme.textTheme.labelLarge),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            children: [
+              for (final kind in siteLevelCopyKinds)
+                ActionChip(
+                  key: ValueKey('new-copy-${kind.name}'),
+                  avatar: const Icon(Icons.article_outlined, size: 16),
+                  label: Text(copyFileName(kind)),
+                  onPressed: widget.existingLabels.contains(kind.name)
+                      ? null
+                      : () => Navigator.of(context)
+                          .pop(_CopyCreateResult.kind(kind)),
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text('Custom name', style: theme.textTheme.labelLarge),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _field,
+            decoration: const InputDecoration(labelText: 'File name'),
+            onSubmitted: (value) =>
+                Navigator.of(context).pop(_CopyCreateResult.named(value)),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel')),
+        FilledButton(
+            onPressed: () =>
+                Navigator.of(context).pop(_CopyCreateResult.named(_field.text)),
+            child: const Text('OK')),
+      ],
+    );
+  }
 }

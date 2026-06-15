@@ -121,6 +121,7 @@ Map<Uri, String> _seed() => {
       Uri.file('/sites/a/content/components/button.yaml'): 'id: button',
       Uri.file('/sites/a/content/components/card.yaml'): 'id: card',
       Uri.file('/sites/a/content/copy/home.md'): '# home',
+      Uri.file('/sites/a/content/copy/news.md'): '# news',
       Uri.file('/sites/a/content/copy/auth_component.md'): '# auth',
       Uri.file('/sites/a/content/copy/auth_login_module.md'): '# login',
       Uri.file('/sites/a/content/copy/platform_area.md'): '# platform',
@@ -178,7 +179,9 @@ void main() {
       final copy = _section(controller, 'copy');
       final auth = copy.children.firstWhere((n) => n.label == 'auth');
       expect(auth.children.map((n) => n.label), contains('login'));
-      expect(copy.children.map((n) => n.label), contains('home'));
+      // home and news are surfaced as site-level copy alongside the per-entity
+      // component tree.
+      expect(copy.children.map((n) => n.label), containsAll(['home', 'news']));
     });
 
     // WSC-06: a new copy file lands at the §16 convention path under copy/.
@@ -193,6 +196,30 @@ void main() {
       // After creation the tree shows the new component group.
       final copy = _section(controller, 'copy');
       expect(copy.children.map((n) => n.label), contains('billing'));
+    });
+
+    // WSC-06b: createCopyFile offers the site-level news copy at copy/news.md
+    // with a News starter heading.
+    test('WSC-06b: createCopyFile writes news.md', () async {
+      final (controller, fs) = await _loaded(activeId: 'alpha');
+      // Start from a website without news to prove creation, by using a fresh
+      // path: re-create after deleting is overkill — assert idempotent create.
+      final uri = await controller.createCopyFile(CopyFileKind.news);
+      expect(uri.path, '/sites/a/content/copy/news.md');
+      expect(fs.files.containsKey(uri), isTrue);
+      final copy = _section(controller, 'copy');
+      expect(copy.children.map((n) => n.label), contains('news'));
+    });
+
+    // WSC-06c: a brand-new news copy file gets a `# News` starter heading.
+    test('WSC-06c: createCopyFile writes a News heading for new news.md',
+        () async {
+      final (controller, fs) = await _loaded(activeId: 'alpha');
+      final newsUri = Uri.file('/sites/a/content/copy/news.md');
+      // Remove the seeded news file so creation writes a fresh starter.
+      await controller.deleteFile(newsUri);
+      final uri = await controller.createCopyFile(CopyFileKind.news);
+      expect(fs.files[uri], '# News\n');
     });
 
     // WSC-07: a placeholder-resolution failure is surfaced via error, not a

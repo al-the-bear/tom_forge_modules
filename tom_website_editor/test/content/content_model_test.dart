@@ -291,6 +291,193 @@ _generated:
     });
   });
 
+  group('TWE-MODEL-10: groups parsing + classification (§9 item 1)', () {
+    const withGroups = '''
+id: button
+name: Button
+category: forms
+groups:
+  - label: Primary actions
+    members: [primary, secondary]
+  - label: Helpers
+    members: [icon]
+modules:
+  - id: primary
+    name: Primary
+  - id: secondary
+    name: Secondary
+  - id: icon
+    name: Icon
+  - id: badge
+    name: Badge
+''';
+
+    test('parses the groups block into structured ContentGroups', () {
+      final record = parseComponentRecord(withGroups,
+          editableFields: _editableFields, manualPin: _manualPin);
+
+      expect(record.groups, hasLength(2));
+      expect(record.groups[0].label, 'Primary actions');
+      expect(record.groups[0].members, ['primary', 'secondary']);
+      expect(record.groups[1].label, 'Helpers');
+      expect(record.groups[1].members, ['icon']);
+    });
+
+    test('groups is not surfaced as a managed/editable field', () {
+      final record = parseComponentRecord(withGroups,
+          editableFields: _editableFields, manualPin: _manualPin);
+      expect(record.fields.map((f) => f.name), isNot(contains('groups')),
+          reason: 'groups is structured data, not a flat field');
+    });
+
+    test('reports unknown members and the ungrouped "Other modules" bucket', () {
+      final record = parseComponentRecord(withGroups,
+          editableFields: _editableFields, manualPin: _manualPin);
+      // Every member resolves to a real module here.
+      expect(record.unknownGroupMembers, isEmpty);
+      // `badge` is in no group → it falls under "Other modules".
+      expect(record.ungroupedModuleIds, ['badge']);
+    });
+
+    test('flags a member id that does not resolve to a real module', () {
+      const stale = '''
+id: button
+name: Button
+groups:
+  - label: Gone
+    members: [ghost]
+modules:
+  - id: primary
+    name: Primary
+''';
+      final record = parseComponentRecord(stale,
+          editableFields: _editableFields, manualPin: _manualPin);
+      expect(record.unknownGroupMembers, {'ghost'});
+    });
+
+    test('a component without a groups block has no groups', () {
+      final record = parseComponentRecord(_component,
+          editableFields: _editableFields, manualPin: _manualPin);
+      expect(record.groups, isEmpty);
+    });
+  });
+
+  group('TWE-MODEL-11: setComponentGroups (§9 item 1)', () {
+    const withGroups = '''
+id: button
+name: Button
+category: forms
+groups:
+  - label: Primary actions
+    members: [primary, secondary]
+  - label: Helpers
+    members: [icon]
+modules:
+  - id: primary
+    name: Primary
+  - id: secondary
+    name: Secondary
+  - id: icon
+    name: Icon
+''';
+
+    test('edits a label and its members and re-parses the change', () {
+      final record = parseComponentRecord(withGroups,
+          editableFields: _editableFields, manualPin: _manualPin);
+      final edited = [
+        record.groups[0].copyWith(label: 'Main actions'),
+        record.groups[1].copyWith(members: ['icon', 'secondary']),
+      ];
+
+      final updated = setComponentGroups(withGroups, edited);
+      final reparsed = parseComponentRecord(updated,
+          editableFields: _editableFields, manualPin: _manualPin);
+
+      expect(reparsed.groups[0].label, 'Main actions');
+      expect(reparsed.groups[1].members, ['icon', 'secondary']);
+      // The generator-owned fields are untouched by a groups edit.
+      expect(reparsed.id, 'button');
+      expect(reparsed.fields.firstWhere((f) => f.name == 'name').value,
+          'Button');
+      expect(reparsed.children.map((m) => m.id),
+          ['primary', 'secondary', 'icon']);
+    });
+
+    test('round-trips unchanged: re-writing the parsed groups is idempotent', () {
+      final record = parseComponentRecord(withGroups,
+          editableFields: _editableFields, manualPin: _manualPin);
+      final rewritten = setComponentGroups(withGroups, record.groups);
+      // The canonical block already matches the source, so a no-op write keeps
+      // the document byte-identical.
+      expect(rewritten, withGroups);
+    });
+
+    test('the groups block survives a generateContent (managed-field rewrite)',
+        () {
+      // Simulate generateContent: the generator owns `[id, name, category,
+      // modules]` and rewrites them, but never touches the hand-authored
+      // groups block. Editing a managed field must leave groups byte-identical.
+      final record = parseComponentRecord(withGroups,
+          editableFields: _editableFields, manualPin: _manualPin);
+      final nameLine =
+          record.fields.firstWhere((f) => f.name == 'name').sourceLine;
+      final regenerated =
+          setFieldLineValue(withGroups, nameLine, 'Button (v2)');
+      expect(regenerated, isNot(withGroups));
+
+      String groupsBlock(String yaml) {
+        final start = yaml.indexOf('groups:');
+        final end = yaml.indexOf('modules:');
+        return yaml.substring(start, end);
+      }
+
+      expect(groupsBlock(regenerated), groupsBlock(withGroups),
+          reason: 'the groups block round-trips unchanged across a regenerate');
+    });
+
+    test('adding a group inserts a canonical block before modules', () {
+      const noGroups = '''
+id: button
+name: Button
+modules:
+  - id: primary
+    name: Primary
+''';
+      final updated = setComponentGroups(noGroups, const [
+        ContentGroup(label: 'Actions', members: ['primary']),
+      ]);
+      final reparsed = parseComponentRecord(updated,
+          editableFields: _editableFields, manualPin: _manualPin);
+      expect(reparsed.groups, hasLength(1));
+      expect(reparsed.groups.single.label, 'Actions');
+      expect(reparsed.groups.single.members, ['primary']);
+      // Inserted ahead of the modules the generator owns.
+      expect(updated.indexOf('groups:'), lessThan(updated.indexOf('modules:')));
+    });
+
+    test('clearing all groups removes the block', () {
+      final updated = setComponentGroups(withGroups, const []);
+      expect(updated, isNot(contains('groups:')));
+      final reparsed = parseComponentRecord(updated,
+          editableFields: _editableFields, manualPin: _manualPin);
+      expect(reparsed.groups, isEmpty);
+      // The rest of the document is intact.
+      expect(reparsed.children.map((m) => m.id),
+          ['primary', 'secondary', 'icon']);
+    });
+
+    test('reordering groups is reflected after a re-parse', () {
+      final record = parseComponentRecord(withGroups,
+          editableFields: _editableFields, manualPin: _manualPin);
+      final reordered = [record.groups[1], record.groups[0]];
+      final updated = setComponentGroups(withGroups, reordered);
+      final reparsed = parseComponentRecord(updated,
+          editableFields: _editableFields, manualPin: _manualPin);
+      expect(reparsed.groups.map((g) => g.label),
+          ['Helpers', 'Primary actions']);
+    });
+  });
+
   group('TWE-MODEL-08: valueHasPlaceholder', () {
     test('detects bare {placeholder} tokens', () {
       expect(valueHasPlaceholder('{websiteRoot}/docs'), isTrue);

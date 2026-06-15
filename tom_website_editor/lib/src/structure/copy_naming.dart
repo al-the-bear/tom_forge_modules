@@ -6,13 +6,20 @@ import 'website_structure_node.dart';
 /// under `content/copy/`, named by a fixed convention:
 ///
 /// - `home.md`
+/// - `news.md`
 /// - `<A>_area.md`
 /// - `<C>_component.md`
 /// - `<C>_<M>_module.md`
 /// - `<C>_<M>_<S>_submodule.md`
+///
+/// [home] and [news] are *site-level* copy: standalone files that do not follow
+/// the per-entity `<C>_…` naming convention.
 enum CopyFileKind {
   /// The site home copy (`home.md`).
   home,
+
+  /// The site news copy (`news.md`), feeding the home page's news band.
+  news,
 
   /// An area copy (`<A>_area.md`).
   area,
@@ -37,9 +44,18 @@ class CopyName {
   final CopyFileKind kind;
 
   /// The slug segments before the keyword (component / module / submodule /
-  /// area names), in hierarchy order. Empty for [CopyFileKind.home].
+  /// area names), in hierarchy order. Empty for [CopyFileKind.home] and
+  /// [CopyFileKind.news].
   final List<String> parts;
 }
+
+/// The site-level copy kinds: standalone files that do not follow the
+/// per-entity `<C>_…` naming convention. They are surfaced together (above the
+/// per-entity tree) in both the §6a content browser and §6b structure explorer.
+const Set<CopyFileKind> siteLevelCopyKinds = {
+  CopyFileKind.home,
+  CopyFileKind.news,
+};
 
 /// The keyword suffix each non-home kind ends with, and how many slug [parts]
 /// it requires before that keyword.
@@ -58,6 +74,7 @@ CopyName? parseCopyFileName(String fileName) {
   final stem = fileName.substring(0, fileName.length - '.md'.length);
   if (stem.isEmpty) return null;
   if (stem == 'home') return const CopyName(CopyFileKind.home, []);
+  if (stem == 'news') return const CopyName(CopyFileKind.news, []);
 
   final segments = stem.split('_');
   final keyword = segments.last;
@@ -81,6 +98,9 @@ String copyFileName(CopyFileKind kind, {List<String> parts = const []}) {
     case CopyFileKind.home:
       _requireParts(kind, parts, 0);
       return 'home.md';
+    case CopyFileKind.news:
+      _requireParts(kind, parts, 0);
+      return 'news.md';
     case CopyFileKind.area:
       _requireParts(kind, parts, 1);
       return '${parts[0]}_area.md';
@@ -105,14 +125,15 @@ void _requireParts(CopyFileKind kind, List<String> parts, int expected) {
 }
 
 /// Groups a flat list of `content/copy/*.md` file [uris] into the §16
-/// component → module → submodule tree, plus an `areas` group and the `home`
-/// file. Files that do not follow the convention are surfaced verbatim as
-/// top-level file nodes (never dropped).
+/// component → module → submodule tree, plus an `areas` group and the
+/// site-level `home` and `news` files. Files that do not follow the convention
+/// are surfaced verbatim as top-level file nodes (never dropped).
 List<StructureNode> groupCopyFiles(List<Uri> uris) {
   final components = <String, _Component>{};
   final areas = <String, Uri>{};
   final loose = <Uri>[];
   Uri? home;
+  Uri? news;
 
   for (final uri in uris) {
     final name = uri.pathSegments.isEmpty ? '' : uri.pathSegments.last;
@@ -124,6 +145,8 @@ List<StructureNode> groupCopyFiles(List<Uri> uris) {
     switch (parsed.kind) {
       case CopyFileKind.home:
         home = uri;
+      case CopyFileKind.news:
+        news = uri;
       case CopyFileKind.area:
         areas[parsed.parts[0]] = uri;
       case CopyFileKind.component:
@@ -161,6 +184,7 @@ List<StructureNode> groupCopyFiles(List<Uri> uris) {
   }
 
   if (home != null) nodes.add(fileNode(home, label: 'home'));
+  if (news != null) nodes.add(fileNode(news, label: 'news'));
 
   for (final uri in loose..sort((a, b) => a.path.compareTo(b.path))) {
     nodes.add(fileNode(uri));

@@ -134,7 +134,7 @@ class WebsiteStructureController extends ChangeNotifier {
     final copyDir = ContentGlob(content.copy, base: dirUri).directory;
     final uri = copyDir.resolve(copyFileName(kind, parts: parts));
     if (!await _fs.exists(uri)) {
-      await _fs.write(uri, _starterCopy(parts));
+      await _fs.write(uri, _starterCopy(kind, parts));
     }
     await refresh();
     return uri;
@@ -275,8 +275,16 @@ class WebsiteStructureController extends ChangeNotifier {
     return segments.isEmpty ? uri.toString() : segments.last;
   }
 
-  String _starterCopy(List<String> parts) =>
-      '# ${parts.isEmpty ? 'Home' : parts.join(' ')}\n';
+  /// A starter Markdown heading for a freshly created copy file. Site-level
+  /// kinds get their own title; per-entity kinds use their slug [parts].
+  String _starterCopy(CopyFileKind kind, List<String> parts) {
+    final title = switch (kind) {
+      CopyFileKind.home => 'Home',
+      CopyFileKind.news => 'News',
+      _ => parts.join(' '),
+    };
+    return '# $title\n';
+  }
 
   void _onEditorChanged() {
     if (_editor.activeWebsiteId == _loadedWebsiteId && _editor.isLoaded) {

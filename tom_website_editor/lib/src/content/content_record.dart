@@ -1,4 +1,5 @@
 import 'content_field.dart';
+import 'content_group.dart';
 
 /// The level of a content record in the catalog tree (§6a):
 /// component → module → optional submodule.
@@ -18,6 +19,7 @@ class ContentRecord {
     required this.children,
     this.name,
     this.provenance,
+    this.groups = const [],
   });
 
   /// component / module / submodule.
@@ -40,6 +42,43 @@ class ContentRecord {
 
   /// Nested records (a component's modules, a module's submodules).
   final List<ContentRecord> children;
+
+  /// The component's hand-authored module groups (§9 item 1), in author order.
+  ///
+  /// Editable and never generator-owned: the generator manages only
+  /// `[id, name, category, modules]`, so this block round-trips across
+  /// regeneration. Empty for modules and submodules (only components carry
+  /// groups) and for components without a `groups:` block. See [ContentGroup].
+  final List<ContentGroup> groups;
+
+  /// The ids of this record's direct module children, for validating that a
+  /// group's members ([ContentGroup.members]) each resolve to a real module.
+  Set<String> get moduleIds =>
+      {for (final child in children) child.id};
+
+  /// The module ids that appear in a [groups] member list but are **not** real
+  /// modules of this component (§9 item 1 validation). Empty when every member
+  /// resolves; non-empty flags a stale hand edit the browser should surface.
+  Set<String> get unknownGroupMembers {
+    final ids = moduleIds;
+    return {
+      for (final group in groups)
+        for (final member in group.members)
+          if (!ids.contains(member)) member,
+    };
+  }
+
+  /// The module ids not assigned to any [groups] entry — the "Other modules"
+  /// bucket shown on the component page (§9 item 1). Order follows [children].
+  List<String> get ungroupedModuleIds {
+    final grouped = {
+      for (final group in groups) ...group.members,
+    };
+    return [
+      for (final child in children)
+        if (!grouped.contains(child.id)) child.id,
+    ];
+  }
 
   /// Display label: the name when present, else the id.
   String get label => name ?? id;

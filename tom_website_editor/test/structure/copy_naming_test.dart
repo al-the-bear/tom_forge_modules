@@ -14,6 +14,14 @@ void main() {
       expect(parsed.parts, isEmpty);
     });
 
+    // CN-01b: news copy file (site-level, like home).
+    test('CN-01b: news.md parses as the news copy', () {
+      final parsed = parseCopyFileName('news.md');
+      expect(parsed, isNotNull);
+      expect(parsed!.kind, CopyFileKind.news);
+      expect(parsed.parts, isEmpty);
+    });
+
     // CN-02: area copy file.
     test('CN-02: <A>_area.md parses as an area copy', () {
       final parsed = parseCopyFileName('platform_area.md');
@@ -60,6 +68,7 @@ void main() {
     // CN-08: encode each kind back to the §16 filename.
     test('CN-08: encodes each kind to the convention filename', () {
       expect(copyFileName(CopyFileKind.home), 'home.md');
+      expect(copyFileName(CopyFileKind.news), 'news.md');
       expect(copyFileName(CopyFileKind.area, parts: ['platform']),
           'platform_area.md');
       expect(copyFileName(CopyFileKind.component, parts: ['auth']),
@@ -75,6 +84,7 @@ void main() {
     test('CN-09: encode then parse round-trips', () {
       for (final (kind, parts) in const [
         (CopyFileKind.home, <String>[]),
+        (CopyFileKind.news, <String>[]),
         (CopyFileKind.area, ['ui']),
         (CopyFileKind.component, ['auth']),
         (CopyFileKind.module, ['auth', 'login']),
@@ -95,6 +105,7 @@ void main() {
       final base = Uri.parse('file:///site/content/copy/');
       final files = [
         base.resolve('home.md'),
+        base.resolve('news.md'),
         base.resolve('platform_area.md'),
         base.resolve('auth_component.md'),
         base.resolve('auth_login_module.md'),
@@ -104,9 +115,10 @@ void main() {
 
       final nodes = groupCopyFiles(files);
 
-      // Top level: auth (component), billing (component), an areas group, home.
+      // Top level: auth (component), billing (component), an areas group, the
+      // site-level home and news files.
       final labels = nodes.map((n) => n.label).toList();
-      expect(labels, containsAll(['auth', 'billing', 'areas', 'home']));
+      expect(labels, containsAll(['auth', 'billing', 'areas', 'home', 'news']));
 
       final auth = nodes.firstWhere((n) => n.label == 'auth');
       // auth carries its own component file and a `login` module child.
@@ -121,6 +133,9 @@ void main() {
 
       final home = nodes.firstWhere((n) => n.label == 'home');
       expect(home.uri, base.resolve('home.md'));
+
+      final news = nodes.firstWhere((n) => n.label == 'news');
+      expect(news.uri, base.resolve('news.md'));
     });
 
     // CN-11: files that don't match the convention are surfaced verbatim as

@@ -279,4 +279,49 @@ void main() {
       Uri.file('/sites/a/content/components/button.yaml'),
     ]);
   });
+
+  // TWE-STRUCT-11: the copy section's new-file affordance offers the site-level
+  // copy files as one-tap quick-creates, disabling those that already exist.
+  testWidgets('TWE-STRUCT-11: copy new-file offers site-level copy quick-create',
+      (tester) async {
+    final controller = await _loaded(activeId: 'alpha');
+    await _pump(tester, WebsiteStructureExplorer(controller: controller));
+
+    await tester.tap(find.byTooltip('New file in copy'));
+    await tester.pumpAndSettle();
+
+    // Both site-level copy files are offered; home.md exists (seeded) so its
+    // chip is disabled, news.md does not exist so it is enabled.
+    expect(find.text('home.md'), findsOneWidget);
+    expect(find.text('news.md'), findsOneWidget);
+    final home = tester.widget<ActionChip>(
+        find.byKey(const ValueKey('new-copy-home')));
+    expect(home.onPressed, isNull);
+    final news = tester.widget<ActionChip>(
+        find.byKey(const ValueKey('new-copy-news')));
+    expect(news.onPressed, isNotNull);
+  });
+
+  // TWE-STRUCT-12: tapping the news.md quick-create writes content/copy/news.md
+  // and it appears in the copy tree as a site-level node.
+  testWidgets('TWE-STRUCT-12: news quick-create writes and surfaces news.md',
+      (tester) async {
+    final controller = await _loaded(activeId: 'alpha');
+    final opened = <Uri>[];
+    await _pump(
+      tester,
+      WebsiteStructureExplorer(controller: controller, onOpenFile: opened.add),
+    );
+
+    await tester.tap(find.byTooltip('New file in copy'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('new-copy-news')));
+    await tester.pumpAndSettle();
+
+    // The new node appears and opens through the same seam to tom_md_editor.
+    expect(find.text('news'), findsOneWidget);
+    await tester.tap(find.text('news'));
+    await tester.pumpAndSettle();
+    expect(opened, [Uri.file('/sites/a/content/copy/news.md')]);
+  });
 }

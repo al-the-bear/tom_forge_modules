@@ -425,6 +425,107 @@ Generated rollup.
       await controller.refresh();
       expect(controller.copyFiles.first.file.serialize(), contains('Edited.'));
     });
+
+    // §9 item 2: site-level copy (home.md, news.md) is exposed separately from
+    // the per-entity copy files so the §6a browser can surface it together.
+    test('siteLevelCopyFiles returns only home.md and news.md', () async {
+      final (controller, _) = await _loaded(_config, seed: {
+        ..._seed(),
+        _file('/sites/a/content/copy/button_component.md'): copySource,
+        _file('/sites/a/content/copy/home.md'): '# Home\n',
+        _file('/sites/a/content/copy/news.md'): '# News\n',
+      });
+
+      final names = controller.siteLevelCopyFiles
+          .map((d) => d.uri.pathSegments.last)
+          .toList();
+      expect(names, ['home.md', 'news.md']);
+      // The per-entity component copy is not site-level.
+      expect(names, isNot(contains('button_component.md')));
+      // All three are still in the flat copy listing.
+      expect(controller.copyFiles, hasLength(3));
+    });
+  });
+
+  group('TWE-CTRL-09: edit module groups (§9 item 1)', () {
+    const grouped = '''
+id: button
+name: Button
+groups:
+  - label: Primary actions
+    members: [primary, secondary]
+modules:
+  - id: primary
+    name: Primary
+  - id: secondary
+    name: Secondary
+  - id: icon
+    name: Icon
+''';
+
+    Map<Uri, String> seedWithGroups() => {
+          ..._seed(),
+          _file('/sites/a/content/components/button.yaml'): grouped,
+        };
+
+    test('writes a renamed group + new members and re-parses', () async {
+      final (controller, fs) =
+          await _loaded(_config, seed: seedWithGroups());
+      final document = controller.components.first;
+      expect(document.record.groups.single.label, 'Primary actions');
+
+      final wrote = await controller.setGroups(document, const [
+        ContentGroup(label: 'Main actions', members: ['primary', 'icon']),
+      ]);
+      expect(wrote, isTrue);
+
+      // The block on disk reflects the edit; generator-owned fields survive.
+      expect(fs.files[document.uri], contains('label: Main actions'));
+      expect(fs.files[document.uri], contains('members: [primary, icon]'));
+      expect(fs.files[document.uri], contains('id: button'));
+
+      // Re-parsed in place.
+      final reGroups = controller.components.first.record.groups;
+      expect(reGroups, hasLength(1));
+      expect(reGroups.single.label, 'Main actions');
+      expect(reGroups.single.members, ['primary', 'icon']);
+    });
+
+    test('rejects a member id that is not a real module (no write)', () async {
+      final (controller, fs) =
+          await _loaded(_config, seed: seedWithGroups());
+      final document = controller.components.first;
+
+      final wrote = await controller.setGroups(document, const [
+        ContentGroup(label: 'Bad', members: ['ghost']),
+      ]);
+      expect(wrote, isFalse);
+      expect(fs.writes, isEmpty);
+      // The on-disk groups are unchanged.
+      expect(controller.components.first.record.groups.single.label,
+          'Primary actions');
+    });
+
+    test('clearing groups removes the block from disk', () async {
+      final (controller, fs) =
+          await _loaded(_config, seed: seedWithGroups());
+      final document = controller.components.first;
+
+      final wrote = await controller.setGroups(document, const []);
+      expect(wrote, isTrue);
+      expect(fs.files[document.uri], isNot(contains('groups:')));
+      expect(controller.components.first.record.groups, isEmpty);
+    });
+
+    test('an unchanged groups list is a no-op', () async {
+      final (controller, fs) =
+          await _loaded(_config, seed: seedWithGroups());
+      final document = controller.components.first;
+
+      final wrote = await controller.setGroups(document, document.record.groups);
+      expect(wrote, isFalse);
+      expect(fs.writes, isEmpty);
+    });
   });
 
   group('TWE-CTRL-05: placeholder failure', () {

@@ -3,9 +3,11 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:tom_website_editor_core/tom_website_editor_core.dart';
 
+import '../structure/copy_naming.dart';
 import '../website_editor_controller.dart';
 import 'content_copy_file.dart';
 import 'content_field.dart';
+import 'content_group.dart';
 import 'content_page.dart';
 import 'content_parser.dart';
 import 'content_record.dart';
@@ -104,6 +106,22 @@ class WebsiteContentController extends ChangeNotifier {
 
   /// The parsed external copy files (`copy/*.md`, §16), sorted by file path.
   List<ContentCopyDocument> get copyFiles => List.unmodifiable(_copyFiles);
+
+  /// The site-level copy files (`home.md`, `news.md`): standalone copy that does
+  /// not follow the per-entity `<C>_…` naming convention (§16). The §6a browser
+  /// surfaces these together so the home page's editorial copy — including its
+  /// news band — is reachable in one place. Sorted by file path.
+  List<ContentCopyDocument> get siteLevelCopyFiles => List.unmodifiable([
+        for (final doc in _copyFiles)
+          if (_isSiteLevelCopy(doc.uri)) doc,
+      ]);
+
+  /// `true` when [uri]'s file name parses to a site-level copy kind (home/news).
+  static bool _isSiteLevelCopy(Uri uri) {
+    final name = uri.pathSegments.isEmpty ? '' : uri.pathSegments.last;
+    final parsed = parseCopyFileName(name);
+    return parsed != null && siteLevelCopyKinds.contains(parsed.kind);
+  }
 
   /// The standalone page files (`pages/*.md`), sorted by path.
   List<Uri> get pages => List.unmodifiable(_pages);
@@ -317,6 +335,50 @@ class WebsiteContentController extends ChangeNotifier {
       value,
       preserveComment: field.isPinned ? content.manualPin : null,
     );
+    if (updated == document.source) return false;
+
+    await writeFile(document.uri, updated);
+    final record = parseComponentRecord(
+      updated,
+      editableFields: content.editableFields,
+      manualPin: content.manualPin,
+    );
+    final index = _components.indexWhere((d) => d.uri == document.uri);
+    if (index >= 0) {
+      final next = List.of(_components);
+      next[index] = ContentComponentDocument(
+          uri: document.uri, source: updated, record: record);
+      _components = next;
+    }
+    notifyListeners();
+    return true;
+  }
+
+  /// Persists a component's hand-authored module groups (§9 item 1): rewrites
+  /// the `groups:` block of [document] to the canonical serialization of
+  /// [groups], writes the file back, and re-parses it in place. Used by the
+  /// browser's add / rename / reorder / assign-member edits.
+  ///
+  /// Member ids are validated against the component's real modules first: a
+  /// group referencing an id that is not one of [document]'s modules is rejected
+  /// (`false`, no write), so the browser can only persist groups whose members
+  /// all resolve. A no-op rewrite (groups unchanged) or a website without a
+  /// content config also returns `false`. The generator-owned fields
+  /// (`id`/`name`/`category`/`modules`) are untouched, so the edit survives the
+  /// next `generateContent`.
+  Future<bool> setGroups(
+    ContentComponentDocument document,
+    List<ContentGroup> groups,
+  ) async {
+    final content = _content;
+    if (content == null) return false;
+
+    final moduleIds = document.record.moduleIds;
+    final hasUnknownMember = groups.any(
+        (group) => group.members.any((id) => !moduleIds.contains(id)));
+    if (hasUnknownMember) return false;
+
+    final updated = setComponentGroups(document.source, groups);
     if (updated == document.source) return false;
 
     await writeFile(document.uri, updated);
