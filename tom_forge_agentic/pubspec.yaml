@@ -1,0 +1,28 @@
+name: tom_forge_agentic
+description: >-
+  Reusable Flutter agent/chat UI for Tom Forge tools: chat composer, prompt
+  queue, prompt trail, agent settings, navigation/mutation tool surface, and
+  the change-log + three-way review. UI only — all non-UI logic (provider
+  API, models, placeholder engine) lives in tom_core_agentic.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.10.0
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Non-UI agent layer: provider/model API, prompt-queue/trail/profile models,
+  # placeholder engine. This package renders UI over those models only.
+  tom_core_agentic:
+    path: ../../tom_ai/core/tom_core_agentic
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
