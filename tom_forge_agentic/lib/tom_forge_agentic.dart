@@ -20,3 +20,5 @@ export 'src/agent_chat_view.dart';
 export 'src/agent_panel_placeholder.dart';
 export 'src/connection/agent_connection_controller.dart';
 export 'src/connection/agent_connection_picker.dart';
+export 'src/send/agent_send_controller.dart';
+export 'src/send/agent_send_panel.dart';
