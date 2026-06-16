@@ -622,6 +622,251 @@ modules:
     });
   });
 
+  group('TWE-CTRL-11: site.yaml home.featured (§9 item 4)', () {
+    // A live-shaped site.yaml whose home page ships with no featured component:
+    // `home.featured:` is present but blank, so the components page renders the
+    // flat grid. The blank value must load + validate green and the editor must
+    // offer setting it back to a real component id (button/card in the seed).
+    const blankFeatured = '''
+title: My Site
+home:
+  hero-md: |
+    # Welcome
+  featured:
+''';
+
+    Map<Uri, String> seedWithBlankFeatured() => {
+          ..._seed(),
+          _file('/sites/a/content/site.yaml'): blankFeatured,
+        };
+
+    test('a blank featured parses as no-featured and validates green',
+        () async {
+      final (controller, _) =
+          await _loaded(_config, seed: seedWithBlankFeatured());
+      expect(controller.siteConfig, isNotNull);
+      expect(controller.siteConfig!.title, 'My Site');
+      expect(controller.siteConfig!.hasFeatured, isFalse);
+      expect(controller.siteConfig!.featured, isNull);
+      // No error-severity issues — an empty featured is valid.
+      expect(controller.siteIssues, isEmpty);
+    });
+
+    test('setSiteFeatured writes a component id to disk and re-parses',
+        () async {
+      final (controller, fs) =
+          await _loaded(_config, seed: seedWithBlankFeatured());
+      final siteUri = controller.siteFile!;
+
+      final wrote = await controller.setSiteFeatured('button');
+      expect(wrote, isTrue);
+      expect(fs.files[siteUri], contains('featured: button'));
+      // Other fields are preserved.
+      expect(fs.files[siteUri], contains('title: My Site'));
+      expect(fs.files[siteUri], contains('# Welcome'));
+
+      // Re-parsed in place: now featured, validated green (button is real).
+      expect(controller.siteConfig!.hasFeatured, isTrue);
+      expect(controller.siteConfig!.featured, 'button');
+      expect(controller.siteIssues, isEmpty);
+    });
+
+    test('setSiteFeatured(null) clears the value back to a blank key',
+        () async {
+      final (controller, fs) =
+          await _loaded(_config, seed: seedWithBlankFeatured());
+      await controller.setSiteFeatured('button');
+      expect(controller.siteConfig!.hasFeatured, isTrue);
+
+      final cleared = await controller.setSiteFeatured(null);
+      expect(cleared, isTrue);
+      // The key survives (so the editor can set it again) but the value is gone.
+      expect(controller.siteConfig!.hasFeatured, isFalse);
+      expect(controller.siteConfig!.featuredSourceLine, isNotNull);
+      expect(fs.files[controller.siteFile!], contains('featured:'));
+      expect(fs.files[controller.siteFile!], isNot(contains('featured: button')));
+    });
+
+    test('setting an unknown component id loads (warning, not error)',
+        () async {
+      final (controller, fs) =
+          await _loaded(_config, seed: seedWithBlankFeatured());
+
+      final wrote = await controller.setSiteFeatured('ghost');
+      expect(wrote, isTrue);
+      expect(fs.files[controller.siteFile!], contains('featured: ghost'));
+      // An unknown id is a non-fatal warning — the value still loads.
+      expect(controller.siteConfig!.featured, 'ghost');
+      expect(controller.siteIssues, hasLength(1));
+      expect(controller.siteIssues.single.severity, ConfigSeverity.warning);
+    });
+
+    test('an unchanged featured value is a no-op', () async {
+      final (controller, fs) =
+          await _loaded(_config, seed: seedWithBlankFeatured());
+      await controller.setSiteFeatured('button');
+      fs.writes.clear();
+
+      final again = await controller.setSiteFeatured('button');
+      expect(again, isFalse);
+      expect(fs.writes, isEmpty);
+    });
+
+    test('setSiteFeatured is a no-op when site.yaml has no featured key',
+        () async {
+      // The default seed's site.yaml is just `title: My Site` (no home block).
+      final (controller, fs) = await _loaded(_config);
+      expect(controller.siteConfig!.featuredSourceLine, isNull);
+
+      final wrote = await controller.setSiteFeatured('button');
+      expect(wrote, isFalse);
+      expect(fs.writes, isEmpty);
+    });
+  });
+
+  group('TWE-CTRL-13: site.yaml detailedComponents (§9 item 7)', () {
+    // A site.yaml that already scopes its detailed docs/API to one component.
+    const withDetailed = '''
+title: My Site
+detailedComponents: [button]
+''';
+
+    Map<Uri, String> seedWithDetailed() => {
+          ..._seed(),
+          _file('/sites/a/content/site.yaml'): withDetailed,
+        };
+
+    test('a present detailedComponents list parses and is editable', () async {
+      final (controller, _) = await _loaded(_config, seed: seedWithDetailed());
+      expect(controller.siteConfig!.detailedComponents, ['button']);
+      expect(controller.siteConfig!.hasDetailedComponents, isTrue);
+      expect(controller.siteIssues, isEmpty);
+    });
+
+    test('setSiteDetailedComponents writes the new list and re-parses',
+        () async {
+      final (controller, fs) =
+          await _loaded(_config, seed: seedWithDetailed());
+      final siteUri = controller.siteFile!;
+
+      final wrote =
+          await controller.setSiteDetailedComponents(['button', 'card']);
+      expect(wrote, isTrue);
+      expect(fs.files[siteUri], contains('detailedComponents: [button, card]'));
+      expect(fs.files[siteUri], contains('title: My Site'));
+      // Re-parsed in place: both ids are real components → validates green.
+      expect(controller.siteConfig!.detailedComponents, ['button', 'card']);
+      expect(controller.siteIssues, isEmpty);
+    });
+
+    test('inserts the key when site.yaml has none yet', () async {
+      // The default seed's site.yaml is just `title: My Site` (no key).
+      final (controller, fs) = await _loaded(_config);
+      expect(controller.siteConfig!.detailedComponents, isNull);
+
+      final wrote = await controller.setSiteDetailedComponents(['button']);
+      expect(wrote, isTrue);
+      expect(fs.files[controller.siteFile!],
+          contains('detailedComponents: [button]'));
+      expect(controller.siteConfig!.detailedComponents, ['button']);
+    });
+
+    test('an explicit empty list means no detailed components', () async {
+      final (controller, fs) =
+          await _loaded(_config, seed: seedWithDetailed());
+      final wrote = await controller.setSiteDetailedComponents(const []);
+      expect(wrote, isTrue);
+      expect(fs.files[controller.siteFile!], contains('detailedComponents: []'));
+      expect(controller.siteConfig!.detailedComponents, isEmpty);
+    });
+
+    test('an unchanged list is a no-op', () async {
+      final (controller, fs) =
+          await _loaded(_config, seed: seedWithDetailed());
+      fs.writes.clear();
+      final again = await controller.setSiteDetailedComponents(['button']);
+      expect(again, isFalse);
+      expect(fs.writes, isEmpty);
+    });
+  });
+
+  group('TWE-CTRL-12: repo-sourced docs (§9 item 5)', () {
+    // A config whose website declares a `sourceRoot` path — the base the
+    // repo-sourced README/LICENSE/release are resolved against. A component
+    // carries `_generated.source` (its repo root) and modules carry `path:`.
+    const configWithSource = '''
+version: 1
+websites:
+  - id: alpha
+    paths:
+      websiteRoot: "/sites/a"
+      sourceRoot: "/src"
+    content:
+      dir: "{websiteRoot}/content"
+''';
+
+    const widgetsComponent = '''
+_generated:
+  source: pkg/widgets
+  generator: gen.dart
+id: widgets
+name: Widgets
+modules:
+  - id: primary
+    name: Primary
+    path: pkg/widgets/primary
+  - id: bare
+    name: Bare
+    path: pkg/widgets/bare
+''';
+
+    // Seed: only one component file, plus repo-doc files under {sourceRoot}.
+    // The module `primary` has all three; the component has only a README;
+    // `bare` has none (so it must surface no repo docs).
+    Map<Uri, String> seedWithRepoDocs() => {
+          _file('/sites/a/content/components/widgets.yaml'): widgetsComponent,
+          _file('/sites/a/content/site.yaml'): 'title: My Site',
+          // Component repo root: README only.
+          _file('/src/pkg/widgets/README.md'): '# Widgets',
+          // Module `primary` repo root: README + LICENSE + release.md.
+          _file('/src/pkg/widgets/primary/README.md'): '# Primary',
+          _file('/src/pkg/widgets/primary/LICENSE'): 'BSD-3-Clause',
+          _file('/src/pkg/widgets/primary/release.md'): '# 1.0.0',
+        };
+
+    test('a module with README/LICENSE/release surfaces all three, in order',
+        () async {
+      final (controller, _) =
+          await _loaded(configWithSource, seed: seedWithRepoDocs());
+      final docs = controller.repoDocsFor('primary');
+      expect(docs.map((d) => d.kind),
+          [RepoDocKind.readme, RepoDocKind.license, RepoDocKind.release]);
+      expect(docs.map((d) => d.fileName),
+          ['README.md', 'LICENSE', 'release.md']);
+    });
+
+    test('a component surfaces its own repo root README', () async {
+      final (controller, _) =
+          await _loaded(configWithSource, seed: seedWithRepoDocs());
+      final docs = controller.repoDocsFor('widgets');
+      expect(docs.map((d) => d.kind), [RepoDocKind.readme]);
+    });
+
+    test('a module whose repo root has no docs surfaces none', () async {
+      final (controller, _) =
+          await _loaded(configWithSource, seed: seedWithRepoDocs());
+      expect(controller.repoDocsFor('bare'), isEmpty);
+    });
+
+    test('a website without a sourceRoot has no repo docs (not an error)',
+        () async {
+      // `_config` declares no `sourceRoot`; resolution is swallowed.
+      final (controller, _) = await _loaded(_config);
+      expect(controller.error, isNull);
+      expect(controller.repoDocsFor('button'), isEmpty);
+    });
+  });
+
   group('TWE-CTRL-05: placeholder failure', () {
     test('surfaces an error and leaves the catalog empty', () async {
       final (controller, _) = await _loaded(_badConfig);

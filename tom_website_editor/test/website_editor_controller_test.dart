@@ -8,7 +8,6 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_website_editor/tom_website_editor.dart';
-import 'package:tom_website_editor_core/tom_website_editor_core.dart';
 
 const _twoSites = '''
 version: 1

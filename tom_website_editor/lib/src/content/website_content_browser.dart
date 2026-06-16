@@ -3,12 +3,28 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_website_editor_core/tom_website_editor_core.dart';
 
+import '../structure/copy_naming.dart';
 import 'content_copy_file.dart';
 import 'content_field.dart';
 import 'content_group.dart';
 import 'content_record.dart';
+import 'repo_doc.dart';
 import 'website_content_controller.dart';
+
+/// The human-readable maturity-ladder explanation shown under the managed
+/// `status` field (§9 item 6).
+///
+/// Mirrors `tom_package_scanner`'s `ComponentStatus` ladder and names the
+/// **`release.md`** release marker (formerly `RELEASED.md`) — the file a
+/// package carries in its directory to reach the `released` status — so the
+/// editor's status provenance matches the scanner that produces the value.
+const String kStatusLadderHelp =
+    'Generator-managed by tom_package_scanner. Maturity ladder: '
+    'not_started → works → published → released. A package reaches "released" '
+    'when it carries a release.md marker in its package directory '
+    '(or tom_project.yaml release.state: released).';
 
 /// Forge view for the §6a content browser: a component → module → optional
 /// submodule tree (plus `site.yaml` and `pages/`) on the left and a field /
@@ -86,7 +102,8 @@ class _Selection {
         copy = null,
         site = true;
 
-  /// A site-level copy file (`home.md` / `news.md`, §16).
+  /// An external editorial copy file (`content/copy/*.md`, §16): a site-level
+  /// file (`home.md` / `news.md`) or a per-entity / area copy file.
   const _Selection.copy(this.copy)
       : record = null,
         document = null,
@@ -197,8 +214,8 @@ class _ContentBrowserBodyState extends State<_ContentBrowserBody> {
           : null;
     }
     if (previous.copy != null) {
-      final stillPresent = controller.siteLevelCopyFiles
-          .any((doc) => doc.uri == previous.copy);
+      final stillPresent =
+          controller.copyFiles.any((doc) => doc.uri == previous.copy);
       return stillPresent ? _Selection.copy(previous.copy!) : null;
     }
     final oldRecord = previous.record!;
@@ -350,6 +367,33 @@ class _ContentBrowserBodyState extends State<_ContentBrowserBody> {
       }
     }
 
+    // Per-entity, area, and any non-convention ("loose") copy files (§16). The
+    // site-level home/news files are surfaced above; every remaining copy file
+    // is enumerated here so no copy file in content/copy/ is ever dropped from
+    // the browser (mirroring the §6b structure explorer's completeness). Each
+    // tile's subtitle names what the file is copy for, so its target is visible
+    // without opening the pane.
+    for (final doc in controller.copyFiles) {
+      final parsed = parseCopyFileName(_fileName(doc.uri));
+      if (parsed != null && siteLevelCopyKinds.contains(parsed.kind)) continue;
+      total++;
+      final name = _fileName(doc.uri);
+      if (needle.isEmpty || name.toLowerCase().contains(needle)) {
+        children.add(ListTile(
+          dense: true,
+          key: ValueKey('copy-$name'),
+          leading: Icon(_copyKindIcon(parsed), size: 18),
+          title: Text(name),
+          subtitle: Text(_copyKindLabel(parsed)),
+          selected: _selection?.copy == doc.uri,
+          onTap: () {
+            setState(() => _selection = _Selection.copy(doc.uri));
+            _open(doc.uri);
+          },
+        ));
+      }
+    }
+
     for (final page in controller.pages) {
       total++;
       if (needle.isEmpty ||
@@ -491,16 +535,15 @@ class _ContentBrowserBodyState extends State<_ContentBrowserBody> {
       return const Center(child: Text('Select a record or page.'));
     }
     if (selection.site) {
-      return _buildFilePane(context, widget.controller.siteFile!,
-          'Site-level copy (site.yaml).');
+      return _buildSitePane(context, widget.controller.siteFile!);
     }
     if (selection.page != null) {
       return _buildPagePane(context, selection.page!);
     }
     if (selection.copy != null) {
-      return _buildFilePane(context, selection.copy!,
-          'Site-level copy (§16). Edits the Markdown body in tom_md_editor; '
-          'news.md feeds the home page news band.');
+      final parsed = parseCopyFileName(_fileName(selection.copy!));
+      return _buildFilePane(
+          context, selection.copy!, _copyDetailDescription(parsed));
     }
     return _buildRecordPane(context, selection.record!, selection.document!);
   }
@@ -513,6 +556,7 @@ class _ContentBrowserBodyState extends State<_ContentBrowserBody> {
     // module-less components show none.
     final showGroups = record.kind == ContentRecordKind.component &&
         (record.children.isNotEmpty || record.groups.isNotEmpty);
+    final repoDocs = widget.controller.repoDocsFor(record.id);
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -528,6 +572,8 @@ class _ContentBrowserBodyState extends State<_ContentBrowserBody> {
             document: document,
             controller: widget.controller,
           ),
+        if (repoDocs.isNotEmpty)
+          _RepoDocsSection(recordId: record.id, docs: repoDocs),
       ],
     );
   }
@@ -674,6 +720,264 @@ class _ContentBrowserBodyState extends State<_ContentBrowserBody> {
     );
   }
 
+  /// The detail pane for `site.yaml` (§9 item 4): shows the site title/tagline
+  /// for context and lets the home page's featured component be set from a
+  /// dropdown of the site's real component ids (plus "(none)"), so the value is
+  /// always valid without hand-editing YAML. The featured component is optional
+  /// — "(none)" clears it and the components page renders the flat grid. A
+  /// live validation status sits below the picker, and the raw file is still
+  /// reachable via "Open in editor".
+  Widget _buildSitePane(BuildContext context, Uri uri) {
+    final theme = Theme.of(context);
+    final controller = widget.controller;
+    final config = controller.siteConfig;
+    // A parse failure leaves no model — fall back to the read-only file pane so
+    // the user can open and fix the YAML directly.
+    if (config == null) {
+      return _buildFilePane(context, uri,
+          'Site-level config (site.yaml) — could not be parsed. Open it to fix '
+          'the YAML.');
+    }
+
+    final componentIds = [
+      for (final document in controller.components) document.record.id,
+    ]..sort();
+    final knownIds = componentIds.toSet();
+    final featured = config.featured;
+    final canEditFeatured = config.featuredSourceLine != null;
+    // Include the current (possibly unknown) featured id so the dropdown never
+    // asserts on a value outside its item list.
+    final ids = <String>{...componentIds, ?featured}.toList()..sort();
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Text(_fileName(uri), style: theme.textTheme.titleMedium),
+        const SizedBox(height: 4),
+        SelectableText(uri.path, style: theme.textTheme.bodySmall),
+        const SizedBox(height: 4),
+        Text(
+          'Site-level config. The home page’s featured component is set below; '
+          'leave it as “(none)” to render the flat components grid.',
+          style: theme.textTheme.bodySmall,
+        ),
+        const SizedBox(height: 16),
+        if (config.title != null) _siteInfoRow(context, 'Title', config.title!),
+        if (config.taglineMd != null)
+          _siteInfoRow(context, 'Tagline', config.taglineMd!),
+        const SizedBox(height: 8),
+        Text('Home featured component', style: theme.textTheme.labelLarge),
+        const SizedBox(height: 4),
+        Text(
+          'The component highlighted on the home page. Optional — “(none)” '
+          'renders the flat components grid.',
+          style: theme.textTheme.bodySmall
+              ?.copyWith(color: theme.colorScheme.outline),
+        ),
+        const SizedBox(height: 8),
+        InputDecorator(
+          decoration: const InputDecoration(
+            isDense: true,
+            border: OutlineInputBorder(),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String?>(
+              key: const ValueKey('site-featured-dropdown'),
+              value: featured,
+              isExpanded: true,
+              onChanged: canEditFeatured
+                  ? (value) =>
+                      unawaited(widget.controller.setSiteFeatured(value))
+                  : null,
+              items: [
+                const DropdownMenuItem<String?>(
+                  value: null,
+                  child: Text('(none)'),
+                ),
+                for (final id in ids)
+                  DropdownMenuItem<String?>(
+                    value: id,
+                    child: Text(knownIds.contains(id) ? id : '$id (unknown)'),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        if (!canEditFeatured) ...[
+          const SizedBox(height: 4),
+          Text(
+            'site.yaml has no home.featured key yet — open it in the editor to '
+            'add one.',
+            style: theme.textTheme.bodySmall
+                ?.copyWith(color: theme.colorScheme.outline),
+          ),
+        ],
+        const SizedBox(height: 16),
+        _buildDetailedComponentsEditor(context, config, componentIds, knownIds),
+        const SizedBox(height: 16),
+        _buildSiteValidation(context),
+        const SizedBox(height: 16),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton.icon(
+            onPressed: _canOpen ? () => _open(uri) : null,
+            icon: const Icon(Icons.open_in_new, size: 16),
+            label: const Text('Open in editor'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// A read-only label/value row for a `site.yaml` scalar (title / tagline)
+  /// shown for context above the featured-component picker.
+  Widget _siteInfoRow(BuildContext context, String label, String value) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: theme.textTheme.labelSmall),
+          const SizedBox(height: 2),
+          SelectableText(value, style: theme.textTheme.bodySmall),
+        ],
+      ),
+    );
+  }
+
+  /// The detailed-content scope editor (§9 item 7): a chip per known component
+  /// id, selected when the component is in `site.yaml: detailedComponents` —
+  /// i.e. when its `/docs` + `/api` trees are exposed. Toggling a chip writes
+  /// the list back to disk (inserting the key when absent), so the scope is
+  /// edited in place without touching raw YAML.
+  ///
+  /// When the key is absent the chips render unselected with a note that the
+  /// website is using its built-in default; the first toggle makes the scope
+  /// explicit. Any id listed but not a known component is shown as a trailing
+  /// "(unknown)" chip so a stale entry stays visible and removable.
+  Widget _buildDetailedComponentsEditor(
+    BuildContext context,
+    SiteConfig config,
+    List<String> componentIds,
+    Set<String> knownIds,
+  ) {
+    final theme = Theme.of(context);
+    final selected = config.detailedComponents?.toSet() ?? const <String>{};
+    final hasExplicitScope = config.detailedComponents != null;
+    // Union of known ids and any explicitly-listed (possibly unknown) ids, so a
+    // stale entry remains visible and toggle-off-able.
+    final chipIds = <String>{...componentIds, ...selected}.toList()..sort();
+
+    return Column(
+      key: const ValueKey('site-detailed-components'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Detailed docs/API components', style: theme.textTheme.labelLarge),
+        const SizedBox(height: 4),
+        Text(
+          'The components whose /docs and /api trees the site exposes. The '
+          'others still appear in Overview, Areas and Components but carry no '
+          'detail. Tap a chip to add or remove it from the scope.',
+          style: theme.textTheme.bodySmall
+              ?.copyWith(color: theme.colorScheme.outline),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            for (final id in chipIds)
+              FilterChip(
+                key: ValueKey('site-detailed-chip-$id'),
+                label: Text(knownIds.contains(id) ? id : '$id (unknown)'),
+                selected: selected.contains(id),
+                onSelected: (value) =>
+                    _toggleDetailedComponent(config, id, value),
+              ),
+          ],
+        ),
+        if (!hasExplicitScope) ...[
+          const SizedBox(height: 4),
+          Text(
+            'No explicit scope set — the website uses its built-in default. '
+            'Select a component to make the scope explicit.',
+            style: theme.textTheme.bodySmall
+                ?.copyWith(color: theme.colorScheme.outline),
+          ),
+        ] else if (selected.isEmpty) ...[
+          const SizedBox(height: 4),
+          Text(
+            'Scope is empty — no component exposes /docs or /api detail.',
+            style: theme.textTheme.bodySmall
+                ?.copyWith(color: theme.colorScheme.outline),
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// Adds or removes [id] from the detailed-content scope and persists the new
+  /// list. Preserves the authored order: an added id is appended, a removed id
+  /// is dropped in place.
+  void _toggleDetailedComponent(SiteConfig config, String id, bool selected) {
+    final next = config.detailedComponents?.toList() ?? <String>[];
+    if (selected) {
+      if (!next.contains(id)) next.add(id);
+    } else {
+      next.remove(id);
+    }
+    unawaited(widget.controller.setSiteDetailedComponents(next));
+  }
+
+  /// The live `site.yaml` validation status: a green "valid" line when there
+  /// are no issues, or one row per issue (error or warning) otherwise. An empty
+  /// `home.featured` produces no issue; an unknown featured id is a warning.
+  Widget _buildSiteValidation(BuildContext context) {
+    final theme = Theme.of(context);
+    final issues = widget.controller.siteIssues;
+    if (issues.isEmpty) {
+      return Row(
+        key: const ValueKey('site-validation-ok'),
+        children: [
+          Icon(Icons.check_circle_outline,
+              size: 16, color: theme.colorScheme.primary),
+          const SizedBox(width: 8),
+          Text('site.yaml is valid.', style: theme.textTheme.bodySmall),
+        ],
+      );
+    }
+    return Column(
+      key: const ValueKey('site-validation-issues'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final issue in issues)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  issue.severity == ConfigSeverity.error
+                      ? Icons.error_outline
+                      : Icons.warning_amber_rounded,
+                  size: 16,
+                  color: issue.severity == ConfigSeverity.error
+                      ? theme.colorScheme.error
+                      : theme.colorScheme.tertiary,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('${issue.path}: ${issue.message}',
+                      style: theme.textTheme.bodySmall),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
   /// The detail pane for a standalone page (§9 item 3): its `title` / `route`
   /// front-matter scalars are editable inline (the `route` determines the page's
   /// URL), and the region-aware body opens in the Markdown editor where the
@@ -757,11 +1061,159 @@ class _ContentBrowserBodyState extends State<_ContentBrowserBody> {
 
   static String _fileName(Uri uri) =>
       uri.pathSegments.isEmpty ? uri.toString() : uri.pathSegments.last;
+
+  /// The tree-tile icon for a non-site-level copy file, by its parsed [name]
+  /// (`null` for a file whose name does not follow the §16 convention).
+  static IconData _copyKindIcon(CopyName? name) => switch (name?.kind) {
+        CopyFileKind.area => Icons.dashboard_outlined,
+        CopyFileKind.component => Icons.widgets_outlined,
+        CopyFileKind.module => Icons.view_module_outlined,
+        CopyFileKind.submodule => Icons.subdirectory_arrow_right,
+        _ => Icons.menu_book_outlined,
+      };
+
+  /// The tree-tile subtitle for a non-site-level copy file: names what entity
+  /// the file is copy for (e.g. "Module copy · auth › login") so its target is
+  /// visible without opening the pane. A non-convention name is labelled so it
+  /// is clearly surfaced rather than silently dropped (§16).
+  static String _copyKindLabel(CopyName? name) {
+    if (name == null) return 'Copy file (non-standard name)';
+    final target = name.parts.join(' › ');
+    return switch (name.kind) {
+      CopyFileKind.home => 'Site copy',
+      CopyFileKind.news => 'Site copy',
+      CopyFileKind.area => 'Area copy · $target',
+      CopyFileKind.component => 'Component copy · $target',
+      CopyFileKind.module => 'Module copy · $target',
+      CopyFileKind.submodule => 'Submodule copy · $target',
+    };
+  }
+
+  /// The detail-pane routing description for a selected copy file, by its parsed
+  /// [name]. Site-level copy names the home/news routing; per-entity copy names
+  /// the entity it documents. Both edit the Markdown body in tom_md_editor.
+  static String _copyDetailDescription(CopyName? name) {
+    if (name == null) {
+      return 'Editorial copy file (§16). Its name does not match the '
+          'home/news/<entity> convention; edits the Markdown body in '
+          'tom_md_editor.';
+    }
+    switch (name.kind) {
+      case CopyFileKind.home:
+      case CopyFileKind.news:
+        return 'Site-level copy (§16). Edits the Markdown body in '
+            'tom_md_editor; news.md feeds the home page news band.';
+      case CopyFileKind.area:
+      case CopyFileKind.component:
+      case CopyFileKind.module:
+      case CopyFileKind.submodule:
+        final target = name.parts.join(' › ');
+        return '${_copyKindLabel(name).split(' · ').first} for "$target" '
+            '(§16). Front-matter carries the curated fields '
+            '(tagline / summary / enables); the overview is the Markdown body, '
+            'edited in tom_md_editor.';
+    }
+  }
 }
 
 /// One field row: managed fields show a read-only value, a "managed" badge and a
 /// pin button; editable fields show the inline editor named by their typed
 /// suffix.
+/// The read-only "Repository documents" section (§9 item 5): the record's
+/// repo-sourced `README` / `LICENSE` / `release.md`, surfaced as provenance.
+///
+/// These live in the upstream repository (resolved server-side from
+/// `sourceRoot`), so they are shown visible + badged read-only and are never
+/// offered for inline edit or pinning — distinguishing repo-owned docs from the
+/// editable copy and generator-managed fields above.
+class _RepoDocsSection extends StatelessWidget {
+  const _RepoDocsSection({required this.recordId, required this.docs});
+
+  /// The owning record's id, for per-row test keys.
+  final String recordId;
+
+  /// The discovered repo docs, in display order (README, LICENSE, release).
+  final List<RepoDocRef> docs;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      key: ValueKey('repo-docs-$recordId'),
+      padding: const EdgeInsets.only(top: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Repository documents', style: theme.textTheme.titleSmall),
+          const SizedBox(height: 4),
+          Text(
+            'Sourced from the upstream repository — read-only here. Edit these '
+            'in the source repo; the editor never regenerates or pins them.',
+            style: theme.textTheme.labelSmall
+                ?.copyWith(color: theme.colorScheme.outline),
+          ),
+          const SizedBox(height: 8),
+          for (final doc in docs) _repoDocRow(context, doc),
+        ],
+      ),
+    );
+  }
+
+  /// One read-only repo-doc row: the doc label, its discovered file name, and a
+  /// "repo-sourced" badge. Keyed `repo-doc-<recordId>-<kind>` (badge keyed
+  /// `repo-doc-badge-<recordId>-<kind>`) for tests.
+  Widget _repoDocRow(BuildContext context, RepoDocRef doc) {
+    final theme = Theme.of(context);
+    final color = theme.colorScheme.secondary;
+    return Padding(
+      key: ValueKey('repo-doc-$recordId-${doc.kind.name}'),
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Icon(Icons.menu_book_outlined, size: 16, color: color),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(doc.kind.label,
+                    style: theme.textTheme.labelMedium
+                        ?.copyWith(fontWeight: FontWeight.w600)),
+                Text(doc.fileName,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.outline,
+                        fontFamily: 'monospace')),
+              ],
+            ),
+          ),
+          Tooltip(
+            message: 'Lives in the upstream repository (${doc.fileName}) — '
+                'read-only here; never regenerated or pinned by the editor.',
+            child: Container(
+              key: ValueKey('repo-doc-badge-$recordId-${doc.kind.name}'),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.lock_outline, size: 11, color: color),
+                  const SizedBox(width: 3),
+                  Text('repo-sourced',
+                      style:
+                          theme.textTheme.labelSmall?.copyWith(color: color)),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _FieldRow extends StatelessWidget {
   const _FieldRow({
     required this.field,
@@ -838,6 +1290,7 @@ class _FieldRow extends StatelessWidget {
             )
           else
             _ManagedValue(field: field, onPin: onPin),
+          if (field.name == 'status') _statusLadderHint(context),
           if (valueHasPlaceholder(field.value)) _placeholderHint(context),
         ],
       ),
@@ -903,6 +1356,34 @@ class _FieldRow extends StatelessWidget {
             const SizedBox(width: 3),
             Text('generated',
                 style: theme.textTheme.labelSmall?.copyWith(color: color)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// A help hint explaining the component/module maturity ladder and the
+  /// `release.md` release marker (§9 item 6). Shown under the managed `status`
+  /// field so the reader sees, in place, what each status means and how a
+  /// package reaches "released" — without hunting through the scanner docs.
+  /// Keyed `status-ladder-hint` for tests.
+  Widget _statusLadderHint(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = theme.colorScheme.secondary;
+    return Padding(
+      key: const ValueKey('status-ladder-hint'),
+      padding: const EdgeInsets.only(top: 4),
+      child: Tooltip(
+        message: kStatusLadderHelp,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.timeline_outlined, size: 13, color: color),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text(kStatusLadderHelp,
+                  style: theme.textTheme.labelSmall?.copyWith(color: color)),
+            ),
           ],
         ),
       ),

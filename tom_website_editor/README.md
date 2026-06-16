@@ -234,6 +234,15 @@ computed when the generator runs. `valueHasPlaceholder` matches a bare `{name}`
 token (a leading letter, then word chars plus `:` `.` `-`), so built-ins like
 `{env:HOME}` and `{date}` count while a YAML flow map (`{ a: 1 }`) does not.
 
+**Status ladder (§9 item 6).** The managed `status` field carries a help hint
+(keyed `status-ladder-hint`, text `kStatusLadderHelp`) that names the maturity
+ladder `tom_package_scanner` assigns — `not_started → works → published →
+released` — directly under the value, so the reader sees in place what each
+status means. A package reaches `released` when it carries a **`release.md`**
+marker in its package directory (formerly `RELEASED.md`; the same file also
+surfaces as a repo-sourced doc — see §9 item 5), or via `tom_project.yaml`
+`release.state: released`.
+
 **Pages.** Standalone `pages/*.md` use `@tom:override` / `@tom:managed`
 insert-marker regions: `ContentPage.parse` splits a page into regions, exposes
 the editable (override) bodies, and `serialize()` reproduces the source exactly,

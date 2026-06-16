@@ -291,6 +291,47 @@ _generated:
     });
   });
 
+  group('TWE-MODEL-12: record.source (repo root for §9 item 5 docs)', () {
+    const withSource = '''
+_generated:
+  source: pkg/widgets
+  generator: gen.dart
+id: widgets
+name: Widgets
+modules:
+  - id: primary
+    name: Primary
+    path: pkg/widgets/primary
+  - id: secondary
+    name: Secondary
+''';
+
+    test('a component takes its source from _generated.source', () {
+      final record = parseComponentRecord(withSource,
+          editableFields: _editableFields, manualPin: _manualPin);
+      expect(record.source, 'pkg/widgets');
+    });
+
+    test('a module takes its source from its path field', () {
+      final record = parseComponentRecord(withSource,
+          editableFields: _editableFields, manualPin: _manualPin);
+      expect(record.children.first.source, 'pkg/widgets/primary');
+    });
+
+    test('a module without a path has no source', () {
+      final record = parseComponentRecord(withSource,
+          editableFields: _editableFields, manualPin: _manualPin);
+      expect(record.children[1].source, isNull);
+    });
+
+    test('source is null when neither _generated.source nor path is present',
+        () {
+      final record = parseComponentRecord(_component,
+          editableFields: _editableFields, manualPin: _manualPin);
+      expect(record.source, isNull);
+    });
+  });
+
   group('TWE-MODEL-10: groups parsing + classification (§9 item 1)', () {
     const withGroups = '''
 id: button
@@ -475,6 +516,47 @@ modules:
           editableFields: _editableFields, manualPin: _manualPin);
       expect(reparsed.groups.map((g) => g.label),
           ['Helpers', 'Primary actions']);
+    });
+  });
+
+  group('TWE-MODEL-13: setDetailedComponentsLine (§9 item 7)', () {
+    test('replaces an existing key in place as a flow list', () {
+      const raw = '''
+title: Tom Framework
+detailedComponents: [d4rt, basics]
+home:
+  featured: d4rt
+''';
+      final updated = setDetailedComponentsLine(raw, 1, const ['d4rt', 'reflection']);
+      expect(updated, contains('detailedComponents: [d4rt, reflection]'));
+      // Other lines are untouched.
+      expect(updated, contains('title: Tom Framework'));
+      expect(updated, contains('  featured: d4rt'));
+    });
+
+    test('preserves a trailing comment when replacing in place', () {
+      const raw = 'detailedComponents: [d4rt]  # scope\n';
+      final updated = setDetailedComponentsLine(raw, 0, const ['d4rt', 'basics']);
+      expect(updated, contains('detailedComponents: [d4rt, basics]  # scope'));
+    });
+
+    test('inserts the key before home: when it is absent', () {
+      const raw = '''
+title: Tom Framework
+home:
+  featured: d4rt
+''';
+      final updated = setDetailedComponentsLine(raw, null, const ['d4rt']);
+      expect(updated, contains('detailedComponents: [d4rt]'));
+      // Inserted ahead of the home block, near the other site-level fields.
+      expect(updated.indexOf('detailedComponents:'),
+          lessThan(updated.indexOf('home:')));
+    });
+
+    test('writes an explicit empty list for no ids', () {
+      const raw = 'detailedComponents: [d4rt, basics]\n';
+      final updated = setDetailedComponentsLine(raw, 0, const []);
+      expect(updated, contains('detailedComponents: []'));
     });
   });
 

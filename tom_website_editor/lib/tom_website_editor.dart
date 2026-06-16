@@ -6,12 +6,15 @@
 /// control views (§9.3/§9.4) build on the shared [WebsiteEditorController].
 library;
 
+export 'package:tom_website_editor_core/tom_website_editor_core.dart';
+
 export 'src/content/content_copy_file.dart';
 export 'src/content/content_field.dart';
 export 'src/content/content_group.dart';
 export 'src/content/content_page.dart';
 export 'src/content/content_parser.dart';
 export 'src/content/content_record.dart';
+export 'src/content/repo_doc.dart';
 export 'src/content/website_content_browser.dart';
 export 'src/content/website_content_controller.dart';
 export 'src/content/website_content_fs.dart';

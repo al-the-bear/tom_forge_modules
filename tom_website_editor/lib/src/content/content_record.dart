@@ -19,6 +19,7 @@ class ContentRecord {
     required this.children,
     this.name,
     this.provenance,
+    this.source,
     this.groups = const [],
   });
 
@@ -30,6 +31,12 @@ class ContentRecord {
 
   /// Optional `name` for display; falls back to [id] in the UI.
   final String? name;
+
+  /// The record's in-repo source path relative to the website's `sourceRoot`,
+  /// used to resolve repo-sourced docs (§9 item 5). For a component this is its
+  /// `_generated.source` (the repo root); for a module/submodule it is its
+  /// `path` field. `null` when the record carries neither.
+  final String? source;
 
   /// Human-readable provenance from the record's `_generated` block (§6a), e.g.
   /// `by: tom-generate · at: 2026-06-01T10:00:00Z`. `null` when the record has

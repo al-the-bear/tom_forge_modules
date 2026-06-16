@@ -62,6 +62,7 @@ ContentRecord _buildRecord(
   final children = <ContentRecord>[];
   final groups = <ContentGroup>[];
   String? provenance;
+  String? generatedSource;
 
   for (final entry in map.nodes.entries) {
     final keyNode = entry.key as YamlNode;
@@ -94,6 +95,13 @@ ContentRecord _buildRecord(
     // is captured as the record's [provenance] and never rendered inline.
     if (name == _provenanceKey) {
       provenance = _provenanceOf(valueNode);
+      // `_generated.source` is the component's repo root (relative to the
+      // website's sourceRoot); kept so repo-sourced docs can be resolved (§9
+      // item 5). The one-line [provenance] still carries it for display.
+      if (valueNode is YamlMap) {
+        final src = valueNode['source'];
+        if (src is String && src.isNotEmpty) generatedSource = src;
+      }
       continue;
     }
 
@@ -108,6 +116,19 @@ ContentRecord _buildRecord(
     ));
   }
 
+  // A component's repo root comes from `_generated.source`; a module's /
+  // submodule's from its `path` field. This unifies how repo-sourced docs (§9
+  // item 5) are located for any record.
+  var source = generatedSource;
+  if (source == null) {
+    for (final field in fields) {
+      if (field.name == 'path' && field.value.isNotEmpty) {
+        source = field.value;
+        break;
+      }
+    }
+  }
+
   return ContentRecord(
     kind: kind,
     id: map['id']?.toString() ?? '$kind[$index]',
@@ -116,6 +137,7 @@ ContentRecord _buildRecord(
     children: children,
     groups: groups,
     provenance: provenance,
+    source: source,
   );
 }
 
@@ -221,6 +243,21 @@ String setFieldLineValue(
   return lines.join('\n');
 }
 
+/// Returns [rawYaml] with the value of the field on [sourceLine] (0-based)
+/// cleared, leaving a bare `key:` (no value) so the line reads as an empty
+/// optional. Preserves the line's indentation and key; a no-op when the line is
+/// out of range or has no `:`. Used to set an optional scalar (e.g.
+/// `home.featured`) back to "unset" without writing an empty-string literal.
+String clearFieldLineValue(String rawYaml, int sourceLine) {
+  final lines = rawYaml.split('\n');
+  if (sourceLine < 0 || sourceLine >= lines.length) return rawYaml;
+  final line = lines[sourceLine];
+  final colon = line.indexOf(':');
+  if (colon < 0) return rawYaml;
+  lines[sourceLine] = line.substring(0, colon + 1);
+  return lines.join('\n');
+}
+
 /// Returns [rawYaml] with its component-level `groups:` block replaced by a
 /// canonical serialization of [groups] (§9 item 1), preserving every other line.
 ///
@@ -312,6 +349,58 @@ List<String> _serializeGroups(List<ContentGroup> groups) {
     out.add('    members: [$members]');
   }
   return out;
+}
+
+/// The top-level key holding the editable detailed-content scope (editor §9
+/// item 7): the component ids whose `/docs` + `/api` trees the site exposes.
+const String _detailedComponentsKey = 'detailedComponents';
+
+/// Returns [rawYaml] with the top-level `detailedComponents:` key set to a flow
+/// list of [ids] (editor §9 item 7).
+///
+/// Unlike [setFieldLineValue], this writes a YAML **list** (`[a, b]`) rather
+/// than a quoted scalar, so the value round-trips as a list. When the key
+/// already exists its 0-based [sourceLine] is given and the line is replaced in
+/// place (preserving a trailing comment); when [sourceLine] is `null` the key is
+/// inserted **before** `home:` — falling back to before `_generated:` and then
+/// the document end — so the editable scope reads near the other site-level
+/// fields rather than after the mechanical block.
+///
+/// An empty [ids] writes an explicit empty list (`[]`), which the website reads
+/// as "no detailed components" (distinct from removing the key, which falls back
+/// to the built-in default).
+String setDetailedComponentsLine(
+  String rawYaml,
+  int? sourceLine,
+  List<String> ids,
+) {
+  final lines = rawYaml.split('\n');
+  final encoded = '$_detailedComponentsKey: ${_encodeFlowList(ids)}';
+
+  if (sourceLine != null && sourceLine >= 0 && sourceLine < lines.length) {
+    final comment = _trailingComment(lines[sourceLine]);
+    lines[sourceLine] = comment.isEmpty ? encoded : '$encoded  $comment';
+    return lines.join('\n');
+  }
+
+  final insertAt = _topLevelKeyLine(lines, 'home') ??
+      _topLevelKeyLine(lines, _provenanceKey) ??
+      _appendIndex(lines);
+  lines.insert(insertAt, encoded);
+  return lines.join('\n');
+}
+
+/// Renders [ids] as a YAML flow list (`[a, b]`), quoting each id only when a
+/// bare scalar would be misread.
+String _encodeFlowList(List<String> ids) =>
+    '[${ids.map(_encodeScalar).join(', ')}]';
+
+/// Extracts a trailing YAML comment from [line] (a `#` preceded by whitespace,
+/// to its end), or `''` when there is none. Component ids never contain `#`, so
+/// the first whitespace-prefixed `#` after the flow list is the comment.
+String _trailingComment(String line) {
+  final match = RegExp(r'\s(#.*)$').firstMatch(line);
+  return match == null ? '' : match.group(1)!;
 }
 
 /// Renders [value] as a YAML flow scalar, quoting only when a bare scalar would

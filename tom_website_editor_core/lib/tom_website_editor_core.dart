@@ -11,6 +11,8 @@ export 'src/config/config_loader.dart';
 export 'src/config/config_schema.dart';
 export 'src/config/config_validator.dart';
 export 'src/config/field_spec.dart';
+export 'src/config/site_validator.dart';
+export 'src/model/site_config.dart';
 export 'src/model/website_editor_config.dart';
 export 'src/placeholder/placeholder_exception.dart';
 export 'src/placeholder/placeholder_resolver.dart';

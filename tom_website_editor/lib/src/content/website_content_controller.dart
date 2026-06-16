@@ -11,6 +11,7 @@ import 'content_group.dart';
 import 'content_page.dart';
 import 'content_parser.dart';
 import 'content_record.dart';
+import 'repo_doc.dart';
 import 'website_content_fs.dart';
 
 /// A parsed component file: its source [uri], the raw YAML [source] (kept for
@@ -110,7 +111,11 @@ class WebsiteContentController extends ChangeNotifier {
   List<ContentComponentDocument> _components = const [];
   List<ContentCopyDocument> _copyFiles = const [];
   List<ContentPageDocument> _pages = const [];
+  Map<String, List<RepoDocRef>> _repoDocs = const {};
   Uri? _siteFile;
+  String? _siteSource;
+  SiteConfig? _siteConfig;
+  List<ConfigIssue> _siteIssues = const [];
   bool _isLoading = false;
   String? _error;
 
@@ -148,8 +153,31 @@ class WebsiteContentController extends ChangeNotifier {
   /// The parsed standalone page files (`pages/*.md`, §9 item 3), sorted by path.
   List<ContentPageDocument> get pages => List.unmodifiable(_pages);
 
+  /// The repo-sourced docs (`README` / `LICENSE` / `release.md`, §9 item 5)
+  /// discovered for the record with [recordId] — a component or one of its
+  /// modules/submodules. Resolved server-side from the website's `sourceRoot`
+  /// (not from `content/`), these are read-only provenance: the browser shows
+  /// them badged read-only and never offers them for inline edit or pinning.
+  ///
+  /// Empty when the record has no source path, no `README`/`LICENSE`/`release`
+  /// in its repo root, or when the website configures no `sourceRoot`.
+  List<RepoDocRef> repoDocsFor(String recordId) =>
+      _repoDocs[recordId] ?? const [];
+
   /// The site-level copy file (`site.yaml`), or `null` when it is absent.
   Uri? get siteFile => _siteFile;
+
+  /// The parsed, validated `site.yaml` model (§9 item 4), or `null` when the
+  /// site file is absent or could not be parsed. Surfaces the home page's
+  /// [SiteConfig.featured] component (blank = no featured component) so the §6a
+  /// site pane can show and edit it without hand-editing YAML.
+  SiteConfig? get siteConfig => _siteConfig;
+
+  /// Validation issues for the current `site.yaml` (errors and warnings). An
+  /// empty or absent `home.featured` validates green; a featured pointing at an
+  /// unknown component id is a non-fatal warning. Empty when the file is healthy
+  /// or absent.
+  List<ConfigIssue> get siteIssues => List.unmodifiable(_siteIssues);
 
   /// `true` while a refresh is in flight.
   bool get isLoading => _isLoading;
@@ -173,7 +201,8 @@ class WebsiteContentController extends ChangeNotifier {
       _components = const [];
       _copyFiles = const [];
       _pages = const [];
-      _siteFile = null;
+      _repoDocs = const {};
+      _clearSite();
       _error = null;
       notifyListeners();
       return;
@@ -196,14 +225,16 @@ class WebsiteContentController extends ChangeNotifier {
 
       _components = await _loadComponents(dirUri, content);
       _copyFiles = await _loadCopyFiles(dirUri, content);
-      _siteFile = await _resolveSite(dirUri, content);
+      await _loadSite(dirUri, content);
       _pages = await _loadPages(dirUri, content);
+      _repoDocs = await _loadRepoDocs(resolver, website);
       _error = null;
     } on PlaceholderException catch (e) {
       _components = const [];
       _copyFiles = const [];
       _pages = const [];
-      _siteFile = null;
+      _repoDocs = const {};
+      _clearSite();
       _error = e.message;
     } finally {
       _isLoading = false;
@@ -252,9 +283,122 @@ class WebsiteContentController extends ChangeNotifier {
     return docs;
   }
 
-  Future<Uri?> _resolveSite(Uri dirUri, WebsiteContentConfig content) async {
+  /// Resolves, reads, and parses `site.yaml` (§9 item 4) into [_siteConfig],
+  /// validating `home.featured` against the loaded component ids so an unknown
+  /// id surfaces as a warning. Clears the site state when the file is absent.
+  Future<void> _loadSite(Uri dirUri, WebsiteContentConfig content) async {
     final siteUri = dirUri.resolve(content.site);
-    return await _fs.exists(siteUri) ? siteUri : null;
+    if (!await _fs.exists(siteUri)) {
+      _clearSite();
+      return;
+    }
+    final source = await _fs.read(siteUri);
+    final result = loadSiteConfig(source, knownComponentIds: _componentIds);
+    _siteFile = siteUri;
+    _siteSource = source;
+    _siteConfig = result.config;
+    _siteIssues = result.issues;
+  }
+
+  /// Clears every cached `site.yaml` field (used when the file is absent or the
+  /// catalog is reset).
+  void _clearSite() {
+    _siteFile = null;
+    _siteSource = null;
+    _siteConfig = null;
+    _siteIssues = const [];
+  }
+
+  /// The ids of the currently loaded components — the valid targets for
+  /// `home.featured`.
+  Set<String> get _componentIds =>
+      {for (final doc in _components) doc.record.id};
+
+  /// Sets (or clears) the home page's featured component (§9 item 4).
+  ///
+  /// A non-empty [componentId] writes `home.featured: <id>`; a `null` or blank
+  /// [componentId] clears the value back to a bare `featured:` key (the site
+  /// then renders the flat components grid). The change is written to disk and
+  /// the model is re-parsed + re-validated in place.
+  ///
+  /// Returns `false` (no write) when there is no `site.yaml`, when the file has
+  /// no `home.featured` key to edit, or when the value is unchanged. Setting an
+  /// unknown component id still succeeds (the value loads as a non-fatal
+  /// warning), so the editor never blocks a hand-chosen id.
+  Future<bool> setSiteFeatured(String? componentId) async {
+    final source = _siteSource;
+    final config = _siteConfig;
+    final uri = _siteFile;
+    if (source == null || config == null || uri == null) return false;
+    final sourceLine = config.featuredSourceLine;
+    if (sourceLine == null) return false;
+
+    final id = componentId?.trim();
+    final desired = (id == null || id.isEmpty) ? null : id;
+    if (desired == config.featured) return false;
+
+    final updated = desired == null
+        ? clearFieldLineValue(source, sourceLine)
+        : setFieldLineValue(source, sourceLine, desired);
+    if (updated == source) return false;
+
+    await writeFile(uri, updated);
+    final result = loadSiteConfig(updated, knownComponentIds: _componentIds);
+    _siteSource = updated;
+    _siteConfig = result.config;
+    _siteIssues = result.issues;
+    notifyListeners();
+    return true;
+  }
+
+  /// Sets the detailed-content scope — the components whose `/docs` + `/api`
+  /// trees the site exposes (§9 item 7) — to [ids].
+  ///
+  /// Writes `detailedComponents: [a, b]`, replacing the key in place when it
+  /// already exists or inserting it (before `home:`) when it is absent, so a
+  /// `site.yaml` that has not adopted the key can still be edited. An empty
+  /// [ids] writes an explicit empty list (the site then exposes no detailed
+  /// content), which is distinct from removing the key (the built-in default).
+  /// The change is written to disk and the model is re-parsed + re-validated in
+  /// place. Setting an unknown id still succeeds (it loads as a non-fatal
+  /// warning), so the editor never blocks a hand-chosen scope.
+  ///
+  /// Returns `false` (no write) when there is no `site.yaml` or when the
+  /// resulting list is unchanged.
+  Future<bool> setSiteDetailedComponents(List<String> ids) async {
+    final source = _siteSource;
+    final config = _siteConfig;
+    final uri = _siteFile;
+    if (source == null || config == null || uri == null) return false;
+
+    final desired = [
+      for (final id in ids)
+        if (id.trim().isNotEmpty) id.trim(),
+    ];
+    final current = config.detailedComponents;
+    if (current != null && _sameList(current, desired)) return false;
+
+    final updated = setDetailedComponentsLine(
+        source, config.detailedComponentsSourceLine, desired);
+    if (updated == source) return false;
+
+    await writeFile(uri, updated);
+    final result = loadSiteConfig(updated, knownComponentIds: _componentIds);
+    _siteSource = updated;
+    _siteConfig = result.config;
+    _siteIssues = result.issues;
+    notifyListeners();
+    return true;
+  }
+
+  /// Order-sensitive equality of two id lists (the detailed-component list is an
+  /// ordered scope, so re-ordering is a real change worth persisting).
+  static bool _sameList(List<String> a, List<String> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
   }
 
   Future<List<ContentPageDocument>> _loadPages(
@@ -271,6 +415,67 @@ class WebsiteContentController extends ChangeNotifier {
           uri: uri, source: source, file: ContentCopyFile.parse(source)));
     }
     return docs;
+  }
+
+  /// Resolves the repo-sourced docs (§9 item 5) for every loaded component and
+  /// its modules/submodules, keyed by record id.
+  ///
+  /// The repo root for a record is its [ContentRecord.source] (`_generated.source`
+  /// for a component, the `path` field for a module) resolved against the
+  /// website's `{sourceRoot}` path. A website that configures no `sourceRoot`
+  /// simply has no repo docs — the missing placeholder is swallowed here (it is
+  /// not a content-tree error) and an empty map is returned.
+  Future<Map<String, List<RepoDocRef>>> _loadRepoDocs(
+    PlaceholderResolver resolver,
+    WebsiteEntry website,
+  ) async {
+    final String sourceRoot;
+    try {
+      sourceRoot = resolver.resolve('{sourceRoot}',
+          location: 'websites.${website.id}.paths.sourceRoot');
+    } on PlaceholderException {
+      return const {}; // No sourceRoot configured → no repo-sourced docs.
+    }
+    final base = _directoryUri(sourceRoot);
+    final docs = <String, List<RepoDocRef>>{};
+    for (final document in _components) {
+      await _collectRepoDocs(document.record, base, docs);
+    }
+    return docs;
+  }
+
+  /// Walks [record] and its children, reading each one's repo docs from
+  /// `base/<record.source>/` into [out] (keyed by record id). A record with no
+  /// source path, or whose repo root holds no README/LICENSE/release, adds no
+  /// entry.
+  Future<void> _collectRepoDocs(
+    ContentRecord record,
+    Uri base,
+    Map<String, List<RepoDocRef>> out,
+  ) async {
+    final source = record.source;
+    if (source != null && source.isNotEmpty) {
+      final dir = base.resolve(source.endsWith('/') ? source : '$source/');
+      final refs = await _resolveRepoDocs(dir);
+      if (refs.isNotEmpty) out[record.id] = refs;
+    }
+    for (final child in record.children) {
+      await _collectRepoDocs(child, base, out);
+    }
+  }
+
+  /// Reads the README / LICENSE / release.md present directly under repo-root
+  /// [dir], in display order, matching the website's `repo_docs_loader`
+  /// (case- and extension-tolerant). An absent directory yields no docs.
+  Future<List<RepoDocRef>> _resolveRepoDocs(Uri dir) async {
+    if (!await _fs.exists(dir)) return const [];
+    final files = await _fs.listFiles(dir);
+    final refs = <RepoDocRef>[];
+    for (final kind in RepoDocKind.values) {
+      final uri = pickRepoDocFile(files, kind.stem);
+      if (uri != null) refs.add(RepoDocRef(kind: kind, uri: uri));
+    }
+    return refs;
   }
 
   /// Pins [field] of [document] with the configured `# @manual` marker so the

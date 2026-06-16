@@ -236,6 +236,31 @@ Future<(WebsiteContentController, _FakeContentFs)> _loadedSiteCopy() async {
   return (controller, fs);
 }
 
+/// Loads a website whose `content/copy/` holds the full §16 copy spread: the
+/// site-level files, per-entity component/module/submodule/area copy, and one
+/// non-convention ("loose") file — so the enumeration tests can prove that
+/// every copy file reaches the §6a tree (none is silently dropped).
+Future<(WebsiteContentController, _FakeContentFs)> _loadedAllCopy() async {
+  final editor = WebsiteEditorController(configReader: () async => _config);
+  await editor.load();
+  final fs = _FakeContentFs({
+    Uri.file('/sites/a/content/components/button.yaml'): _button,
+    Uri.file('/sites/a/content/site.yaml'): 'title: Alpha\n',
+    Uri.file('/sites/a/content/copy/home.md'): '# Home\n',
+    Uri.file('/sites/a/content/copy/news.md'): '# News\n',
+    Uri.file('/sites/a/content/copy/button_component.md'): '# Button\n',
+    Uri.file('/sites/a/content/copy/auth_login_module.md'): '# Login\n',
+    Uri.file('/sites/a/content/copy/auth_login_basic_submodule.md'): '# Basic\n',
+    Uri.file('/sites/a/content/copy/marketing_area.md'): '# Marketing\n',
+    // A non-convention name: must still surface (never dropped).
+    Uri.file('/sites/a/content/copy/orphan.md'): '# Orphan\n',
+  });
+  final controller =
+      WebsiteContentController(editor: editor, fileSystem: fs);
+  await controller.refresh();
+  return (controller, fs);
+}
+
 /// A standalone page with `title` / `route` front-matter above a region-aware
 /// body (§9 item 3) — the `impressum.md` case the spec calls out.
 const _impressum = '''
@@ -259,6 +284,79 @@ Future<(WebsiteContentController, _FakeContentFs)> _loadedPage() async {
     Uri.file('/sites/a/content/components/button.yaml'): _button,
     Uri.file('/sites/a/content/site.yaml'): 'title: Alpha\n',
     Uri.file('/sites/a/content/pages/impressum.md'): _impressum,
+  });
+  final controller =
+      WebsiteContentController(editor: editor, fileSystem: fs);
+  await controller.refresh();
+  return (controller, fs);
+}
+
+/// A site.yaml whose home page ships with no featured component: `home.featured:`
+/// is present but blank, so the components page renders the flat grid (§9 item 4).
+const _siteBlankFeatured = '''
+title: Alpha Site
+tagline-md: A demo site.
+home:
+  featured:
+''';
+
+/// Loads the browser with two real components (button, card) and a [site]
+/// config, so the §6a site pane can offer them as featured-component targets.
+Future<(WebsiteContentController, _FakeContentFs)> _loadedSiteConfig({
+  String site = _siteBlankFeatured,
+}) async {
+  final editor = WebsiteEditorController(configReader: () async => _config);
+  await editor.load();
+  final fs = _FakeContentFs({
+    Uri.file('/sites/a/content/components/button.yaml'): _button,
+    Uri.file('/sites/a/content/components/card.yaml'): _cardTree,
+    Uri.file('/sites/a/content/site.yaml'): site,
+  });
+  final controller =
+      WebsiteContentController(editor: editor, fileSystem: fs);
+  await controller.refresh();
+  return (controller, fs);
+}
+
+// A config whose website declares a `sourceRoot` path (§9 item 5): the base the
+// repo-sourced README/LICENSE/release docs resolve against.
+const _configWithSource = '''
+version: 1
+websites:
+  - id: alpha
+    label: Alpha
+    paths:
+      websiteRoot: "/sites/a"
+      sourceRoot: "/src"
+    content:
+      dir: "{websiteRoot}/content"
+''';
+
+// A component whose module `Primary` has a repo root (`path:`) carrying all
+// three repo docs — the QA case for §9 item 5.
+const _widgetsRepoDocs = '''
+_generated:
+  source: pkg/widgets
+  generator: gen.dart
+id: widgets
+name: Widgets
+modules:
+  - id: primary
+    name: Primary
+    path: pkg/widgets/primary
+''';
+
+/// Loads the browser with a component whose `Primary` module's repo root holds
+/// a README, a LICENSE, and a release.md (§9 item 5).
+Future<(WebsiteContentController, _FakeContentFs)> _loadedRepoDocs() async {
+  final editor =
+      WebsiteEditorController(configReader: () async => _configWithSource);
+  await editor.load();
+  final fs = _FakeContentFs({
+    Uri.file('/sites/a/content/components/widgets.yaml'): _widgetsRepoDocs,
+    Uri.file('/src/pkg/widgets/primary/README.md'): '# Primary',
+    Uri.file('/src/pkg/widgets/primary/LICENSE'): 'BSD-3-Clause',
+    Uri.file('/src/pkg/widgets/primary/release.md'): '# 1.0.0',
   });
   final controller =
       WebsiteContentController(editor: editor, fileSystem: fs);
@@ -392,7 +490,15 @@ void main() {
     // Select site.yaml (tap opens once), then use the detail-pane button.
     await tester.tap(find.text('site.yaml'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, 'Open in editor'));
+    // The button sits at the bottom of the (scrollable) site pane, below the
+    // detailed-components editor, so scroll it into view before tapping.
+    final openButton = find.widgetWithText(FilledButton, 'Open in editor');
+    await tester.dragUntilVisible(
+      openButton,
+      find.byKey(const ValueKey('site-detailed-components')),
+      const Offset(0, -100),
+    );
+    await tester.tap(openButton);
     await tester.pumpAndSettle();
 
     expect(opened, [
@@ -871,6 +977,58 @@ void main() {
     expect(find.textContaining('Site-level copy'), findsOneWidget);
   });
 
+  // TWE-BROWSE-43: every copy file in content/copy/ is enumerated in the tree —
+  // the site-level home/news files plus the per-entity component / module /
+  // submodule / area copy AND a non-convention ("loose") file — so no copy file
+  // is ever silently dropped (mirrors the §6b structure explorer completeness).
+  testWidgets('TWE-BROWSE-43: the tree enumerates every copy file',
+      (tester) async {
+    final (controller, _) = await _loadedAllCopy();
+    await _pumpTall(tester, WebsiteContentBrowser(controller: controller));
+
+    // Site-level copy stays under its own key/subtitle.
+    expect(find.byKey(const ValueKey('site-copy-home.md')), findsOneWidget);
+    expect(find.byKey(const ValueKey('site-copy-news.md')), findsOneWidget);
+    // Per-entity / area / loose copy each get a tree tile.
+    expect(find.byKey(const ValueKey('copy-button_component.md')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('copy-auth_login_module.md')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('copy-auth_login_basic_submodule.md')),
+        findsOneWidget);
+    expect(
+        find.byKey(const ValueKey('copy-marketing_area.md')), findsOneWidget);
+    expect(find.byKey(const ValueKey('copy-orphan.md')), findsOneWidget);
+    // Each tile's subtitle names what the file is copy for.
+    expect(find.text('Component copy · button'), findsOneWidget);
+    expect(find.text('Module copy · auth › login'), findsOneWidget);
+    expect(find.text('Submodule copy · auth › login › basic'), findsOneWidget);
+    expect(find.text('Area copy · marketing'), findsOneWidget);
+    expect(find.text('Copy file (non-standard name)'), findsOneWidget);
+  });
+
+  // TWE-BROWSE-44: tapping a per-entity copy file opens it through the seam and
+  // the detail pane names the entity it documents (not "Site-level copy").
+  testWidgets('TWE-BROWSE-44: tapping per-entity copy opens it and names it',
+      (tester) async {
+    final (controller, _) = await _loadedAllCopy();
+    final opened = <Uri>[];
+    final view = WebsiteContentBrowser(
+      controller: controller,
+      onOpenFile: opened.add,
+    );
+    await _pumpTall(tester, view);
+
+    await tester
+        .tap(find.byKey(const ValueKey('copy-auth_login_module.md')));
+    await tester.pumpAndSettle();
+
+    expect(opened, [Uri.file('/sites/a/content/copy/auth_login_module.md')]);
+    expect(find.textContaining('Module copy for "auth › login"'),
+        findsOneWidget);
+    expect(find.textContaining('Site-level copy'), findsNothing);
+  });
+
   // TWE-BROWSE-32: selecting a standalone page surfaces its title / route
   // front-matter as editable inline fields (§9 item 3). The route is also shown
   // in the tree so the page's URL is visible without opening the pane.
@@ -917,5 +1075,227 @@ void main() {
     expect(onDisk, contains('Hand-authored legal text.'));
     expect(onDisk, contains('<!-- @tom:managed -->'));
     expect(onDisk, contains('Generated footer.'));
+  });
+
+  // TWE-BROWSE-34: the site.yaml pane offers a featured-component picker and a
+  // live validation status. A blank `home.featured` is "(none)" and valid (§9
+  // item 4) — the components page renders the flat grid.
+  testWidgets('TWE-BROWSE-34: site pane shows the featured picker, valid green',
+      (tester) async {
+    final (controller, _) = await _loadedSiteConfig();
+    await _pumpTall(tester, WebsiteContentBrowser(controller: controller));
+
+    await tester.tap(find.text('site.yaml'));
+    await tester.pumpAndSettle();
+
+    // The picker is present and reads "(none)" (no featured component set).
+    expect(find.byKey(const ValueKey('site-featured-dropdown')), findsOneWidget);
+    expect(find.text('(none)'), findsOneWidget);
+    // The empty featured validates green.
+    expect(find.byKey(const ValueKey('site-validation-ok')), findsOneWidget);
+    // Title is shown for context.
+    expect(find.text('Alpha Site'), findsOneWidget);
+  });
+
+  // TWE-BROWSE-35: choosing a real component from the picker writes
+  // `home.featured: <id>` to disk and re-validates green.
+  testWidgets('TWE-BROWSE-35: picking a component writes home.featured',
+      (tester) async {
+    final (controller, fs) = await _loadedSiteConfig();
+    final uri = Uri.file('/sites/a/content/site.yaml');
+    await _pumpTall(tester, WebsiteContentBrowser(controller: controller));
+
+    await tester.tap(find.text('site.yaml'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('site-featured-dropdown')));
+    await tester.pumpAndSettle();
+    // The dropdown lists the site's real component ids (button, card).
+    await tester.tap(find.text('button').last);
+    await tester.pumpAndSettle();
+
+    expect(fs.files[uri], contains('featured: button'));
+    // Other fields survive the line-precise edit.
+    expect(fs.files[uri], contains('title: Alpha Site'));
+    // A real component still validates green.
+    expect(find.byKey(const ValueKey('site-validation-ok')), findsOneWidget);
+  });
+
+  // TWE-BROWSE-36: an unknown featured id loads (the value is selectable and
+  // marked "(unknown)") and surfaces a non-fatal warning, never an error.
+  testWidgets('TWE-BROWSE-36: an unknown featured id is a selectable warning',
+      (tester) async {
+    final (controller, _) = await _loadedSiteConfig(site: '''
+title: Alpha Site
+home:
+  featured: ghost
+''');
+    await _pumpTall(tester, WebsiteContentBrowser(controller: controller));
+
+    await tester.tap(find.text('site.yaml'));
+    await tester.pumpAndSettle();
+
+    // The unknown id is still selectable (so it is not silently dropped) and is
+    // labelled as unknown.
+    expect(find.text('ghost (unknown)'), findsOneWidget);
+    // It surfaces as a warning row, not the green "valid" line.
+    expect(find.byKey(const ValueKey('site-validation-issues')), findsOneWidget);
+    expect(find.byKey(const ValueKey('site-validation-ok')), findsNothing);
+  });
+
+  // TWE-BROWSE-37: clearing the featured back to "(none)" leaves a blank key on
+  // disk and re-validates green.
+  testWidgets('TWE-BROWSE-37: clearing the featured writes a blank key',
+      (tester) async {
+    final (controller, fs) = await _loadedSiteConfig(site: '''
+title: Alpha Site
+home:
+  featured: button
+''');
+    final uri = Uri.file('/sites/a/content/site.yaml');
+    await _pumpTall(tester, WebsiteContentBrowser(controller: controller));
+
+    await tester.tap(find.text('site.yaml'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('site-featured-dropdown')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('(none)').last);
+    await tester.pumpAndSettle();
+
+    expect(fs.files[uri], contains('featured:'));
+    expect(fs.files[uri], isNot(contains('featured: button')));
+    expect(find.byKey(const ValueKey('site-validation-ok')), findsOneWidget);
+  });
+
+  // TWE-BROWSE-40 (§9 item 7): the site pane exposes a detailed-docs/API chip
+  // editor — one chip per real component (button, card), selected when the
+  // component is in the `detailedComponents` scope.
+  testWidgets('TWE-BROWSE-40: site pane shows the detailed-components chips',
+      (tester) async {
+    final (controller, _) = await _loadedSiteConfig(site: '''
+title: Alpha Site
+detailedComponents: [button]
+''');
+    await _pumpTall(tester, WebsiteContentBrowser(controller: controller));
+
+    await tester.tap(find.text('site.yaml'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('site-detailed-components')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('site-detailed-chip-button')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('site-detailed-chip-card')),
+        findsOneWidget);
+  });
+
+  // TWE-BROWSE-41: toggling a chip on writes the expanded list to site.yaml and
+  // re-parses in place.
+  testWidgets('TWE-BROWSE-41: toggling a chip persists the new scope',
+      (tester) async {
+    final (controller, fs) = await _loadedSiteConfig(site: '''
+title: Alpha Site
+detailedComponents: [button]
+''');
+    final uri = Uri.file('/sites/a/content/site.yaml');
+    await _pumpTall(tester, WebsiteContentBrowser(controller: controller));
+
+    await tester.tap(find.text('site.yaml'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('site-detailed-chip-card')));
+    await tester.pumpAndSettle();
+
+    expect(fs.files[uri], contains('detailedComponents: [button, card]'));
+    expect(controller.siteConfig!.detailedComponents, ['button', 'card']);
+  });
+
+  // TWE-BROWSE-42: when site.yaml has no detailedComponents key, toggling a chip
+  // inserts the key (the scope becomes explicit).
+  testWidgets('TWE-BROWSE-42: toggling a chip inserts the key when absent',
+      (tester) async {
+    // _siteBlankFeatured ships with no detailedComponents key.
+    final (controller, fs) = await _loadedSiteConfig();
+    final uri = Uri.file('/sites/a/content/site.yaml');
+    await _pumpTall(tester, WebsiteContentBrowser(controller: controller));
+
+    await tester.tap(find.text('site.yaml'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('site-detailed-chip-button')));
+    await tester.pumpAndSettle();
+
+    expect(fs.files[uri], contains('detailedComponents: [button]'));
+    expect(controller.siteConfig!.detailedComponents, ['button']);
+  });
+
+  // TWE-BROWSE-38 (§9 item 5 QA): a module whose repo root carries a README, a
+  // LICENSE, and a release.md shows all three in a read-only "Repository
+  // documents" section, each badged repo-sourced, with no edit/pin affordance.
+  testWidgets(
+      'TWE-BROWSE-38: a module README/LICENSE/release show badged read-only',
+      (tester) async {
+    final (controller, _) = await _loadedRepoDocs();
+    await _pumpTall(tester, WebsiteContentBrowser(controller: controller));
+
+    // Select the Primary module (its repo root holds all three docs).
+    await tester.tap(find.text('Primary'));
+    await tester.pumpAndSettle();
+
+    // The read-only section is present with all three doc rows and badges.
+    expect(find.byKey(const ValueKey('repo-docs-primary')), findsOneWidget);
+    for (final kind in ['readme', 'license', 'release']) {
+      expect(find.byKey(ValueKey('repo-doc-primary-$kind')), findsOneWidget);
+      expect(find.byKey(ValueKey('repo-doc-badge-primary-$kind')),
+          findsOneWidget);
+    }
+    // Each badge reads "repo-sourced" (three rows).
+    expect(find.text('repo-sourced'), findsNWidgets(3));
+    // The discovered file name is surfaced for navigation: README's row shows
+    // both the kind label ("README") and the actual file name ("README.md").
+    expect(find.text('README'), findsOneWidget);
+    expect(find.text('README.md'), findsOneWidget);
+    // LICENSE / release.md: label and file name coincide, so each appears
+    // twice (the kind label row + the monospace file-name line).
+    expect(find.text('LICENSE'), findsNWidgets(2));
+    expect(find.text('release.md'), findsNWidgets(2));
+
+    // These are never offered for inline edit or pinning: the repo-docs section
+    // carries no inline editor, no Pin/Unpin button, and no Open affordance.
+    final section = find.byKey(const ValueKey('repo-docs-primary'));
+    expect(find.descendant(of: section, matching: find.byType(TextField)),
+        findsNothing);
+    expect(
+        find.descendant(of: section, matching: find.widgetWithText(TextButton, 'Pin')),
+        findsNothing);
+    expect(
+        find.descendant(of: section, matching: find.byType(OutlinedButton)),
+        findsNothing);
+  });
+
+  // TWE-BROWSE-39 (§9 item 6 QA): the managed `status` field surfaces the
+  // maturity-ladder help in place, and that help names the `release.md` release
+  // marker (never the old `RELEASED.md`).
+  testWidgets('TWE-BROWSE-39: status field help names release.md, not RELEASED.md',
+      (tester) async {
+    final (controller, _) = await _loaded();
+    await _pumpTall(tester, WebsiteContentBrowser(controller: controller));
+
+    await tester.tap(find.text('Button'));
+    await tester.pumpAndSettle();
+
+    // The ladder hint is shown inline under the status field.
+    expect(find.byKey(const ValueKey('status-ladder-hint')), findsOneWidget);
+    // Its text names the release.md marker and the maturity ladder.
+    expect(kStatusLadderHelp, contains('release.md'));
+    expect(kStatusLadderHelp, isNot(contains('RELEASED.md')));
+    expect(kStatusLadderHelp, contains('released'));
+    expect(find.text(kStatusLadderHelp), findsOneWidget);
+    // The same text is the hint's tooltip (visible on hover too).
+    final tooltip = tester.widget<Tooltip>(find.descendant(
+        of: find.byKey(const ValueKey('status-ladder-hint')),
+        matching: find.byType(Tooltip)));
+    expect(tooltip.message, contains('release.md'));
   });
 }
