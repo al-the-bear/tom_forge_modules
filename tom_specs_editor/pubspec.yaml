@@ -29,6 +29,10 @@ dependencies:
   tom_core_agentic:
     path: ../../tom_ai/core/tom_core_agentic
 
+  # Structural-review persistence (YAML) and review-file path resolution.
+  yaml: ^3.1.2
+  path: ^1.9.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

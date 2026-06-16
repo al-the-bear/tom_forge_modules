@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
+import 'spec_structure_module.dart';
 import 'specs_shell_module.dart';
 
 /// Root widget for the TomSpecs Editor.
@@ -25,6 +26,7 @@ class SpecsEditorApp extends StatefulWidget {
 class _SpecsEditorAppState extends State<SpecsEditorApp> {
   final _navigatorKey = GlobalKey<NavigatorState>();
   late final DefaultShellApi _shell;
+  late final SpecStructureModule _structureModule;
   late final SpecsShellModule _shellModule;
   late ForgeApplication _application;
 
@@ -37,8 +39,18 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
       navigatorKey: _navigatorKey,
     );
 
-    // The shell module registers the three applications and selects DocSpecs.
-    _shellModule = SpecsShellModule();
+    // The structure module owns the structure browser + review store; it is
+    // registered first so its view exists before the shell builds the DocSpecs
+    // layout that hosts it as a panel tab.
+    _structureModule = SpecStructureModule();
+    _structureModule.activate(_shell);
+    (_shell.modules as DefaultModuleRegistry).register(_structureModule);
+
+    // The shell module registers the three applications and selects DocSpecs,
+    // hosting the structure view as the DocSpecs left panel's "Structure" tab.
+    _shellModule = SpecsShellModule(
+      structureView: _structureModule.structureView,
+    );
     _shellModule.activate(_shell);
     (_shell.modules as DefaultModuleRegistry).register(_shellModule);
 

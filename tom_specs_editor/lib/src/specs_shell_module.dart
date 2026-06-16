@@ -19,7 +19,13 @@ import 'placeholder_components.dart';
 /// document editor"). The real `SpecDocumentEditor`, structure browser, chat
 /// suite, and change log arrive in later steps (10–18).
 class SpecsShellModule extends ForgeModule {
-  SpecsShellModule();
+  SpecsShellModule({this.structureView});
+
+  /// The structure browser view (from [SpecStructureModule]), hosted as the
+  /// DocSpecs left panel's "Structure" tab when provided (§5 — left panel's
+  /// optional second tab = the document/section explorer). Null in the bare
+  /// skeleton tests that predate step 10.
+  final ForgeView? structureView;
 
   final List<ForgeView> _views = [];
   final List<ForgeEditor> _editors = [];
@@ -152,6 +158,12 @@ class SpecsShellModule extends ForgeModule {
               icon: Icons.account_tree_outlined,
               sections: [navigator],
             ),
+            if (structureView != null)
+              PanelTabConfig(
+                title: 'Structure',
+                icon: Icons.account_tree,
+                sections: [structureView!],
+              ),
           ],
         ),
         rightPanel: PanelConfig(
