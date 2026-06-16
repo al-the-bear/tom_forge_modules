@@ -1,13 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
+import 'specs_shell_module.dart';
+
 /// Root widget for the TomSpecs Editor.
 ///
-/// Step 8 (scaffold) launches a **blank Forge shell**: an in-memory
-/// [DefaultShellApi] and an empty [ForgeApplication] rendered through the
-/// standard [ForgeShellScaffold]. No custom modules or panels are wired yet —
-/// the `SpecsShellModule` and the 4-region DocSpecs layout arrive in step 9,
-/// and the spec-specific editors/views in later steps.
+/// Step 9 registers the [SpecsShellModule], which contributes the three
+/// top-level applications (DocSpecs / CodeSpecs / Implementation) and their
+/// 4-region layouts (§4.2, §5). DocSpecs is shown on launch and is the only
+/// functional one — its four regions are populated with placeholder
+/// views/editors. The shell toolbar's application switcher lets the user move
+/// between the three; selecting one calls [onApplicationSwitch], which
+/// re-renders the scaffold with the chosen application's layout.
+///
+/// The spec-specific editors/views (structure browser, document editor, chat
+/// suite, change log) arrive in later steps (10–18).
 class SpecsEditorApp extends StatefulWidget {
   const SpecsEditorApp({super.key});
 
@@ -18,7 +25,8 @@ class SpecsEditorApp extends StatefulWidget {
 class _SpecsEditorAppState extends State<SpecsEditorApp> {
   final _navigatorKey = GlobalKey<NavigatorState>();
   late final DefaultShellApi _shell;
-  late final ForgeApplication _application;
+  late final SpecsShellModule _shellModule;
+  late ForgeApplication _application;
 
   @override
   void initState() {
@@ -28,15 +36,14 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
       appName: 'TomSpecs Editor',
       navigatorKey: _navigatorKey,
     );
-    _application = ForgeApplication(
-      title: 'TomSpecs Editor',
-      layout: const ApplicationLayout(
-        leftPanel: PanelConfig(initialSize: 250, tabs: []),
-        rightPanel: PanelConfig(initialSize: 220, tabs: []),
-        bottomPanel: PanelConfig(initialSize: 180, tabs: []),
-        middlePanels: [MiddlePanelConfig()],
-      ),
-    );
+
+    // The shell module registers the three applications and selects DocSpecs.
+    _shellModule = SpecsShellModule();
+    _shellModule.activate(_shell);
+    (_shell.modules as DefaultModuleRegistry).register(_shellModule);
+
+    // Start on DocSpecs — the one functional application.
+    _application = _shellModule.docSpecs;
   }
 
   // The shell owns app-lifetime layout/system notifiers that the
@@ -65,6 +72,8 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
         statusBarController: _shell.statusBar,
         notificationManager:
             _shell.notifications as DefaultNotificationManager,
+        onApplicationSwitch: (app) =>
+            setState(() => _application = app),
       ),
     );
   }

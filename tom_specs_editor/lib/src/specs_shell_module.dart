@@ -1,0 +1,199 @@
+import 'package:flutter/material.dart';
+import 'package:tom_forge_ui/tom_forge_ui.dart';
+
+import 'placeholder_components.dart';
+
+/// Bootstrap module for the TomSpecs Editor (§4.2).
+///
+/// Registers the three top-level [ForgeApplication]s — **DocSpecs**,
+/// **CodeSpecs**, **Implementation** — and the common 4-region layout
+/// skeleton (§5). The application switcher in the shell toolbar reads the
+/// registered set from [DefaultSystemState.applications]; selecting one calls
+/// the host's `onApplicationSwitch`, which re-renders the scaffold with the
+/// chosen application's layout.
+///
+/// Only **DocSpecs** is functional in step 9: its four regions are populated
+/// with placeholder views/editors so the layout is visible. CodeSpecs and
+/// Implementation reuse the same skeleton with an empty document editor
+/// (§5 — "CodeSpecs/Implementation apps reuse the skeleton with an empty
+/// document editor"). The real `SpecDocumentEditor`, structure browser, chat
+/// suite, and change log arrive in later steps (10–18).
+class SpecsShellModule extends ForgeModule {
+  SpecsShellModule();
+
+  final List<ForgeView> _views = [];
+  final List<ForgeEditor> _editors = [];
+  final List<ForgeApplication> _applications = [];
+
+  @override
+  String get displayName => 'TomSpecs Shell';
+
+  /// The DocSpecs application — the one shown on launch.
+  late final ForgeApplication docSpecs;
+
+  @override
+  void activate(ForgeShellApi shell) {
+    _buildApplications();
+    final systemState = shell.systemState as DefaultSystemState;
+    systemState.setApplications(_applications);
+    systemState.setActiveApplication(docSpecs);
+  }
+
+  void _buildApplications() {
+    docSpecs = _buildApp(
+      title: 'DocSpecs',
+      icon: Icons.description_outlined,
+      documentTitle: 'Document',
+      populated: true,
+    )..isActive = true;
+
+    final codeSpecs = _buildApp(
+      title: 'CodeSpecs',
+      icon: Icons.code_outlined,
+      documentTitle: 'CodeSpec',
+      populated: false,
+    );
+
+    final implementation = _buildApp(
+      title: 'Implementation',
+      icon: Icons.build_outlined,
+      documentTitle: 'Implementation',
+      populated: false,
+    );
+
+    _applications
+      ..clear()
+      ..addAll([docSpecs, codeSpecs, implementation]);
+  }
+
+  /// Builds one application with the common 4-region skeleton.
+  ///
+  /// When [populated] is false the middle Document split holds an empty
+  /// editor and the side/bottom panels carry no tabs — the reused skeleton
+  /// for CodeSpecs/Implementation until their content lands.
+  ForgeApplication _buildApp({
+    required String title,
+    required IconData icon,
+    required String documentTitle,
+    required bool populated,
+  }) {
+    // Middle split 1: the document editor. Always present so the editor
+    // region is never empty; CodeSpecs/Implementation get an empty stub.
+    final documentEditor = PlaceholderEditor(
+      title: documentTitle,
+      icon: Icons.article_outlined,
+      uri: Uri(scheme: 'specs', host: title.toLowerCase(), path: '/document'),
+    );
+    _editors.add(documentEditor);
+    final middlePanels = <MiddlePanelConfig>[
+      MiddlePanelConfig(
+        tabs: [MiddleTabConfig(editor: documentEditor)],
+      ),
+    ];
+
+    if (!populated) {
+      // CodeSpecs / Implementation: skeleton with an empty document editor and
+      // bare side/bottom panels (§5).
+      return ForgeApplication(
+        title: title,
+        icon: icon,
+        layout: ApplicationLayout(
+          leftPanel: const PanelConfig(initialSize: 250),
+          rightPanel: const PanelConfig(initialSize: 220),
+          bottomPanel: const PanelConfig(initialSize: 180),
+          middlePanels: middlePanels,
+        ),
+      );
+    }
+
+    // DocSpecs: the two further middle splits (Queue, Trail) plus all four
+    // surrounding regions, each populated with a labelled placeholder.
+    final queueEditor = PlaceholderEditor(
+      title: 'Prompt Queue',
+      icon: Icons.playlist_play_outlined,
+      uri: Uri(scheme: 'specs', host: 'docspecs', path: '/queue'),
+    );
+    final trailEditor = PlaceholderEditor(
+      title: 'Prompt Trail',
+      icon: Icons.history_outlined,
+      uri: Uri(scheme: 'specs', host: 'docspecs', path: '/trail'),
+    );
+    _editors..add(queueEditor)..add(trailEditor);
+    middlePanels.add(
+      MiddlePanelConfig(tabs: [MiddleTabConfig(editor: queueEditor)]),
+    );
+    middlePanels.add(
+      MiddlePanelConfig(tabs: [MiddleTabConfig(editor: trailEditor)]),
+    );
+
+    final navigator = PlaceholderView(
+      title: 'Navigator',
+      icon: Icons.account_tree_outlined,
+    );
+    final chat = PlaceholderView(
+      title: 'Chat',
+      icon: Icons.chat_bubble_outline,
+    );
+    final changeLog = PlaceholderView(
+      title: 'Change Log',
+      icon: Icons.rule_outlined,
+    );
+    _views..add(navigator)..add(chat)..add(changeLog);
+
+    return ForgeApplication(
+      title: title,
+      icon: icon,
+      layout: ApplicationLayout(
+        leftPanel: PanelConfig(
+          initialSize: 250,
+          tabs: [
+            PanelTabConfig(
+              title: 'Navigator',
+              icon: Icons.account_tree_outlined,
+              sections: [navigator],
+            ),
+          ],
+        ),
+        rightPanel: PanelConfig(
+          initialSize: 220,
+          tabs: [
+            PanelTabConfig(
+              title: 'Change Log',
+              icon: Icons.rule_outlined,
+              sections: [changeLog],
+            ),
+          ],
+        ),
+        bottomPanel: PanelConfig(
+          initialSize: 180,
+          tabs: [
+            PanelTabConfig(
+              title: 'Chat',
+              icon: Icons.chat_bubble_outline,
+              sections: [chat],
+            ),
+          ],
+        ),
+        middlePanels: middlePanels,
+      ),
+    );
+  }
+
+  @override
+  void deactivate() {}
+
+  @override
+  List<ForgeEditor> get editors => _editors;
+
+  @override
+  List<ForgeView> get views => _views;
+
+  @override
+  List<ForgeAction> get actions => const [];
+
+  @override
+  List<ForgeShortcutBinding> get shortcuts => const [];
+
+  @override
+  List<ForgeApplication> get applications => _applications;
+}
