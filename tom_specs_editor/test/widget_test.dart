@@ -4,12 +4,34 @@
 // SpecsShellModule: three registered applications (DocSpecs / CodeSpecs /
 // Implementation) with the 4-region layout, only DocSpecs functional.
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tom_core_agentic/tom_core_agentic.dart';
+import 'package:tom_forge_agentic/tom_forge_agentic.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
 import 'package:tom_specs_editor/src/specs_editor_app.dart';
 import 'package:tom_specs_editor/src/specs_shell_module.dart';
+
+/// An [AgentChatModule] whose controller scans a fixed table instead of opening
+/// real sockets, so the smoke test leaves no pending socket timers.
+AgentChatModule _fakeChatModule() {
+  final dir = Directory.systemTemp.createTempSync('tom_specs_editor_widget');
+  addTearDown(() {
+    if (dir.existsSync()) dir.deleteSync(recursive: true);
+  });
+  return AgentChatModule(
+    controller: AgentConnectionController(
+      service: BridgeConnectionService(
+        scanner: ({required host, required minPort, required maxPort}) async =>
+            const {19900: 'tom_agent_container'},
+      ),
+      store: BridgeChoiceStore(File('${dir.path}/bridge_connection.yaml')),
+    ),
+  );
+}
 
 void main() {
   testWidgets('SpecsEditorApp launches a Forge shell on DocSpecs', (
@@ -21,7 +43,7 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(1600, 1000));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    await tester.pumpWidget(const SpecsEditorApp());
+    await tester.pumpWidget(SpecsEditorApp(chatModule: _fakeChatModule()));
     await tester.pump();
 
     // The standard Forge shell scaffold is mounted — the app is a Forge shell,

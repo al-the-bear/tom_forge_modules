@@ -15,4 +15,8 @@
 /// the package and its wiring to `tom_core_agentic`.
 library;
 
+export 'src/agent_chat_module.dart';
+export 'src/agent_chat_view.dart';
 export 'src/agent_panel_placeholder.dart';
+export 'src/connection/agent_connection_controller.dart';
+export 'src/connection/agent_connection_picker.dart';

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tom_forge_agentic/tom_forge_agentic.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
 import 'spec_structure_module.dart';
@@ -17,7 +18,13 @@ import 'specs_shell_module.dart';
 /// The spec-specific editors/views (structure browser, document editor, chat
 /// suite, change log) arrive in later steps (10–18).
 class SpecsEditorApp extends StatefulWidget {
-  const SpecsEditorApp({super.key});
+  const SpecsEditorApp({super.key, this.chatModule});
+
+  /// The agent chat module hosting the bottom-panel connection picker. The
+  /// production app supplies its own (which scans 19900–19909 on launch);
+  /// tests inject one whose controller wraps a fake service so no real sockets
+  /// are opened.
+  final AgentChatModule? chatModule;
 
   @override
   State<SpecsEditorApp> createState() => _SpecsEditorAppState();
@@ -27,6 +34,7 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
   final _navigatorKey = GlobalKey<NavigatorState>();
   late final DefaultShellApi _shell;
   late final SpecStructureModule _structureModule;
+  late final AgentChatModule _chatModule;
   late final SpecsShellModule _shellModule;
   late ForgeApplication _application;
 
@@ -46,10 +54,19 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
     _structureModule.activate(_shell);
     (_shell.modules as DefaultModuleRegistry).register(_structureModule);
 
+    // The agent chat module owns the bridge connection picker; it is registered
+    // before the shell so its chat view exists when the DocSpecs bottom panel
+    // is built. Activation kicks off the port scan (19900–19909).
+    _chatModule = widget.chatModule ?? AgentChatModule();
+    _chatModule.activate(_shell);
+    (_shell.modules as DefaultModuleRegistry).register(_chatModule);
+
     // The shell module registers the three applications and selects DocSpecs,
-    // hosting the structure view as the DocSpecs left panel's "Structure" tab.
+    // hosting the structure view as the DocSpecs left panel's "Structure" tab
+    // and the agent chat view as the bottom panel's "Chat" tab.
     _shellModule = SpecsShellModule(
       structureView: _structureModule.structureView,
+      chatView: _chatModule.chatView,
     );
     _shellModule.activate(_shell);
     (_shell.modules as DefaultModuleRegistry).register(_shellModule);
