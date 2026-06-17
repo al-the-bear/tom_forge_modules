@@ -200,4 +200,21 @@ void main() {
       expect(find.byType(DropdownButton<String>), findsOneWidget);
     });
   });
+
+  group('code content routing (§13 l / OE-1)', () {
+    // The widget choice (summary-backed editor vs plain-text fallback) is
+    // exercised by the production path: `flutter build linux` embeds the .sum
+    // bundles and `_CodeField` renders the real editor when they are present.
+    // Here we pin the deterministic routing decision — which content types are
+    // treated as Dart/d4rt code — independent of asset availability.
+    test('isDartCodeContentType matches only Dart/d4rt code flavours', () {
+      expect(isDartCodeContentType('code'), isTrue);
+      expect(isDartCodeContentType('code-dart'), isTrue);
+      // Non-Dart code and prose stay plain text.
+      expect(isDartCodeContentType('code-sql'), isFalse);
+      expect(isDartCodeContentType('code-ddl'), isFalse);
+      expect(isDartCodeContentType('text'), isFalse);
+      expect(isDartCodeContentType(null), isFalse);
+    });
+  });
 }

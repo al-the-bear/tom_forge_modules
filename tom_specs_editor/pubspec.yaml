@@ -30,6 +30,12 @@ dependencies:
   tom_forge_agentic:
     path: ../tom_forge_agentic
 
+  # Summary-backed Dart code editor for code-typed (`@ContentType('code*')`)
+  # spec fields (§13 l / B1). Provides SDK-free analysis via the pre-generated
+  # `assets/summaries/*.sum` bundles (tom_specs_clitool/bin/summaries.dart).
+  tom_dart_editor:
+    path: ../tom_dart_editor
+
   # Non-UI agent layer: provider/model API, models, placeholder engine.
   tom_core_agentic:
     path: ../../tom_ai/core/tom_core_agentic
@@ -60,3 +66,10 @@ flutter:
     # `flutter pub get` (without a build) keeps a valid asset path; the generated
     # *.docspecs-schema.yaml files are gitignored build artifacts.
     - assets/docspecs-schema/
+    # Pre-generated analyzer summaries (sdk_summary.sum + packages.sum) embedded
+    # by the build (§17 step 4 / B1). The directory ships a committed .gitkeep so
+    # `flutter pub get` keeps a valid asset path; the heavy *.sum bundles are
+    # gitignored generated artifacts (their canonical committed home is the
+    # tom_binaries L2 layer — see OE-1 questions note). Code-typed fields detect
+    # their presence at runtime and fall back to a plain text field when absent.
+    - assets/summaries/
