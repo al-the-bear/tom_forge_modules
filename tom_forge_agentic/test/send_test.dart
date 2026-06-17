@@ -563,4 +563,116 @@ void main() {
       expect(transport.cancelled, contains(streamId));
     });
   });
+
+  group('AgentReconnectBanner modals (§6.1 steps 4–5, OE-8)', () {
+    const instantBackoff = [Duration.zero];
+
+    testWidgets(
+        'a different-workspace pause is a modal; Reconnect binds and resends',
+        (tester) async {
+      final transport = _ScriptedTransport(
+        (_) => [_assistant('on the other window'), _success('s-other')],
+      );
+      addTearDown(transport.dispose);
+
+      final connection = _reconnectConnection([
+        {19900: 'specs-ws'}, // initial pick
+        {19900: 'other-ws'}, // reconnect probe → different workspace
+      ]);
+      await connection.scan();
+      connection.bind(connection.servers.single);
+
+      var factoryCalls = 0;
+      final controller = AgentSendController(
+        connection: connection,
+        sessionStore: _tempSessionStore(),
+        reconnectBackoff: instantBackoff,
+        clientFactory: ({required host, required port}) async {
+          factoryCalls++;
+          if (factoryCalls == 1) throw StateError('bridge gone');
+          return AgentSdkClient(transport);
+        },
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: AgentSendPanel(controller: controller)),
+        ),
+      );
+
+      // Drive the send to the paused phase on the real event loop, then let the
+      // phase listener open the modal.
+      await tester.runAsync(() => controller.send('hello there'));
+      await tester.pumpAndSettle();
+
+      expect(controller.reconnectPhase,
+          ReconnectPhase.awaitingDifferentWorkspace);
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(find.textContaining('other-ws'), findsOneWidget);
+
+      // Tapping Reconnect confirms: bind the other workspace and re-send the
+      // prefixed prompt. The phase returning to idle dismisses the modal.
+      await tester.runAsync(() async {
+        await tester.tap(find.text('Reconnect'));
+        while (controller.sending ||
+            controller.reconnectPhase != ReconnectPhase.idle) {
+          await Future<void>.delayed(const Duration(milliseconds: 5));
+        }
+      });
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(connection.boundWorkspace, 'other-ws');
+      expect(controller.output, 'on the other window');
+      expect(
+        transport.started.single['prompt'],
+        startsWith(AgentProfile.defaultInterruptRetryPrefix),
+      );
+    });
+
+    testWidgets('a still-gone pause is a modal; Abort fails the send',
+        (tester) async {
+      final transport = _ScriptedTransport((_) => [_success('s')]);
+      addTearDown(transport.dispose);
+
+      final connection = _reconnectConnection([
+        {19900: 'specs-ws'}, // initial pick
+        <int, String>{}, // every probe → gone
+      ]);
+      await connection.scan();
+      connection.bind(connection.servers.single);
+
+      final controller = AgentSendController(
+        connection: connection,
+        sessionStore: _tempSessionStore(),
+        reconnectBackoff: instantBackoff,
+        clientFactory: ({required host, required port}) async =>
+            throw StateError('bridge gone'),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: AgentSendPanel(controller: controller)),
+        ),
+      );
+
+      await tester.runAsync(() => controller.send('keep this prompt'));
+      await tester.pumpAndSettle();
+
+      expect(controller.reconnectPhase, ReconnectPhase.awaitingStillGone);
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(find.text('Abort'), findsOneWidget);
+      expect(find.text('Retry'), findsOneWidget);
+
+      // Abort fails the send and dismisses the modal (the prompt was never
+      // re-sent).
+      await tester.tap(find.text('Abort'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(controller.error, isA<StateError>());
+      expect(controller.reconnectPhase, ReconnectPhase.idle);
+      expect(transport.started, isEmpty);
+    });
+  });
 }
