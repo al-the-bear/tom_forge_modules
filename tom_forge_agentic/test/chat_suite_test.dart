@@ -254,6 +254,61 @@ void main() {
       expect(trail.pairs.single.answer?.text, 'done!');
     });
 
+    test('compose expands the prompt before it is sent (§11.5)', () async {
+      final transport = _ScriptedTransport(
+        (_) => [_assistant('ack'), _success('s')],
+      );
+      addTearDown(transport.dispose);
+      final send = AgentSendController(
+        connection: _boundConnection(),
+        sessionStore: _tempSessionStore(),
+        clientFactory: ({required host, required port}) async =>
+            AgentSdkClient(transport),
+      );
+      final trail =
+          PromptTrailController(store: _tempTrailStore(), newId: _ids('t'));
+      final coordinator = ChatSendCoordinator(
+        send: send,
+        trail: trail,
+        compose: (raw) => raw.replaceAll('{{who}}', 'Alex'),
+      );
+
+      await coordinator.sendNow('hi {{who}}');
+
+      // The trail pair (the actual exchange) carries the *composed* request.
+      expect(trail.pairs.single.request.text, 'hi Alex');
+      expect(trail.pairs.single.answer?.text, 'ack');
+    });
+
+    test('a compose failure is a failed trail pair, not a crash or a send',
+        () async {
+      final transport = _ScriptedTransport((_) => [_success('s')]);
+      addTearDown(transport.dispose);
+      final send = AgentSendController(
+        connection: _boundConnection(),
+        sessionStore: _tempSessionStore(),
+        clientFactory: ({required host, required port}) async =>
+            AgentSdkClient(transport),
+      );
+      final trail =
+          PromptTrailController(store: _tempTrailStore(), newId: _ids('t'));
+      final coordinator = ChatSendCoordinator(
+        send: send,
+        trail: trail,
+        compose: (_) =>
+            throw PlaceholderExpressionsUnsupportedError('1 + 1'),
+      );
+
+      await coordinator.sendNow(r'compute ${{ 1 + 1 }}');
+
+      // The raw prompt is recorded with the unsupported-expression error; the
+      // transport was never queried (nothing streamed).
+      expect(trail.pairs.single.request.text, r'compute ${{ 1 + 1 }}');
+      expect(trail.pairs.single.answer?.text,
+          contains('PlaceholderExpressionsUnsupportedError'));
+      expect(send.output, isEmpty);
+    });
+
     test('retry re-dispatches an errored item to success', () async {
       // First dispatch errors; the retry succeeds.
       final transport = _ScriptedTransport(

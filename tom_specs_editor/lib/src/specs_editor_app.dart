@@ -1,9 +1,13 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
 import 'package:tom_core_agentic/tom_core_agentic.dart';
 import 'package:tom_forge_agentic/tom_forge_agentic.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
 import 'agent/agent_tools_module.dart';
+import 'agent/spec_prompt_composer.dart';
 import 'spec_structure_module.dart';
 import 'specs_shell_module.dart';
 import 'structure/review_store.dart';
@@ -103,7 +107,9 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
 
   /// Builds the production chat module whose send controller carries the §8
   /// tool server in its `mcpServers`. The connection and send controllers are
-  /// constructed explicitly so the same connection drives both.
+  /// constructed explicitly so the same connection drives both, and the
+  /// §11.5 placeholder composer is wired in so every sent prompt — from the
+  /// composer or the queue — has its placeholders expanded first.
   AgentChatModule _buildChatModule() {
     final connection = AgentConnectionController();
     final sendController = AgentSendController(
@@ -113,6 +119,19 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
     return AgentChatModule(
       controller: connection,
       sendController: sendController,
+      compose: _buildPromptComposer().compose,
+    );
+  }
+
+  /// Builds the §11.5 placeholder composer for the current workspace: the
+  /// quest is the workspace folder name, file-injections resolve against its
+  /// `_ai/` folder, and the user's persisted chat variables are bound.
+  SpecPromptComposer _buildPromptComposer() {
+    final workspace = Directory.current;
+    return SpecPromptComposer(
+      workspaceName: p.basename(workspace.path),
+      aiFolder: Directory(p.join(workspace.path, '_ai')),
+      variables: ChatVariableStore.resolveDefault().load(),
     );
   }
 
