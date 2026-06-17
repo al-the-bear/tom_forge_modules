@@ -1,4 +1,9 @@
 import 'package:flutter/foundation.dart';
+import 'package:tom_editors_shared/tom_editors_shared.dart'
+    show StandardEditingActions;
+import 'package:tom_forge_agentic/tom_forge_agentic.dart';
+import 'package:tom_forge_ui/tom_forge_ui.dart'
+    show DefaultUndoManager, ShellEditorIntegration, UndoEntry;
 
 import '../structure/review_store.dart';
 import '../structure/spec_model.dart';
@@ -52,8 +57,15 @@ class SpecDocumentController extends ChangeNotifier {
     required this.review,
     SpecDocument? document,
     this.defaultOutlineDepth = 2,
+    ChangeLog? changeLog,
+    int maxSnapshots = 50,
   })  : _modelFuture = modelFuture,
-        document = document ?? SpecDocument();
+        document = document ?? SpecDocument(),
+        changeLog = changeLog ?? ChangeLog(),
+        _undo = DefaultUndoManager(maxEntries: maxSnapshots) {
+    _savedState = this.document.captureState();
+    _savedFingerprint = _savedState.fingerprint;
+  }
 
   final Future<SpecModel> _modelFuture;
 
@@ -65,6 +77,28 @@ class SpecDocumentController extends ChangeNotifier {
 
   /// Default recursion depth for [outline] when the caller omits one.
   final int defaultOutlineDepth;
+
+  /// The agent change log (§9): records every mutation; resets on save.
+  final ChangeLog changeLog;
+
+  /// The snapshot-based undo stack (§10), capped at `maxSnapshots` entries.
+  final DefaultUndoManager _undo;
+
+  /// The document state as of the last save (or load) — the review's base pane
+  /// (`baseAtLastSave`, §9) and the dirty reference (§10).
+  late SpecDocumentState _savedState;
+  late String _savedFingerprint;
+
+  /// The active agent turn id, or `null` when the user is editing freely.
+  /// Edits made during a turn share this id so the change log groups them and
+  /// the undo stack collapses them into one step (§9, §10).
+  String? _currentTurnId;
+
+  /// Per-edit counter feeding synthetic turn ids for free user edits.
+  int _editSeq = 0;
+
+  /// Monotonic id source for change-log entries.
+  int _entrySeq = 0;
 
   SpecModel? _model;
 
@@ -299,6 +333,10 @@ class SpecDocumentController extends ChangeNotifier {
 
   // --- Layer C: content + mutations --------------------------------------
 
+  /// The tool-call id to stamp on the next recorded change, when a mutation
+  /// originates from an agent tool. Cleared per turn by [endTurn].
+  String? activeToolCallId;
+
   /// The content value at [path], or `null`.
   String? content(String path) => document.content(path);
 
@@ -306,36 +344,215 @@ class SpecDocumentController extends ChangeNotifier {
   String? formField(String path, String field) =>
       document.formField(path, field);
 
-  /// Sets the content at [path], notifying listeners.
+  /// Sets the content at [path]. Snapshots + records the change unless it is a
+  /// no-op (§9, §10).
   void setContent(String path, String value) {
+    final before = document.captureState();
+    final beforeVal = document.content(path);
     document.setContent(path, value);
-    notifyListeners();
+    _commit(
+      before,
+      () => ChangeEntry(
+        id: _nextEntryId(),
+        sectionId: path,
+        kind: ChangeKind.content,
+        turnId: _turnIdForEdit(),
+        beforeThisEdit: beforeVal,
+        afterThisEdit: value.isEmpty ? null : value,
+        baseAtLastSave: _savedState.contentAt(path),
+        toolCallId: activeToolCallId,
+      ),
+    );
   }
 
-  /// Sets the form [field] at [path], notifying listeners.
+  /// Sets the form [field] at [path]. Snapshots + records the change unless it
+  /// is a no-op.
   void setFormField(String path, String field, String value) {
+    final before = document.captureState();
+    final beforeVal = document.formField(path, field);
     document.setFormField(path, field, value);
-    notifyListeners();
+    _commit(
+      before,
+      () => ChangeEntry(
+        id: _nextEntryId(),
+        sectionId: path,
+        kind: ChangeKind.formField,
+        field: field,
+        turnId: _turnIdForEdit(),
+        beforeThisEdit: beforeVal,
+        afterThisEdit: value.isEmpty ? null : value,
+        baseAtLastSave: _savedState.formFieldAt(path, field),
+        toolCallId: activeToolCallId,
+      ),
+    );
   }
 
   /// Appends a list item at [listPath] and returns its new path.
   String addListItem(String listPath) {
+    final before = document.captureState();
     final itemPath = document.addListItem(listPath);
-    notifyListeners();
+    _commit(
+      before,
+      () => ChangeEntry(
+        id: _nextEntryId(),
+        sectionId: itemPath,
+        kind: ChangeKind.listAdd,
+        turnId: _turnIdForEdit(),
+        afterThisEdit: itemPath,
+        toolCallId: activeToolCallId,
+      ),
+    );
     return itemPath;
   }
 
   /// Removes the list item at [itemPath]; returns whether one was removed.
   bool removeListItem(String itemPath) {
+    final before = document.captureState();
     final removed = document.removeListItem(itemPath);
-    if (removed) notifyListeners();
+    if (removed) {
+      _commit(
+        before,
+        () => ChangeEntry(
+          id: _nextEntryId(),
+          sectionId: itemPath,
+          kind: ChangeKind.listRemove,
+          turnId: _turnIdForEdit(),
+          beforeThisEdit: itemPath,
+          toolCallId: activeToolCallId,
+        ),
+      );
+    }
     return removed;
   }
 
   /// Applies a structural-review decision at [path], routed through the shared
   /// [ReviewStore] (which persists immediately).
+  ///
+  /// Review decisions live in the [ReviewStore], not the [SpecDocument], so a
+  /// review is **recorded** in the change log (it is a mutation, §9) but is not
+  /// part of the snapshot/undo stack (§10) — undoing a review is a separate
+  /// concern owned by the review store.
   void setReview(String path, void Function(ReviewEntry) mutate) {
     review.update(path, mutate);
+    changeLog.record(ChangeEntry(
+      id: _nextEntryId(),
+      sectionId: path,
+      kind: ChangeKind.review,
+      turnId: _turnIdForEdit(),
+      toolCallId: activeToolCallId,
+    ));
     notifyListeners();
+  }
+
+  // --- §9 Change log & three-way review ----------------------------------
+
+  /// Resolves the live current value at [entry]'s section, for the review's
+  /// pane-3 ("current") column.
+  String? currentValueFor(ChangeEntry entry) =>
+      entry.kind == ChangeKind.formField
+          ? document.formField(entry.sectionId, entry.field!)
+          : document.content(entry.sectionId);
+
+  /// Applies a **pick-a-pane** resolution (§9, M1): the chosen [pane]'s value
+  /// becomes the section's new value. This is an ordinary edit — it routes
+  /// through [setContent]/[setFormField], so picking a *different* value
+  /// **creates a new undo entry**; picking the current value is a no-op.
+  void applyPanePick(ChangeEntry entry, ReviewPane pane) {
+    final value = entry.valueForPane(pane, current: currentValueFor(entry));
+    if (entry.kind == ChangeKind.formField) {
+      setFormField(entry.sectionId, entry.field!, value ?? '');
+    } else {
+      setContent(entry.sectionId, value ?? '');
+    }
+  }
+
+  // --- §10 Undo / redo ----------------------------------------------------
+
+  /// Begins an agent [turnId]: edits until [endTurn] share the turn (change-log
+  /// grouping, §9) and collapse into a single undo step (§10).
+  void beginTurn(String turnId) {
+    _currentTurnId = turnId;
+    _undo.beginUndoGroup(label: 'Agent turn $turnId');
+  }
+
+  /// Ends the active agent turn, committing its edits as one undo step.
+  void endTurn() {
+    _undo.endUndoGroup();
+    _currentTurnId = null;
+    activeToolCallId = null;
+  }
+
+  /// Whether there is an edit to undo.
+  bool get canUndo => _undo.undoCount > 0;
+
+  /// Whether there is an undone edit to redo.
+  bool get canRedo => _undo.redoCount > 0;
+
+  /// Whether the document differs from its last-saved state (§10).
+  bool get isDirty => document.captureState().fingerprint != _savedFingerprint;
+
+  /// Undoes the most recent edit (or agent turn).
+  Future<void> undo() => _undo.undo();
+
+  /// Redoes the most recently undone edit (or agent turn).
+  Future<void> redo() => _undo.redo();
+
+  /// Save-point bookkeeping (§9, §10): the saved state becomes the new base,
+  /// the change log resets, and dirty clears. The undo stack is deliberately
+  /// **kept** so post-save undo still works (§9, N6).
+  void save() {
+    _savedState = document.captureState();
+    _savedFingerprint = _savedState.fingerprint;
+    changeLog.reset();
+    notifyListeners();
+  }
+
+  /// Wires the controller's [undo]/[redo] into the Forge shell via
+  /// [ShellEditorIntegration.registerAction] (§10). The controller's own undo
+  /// stack is the single authority; the shell's undo/redo actions dispatch to
+  /// it.
+  void attachIntegration(ShellEditorIntegration integration) {
+    integration.registerAction(
+      StandardEditingActions.undoActionId,
+      undo,
+      isEnabled: () => canUndo,
+    );
+    integration.registerAction(
+      StandardEditingActions.redoActionId,
+      redo,
+      isEnabled: () => canRedo,
+    );
+  }
+
+  // --- internals ----------------------------------------------------------
+
+  String _nextEntryId() => 'c${++_entrySeq}';
+
+  String _turnIdForEdit() => _currentTurnId ?? 'u${++_editSeq}';
+
+  /// Pushes the before→after snapshot pair and records [makeEntry] — unless the
+  /// edit changed nothing (no-op edits don't snapshot or record, §10).
+  void _commit(SpecDocumentState before, ChangeEntry Function() makeEntry) {
+    final after = document.captureState();
+    if (before.fingerprint == after.fingerprint) return;
+    _undo.push(UndoEntry(
+      undo: () async {
+        document.restoreState(before);
+        notifyListeners();
+      },
+      redo: () async {
+        document.restoreState(after);
+        notifyListeners();
+      },
+    ));
+    changeLog.record(makeEntry());
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _undo.dispose();
+    changeLog.dispose();
+    super.dispose();
   }
 }

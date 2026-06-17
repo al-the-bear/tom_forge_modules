@@ -97,4 +97,79 @@ class SpecDocument {
   /// Whether the document holds no values at all.
   bool get isEmpty =>
       _content.isEmpty && _form.isEmpty && _listItems.isEmpty;
+
+  /// A deep-copied snapshot of the whole document, for the undo stack (§10).
+  ///
+  /// Every map is copied so the returned state is independent of subsequent
+  /// edits — restoring it returns the document to exactly this picture.
+  SpecDocumentState captureState() => SpecDocumentState._(
+        content: Map.of(_content),
+        form: {for (final e in _form.entries) e.key: Map.of(e.value)},
+        listItems: {for (final e in _listItems.entries) e.key: List.of(e.value)},
+        listSeq: Map.of(_listSeq),
+      );
+
+  /// Replaces the document's contents with a previously [captureState]d
+  /// snapshot (§10). The restore is absolute: every store is overwritten, so a
+  /// snapshot can be applied regardless of intervening edits.
+  void restoreState(SpecDocumentState state) {
+    _content
+      ..clear()
+      ..addAll(state._content);
+    _form
+      ..clear()
+      ..addAll({for (final e in state._form.entries) e.key: Map.of(e.value)});
+    _listItems
+      ..clear()
+      ..addAll(
+          {for (final e in state._listItems.entries) e.key: List.of(e.value)});
+    _listSeq
+      ..clear()
+      ..addAll(state._listSeq);
+  }
+}
+
+/// An immutable deep-copied snapshot of a [SpecDocument] (§10 undo stack).
+///
+/// Produced by [SpecDocument.captureState] and consumed by
+/// [SpecDocument.restoreState]; the maps are private so a state can only be
+/// applied wholesale, never mutated in place.
+class SpecDocumentState {
+  final Map<String, String> _content;
+  final Map<String, Map<String, String>> _form;
+  final Map<String, List<String>> _listItems;
+  final Map<String, int> _listSeq;
+
+  SpecDocumentState._({
+    required Map<String, String> content,
+    required Map<String, Map<String, String>> form,
+    required Map<String, List<String>> listItems,
+    required Map<String, int> listSeq,
+  })  : _content = content,
+        _form = form,
+        _listItems = listItems,
+        _listSeq = listSeq;
+
+  /// The content value at [path] as of this snapshot (the review's base pane).
+  String? contentAt(String path) => _content[path];
+
+  /// The form [field] value at [path] as of this snapshot.
+  String? formFieldAt(String path, String field) => _form[path]?[field];
+
+  /// A stable fingerprint of the snapshot's values, used to tell whether an
+  /// edit actually changed anything (no-op edits must not snapshot, §10).
+  String get fingerprint {
+    String enc(Map<String, Object?> m) {
+      final keys = m.keys.toList()..sort();
+      return [for (final k in keys) '$k=${m[k]}'].join('\u0001');
+    }
+
+    final formFlat = <String, Object?>{
+      for (final e in _form.entries) e.key: enc(e.value),
+    };
+    final listFlat = <String, Object?>{
+      for (final e in _listItems.entries) e.key: e.value.join(','),
+    };
+    return [enc(_content), enc(formFlat), enc(listFlat)].join('\u0002');
+  }
 }

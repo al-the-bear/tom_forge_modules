@@ -21,6 +21,11 @@ dependencies:
   tom_forge_core:
     path: ../tom_forge_core
 
+  # Standard editing-action ids (undo/redo) used to wire the document
+  # controller's undo/redo into the shell via ShellEditorIntegration (§10).
+  tom_editors_shared:
+    path: ../tom_editors_shared
+
   # Reusable agent/chat UI (composer, queue, trail, settings) — UI only.
   tom_forge_agentic:
     path: ../tom_forge_agentic
