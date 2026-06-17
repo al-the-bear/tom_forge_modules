@@ -1,0 +1,139 @@
+import 'package:flutter/material.dart';
+import 'package:tom_core_agentic/tom_core_agentic.dart';
+import 'package:tom_forge_ui/tom_forge_ui.dart';
+
+import 'basic_prefs_panel.dart';
+import 'config_editors.dart';
+import 'config_specs.dart';
+import 'editor_preferences.dart';
+import 'raw_file_module.dart';
+
+/// Hosts the seven custom config editors and the basic-prefs settings panel
+/// (§12, step 18).
+///
+/// Six list editors (queue, queue-templates, profiles, prompt-templates,
+/// chat-variables, timed-requests) and one singleton editor (agent-settings)
+/// are built from [SpecsConfigSpecs] and exposed as the module's [editors].
+/// Each is wired to open its backing YAML/markdown through the injected
+/// [RawFileModule] (its "Open raw file" button). The module also contributes
+/// one [ForgeAction] per editor — so they are reachable from the command
+/// palette — and one [ForgeConfigPanel] for the basic preferences (theme,
+/// font, default application, default profile).
+///
+/// The config editors are *not* file-resolved (they `reject` in `canHandle`);
+/// they open via the contributed actions, which call
+/// `shell.layout.openEditor`. The basic-prefs panel persists both backing
+/// stores on the settings dialog's Save.
+class SpecsConfigModule extends ForgeModule {
+  SpecsConfigModule({
+    SpecsConfigSpecs? specs,
+    RawFileModule? rawFileModule,
+    EditorPreferencesStore? preferencesStore,
+    AgentSettingsStore? settingsStore,
+    AgentProfileStore? profileStore,
+  })  : _specs = specs ?? SpecsConfigSpecs(),
+        rawFileModule = rawFileModule ?? RawFileModule(),
+        _preferencesStore =
+            preferencesStore ?? EditorPreferencesStore.resolveDefault(),
+        _settingsStore = settingsStore ?? AgentSettingsStore.resolveDefault(),
+        _profileStore = profileStore ?? AgentProfileStore.resolveDefault();
+
+  final SpecsConfigSpecs _specs;
+
+  /// The plain-text module the editors' "Open raw file" buttons target.
+  final RawFileModule rawFileModule;
+
+  final EditorPreferencesStore _preferencesStore;
+  final AgentSettingsStore _settingsStore;
+  final AgentProfileStore _profileStore;
+
+  ForgeShellApi? _shell;
+  final List<ForgeEditor> _editors = [];
+
+  /// Working copies the basic-prefs panel mutates; persisted on Save.
+  late EditorPreferences _prefs;
+  late AgentSettings _settings;
+
+  @override
+  String get displayName => 'TomSpecs Config';
+
+  @override
+  void activate(ForgeShellApi shell) {
+    _shell = shell;
+    _prefs = _preferencesStore.load();
+    _settings = _settingsStore.load();
+    _buildEditors();
+  }
+
+  void _buildEditors() {
+    void open(Uri uri) => rawFileModule.openRawFile(uri);
+    _editors
+      ..clear()
+      ..addAll([
+        ConfigListEditor(spec: _specs.queueSpec(), onOpenRawFile: open),
+        ConfigListEditor(spec: _specs.queueTemplateSpec(), onOpenRawFile: open),
+        ConfigListEditor(spec: _specs.profileSpec(), onOpenRawFile: open),
+        ConfigListEditor(spec: _specs.promptTemplateSpec(), onOpenRawFile: open),
+        ConfigListEditor(spec: _specs.chatVariableSpec(), onOpenRawFile: open),
+        ConfigListEditor(spec: _specs.timedRequestSpec(), onOpenRawFile: open),
+        ConfigObjectEditor(spec: _specs.agentSettingsSpec(), onOpenRawFile: open),
+      ]);
+  }
+
+  /// Opens [editor] in the active middle panel via the shell layout.
+  void _openEditor(ForgeEditor editor) =>
+      _shell?.layout.openEditor(editor, editor.uri);
+
+  @override
+  void deactivate() {
+    _editors.clear();
+    _shell = null;
+  }
+
+  @override
+  List<ForgeEditor> get editors => List.unmodifiable(_editors);
+
+  @override
+  List<ForgeView> get views => const [];
+
+  @override
+  List<ForgeAction> get actions => [
+        for (final editor in _editors)
+          ForgeAction(
+            id: 'specs.config.open.${editor.uri.path}',
+            label: 'Open ${editor.title.value}',
+            icon: editor.icon,
+            menu: ForgeMenuLocation.tools,
+            group: 'config',
+            execute: (_) async {
+              _openEditor(editor);
+              return null;
+            },
+            isEnabled: () => true,
+            isVisible: () => true,
+          ),
+      ];
+
+  @override
+  List<ForgeShortcutBinding> get shortcuts => const [];
+
+  @override
+  List<ForgeConfigPanel> get configPanels => [
+        ForgeConfigPanel(
+          id: 'specs.basic-prefs',
+          title: 'Basic Preferences',
+          icon: Icons.tune_outlined,
+          builder: (context) => BasicPrefsPanel(
+            prefs: _prefs,
+            settings: _settings,
+            profiles: _profileStore.load(),
+            onPrefsChanged: (p) => _prefs = p,
+            onSettingsChanged: (s) => _settings = s,
+          ),
+          onSave: () async {
+            _preferencesStore.save(_prefs);
+            _settingsStore.save(_settings);
+          },
+        ),
+      ];
+}
