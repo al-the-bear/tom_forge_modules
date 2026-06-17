@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart'
     show StandardEditingActions;
@@ -7,6 +9,7 @@ import 'package:tom_forge_ui/tom_forge_ui.dart'
 
 import '../structure/review_store.dart';
 import '../structure/spec_model.dart';
+import 'docspecs_file.dart';
 import 'spec_document.dart';
 
 /// A node located by [SpecDocumentController.resolve]: the structural meaning of
@@ -107,6 +110,27 @@ class SpecDocumentController extends ChangeNotifier {
 
   /// Loads and caches the model future on first use.
   Future<SpecModel> ensureLoaded() async => _model ??= await _modelFuture;
+
+  // --- §14 root navigation (step 20) -------------------------------------
+
+  /// The section id / type name of the document root the editor renders, or
+  /// `null` for the default (Project Definition). Driven by the §14 root
+  /// navigator; the editor projects the *same* shared [document] through the
+  /// chosen root, so switching roots never copies or forks data.
+  String? _activeRootType;
+
+  /// The active root selector (section id or type name), or `null` for default.
+  String? get activeRootType => _activeRootType;
+
+  /// Selects the active document root by section id or type name (`null` =
+  /// default). A no-op when unchanged; otherwise [notifyListeners] so the
+  /// navigator highlight and the document tree re-render together over the one
+  /// shared document.
+  void setActiveRoot(String? rootType) {
+    if (_activeRootType == rootType) return;
+    _activeRootType = rootType;
+    notifyListeners();
+  }
 
   // --- Layer A: schema lookups -------------------------------------------
 
@@ -513,6 +537,42 @@ class SpecDocumentController extends ChangeNotifier {
     _savedFingerprint = _savedState.fingerprint;
     changeLog.reset();
     notifyListeners();
+  }
+
+  // --- §15.1 native `*.docspecs.yaml` save / load ------------------------
+
+  /// Serializes the document + review state to [file] as a two-pass
+  /// `*.docspecs.yaml` (§15.1), then re-baselines as a save point.
+  ///
+  /// The agent change log is **not** serialized (it resets on save, M2); the
+  /// optional [sessionId] is written to a `<file>.session` sidecar (A2), never
+  /// into the document YAML. The undo stack is kept (post-save undo still
+  /// works, N6), matching [save]'s contract.
+  Future<void> saveDocSpecs(File file, {String? sessionId}) async {
+    final yaml = DocSpecsFile.encode(document: document, review: review.entries);
+    await file.parent.create(recursive: true);
+    await file.writeAsString(yaml);
+    await DocSpecsFile.writeSessionId(file, sessionId);
+    save();
+  }
+
+  /// Loads document + review state from a two-pass `*.docspecs.yaml` [file]
+  /// (§15.1), restoring the full UI state. Returns the SDK session id from the
+  /// sidecar, or `null` when absent.
+  ///
+  /// A load is a fresh save point: the change log resets, the undo stack is
+  /// cleared (there is nothing before the loaded document to undo to), and the
+  /// loaded state becomes the dirty reference.
+  Future<String?> loadDocSpecs(File file) async {
+    final parsed = DocSpecsFile.decode(await file.readAsString());
+    document.loadJson(parsed.document);
+    review.replaceEntries(parsed.review);
+    _undo.clear();
+    changeLog.reset();
+    _savedState = document.captureState();
+    _savedFingerprint = _savedState.fingerprint;
+    notifyListeners();
+    return await DocSpecsFile.readSessionId(file);
   }
 
   /// Wires the controller's [undo]/[redo] into the Forge shell via

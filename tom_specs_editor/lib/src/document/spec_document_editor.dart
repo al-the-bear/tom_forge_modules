@@ -6,6 +6,7 @@ import 'package:tom_forge_ui/tom_forge_ui.dart';
 import '../structure/review_controls.dart';
 import '../structure/review_store.dart';
 import '../structure/spec_model.dart';
+import 'root_navigator.dart';
 import 'spec_document_controller.dart';
 import 'spec_markdown.dart';
 
@@ -18,8 +19,11 @@ import 'spec_markdown.dart';
 /// clickable chip that inline-expands the editor in place; non-empty nodes
 /// render expanded; lists carry add/remove.
 ///
-/// The root navigator (§14, step 20) is not wired yet — this editor renders the
-/// model's first root (the canonical container / Project Definition).
+/// The active root is driven by the §14 root navigator through the shared
+/// [SpecDocumentController] (step 20): the editor projects the *same* document
+/// through whichever root is selected (Project Definition by default), so
+/// switching roots re-renders consistently without copying data. An optional
+/// fixed [rootType] override pins a single projection (used by focused tests).
 class SpecDocumentEditor extends ForgeEditor {
   SpecDocumentEditor({
     required this.controller,
@@ -155,46 +159,56 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
   void _toggleOpen(String path) =>
       setState(() => _manuallyExpanded.add(path));
 
+  /// The root to render: the navigator's active selection (§14, step 20), then
+  /// this editor's fixed [rootType] override, then the default (Project
+  /// Definition). The tree rebuilds on every controller change, so a navigator
+  /// selection re-renders this projection over the same shared document.
   SpecRoot? _activeRoot() {
     final roots = _model.roots;
     if (roots.isEmpty) return null;
-    if (widget.rootType == null) return roots.first;
+    final selector = _controller.activeRootType ?? widget.rootType;
+    if (selector == null) return defaultNavigatorRoot(roots);
     for (final r in roots) {
-      if (r.type == widget.rootType || r.sectionId == widget.rootType) return r;
+      if (r.type == selector || r.sectionId == selector) return r;
     }
-    return roots.first;
+    return defaultNavigatorRoot(roots);
   }
 
   @override
   Widget build(BuildContext context) {
-    final root = _activeRoot();
-    if (root == null) {
-      return const Center(child: Text('No document roots in the model'));
-    }
-    final cls = _model.classNamed(root.type);
-    // Rebuild whenever the shared document or review state changes.
+    // Rebuild whenever the shared document, review state, or active-root
+    // selection changes. The active root is resolved *inside* the builder so a
+    // navigator switch (a controller notification) re-renders the new
+    // projection — not just the captured initial root.
     return AnimatedBuilder(
       animation: Listenable.merge([_controller, _store]),
-      builder: (context, _) => ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        children: [
-          _NodeHeader(
-            label: root.title,
-            sectionId: _rootSeg(root),
-            path: _rootSeg(root),
-            store: _store,
-            help: root.description,
-            isHeading: true,
-          ),
-          if (cls != null)
-            _classBody(cls, _rootSeg(root), {root.type})
-          else
-            const Padding(
-              padding: EdgeInsets.all(8),
-              child: Text('No class definition for this root.'),
+      builder: (context, _) {
+        final root = _activeRoot();
+        if (root == null) {
+          return const Center(child: Text('No document roots in the model'));
+        }
+        final cls = _model.classNamed(root.type);
+        return ListView(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          children: [
+            _NodeHeader(
+              label: root.title,
+              sectionId: _rootSeg(root),
+              path: _rootSeg(root),
+              store: _store,
+              help: root.description,
+              isHeading: true,
             ),
-        ],
-      ),
+            if (cls != null)
+              _classBody(cls, _rootSeg(root), {root.type})
+            else
+              const Padding(
+                padding: EdgeInsets.all(8),
+                child: Text('No class definition for this root.'),
+              ),
+          ],
+        );
+      },
     );
   }
 

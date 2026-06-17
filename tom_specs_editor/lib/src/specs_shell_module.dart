@@ -19,12 +19,22 @@ import 'placeholder_components.dart';
 /// document editor"). The real `SpecDocumentEditor`, structure browser, chat
 /// suite, and change log arrive in later steps (10–18).
 class SpecsShellModule extends ForgeModule {
-  SpecsShellModule({this.structureView, this.chatView, this.documentEditor});
+  SpecsShellModule({
+    this.structureView,
+    this.chatView,
+    this.documentEditor,
+    this.navigatorView,
+  });
 
   /// The model-driven document editor (§13), hosted as the DocSpecs middle
   /// "Document" split when provided. Null in the skeleton tests that predate
   /// step 19, where the split falls back to a [PlaceholderEditor].
   final ForgeEditor? documentEditor;
+
+  /// The §14 root navigator (step 20), hosted as the DocSpecs left panel's
+  /// "Navigator" tab when provided. Null in the skeleton tests that predate
+  /// step 20, where the tab falls back to a labelled placeholder.
+  final ForgeView? navigatorView;
 
   /// The structure browser view (from [SpecStructureModule]), hosted as the
   /// DocSpecs left panel's "Structure" tab when provided (§5 — left panel's
@@ -151,10 +161,13 @@ class SpecsShellModule extends ForgeModule {
       MiddlePanelConfig(tabs: [MiddleTabConfig(editor: trailEditor)]),
     );
 
-    final navigator = PlaceholderView(
-      title: 'Navigator',
-      icon: Icons.account_tree_outlined,
-    );
+    // The §14 root navigator drives the document editor's active root (step
+    // 20); falls back to a labelled placeholder in the pre-step-20 skeleton.
+    final ForgeView navigator = navigatorView ??
+        PlaceholderView(
+          title: 'Navigator',
+          icon: Icons.account_tree_outlined,
+        );
     // The bottom "Chat" tab hosts the injected agent chat view (the connection
     // picker in step 11) when provided, falling back to a placeholder.
     final ForgeView chat = chatView ??

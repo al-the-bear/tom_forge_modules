@@ -10,6 +10,7 @@ import 'agent/agent_tools_module.dart';
 import 'agent/spec_prompt_composer.dart';
 import 'config/raw_file_module.dart';
 import 'config/specs_config_module.dart';
+import 'document/root_navigator.dart';
 import 'document/spec_document_controller.dart';
 import 'document/spec_document_editor.dart';
 import 'spec_structure_module.dart';
@@ -127,6 +128,7 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
       structureView: _structureModule.structureView,
       chatView: _chatModule.chatView,
       documentEditor: SpecDocumentEditor(controller: _documentController),
+      navigatorView: RootNavigator(controller: _documentController),
     );
     _shellModule.activate(_shell);
     (_shell.modules as DefaultModuleRegistry).register(_shellModule);
