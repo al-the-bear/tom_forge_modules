@@ -1,22 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:tom_md_editor/tom_md_editor.dart';
 
 /// Inline markdown renderer used for every label, help text and content
 /// preview in the document editor (§13, requirements *j*/*m*).
 ///
 /// This is the single seam through which the editor renders authored markdown.
-/// The §13 target is for `SpecMarkdown` to wrap `tom_md_editor`'s
-/// `MdPreviewPanel`, but that widget is a whole-document, section-navigating
-/// preview *panel* (it owns an `MdEditorController` and parses the text into
-/// navigable sections) — the wrong granularity for the dozens of short inline
-/// labels/previews a compact tree shows, and it would pull the full
-/// `tom_md_editor` dependency surface (flutter_markdown, math, svg, …) into the
-/// editor. So this first cut renders a lightweight subset inline; swapping the
-/// body for `MdPreviewPanel` (full fidelity) is tracked as a CS deferral.
+/// §13 j asks `SpecMarkdown` to wrap `tom_md_editor`'s `MdPreviewPanel`, but
+/// that widget is a whole-document, section-navigating preview *panel* (it owns
+/// an `MdEditorController`, parses the text into navigable sections, and needs a
+/// bounded height) — the wrong granularity for the dozens of short inline
+/// labels a compact tree shows. So `SpecMarkdown` pays the panel's weight only
+/// **where it is justified** (OE-3): when the source actually uses rich
+/// markdown features the lightweight renderer cannot show — fenced code blocks,
+/// GFM tables, math, or embedded images. Plain labels, help text and prose
+/// (the overwhelming majority) keep the lightweight inline renderer: no
+/// controller, no panel chrome, no bounded-height container.
 ///
-/// Supported subset: ATX headings (`#`–`######`), unordered list items
+/// Lightweight subset: ATX headings (`#`–`######`), unordered list items
 /// (`-`/`*`), `**bold**`/`*italic*`/`` `code` `` inline spans, and blank-line
-/// paragraph breaks. Anything else renders verbatim. The widget is read-only —
-/// editing happens through the field editors, not here.
+/// paragraph breaks. Anything richer is routed to `MdPreviewPanel`. The widget
+/// is read-only — editing happens through the field editors, not here.
 class SpecMarkdown extends StatelessWidget {
   const SpecMarkdown(
     this.source, {
@@ -34,8 +37,16 @@ class SpecMarkdown extends StatelessWidget {
   /// When true, renders in the muted on-surface-variant colour (for help text).
   final bool muted;
 
+  /// Maximum height of the rich (`MdPreviewPanel`) preview before it scrolls.
+  /// The panel is internally scrollable and needs a bounded height; a label or
+  /// content preview should never dominate the tree, so it is capped.
+  static const double _richMaxHeight = 320;
+
   @override
   Widget build(BuildContext context) {
+    if (_isRichMarkdown(source)) {
+      return _RichMarkdown(source: source, maxHeight: _richMaxHeight);
+    }
     final theme = Theme.of(context);
     final base = (style ?? theme.textTheme.bodyMedium ?? const TextStyle())
         .copyWith(
@@ -118,5 +129,90 @@ class SpecMarkdown extends StatelessWidget {
       spans.add(TextSpan(text: text.substring(index), style: base));
     }
     return TextSpan(children: spans);
+  }
+}
+
+/// Fenced code block opener (``` or ~~~), anywhere in the source.
+final RegExp _kFenceRe = RegExp(r'^[ \t]*(```|~~~)', multiLine: true);
+
+/// GFM table delimiter row, e.g. `| --- | :--: |` or `--- | ---`.
+final RegExp _kTableRe =
+    RegExp(r'^[ \t]*\|?[ \t]*:?-{3,}:?[ \t]*\|', multiLine: true);
+
+/// Markdown image embed `![alt](src)`.
+final RegExp _kImageRe = RegExp(r'!\[[^\]]*\]\([^)]+\)');
+
+/// Block math `$$ … $$`, or inline `$ … $` carrying a TeX-ish token
+/// (`\cmd`, `^`, `_`, `{}`) so plain currency like `$5` does not trip it.
+final RegExp _kMathRe =
+    RegExp(r'\$\$[\s\S]+?\$\$|\$[^$\n]*[\\^_{}][^$\n]*\$');
+
+/// Whether [source] uses markdown features the lightweight inline renderer
+/// cannot show — the only case where the heavier [MdPreviewPanel] is justified
+/// (§13 j/m, OE-3). Conservative on purpose: a false negative degrades to the
+/// (correct, lighter) inline renderer; a false positive only wastes a panel.
+/// Exposed for unit testing the routing without building widgets.
+bool isRichMarkdown(String source) => _isRichMarkdown(source);
+
+bool _isRichMarkdown(String source) {
+  if (source.isEmpty) return false;
+  return _kFenceRe.hasMatch(source) ||
+      _kTableRe.hasMatch(source) ||
+      _kImageRe.hasMatch(source) ||
+      _kMathRe.hasMatch(source);
+}
+
+/// Read-only rich preview backed by `tom_md_editor`'s [MdPreviewPanel]
+/// (tables/math/mermaid/images, §13 j/m). Owns a short-lived
+/// [MdEditorController] seeded from the source; rebuilt in place when the
+/// source changes and disposed with the widget. Bounded + internally scrollable
+/// because the panel lays its body out with `Expanded`.
+class _RichMarkdown extends StatefulWidget {
+  const _RichMarkdown({required this.source, required this.maxHeight});
+
+  final String source;
+  final double maxHeight;
+
+  @override
+  State<_RichMarkdown> createState() => _RichMarkdownState();
+}
+
+class _RichMarkdownState extends State<_RichMarkdown> {
+  late final MdEditorController _controller =
+      MdEditorController(initialMarkdown: widget.source);
+
+  @override
+  void didUpdateWidget(_RichMarkdown oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.source != widget.source) {
+      _controller.markdown = widget.source;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = MdEditorSettings.viewer();
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: widget.maxHeight),
+      child: MdPreviewPanel(
+        controller: _controller,
+        theme: MdEditorTheme.fromThemeData(Theme.of(context)),
+        settings: settings,
+        // All rich plugins enabled regardless of the viewer settings flags so
+        // tables/math/mermaid render whenever the content uses them.
+        pluginRegistry: MdPluginRegistry([
+          MdTablePlugin(),
+          MdMathPlugin(),
+          MdMermaidPlugin(),
+          MdCodePlugin(),
+        ]),
+      ),
+    );
   }
 }

@@ -340,6 +340,17 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
         ),
       );
     }
+    // Flutter-layout content (§13 k) renders live from d4rt-flutter source.
+    if (isFlutterLayoutContentType(field.contentType)) {
+      return _FieldBlock(
+        header: _fieldHeader(field, path),
+        child: _LayoutField(
+          key: ValueKey('layout:$path'),
+          value: _controller.content(path) ?? '',
+          onChanged: (v) => _controller.setContent(path, v),
+        ),
+      );
+    }
     final multiline = field.kind == SpecFieldKind.content;
     return _FieldBlock(
       header: _fieldHeader(field, path),
@@ -621,6 +632,18 @@ class _ListItem extends StatelessWidget {
 bool isDartCodeContentType(String? contentType) =>
     contentType == 'code' || contentType == 'code-dart';
 
+/// Whether a `@ContentType` value denotes a live Flutter layout — content that
+/// is d4rt-flutter source meant to be *rendered* (not edited as text) via
+/// `SourceFlutterD4rt().build<Widget>(source, context)` (§13 k). No such
+/// content type exists in the model yet; this predicate fixes the convention so
+/// the routing and a future model-side layout section line up. Public for unit
+/// testing the routing without widgets.
+bool isFlutterLayoutContentType(String? contentType) =>
+    contentType == 'layout' ||
+    contentType == 'flutter' ||
+    contentType == 'flutter-layout' ||
+    contentType == 'd4rt-flutter';
+
 /// Asset paths for the pre-generated analyzer summaries (B1). Bundled by the
 /// build (`build.dart` step 4); gitignored, so absent in a plain dev checkout.
 const String _kSdkSummaryAsset = 'assets/summaries/sdk_summary.sum';
@@ -680,6 +703,76 @@ class _CodeField extends StatelessWidget {
           onChanged: onChanged,
         );
       },
+    );
+  }
+}
+
+/// A Flutter-layout content field (§13 k). The §13 target is a *live* preview
+/// rendered by `SourceFlutterD4rt().build<Widget>(source, context)` from
+/// `tom_d4rt_flutter`. That package cannot currently be a dependency of this
+/// editor: its transitive `tom_d4rt → analyzer ^8` conflicts with
+/// `tom_dart_editor → analyzer ^10` (the OE-1 code editor). Until `tom_d4rt`
+/// moves to analyzer ^10 (d4rt-quest scope — tracked as OE-3a), this seam
+/// renders the layout source read-only beneath a note. The single drop-in
+/// point for the live call is marked below.
+class _LayoutField extends StatelessWidget {
+  const _LayoutField({
+    super.key,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String value;
+
+  /// Kept so the field signature matches the other content fields and the live
+  /// drop-in (an editable source + preview split) stays trivial. The read-only
+  /// preview does not yet emit edits.
+  // ignore: unused_field
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    // ── §13 k drop-in point ───────────────────────────────────────────────
+    // Once `tom_d4rt_flutter` is addable (OE-3a), replace the read-only
+    // preview below with a guarded live render:
+    //   try {
+    //     return SourceFlutterD4rt().build<Widget>(value, context);
+    //   } catch (_) { /* fall through to the source preview */ }
+    // ──────────────────────────────────────────────────────────────────────
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: theme.dividerColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.dashboard_customize_outlined,
+                  size: 14, color: theme.colorScheme.onSurfaceVariant),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Flutter layout — live preview pending d4rt analyzer-10 '
+                  'upgrade (OE-3a)',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          SelectableText(
+            value.isEmpty ? '(empty)' : value,
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+          ),
+        ],
+      ),
     );
   }
 }

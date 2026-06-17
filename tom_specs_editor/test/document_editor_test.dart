@@ -217,4 +217,21 @@ void main() {
       expect(isDartCodeContentType(null), isFalse);
     });
   });
+
+  group('layout content routing (§13 k / OE-3)', () {
+    // The live d4rt-flutter render is deferred (OE-3a: analyzer ^8/^10
+    // conflict); here we pin which content types route to the layout seam so
+    // the convention and a future model-side layout section line up.
+    test('isFlutterLayoutContentType matches layout flavours only', () {
+      expect(isFlutterLayoutContentType('layout'), isTrue);
+      expect(isFlutterLayoutContentType('flutter'), isTrue);
+      expect(isFlutterLayoutContentType('flutter-layout'), isTrue);
+      expect(isFlutterLayoutContentType('d4rt-flutter'), isTrue);
+      // Code/prose/Dart stay on their own paths.
+      expect(isFlutterLayoutContentType('code'), isFalse);
+      expect(isFlutterLayoutContentType('code-dart'), isFalse);
+      expect(isFlutterLayoutContentType('text'), isFalse);
+      expect(isFlutterLayoutContentType(null), isFalse);
+    });
+  });
 }

@@ -36,6 +36,19 @@ dependencies:
   tom_dart_editor:
     path: ../tom_dart_editor
 
+  # Rich markdown renderer (tables/math/mermaid/embedded media) for content
+  # previews where the lightweight inline renderer is insufficient (§13 j/m).
+  # SpecMarkdown routes rich content here; short labels stay lightweight.
+  tom_md_editor:
+    path: ../tom_md_editor
+
+  # NOTE (§13 k): live Flutter-layout rendering wants `tom_d4rt_flutter`
+  # (`SourceFlutterD4rt().build<Widget>(source, context)`), but that package's
+  # transitive `tom_d4rt → analyzer ^8` conflicts with `tom_dart_editor →
+  # analyzer ^10` (required by the OE-1 code editor). Until `tom_d4rt` moves to
+  # analyzer ^10 (d4rt-quest scope), the layout seam (`_LayoutField`) renders a
+  # read-only source preview. See OE-3a in the open-ends questions file.
+
   # Non-UI agent layer: provider/model API, models, placeholder engine.
   tom_core_agentic:
     path: ../../tom_ai/core/tom_core_agentic
