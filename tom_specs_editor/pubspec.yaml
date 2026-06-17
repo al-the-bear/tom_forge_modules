@@ -29,6 +29,11 @@ dependencies:
   tom_core_agentic:
     path: ../../tom_ai/core/tom_core_agentic
 
+  # Agent SDK MCP surface: McpSdkServerConfig / SdkMcpTool / CallToolResult used
+  # to expose the §8 navigation & mutation tools to the embedded agent. Same
+  # hosted constraint tom_core_agentic resolves, so version solving stays clean.
+  tom_vscode_scripting_api: ^1.1.0
+
   # Structural-review persistence (YAML) and review-file path resolution.
   yaml: ^3.1.2
   path: ^1.9.0

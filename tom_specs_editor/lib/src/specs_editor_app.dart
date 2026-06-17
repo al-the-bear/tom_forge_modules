@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:tom_core_agentic/tom_core_agentic.dart';
 import 'package:tom_forge_agentic/tom_forge_agentic.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
+import 'agent/agent_tools_module.dart';
 import 'spec_structure_module.dart';
 import 'specs_shell_module.dart';
+import 'structure/review_store.dart';
+import 'structure/spec_structure_view.dart';
 
 /// Root widget for the TomSpecs Editor.
 ///
@@ -34,6 +38,7 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
   final _navigatorKey = GlobalKey<NavigatorState>();
   late final DefaultShellApi _shell;
   late final SpecStructureModule _structureModule;
+  late final AgentToolsModule _toolsModule;
   late final AgentChatModule _chatModule;
   late final SpecsShellModule _shellModule;
   late ForgeApplication _application;
@@ -47,17 +52,38 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
       navigatorKey: _navigatorKey,
     );
 
-    // The structure module owns the structure browser + review store; it is
-    // registered first so its view exists before the shell builds the DocSpecs
-    // layout that hosts it as a panel tab.
-    _structureModule = SpecStructureModule();
+    // One shared model future + review store feeds the structure browser, the
+    // agent tools, and the document controller, so a review or document edit
+    // from either the UI or the agent lands on the same state.
+    final modelFuture = loadSpecModelFromAsset();
+    final reviewStore = ReviewStore.resolveDefault()..load();
+
+    // The structure module owns the structure browser; it is registered first
+    // so its view exists before the shell builds the DocSpecs layout that hosts
+    // it as a panel tab. It shares the model future + review store.
+    _structureModule = SpecStructureModule(
+      modelFuture: modelFuture,
+      store: reviewStore,
+    );
     _structureModule.activate(_shell);
     (_shell.modules as DefaultModuleRegistry).register(_structureModule);
 
+    // The agent tools module owns the §8 navigation/mutation tools over the
+    // shared document controller; its server config is folded into the agent
+    // send config below so the embedded agent can call the tools mid-turn.
+    _toolsModule = AgentToolsModule(
+      modelFuture: modelFuture,
+      review: reviewStore,
+    );
+    _toolsModule.activate(_shell);
+    (_shell.modules as DefaultModuleRegistry).register(_toolsModule);
+
     // The agent chat module owns the bridge connection picker; it is registered
     // before the shell so its chat view exists when the DocSpecs bottom panel
-    // is built. Activation kicks off the port scan (19900–19909).
-    _chatModule = widget.chatModule ?? AgentChatModule();
+    // is built. Activation kicks off the port scan (19900–19909). The send
+    // controller carries the §8 tool server (mcpServers seam) unless a test
+    // injects its own chat module.
+    _chatModule = widget.chatModule ?? _buildChatModule();
     _chatModule.activate(_shell);
     (_shell.modules as DefaultModuleRegistry).register(_chatModule);
 
@@ -73,6 +99,21 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
 
     // Start on DocSpecs — the one functional application.
     _application = _shellModule.docSpecs;
+  }
+
+  /// Builds the production chat module whose send controller carries the §8
+  /// tool server in its `mcpServers`. The connection and send controllers are
+  /// constructed explicitly so the same connection drives both.
+  AgentChatModule _buildChatModule() {
+    final connection = AgentConnectionController();
+    final sendController = AgentSendController(
+      connection: connection,
+      config: AgentSendConfig(mcpServers: _toolsModule.servers),
+    );
+    return AgentChatModule(
+      controller: connection,
+      sendController: sendController,
+    );
   }
 
   // The shell owns app-lifetime layout/system notifiers that the
