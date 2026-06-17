@@ -10,6 +10,7 @@ import 'package:tom_forge_ui/tom_forge_ui.dart'
 import '../structure/review_store.dart';
 import '../structure/spec_model.dart';
 import 'docspecs_file.dart';
+import 'markdown_document.dart';
 import 'spec_document.dart';
 
 /// A node located by [SpecDocumentController.resolve]: the structural meaning of
@@ -573,6 +574,74 @@ class SpecDocumentController extends ChangeNotifier {
     _savedFingerprint = _savedState.fingerprint;
     notifyListeners();
     return await DocSpecsFile.readSessionId(file);
+  }
+
+  // --- §15.2 markdown import / export ------------------------------------
+
+  /// Renders the populated subtree of the root identified by [rootSeg] (a root
+  /// section id or type name) as a schema-conformant markdown document with a
+  /// `<!-- docspec: -->` header (§15.2). Throws [ArgumentError] for an unknown
+  /// root.
+  String exportMarkdown(String rootSeg) {
+    final root = _rootBySeg(rootSeg);
+    if (root == null) {
+      throw ArgumentError('No document root for "$rootSeg"');
+    }
+    return MarkdownDocument(this).exportRoot(root);
+  }
+
+  /// Imports [text] as a **full overwrite** of the covered root scope (§15.2,
+  /// IO1): the parsed values replace everything under the imported root(s),
+  /// applied as a single undoable step. Returns the parse report — unmapped or
+  /// malformed blocks are listed in [MarkdownImportResult.rejections], never
+  /// silently dropped.
+  MarkdownImportResult importMarkdown(String text) {
+    final result = MarkdownDocument(this).parse(text);
+    _applyMarkdownImport(result);
+    return result;
+  }
+
+  /// Replaces every value under [MarkdownImportResult.rootPrefixes] with the
+  /// parsed values, as one undo entry. Built by merging the parsed values over
+  /// the live document minus the covered scope, then reloading — so other roots
+  /// are untouched and list seq/item paths are restored exactly.
+  void _applyMarkdownImport(MarkdownImportResult result) {
+    if (result.rootPrefixes.isEmpty) return;
+    final before = document.captureState();
+
+    final doc = document.toJson();
+    final content = <String, Object?>{};
+    final forms = <String, Object?>{};
+    final lists = <String, Object?>{};
+    (doc['content'] as Map?)?.forEach((k, v) => content['$k'] = v);
+    (doc['forms'] as Map?)?.forEach((k, v) => forms['$k'] = v);
+    (doc['lists'] as Map?)?.forEach((k, v) => lists['$k'] = v);
+
+    bool underScope(String key) => result.rootPrefixes.any(
+        (p) => key == p || key.startsWith('$p/') || key.startsWith('$p-'));
+    content.removeWhere((k, _) => underScope(k));
+    forms.removeWhere((k, _) => underScope(k));
+    lists.removeWhere((k, _) => underScope(k));
+
+    content.addAll(result.content);
+    forms.addAll(result.forms);
+    lists.addAll(result.lists);
+
+    document.loadJson({'content': content, 'forms': forms, 'lists': lists});
+
+    final after = document.captureState();
+    if (before.fingerprint == after.fingerprint) return;
+    _undo.push(UndoEntry(
+      undo: () async {
+        document.restoreState(before);
+        notifyListeners();
+      },
+      redo: () async {
+        document.restoreState(after);
+        notifyListeners();
+      },
+    ));
+    notifyListeners();
   }
 
   /// Wires the controller's [undo]/[redo] into the Forge shell via

@@ -6,6 +6,7 @@ import 'package:tom_forge_ui/tom_forge_ui.dart';
 import '../structure/review_controls.dart';
 import '../structure/review_store.dart';
 import '../structure/spec_model.dart';
+import 'markdown_io_dialog.dart';
 import 'root_navigator.dart';
 import 'spec_document_controller.dart';
 import 'spec_markdown.dart';
@@ -74,11 +75,63 @@ class SpecDocumentEditor extends ForgeEditor {
   FileHandlingResult canHandle(Uri uri) => FileHandlingResult.reject;
 
   @override
-  Widget buildMain(BuildContext context) =>
-      SpecDocumentTreeView(controller: controller, rootType: rootType);
+  Widget buildMain(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _MarkdownIoBar(controller: controller),
+          Expanded(
+            child:
+                SpecDocumentTreeView(controller: controller, rootType: rootType),
+          ),
+        ],
+      );
 
   @override
   Widget buildCopy(BuildContext context) => buildMain(context);
+}
+
+/// The §15.2 markdown import/export action bar above the document tree.
+class _MarkdownIoBar extends StatelessWidget {
+  const _MarkdownIoBar({required this.controller});
+
+  final SpecDocumentController controller;
+
+  Future<void> _export(BuildContext context) async {
+    await controller.ensureLoaded();
+    if (!context.mounted) return;
+    await showMarkdownExportDialog(context, controller);
+  }
+
+  Future<void> _import(BuildContext context) async {
+    await controller.ensureLoaded();
+    if (!context.mounted) return;
+    await showMarkdownImportDialog(context, controller);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Row(
+          children: [
+            TextButton.icon(
+              onPressed: () => _export(context),
+              icon: const Icon(Icons.upload_file_outlined, size: 16),
+              label: const Text('Export md'),
+            ),
+            const SizedBox(width: 4),
+            TextButton.icon(
+              onPressed: () => _import(context),
+              icon: const Icon(Icons.download_outlined, size: 16),
+              label: const Text('Import md'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// Loads the model then renders the compact document tree for the active root.
