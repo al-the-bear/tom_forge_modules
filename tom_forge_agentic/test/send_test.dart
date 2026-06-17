@@ -112,6 +112,29 @@ AgentConnectionController _connection({bool bound = true}) {
   )..loadPersisted();
 }
 
+/// A connection whose successive scans return [scans] in order (the last entry
+/// repeats), so the §6.1 reconnect probe can watch the bound server drop and
+/// return — possibly serving a different workspace. The caller scans + binds
+/// once before driving the controller.
+AgentConnectionController _reconnectConnection(List<Map<int, String>> scans) {
+  final dir = Directory.systemTemp.createTempSync('tom_specs_reconnect_bridge');
+  addTearDown(() {
+    if (dir.existsSync()) dir.deleteSync(recursive: true);
+  });
+  final store = BridgeChoiceStore(File('${dir.path}/bridge_connection.yaml'));
+  var call = 0;
+  return AgentConnectionController(
+    service: BridgeConnectionService(
+      scanner: ({required host, required minPort, required maxPort}) async {
+        final result = scans[call < scans.length ? call : scans.length - 1];
+        call++;
+        return result;
+      },
+    ),
+    store: store,
+  );
+}
+
 void main() {
   group('AgentSendController.send', () {
     test('streams the answer into output and records the session id', () async {
@@ -228,6 +251,166 @@ void main() {
         ),
         findsOneWidget,
       );
+    });
+  });
+
+  group('AgentSendController reconnect (§6.1)', () {
+    // A zero-duration back-off so the controller runs the protocol without
+    // waiting the real 10/30/60 s.
+    const instantBackoff = [Duration.zero];
+
+    test('a dropped connection auto-resends the prefixed prompt on reconnect',
+        () async {
+      final transport = _ScriptedTransport(
+        (_) => [_assistant('back online'), _success('s-recon')],
+      );
+      addTearDown(transport.dispose);
+
+      final connection = _reconnectConnection([
+        {19900: 'specs-ws'}, // initial pick
+        {19900: 'specs-ws'}, // reconnect probe → same workspace returns
+      ]);
+      await connection.scan();
+      connection.bind(connection.servers.single);
+
+      var factoryCalls = 0;
+      final controller = AgentSendController(
+        connection: connection,
+        sessionStore: _tempSessionStore(),
+        reconnectBackoff: instantBackoff,
+        clientFactory: ({required host, required port}) async {
+          factoryCalls++;
+          if (factoryCalls == 1) throw StateError('bridge gone');
+          return AgentSdkClient(transport);
+        },
+      );
+
+      await controller.send('do the thing');
+
+      // First connect dropped; the reconnect probe found the server and re-sent.
+      expect(factoryCalls, 2);
+      expect(controller.reconnectPhase, ReconnectPhase.idle);
+      expect(controller.error, isNull);
+      expect(controller.output, 'back online');
+      // Only the re-send reached the bridge, carrying the interrupt prefix.
+      expect(transport.started, hasLength(1));
+      final resent = transport.started.single['prompt'] as String;
+      expect(resent, startsWith(AgentProfile.defaultInterruptRetryPrefix));
+      expect(resent, contains('do the thing'));
+    });
+
+    test('a different workspace pauses for confirmation, then binds and resends',
+        () async {
+      final transport = _ScriptedTransport(
+        (_) => [_assistant('on the other window'), _success('s-other')],
+      );
+      addTearDown(transport.dispose);
+
+      final connection = _reconnectConnection([
+        {19900: 'specs-ws'}, // initial pick
+        {19900: 'other-ws'}, // reconnect probe → different workspace
+      ]);
+      await connection.scan();
+      connection.bind(connection.servers.single);
+
+      var factoryCalls = 0;
+      final controller = AgentSendController(
+        connection: connection,
+        sessionStore: _tempSessionStore(),
+        reconnectBackoff: instantBackoff,
+        clientFactory: ({required host, required port}) async {
+          factoryCalls++;
+          if (factoryCalls == 1) throw StateError('bridge gone');
+          return AgentSdkClient(transport);
+        },
+      );
+
+      await controller.send('hello there');
+
+      // The protocol paused for the user; nothing re-sent, prompt preserved.
+      expect(controller.reconnectPhase,
+          ReconnectPhase.awaitingDifferentWorkspace);
+      expect(controller.differentWorkspaceServer?.workspace, 'other-ws');
+      expect(controller.pendingPrompt, 'hello there');
+      expect(transport.started, isEmpty);
+
+      await controller.confirmDifferentWorkspace();
+
+      expect(controller.reconnectPhase, ReconnectPhase.idle);
+      expect(controller.output, 'on the other window');
+      // The new workspace's server is now bound and the prefixed prompt re-sent.
+      expect(connection.boundWorkspace, 'other-ws');
+      expect(transport.started, hasLength(1));
+      expect(
+        transport.started.single['prompt'],
+        startsWith(AgentProfile.defaultInterruptRetryPrefix),
+      );
+    });
+
+    test('a different workspace left unconfirmed stays unbound, prompt preserved',
+        () async {
+      final transport = _ScriptedTransport((_) => [_success('s')]);
+      addTearDown(transport.dispose);
+
+      final connection = _reconnectConnection([
+        {19900: 'specs-ws'}, // initial pick
+        {19900: 'other-ws'}, // reconnect probe → different workspace
+      ]);
+      await connection.scan();
+      connection.bind(connection.servers.single);
+
+      final controller = AgentSendController(
+        connection: connection,
+        sessionStore: _tempSessionStore(),
+        reconnectBackoff: instantBackoff,
+        clientFactory: ({required host, required port}) async =>
+            throw StateError('bridge gone'),
+      );
+
+      await controller.send('keep me');
+
+      // Paused awaiting the user; binding untouched and the prompt preserved.
+      expect(controller.reconnectPhase,
+          ReconnectPhase.awaitingDifferentWorkspace);
+      expect(controller.error, isNull); // never auto-interrupt; nothing aborted
+      expect(controller.pendingPrompt, 'keep me'); // prompt preserved
+      expect(transport.started, isEmpty); // nothing re-sent
+      expect(connection.boundWorkspace, 'specs-ws'); // binding untouched
+    });
+
+    test('still gone surfaces the modal; the user can abort to fail the send',
+        () async {
+      final transport = _ScriptedTransport((_) => [_success('s')]);
+      addTearDown(transport.dispose);
+
+      final connection = _reconnectConnection([
+        {19900: 'specs-ws'}, // initial pick
+        <int, String>{}, // every probe → gone
+      ]);
+      await connection.scan();
+      connection.bind(connection.servers.single);
+
+      final controller = AgentSendController(
+        connection: connection,
+        sessionStore: _tempSessionStore(),
+        reconnectBackoff: instantBackoff,
+        clientFactory: ({required host, required port}) async =>
+            throw StateError('bridge gone'),
+      );
+
+      await controller.send('keep this prompt');
+
+      // Paused at the still-gone modal; the prompt is preserved, not yet failed.
+      expect(controller.reconnectPhase, ReconnectPhase.awaitingStillGone);
+      expect(controller.pendingPrompt, 'keep this prompt');
+      expect(controller.error, isNull);
+      expect(transport.started, isEmpty);
+
+      controller.abortReconnect();
+
+      expect(controller.error, isA<StateError>());
+      expect(controller.reconnectPhase, ReconnectPhase.idle);
+      expect(transport.started, isEmpty);
     });
   });
 }

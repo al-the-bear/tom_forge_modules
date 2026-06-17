@@ -19,10 +19,15 @@ class AgentConnectionController extends ChangeNotifier {
   final BridgeConnectionService _service;
   final BridgeChoiceStore _store;
 
+  /// The scan service, exposed so the reconnect protocol (§6.1) can rescan the
+  /// bridge range through the same service the picker uses.
+  BridgeConnectionService get service => _service;
+
   List<BridgeServer> _servers = const [];
   bool _scanning = false;
   Object? _error;
   BridgeChoice? _boundChoice;
+  String? _boundWorkspace;
 
   /// The servers found by the last [scan], each tagged `bound` if it matches
   /// the persisted choice.
@@ -37,6 +42,13 @@ class AgentConnectionController extends ChangeNotifier {
   /// The persisted binding target (may not be among [servers] if that window
   /// is not currently running).
   BridgeChoice? get boundChoice => _boundChoice;
+
+  /// The workspace name of the bound window, captured at [bind] time so the
+  /// reconnect protocol (§6.1 step 5) can tell when the bound port comes back
+  /// serving a *different* workspace. `null` when the binding was restored from
+  /// persistence (only host+port are stored) and no live [bind] has run since —
+  /// the reconnect coordinator then treats any server on the port as the same.
+  String? get boundWorkspace => _boundWorkspace;
 
   /// The discovered server the editor is bound to, or `null` if the bound
   /// window is not currently among [servers].
@@ -84,6 +96,7 @@ class AgentConnectionController extends ChangeNotifier {
   /// Binds [server] and persists the choice.
   void bind(BridgeServer server) {
     _boundChoice = BridgeChoice(host: server.host, port: server.port);
+    _boundWorkspace = server.workspace;
     _store.save(_boundChoice!);
     _retag();
     notifyListeners();
@@ -92,6 +105,7 @@ class AgentConnectionController extends ChangeNotifier {
   /// Clears the binding and removes the persisted choice.
   void unbind() {
     _boundChoice = null;
+    _boundWorkspace = null;
     _store.clear();
     _retag();
     notifyListeners();
