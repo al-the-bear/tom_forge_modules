@@ -199,4 +199,44 @@ void main() {
       expect(find.widgetWithText(TextField, 'shared body'), findsOneWidget);
     });
   });
+
+  group('model version stamp (§17, B2)', () {
+    test('SpecModel.fromJson parses modelVersion + label when stamped', () {
+      final json = _multiRootJson()
+        ..['modelVersion'] = 3
+        ..['modelVersionLabel'] = '1.0.0+3.abc1234';
+      final model = SpecModel.fromJson(json);
+      expect(model.modelVersion, 3);
+      expect(model.modelVersionLabel, '1.0.0+3.abc1234');
+    });
+
+    test('an unstamped model defaults to version 0 with no label', () {
+      final model = SpecModel.fromJson(_multiRootJson());
+      expect(model.modelVersion, 0);
+      expect(model.modelVersionLabel, isNull);
+    });
+
+    testWidgets('the navigator footer reports the stamped model version',
+        (tester) async {
+      final controller = SpecDocumentController(
+        modelFuture: Future<SpecModel>.value(SpecModel.fromJson(
+          _multiRootJson()
+            ..['modelVersion'] = 5
+            ..['modelVersionLabel'] = '1.0.0+5.deadbee',
+        )),
+        review: _tempReviewStore(),
+      );
+      await controller.ensureLoaded();
+      addTearDown(controller.dispose);
+      await _pumpNavigator(tester, controller);
+
+      expect(find.text('model v5 · 1.0.0+5.deadbee'), findsOneWidget);
+    });
+
+    testWidgets('an unstamped asset shows "model: unstamped"', (tester) async {
+      final controller = await _controller();
+      await _pumpNavigator(tester, controller);
+      expect(find.text('model: unstamped'), findsOneWidget);
+    });
+  });
 }

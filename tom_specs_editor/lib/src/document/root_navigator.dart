@@ -104,40 +104,84 @@ class RootNavigatorList extends StatelessWidget {
         final ordered = navigatorRootOrder(model.roots);
         final fallback = defaultNavigatorRoot(model.roots);
         // Rebuild the highlight whenever the active root changes.
-        return AnimatedBuilder(
-          animation: controller,
-          builder: (context, _) {
-            final active = controller.activeRootType ??
-                (fallback != null ? rootSelector(fallback) : null);
-            return ListView.builder(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              itemCount: ordered.length,
-              itemBuilder: (context, i) {
-                final root = ordered[i];
-                final seg = rootSelector(root);
-                final selected = seg == active ||
-                    root.type == active ||
-                    root.sectionId == active;
-                // A separator sits after Project Definition (index 0 when the
-                // model has a PD root), before the alphabetical remainder.
-                final showDivider = i == 0 &&
-                    ordered.length > 1 &&
-                    isProjectDefinition(root);
-                final tile = _RootTile(
-                  root: root,
-                  selected: selected,
-                  onTap: () => controller.setActiveRoot(seg),
-                );
-                if (!showDivider) return tile;
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [tile, const Divider(height: 1)],
-                );
-              },
-            );
-          },
+        return Column(
+          children: [
+            Expanded(
+              child: AnimatedBuilder(
+                animation: controller,
+                builder: (context, _) {
+                  final active = controller.activeRootType ??
+                      (fallback != null ? rootSelector(fallback) : null);
+                  return ListView.builder(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    itemCount: ordered.length,
+                    itemBuilder: (context, i) {
+                      final root = ordered[i];
+                      final seg = rootSelector(root);
+                      final selected = seg == active ||
+                          root.type == active ||
+                          root.sectionId == active;
+                      // A separator sits after Project Definition (index 0 when
+                      // the model has a PD root), before the alphabetical rest.
+                      final showDivider = i == 0 &&
+                          ordered.length > 1 &&
+                          isProjectDefinition(root);
+                      final tile = _RootTile(
+                        root: root,
+                        selected: selected,
+                        onTap: () => controller.setActiveRoot(seg),
+                      );
+                      if (!showDivider) return tile;
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [tile, const Divider(height: 1)],
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+            _ModelVersionFooter(model: model),
+          ],
         );
       },
+    );
+  }
+}
+
+/// A compact footer reporting the model-version stamp the bundled
+/// `spec_model.json` was generated against (§17, B2). Makes model drift
+/// observable from the running app: an official build shows e.g. `model v3
+/// · 1.0.0+3.abc1234`; an unstamped manual export shows `model: unstamped`.
+class _ModelVersionFooter extends StatelessWidget {
+  const _ModelVersionFooter({required this.model});
+
+  final SpecModel model;
+
+  /// The user-facing string for [model]'s stamp.
+  static String label(SpecModel model) {
+    if (model.modelVersion <= 0) return 'model: unstamped';
+    final suffix =
+        model.modelVersionLabel != null ? ' · ${model.modelVersionLabel}' : '';
+    return 'model v${model.modelVersion}$suffix';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: theme.dividerColor)),
+      ),
+      child: Text(
+        label(model),
+        style: theme.textTheme.bodySmall?.copyWith(
+          fontFamily: 'monospace',
+          color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
+        ),
+      ),
     );
   }
 }

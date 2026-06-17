@@ -1,0 +1,3 @@
+# Placeholder so the asset directory exists for `flutter pub get` even before
+# a build runs. Generated *.docspecs-schema.yaml files (build artifacts) land
+# here at build time and are gitignored. See pubspec.yaml / §17.

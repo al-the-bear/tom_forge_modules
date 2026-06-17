@@ -200,7 +200,21 @@ class SpecModel {
   final List<SpecRoot> roots;
   final Map<String, SpecClass> classes;
 
-  SpecModel({required this.roots, required this.classes});
+  /// The S2 model-version counter the bundled `spec_model.json` was generated
+  /// against (§17, B2). `0` means the asset was produced by a manual,
+  /// unstamped export rather than an official build.
+  final int modelVersion;
+
+  /// A human-readable build label for the same stamp (e.g. `1.0.0+3.abc1234`),
+  /// or `null` when the asset is unstamped.
+  final String? modelVersionLabel;
+
+  SpecModel({
+    required this.roots,
+    required this.classes,
+    this.modelVersion = 0,
+    this.modelVersionLabel,
+  });
 
   SpecClass? classNamed(String? name) => name == null ? null : classes[name];
 
@@ -212,6 +226,12 @@ class SpecModel {
     final roots = (j['roots'] as List)
         .map((e) => SpecRoot.fromJson(e as Map<String, dynamic>))
         .toList();
-    return SpecModel(roots: roots, classes: classes);
+    final label = j['modelVersionLabel'] as String?;
+    return SpecModel(
+      roots: roots,
+      classes: classes,
+      modelVersion: (j['modelVersion'] as num?)?.toInt() ?? 0,
+      modelVersionLabel: (label?.isNotEmpty ?? false) ? label : null,
+    );
   }
 }

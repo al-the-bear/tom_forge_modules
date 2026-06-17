@@ -43,3 +43,8 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Generated DocSpecs schema build artifacts (kept out of VCS; .gitkeep stays).
+assets/docspecs-schema/*.docspecs-schema.yaml
+# Canonical DocSpecs resolver tree written at build time (§17); not tracked.
+.tom/docspecs-schema/

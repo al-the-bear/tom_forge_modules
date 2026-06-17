@@ -1,6 +1,8 @@
 {
-  "generatedAt": "2026-06-16T21:47:23.765566Z",
-  "classCount": 3082,
+  "generatedAt": "2026-06-17T07:53:17.122541Z",
+  "modelVersion": 1,
+  "modelVersionLabel": "1.0.0+4.410187b",
+  "classCount": 3083,
   "rootCount": 13,
   "containerRoot": "DocSpecsProject",
   "roots": [
@@ -127899,6 +127901,11 @@
           "sectionType": "TextSection"
         }
       ]
+    },
+    "TomSpecsModelVersionInfo": {
+      "name": "TomSpecsModelVersionInfo",
+      "doc": "Version information generated at build time.\n\nThis class contains static fields and methods for accessing\nversion information embedded during the build process.",
+      "fields": []
     },
     "ToolAccess": {
       "name": "ToolAccess",
