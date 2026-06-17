@@ -8,6 +8,10 @@ import 'package:tom_forge_ui/tom_forge_ui.dart';
 
 import 'agent/agent_tools_module.dart';
 import 'agent/spec_prompt_composer.dart';
+import 'config/raw_file_module.dart';
+import 'config/specs_config_module.dart';
+import 'document/spec_document_controller.dart';
+import 'document/spec_document_editor.dart';
 import 'spec_structure_module.dart';
 import 'specs_shell_module.dart';
 import 'structure/review_store.dart';
@@ -42,8 +46,11 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
   final _navigatorKey = GlobalKey<NavigatorState>();
   late final DefaultShellApi _shell;
   late final SpecStructureModule _structureModule;
+  late final SpecDocumentController _documentController;
   late final AgentToolsModule _toolsModule;
   late final AgentChatModule _chatModule;
+  late final RawFileModule _rawFileModule;
+  late final SpecsConfigModule _configModule;
   late final SpecsShellModule _shellModule;
   late ForgeApplication _application;
 
@@ -72,12 +79,21 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
     _structureModule.activate(_shell);
     (_shell.modules as DefaultModuleRegistry).register(_structureModule);
 
+    // One document controller is shared by the agent tools (§8) and the
+    // model-driven document editor (§13), so a mutation from either the UI or
+    // the agent lands on the same live document and both re-render.
+    _documentController = SpecDocumentController(
+      modelFuture: modelFuture,
+      review: reviewStore,
+    );
+
     // The agent tools module owns the §8 navigation/mutation tools over the
     // shared document controller; its server config is folded into the agent
     // send config below so the embedded agent can call the tools mid-turn.
     _toolsModule = AgentToolsModule(
       modelFuture: modelFuture,
       review: reviewStore,
+      controller: _documentController,
     );
     _toolsModule.activate(_shell);
     (_shell.modules as DefaultModuleRegistry).register(_toolsModule);
@@ -91,12 +107,26 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
     _chatModule.activate(_shell);
     (_shell.modules as DefaultModuleRegistry).register(_chatModule);
 
+    // The config module (§12, step 18) hosts the seven custom config editors
+    // and the basic-prefs settings panel; its raw-file module backs the
+    // editors' "Open raw file" buttons. The raw-file module is registered and
+    // activated first so it can route plain-text editors into the layout when a
+    // config editor opens its backing YAML/markdown.
+    _rawFileModule = RawFileModule();
+    _rawFileModule.activate(_shell);
+    (_shell.modules as DefaultModuleRegistry).register(_rawFileModule);
+
+    _configModule = SpecsConfigModule(rawFileModule: _rawFileModule);
+    _configModule.activate(_shell);
+    (_shell.modules as DefaultModuleRegistry).register(_configModule);
+
     // The shell module registers the three applications and selects DocSpecs,
     // hosting the structure view as the DocSpecs left panel's "Structure" tab
     // and the agent chat view as the bottom panel's "Chat" tab.
     _shellModule = SpecsShellModule(
       structureView: _structureModule.structureView,
       chatView: _chatModule.chatView,
+      documentEditor: SpecDocumentEditor(controller: _documentController),
     );
     _shellModule.activate(_shell);
     (_shell.modules as DefaultModuleRegistry).register(_shellModule);

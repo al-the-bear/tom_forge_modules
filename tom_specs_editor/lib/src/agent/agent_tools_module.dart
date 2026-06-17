@@ -21,12 +21,14 @@ class AgentToolsModule extends ForgeModule {
   AgentToolsModule({
     required Future<SpecModel> modelFuture,
     required ReviewStore review,
+    SpecDocumentController? controller,
     this.serverName = 'tomspecs',
-  })  : controller = SpecDocumentController(
-          modelFuture: modelFuture,
-          review: review,
-        ) {
-    _server = SpecAgentTools(controller).buildServer(name: serverName);
+  }) : controller = controller ??
+            SpecDocumentController(
+              modelFuture: modelFuture,
+              review: review,
+            ) {
+    _server = SpecAgentTools(this.controller).buildServer(name: serverName);
   }
 
   /// The MCP server name exposed to the Agent SDK.

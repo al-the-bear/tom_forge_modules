@@ -19,7 +19,12 @@ import 'placeholder_components.dart';
 /// document editor"). The real `SpecDocumentEditor`, structure browser, chat
 /// suite, and change log arrive in later steps (10–18).
 class SpecsShellModule extends ForgeModule {
-  SpecsShellModule({this.structureView, this.chatView});
+  SpecsShellModule({this.structureView, this.chatView, this.documentEditor});
+
+  /// The model-driven document editor (§13), hosted as the DocSpecs middle
+  /// "Document" split when provided. Null in the skeleton tests that predate
+  /// step 19, where the split falls back to a [PlaceholderEditor].
+  final ForgeEditor? documentEditor;
 
   /// The structure browser view (from [SpecStructureModule]), hosted as the
   /// DocSpecs left panel's "Structure" tab when provided (§5 — left panel's
@@ -91,16 +96,23 @@ class SpecsShellModule extends ForgeModule {
     required bool populated,
   }) {
     // Middle split 1: the document editor. Always present so the editor
-    // region is never empty; CodeSpecs/Implementation get an empty stub.
-    final documentEditor = PlaceholderEditor(
-      title: documentTitle,
-      icon: Icons.article_outlined,
-      uri: Uri(scheme: 'specs', host: title.toLowerCase(), path: '/document'),
-    );
-    _editors.add(documentEditor);
+    // region is never empty. DocSpecs uses the injected model-driven
+    // [SpecDocumentEditor] when provided (§13); CodeSpecs/Implementation (and
+    // pre-step-19 tests) fall back to an empty placeholder stub.
+    final ForgeEditor docEditor = (populated && documentEditor != null)
+        ? documentEditor!
+        : PlaceholderEditor(
+            title: documentTitle,
+            icon: Icons.article_outlined,
+            uri: Uri(
+                scheme: 'specs',
+                host: title.toLowerCase(),
+                path: '/document'),
+          );
+    _editors.add(docEditor);
     final middlePanels = <MiddlePanelConfig>[
       MiddlePanelConfig(
-        tabs: [MiddleTabConfig(editor: documentEditor)],
+        tabs: [MiddleTabConfig(editor: docEditor)],
       ),
     ];
 

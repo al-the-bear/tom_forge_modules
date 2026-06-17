@@ -340,6 +340,14 @@ class SpecDocumentController extends ChangeNotifier {
   /// The content value at [path], or `null`.
   String? content(String path) => document.content(path);
 
+  /// Whether any value exists at [path] or beneath it — the structural
+  /// emptiness test the compact tree uses to decide chip-vs-expanded (§13.1,
+  /// D4). An untouched node is empty and renders as a clickable chip.
+  bool hasValuesUnder(String path) => document.hasValuesUnder(path);
+
+  /// The ordered item paths of the list at [listPath] (empty when none).
+  List<String> listItems(String listPath) => document.listItems(listPath);
+
   /// The form [field] value at [path], or `null`.
   String? formField(String path, String field) =>
       document.formField(path, field);

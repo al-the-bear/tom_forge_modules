@@ -98,6 +98,24 @@ class SpecDocument {
   bool get isEmpty =>
       _content.isEmpty && _form.isEmpty && _listItems.isEmpty;
 
+  /// Whether any value exists at [prefix] or nested beneath it — the structural
+  /// "empty = no value" test (§13.1, D4).
+  ///
+  /// A node's path is the prefix; a value counts when its key is the path
+  /// itself (a `content`/`scalar`/`enum` leaf or a `@Form` entry), a descendant
+  /// (`"$prefix/…"` for a complex/section child), or a list item of the node
+  /// (`"$prefix-…"`). This is the exact inverse of the predicate [_purgeUnder]
+  /// uses, so emptiness and purge stay in lock-step.
+  bool hasValuesUnder(String prefix) {
+    bool isUnder(String key) =>
+        key == prefix ||
+        key.startsWith('$prefix/') ||
+        key.startsWith('$prefix-');
+    return _content.keys.any(isUnder) ||
+        _form.keys.any(isUnder) ||
+        _listItems.keys.any(isUnder);
+  }
+
   /// A deep-copied snapshot of the whole document, for the undo stack (§10).
   ///
   /// Every map is copied so the returned state is independent of subsequent
