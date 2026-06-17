@@ -116,6 +116,93 @@ class SpecDocument {
         _listItems.keys.any(isUnder);
   }
 
+  /// A plain-data view of every value held, for persistence (§15.1 `document:`
+  /// pass). Only non-empty stores are included, and each is sorted by full
+  /// section-ID path so the saved file diffs/merges cleanly. The shape is the
+  /// inverse of [loadJson]:
+  ///
+  /// ```
+  /// {
+  ///   content: { "<path>": "<value>", ... },
+  ///   forms:   { "<path>": { "<field>": "<value>", ... }, ... },
+  ///   lists:   { "<path>": { seq: <int>, items: ["<path-1>", ...] }, ... },
+  /// }
+  /// ```
+  ///
+  /// The list `seq` is the monotonic counter ([_listSeq]); persisting it keeps
+  /// item paths from colliding after a load→add (D3 stability survives a save).
+  Map<String, Object?> toJson() {
+    List<String> sorted(Iterable<String> keys) => keys.toList()..sort();
+    return {
+      if (_content.isNotEmpty)
+        'content': {for (final k in sorted(_content.keys)) k: _content[k]},
+      if (_form.isNotEmpty)
+        'forms': {
+          for (final k in sorted(_form.keys))
+            k: {for (final f in sorted(_form[k]!.keys)) f: _form[k]![f]},
+        },
+      if (_listItems.isNotEmpty)
+        'lists': {
+          for (final k in sorted(_listItems.keys))
+            k: {
+              'seq': _listSeq[k] ?? _listItems[k]!.length,
+              'items': List.of(_listItems[k]!),
+            },
+        },
+    };
+  }
+
+  /// Replaces every store from a [toJson]-shaped map (§15.1 load pass). Tolerant
+  /// of the YAML parser's `Map`/`List` views and coerces leaf values to strings
+  /// (block scalars always parse back as strings). Unknown/empty entries are
+  /// skipped so a hand-edited file can't smuggle in malformed state.
+  void loadJson(Map<dynamic, dynamic> json) {
+    _content.clear();
+    _form.clear();
+    _listItems.clear();
+    _listSeq.clear();
+
+    final content = json['content'];
+    if (content is Map) {
+      content.forEach((k, v) {
+        if (v != null) _content['$k'] = '$v';
+      });
+    }
+
+    final forms = json['forms'];
+    if (forms is Map) {
+      forms.forEach((k, fields) {
+        if (fields is Map) {
+          final entry = <String, String>{};
+          fields.forEach((f, v) {
+            if (v != null) entry['$f'] = '$v';
+          });
+          if (entry.isNotEmpty) _form['$k'] = entry;
+        }
+      });
+    }
+
+    final lists = json['lists'];
+    if (lists is Map) {
+      lists.forEach((k, spec) {
+        if (spec is Map) {
+          final items = spec['items'];
+          final list = <String>[];
+          if (items is List) {
+            for (final it in items) {
+              list.add('$it');
+            }
+          }
+          if (list.isNotEmpty) _listItems['$k'] = list;
+          final seq = spec['seq'];
+          _listSeq['$k'] = seq is int
+              ? seq
+              : (seq is String ? int.tryParse(seq) ?? list.length : list.length);
+        }
+      });
+    }
+  }
+
   /// A deep-copied snapshot of the whole document, for the undo stack (§10).
   ///
   /// Every map is copied so the returned state is independent of subsequent

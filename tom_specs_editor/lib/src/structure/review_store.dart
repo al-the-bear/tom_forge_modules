@@ -163,6 +163,24 @@ class ReviewStore extends ChangeNotifier {
   /// Number of non-empty review entries currently held.
   int get count => _entries.length;
 
+  /// An unmodifiable view of every held entry, keyed by structural path — the
+  /// source for the §15.1 `review:` pass when saving a `*.docspecs.yaml`.
+  Map<String, ReviewEntry> get entries => Map.unmodifiable(_entries);
+
+  /// Replaces the whole entry set in one shot (used when loading a
+  /// `*.docspecs.yaml` restores the review pass). Empty entries are dropped so
+  /// the store stays tidy; persists once and notifies unless [persist] is off.
+  void replaceEntries(Map<String, ReviewEntry> entries, {bool persist = true}) {
+    _entries
+      ..clear()
+      ..addAll({
+        for (final e in entries.entries)
+          if (!e.value.isEmpty) e.key: e.value,
+      });
+    if (persist) _save();
+    notifyListeners();
+  }
+
   /// Loads entries from disk if the file exists. Safe to call once at startup.
   void load() {
     if (!file.existsSync()) return;
