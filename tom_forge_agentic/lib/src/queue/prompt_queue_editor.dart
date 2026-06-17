@@ -1,0 +1,62 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:tom_forge_core/tom_forge_core.dart';
+import 'package:tom_forge_ui/tom_forge_ui.dart';
+
+import 'prompt_queue_controller.dart';
+import 'prompt_queue_view.dart';
+
+/// Hosts the [PromptQueueView] as a Forge **middle-panel** editor (§5 Col 2).
+///
+/// The shell's layout only places [ForgeEditor]s in the middle splits (side and
+/// bottom panels take [ForgeView]s). The queue is a persistent tool surface,
+/// not a document, so this wrapper is a non-closable editor that declines every
+/// real file ([canHandle] → reject) and never reports a dirty state — it exists
+/// purely to give the queue column its own column in the editor area instead of
+/// being stacked inside the bottom chat view.
+class PromptQueueEditor extends ForgeEditor {
+  PromptQueueEditor({required this.controller})
+      : _title = ValueNotifier<String>('Prompt Queue'),
+        _titleExtension = ValueNotifier<String?>(null),
+        _isDirty = ValueNotifier<bool>(false);
+
+  /// The queue controller the hosted [PromptQueueView] renders and drives.
+  final PromptQueueController controller;
+
+  final ValueNotifier<String> _title;
+  final ValueNotifier<String?> _titleExtension;
+  final ValueNotifier<bool> _isDirty;
+
+  @override
+  IconData get icon => Icons.playlist_play_outlined;
+
+  @override
+  Uri get uri => Uri(scheme: 'agent', host: 'chat', path: '/queue');
+
+  @override
+  ValueListenable<String> get title => _title;
+
+  @override
+  ValueListenable<String?> get titleExtension => _titleExtension;
+
+  @override
+  ValueListenable<bool> get isDirty => _isDirty;
+
+  @override
+  ForgeComponentSizeHints get sizeHints => const ForgeComponentSizeHints();
+
+  @override
+  void markClean() => _isDirty.value = false;
+
+  // The queue is never a real document; the shell keeps routing opened files to
+  // the document editor, not here.
+  @override
+  FileHandlingResult canHandle(Uri uri) => FileHandlingResult.reject;
+
+  @override
+  Widget buildMain(BuildContext context) =>
+      PromptQueueView(controller: controller);
+
+  @override
+  Widget buildCopy(BuildContext context) => buildMain(context);
+}

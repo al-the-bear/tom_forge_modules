@@ -7,23 +7,21 @@ import 'chat/chat_send_coordinator.dart';
 import 'connection/agent_connection_controller.dart';
 import 'connection/agent_connection_picker.dart';
 import 'queue/prompt_queue_controller.dart';
-import 'queue/prompt_queue_view.dart';
 import 'send/agent_send_controller.dart';
-import 'trail/prompt_trail_controller.dart';
-import 'trail/prompt_trail_view.dart';
 
-/// The bottom-panel agent chat view (§5, §11).
+/// The bottom-panel agent chat view (§5, §11.1).
 ///
-/// Lays out the full chat suite: the connection picker on top (accessible for
-/// rebinding), the prompt **queue** (Col 2) and **trail** (Col 3) side by side
-/// in the middle, and the chat **composer** + streamed answer at the bottom.
+/// Hosts the **chat composer** half of the suite: the connection picker on top
+/// (accessible for rebinding) and the placeholder-aware composer + streamed
+/// answer below. The prompt **queue** (Col 2) and **trail** (Col 3) are *not*
+/// stacked here — they are their own middle-panel editors
+/// ([PromptQueueEditor] / [PromptTrailEditor], hosted by [AgentChatModule]).
 /// "Send now" routes through the [ChatSendCoordinator] (recording the trail
 /// pair); "Add to queue" defers onto the [PromptQueueController].
 class AgentChatView extends ForgeView {
   AgentChatView({
     required this.controller,
     required this.sendController,
-    required this.trailController,
     required this.queueController,
     required this.coordinator,
   })  : _title = ValueNotifier<String>('Chat'),
@@ -35,10 +33,8 @@ class AgentChatView extends ForgeView {
   /// The send controller streaming the answer into the output view.
   final AgentSendController sendController;
 
-  /// The prompt trail (Col 3).
-  final PromptTrailController trailController;
-
-  /// The prompt queue (Col 2).
+  /// The prompt queue, fed by the composer's "Add to queue" action (Col 2 is
+  /// rendered separately by [PromptQueueEditor]).
   final PromptQueueController queueController;
 
   /// Sends "Send now" prompts and records them in the trail.
@@ -59,16 +55,16 @@ class AgentChatView extends ForgeView {
   @override
   ForgeComponentSizeHints get sizeHints => const ForgeComponentSizeHints();
 
-  /// The minimum height the stacked chat regions (picker · queue/trail ·
-  /// composer) need before their fixed section headers start to clip. The
-  /// bottom panel is often far shorter than this, so the view scrolls below it.
-  static const double _minStackHeight = 560;
+  /// The minimum height the stacked chat regions (picker · composer) need
+  /// before their fixed section headers start to clip. The bottom panel is
+  /// often far shorter than this, so the view scrolls below it.
+  static const double _minStackHeight = 420;
 
   @override
   Widget buildMain(BuildContext context) => LayoutBuilder(
         builder: (context, constraints) {
           // The bottom panel is frequently only a few dozen pixels tall. Give
-          // the three stacked regions a sensible minimum and let the whole view
+          // the two stacked regions a sensible minimum and let the whole view
           // scroll when the panel is shorter, so the headers never overflow.
           final available = constraints.maxHeight;
           final height = available.isFinite && available > _minStackHeight
@@ -88,22 +84,9 @@ class AgentChatView extends ForgeView {
             child: AgentConnectionPicker(controller: controller),
           ),
           const Divider(height: 1),
-          // Queue (Col 2) + trail (Col 3) side by side.
+          // Composer + streamed answer.
           Expanded(
-            flex: 3,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(child: PromptQueueView(controller: queueController)),
-                const VerticalDivider(width: 1),
-                Expanded(child: PromptTrailView(controller: trailController)),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
-          // Composer + streamed answer (bottom).
-          Expanded(
-            flex: 4,
+            flex: 5,
             child: ChatComposerPanel(
               controller: sendController,
               onSendNow: coordinator.sendNow,

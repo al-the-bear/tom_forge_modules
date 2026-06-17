@@ -118,6 +118,28 @@ void main() {
     );
   });
 
+  test('injected queue/trail land in DocSpecs middle Col 2 / Col 3 (OE-9)', () {
+    final shell = DefaultShellApi.withDefaults(
+      fileSystemSeed: const {},
+      appName: 'TomSpecs Editor',
+      navigatorKey: GlobalKey<NavigatorState>(),
+    );
+    final chatModule = _fakeChatModule();
+    final module = SpecsShellModule(
+      queueEditor: chatModule.queueEditor,
+      trailEditor: chatModule.trailEditor,
+    );
+    module.activate(shell);
+
+    final middle = module.docSpecs.layout.middlePanels;
+    expect(middle, hasLength(3));
+    // Col 1 = Document; Col 2 = the real prompt queue; Col 3 = the real trail —
+    // no longer the placeholder stubs, and no longer stacked in the bottom chat
+    // view.
+    expect(middle[1].tabs.single.editor, same(chatModule.queueEditor));
+    expect(middle[2].tabs.single.editor, same(chatModule.trailEditor));
+  });
+
   testWidgets('CodeSpecs phase overview renders authentic Phase 4 content', (
     tester,
   ) async {

@@ -28,6 +28,8 @@ class SpecsShellModule extends ForgeModule {
     this.structureView,
     this.chatView,
     this.documentEditor,
+    this.queueEditor,
+    this.trailEditor,
     this.navigatorView,
   });
 
@@ -35,6 +37,18 @@ class SpecsShellModule extends ForgeModule {
   /// "Document" split when provided. Null in the skeleton tests that predate
   /// step 19, where the split falls back to a [PlaceholderEditor].
   final ForgeEditor? documentEditor;
+
+  /// The prompt-queue editor (from [AgentChatModule]), hosted as the DocSpecs
+  /// middle "Prompt Queue" split (§5 Col 2) when provided. Null in the skeleton
+  /// tests that predate the chat suite, where the split falls back to a
+  /// [PlaceholderEditor].
+  final ForgeEditor? queueEditor;
+
+  /// The prompt-trail editor (from [AgentChatModule]), hosted as the DocSpecs
+  /// middle "Prompt Trail" split (§5 Col 3) when provided. Null in the skeleton
+  /// tests that predate the chat suite, where the split falls back to a
+  /// [PlaceholderEditor].
+  final ForgeEditor? trailEditor;
 
   /// The §14 root navigator (step 20), hosted as the DocSpecs left panel's
   /// "Navigator" tab when provided. Null in the skeleton tests that predate
@@ -166,24 +180,28 @@ class SpecsShellModule extends ForgeModule {
       );
     }
 
-    // DocSpecs: the two further middle splits (Queue, Trail) plus all four
-    // surrounding regions, each populated with a labelled placeholder.
-    final queueEditor = PlaceholderEditor(
-      title: 'Prompt Queue',
-      icon: Icons.playlist_play_outlined,
-      uri: Uri(scheme: 'specs', host: 'docspecs', path: '/queue'),
-    );
-    final trailEditor = PlaceholderEditor(
-      title: 'Prompt Trail',
-      icon: Icons.history_outlined,
-      uri: Uri(scheme: 'specs', host: 'docspecs', path: '/trail'),
-    );
-    _editors..add(queueEditor)..add(trailEditor);
+    // DocSpecs: the two further middle splits (Queue = Col 2, Trail = Col 3)
+    // plus all four surrounding regions. The queue/trail editors come from the
+    // injected [AgentChatModule] (the real §11.2/§11.3 columns); the skeleton
+    // tests that predate the chat suite fall back to labelled placeholders.
+    final ForgeEditor queueSplit = queueEditor ??
+        PlaceholderEditor(
+          title: 'Prompt Queue',
+          icon: Icons.playlist_play_outlined,
+          uri: Uri(scheme: 'specs', host: 'docspecs', path: '/queue'),
+        );
+    final ForgeEditor trailSplit = trailEditor ??
+        PlaceholderEditor(
+          title: 'Prompt Trail',
+          icon: Icons.history_outlined,
+          uri: Uri(scheme: 'specs', host: 'docspecs', path: '/trail'),
+        );
+    _editors..add(queueSplit)..add(trailSplit);
     middlePanels.add(
-      MiddlePanelConfig(tabs: [MiddleTabConfig(editor: queueEditor)]),
+      MiddlePanelConfig(tabs: [MiddleTabConfig(editor: queueSplit)]),
     );
     middlePanels.add(
-      MiddlePanelConfig(tabs: [MiddleTabConfig(editor: trailEditor)]),
+      MiddlePanelConfig(tabs: [MiddleTabConfig(editor: trailSplit)]),
     );
 
     // The §14 root navigator drives the document editor's active root (step

@@ -4,16 +4,20 @@ import 'agent_chat_view.dart';
 import 'chat/chat_send_coordinator.dart';
 import 'connection/agent_connection_controller.dart';
 import 'queue/prompt_queue_controller.dart';
+import 'queue/prompt_queue_editor.dart';
 import 'send/agent_send_controller.dart';
 import 'trail/prompt_trail_controller.dart';
+import 'trail/prompt_trail_editor.dart';
 
 /// Reusable agent chat module (§4.2, §6, §11).
 ///
 /// Contributed by any agent/chat-enabled Forge tool. It owns the connection,
-/// send, prompt-trail and prompt-queue controllers and exposes the [chatView]
-/// for the bottom panel (composer + queue + trail). On [activate] it restores
-/// the persisted binding and queue/trail state, then kicks off a port scan
-/// (19900–19909) so the picker is populated as soon as the shell is shown.
+/// send, prompt-trail and prompt-queue controllers and exposes the three §5
+/// placement-ready surfaces: the [chatView] (connection picker + composer) for
+/// the bottom panel, plus the [queueEditor] (Col 2) and [trailEditor] (Col 3)
+/// for the middle splits. On [activate] it restores the persisted binding and
+/// queue/trail state, then kicks off a port scan (19900–19909) so the picker is
+/// populated as soon as the shell is shown.
 ///
 /// All controllers are injectable so tests (and hosts that want to share one
 /// connection across modules) can supply their own — e.g. a [sendController]
@@ -39,11 +43,13 @@ class AgentChatModule extends ForgeModule {
     _view = AgentChatView(
       controller: this.controller,
       sendController: this.sendController,
-      trailController: this.trailController,
       queueController: this.queueController,
       coordinator: coordinator,
     );
     _views = [_view];
+    _queueEditor = PromptQueueEditor(controller: this.queueController);
+    _trailEditor = PromptTrailEditor(controller: this.trailController);
+    _editors = [_queueEditor, _trailEditor];
   }
 
   /// The shared connection controller (scan + binding state).
@@ -63,9 +69,18 @@ class AgentChatModule extends ForgeModule {
 
   late final AgentChatView _view;
   late final List<ForgeView> _views;
+  late final PromptQueueEditor _queueEditor;
+  late final PromptTrailEditor _trailEditor;
+  late final List<ForgeEditor> _editors;
 
-  /// The chat view, for hosting in the bottom panel.
+  /// The chat view (connection picker + composer), for the bottom panel.
   AgentChatView get chatView => _view;
+
+  /// The prompt-queue editor, for the §5 Col 2 middle split.
+  PromptQueueEditor get queueEditor => _queueEditor;
+
+  /// The prompt-trail editor, for the §5 Col 3 middle split.
+  PromptTrailEditor get trailEditor => _trailEditor;
 
   @override
   String get displayName => 'Agent Chat';
@@ -85,7 +100,7 @@ class AgentChatModule extends ForgeModule {
   void deactivate() {}
 
   @override
-  List<ForgeEditor> get editors => const [];
+  List<ForgeEditor> get editors => _editors;
 
   @override
   List<ForgeView> get views => _views;

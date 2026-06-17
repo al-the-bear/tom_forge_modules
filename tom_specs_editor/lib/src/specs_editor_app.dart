@@ -128,6 +128,8 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
       structureView: _structureModule.structureView,
       chatView: _chatModule.chatView,
       documentEditor: SpecDocumentEditor(controller: _documentController),
+      queueEditor: _chatModule.queueEditor,
+      trailEditor: _chatModule.trailEditor,
       navigatorView: RootNavigator(controller: _documentController),
     );
     _shellModule.activate(_shell);
