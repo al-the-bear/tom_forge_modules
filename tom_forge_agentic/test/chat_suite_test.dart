@@ -1,0 +1,278 @@
+// Tests for the chat suite (§11.1–11.3): the prompt trail, the prompt queue
+// (send-next / reorder / retry) and the send coordinator that records each
+// exchange. Queue dispatch runs over a faked SDK transport (mirroring
+// send_test.dart) so the whole pipeline runs without a socket.
+
+import 'dart:async';
+import 'dart:io';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:tom_core_agentic/tom_core_agentic.dart';
+import 'package:tom_forge_agentic/tom_forge_agentic.dart';
+// `tom_vscode_scripting_api` also exports a `QueuedPromptStatus`; this suite
+// asserts against the `tom_core_agentic` one, so hide the scripting-API name.
+import 'package:tom_vscode_scripting_api/tom_vscode_scripting_api.dart'
+    hide QueuedPromptStatus;
+
+/// A transport double that emits a scripted message sequence for every started
+/// query (mirrors send_test.dart). [script] maps the call index to the raw
+/// `SDKMessage` JSON maps to stream back, in order.
+class _ScriptedTransport implements AgentSdkTransport {
+  _ScriptedTransport(this.script);
+
+  final List<Map<String, dynamic>> Function(int call) script;
+
+  final _chunks = StreamController<Map<String, dynamic>>.broadcast();
+  int _calls = 0;
+
+  @override
+  Stream<Map<String, dynamic>> get chunks => _chunks.stream;
+
+  @override
+  Future<void> startQuery(Map<String, dynamic> params) async {
+    final streamId = params['streamId'];
+    final messages = script(_calls++);
+    unawaited(Future<void>(() async {
+      for (final message in messages) {
+        _chunks.add({'streamId': streamId, 'message': message});
+      }
+      _chunks.add({'streamId': streamId, 'done': true});
+    }));
+  }
+
+  @override
+  Future<void> cancelQuery(String streamId) async {}
+
+  @override
+  void registerTools(String streamId, AgentSdkToolRegistry registry) {}
+
+  @override
+  void unregisterTools(String streamId) {}
+
+  @override
+  void registerCanUseTool(String streamId, CanUseTool callback) {}
+
+  @override
+  void unregisterCanUseTool(String streamId) {}
+
+  Future<void> dispose() => _chunks.close();
+}
+
+Map<String, dynamic> _assistant(String text) => {
+      'type': 'assistant',
+      'message': {
+        'content': [
+          {'type': 'text', 'text': text},
+        ],
+      },
+    };
+
+Map<String, dynamic> _success(String sessionId) => {
+      'type': 'result',
+      'subtype': 'success',
+      'is_error': false,
+      'session_id': sessionId,
+      'result': 'ok',
+    };
+
+Map<String, dynamic> _errorResult(String text) => {
+      'type': 'result',
+      'subtype': 'error_during_execution',
+      'is_error': true,
+      'result': text,
+    };
+
+SpecSessionStore _tempSessionStore() {
+  final dir = Directory.systemTemp.createTempSync('tom_specs_chat_session');
+  addTearDown(() {
+    if (dir.existsSync()) dir.deleteSync(recursive: true);
+  });
+  return SpecSessionStore(File('${dir.path}/agent_session.yaml'));
+}
+
+AgentConnectionController _boundConnection() {
+  final dir = Directory.systemTemp.createTempSync('tom_specs_chat_bridge');
+  addTearDown(() {
+    if (dir.existsSync()) dir.deleteSync(recursive: true);
+  });
+  final store = BridgeChoiceStore(File('${dir.path}/bridge_connection.yaml'))
+    ..save(const BridgeChoice(host: '127.0.0.1', port: 19900));
+  return AgentConnectionController(
+    service: BridgeConnectionService(
+      scanner: ({required host, required minPort, required maxPort}) async =>
+          const {},
+    ),
+    store: store,
+  )..loadPersisted();
+}
+
+PromptQueueStore _tempQueueStore() {
+  final dir = Directory.systemTemp.createTempSync('tom_specs_queue_ctrl');
+  addTearDown(() {
+    if (dir.existsSync()) dir.deleteSync(recursive: true);
+  });
+  return PromptQueueStore(File('${dir.path}/prompt_queue.yaml'));
+}
+
+PromptTrailStore _tempTrailStore() {
+  final dir = Directory.systemTemp.createTempSync('tom_specs_trail_ctrl');
+  addTearDown(() {
+    if (dir.existsSync()) dir.deleteSync(recursive: true);
+  });
+  return PromptTrailStore(File('${dir.path}/prompt_trail.yaml'));
+}
+
+/// A counter-based id generator for deterministic test ids.
+String Function() _ids(String prefix) {
+  var n = 0;
+  return () => '$prefix-${n++}';
+}
+
+void main() {
+  group('PromptTrailController', () {
+    test('records a request then closes it with the answer', () {
+      final controller = PromptTrailController(
+        store: _tempTrailStore(),
+        newId: _ids('t'),
+        now: () => '2026-06-17T10:00:00Z',
+      );
+
+      final id = controller.recordRequest('hello');
+      expect(controller.pairs, hasLength(1));
+      expect(controller.pairs.single.request.text, 'hello');
+      expect(controller.pairs.single.answer, isNull);
+
+      controller.completeAnswer(id, 'hi there');
+      expect(controller.pairs.single.answer?.text, 'hi there');
+    });
+
+    test('persists pairs and reloads them in a fresh controller', () {
+      final store = _tempTrailStore();
+      final first = PromptTrailController(store: store, newId: _ids('t'));
+      final id = first.recordRequest('ask');
+      first.completeAnswer(id, 'answer');
+
+      final reloaded = PromptTrailController(store: store)..load();
+      expect(reloaded.pairs.single.request.text, 'ask');
+      expect(reloaded.pairs.single.answer?.text, 'answer');
+    });
+
+    test('failAnswer records the error text in place of the answer', () {
+      final controller =
+          PromptTrailController(store: _tempTrailStore(), newId: _ids('t'));
+      final id = controller.recordRequest('boom');
+      controller.failAnswer(id, 'connection lost');
+      expect(controller.pairs.single.answer?.text, 'connection lost');
+    });
+  });
+
+  group('PromptQueueController', () {
+    PromptQueueController build({
+      required _ScriptedTransport transport,
+      PromptQueueStore? queueStore,
+      PromptTrailController? trail,
+    }) {
+      final send = AgentSendController(
+        connection: _boundConnection(),
+        sessionStore: _tempSessionStore(),
+        clientFactory: ({required host, required port}) async =>
+            AgentSdkClient(transport),
+      );
+      final coordinator = ChatSendCoordinator(
+        send: send,
+        trail: trail ??
+            PromptTrailController(store: _tempTrailStore(), newId: _ids('t')),
+      );
+      return PromptQueueController(
+        coordinator: coordinator,
+        store: queueStore ?? _tempQueueStore(),
+        newId: _ids('q'),
+        now: () => '2026-06-17T10:00:00Z',
+      );
+    }
+
+    test('addPrompt appends a pending item and persists it', () {
+      final store = _tempQueueStore();
+      final transport = _ScriptedTransport((_) => [_success('s')]);
+      addTearDown(transport.dispose);
+      final controller = build(transport: transport, queueStore: store);
+
+      controller.addPrompt('do A');
+      controller.addPrompt('do B');
+
+      expect(controller.items.map((i) => i.originalText), ['do A', 'do B']);
+      expect(controller.items.first.status, QueuedPromptStatus.pending);
+      // Persisted: a fresh controller over the same store reloads them.
+      expect(PromptQueueStore(store.file).load().map((i) => i.originalText),
+          ['do A', 'do B']);
+    });
+
+    test('moveUp / moveDown reorder the queue', () {
+      final transport = _ScriptedTransport((_) => [_success('s')]);
+      addTearDown(transport.dispose);
+      final controller = build(transport: transport);
+      controller.addPrompt('first');
+      controller.addPrompt('second');
+
+      controller.moveDown(0);
+      expect(controller.items.map((i) => i.originalText), ['second', 'first']);
+      controller.moveUp(1);
+      expect(controller.items.map((i) => i.originalText), ['first', 'second']);
+    });
+
+    test('removeById drops the item', () {
+      final transport = _ScriptedTransport((_) => [_success('s')]);
+      addTearDown(transport.dispose);
+      final controller = build(transport: transport);
+      final a = controller.addPrompt('keep');
+      final b = controller.addPrompt('remove');
+
+      controller.removeById(b.id);
+      expect(controller.items.map((i) => i.id), [a.id]);
+    });
+
+    test('sendNext dispatches the head pending item and records the trail',
+        () async {
+      final transport = _ScriptedTransport(
+        (_) => [_assistant('done!'), _success('s1')],
+      );
+      addTearDown(transport.dispose);
+      final trail =
+          PromptTrailController(store: _tempTrailStore(), newId: _ids('t'));
+      final controller = build(transport: transport, trail: trail);
+      controller.addPrompt('first task');
+      controller.addPrompt('second task');
+
+      await controller.sendNext();
+
+      expect(controller.items.first.status, QueuedPromptStatus.sent);
+      expect(controller.items.first.sentAt, isNotNull);
+      expect(controller.items[1].status, QueuedPromptStatus.pending);
+      // The exchange landed in the trail as a request/answer pair.
+      expect(trail.pairs, hasLength(1));
+      expect(trail.pairs.single.request.text, 'first task');
+      expect(trail.pairs.single.answer?.text, 'done!');
+    });
+
+    test('retry re-dispatches an errored item to success', () async {
+      // First dispatch errors; the retry succeeds.
+      final transport = _ScriptedTransport(
+        (call) => call == 0
+            ? [_errorResult('temporary failure')]
+            : [_assistant('recovered'), _success('s2')],
+      );
+      addTearDown(transport.dispose);
+      final controller = build(transport: transport);
+      final item = controller.addPrompt('flaky task');
+
+      await controller.sendNext();
+      expect(controller.items.single.status, QueuedPromptStatus.error);
+      expect(controller.items.single.error, isNotNull);
+
+      await controller.retry(item.id);
+      expect(controller.items.single.status, QueuedPromptStatus.sent);
+      // The error was cleared on the successful retry.
+      expect(controller.items.single.error, isNull);
+    });
+  });
+}
