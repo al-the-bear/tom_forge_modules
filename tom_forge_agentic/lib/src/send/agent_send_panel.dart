@@ -125,13 +125,14 @@ class _AgentSendPanelState extends State<AgentSendPanel> {
           ),
           const SizedBox(width: 8),
           controller.sending
-              ? const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  child: SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+              ? IconButton.filled(
+                  tooltip: 'Stop',
+                  icon: const Icon(Icons.stop, size: 18),
+                  style: IconButton.styleFrom(
+                    backgroundColor: theme.colorScheme.error,
+                    foregroundColor: theme.colorScheme.onError,
                   ),
+                  onPressed: () => controller.cancel(),
                 )
               : IconButton.filled(
                   tooltip: controller.canSend

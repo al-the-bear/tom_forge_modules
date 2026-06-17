@@ -85,6 +85,15 @@ class AgentSendController extends ChangeNotifier {
   String? _pendingPrompt;
   BridgeServer? _differentWorkspaceServer;
 
+  /// Cancellation source for the turn in flight, or `null`. [cancel] signals it
+  /// to abort: the engine interrupts the active query (`agentSdk.cancelVce`),
+  /// closing its stream so the turn unwinds without a terminal event.
+  CancellationTokenSource? _cancelSource;
+
+  /// Set by [cancel] so a turn aborted while the §6.1 reconnect back-off is
+  /// probing is not resurrected when the probe resolves. Reset by [send].
+  bool _cancelled = false;
+
   /// The accumulated assistant answer text streamed so far.
   String get output => _output.toString();
 
@@ -133,6 +142,7 @@ class AgentSendController extends ChangeNotifier {
     }
 
     _sending = true;
+    _cancelled = false;
     _error = null;
     _connectError = null;
     _sessionRefreshed = false;
@@ -143,7 +153,7 @@ class AgentSendController extends ChangeNotifier {
 
     try {
       final connected = await _streamOnce(prompt);
-      if (!connected) {
+      if (!connected && !_cancelled) {
         await _runReconnect(prompt);
       }
     } catch (e) {
@@ -152,6 +162,28 @@ class AgentSendController extends ChangeNotifier {
       _sending = false;
       notifyListeners();
     }
+  }
+
+  /// Aborts the turn in flight, stopping the underlying Agent SDK query
+  /// (`agentSdk.cancelVce`) through the engine → `AgentSdkClient` → transport
+  /// cancel path. A no-op when nothing is in flight.
+  ///
+  /// The text streamed so far is kept in [output] and the cancel is *not* an
+  /// [error] — it is the user's deliberate stop. Any §6.1 reconnect awaiting the
+  /// user's input is cleared, since stopping supersedes that decision.
+  void cancel() {
+    if (!_sending) return;
+    _cancelled = true;
+    // Signal the engine to interrupt the active query. The engine closes the
+    // query stream and ends its event stream silently, which unwinds the
+    // in-flight [_streamOnce] and lets [send] complete. Flip the UI state now
+    // for immediate feedback; [send]'s `finally` re-asserts it harmlessly.
+    _cancelSource?.cancel();
+    _phase = ReconnectPhase.idle;
+    _pendingPrompt = null;
+    _differentWorkspaceServer = null;
+    _sending = false;
+    notifyListeners();
   }
 
   /// Binds the different-workspace server and auto-resends the preserved prompt
@@ -221,23 +253,33 @@ class AgentSendController extends ChangeNotifier {
       _connectError = e;
       return false;
     }
-    await for (final event in engine.send(prompt)) {
-      switch (event) {
-        case AgentSendStarted():
-          break;
-        case AgentSendChunk(:final text):
-          _output.write(text);
-          notifyListeners();
-        case AgentSendSessionRefreshed():
-          _sessionRefreshed = true;
-          notifyListeners();
-        case AgentSendCompleted(:final sessionId):
-          _sessionId = sessionId;
-        case AgentSendFailed(:final message):
-          _error = message;
+
+    // A per-turn cancellation source: [cancel] signals it, the engine
+    // interrupts the active query (`agentSdk.cancelVce`) and ends its stream
+    // silently, so the `await for` below unwinds without a terminal event.
+    final cancelSource = CancellationTokenSource();
+    _cancelSource = cancelSource;
+    try {
+      await for (final event in engine.send(prompt, cancelToken: cancelSource.token)) {
+        switch (event) {
+          case AgentSendStarted():
+            break;
+          case AgentSendChunk(:final text):
+            _output.write(text);
+            notifyListeners();
+          case AgentSendSessionRefreshed():
+            _sessionRefreshed = true;
+            notifyListeners();
+          case AgentSendCompleted(:final sessionId):
+            _sessionId = sessionId;
+          case AgentSendFailed(:final message):
+            _error = message;
+        }
       }
+      return true;
+    } finally {
+      if (identical(_cancelSource, cancelSource)) _cancelSource = null;
     }
-    return true;
   }
 
   /// Runs the §6.1 reconnect back-off for an [originalPrompt] interrupted by a
@@ -255,6 +297,10 @@ class AgentSendController extends ChangeNotifier {
       bound: connection.boundChoice!,
       boundWorkspace: connection.boundWorkspace,
     );
+
+    // The user pressed Stop while the back-off probe was running; honour that
+    // rather than resurrecting the turn with the probe's late result.
+    if (_cancelled) return;
 
     switch (result.resolution) {
       case ReconnectResolution.sameWorkspace:

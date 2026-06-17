@@ -57,6 +57,49 @@ class _ScriptedTransport implements AgentSdkTransport {
   Future<void> dispose() => _chunks.close();
 }
 
+/// A transport double that streams one assistant chunk and then *stalls* — it
+/// never emits the terminal `done`, so the turn stays in flight until the
+/// controller [AgentSendController.cancel]s it. Records the stream ids passed to
+/// [cancelQuery] so a test can assert the remote query was aborted.
+class _StallingTransport implements AgentSdkTransport {
+  final _chunks = StreamController<Map<String, dynamic>>.broadcast();
+  final List<Map<String, dynamic>> started = [];
+  final List<String> cancelled = [];
+
+  @override
+  Stream<Map<String, dynamic>> get chunks => _chunks.stream;
+
+  @override
+  Future<void> startQuery(Map<String, dynamic> params) async {
+    started.add(params);
+    final streamId = params['streamId'];
+    // One chunk, then silence — no `done`, so the turn never completes on its
+    // own; only a cancel ends it.
+    unawaited(Future<void>(() async {
+      _chunks.add({'streamId': streamId, 'message': _assistant('partial')});
+    }));
+  }
+
+  @override
+  Future<void> cancelQuery(String streamId) async {
+    cancelled.add(streamId);
+  }
+
+  @override
+  void registerTools(String streamId, AgentSdkToolRegistry registry) {}
+
+  @override
+  void unregisterTools(String streamId) {}
+
+  @override
+  void registerCanUseTool(String streamId, CanUseTool callback) {}
+
+  @override
+  void unregisterCanUseTool(String streamId) {}
+
+  Future<void> dispose() => _chunks.close();
+}
+
 Map<String, dynamic> _assistant(String text) => {
       'type': 'assistant',
       'message': {
@@ -411,6 +454,113 @@ void main() {
       expect(controller.error, isA<StateError>());
       expect(controller.reconnectPhase, ReconnectPhase.idle);
       expect(transport.started, isEmpty);
+    });
+  });
+
+  group('AgentSendController.cancel (OE-7)', () {
+    test('stops the in-flight turn, keeps the partial output, aborts the query',
+        () async {
+      final transport = _StallingTransport();
+      addTearDown(transport.dispose);
+
+      final controller = AgentSendController(
+        connection: _connection(),
+        sessionStore: _tempSessionStore(),
+        clientFactory: ({required host, required port}) async =>
+            AgentSdkClient(transport),
+      );
+
+      // Start the turn but don't await — the transport stalls (no `done`), so
+      // the send only completes once we cancel it.
+      final pending = controller.send('do the long thing');
+      while (controller.output.isEmpty) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      expect(controller.sending, isTrue);
+
+      controller.cancel();
+      await pending;
+
+      // The turn is over, the streamed text is retained, and a deliberate stop
+      // is not surfaced as an error.
+      expect(controller.sending, isFalse);
+      expect(controller.output, 'partial');
+      expect(controller.error, isNull);
+      // The remote query is aborted through the transport's cancel path; the
+      // abort cascade runs asynchronously, so give it a moment to land.
+      final streamId = transport.started.single['streamId'] as String;
+      while (transport.cancelled.isEmpty) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      expect(transport.cancelled, contains(streamId));
+    });
+
+    test('is a no-op when nothing is in flight', () async {
+      final transport = _StallingTransport();
+      addTearDown(transport.dispose);
+
+      final controller = AgentSendController(
+        connection: _connection(),
+        sessionStore: _tempSessionStore(),
+        clientFactory: ({required host, required port}) async =>
+            AgentSdkClient(transport),
+      );
+
+      controller.cancel();
+
+      expect(controller.sending, isFalse);
+      expect(transport.cancelled, isEmpty);
+      expect(transport.started, isEmpty);
+    });
+  });
+
+  group('AgentSendPanel cancel (OE-7)', () {
+    testWidgets('shows a Stop button while sending and cancels on tap',
+        (tester) async {
+      final transport = _StallingTransport();
+      addTearDown(transport.dispose);
+
+      final controller = AgentSendController(
+        connection: _connection(),
+        sessionStore: _tempSessionStore(),
+        clientFactory: ({required host, required port}) async =>
+            AgentSdkClient(transport),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: AgentSendPanel(controller: controller)),
+        ),
+      );
+
+      // Start a stalling turn; the composer should swap Send → Stop.
+      await tester.enterText(find.byType(TextField), 'hi');
+      await tester.runAsync(() async {
+        await tester.tap(find.byIcon(Icons.send));
+        while (controller.output.isEmpty) {
+          await Future<void>.delayed(const Duration(milliseconds: 5));
+        }
+      });
+      await tester.pump();
+
+      expect(find.byIcon(Icons.stop), findsOneWidget);
+      expect(find.byIcon(Icons.send), findsNothing);
+
+      // Tapping Stop cancels the turn and restores the Send button. The abort
+      // cascade is asynchronous, so wait for the transport cancel to land too.
+      await tester.runAsync(() async {
+        await tester.tap(find.byIcon(Icons.stop));
+        while (controller.sending || transport.cancelled.isEmpty) {
+          await Future<void>.delayed(const Duration(milliseconds: 5));
+        }
+      });
+      await tester.pump();
+
+      expect(controller.sending, isFalse);
+      expect(find.byIcon(Icons.send), findsOneWidget);
+      expect(find.byIcon(Icons.stop), findsNothing);
+      final streamId = transport.started.single['streamId'] as String;
+      expect(transport.cancelled, contains(streamId));
     });
   });
 }
