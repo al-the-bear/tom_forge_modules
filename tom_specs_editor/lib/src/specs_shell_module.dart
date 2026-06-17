@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
+import 'apps/phase_overview.dart';
+import 'apps/spec_phase.dart';
 import 'placeholder_components.dart';
 
 /// Bootstrap module for the TomSpecs Editor (§4.2).
@@ -12,12 +14,15 @@ import 'placeholder_components.dart';
 /// the host's `onApplicationSwitch`, which re-renders the scaffold with the
 /// chosen application's layout.
 ///
-/// Only **DocSpecs** is functional in step 9: its four regions are populated
-/// with placeholder views/editors so the layout is visible. CodeSpecs and
-/// Implementation reuse the same skeleton with an empty document editor
-/// (§5 — "CodeSpecs/Implementation apps reuse the skeleton with an empty
-/// document editor"). The real `SpecDocumentEditor`, structure browser, chat
-/// suite, and change log arrive in later steps (10–18).
+/// **DocSpecs** is the phase-1 functional application: its four regions are
+/// populated with the real document editor, structure browser, navigator and
+/// chat suite (steps 10–22). **CodeSpecs** and **Implementation** are the
+/// phase-2 applications; step 25 populates them with their **phase overviews**
+/// ([SpecPhase.codeSpecs] / [SpecPhase.implementation]) — the document region
+/// renders a [PhaseOverviewEditor] and the left panel a [PhaseOutlineView], so
+/// each app presents the real TomSpecs methodology content for its phase rather
+/// than an empty placeholder. Their full model-driven document editors (their
+/// own object models) remain phase-2 follow-ups.
 class SpecsShellModule extends ForgeModule {
   SpecsShellModule({
     this.structureView,
@@ -80,6 +85,7 @@ class SpecsShellModule extends ForgeModule {
       icon: Icons.code_outlined,
       documentTitle: 'CodeSpec',
       populated: false,
+      phase: SpecPhase.codeSpecs,
     );
 
     final implementation = _buildApp(
@@ -87,6 +93,7 @@ class SpecsShellModule extends ForgeModule {
       icon: Icons.build_outlined,
       documentTitle: 'Implementation',
       populated: false,
+      phase: SpecPhase.implementation,
     );
 
     _applications
@@ -96,29 +103,35 @@ class SpecsShellModule extends ForgeModule {
 
   /// Builds one application with the common 4-region skeleton.
   ///
-  /// When [populated] is false the middle Document split holds an empty
-  /// editor and the side/bottom panels carry no tabs — the reused skeleton
-  /// for CodeSpecs/Implementation until their content lands.
+  /// DocSpecs ([populated] = true) hosts the injected model-driven editors and
+  /// all four populated regions. The phase-2 apps ([populated] = false, with a
+  /// [phase]) host their [PhaseOverviewEditor] in the document region and a
+  /// [PhaseOutlineView] in the left panel (step 25), so their content is real
+  /// rather than a blank placeholder.
   ForgeApplication _buildApp({
     required String title,
     required IconData icon,
     required String documentTitle,
     required bool populated,
+    SpecPhase? phase,
   }) {
     // Middle split 1: the document editor. Always present so the editor
     // region is never empty. DocSpecs uses the injected model-driven
-    // [SpecDocumentEditor] when provided (§13); CodeSpecs/Implementation (and
-    // pre-step-19 tests) fall back to an empty placeholder stub.
+    // [SpecDocumentEditor] when provided (§13); the phase-2 apps render their
+    // [PhaseOverviewEditor]; bare pre-step-19/25 skeleton tests fall back to a
+    // placeholder stub.
     final ForgeEditor docEditor = (populated && documentEditor != null)
         ? documentEditor!
-        : PlaceholderEditor(
-            title: documentTitle,
-            icon: Icons.article_outlined,
-            uri: Uri(
-                scheme: 'specs',
-                host: title.toLowerCase(),
-                path: '/document'),
-          );
+        : (phase != null)
+            ? PhaseOverviewEditor(phase: phase)
+            : PlaceholderEditor(
+                title: documentTitle,
+                icon: Icons.article_outlined,
+                uri: Uri(
+                    scheme: 'specs',
+                    host: title.toLowerCase(),
+                    path: '/document'),
+              );
     _editors.add(docEditor);
     final middlePanels = <MiddlePanelConfig>[
       MiddlePanelConfig(
@@ -127,13 +140,25 @@ class SpecsShellModule extends ForgeModule {
     ];
 
     if (!populated) {
-      // CodeSpecs / Implementation: skeleton with an empty document editor and
-      // bare side/bottom panels (§5).
+      // CodeSpecs / Implementation: the phase overview in the document region
+      // plus an "Overview" left-panel tab listing the phase components (§5,
+      // step 25). The right/bottom regions stay bare — their chat/change-log
+      // surfaces are wired only for the functional DocSpecs app.
+      final List<PanelTabConfig> leftTabs = [];
+      if (phase != null) {
+        final outline = PhaseOutlineView(phase: phase);
+        _views.add(outline);
+        leftTabs.add(PanelTabConfig(
+          title: 'Overview',
+          icon: Icons.list_alt_outlined,
+          sections: [outline],
+        ));
+      }
       return ForgeApplication(
         title: title,
         icon: icon,
         layout: ApplicationLayout(
-          leftPanel: const PanelConfig(initialSize: 250),
+          leftPanel: PanelConfig(initialSize: 250, tabs: leftTabs),
           rightPanel: const PanelConfig(initialSize: 220),
           bottomPanel: const PanelConfig(initialSize: 180),
           middlePanels: middlePanels,

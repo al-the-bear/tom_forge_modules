@@ -12,6 +12,8 @@ import 'package:tom_core_agentic/tom_core_agentic.dart';
 import 'package:tom_forge_agentic/tom_forge_agentic.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
+import 'package:tom_specs_editor/src/apps/phase_overview.dart';
+import 'package:tom_specs_editor/src/apps/spec_phase.dart';
 import 'package:tom_specs_editor/src/specs_editor_app.dart';
 import 'package:tom_specs_editor/src/specs_shell_module.dart';
 
@@ -74,7 +76,7 @@ void main() {
     expect(systemState.activeApplication.title, 'DocSpecs');
   });
 
-  test('DocSpecs exposes all four regions; others reuse the skeleton', () {
+  test('DocSpecs exposes all four regions; phase-2 apps render real content', () {
     final shell = DefaultShellApi.withDefaults(
       fileSystemSeed: const {},
       appName: 'TomSpecs Editor',
@@ -92,12 +94,51 @@ void main() {
     expect(layout.rightPanel.tabs, isNotEmpty);
     expect(layout.bottomPanel.tabs, isNotEmpty);
 
-    // CodeSpecs / Implementation reuse the skeleton with an empty document
-    // editor and no side/bottom tabs.
+    // CodeSpecs / Implementation are no longer empty skeletons (step 25): each
+    // hosts a phase-overview editor in its single document split and an
+    // "Overview" left-panel tab. The chat/change-log/queue/trail surfaces stay
+    // DocSpecs-only, so the bottom panel remains empty.
     final codeSpecs = module.applications[1];
     expect(codeSpecs.title, 'CodeSpecs');
     expect(codeSpecs.layout.middlePanels.length, 1);
-    expect(codeSpecs.layout.leftPanel.tabs, isEmpty);
+    expect(codeSpecs.layout.leftPanel.tabs, hasLength(1));
+    expect(codeSpecs.layout.leftPanel.tabs.single.title, 'Overview');
     expect(codeSpecs.layout.bottomPanel.tabs, isEmpty);
+    expect(
+      codeSpecs.layout.middlePanels.single.tabs.single.editor,
+      isA<PhaseOverviewEditor>(),
+    );
+
+    final implementation = module.applications[2];
+    expect(implementation.title, 'Implementation');
+    expect(implementation.layout.leftPanel.tabs.single.title, 'Overview');
+    expect(
+      implementation.layout.middlePanels.single.tabs.single.editor,
+      isA<PhaseOverviewEditor>(),
+    );
+  });
+
+  testWidgets('CodeSpecs phase overview renders authentic Phase 4 content', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 1600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: PhaseOverviewBody(phase: SpecPhase.codeSpecs),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    // The real Phase-4 heading, a produced artifact, and a sourced component
+    // are all rendered — this is genuine methodology content, not a placeholder.
+    expect(find.textContaining('CodeSpecs'), findsWidgets);
+    expect(find.textContaining('Phase 4'), findsWidgets);
+    expect(find.textContaining('Skeletal application'), findsWidgets);
+    expect(find.textContaining('UI Elements'), findsWidgets);
   });
 }
