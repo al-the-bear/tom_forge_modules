@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
 import 'apps/phase_overview.dart';
+import 'apps/phase_surfaces.dart';
 import 'apps/spec_phase.dart';
 import 'placeholder_components.dart';
 
@@ -21,8 +22,13 @@ import 'placeholder_components.dart';
 /// ([SpecPhase.codeSpecs] / [SpecPhase.implementation]) — the document region
 /// renders a [PhaseOverviewEditor] and the left panel a [PhaseOutlineView], so
 /// each app presents the real TomSpecs methodology content for its phase rather
-/// than an empty placeholder. Their full model-driven document editors (their
-/// own object models) remain phase-2 follow-ups.
+/// than an empty placeholder. OE-26 completes the 4-region skeleton for these
+/// two apps: the chat (bottom), change-log (right), and queue/trail (middle
+/// Col 2/3) surfaces are now present as phase-aware [PhaseSurface] placeholders
+/// (rather than empty panels), naming when each activates. The *live* shared
+/// DocSpecs chat/queue/trail/change-log instances stay DocSpecs-only — wiring
+/// them per-phase needs each app's own model-driven document controller
+/// (OE-24a), or the agent would edit the DocSpecs document from the wrong app.
 class SpecsShellModule extends ForgeModule {
   SpecsShellModule({
     this.structureView,
@@ -160,10 +166,16 @@ class SpecsShellModule extends ForgeModule {
     ];
 
     if (!populated) {
-      // CodeSpecs / Implementation: the phase overview in the document region
-      // plus an "Overview" left-panel tab listing the phase components (§5,
-      // step 25). The right/bottom regions stay bare — their chat/change-log
-      // surfaces are wired only for the functional DocSpecs app.
+      // CodeSpecs / Implementation (§5, step 25 + OE-26): the phase overview in
+      // the document region plus an "Overview" left-panel tab listing the phase
+      // components, and the same four surrounding surfaces DocSpecs carries —
+      // chat (bottom), change log (right), and the queue/trail middle splits —
+      // but as phase-aware [PhaseSurface] placeholders. The *live* shared
+      // DocSpecs instances are deliberately NOT hosted here: the agent edits the
+      // live DocSpecs document, and a phase-2 app has no model-driven document
+      // controller of its own yet (OE-24a), so a live surface would mutate the
+      // wrong document. The placeholders keep the 4-region layout consistent
+      // across all three apps and name when each surface activates.
       final List<PanelTabConfig> leftTabs = [];
       if (phase != null) {
         final outline = PhaseOutlineView(phase: phase);
@@ -173,14 +185,56 @@ class SpecsShellModule extends ForgeModule {
           icon: Icons.list_alt_outlined,
           sections: [outline],
         ));
+
+        // Middle Col 2 / Col 3: queue + trail placeholder splits, so the
+        // phase-2 middle area carries the same three columns as DocSpecs.
+        final queueSurface =
+            PhaseSurfaceEditor(phase: phase, surface: PhaseSurface.queue);
+        final trailSurface =
+            PhaseSurfaceEditor(phase: phase, surface: PhaseSurface.trail);
+        _editors..add(queueSurface)..add(trailSurface);
+        middlePanels
+          ..add(MiddlePanelConfig(tabs: [MiddleTabConfig(editor: queueSurface)]))
+          ..add(MiddlePanelConfig(tabs: [MiddleTabConfig(editor: trailSurface)]));
       }
+
+      // Bottom "Chat" and right "Change Log" surfaces (phase-aware placeholders).
+      final chatSurface = phase == null
+          ? null
+          : PhaseSurfaceView(phase: phase, surface: PhaseSurface.chat);
+      final changeLogSurface = phase == null
+          ? null
+          : PhaseSurfaceView(phase: phase, surface: PhaseSurface.changeLog);
+      if (chatSurface != null) _views.add(chatSurface);
+      if (changeLogSurface != null) _views.add(changeLogSurface);
+
       return ForgeApplication(
         title: title,
         icon: icon,
         layout: ApplicationLayout(
           leftPanel: PanelConfig(initialSize: 250, tabs: leftTabs),
-          rightPanel: const PanelConfig(initialSize: 220),
-          bottomPanel: const PanelConfig(initialSize: 180),
+          rightPanel: PanelConfig(
+            initialSize: 220,
+            tabs: [
+              if (changeLogSurface != null)
+                PanelTabConfig(
+                  title: PhaseSurface.changeLog.label,
+                  icon: PhaseSurface.changeLog.icon,
+                  sections: [changeLogSurface],
+                ),
+            ],
+          ),
+          bottomPanel: PanelConfig(
+            initialSize: 180,
+            tabs: [
+              if (chatSurface != null)
+                PanelTabConfig(
+                  title: PhaseSurface.chat.label,
+                  icon: PhaseSurface.chat.icon,
+                  sections: [chatSurface],
+                ),
+            ],
+          ),
           middlePanels: middlePanels,
         ),
       );

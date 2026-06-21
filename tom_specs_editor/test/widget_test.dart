@@ -13,6 +13,7 @@ import 'package:tom_forge_agentic/tom_forge_agentic.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
 import 'package:tom_specs_editor/src/apps/phase_overview.dart';
+import 'package:tom_specs_editor/src/apps/phase_surfaces.dart';
 import 'package:tom_specs_editor/src/apps/spec_phase.dart';
 import 'package:tom_specs_editor/src/specs_editor_app.dart';
 import 'package:tom_specs_editor/src/specs_shell_module.dart';
@@ -76,7 +77,7 @@ void main() {
     expect(systemState.activeApplication.title, 'DocSpecs');
   });
 
-  test('DocSpecs exposes all four regions; phase-2 apps render real content', () {
+  test('DocSpecs exposes all four regions; phase-2 apps mirror the skeleton', () {
     final shell = DefaultShellApi.withDefaults(
       fileSystemSeed: const {},
       appName: 'TomSpecs Editor',
@@ -94,27 +95,69 @@ void main() {
     expect(layout.rightPanel.tabs, isNotEmpty);
     expect(layout.bottomPanel.tabs, isNotEmpty);
 
-    // CodeSpecs / Implementation are no longer empty skeletons (step 25): each
-    // hosts a phase-overview editor in its single document split and an
-    // "Overview" left-panel tab. The chat/change-log/queue/trail surfaces stay
-    // DocSpecs-only, so the bottom panel remains empty.
-    final codeSpecs = module.applications[1];
-    expect(codeSpecs.title, 'CodeSpecs');
-    expect(codeSpecs.layout.middlePanels.length, 1);
-    expect(codeSpecs.layout.leftPanel.tabs, hasLength(1));
-    expect(codeSpecs.layout.leftPanel.tabs.single.title, 'Overview');
-    expect(codeSpecs.layout.bottomPanel.tabs, isEmpty);
-    expect(
-      codeSpecs.layout.middlePanels.single.tabs.single.editor,
-      isA<PhaseOverviewEditor>(),
-    );
+    // OE-26: CodeSpecs / Implementation now carry the same 4-region skeleton as
+    // DocSpecs. The document split is the read-only phase overview; the left
+    // panel adds an "Overview" tab; and the chat (bottom), change-log (right)
+    // and queue/trail (middle Col 2/3) surfaces are present as phase-aware
+    // placeholders (not the live DocSpecs instances — that follows OE-24a).
+    for (final i in [1, 2]) {
+      final app = module.applications[i];
+      // Three middle splits: phase overview + queue/trail surface placeholders.
+      expect(app.layout.middlePanels.length, 3, reason: '${app.title} middle');
+      expect(
+        app.layout.middlePanels[0].tabs.single.editor,
+        isA<PhaseOverviewEditor>(),
+        reason: '${app.title} document split',
+      );
+      expect(
+        app.layout.middlePanels[1].tabs.single.editor,
+        isA<PhaseSurfaceEditor>(),
+        reason: '${app.title} queue split',
+      );
+      expect(
+        app.layout.middlePanels[2].tabs.single.editor,
+        isA<PhaseSurfaceEditor>(),
+        reason: '${app.title} trail split',
+      );
+      // Left panel: only the "Overview" tab (Navigator/Structure/Config stay
+      // DocSpecs-only — they drive the live document).
+      expect(app.layout.leftPanel.tabs, hasLength(1));
+      expect(app.layout.leftPanel.tabs.single.title, 'Overview');
+      // Bottom "Chat" + right "Change Log" surfaces are no longer empty.
+      expect(app.layout.bottomPanel.tabs.single.title, 'Chat');
+      expect(app.layout.bottomPanel.tabs.single.sections.single,
+          isA<PhaseSurfaceView>());
+      expect(app.layout.rightPanel.tabs.single.title, 'Change Log');
+      expect(app.layout.rightPanel.tabs.single.sections.single,
+          isA<PhaseSurfaceView>());
+    }
 
-    final implementation = module.applications[2];
-    expect(implementation.title, 'Implementation');
-    expect(implementation.layout.leftPanel.tabs.single.title, 'Overview');
+    expect(module.applications[1].title, 'CodeSpecs');
+    expect(module.applications[2].title, 'Implementation');
+  });
+
+  testWidgets('a phase-2 surface names when it activates (OE-26)', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: PhaseSurfaceBody(
+            phase: SpecPhase.codeSpecs,
+            surface: PhaseSurface.chat,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    // Truthful caption — names the surface and its phase-2 activation, not a
+    // bare "not wired yet".
+    expect(find.text('Chat'), findsOneWidget);
     expect(
-      implementation.layout.middlePanels.single.tabs.single.editor,
-      isA<PhaseOverviewEditor>(),
+      find.textContaining('Activates with the CodeSpecs document editor'),
+      findsOneWidget,
     );
   });
 
