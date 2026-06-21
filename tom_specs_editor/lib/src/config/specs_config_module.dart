@@ -31,7 +31,8 @@ class SpecsConfigModule extends ForgeModule {
     EditorPreferencesStore? preferencesStore,
     AgentSettingsStore? settingsStore,
     AgentProfileStore? profileStore,
-  })  : _specs = specs ?? SpecsConfigSpecs(),
+    String Function(String source)? compose,
+  })  : _specs = specs ?? SpecsConfigSpecs(compose: compose),
         rawFileModule = rawFileModule ?? RawFileModule(),
         _preferencesStore =
             preferencesStore ?? EditorPreferencesStore.resolveDefault(),

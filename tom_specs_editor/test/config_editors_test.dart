@@ -116,6 +116,47 @@ void main() {
       expect(find.byKey(const Key('config-validation-error')), findsOneWidget);
     });
 
+    testWidgets(
+        'the prompt-templates editor shows a live placeholder preview when a '
+        'composer is wired (§12, OE-14)', (tester) async {
+      // A composer that uppercases a known placeholder, so the preview's
+      // expansion is visibly distinct from the raw body.
+      final specsWithCompose = SpecsConfigSpecs(
+        profiles: AgentProfileStore(File('${dir.path}/profiles.yaml')),
+        promptTemplates:
+            PromptTemplateStore(File('${dir.path}/prompt_templates.yaml')),
+        queueTemplates:
+            QueueTemplateStore(File('${dir.path}/queue_templates.yaml')),
+        chatVariables:
+            ChatVariableStore(File('${dir.path}/chat_variables.yaml')),
+        timedRequests:
+            TimedRequestStore(File('${dir.path}/timed_requests.yaml')),
+        queue: PromptQueueStore(File('${dir.path}/queue.yaml')),
+        agentSettings:
+            AgentSettingsStore(File('${dir.path}/agent_settings.yaml')),
+        preferences:
+            EditorPreferencesStore(File('${dir.path}/editor_preferences.yaml')),
+        compose: (s) => s.replaceAll(r'${who}', 'Alex'),
+      );
+      specsWithCompose.promptTemplates.save([
+        PromptTemplate(id: 't1', name: 'Greeting', body: r'hi ${who}'),
+      ]);
+      final spec = specsWithCompose.promptTemplateSpec();
+      final editor =
+          ConfigListEditor<PromptTemplate>(spec: spec, onOpenRawFile: (_) {});
+      await _pump(tester, Builder(builder: editor.buildMain));
+      await tester.tap(find.byKey(const Key('config-item-0')));
+      await tester.pump();
+      // The preview field expands the body's placeholder.
+      expect(find.text('hi Alex'), findsOneWidget);
+    });
+
+    test('the preview field is omitted when no composer is wired', () {
+      // Default `specs` has compose == null, so the prompt-template form keeps
+      // only its three authored fields (name, body, user-message toggle).
+      expect(specs.promptTemplateSpec().fields, hasLength(3));
+    });
+
     test('chat-variable spec flags built-in variables as read-only', () {
       final spec = specs.chatVariableSpec();
       expect(spec.isReadOnly?.call(const ChatVariable(name: 'b', builtIn: true)),

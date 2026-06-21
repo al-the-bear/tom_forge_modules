@@ -24,6 +24,7 @@ export 'src/changes/change_log_panel.dart';
 export 'src/changes/change_review_panel.dart';
 export 'src/chat/chat_composer_panel.dart';
 export 'src/chat/chat_send_coordinator.dart';
+export 'src/chat/placeholder_preview.dart';
 export 'src/connection/agent_connection_controller.dart';
 export 'src/connection/agent_connection_picker.dart';
 export 'src/queue/prompt_queue_controller.dart';

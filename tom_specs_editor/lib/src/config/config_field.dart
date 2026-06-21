@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tom_forge_agentic/tom_forge_agentic.dart' show PlaceholderPreview;
 
 /// A single editable field in a configuration detail form (§12).
 ///
@@ -101,6 +102,40 @@ class ConfigField<T> {
           final trimmed = text.trim();
           onChanged(set(value, trimmed.isEmpty ? null : int.tryParse(trimmed)));
         },
+      ),
+    );
+  }
+
+  /// A read-only **live placeholder preview** (§12, OE-14): renders [get]'s
+  /// text with its supported placeholders expanded via [compose]. Used by the
+  /// Prompt Templates editor so the author sees what a template resolves to as
+  /// they type. Has no setter — it derives from another field — and never
+  /// validates. An unsupported `${{ … }}` form renders inline rather than
+  /// crashing the editor ([PlaceholderPreview] catches the throw).
+  factory ConfigField.placeholderPreview({
+    required String label,
+    required String Function(T value) get,
+    required String Function(String source) compose,
+  }) {
+    return ConfigField._(
+      label: label,
+      builder: (value, _) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: InputDecorator(
+          decoration: InputDecoration(
+            labelText: label,
+            border: const OutlineInputBorder(),
+            isDense: true,
+          ),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: PlaceholderPreview(
+              key: ValueKey('cfg-preview-$label'),
+              source: get(value),
+              compose: compose,
+            ),
+          ),
+        ),
       ),
     );
   }

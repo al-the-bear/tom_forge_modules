@@ -21,6 +21,7 @@ class SpecsConfigSpecs {
     PromptQueueStore? queue,
     AgentSettingsStore? agentSettings,
     EditorPreferencesStore? preferences,
+    this.compose,
   })  : profiles = profiles ?? AgentProfileStore.resolveDefault(),
         promptTemplates =
             promptTemplates ?? PromptTemplateStore.resolveDefault(),
@@ -39,6 +40,12 @@ class SpecsConfigSpecs {
   final PromptQueueStore queue;
   final AgentSettingsStore agentSettings;
   final EditorPreferencesStore preferences;
+
+  /// Expands a placeholder-bearing string for the §12 live placeholder preview
+  /// (OE-14) — typically `SpecPromptComposer.compose`. When null, the preview
+  /// field is omitted (the editors stay usable without a wired composer, e.g.
+  /// in unit tests).
+  final String Function(String source)? compose;
 
   static String _newId(String prefix) =>
       '$prefix-${DateTime.now().microsecondsSinceEpoch}';
@@ -153,6 +160,13 @@ class SpecsConfigSpecs {
             set: (p, v) =>
                 AgentProfile.fromYaml(p.toYaml()..['systemPrompt'] = v),
           ),
+          // §12 "live placeholder preview" — only when a composer is wired.
+          if (compose != null)
+            ConfigField.placeholderPreview(
+              label: 'System prompt preview',
+              get: (p) => p.systemPrompt,
+              compose: compose!,
+            ),
           ConfigField.integer(
             label: 'Max tokens',
             positive: true,
@@ -209,6 +223,13 @@ class SpecsConfigSpecs {
             set: (t, v) =>
                 PromptTemplate.fromYaml(t.toYaml()..['body'] = v),
           ),
+          // §12 "live placeholder preview" — only when a composer is wired.
+          if (compose != null)
+            ConfigField.placeholderPreview(
+              label: 'Preview',
+              get: (t) => t.body,
+              compose: compose!,
+            ),
           ConfigField.boolean(
             label: 'Seeds the user-message field',
             get: (t) => t.isUserMessage,

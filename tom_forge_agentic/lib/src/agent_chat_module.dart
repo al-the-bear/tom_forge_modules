@@ -1,6 +1,7 @@
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
 import 'agent_chat_view.dart';
+import 'chat/chat_composer_panel.dart';
 import 'chat/chat_send_coordinator.dart';
 import 'connection/agent_connection_controller.dart';
 import 'queue/prompt_queue_controller.dart';
@@ -29,6 +30,10 @@ class AgentChatModule extends ForgeModule {
     PromptTrailController? trailController,
     PromptQueueController? queueController,
     String Function(String raw)? compose,
+    String Function(String source)? composePreview,
+    List<ChatComposerProfile> profiles = const <ChatComposerProfile>[],
+    String? selectedProfileId,
+    void Function(String? profileId)? onProfileSelected,
     void Function(String turnId)? onTurnBegin,
     void Function()? onTurnEnd,
   }) : controller = controller ?? AgentConnectionController() {
@@ -49,6 +54,10 @@ class AgentChatModule extends ForgeModule {
       sendController: this.sendController,
       queueController: this.queueController,
       coordinator: coordinator,
+      composePreview: composePreview,
+      profiles: profiles,
+      selectedProfileId: selectedProfileId,
+      onProfileSelected: onProfileSelected,
     );
     _views = [_view];
     _queueEditor = PromptQueueEditor(controller: this.queueController);

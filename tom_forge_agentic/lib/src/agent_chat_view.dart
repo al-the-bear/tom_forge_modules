@@ -24,6 +24,10 @@ class AgentChatView extends ForgeView {
     required this.sendController,
     required this.queueController,
     required this.coordinator,
+    this.composePreview,
+    this.profiles = const <ChatComposerProfile>[],
+    this.selectedProfileId,
+    this.onProfileSelected,
   })  : _title = ValueNotifier<String>('Chat'),
         _titleExtension = ValueNotifier<String?>(null);
 
@@ -39,6 +43,19 @@ class AgentChatView extends ForgeView {
 
   /// Sends "Send now" prompts and records them in the trail.
   final ChatSendCoordinator coordinator;
+
+  /// Expands the composer input's placeholders for the live preview (§11.5,
+  /// OE-14); null hides the preview.
+  final String Function(String source)? composePreview;
+
+  /// Profiles offered in the composer's profile picker (§11.1); empty hides it.
+  final List<ChatComposerProfile> profiles;
+
+  /// The currently selected profile id, or null for "no profile".
+  final String? selectedProfileId;
+
+  /// Routes a profile selection back to the host (null = cleared).
+  final ValueChanged<String?>? onProfileSelected;
 
   final ValueNotifier<String> _title;
   final ValueNotifier<String?> _titleExtension;
@@ -91,6 +108,10 @@ class AgentChatView extends ForgeView {
               controller: sendController,
               onSendNow: coordinator.sendNow,
               onAddToQueue: queueController.addPrompt,
+              composePreview: composePreview,
+              profiles: profiles,
+              selectedProfileId: selectedProfileId,
+              onProfileSelected: onProfileSelected,
             ),
           ),
         ],

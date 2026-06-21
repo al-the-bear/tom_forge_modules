@@ -52,8 +52,15 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
   late final SpecDocumentController _documentController;
   late final AgentToolsModule _toolsModule;
   late final PromptTrailController _trailController;
+  late final SpecPromptComposer _promptComposer;
   late final AgentChatModule _chatModule;
   late final RawFileModule _rawFileModule;
+
+  /// The composer's currently-picked profile (§11.1, OE-14). The picker records
+  /// the choice here; feeding it into the send `Options` (system prompt /
+  /// max-tokens / interrupt-retry prefix) is a deferred settings concern
+  /// (tracked in the OE-14 questions file).
+  String? _selectedProfileId;
   late final SpecsConfigModule _configModule;
   late final SpecsShellModule _shellModule;
   late final ShellEditorIntegration _documentIntegration;
@@ -109,6 +116,12 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
     // transcript source must exist first and be injected into the module.
     _trailController = PromptTrailController();
 
+    // The §11.5 placeholder composer is built once and shared: the chat module
+    // uses it to expand sent prompts and to drive the composer's live preview
+    // (OE-14), and the config module uses it for the Prompt Templates / profile
+    // "live placeholder preview" (§12, OE-14).
+    _promptComposer = _buildPromptComposer();
+
     // The agent chat module owns the bridge connection picker; it is registered
     // before the shell so its chat view exists when the DocSpecs bottom panel
     // is built. Activation kicks off the port scan (19900–19909). The send
@@ -127,7 +140,10 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
     _rawFileModule.activate(_shell);
     (_shell.modules as DefaultModuleRegistry).register(_rawFileModule);
 
-    _configModule = SpecsConfigModule(rawFileModule: _rawFileModule);
+    _configModule = SpecsConfigModule(
+      rawFileModule: _rawFileModule,
+      compose: _promptComposer.compose,
+    );
     _configModule.activate(_shell);
     (_shell.modules as DefaultModuleRegistry).register(_configModule);
 
@@ -174,11 +190,30 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
       connection: connection,
       config: AgentSendConfig(mcpServers: _toolsModule.servers),
     );
+    // The composer profile picker (§11.1, OE-14): the persisted profiles mapped
+    // to the composer's lightweight type, with the default profile pre-selected.
+    final profiles = AgentProfileStore.resolveDefault().load();
+    final pickerProfiles = [
+      for (final profile in profiles)
+        ChatComposerProfile(id: profile.id, name: profile.name),
+    ];
+    for (final profile in profiles) {
+      if (profile.isDefault ?? false) {
+        _selectedProfileId = profile.id;
+        break;
+      }
+    }
     return AgentChatModule(
       controller: connection,
       sendController: sendController,
       trailController: _trailController,
-      compose: _buildPromptComposer().compose,
+      compose: _promptComposer.compose,
+      // The live placeholder preview (OE-14) expands the same way the sent
+      // prompt will, surfacing `${{…}}` as an inline error rather than a crash.
+      composePreview: _promptComposer.compose,
+      profiles: pickerProfiles,
+      selectedProfileId: _selectedProfileId,
+      onProfileSelected: (id) => _selectedProfileId = id,
       // Bracket each agent send as one turn on the shared document controller
       // (§9/§10, step 15) so every §8 tool mutation the agent makes mid-stream
       // collapses into a single undo group / change-log turn (OE-10).
