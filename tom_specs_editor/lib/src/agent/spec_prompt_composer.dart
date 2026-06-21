@@ -12,7 +12,8 @@
 // file-injection placeholders resolve against that workspace's `_ai/` folder
 // — the folder that also holds the specification. This composer supplies:
 //   * built-in scalar bindings — `date`, `time`, `quest` (= workspace name),
-//     `role`;
+//     `role`, plus the host-context `chat` (current transcript) and `file`
+//     (active document), both lenient-empty until the host wires a provider;
 //   * the user's custom chat variables (§11.4); and
 //   * `${file-<relpath>}` injection — the file's contents read from under the
 //     `_ai/` folder (missing files render empty in lenient mode).
@@ -37,9 +38,13 @@ class SpecPromptComposer {
     DateTime Function()? clock,
     this.role = '',
     this.strict = false,
+    String Function()? chatTranscript,
+    String Function()? activeDocument,
   })  : aiFolder = aiFolder ?? Directory('${Directory.current.path}/_ai'),
         _variables = List<ChatVariable>.unmodifiable(variables),
-        _clock = clock ?? DateTime.now;
+        _clock = clock ?? DateTime.now,
+        _chatTranscript = chatTranscript ?? _empty,
+        _activeDocument = activeDocument ?? _empty;
 
   /// The quest name (§11.5 P1) — the Forge process's workspace folder name.
   /// Bound to the `${quest}` placeholder.
@@ -59,13 +64,24 @@ class SpecPromptComposer {
   final List<ChatVariable> _variables;
   final DateTime Function() _clock;
 
+  /// Host-context providers (§11.5, OE-12): the current chat transcript and the
+  /// active document rendered as text. Both default to lenient-empty — when the
+  /// host has not wired the context, `${chat}` / `${file}` resolve to `''`
+  /// rather than failing the compose.
+  final String Function() _chatTranscript;
+  final String Function() _activeDocument;
+
   /// The composer-supplied built-ins for [now], flagged [ChatVariable.builtIn]
-  /// so the chat-variables editor (§12) can render them read-only.
+  /// so the chat-variables editor (§12) can render them read-only. The dynamic
+  /// `chat`/`file` built-ins (OE-12) carry their current snapshot value, read
+  /// from the host providers at the moment this is called.
   List<ChatVariable> builtInsFor(DateTime now) => <ChatVariable>[
         ChatVariable(name: 'date', value: _date(now), builtIn: true),
         ChatVariable(name: 'time', value: _time(now), builtIn: true),
         ChatVariable(name: 'quest', value: workspaceName, builtIn: true),
         ChatVariable(name: 'role', value: role, builtIn: true),
+        ChatVariable(name: 'chat', value: _chatTranscript(), builtIn: true),
+        ChatVariable(name: 'file', value: _activeDocument(), builtIn: true),
       ];
 
   /// Expands every supported placeholder in [template].
@@ -106,6 +122,8 @@ class SpecPromptComposer {
       return '';
     }
   }
+
+  static String _empty() => '';
 
   static String _date(DateTime now) =>
       '${now.year.toString().padLeft(4, '0')}-'

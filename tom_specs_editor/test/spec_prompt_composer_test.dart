@@ -14,6 +14,8 @@ void main() {
     List<ChatVariable> variables = const <ChatVariable>[],
     String role = '',
     bool strict = false,
+    String Function()? chatTranscript,
+    String Function()? activeDocument,
   }) =>
       SpecPromptComposer(
         workspaceName: 'tom_agent_container',
@@ -22,6 +24,8 @@ void main() {
         clock: () => clock,
         role: role,
         strict: strict,
+        chatTranscript: chatTranscript,
+        activeDocument: activeDocument,
       );
 
   setUp(() => aiFolder = Directory.systemTemp.createTempSync('specs_compose_'));
@@ -39,8 +43,39 @@ void main() {
     test('builtInsFor flags every built-in as read-only', () {
       final builtIns = make().builtInsFor(clock);
       expect(builtIns.map((v) => v.name),
-          containsAll(<String>['date', 'time', 'quest', 'role']));
+          containsAll(<String>['date', 'time', 'quest', 'role', 'chat', 'file']));
       expect(builtIns.every((v) => v.builtIn), isTrue);
+    });
+  });
+
+  group('host-context built-ins chat/file (§11.5 P1, OE-12)', () {
+    test('\${chat} resolves via the injected transcript provider', () {
+      final composer = make(
+        chatTranscript: () => 'User: hi\nAssistant: hello',
+      );
+      expect(composer.compose(r'transcript:\n${chat}'),
+          'transcript:\\nUser: hi\nAssistant: hello');
+    });
+
+    test('\${file} resolves via the injected active-document provider', () {
+      final composer = make(activeDocument: () => '# PD00\n\nbody');
+      expect(composer.compose(r'doc:\n${file}'), 'doc:\\n# PD00\n\nbody');
+    });
+
+    test('chat/file render empty when no provider is bound (lenient)', () {
+      final composer = make();
+      expect(composer.compose(r'[${chat}][${file}]'), '[][]');
+    });
+
+    test('builtInsFor reflects the providers\' live values', () {
+      final builtIns = make(
+        chatTranscript: () => 'T',
+        activeDocument: () => 'D',
+      ).builtInsFor(clock);
+      String valueOf(String name) =>
+          builtIns.firstWhere((v) => v.name == name).value;
+      expect(valueOf('chat'), 'T');
+      expect(valueOf('file'), 'D');
     });
   });
 

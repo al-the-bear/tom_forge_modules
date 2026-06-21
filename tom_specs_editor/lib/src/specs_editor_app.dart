@@ -51,6 +51,7 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
   late final SpecStructureModule _structureModule;
   late final SpecDocumentController _documentController;
   late final AgentToolsModule _toolsModule;
+  late final PromptTrailController _trailController;
   late final AgentChatModule _chatModule;
   late final RawFileModule _rawFileModule;
   late final SpecsConfigModule _configModule;
@@ -101,6 +102,12 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
     );
     _toolsModule.activate(_shell);
     (_shell.modules as DefaultModuleRegistry).register(_toolsModule);
+
+    // The prompt trail is constructed here (not left to the chat module's
+    // default) so the §11.5 placeholder composer can read it for the `${chat}`
+    // built-in (OE-12) — the composer is built *before* the chat module, so the
+    // transcript source must exist first and be injected into the module.
+    _trailController = PromptTrailController();
 
     // The agent chat module owns the bridge connection picker; it is registered
     // before the shell so its chat view exists when the DocSpecs bottom panel
@@ -170,6 +177,7 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
     return AgentChatModule(
       controller: connection,
       sendController: sendController,
+      trailController: _trailController,
       compose: _buildPromptComposer().compose,
       // Bracket each agent send as one turn on the shared document controller
       // (§9/§10, step 15) so every §8 tool mutation the agent makes mid-stream
@@ -188,7 +196,41 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
       workspaceName: p.basename(workspace.path),
       aiFolder: Directory(p.join(workspace.path, '_ai')),
       variables: ChatVariableStore.resolveDefault().load(),
+      // OE-12 host context: `${chat}` = the live trail transcript, `${file}` =
+      // the active document rendered as markdown. Both are read at compose-time
+      // and stay lenient-empty before the model loads / the trail has content.
+      chatTranscript: () => _renderTranscript(_trailController.pairs),
+      activeDocument: _renderActiveDocument,
     );
+  }
+
+  /// Renders the prompt trail as a plain-text transcript for the `${chat}`
+  /// placeholder (OE-12): one `User:` / `Assistant:` block per pair in
+  /// chronological order. Pairs whose answer is still streaming contribute only
+  /// the request line.
+  static String _renderTranscript(List<TrailPair> pairs) {
+    final blocks = <String>[];
+    for (final pair in pairs) {
+      blocks.add('User: ${pair.request.text}');
+      final answer = pair.answer;
+      if (answer != null) blocks.add('Assistant: ${answer.text}');
+    }
+    return blocks.join('\n\n');
+  }
+
+  /// Renders the active document root as markdown for the `${file}` placeholder
+  /// (OE-12). Returns empty before the model has loaded or when no concrete root
+  /// is selected (the default-root case has no section id to export), so the
+  /// slot stays lenient-empty rather than failing the compose.
+  String _renderActiveDocument() {
+    if (!_documentController.isModelLoaded) return '';
+    final root = _documentController.activeRootType;
+    if (root == null) return '';
+    try {
+      return _documentController.exportMarkdown(root);
+    } on ArgumentError {
+      return '';
+    }
   }
 
   // The shell owns app-lifetime layout/system notifiers that the

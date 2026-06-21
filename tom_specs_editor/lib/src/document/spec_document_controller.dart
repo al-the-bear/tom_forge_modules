@@ -109,6 +109,11 @@ class SpecDocumentController extends ChangeNotifier {
   /// The resolved model. Only valid after [ensureLoaded] has completed.
   SpecModel get model => _model!;
 
+  /// Whether the model future has resolved — synchronous callers (e.g. the
+  /// `${file}` placeholder provider, OE-12) check this before touching
+  /// schema-dependent operations like [exportMarkdown].
+  bool get isModelLoaded => _model != null;
+
   /// Loads and caches the model future on first use.
   Future<SpecModel> ensureLoaded() async => _model ??= await _modelFuture;
 
