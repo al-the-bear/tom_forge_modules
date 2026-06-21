@@ -138,6 +138,67 @@ class SpecDocumentController extends ChangeNotifier {
     notifyListeners();
   }
 
+  // --- §14 cross-projection identity (N12, OE-18) ------------------------
+
+  /// Whether [rootSeg] names a *projection* root — one of the twelve Phase-3
+  /// `@Document(basedOn: [ProjectDefinition])` roots — rather than the Project
+  /// Definition master itself.
+  ///
+  /// Project Definition (`type == 'ProjectDefinition'` or `sectionId == 'PD'`)
+  /// is the source of truth; every other root projects a subset of PD's
+  /// sections. Returns `false` for an unknown [rootSeg].
+  bool isProjectionRoot(String rootSeg) {
+    final root = _rootBySeg(rootSeg);
+    if (root == null) return false;
+    return !(root.type == 'ProjectDefinition' || root.sectionId == 'PD');
+  }
+
+  /// Maps a structural [path] to its **canonical** form, anchored on the deepest
+  /// section that carries a stable section id *and* a projection annotation
+  /// (`@MapsTo` / `@DetailedIn`) — the N12 projection→PD binding.
+  ///
+  /// A projection root (e.g. `RequirementsCatalog`) aggregates the *same* PD00
+  /// classes the master uses. When such an aggregated class is annotated, its
+  /// unique class section id identifies the one shared underlying section
+  /// regardless of which root the editor reached it through. So
+  /// `RC/functionalRequirements` and `PD/systemOverview/requirements/
+  /// functionalRequirements` both canonicalize to `FR/…`, naming the identical
+  /// node.
+  ///
+  /// Segments *below* the anchor are preserved verbatim, so list items and
+  /// nested fields keep their relative position under the shared section. A path
+  /// whose deepest annotated+section-id'd class is the root itself (or that has
+  /// none — purely structural, unannotated classes) is returned unchanged: those
+  /// stay route-local, which is what keeps per-document instances of an
+  /// *unannotated* shared class (e.g. each document's own `DocumentHeader`)
+  /// distinct rather than conflated.
+  ///
+  /// This is a read-only binding primitive. Re-keying the live value/review
+  /// storage onto canonical paths — so an edit through a projection mutates the
+  /// byte-identical PD value — is deferred with OE-2a (see the OE-18 questions
+  /// note); it needs the per-root connect bindings and a storage migration that
+  /// the current prefix-based purge cannot express across the anchor boundary.
+  String canonicalPathFor(String path) {
+    final segs = path.split('/');
+    if (segs.isEmpty) return path;
+    String? anchorId;
+    var anchorIdx = -1;
+    var acc = '';
+    for (var i = 0; i < segs.length; i++) {
+      acc = i == 0 ? segs[0] : '$acc/${segs[i]}';
+      final cls = resolve(acc)?.cls;
+      if (cls != null &&
+          cls.sectionId != null &&
+          (cls.mapsTo != null || cls.detailedIn != null)) {
+        anchorId = cls.sectionId;
+        anchorIdx = i;
+      }
+    }
+    if (anchorId == null) return path;
+    final below = segs.sublist(anchorIdx + 1);
+    return [anchorId, ...below].join('/');
+  }
+
   // --- Layer A: schema lookups -------------------------------------------
 
   /// The class identified by [id], which may be a class name or a section id.
