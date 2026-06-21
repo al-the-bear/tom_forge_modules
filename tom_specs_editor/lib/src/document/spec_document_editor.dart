@@ -330,34 +330,43 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
     );
   }
 
-  /// Renders a class's fields: expanded fields first (in order), then a row of
-  /// chips for the empty ones beneath them (D5).
+  /// Renders a class's fields in document order: each expanded field at its
+  /// position, and every contiguous run of empty fields collapsed into one
+  /// `Wrap` of chips at *that* position (D5). This keeps each chip "after the
+  /// last rendered subsection, before the next sibling" rather than bunching all
+  /// empty fields into a single trailing row.
   Widget _classBody(SpecClass cls, String basePath, Set<String> seenTypes) {
-    final expanded = <Widget>[];
-    final chips = <Widget>[];
+    final children = <Widget>[];
+    var pendingChips = <Widget>[];
+
+    void flushChips() {
+      if (pendingChips.isEmpty) return;
+      children.add(Padding(
+        padding: const EdgeInsets.only(top: 4, bottom: 2),
+        child: Wrap(spacing: 6, runSpacing: 4, children: pendingChips),
+      ));
+      pendingChips = <Widget>[];
+    }
+
     for (final field in cls.fields) {
       final path = '$basePath/${_fieldSeg(field)}';
       if (_isExpanded(path)) {
-        expanded.add(_expandedField(field, path, seenTypes));
+        flushChips();
+        children.add(_expandedField(field, path, seenTypes));
       } else {
-        chips.add(_EmptyChip(
+        pendingChips.add(_EmptyChip(
           label: field.name,
           onTap: () => _toggleOpen(path),
         ));
       }
     }
+    flushChips();
+
     return Padding(
       padding: const EdgeInsets.only(left: 10, top: 2),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ...expanded,
-          if (chips.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 4, bottom: 2),
-              child: Wrap(spacing: 6, runSpacing: 4, children: chips),
-            ),
-        ],
+        children: children,
       ),
     );
   }

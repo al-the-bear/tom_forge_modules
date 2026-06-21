@@ -79,6 +79,25 @@ Map<String, dynamic> _sampleJson() => {
       },
     };
 
+/// A flat class with three content fields in document order, used to assert
+/// empty-chip placement relative to an expanded sibling (D5).
+Map<String, dynamic> _orderedJson() => {
+      'roots': [
+        {'type': 'OrderDoc', 'title': 'Ordered', 'sectionId': 'O00'},
+      ],
+      'classes': {
+        'OrderDoc': {
+          'name': 'OrderDoc',
+          'sectionId': 'O00',
+          'fields': [
+            {'name': 'alpha', 'kind': 'content', 'sectionId': 'O00-A'},
+            {'name': 'beta', 'kind': 'content', 'sectionId': 'O00-B'},
+            {'name': 'gamma', 'kind': 'content', 'sectionId': 'O00-G'},
+          ],
+        },
+      },
+    };
+
 ReviewStore _tempReviewStore() {
   final dir = Directory.systemTemp.createTempSync('doc_editor_review');
   addTearDown(() {
@@ -87,9 +106,11 @@ ReviewStore _tempReviewStore() {
   return ReviewStore(File('${dir.path}/review.yaml'));
 }
 
-Future<SpecDocumentController> _controller() async {
+Future<SpecDocumentController> _controller() => _controllerFor(_sampleJson());
+
+Future<SpecDocumentController> _controllerFor(Map<String, dynamic> json) async {
   final controller = SpecDocumentController(
-    modelFuture: Future<SpecModel>.value(SpecModel.fromJson(_sampleJson())),
+    modelFuture: Future<SpecModel>.value(SpecModel.fromJson(json)),
     review: _tempReviewStore(),
   );
   await controller.ensureLoaded();
@@ -198,6 +219,29 @@ void main() {
       await tester.tap(find.widgetWithText(ActionChip, 'status'));
       await tester.pump();
       expect(find.byType(DropdownButton<String>), findsOneWidget);
+    });
+
+    testWidgets('empty-field chips sit in document order around an expanded '
+        'sibling (D5)', (tester) async {
+      final controller = await _controllerFor(_orderedJson());
+      // Expand the *middle* field by giving it a value, leaving `alpha` (before)
+      // and `gamma` (after) as empty chips.
+      controller.setContent('O00/O00-B', 'beta body');
+      await _pump(tester, controller);
+
+      final alphaDy =
+          tester.getTopLeft(find.widgetWithText(ActionChip, 'alpha')).dy;
+      final betaDy =
+          tester.getTopLeft(find.widgetWithText(TextField, 'beta body')).dy;
+      final gammaDy =
+          tester.getTopLeft(find.widgetWithText(ActionChip, 'gamma')).dy;
+
+      // `alpha` precedes the expanded `beta`; `gamma` follows it. The chips are
+      // placed at their field position — not bunched into one trailing run.
+      expect(alphaDy, lessThan(betaDy),
+          reason: 'the chip for the field before the expanded one renders above');
+      expect(gammaDy, greaterThan(betaDy),
+          reason: 'the chip for the field after the expanded one renders below');
     });
   });
 
