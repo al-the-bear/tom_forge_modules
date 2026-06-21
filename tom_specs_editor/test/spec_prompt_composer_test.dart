@@ -5,6 +5,10 @@ import 'package:tom_core_agentic/tom_core_agentic.dart';
 import 'package:tom_specs_editor/src/agent/spec_prompt_composer.dart';
 
 void main() {
+  // A workspace root with an `_ai/` subfolder, mirroring the real layout the
+  // composer assumes (aiFolder = <workspace>/_ai). Guidelines live at the
+  // workspace root (sibling of _ai); roles/quests live under _ai.
+  late Directory workspace;
   late Directory aiFolder;
 
   // A fixed clock so the `${date}` / `${time}` built-ins are deterministic.
@@ -28,8 +32,11 @@ void main() {
         activeDocument: activeDocument,
       );
 
-  setUp(() => aiFolder = Directory.systemTemp.createTempSync('specs_compose_'));
-  tearDown(() => aiFolder.deleteSync(recursive: true));
+  setUp(() {
+    workspace = Directory.systemTemp.createTempSync('specs_compose_');
+    aiFolder = Directory('${workspace.path}/_ai')..createSync();
+  });
+  tearDown(() => workspace.deleteSync(recursive: true));
 
   group('built-in placeholders (§11.5 P1)', () {
     test('quest resolves to the workspace name; date/time to the clock', () {
@@ -102,6 +109,53 @@ void main() {
     test('a missing injected file renders empty in lenient mode', () {
       final composer = make();
       expect(composer.compose(r'a${file-missing.md}b'), 'ab');
+    });
+  });
+
+  group('namespaced file-injection prefixes (§11.5 P1, OE-13)', () {
+    test('\${guidelines-<name>} reads _copilot_guidelines/<name>.md at the '
+        'workspace root', () {
+      File('${workspace.path}/_copilot_guidelines/coding.md')
+        ..createSync(recursive: true)
+        ..writeAsStringSync('coding rules');
+      final composer = make();
+      expect(composer.compose(r'${guidelines-coding}'), 'coding rules');
+    });
+
+    test('\${guidelines-<name>} accepts an explicit .md and falls back to '
+        '_guidelines/', () {
+      File('${workspace.path}/_guidelines/index.md')
+        ..createSync(recursive: true)
+        ..writeAsStringSync('the index');
+      final composer = make();
+      expect(composer.compose(r'${guidelines-index.md}'), 'the index');
+    });
+
+    test('\${role-<name>} reads _ai/roles/<name>.md (flat), then the folder '
+        'layout', () {
+      File('${aiFolder.path}/roles/reviewer/role.md')
+        ..createSync(recursive: true)
+        ..writeAsStringSync('be critical');
+      final composer = make();
+      expect(composer.compose(r'${role-reviewer}'), 'be critical');
+    });
+
+    test('\${quest-<type>} reads the first _ai/quests/<quest>/<type>.<quest>.* '
+        'match (quest = workspace name)', () {
+      File('${aiFolder.path}/quests/tom_agent_container/'
+              'overview.tom_agent_container.md')
+          .createSync(recursive: true);
+      File('${aiFolder.path}/quests/tom_agent_container/'
+              'overview.tom_agent_container.md')
+          .writeAsStringSync('quest overview body');
+      final composer = make();
+      expect(composer.compose(r'${quest-overview}'), 'quest overview body');
+    });
+
+    test('a missing namespaced injection renders empty in lenient mode', () {
+      final composer = make();
+      expect(composer.compose(r'[${guidelines-x}][${role-y}][${quest-z}]'),
+          '[][][]');
     });
   });
 

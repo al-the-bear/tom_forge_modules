@@ -15,8 +15,15 @@
 //     `role`, plus the host-context `chat` (current transcript) and `file`
 //     (active document), both lenient-empty until the host wires a provider;
 //   * the user's custom chat variables (§11.4); and
-//   * `${file-<relpath>}` injection — the file's contents read from under the
-//     `_ai/` folder (missing files render empty in lenient mode).
+//   * namespaced file-injection tokens (missing files render empty in lenient
+//     mode), matching the VS Code extension's folder conventions:
+//       - `${file-<relpath>}`    — read from under the `_ai/` folder;
+//       - `${guidelines-<name>}` — `<workspace>/_copilot_guidelines/<name>.md`
+//         (fallback `_guidelines/<name>.md`); `<name>` may carry `.md`;
+//       - `${role-<name>}`       — `<_ai>/roles/<name>.md` (fallback
+//         `<_ai>/roles/<name>/role.md`);
+//       - `${quest-<type>}`      — the first `<_ai>/quests/<quest>/<type>.<quest>.*`
+//         match, where the quest is the workspace name (§11.5 P1).
 //
 // SDK-owned concepts the Agent SDK manages itself (notably `${memory}`) are
 // simply not used here, and a single capability level applies (§11.5 P2).
@@ -99,25 +106,97 @@ class SpecPromptComposer {
         .resolve(template);
   }
 
-  /// Reads the `${file-<relpath>}` / `{{file-<relpath>}}` tokens in [template]
-  /// and binds each to the contents of `<aiFolder>/<relpath>`. A missing or
-  /// unreadable file binds the empty string so the slot renders empty in
-  /// lenient mode rather than failing the whole compose.
+  /// The workspace root. Invariant (§11.5 P1): [aiFolder] is the workspace's
+  /// `_ai/` folder, so its parent is the workspace root — the base for the
+  /// `${guidelines-*}` injection, which the VS Code extension reads from
+  /// `<workspace>/_copilot_guidelines/` (a sibling of `_ai/`).
+  Directory get _workspaceRoot => aiFolder.parent;
+
+  /// Reads every namespaced file-injection token in [template] and binds each
+  /// to its file contents, matching the VS Code extension's folder conventions
+  /// (`file-`, `guidelines-`, `role-`, `quest-`). A missing or unreadable file
+  /// binds the empty string so the slot renders empty in lenient mode rather
+  /// than failing the whole compose.
   Map<String, String> _fileInjections(String template) {
     final out = <String, String>{};
-    for (final match in _fileToken.allMatches(template)) {
-      final name = match.group(1)!.trim(); // e.g. file-guidelines/coding.md
+    for (final match in _injectionToken.allMatches(template)) {
+      final name = match.group(1)!.trim(); // e.g. guidelines-coding, file-a.md
       if (out.containsKey(name)) continue;
-      final relPath = name.substring('file-'.length);
-      out[name] = _readAiFile(relPath);
+      out[name] = _resolveInjection(name);
     }
     return out;
   }
 
-  String _readAiFile(String relPath) {
+  /// Dispatches a single injection [name] to the right folder convention.
+  String _resolveInjection(String name) {
+    if (name.startsWith('guidelines-')) {
+      return _readGuidelines(name.substring('guidelines-'.length));
+    }
+    if (name.startsWith('role-')) {
+      return _readRole(name.substring('role-'.length));
+    }
+    if (name.startsWith('quest-')) {
+      return _readQuest(name.substring('quest-'.length));
+    }
+    // `file-<relpath>` — read from under the `_ai/` folder.
+    return _readAiFile(name.substring('file-'.length));
+  }
+
+  /// `${guidelines-<name>}` → `<workspace>/_copilot_guidelines/<name>.md`,
+  /// falling back to `<workspace>/_guidelines/<name>.md`. `<name>` may already
+  /// carry a `.md` suffix (no double extension).
+  String _readGuidelines(String rawName) {
+    if (rawName.isEmpty) return '';
+    final fileName = rawName.endsWith('.md') ? rawName : '$rawName.md';
+    final root = _workspaceRoot.path;
+    final primary = _readFile('$root/_copilot_guidelines/$fileName');
+    if (primary.isNotEmpty) return primary;
+    return _readFile('$root/_guidelines/$fileName');
+  }
+
+  /// `${role-<name>}` → `<_ai>/roles/<name>.md` (flat), falling back to the
+  /// folder layout `<_ai>/roles/<name>/role.md`.
+  String _readRole(String rawName) {
+    if (rawName.isEmpty) return '';
+    final flat = _readFile('${aiFolder.path}/roles/$rawName.md');
+    if (flat.isNotEmpty) return flat;
+    return _readFile('${aiFolder.path}/roles/$rawName/role.md');
+  }
+
+  /// `${quest-<type>}` → the first file under `<_ai>/quests/<quest>/` whose name
+  /// starts with `<type>.<quest>.`, where the quest is the workspace name
+  /// (§11.5 P1) — e.g. `${quest-overview}` → `overview.<quest>.md`.
+  String _readQuest(String rawType) {
+    if (rawType.isEmpty || workspaceName.isEmpty) return '';
+    final dir = Directory('${aiFolder.path}/quests/$workspaceName');
+    return _readFirstMatching(dir, '$rawType.$workspaceName.');
+  }
+
+  String _readAiFile(String relPath) =>
+      relPath.isEmpty ? '' : _readFile('${aiFolder.path}/$relPath');
+
+  /// Reads [filePath], returning empty when it is missing or unreadable.
+  String _readFile(String filePath) {
     try {
-      final file = File('${aiFolder.path}/$relPath');
+      final file = File(filePath);
       return file.existsSync() ? file.readAsStringSync() : '';
+    } on FileSystemException {
+      return '';
+    }
+  }
+
+  /// Returns the contents of the first file directly under [dir] whose name
+  /// starts with [prefix], or empty when the directory is missing or nothing
+  /// matches.
+  String _readFirstMatching(Directory dir, String prefix) {
+    try {
+      if (!dir.existsSync()) return '';
+      for (final entity in dir.listSync()) {
+        if (entity is File && entity.uri.pathSegments.last.startsWith(prefix)) {
+          return _readFile(entity.path);
+        }
+      }
+      return '';
     } on FileSystemException {
       return '';
     }
@@ -135,10 +214,12 @@ class SpecPromptComposer {
       '${now.minute.toString().padLeft(2, '0')}:'
       '${now.second.toString().padLeft(2, '0')}';
 
-  /// Matches a `file-<relpath>` token inside either `${ … }` or `{{ … }}`.
-  /// The `[^}{]` body stops before any brace, so a `${{ … }}` expression's
-  /// inner `{` never produces a false match (and would be rejected by the
-  /// resolver regardless).
-  static final RegExp _fileToken =
-      RegExp(r'(?:\$\{|\{\{)\s*(file-[^}{]+?)\s*\}');
+  /// Matches a namespaced file-injection token — `file-`, `guidelines-`,
+  /// `role-`, or `quest-` — inside either `${ … }` or `{{ … }}`. The `[^}{]`
+  /// body stops before any brace, so a `${{ … }}` expression's inner `{` never
+  /// produces a false match (and would be rejected by the resolver regardless).
+  /// The scalar built-ins `${role}` / `${quest}` (no trailing dash) are not
+  /// matched here.
+  static final RegExp _injectionToken =
+      RegExp(r'(?:\$\{|\{\{)\s*((?:file|guidelines|role|quest)-[^}{]+?)\s*\}');
 }
