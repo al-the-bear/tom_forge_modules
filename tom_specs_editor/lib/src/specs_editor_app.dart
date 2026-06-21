@@ -157,6 +157,9 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
       queueEditor: _chatModule.queueEditor,
       trailEditor: _chatModule.trailEditor,
       navigatorView: RootNavigator(controller: _documentController),
+      // The dedicated config rail (§12, OE-16) — a left-panel launcher for the
+      // seven config editors, hosted as the DocSpecs "Config" tab.
+      configRailView: _configModule.configRailView,
     );
     _shellModule.activate(_shell);
     (_shell.modules as DefaultModuleRegistry).register(_shellModule);

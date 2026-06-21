@@ -4,6 +4,7 @@ import 'package:tom_forge_ui/tom_forge_ui.dart';
 
 import 'basic_prefs_panel.dart';
 import 'config_editors.dart';
+import 'config_rail_view.dart';
 import 'config_specs.dart';
 import 'editor_preferences.dart';
 import 'raw_file_module.dart';
@@ -21,9 +22,10 @@ import 'raw_file_module.dart';
 /// font, default application, default profile).
 ///
 /// The config editors are *not* file-resolved (they `reject` in `canHandle`);
-/// they open via the contributed actions, which call
-/// `shell.layout.openEditor`. The basic-prefs panel persists both backing
-/// stores on the settings dialog's Save.
+/// they open via the contributed actions or the dedicated **config rail**
+/// ([configRailView], OE-16) — a left-panel launcher listing every editor —
+/// both of which call `shell.layout.openEditor`. The basic-prefs panel persists
+/// both backing stores on the settings dialog's Save.
 class SpecsConfigModule extends ForgeModule {
   SpecsConfigModule({
     SpecsConfigSpecs? specs,
@@ -50,6 +52,10 @@ class SpecsConfigModule extends ForgeModule {
 
   ForgeShellApi? _shell;
   final List<ForgeEditor> _editors = [];
+
+  /// The dedicated config rail (OE-16), built on [activate] once the editors
+  /// exist. Null before activation; exposed via [configRailView] and [views].
+  ConfigRailView? _configRail;
 
   /// Working copies the basic-prefs panel mutates; persisted on Save.
   late EditorPreferences _prefs;
@@ -79,7 +85,16 @@ class SpecsConfigModule extends ForgeModule {
         ConfigListEditor(spec: _specs.timedRequestSpec(), onOpenRawFile: open),
         ConfigObjectEditor(spec: _specs.agentSettingsSpec(), onOpenRawFile: open),
       ]);
+    _configRail = ConfigRailView(
+      editors: List<ForgeEditor>.unmodifiable(_editors),
+      onOpen: _openEditor,
+    );
   }
+
+  /// The dedicated config rail (OE-16) hosting one launcher per editor. Null
+  /// until the module is activated; the shell module hosts it as the DocSpecs
+  /// left panel's "Config" tab.
+  ConfigRailView? get configRailView => _configRail;
 
   /// Opens [editor] in the active middle panel via the shell layout.
   void _openEditor(ForgeEditor editor) =>
@@ -88,6 +103,7 @@ class SpecsConfigModule extends ForgeModule {
   @override
   void deactivate() {
     _editors.clear();
+    _configRail = null;
     _shell = null;
   }
 
@@ -95,7 +111,7 @@ class SpecsConfigModule extends ForgeModule {
   List<ForgeEditor> get editors => List.unmodifiable(_editors);
 
   @override
-  List<ForgeView> get views => const [];
+  List<ForgeView> get views => [?_configRail];
 
   @override
   List<ForgeAction> get actions => [

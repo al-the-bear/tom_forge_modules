@@ -31,6 +31,7 @@ class SpecsShellModule extends ForgeModule {
     this.queueEditor,
     this.trailEditor,
     this.navigatorView,
+    this.configRailView,
   });
 
   /// The model-driven document editor (§13), hosted as the DocSpecs middle
@@ -60,6 +61,11 @@ class SpecsShellModule extends ForgeModule {
   /// optional second tab = the document/section explorer). Null in the bare
   /// skeleton tests that predate step 10.
   final ForgeView? structureView;
+
+  /// The dedicated config rail (from [SpecsConfigModule], OE-16), hosted as the
+  /// DocSpecs left panel's "Config" tab when provided — a launcher for the seven
+  /// config editors. Null in the skeleton tests that predate the config module.
+  final ForgeView? configRailView;
 
   /// The agent chat view (from [AgentChatModule]), hosted as the DocSpecs
   /// bottom panel's "Chat" tab when provided (§5 — bottom panel = the chat
@@ -241,6 +247,12 @@ class SpecsShellModule extends ForgeModule {
                 title: 'Structure',
                 icon: Icons.account_tree,
                 sections: [structureView!],
+              ),
+            if (configRailView != null)
+              PanelTabConfig(
+                title: 'Config',
+                icon: Icons.tune_outlined,
+                sections: [configRailView!],
               ),
           ],
         ),
