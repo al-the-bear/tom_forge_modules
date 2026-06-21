@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show AssetManifest, rootBundle;
 import 'package:tom_dart_editor/tom_dart_editor.dart';
+import 'package:tom_editors_shared/tom_editors_shared.dart'
+    show EditorCapabilities, EditorStateSnapshot, StandardEditingActions;
 import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
@@ -36,7 +40,7 @@ class SpecDocumentEditor extends ForgeEditor {
         _titleExtension = ValueNotifier<String?>(null),
         _isDirty = ValueNotifier<bool>(controller.isDirty),
         uri = Uri(scheme: 'specs', host: 'docspecs', path: '/document') {
-    controller.addListener(_syncDirty);
+    controller.addListener(_onControllerChanged);
   }
 
   /// The shared document controller (also driven by the agent tools).
@@ -49,7 +53,15 @@ class SpecDocumentEditor extends ForgeEditor {
   final ValueNotifier<String?> _titleExtension;
   final ValueNotifier<bool> _isDirty;
 
-  void _syncDirty() => _isDirty.value = controller.isDirty;
+  /// Fires on every controller change so the shell rebuilds the action bar's
+  /// undo/redo enablement against the latest [stateSnapshot] (OE-11).
+  final StreamController<void> _stateChanges =
+      StreamController<void>.broadcast();
+
+  void _onControllerChanged() {
+    _isDirty.value = controller.isDirty;
+    if (!_stateChanges.isClosed) _stateChanges.add(null);
+  }
 
   @override
   final Uri uri;
@@ -90,6 +102,57 @@ class SpecDocumentEditor extends ForgeEditor {
 
   @override
   Widget buildCopy(BuildContext context) => buildMain(context);
+
+  // ── EditorActionProvider: shell global undo/redo (§10, OE-11) ──
+  //
+  // The shell routes the standard `forge.edit.undo`/`forge.edit.redo` actions
+  // to the *active editor* (`DefaultShellApi.executeAction`), and derives their
+  // enablement from this editor's [stateSnapshot]. Wiring those to the shared
+  // controller's own [DefaultUndoManager] makes the shell's global undo button,
+  // menu, and shortcut reflect and drive the document's snapshot stack — the
+  // single authority. We deliberately do *not* push `notifyTextEdit` bridge
+  // entries onto the shell's own undo manager, which would double-count.
+
+  @override
+  Set<String> get supportedActionIds => const {
+        StandardEditingActions.undoActionId,
+        StandardEditingActions.redoActionId,
+      };
+
+  @override
+  EditorCapabilities get capabilities => const EditorCapabilities(
+        hasTextBuffer: false,
+        supportsUndoRedo: true,
+        supportsClipboard: false,
+        supportsLineEditing: false,
+        supportsSelection: false,
+      );
+
+  @override
+  EditorStateSnapshot get stateSnapshot => EditorStateSnapshot(
+        // A model-driven tree, not a text buffer: line-editing actions stay
+        // disabled (isTextMode false); only undo/redo enablement is live.
+        isTextMode: false,
+        canUndo: controller.canUndo,
+        canRedo: controller.canRedo,
+      );
+
+  @override
+  bool executeAction(String actionId) {
+    switch (actionId) {
+      case StandardEditingActions.undoActionId:
+        unawaited(controller.undo());
+        return true;
+      case StandardEditingActions.redoActionId:
+        unawaited(controller.redo());
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  @override
+  Stream<void> get onStateChanged => _stateChanges.stream;
 }
 
 /// The §15.2 markdown import/export action bar above the document tree.

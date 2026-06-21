@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:tom_core_agentic/tom_core_agentic.dart';
+import 'package:tom_editors_shared/tom_editors_shared.dart'
+    show StandardEditingActions;
 import 'package:tom_forge_agentic/tom_forge_agentic.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
@@ -53,6 +55,7 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
   late final RawFileModule _rawFileModule;
   late final SpecsConfigModule _configModule;
   late final SpecsShellModule _shellModule;
+  late final ShellEditorIntegration _documentIntegration;
   late ForgeApplication _application;
 
   @override
@@ -134,6 +137,20 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
     );
     _shellModule.activate(_shell);
     (_shell.modules as DefaultModuleRegistry).register(_shellModule);
+
+    // Register the document editor's undo/redo with the shell (§10, OE-11) so
+    // the global undo/redo affordances (action bar, Edit menu, shortcut) carry
+    // their metadata and dispatch into the shared controller's snapshot stack.
+    // The controller stays the single undo authority; the active editor's
+    // EditorActionProvider (SpecDocumentEditor) drives enablement/execution. No
+    // `notifyTextEdit` bridge entries are pushed onto the shell's own undo
+    // manager — that would double-count the controller's stack.
+    _documentIntegration = ShellEditorIntegration(
+      shellApi: _shell,
+      editorId: 'specs-document-editor',
+      editorTypeId: 'specs-document',
+    )..descriptors = StandardEditingActions.descriptors;
+    _documentController.attachIntegration(_documentIntegration);
 
     // Start on DocSpecs — the one functional application.
     _application = _shellModule.docSpecs;
