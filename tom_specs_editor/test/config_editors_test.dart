@@ -15,6 +15,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_core_agentic/tom_core_agentic.dart';
 import 'package:tom_specs_editor/src/config/basic_prefs_panel.dart';
 import 'package:tom_specs_editor/src/config/config_editors.dart';
+import 'package:tom_specs_editor/src/config/config_field.dart';
 import 'package:tom_specs_editor/src/config/config_specs.dart';
 import 'package:tom_specs_editor/src/config/editor_preferences.dart';
 
@@ -155,6 +156,52 @@ void main() {
       // Default `specs` has compose == null, so the prompt-template form keeps
       // only its three authored fields (name, body, user-message toggle).
       expect(specs.promptTemplateSpec().fields, hasLength(3));
+    });
+
+    testWidgets('a field renders its contextual help caption (§12, OE-15)',
+        (tester) async {
+      final field = ConfigField<String>.text(
+        label: 'Name',
+        help: 'Helpful note.',
+        get: (v) => v,
+        set: (v, t) => t,
+      );
+      await _pump(
+        tester,
+        Builder(builder: (_) => field.buildField('x', (_) {})),
+      );
+      expect(find.text('Helpful note.'), findsOneWidget);
+      expect(find.byKey(const ValueKey('cfg-help-Name')), findsOneWidget);
+    });
+
+    testWidgets('a field without help renders no help caption (§12, OE-15)',
+        (tester) async {
+      final field = ConfigField<String>.text(
+        label: 'Name',
+        get: (v) => v,
+        set: (v, t) => t,
+      );
+      await _pump(
+        tester,
+        Builder(builder: (_) => field.buildField('x', (_) {})),
+      );
+      expect(find.byKey(const ValueKey('cfg-help-Name')), findsNothing);
+    });
+
+    testWidgets(
+        'an authored field help string renders in the editor (§12, OE-15)',
+        (tester) async {
+      // Every config editor authors per-field help; the queue's Prompt field is
+      // a representative one. It shows once an item is selected.
+      final spec = specs.queueSpec();
+      expect(spec.fields.first.help, isNotNull,
+          reason: 'the Prompt field must author help text');
+      final editor =
+          ConfigListEditor<QueuedPrompt>(spec: spec, onOpenRawFile: (_) {});
+      await _pump(tester, Builder(builder: editor.buildMain));
+      await tester.tap(find.byKey(const Key('config-add')));
+      await tester.pump();
+      expect(find.byKey(const ValueKey('cfg-help-Prompt')), findsOneWidget);
     });
 
     test('chat-variable spec flags built-in variables as read-only', () {

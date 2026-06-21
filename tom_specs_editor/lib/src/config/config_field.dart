@@ -18,6 +18,7 @@ class ConfigField<T> {
     required this.label,
     required this.builder,
     this.validate,
+    this.help,
   });
 
   /// The field's display label.
@@ -31,6 +32,25 @@ class ConfigField<T> {
   /// acceptable for this field.
   final String? Function(T value)? validate;
 
+  /// Optional contextual help (§12 "renders help text"): a one-line caption
+  /// rendered beneath the field by [buildField], explaining what the field does
+  /// or how its value is used. Null fields render no caption.
+  final String? help;
+
+  /// Renders the field's editor widget plus its [help] caption (when authored).
+  ///
+  /// The config editors call this rather than [builder] directly so the help
+  /// text is laid out uniformly under every field without each factory having
+  /// to weave it into its own widget.
+  Widget buildField(T value, ValueChanged<T> onChanged) {
+    final field = builder(value, onChanged);
+    if (help == null) return field;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [field, _ConfigFieldHelp(label: label, text: help!)],
+    );
+  }
+
   /// A single-line (or [multiline]) text field.
   factory ConfigField.text({
     required String label,
@@ -39,9 +59,11 @@ class ConfigField<T> {
     bool multiline = false,
     bool readOnly = false,
     bool required = false,
+    String? help,
   }) {
     return ConfigField._(
       label: label,
+      help: help,
       validate: required
           ? (v) => get(v).trim().isEmpty ? '$label must not be empty' : null
           : null,
@@ -61,9 +83,11 @@ class ConfigField<T> {
     required String label,
     required bool Function(T value) get,
     required T Function(T value, bool flag) set,
+    String? help,
   }) {
     return ConfigField._(
       label: label,
+      help: help,
       builder: (value, onChanged) => SwitchListTile(
         key: ValueKey('cfg-bool-$label'),
         contentPadding: EdgeInsets.zero,
@@ -85,9 +109,11 @@ class ConfigField<T> {
     required T Function(T value, int? number) set,
     bool positive = false,
     String? Function(T value)? validate,
+    String? help,
   }) {
     return ConfigField._(
       label: label,
+      help: help,
       validate: (v) {
         final n = get(v);
         if (positive && n != null && n <= 0) return '$label must be positive';
@@ -116,9 +142,11 @@ class ConfigField<T> {
     required String label,
     required String Function(T value) get,
     required String Function(String source) compose,
+    String? help,
   }) {
     return ConfigField._(
       label: label,
+      help: help,
       builder: (value, _) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: InputDecorator(
@@ -147,9 +175,11 @@ class ConfigField<T> {
     required T Function(T value, E choice) set,
     required List<E> values,
     required String Function(E choice) labelOf,
+    String? help,
   }) {
     return ConfigField._(
       label: label,
+      help: help,
       builder: (value, onChanged) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: InputDecorator(
@@ -240,6 +270,32 @@ class _ConfigTextFieldState extends State<_ConfigTextField> {
           isDense: true,
         ),
         onChanged: widget.onChanged,
+      ),
+    );
+  }
+}
+
+/// The contextual help caption rendered beneath a [ConfigField] (§12, OE-15).
+///
+/// A muted one-liner keyed `cfg-help-<label>` so tests and the layout can find
+/// the help for a specific field.
+class _ConfigFieldHelp extends StatelessWidget {
+  const _ConfigFieldHelp({required this.label, required this.text});
+
+  final String label;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(left: 12, top: 2, bottom: 6),
+      child: Text(
+        text,
+        key: ValueKey('cfg-help-$label'),
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
       ),
     );
   }

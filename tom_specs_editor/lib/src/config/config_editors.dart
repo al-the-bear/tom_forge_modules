@@ -344,7 +344,7 @@ class _ConfigListBodyState<T> extends State<_ConfigListBody<T>> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 for (final field in spec.fields)
-                  field.builder(item, (value) => _replace(index, value)),
+                  field.buildField(item, (value) => _replace(index, value)),
               ],
             ),
           ),
@@ -486,7 +486,7 @@ class _ConfigObjectBodyState<T> extends State<_ConfigObjectBody<T>> {
                   ),
                 ),
               for (final field in spec.fields)
-                field.builder(_value, _replace),
+                field.buildField(_value, _replace),
             ],
           ),
         ),
