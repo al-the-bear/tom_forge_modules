@@ -62,6 +62,13 @@ dependencies:
   yaml: ^3.1.2
   path: ^1.9.0
 
+  # Native file open/save dialogs for the §15.2 markdown export/import (OE-19
+  # per-file IO). Already resolved transitively via tom_forge_ui; declared
+  # directly because the editor's markdown dialogs use it. The IO call sits
+  # behind a `MarkdownFileIo` seam so the dialogs stay testable without the
+  # platform channel.
+  file_picker: ^8.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

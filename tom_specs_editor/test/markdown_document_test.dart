@@ -125,6 +125,36 @@ Future<SpecDocumentController> _populated() async {
   return c;
 }
 
+/// A [MarkdownFileIo] that records its calls and returns canned values, so the
+/// dialog tests exercise the per-file IO seam (OE-19) without the platform
+/// file-picker channel.
+class _FakeFileIo implements MarkdownFileIo {
+  _FakeFileIo({this.savePath, this.openContent});
+
+  /// What [saveText] returns — the "written" path, or `null` to simulate cancel.
+  final String? savePath;
+
+  /// What [openText] returns, or `null` to simulate cancel.
+  final String? openContent;
+
+  String? savedName;
+  String? savedContent;
+  int openCalls = 0;
+
+  @override
+  Future<String?> saveText(String suggestedName, String content) async {
+    savedName = suggestedName;
+    savedContent = content;
+    return savePath;
+  }
+
+  @override
+  Future<String?> openText() async {
+    openCalls++;
+    return openContent;
+  }
+}
+
 void main() {
   group('export', () {
     test('emits a docspec header and section headings for populated nodes',
@@ -270,6 +300,82 @@ void main() {
       // The preview renders the exported markdown of the Demo (global) root.
       expect(find.textContaining('<!-- docspec:'), findsOneWidget);
       expect(find.textContaining('D00/D00-OVR'), findsOneWidget);
+    });
+  });
+
+  group('per-file IO (OE-19)', () {
+    testWidgets('Save to file writes the previewed markdown via the IO seam',
+        (tester) async {
+      final c = await _populated();
+      final io = _FakeFileIo(savePath: '/some/dir/D00.md');
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: MarkdownExportDialog(
+              controller: c, roots: c.model.roots, fileIo: io),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Save to file…'));
+      await tester.pumpAndSettle();
+
+      // The global scope is the single PD root (D00) → a `D00.md` suggestion,
+      // and the written content is exactly the previewed export.
+      expect(io.savedName, 'D00.md');
+      expect(io.savedContent, contains('<!-- docspec:'));
+      expect(io.savedContent, contains('D00/D00-OVR'));
+      // The written path is surfaced inline.
+      expect(find.textContaining('Saved to /some/dir/D00.md'), findsOneWidget);
+    });
+
+    testWidgets('a cancelled save surfaces no path', (tester) async {
+      final c = await _populated();
+      final io = _FakeFileIo(savePath: null); // user cancelled the picker
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: MarkdownExportDialog(
+              controller: c, roots: c.model.roots, fileIo: io),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Save to file…'));
+      await tester.pumpAndSettle();
+
+      expect(io.savedContent, isNotNull, reason: 'the write was attempted');
+      expect(find.textContaining('Saved to'), findsNothing);
+    });
+
+    testWidgets('Load from file fills the input from the IO seam',
+        (tester) async {
+      final c = await _controller();
+      const md = '<!-- docspec: demo/1.0 -->';
+      final io = _FakeFileIo(openContent: md);
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(body: MarkdownImportDialog(controller: c, fileIo: io)),
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.widgetWithText(TextButton, 'Load from file…'));
+      await tester.pumpAndSettle();
+
+      expect(io.openCalls, 1);
+      expect(find.widgetWithText(TextField, md), findsOneWidget);
+    });
+
+    testWidgets('a cancelled load leaves the input untouched', (tester) async {
+      final c = await _controller();
+      final io = _FakeFileIo(openContent: null); // user cancelled the picker
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(body: MarkdownImportDialog(controller: c, fileIo: io)),
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.widgetWithText(TextButton, 'Load from file…'));
+      await tester.pumpAndSettle();
+
+      expect(io.openCalls, 1);
+      expect(find.widgetWithText(TextField, ''), findsOneWidget);
     });
   });
 }

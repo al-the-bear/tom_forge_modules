@@ -1,3 +1,7 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../structure/spec_model.dart';
@@ -8,37 +12,86 @@ import 'spec_document_controller.dart';
 /// The markdown import/export dialogs (§15.2).
 ///
 /// Export offers a **scope** — *single* (one root projection), *multiple* (a
-/// subset of roots), or *global* (the Project Definition master) — and previews
-/// the generated, schema-conformant markdown. Import takes pasted markdown,
-/// applies it as a full overwrite of the covered scope, and surfaces the
-/// parse-rejection report so nothing is silently dropped.
+/// subset of roots), or *global* (the Project Definition master) — previews the
+/// generated, schema-conformant markdown, and can **save it to a `*.md` file**.
+/// Import either pastes markdown or **loads it from a `*.md` file**, then
+/// applies it as a full overwrite of the covered scope, surfacing the
+/// parse-rejection report so nothing is silently dropped (OE-19 per-file IO).
 ///
-/// File-system read/write is intentionally out of scope here (no file picker is
-/// wired in phase 1); the dialogs operate on text, which keeps the round-trip
-/// fully exercised from the UI. Per-file export/import lands with the build &
-/// packaging work.
+/// The actual file open/save call is behind the [MarkdownFileIo] seam so the
+/// dialogs are testable without the platform file-picker channel; the default
+/// [FilePickerMarkdownFileIo] uses `file_picker` + `dart:io`.
+
+/// The file open/save seam the markdown dialogs use, so a test can supply a fake
+/// instead of driving the real platform file-picker channel.
+abstract class MarkdownFileIo {
+  /// Prompts for a save location (suggesting [suggestedName]), writes [content]
+  /// there, and returns the written path — or `null` if the user cancelled.
+  Future<String?> saveText(String suggestedName, String content);
+
+  /// Prompts for a `*.md` file to open and returns its text — or `null` if the
+  /// user cancelled.
+  Future<String?> openText();
+}
+
+/// The default [MarkdownFileIo], backed by `file_picker` + `dart:io`.
+class FilePickerMarkdownFileIo implements MarkdownFileIo {
+  const FilePickerMarkdownFileIo();
+
+  @override
+  Future<String?> saveText(String suggestedName, String content) async {
+    final path = await FilePicker.platform.saveFile(
+      dialogTitle: 'Export markdown',
+      fileName: suggestedName,
+      type: FileType.custom,
+      allowedExtensions: const ['md'],
+    );
+    if (path == null) return null;
+    final file = File(path);
+    await file.writeAsString(content);
+    return file.path;
+  }
+
+  @override
+  Future<String?> openText() async {
+    final result = await FilePicker.platform.pickFiles(
+      dialogTitle: 'Import markdown',
+      type: FileType.custom,
+      allowedExtensions: const ['md'],
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) return null;
+    final picked = result.files.single;
+    if (picked.bytes != null) return utf8.decode(picked.bytes!);
+    final path = picked.path;
+    return path == null ? null : File(path).readAsString();
+  }
+}
 
 /// Opens the export dialog for [controller]'s roots.
 Future<void> showMarkdownExportDialog(
   BuildContext context,
-  SpecDocumentController controller,
-) async {
+  SpecDocumentController controller, {
+  MarkdownFileIo fileIo = const FilePickerMarkdownFileIo(),
+}) async {
   final roots = controller.model.roots;
   if (roots.isEmpty) return;
   await showDialog<void>(
     context: context,
-    builder: (_) => MarkdownExportDialog(controller: controller, roots: roots),
+    builder: (_) =>
+        MarkdownExportDialog(controller: controller, roots: roots, fileIo: fileIo),
   );
 }
 
 /// Opens the import dialog for [controller].
 Future<void> showMarkdownImportDialog(
   BuildContext context,
-  SpecDocumentController controller,
-) async {
+  SpecDocumentController controller, {
+  MarkdownFileIo fileIo = const FilePickerMarkdownFileIo(),
+}) async {
   await showDialog<void>(
     context: context,
-    builder: (_) => MarkdownImportDialog(controller: controller),
+    builder: (_) => MarkdownImportDialog(controller: controller, fileIo: fileIo),
   );
 }
 
@@ -48,10 +101,12 @@ class MarkdownExportDialog extends StatefulWidget {
     super.key,
     required this.controller,
     required this.roots,
+    this.fileIo = const FilePickerMarkdownFileIo(),
   });
 
   final SpecDocumentController controller;
   final List<SpecRoot> roots;
+  final MarkdownFileIo fileIo;
 
   @override
   State<MarkdownExportDialog> createState() => _MarkdownExportDialogState();
@@ -63,6 +118,10 @@ class _MarkdownExportDialogState extends State<MarkdownExportDialog> {
   late final SpecRoot _pdRoot = defaultNavigatorRoot(widget.roots)!;
   late SpecRoot _single = _pdRoot;
   final Set<String> _multiple = {};
+
+  /// The path of the most recent successful save, surfaced inline.
+  String? _savedPath;
+  bool _saving = false;
 
   String _seg(SpecRoot r) => r.sectionId ?? r.type;
 
@@ -82,6 +141,29 @@ class _MarkdownExportDialogState extends State<MarkdownExportDialog> {
     if (roots.isEmpty) return '(select at least one root)';
     return roots.map((r) => widget.controller.exportMarkdown(_seg(r))).join(
         '\n\n<!-- ─────────────── next document ─────────────── -->\n\n');
+  }
+
+  /// Suggests a file name from the selected scope: the single root's segment for
+  /// one root, otherwise a generic name for a multi-root bundle.
+  String get _suggestedName {
+    final roots = _selectedRoots;
+    return roots.length == 1 ? '${_seg(roots.single)}.md' : 'spec_export.md';
+  }
+
+  Future<void> _saveToFile() async {
+    if (_selectedRoots.isEmpty || _saving) return;
+    setState(() => _saving = true);
+    String? path;
+    try {
+      path = await widget.fileIo.saveText(_suggestedName, _preview);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          if (path != null) _savedPath = path;
+        });
+      }
+    }
   }
 
   @override
@@ -159,6 +241,17 @@ class _MarkdownExportDialogState extends State<MarkdownExportDialog> {
                 ),
               ),
             ),
+            if (_savedPath != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Saved to $_savedPath',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -167,6 +260,12 @@ class _MarkdownExportDialogState extends State<MarkdownExportDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Close'),
         ),
+        FilledButton.icon(
+          onPressed:
+              _selectedRoots.isEmpty || _saving ? null : _saveToFile,
+          icon: const Icon(Icons.save_outlined, size: 16),
+          label: const Text('Save to file…'),
+        ),
       ],
     );
   }
@@ -174,9 +273,14 @@ class _MarkdownExportDialogState extends State<MarkdownExportDialog> {
 
 /// Pasted-markdown import with a rejection report.
 class MarkdownImportDialog extends StatefulWidget {
-  const MarkdownImportDialog({super.key, required this.controller});
+  const MarkdownImportDialog({
+    super.key,
+    required this.controller,
+    this.fileIo = const FilePickerMarkdownFileIo(),
+  });
 
   final SpecDocumentController controller;
+  final MarkdownFileIo fileIo;
 
   @override
   State<MarkdownImportDialog> createState() => _MarkdownImportDialogState();
@@ -194,6 +298,18 @@ class _MarkdownImportDialogState extends State<MarkdownImportDialog> {
 
   void _import() {
     setState(() => _result = widget.controller.importMarkdown(_input.text));
+  }
+
+  /// Loads a `*.md` file into the input field for review before importing. The
+  /// user still presses **Import** so the overwrite + rejection report stay an
+  /// explicit step.
+  Future<void> _loadFromFile() async {
+    final text = await widget.fileIo.openText();
+    if (text == null || !mounted) return;
+    setState(() {
+      _input.text = text;
+      _result = null;
+    });
   }
 
   @override
@@ -253,6 +369,11 @@ class _MarkdownImportDialogState extends State<MarkdownImportDialog> {
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Close'),
+        ),
+        TextButton.icon(
+          onPressed: _loadFromFile,
+          icon: const Icon(Icons.folder_open_outlined, size: 16),
+          label: const Text('Load from file…'),
         ),
         FilledButton(onPressed: _import, child: const Text('Import')),
       ],
