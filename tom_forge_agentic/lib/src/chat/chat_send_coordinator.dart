@@ -17,7 +17,11 @@ class ChatSendCoordinator {
     required this.send,
     required this.trail,
     String Function(String raw)? compose,
-  }) : _compose = compose ?? _identity;
+    void Function(String turnId)? onTurnBegin,
+    void Function()? onTurnEnd,
+  })  : _compose = compose ?? _identity,
+        _onTurnBegin = onTurnBegin,
+        _onTurnEnd = onTurnEnd;
 
   /// The transport that streams the answer (§7).
   final AgentSendController send;
@@ -31,6 +35,20 @@ class ChatSendCoordinator {
   /// prompt verbatim. A `${{ … }}` expression form makes this throw, which
   /// [sendNow] surfaces as a failed trail pair rather than a crash.
   final String Function(String raw) _compose;
+
+  /// Opens the agent-turn boundary just before the send (§9/§10, step 15). The
+  /// host (the TomSpecs editor) wires its `SpecDocumentController.beginTurn` so
+  /// every document mutation the agent makes mid-stream — via the §8 tools —
+  /// collapses into a single undo group and one change-log turn. The turn id is
+  /// the trail pair id, so the change-log turn and the trail exchange share an
+  /// identifier. Optional: a host without a live document leaves it null and the
+  /// send is unbracketed.
+  final void Function(String turnId)? _onTurnBegin;
+
+  /// Closes the agent-turn boundary after the send settles ([_onTurnBegin]'s
+  /// partner). Always called when a turn was opened, even if the send throws or
+  /// fails, so the host's undo group is never left open.
+  final void Function()? _onTurnEnd;
 
   static String _identity(String raw) => raw;
 
@@ -52,7 +70,16 @@ class ChatSendCoordinator {
     }
 
     final pairId = trail.recordRequest(composed);
-    await send.send(composed);
+    // Bracket the send — and only the send, where the §8 tools mutate the
+    // document mid-stream — as one agent turn so the host collapses every edit
+    // into a single undo group. `endTurn` runs in a `finally` so a thrown or
+    // failed send never leaves the host's undo group open.
+    _onTurnBegin?.call(pairId);
+    try {
+      await send.send(composed);
+    } finally {
+      _onTurnEnd?.call();
+    }
     final error = send.error;
     if (error != null) {
       trail.failAnswer(pairId, '$error');

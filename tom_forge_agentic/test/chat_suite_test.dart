@@ -309,6 +309,103 @@ void main() {
       expect(send.output, isEmpty);
     });
 
+    test('sendNow brackets the send with a turn boundary (§9/§10, OE-10)',
+        () async {
+      // The streamed answer marks the window during which the §8 tools mutate
+      // the document; the turn must open before it and close after it.
+      final transport = _ScriptedTransport(
+        (_) => [_assistant('did work'), _success('s')],
+      );
+      addTearDown(transport.dispose);
+      final send = AgentSendController(
+        connection: _boundConnection(),
+        sessionStore: _tempSessionStore(),
+        clientFactory: ({required host, required port}) async =>
+            AgentSdkClient(transport),
+      );
+      final trail =
+          PromptTrailController(store: _tempTrailStore(), newId: _ids('t'));
+
+      final events = <String>[];
+      String? turnId;
+      final coordinator = ChatSendCoordinator(
+        send: send,
+        trail: trail,
+        onTurnBegin: (id) {
+          turnId = id;
+          // No answer has streamed yet — the turn opens before the send.
+          events.add('begin output=${send.output}');
+        },
+        onTurnEnd: () => events.add('end output=${send.output}'),
+      );
+
+      await coordinator.sendNow('go');
+
+      // Opened before the send (empty output) and closed after it (answer in),
+      // in that order — one bracket around the mutating window.
+      expect(events, ['begin output=', 'end output=did work']);
+      // The turn id is the trail pair id, so the change-log turn and the trail
+      // exchange share an identifier.
+      expect(turnId, trail.pairs.single.id);
+    });
+
+    test('a turn that fails still closes its boundary (OE-10)', () async {
+      final transport = _ScriptedTransport((_) => [_errorResult('boom')]);
+      addTearDown(transport.dispose);
+      final send = AgentSendController(
+        connection: _boundConnection(),
+        sessionStore: _tempSessionStore(),
+        clientFactory: ({required host, required port}) async =>
+            AgentSdkClient(transport),
+      );
+      final trail =
+          PromptTrailController(store: _tempTrailStore(), newId: _ids('t'));
+      var begins = 0;
+      var ends = 0;
+      final coordinator = ChatSendCoordinator(
+        send: send,
+        trail: trail,
+        onTurnBegin: (_) => begins++,
+        onTurnEnd: () => ends++,
+      );
+
+      await coordinator.sendNow('go');
+
+      // The turn opened and closed exactly once even though the send failed —
+      // the host's undo group is never left open.
+      expect(begins, 1);
+      expect(ends, 1);
+      expect(trail.pairs.single.answer?.text, contains('boom'));
+    });
+
+    test('a compose failure never opens a turn (OE-10)', () async {
+      final transport = _ScriptedTransport((_) => [_success('s')]);
+      addTearDown(transport.dispose);
+      final send = AgentSendController(
+        connection: _boundConnection(),
+        sessionStore: _tempSessionStore(),
+        clientFactory: ({required host, required port}) async =>
+            AgentSdkClient(transport),
+      );
+      final trail =
+          PromptTrailController(store: _tempTrailStore(), newId: _ids('t'));
+      var begins = 0;
+      var ends = 0;
+      final coordinator = ChatSendCoordinator(
+        send: send,
+        trail: trail,
+        compose: (_) => throw PlaceholderExpressionsUnsupportedError('1 + 1'),
+        onTurnBegin: (_) => begins++,
+        onTurnEnd: () => ends++,
+      );
+
+      await coordinator.sendNow(r'compute ${{ 1 + 1 }}');
+
+      // Nothing was sent, so nothing could mutate — no turn is opened.
+      expect(begins, 0);
+      expect(ends, 0);
+    });
+
     test('retry re-dispatches an errored item to success', () async {
       // First dispatch errors; the retry succeeds.
       final transport = _ScriptedTransport(

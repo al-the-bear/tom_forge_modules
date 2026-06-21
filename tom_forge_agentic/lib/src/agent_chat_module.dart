@@ -29,6 +29,8 @@ class AgentChatModule extends ForgeModule {
     PromptTrailController? trailController,
     PromptQueueController? queueController,
     String Function(String raw)? compose,
+    void Function(String turnId)? onTurnBegin,
+    void Function()? onTurnEnd,
   }) : controller = controller ?? AgentConnectionController() {
     this.sendController =
         sendController ?? AgentSendController(connection: this.controller);
@@ -37,6 +39,8 @@ class AgentChatModule extends ForgeModule {
       send: this.sendController,
       trail: this.trailController,
       compose: compose,
+      onTurnBegin: onTurnBegin,
+      onTurnEnd: onTurnEnd,
     );
     this.queueController =
         queueController ?? PromptQueueController(coordinator: coordinator);

@@ -154,6 +154,11 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
       controller: connection,
       sendController: sendController,
       compose: _buildPromptComposer().compose,
+      // Bracket each agent send as one turn on the shared document controller
+      // (§9/§10, step 15) so every §8 tool mutation the agent makes mid-stream
+      // collapses into a single undo group / change-log turn (OE-10).
+      onTurnBegin: _documentController.beginTurn,
+      onTurnEnd: _documentController.endTurn,
     );
   }
 
