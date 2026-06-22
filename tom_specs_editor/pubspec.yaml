@@ -53,6 +53,13 @@ dependencies:
   tom_core_agentic:
     path: ../../tom_ai/core/tom_core_agentic
 
+  # Generic TomSpecs Specification Object Model runtime: the path-keyed in-memory
+  # document, the meta-model ("reflection") classes, and the document validator.
+  # The editor's `spec_document.dart` / `spec_model.dart` are thin re-export
+  # shims onto this package (step 3 of the multi-platform spec-model plan).
+  tom_som_dart_runtime:
+    path: ../../tom_ai/ai_build/tom_som_dart_runtime
+
   # Agent SDK MCP surface: McpSdkServerConfig / SdkMcpTool / CallToolResult used
   # to expose the §8 navigation & mutation tools to the embedded agent. Same
   # hosted constraint tom_core_agentic resolves, so version solving stays clean.
