@@ -158,6 +158,43 @@ void main() {
     });
   });
 
+  group('document model-version stamp (step 2)', () {
+    test('encode writes the authoring modelVersion beside the format version',
+        () {
+      final yaml = DocSpecsFile.encode(
+        document: SpecDocument(),
+        review: const {},
+        modelVersion: '0.7',
+      );
+      expect(yaml, contains('version: ${DocSpecsFile.formatVersion}'));
+      expect(yaml, contains('modelVersion: '));
+      // The stamp must read back through decode (the generic runtime path).
+      expect(DocSpecsFile.decode(yaml).modelVersion, '0.7');
+    });
+
+    test('a fixture *.docspecs.yaml carries the stamp, read back on decode', () {
+      const fixture = '''
+version: 1
+modelVersion: "1.2"
+document: {}
+review: {}
+''';
+      final parsed = DocSpecsFile.decode(fixture);
+      expect(parsed.modelVersion, '1.2');
+      expect(parsed.document, isEmpty);
+      expect(parsed.review, isEmpty);
+    });
+
+    test('a file without the stamp decodes modelVersion as null', () {
+      final yaml = DocSpecsFile.encode(
+        document: SpecDocument(),
+        review: const {},
+      );
+      expect(yaml, isNot(contains('modelVersion:')));
+      expect(DocSpecsFile.decode(yaml).modelVersion, isNull);
+    });
+  });
+
   group('session-id sidecar (A2)', () {
     late Directory dir;
     setUp(() => dir = Directory.systemTemp.createTempSync('specs_docspecs_'));

@@ -10,13 +10,24 @@ import 'spec_document.dart';
 /// pass as a [SpecDocument.loadJson]-shaped map, plus the `review:` pass as
 /// structural-review entries keyed by path.
 class DocSpecsContents {
-  DocSpecsContents({required this.document, required this.review});
+  DocSpecsContents({
+    required this.document,
+    required this.review,
+    this.modelVersion,
+  });
 
   /// The `document:` pass, ready for [SpecDocument.loadJson].
   final Map<dynamic, dynamic> document;
 
   /// The `review:` pass, ready for [ReviewStore.replaceEntries].
   final Map<String, ReviewEntry> review;
+
+  /// The authoring object-model version (`major.minor`) this document was last
+  /// written against, or `null` for an unstamped/hand-written file. Distinct
+  /// from [DocSpecsFile.formatVersion] (the on-disk format version): this
+  /// stamps *which model version* the content conforms to, and drives the
+  /// document-vs-model compatibility check.
+  final String? modelVersion;
 }
 
 /// Codec for the native `*.docspecs.yaml` document format (§15.1).
@@ -45,9 +56,15 @@ class DocSpecsFile {
   // --- Encode -------------------------------------------------------------
 
   /// Serializes [document] + [review] to the two-pass `*.docspecs.yaml` text.
+  ///
+  /// [modelVersion] stamps the authoring object-model version (`major.minor`)
+  /// the content conforms to. It is written beside `version:` (the on-disk
+  /// format version) when supplied and read back by [decode]; an unstamped file
+  /// (null) simply omits the key.
   static String encode({
     required SpecDocument document,
     required Map<String, ReviewEntry> review,
+    String? modelVersion,
   }) {
     final b = StringBuffer()
       ..writeln('# TomSpecs document (*.docspecs.yaml).')
@@ -60,6 +77,9 @@ class DocSpecsFile {
           'lives in a')
       ..writeln('# `<file>.session` sidecar, never here.')
       ..writeln('version: $formatVersion');
+    if (modelVersion != null && modelVersion.isNotEmpty) {
+      b.writeln('modelVersion: ${jsonEncode(modelVersion)}');
+    }
     _writeDocument(b, document.toJson());
     _writeReview(b, review);
     return b.toString();
@@ -227,6 +247,7 @@ class DocSpecsFile {
     final root = yaml.trim().isEmpty ? null : loadYaml(yaml);
     final doc = (root is Map ? root['document'] : null);
     final rev = (root is Map ? root['review'] : null);
+    final stamp = (root is Map ? root['modelVersion'] : null);
 
     final review = <String, ReviewEntry>{};
     if (rev is Map) {
@@ -238,6 +259,8 @@ class DocSpecsFile {
     return DocSpecsContents(
       document: doc is Map ? doc : const {},
       review: review,
+      modelVersion:
+          (stamp != null && '$stamp'.isNotEmpty) ? '$stamp' : null,
     );
   }
 
