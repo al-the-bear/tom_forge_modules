@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 import 'package:tom_vscode_scripting_api/tom_vscode_scripting_api.dart';
 
@@ -5,6 +7,7 @@ import '../document/spec_document_controller.dart';
 import '../structure/review_store.dart';
 import '../structure/spec_model.dart';
 import 'spec_agent_tools.dart';
+import 'spec_script_runner.dart';
 
 /// Forge module owning the agent's navigation/mutation tools (§8).
 ///
@@ -17,18 +20,29 @@ import 'spec_agent_tools.dart';
 /// The module contributes no views/editors of its own — it is a pure capability
 /// provider — so it slots into the registry alongside the structure and chat
 /// modules without touching the layout.
+///
+/// Beyond the single-shot §8 tools it also owns the in-process [scriptRunner]
+/// (§3, §8.1): the engine's D4rt scripting surface bound to the *same*
+/// [controller], so an agent script and a tool both mutate one document and land
+/// in the one change log / undo stack (§5). The engine is linked in-process via
+/// its Flutter-safe `package:tom_spec_engine/scripting.dart` facade — no IPC.
 class AgentToolsModule extends ForgeModule {
   AgentToolsModule({
     required Future<SpecModel> modelFuture,
     required ReviewStore review,
     SpecDocumentController? controller,
     this.serverName = 'tomspecs',
+    String? scriptWorkspaceRoot,
   }) : controller = controller ??
             SpecDocumentController(
               modelFuture: modelFuture,
               review: review,
             ) {
     _server = SpecAgentTools(this.controller).buildServer(name: serverName);
+    scriptRunner = SpecScriptRunner(
+      controller: this.controller,
+      workspaceRoot: scriptWorkspaceRoot ?? Directory.current.path,
+    );
   }
 
   /// The MCP server name exposed to the Agent SDK.
@@ -36,6 +50,11 @@ class AgentToolsModule extends ForgeModule {
 
   /// The shared document controller every tool reads/mutates through.
   final SpecDocumentController controller;
+
+  /// The in-process D4rt scripting surface bound to [controller] (§8.1). Scripts
+  /// it runs mutate the same document the §8 tools do, so the change log and undo
+  /// see script and tool edits identically (§5).
+  late final SpecScriptRunner scriptRunner;
 
   late final McpSdkServerConfig _server;
 

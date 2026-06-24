@@ -6,6 +6,8 @@ import 'package:tom_editors_shared/tom_editors_shared.dart'
 import 'package:tom_forge_agentic/tom_forge_agentic.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart'
     show DefaultUndoManager, ShellEditorIntegration, UndoEntry;
+import 'package:tom_som_dart_runtime/tom_som_dart_runtime.dart'
+    show SpecNodeCreator;
 
 import '../structure/review_store.dart';
 import '../structure/spec_model.dart';
@@ -522,6 +524,35 @@ class SpecDocumentController extends ChangeNotifier {
       );
     }
     return removed;
+  }
+
+  /// Adds the model-permitted child [childSegment] under [parentPath] — the §5
+  /// constrained-creation gate — returning the new node's path.
+  ///
+  /// The add is validated against the meta-model by [SpecNodeCreator]; an
+  /// illegal add throws `SpecCreationError` (`tom_som_dart_runtime`) and mutates
+  /// nothing. A **list** child appends a fresh item and records a change-log
+  /// entry + undo snapshot, exactly like [addListItem]; a **single-valued**
+  /// child returns its path *without* mutating the sparse store (the caller sets
+  /// its value next), so it records nothing until that value is set — the no-op
+  /// rule of [_commit]. This is the mutation the engine's `spec` scope binds to
+  /// (plan step 18), so a script add and a tool add land in the one change log.
+  String addChild(String parentPath, String childSegment, {String? itemId}) {
+    final before = document.captureState();
+    final childPath = SpecNodeCreator(model, document)
+        .add(parentPath, childSegment, itemId: itemId);
+    _commit(
+      before,
+      () => ChangeEntry(
+        id: _nextEntryId(),
+        sectionId: childPath,
+        kind: ChangeKind.listAdd,
+        turnId: _turnIdForEdit(),
+        afterThisEdit: childPath,
+        toolCallId: activeToolCallId,
+      ),
+    );
+    return childPath;
   }
 
   /// Applies a structural-review decision at [path], routed through the shared

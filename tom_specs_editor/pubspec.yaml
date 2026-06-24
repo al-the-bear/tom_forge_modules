@@ -60,6 +60,15 @@ dependencies:
   tom_som_dart_runtime:
     path: ../../tom_ai/ai_build/tom_som_dart_runtime
 
+  # TomSpecs scripting/engine plane (§3, plan step 18). Linked **in-process** so
+  # the agent can run sandboxed D4rt scripts that edit the live document. The
+  # editor imports only the Flutter-safe scripting facade
+  # (`package:tom_spec_engine/scripting.dart` — the `spec` scope + scope registry
+  # + script tools), never the RAG memory plane (`tom_brain_memory`, server-only,
+  # §2), so the memory surface stays out of the Flutter compile.
+  tom_spec_engine:
+    path: ../../tom_ai/ai_build/tom_spec_engine
+
   # Agent SDK MCP surface: McpSdkServerConfig / SdkMcpTool / CallToolResult used
   # to expose the §8 navigation & mutation tools to the embedded agent. Same
   # hosted constraint tom_core_agentic resolves, so version solving stays clean.
