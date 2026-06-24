@@ -71,4 +71,27 @@ void main() {
     expect(c.content('D00-OVR'), isNull);
     expect(c.canUndo, isFalse);
   });
+
+  test('a D4rt script reflects the live model through the `model` global',
+      () async {
+    // Followup item 11: the `spec` scope injects a read-only reflection facade
+    // as the `model` global, bound to the live controller's SpecModel. A script
+    // can therefore ask meta-model questions over the same model the §8 tools
+    // see — and the run resolves it because `run` awaits the model load first.
+    final module = makeModule();
+
+    final result = await module.scriptRunner.run('''
+import 'package:tom_spec_engine/spec_model_api.dart';
+
+List main() => [
+  model.resolves('D00'),
+  model.classOf('D00'),
+  model.kindOf('D00/D00-OVR'),
+  model.sectionId('D00/D00-OVR'),
+];
+''');
+
+    expect(result.ok, isTrue, reason: result.error ?? '');
+    expect(result.result, [true, 'DemoDoc', 'content', 'D00-OVR']);
+  });
 }

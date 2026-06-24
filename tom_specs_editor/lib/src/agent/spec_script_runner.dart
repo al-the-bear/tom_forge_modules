@@ -39,7 +39,17 @@ class SpecScriptRunner {
   }) : tools = ScriptTools(
           registry: () {
             final registry = ScopeRegistry()
-              ..register(specScope(EngineSpecController(controller)));
+              ..register(specScope(
+                EngineSpecController(controller),
+                // The read-only `model` reflection global (§4, §5; followup
+                // item 11). Lazy + null-tolerant: queried on every interpreter
+                // build, it returns the live model once loaded and `null`
+                // before then, so a synchronous `validate` against a not-yet-
+                // loaded controller degrades gracefully. `run` awaits
+                // [SpecDocumentController.ensureLoaded] first.
+                model: () =>
+                    controller.isModelLoaded ? controller.model : null,
+              ));
             for (final scope in extraScopes) {
               registry.register(scope);
             }
@@ -62,8 +72,12 @@ class SpecScriptRunner {
     String source, {
     List<String>? scopes,
     List<Object?>? args,
-  }) =>
-      tools.run(source: source, scopes: scopes, args: args);
+  }) async {
+    // Ensure the model is loaded so the lazy `model` reflection global resolves
+    // for this run (the provider returns null until then; followup item 11).
+    await controller.ensureLoaded();
+    return tools.run(source: source, scopes: scopes, args: args);
+  }
 
   /// Parses / resolves [source] against the granted scope **without** running
   /// it, returning diagnostics the agent can iterate on (§8.1).
