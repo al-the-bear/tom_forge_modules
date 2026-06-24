@@ -122,6 +122,15 @@ class SpecEngineTools {
     return null;
   }
 
+  Map<String, String>? _stringMap(Map<String, dynamic> args, String key) {
+    final v = args[key];
+    if (v is! Map) return null;
+    return {
+      for (final entry in v.entries)
+        entry.key.toString(): entry.value?.toString() ?? '',
+    };
+  }
+
   Future<DocTools> _docs() async {
     await controller.ensureLoaded();
     return _docTools ??= DocTools(
@@ -240,7 +249,10 @@ class SpecEngineTools {
         description:
             'Meta-model-validated creation of a child segment under a parent '
             'path (mutation); lands in the one change log. A model violation is '
-            'returned as a coded failed result, never thrown.',
+            'returned as a coded failed result, never thrown. An optional '
+            'initial payload populates the new node in the same call: "content" '
+            'for a leaf value, "fields" (an object of field->value) for a form '
+            'section.',
         inputSchema: const {
           'type': 'object',
           'properties': {
@@ -249,6 +261,19 @@ class SpecEngineTools {
             'itemId': {
               'type': 'string',
               'description': 'Explicit list-item id (optional).',
+            },
+            'content': {
+              'type': 'string',
+              'description':
+                  'Initial content for a leaf node (optional). Ignored when '
+                  'empty.',
+            },
+            'fields': {
+              'type': 'object',
+              'additionalProperties': {'type': 'string'},
+              'description':
+                  'Initial form-field values for a form section (optional), '
+                  'as field-name -> value.',
             },
           },
           'required': ['parentPath', 'childSegment'],
@@ -264,6 +289,8 @@ class SpecEngineTools {
             parentPath,
             childSegment,
             itemId: _str(args, 'itemId'),
+            content: _str(args, 'content'),
+            fields: _stringMap(args, 'fields'),
           );
           return _ok(result.toJson());
         },

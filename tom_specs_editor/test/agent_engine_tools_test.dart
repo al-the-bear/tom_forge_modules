@@ -158,6 +158,42 @@ void main() {
       expect(r['code'], isNotNull);
     });
 
+    test('doc_add_node applies an initial content payload on creation (item 17)',
+        () async {
+      final h = _harness(dir);
+      final r = await _invoke(
+        h.tools['doc_add_node']!,
+        {
+          'parentPath': 'D00',
+          'childSegment': 'D00-ITM',
+          'content': 'seeded item text',
+        },
+      );
+      expect(r['ok'], isTrue);
+      expect(r['path'], 'D00/D00-ITM-1');
+      // The create + its initial content land on the one shared document.
+      expect(h.controller.document.content('D00/D00-ITM-1'), 'seeded item text');
+      // One change-log burst: the add followed by the content edit.
+      expect(h.controller.changeLog.length, 2);
+    });
+
+    test('doc_add_node applies an initial fields payload on creation (item 17)',
+        () async {
+      final h = _harness(dir);
+      final r = await _invoke(
+        h.tools['doc_add_node']!,
+        {
+          'parentPath': 'D00',
+          'childSegment': 'D00-ITM',
+          'fields': {'label': 'seeded label'},
+        },
+      );
+      expect(r['ok'], isTrue);
+      expect(h.controller.document.formField('D00/D00-ITM-1', 'label'),
+          'seeded label');
+      expect(h.controller.changeLog.length, 2);
+    });
+
     test('doc_search finds a content node and the cursor iterates', () async {
       final h = _harness(dir);
       // Seed two content values to search. The query engine indexes by the full
