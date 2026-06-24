@@ -94,6 +94,27 @@ void main() {
     expect(refresh.refreshed, module.memoryPlane.available);
   });
 
+  test('mem_refresh routes through the one indexer: it drains a pending edit '
+      'and reconciles tier 1 (item 16)', () async {
+    module.controller.setContent('D00/D00-OVR', 'original baseline text');
+    await module.memoryPlane.ensureWarm();
+
+    // An edit leaves a pending touch on the shared indexer (debounced).
+    module.controller.setContent('D00/D00-OVR', 'kubernetes operator needle');
+    expect(module.memoryPlane.indexer.hasPending, isTrue);
+
+    // mem_refresh now flushes through the SAME indexer rather than a parallel
+    // rebuild: the pending touch is folded in and cleared, and tier 1 reflects
+    // the edit (new term findable, stale term gone).
+    await module.memoryPlane.tools.refresh();
+    expect(module.memoryPlane.indexer.hasPending, isFalse);
+
+    final hit = await module.memoryPlane.tools.recallQuery('kubernetes');
+    expect(hit.hits.map((h) => h.path), contains('D00/D00-OVR'));
+    final stale = await module.memoryPlane.tools.recallQuery('baseline');
+    expect(stale.hits.map((h) => h.path), isNot(contains('D00/D00-OVR')));
+  });
+
   group('change-log-driven incremental re-index (followup item 14, D53)', () {
     test('a post-warm edit is touched into the indexer off the edit path',
         () async {

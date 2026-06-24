@@ -267,30 +267,32 @@ class SpecMemoryPlane {
     return document.recallSections(query, k: k);
   }
 
-  /// The `mem_refresh` re-index: rebuilds tier 1 and, when tier 2 is open,
-  /// re-embeds only the sections whose content moved (the engine's
-  /// embed-changed-only path), forgetting sections that disappeared.
+  /// The `mem_refresh` re-index (item 16): a full current-state reconcile routed
+  /// through the **same serialized [indexer]** the change-log path uses, so a
+  /// manual refresh can never race an in-flight debounced flush and both paths
+  /// drive the one engine `indexChangedSections` entrypoint (no parallel full
+  /// rebuild). It reconciles the union of the document's current sections and
+  /// everything previously indexed — tier-1 updated in place, tier-2 re-embedded
+  /// only where the content hash moved, sections that disappeared dropped from
+  /// both tiers. Reports `refreshed: false` in tier-1-only / degraded mode (no
+  /// open tier-2 store), matching the no-`vec0` contract.
   Future<MemRefreshResult> _refresh() async {
     await ensureWarm();
+    final current = {for (final node in _projectNodes()) node.path};
+    final result = await indexer.reindexAll(current.union(_indexedPaths));
+    // `_reindexTier2` (the indexer's tier-2 callback) has already refreshed
+    // `_indexedPaths` to the current node set when tier 2 is live.
     final document = _document;
-    if (document == null) return const MemRefreshResult(refreshed: false);
-    final projections = _projectNodes();
-    _index.rebuild(projections);
-    final graph = SpecRagGraph.fromProjections(projections);
-    final current = {for (final node in graph.nodes) node.path};
-    final removed = _indexedPaths.difference(current);
-    final result = await document.indexChangedSections(
-      graph,
-      changedPaths: current,
-      removedPaths: removed,
-    );
-    _indexedPaths = current;
+    final tier2 = result.tier2;
+    if (document == null || tier2 == null) {
+      return const MemRefreshResult(refreshed: false);
+    }
     return MemRefreshResult(
       refreshed: true,
-      embedded: result.embedded,
-      unchanged: result.unchanged,
-      edges: result.edgeCount,
-      removed: result.removed,
+      embedded: tier2.embedded,
+      unchanged: tier2.unchanged,
+      edges: tier2.edgeCount,
+      removed: tier2.removed,
     );
   }
 
