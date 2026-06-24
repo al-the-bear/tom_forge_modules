@@ -75,6 +75,18 @@ class SpecMemoryPlane {
   /// while tier 2 is healthy or was never configured.
   Object? get tier2Error => _tier2Error;
 
+  /// The embeddable Tom Brain store backing tier 2, or `null` in degraded mode
+  /// (no `vec0` binary). The live mode-(b) [SpecBrainSessionEnvelope] (followup
+  /// item 8) persists its run trail through this same store, addressed by
+  /// [scope], so an agent run and the document's section index share one named
+  /// memory.
+  SpecMemory? get memory => _memory;
+
+  /// The single workspace profile this editor session indexes (and records
+  /// agent runs) under. Sharing it between the section index and the brain run
+  /// trail keeps both in one document-named memory.
+  MemoryScope get scope => _scope;
+
   /// The fused two-tier recall — the `memory` scope and the `mem_*` tools both
   /// recall through this.
   late final SpecRecall recall;

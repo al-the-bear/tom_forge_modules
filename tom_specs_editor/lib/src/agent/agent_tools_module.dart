@@ -9,6 +9,8 @@ import '../document/spec_document_controller.dart';
 import '../structure/review_store.dart';
 import '../structure/spec_model.dart';
 import 'spec_agent_tools.dart';
+import 'spec_brain_runtime.dart';
+import 'spec_brain_tools.dart';
 import 'spec_engine_tools.dart';
 import 'spec_memory_plane.dart';
 import 'spec_script_runner.dart';
@@ -43,6 +45,10 @@ class AgentToolsModule extends ForgeModule {
               review: review,
             ) {
     final workspaceRoot = scriptWorkspaceRoot ?? Directory.current.path;
+    // One audited file facade is shared by the engine `file_*` tools and the
+    // live mode-(b) runtime's `file_*` surface, so an agent run reads/writes
+    // through the same boundary as a direct tool call.
+    final facade = SpecFileFacade(workspaceRoot: workspaceRoot);
     _server = SpecAgentTools(this.controller).buildServer(name: serverName);
     memoryPlane = SpecMemoryPlane(
       controller: this.controller,
@@ -55,11 +61,17 @@ class AgentToolsModule extends ForgeModule {
     );
     _engineServer = SpecEngineTools(
       controller: this.controller,
-      facade: SpecFileFacade(workspaceRoot: workspaceRoot),
+      facade: facade,
       scriptTools: scriptRunner.tools,
       memoryTools: memoryPlane.tools,
       ensureMemoryWarm: memoryPlane.ensureWarm,
     ).buildServer(name: engineServerName);
+    brainRuntime = SpecBrainRuntime(
+      controller: this.controller,
+      memoryPlane: memoryPlane,
+      facade: facade,
+    );
+    _brainServer = SpecBrainTools(brainRuntime).buildServer(name: brainServerName);
   }
 
   /// The MCP server name exposed to the Agent SDK.
@@ -69,6 +81,10 @@ class AgentToolsModule extends ForgeModule {
   /// `script_*`), kept distinct from [serverName] so the two surfaces stay
   /// cleanly namespaced.
   final String engineServerName = 'tomspecs-engine';
+
+  /// The MCP server name for the live mode-(b) agent runtime (`agent_run` /
+  /// `agent_trail`; followup item 8), kept distinct from the other surfaces.
+  final String brainServerName = 'tomspecs-brain';
 
   /// The shared document controller every tool reads/mutates through.
   final SpecDocumentController controller;
@@ -83,6 +99,12 @@ class AgentToolsModule extends ForgeModule {
   /// when the `vec0` binary is absent ([SpecMemoryPlane.available] is `false`).
   late final SpecMemoryPlane memoryPlane;
 
+  /// The live mode-(b) agent runtime (followup item 8): drives the complex agent
+  /// procedure through the Tom Brain session envelope over [memoryPlane]'s store,
+  /// recording each run (with effort metrics) into the document's named memory.
+  /// Reports `available:false` when the memory store is degraded.
+  late final SpecBrainRuntime brainRuntime;
+
   late final McpSdkServerConfig _server;
 
   /// The engine toolsets server (DocTools / FileTools / ScriptTools / MemoryTools
@@ -90,11 +112,16 @@ class AgentToolsModule extends ForgeModule {
   /// via the in-editor [memoryPlane].
   late final McpSdkServerConfig _engineServer;
 
+  /// The live mode-(b) runtime server (`agent_run` / `agent_trail`; followup
+  /// item 8) wrapping [brainRuntime].
+  late final McpSdkServerConfig _brainServer;
+
   /// The `mcpServers` map to fold into the agent send config (§7.2) — the editor's
   /// bespoke §8 tools plus the reusable engine toolsets.
   Map<String, McpServerConfig> get servers => {
         serverName: _server,
         engineServerName: _engineServer,
+        brainServerName: _brainServer,
       };
 
   /// Which §8 [AgentToolGroup]s each MCP server in [servers] provides — the
@@ -103,13 +130,20 @@ class AgentToolsModule extends ForgeModule {
   ///
   /// The bespoke `tomspecs` server carries the §8 navigation/mutation tools
   /// (`doc` + `script`); the `tomspecs-engine` server carries the reusable
-  /// DocTools / FileTools / ScriptTools / MemoryTools (all four groups). The
-  /// servers are coarse — per-tool gating within a server is deferred (item 8);
-  /// the engine's **toolset ⊆ scopes** invariant is the real capability
-  /// guarantee.
+  /// DocTools / FileTools / ScriptTools / MemoryTools (all four groups); the
+  /// `tomspecs-brain` server's single run touches every plane (doc + memory +
+  /// file + script), so it carries the full group set too. The servers are
+  /// coarse — per-tool gating within a server is deferred; the engine's
+  /// **toolset ⊆ scopes** invariant is the real capability guarantee.
   Map<String, Set<AgentToolGroup>> get serverToolGroups => {
         serverName: const {AgentToolGroup.doc, AgentToolGroup.script},
         engineServerName: const {
+          AgentToolGroup.doc,
+          AgentToolGroup.file,
+          AgentToolGroup.script,
+          AgentToolGroup.memory,
+        },
+        brainServerName: const {
           AgentToolGroup.doc,
           AgentToolGroup.file,
           AgentToolGroup.script,
