@@ -1,3 +1,5 @@
+import 'package:tom_som_dart_runtime/tom_som_dart_runtime.dart'
+    show SpecQueryEngine;
 import 'package:tom_spec_engine/scripting.dart'
     show
         FileScriptStore,
@@ -49,6 +51,18 @@ class SpecScriptRunner {
                 // [SpecDocumentController.ensureLoaded] first.
                 model: () =>
                     controller.isModelLoaded ? controller.model : null,
+                // The read-only §6 grep global `search` (plan steps 7, 19;
+                // followup item 12, D97). Same lazy + null-tolerant contract as
+                // `model`: bound to a fresh [SpecQueryEngine] over the live
+                // (model, document) pair once the model has loaded, so a script
+                // pages the same lexical/structural search the `doc_search` MCP
+                // tool exposes.
+                search: () => controller.isModelLoaded
+                    ? SpecQueryEngine(
+                        model: controller.model,
+                        document: controller.document,
+                      )
+                    : null,
               ));
             for (final scope in extraScopes) {
               registry.register(scope);

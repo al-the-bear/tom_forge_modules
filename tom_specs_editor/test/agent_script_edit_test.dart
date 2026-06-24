@@ -94,4 +94,27 @@ List main() => [
     expect(result.ok, isTrue, reason: result.error ?? '');
     expect(result.result, [true, 'DemoDoc', 'content', 'D00-OVR']);
   });
+
+  test('a D4rt script greps the live document through the `search` global',
+      () async {
+    // Followup item 12: the `spec` scope injects a read-only §6 grep facade as
+    // the `search` global, bound to a SpecQueryEngine over the live (model,
+    // document) pair. A script pages the *same* lexical search the `doc_search`
+    // MCP tool exposes, so it sees an edit it just made.
+    final module = makeModule();
+
+    final result = await module.scriptRunner.run('''
+import 'package:tom_spec_engine/spec_api.dart';
+import 'package:tom_spec_engine/spec_search_api.dart';
+
+List main() {
+  spec.setContent('D00/D00-OVR', 'a memorable needle here');
+  final hits = search.grep('needle').toList();
+  return [hits.length, hits.isEmpty ? null : hits[0]['path']];
+}
+''');
+
+    expect(result.ok, isTrue, reason: result.error ?? '');
+    expect(result.result, [1, 'D00/D00-OVR']);
+  });
 }

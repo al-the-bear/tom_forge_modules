@@ -1,10 +1,10 @@
 import 'dart:convert';
 
 import 'package:tom_som_dart_runtime/tom_som_dart_runtime.dart'
-    show SpecNodeKind, SpecQuery, SpecQueryEngine, SpecStateFilter;
+    show SpecQuery, SpecQueryEngine;
 import 'package:tom_spec_engine/memory.dart' show MemRecallMode, MemoryTools;
 import 'package:tom_spec_engine/scripting.dart'
-    show DocTools, FileTools, ScriptTools, SpecFileFacade;
+    show DocTools, FileTools, ScriptTools, SpecFileFacade, specQueryFromArgs;
 import 'package:tom_vscode_scripting_api/tom_vscode_scripting_api.dart';
 
 import '../document/spec_document_controller.dart';
@@ -106,13 +106,6 @@ class SpecEngineTools {
 
   String? _str(Map<String, dynamic> args, String key) => args[key]?.toString();
 
-  bool _flag(Map<String, dynamic> args, String key) {
-    final v = args[key];
-    if (v is bool) return v;
-    if (v is String) return v == 'true';
-    return false;
-  }
-
   int? _int(Map<String, dynamic> args, String key) {
     final v = args[key];
     if (v is int) return v;
@@ -179,44 +172,17 @@ class SpecEngineTools {
         },
         handler: (args) async {
           final docs = await _docs();
-          final Set<SpecNodeKind>? kinds;
-          final kindNames = _strList(args, 'kinds');
-          if (kindNames == null) {
-            kinds = null;
-          } else {
-            final parsed = <SpecNodeKind>{};
-            for (final n in kindNames) {
-              final k = SpecNodeKind.values
-                  .where((e) => e.name == n)
-                  .cast<SpecNodeKind?>()
-                  .firstWhere((_) => true, orElse: () => null);
-              if (k == null) return _err('Unknown node kind "$n".');
-              parsed.add(k);
-            }
-            kinds = parsed;
+          // Build the §6 query through the *shared* builder behind the in-script
+          // `search` facade (followup item 12), so the tool and a script accept
+          // the same dimensions and coerce them identically. Its ArgumentError
+          // (unknown kind / state) carries the same message the inline parse
+          // used to emit.
+          final SpecQuery query;
+          try {
+            query = specQueryFromArgs(args);
+          } on ArgumentError catch (e) {
+            return _err(e.message?.toString() ?? 'invalid query');
           }
-          SpecStateFilter? state;
-          final stateName = _str(args, 'state');
-          if (stateName != null) {
-            state = SpecStateFilter.values
-                .where((e) => e.name == stateName)
-                .cast<SpecStateFilter?>()
-                .firstWhere((_) => true, orElse: () => null);
-            if (state == null) return _err('Unknown state "$stateName".');
-          }
-          final query = SpecQuery(
-            text: _str(args, 'text'),
-            regex: _flag(args, 'regex'),
-            caseInsensitive: _flag(args, 'caseInsensitive'),
-            kinds: kinds,
-            className: _str(args, 'className'),
-            sectionIdExact: _str(args, 'sectionIdExact'),
-            sectionIdPrefix: _str(args, 'sectionIdPrefix'),
-            pathGlob: _str(args, 'pathGlob'),
-            mapsTo: _str(args, 'mapsTo'),
-            detailedIn: _str(args, 'detailedIn'),
-            state: state,
-          );
           final page = docs.search(query, pageSize: _int(args, 'pageSize'));
           return _ok(page.toJson());
         },
