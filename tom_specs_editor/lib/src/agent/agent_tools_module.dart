@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_spec_engine/agent.dart' show AgentToolGroup;
 import 'package:tom_spec_engine/scripting.dart' show SpecFileFacade;
 import 'package:tom_vscode_scripting_api/tom_vscode_scripting_api.dart';
 
@@ -94,6 +95,26 @@ class AgentToolsModule extends ForgeModule {
   Map<String, McpServerConfig> get servers => {
         serverName: _server,
         engineServerName: _engineServer,
+      };
+
+  /// Which §8 [AgentToolGroup]s each MCP server in [servers] provides — the
+  /// mapping the live agent profile (followup item 7) intersects with an
+  /// [AgentContext]'s toolset to select the application's MCP surface.
+  ///
+  /// The bespoke `tomspecs` server carries the §8 navigation/mutation tools
+  /// (`doc` + `script`); the `tomspecs-engine` server carries the reusable
+  /// DocTools / FileTools / ScriptTools / MemoryTools (all four groups). The
+  /// servers are coarse — per-tool gating within a server is deferred (item 8);
+  /// the engine's **toolset ⊆ scopes** invariant is the real capability
+  /// guarantee.
+  Map<String, Set<AgentToolGroup>> get serverToolGroups => {
+        serverName: const {AgentToolGroup.doc, AgentToolGroup.script},
+        engineServerName: const {
+          AgentToolGroup.doc,
+          AgentToolGroup.file,
+          AgentToolGroup.script,
+          AgentToolGroup.memory,
+        },
       };
 
   @override

@@ -9,6 +9,7 @@ import 'package:tom_forge_agentic/tom_forge_agentic.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
 import 'agent/agent_tools_module.dart';
+import 'agent/spec_agent_profile.dart';
 import 'agent/spec_prompt_composer.dart';
 import 'config/raw_file_module.dart';
 import 'config/specs_config_module.dart';
@@ -53,6 +54,7 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
   late final AgentToolsModule _toolsModule;
   late final PromptTrailController _trailController;
   late final SpecPromptComposer _promptComposer;
+  late final SpecAgentProfiles _agentProfiles;
   late final AgentChatModule _chatModule;
   late final RawFileModule _rawFileModule;
 
@@ -122,6 +124,18 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
     // "live placeholder preview" (§12, OE-14).
     _promptComposer = _buildPromptComposer();
 
+    // The live Tom Brain profile binding (§11, item 7): per application, an
+    // engine AgentContext resolved into the running send config — the
+    // guidelines prompt (via the composer registry), the MCP surface its
+    // toolset enables, and its scope profile. DocSpecs is the authored
+    // reference (item 10 authors CodeSpecs / Implementation); it drives the
+    // launch send config below, replacing the static placeholder.
+    _agentProfiles = SpecAgentProfiles(
+      compose: _promptComposer.compose,
+      servers: _toolsModule.servers,
+      serverToolGroups: _toolsModule.serverToolGroups,
+    );
+
     // The agent chat module owns the bridge connection picker; it is registered
     // before the shell so its chat view exists when the DocSpecs bottom panel
     // is built. Activation kicks off the port scan (19900–19909). The send
@@ -189,9 +203,13 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
   /// composer or the queue — has its placeholders expanded first.
   AgentChatModule _buildChatModule() {
     final connection = AgentConnectionController();
+    // The launch application is DocSpecs (§9), so its live profile drives the
+    // send config: the additive guidelines prompt + the MCP surface its toolset
+    // enables. Per-application reconfiguration on the shell's application switch
+    // is deferred (the send controller's config is final — item 8/9; F7).
     final sendController = AgentSendController(
       connection: connection,
-      config: AgentSendConfig(mcpServers: _toolsModule.servers),
+      config: _agentProfiles.docSpecs.buildSendConfig(),
     );
     // The composer profile picker (§11.1, OE-14): the persisted profiles mapped
     // to the composer's lightweight type, with the default profile pre-selected.
