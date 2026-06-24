@@ -381,6 +381,53 @@ void main() {
       expect(v['ok'], isTrue);
     });
 
+    test('script_validate surfaces the entrypoint contract (F19)', () async {
+      final h = _harness(dir);
+      final v = await _invoke(
+        h.tools['script_validate']!,
+        {'source': 'main(String topic, [int depth = 1]) {}'},
+      );
+      expect(v['ok'], isTrue);
+      final ep = v['entrypoint'] as Map<String, dynamic>;
+      expect(ep['exists'], isTrue);
+      expect(ep['requiredPositional'], 1);
+      expect(ep['maxPositional'], 2);
+    });
+
+    test('script_validate checks supplied args against main() (F19)', () async {
+      final h = _harness(dir);
+      final v = await _invoke(
+        h.tools['script_validate']!,
+        {'source': 'main() {}', 'args': ['unexpected']},
+      );
+      expect(v['ok'], isFalse);
+      expect((v['diagnostics'] as List).single, contains('at most 0'));
+    });
+
+    test('script_run forwards args to main() when the contract fits (F19)',
+        () async {
+      final h = _harness(dir);
+      final r = await _invoke(
+        h.tools['script_run']!,
+        {
+          'source': 'main(String topic) => topic.toUpperCase();',
+          'args': ['rollout'],
+        },
+      );
+      expect(r['ok'], isTrue, reason: r['error']?.toString());
+      expect(r['result'], 'ROLLOUT');
+    });
+
+    test('script_run fails fast on an arg-contract mismatch (F19)', () async {
+      final h = _harness(dir);
+      final r = await _invoke(
+        h.tools['script_run']!,
+        {'source': 'main() {}', 'args': ['unexpected']},
+      );
+      expect(r['ok'], isFalse);
+      expect(r['error'], contains('at most 0'));
+    });
+
     test('script_author rejects an unsafe name with a coded error', () async {
       final h = _harness(dir);
       final result = await h.tools['script_author']!.handler!(

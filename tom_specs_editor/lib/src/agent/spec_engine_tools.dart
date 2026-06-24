@@ -138,6 +138,15 @@ class SpecEngineTools {
     };
   }
 
+  /// Reads a JSON array as a list of positional arguments, preserving each
+  /// element's JSON type (string / number / bool / null) so it reaches `main()`
+  /// untouched. Returns `null` when the key is absent (no args supplied).
+  List<Object?>? _jsonList(Map<String, dynamic> args, String key) {
+    final v = args[key];
+    if (v is! List) return null;
+    return List<Object?>.from(v);
+  }
+
   Future<DocTools> _docs() async {
     await controller.ensureLoaded();
     return _docTools ??= DocTools(
@@ -425,7 +434,11 @@ class SpecEngineTools {
         name: 'script_validate',
         description:
             'Parse / declaration-resolve a script (raw source or a stored name) '
-            'against the granted scope WITHOUT running it; returns diagnostics.',
+            'against the granted scope WITHOUT running it. Also type-checks the '
+            'entrypoint: confirms a main() is declared and returns its argument '
+            'contract (required/total positional params, named params, async). '
+            'When "args" is given, checks them against that contract too. '
+            'Returns {ok, diagnostics, entrypoint}.',
         inputSchema: const {
           'type': 'object',
           'properties': {
@@ -435,6 +448,10 @@ class SpecEngineTools {
               'type': 'array',
               'items': {'type': 'string'},
             },
+            'args': {
+              'type': 'array',
+              'description': 'Optional positional args to check against main().',
+            },
           },
         },
         handler: (args) async {
@@ -443,6 +460,7 @@ class SpecEngineTools {
               source: _str(args, 'source'),
               name: _str(args, 'name'),
               scopes: _strList(args, 'scopes'),
+              args: _jsonList(args, 'args'),
             );
             return _ok(validation.toJson());
           } on ArgumentError catch (e) {
@@ -456,7 +474,9 @@ class SpecEngineTools {
         description:
             'Run a script (raw source or a stored name) under the named scopes, '
             'capturing stdout, the auto-awaited main() return, and any error + '
-            'stack. Mutations land in the one change log.',
+            'stack. Pass "args" to forward positional arguments to main(); an '
+            'arg-contract mismatch fails fast as an error result. Mutations land '
+            'in the one change log.',
         inputSchema: const {
           'type': 'object',
           'properties': {
@@ -466,6 +486,10 @@ class SpecEngineTools {
               'type': 'array',
               'items': {'type': 'string'},
             },
+            'args': {
+              'type': 'array',
+              'description': 'Optional positional args forwarded to main().',
+            },
           },
         },
         handler: (args) async {
@@ -474,6 +498,7 @@ class SpecEngineTools {
               source: _str(args, 'source'),
               name: _str(args, 'name'),
               scopes: _strList(args, 'scopes'),
+              args: _jsonList(args, 'args'),
             );
             return _ok(result.toJson());
           } on ArgumentError catch (e) {
