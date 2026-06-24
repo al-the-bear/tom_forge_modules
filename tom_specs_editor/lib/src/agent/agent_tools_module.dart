@@ -43,6 +43,7 @@ class AgentToolsModule extends ForgeModule {
     this.serverName = 'tomspecs',
     String? scriptWorkspaceRoot,
     ConversationalDriver? conversationalDriver,
+    bool enableProviderEmbeddings = false,
   }) : controller = controller ??
             SpecDocumentController(
               modelFuture: modelFuture,
@@ -57,6 +58,9 @@ class AgentToolsModule extends ForgeModule {
     memoryPlane = SpecMemoryPlane(
       controller: this.controller,
       workspaceRoot: workspaceRoot,
+      // Off by default so headless/test hosts use the deterministic hash
+      // embedder; a live editor host opts in to provider-backed embeddings.
+      enableProviderEmbeddings: enableProviderEmbeddings,
     );
     scriptRunner = SpecScriptRunner(
       controller: this.controller,

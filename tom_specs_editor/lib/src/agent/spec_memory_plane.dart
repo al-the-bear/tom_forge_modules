@@ -32,26 +32,42 @@ import '../document/spec_document_controller.dart';
 /// `false`, [tools] still recall lexically/structurally, and `mem_refresh`
 /// reports `refreshed: false`. The store would otherwise refuse to boot.
 ///
-/// The embedder is a deterministic local hash (768-dim, the bootstrap
-/// nomic-embed-text dimensionality): same text → identical vector, so a
-/// self-recall is an exact vector hit without an Ollama/OpenAI backend. Swapping
-/// in the provider-backed Tom Brain embedding API is a separate followup (F6).
+/// **Embedder selection (step 15 / plan 11).** Tier 2 embeds through one of two
+/// surfaces, chosen **once** when the store is first built ([ensureWarm]):
+///
+///   * the **provider-backed** Tom Brain embedding API ([SpecProviderEmbedder],
+///     Ollama `nomic-embed-text`, 768-dim, L2-normalised) when
+///     `enableProviderEmbeddings` is set and the boot [SpecProviderEmbedder.probe]
+///     succeeds — a full-document index then batch-embeds in one fan-out;
+///   * the **deterministic local hash** ([_embed], 768-dim) otherwise — same
+///     text → identical vector, so a self-recall is an exact hit with no
+///     backend. This is the default and the fallback when the provider is
+///     unreachable (no Ollama daemon) or reports a dimension mismatch.
+///
+/// The choice is per-store and permanent: provider vectors and hash vectors
+/// carry different identities and must never share one store (cosine math across
+/// identities is meaningless — `memory_specification.md` § 7.4). The plane never
+/// falls back per call; a failed probe degrades the *whole store* to the hash.
 class SpecMemoryPlane {
   /// Builds the plane over the live [controller], resolving the `vec0` binaries
   /// by walking up from [workspaceRoot] and rooting the profile store under
   /// `<workspaceRoot>/agent/memory`.
+  ///
+  /// When [enableProviderEmbeddings] is `true`, tier 2 attempts the
+  /// provider-backed embedder ([SpecProviderEmbedder.ollama] by default, or the
+  /// injected [providerEmbedder]) and falls back to the hash if its boot probe
+  /// fails. When `false` (the default) the hash embedder is used directly and no
+  /// provider is constructed — keeping headless/test hosts free of the
+  /// platform HTTP client the Ollama provider builds.
   SpecMemoryPlane({
     required this.controller,
     required String workspaceRoot,
-  }) : _vecRoot = _findSqliteVecRoot(workspaceRoot) {
-    final vecRoot = _vecRoot;
-    _memory = vecRoot == null
-        ? null
-        : SpecMemory(
-            memoryRoot: '$workspaceRoot/agent/memory',
-            sqliteVecBinariesRoot: vecRoot,
-            embedder: _embed,
-          );
+    bool enableProviderEmbeddings = false,
+    SpecProviderEmbedder? providerEmbedder,
+  })  : _workspaceRoot = workspaceRoot,
+        _vecRoot = _findSqliteVecRoot(workspaceRoot) {
+    _providerEmbedder = providerEmbedder ??
+        (enableProviderEmbeddings ? SpecProviderEmbedder.ollama() : null);
     recall = SpecRecall(index: _index, vectorRecall: _vectorRecall, graph: null);
     tools = MemoryTools(recall: recall, onRefresh: _refresh);
     scriptScope = memoryScope(recall);
@@ -59,8 +75,9 @@ class SpecMemoryPlane {
       index: _index,
       projections: _projectNodes,
       // No tier-2 callback in degraded mode (no `vec0`): the indexer then runs
-      // tier-1-only and reports a `null` tier-2 result.
-      tier2: _memory == null ? null : _reindexTier2,
+      // tier-1-only and reports a `null` tier-2 result. Gated on the binary
+      // root, not on `_memory` — the store is now built lazily on first warm.
+      tier2: _vecRoot == null ? null : _reindexTier2,
     );
     controller.changeLog.addListener(_onChangeLog);
   }
@@ -68,16 +85,45 @@ class SpecMemoryPlane {
   /// The live document controller tier-1 is projected from and tier-2 indexes.
   final SpecDocumentController controller;
 
+  /// The workspace root the profile store is rooted under (`<root>/agent/memory`).
+  final String _workspaceRoot;
+
   /// The resolved `tom_binaries/sqlite_vec` root, or `null` when none was found
   /// (tier-1-only / degraded mode).
   final String? _vecRoot;
 
+  /// The provider-backed embedder candidate, or `null` when provider embeddings
+  /// are disabled. Built at construction (no network); its [SpecProviderEmbedder.probe]
+  /// runs once when the store is first built ([_buildMemory]).
+  late final SpecProviderEmbedder? _providerEmbedder;
+
+  /// Whether the tier-2 store was built on the provider-backed embedder. `false`
+  /// before the store is built, when provider embeddings are disabled, or when
+  /// the boot probe failed and the plane fell back to the hash.
+  bool _usingProviderEmbeddings = false;
+
+  /// The error that made the plane fall back from the provider embedder to the
+  /// hash on store build, if any. `null` when the provider was used or never
+  /// attempted.
+  Object? _embedderError;
+
+  /// Whether tier 2 embeds through the provider-backed Tom Brain embedding API
+  /// (vs. the deterministic hash). Meaningful only after [ensureWarm] has built
+  /// the store.
+  bool get usingProviderEmbeddings => _usingProviderEmbeddings;
+
+  /// The error that disabled the provider embedder on store build (and forced
+  /// the hash fallback), if any.
+  Object? get embedderError => _embedderError;
+
   /// Whether the tier-2 vector store is **effectively** live: the `vec0` binary
-  /// resolved *and* the store actually opened. When `false` the plane runs
-  /// tier-1-only and `mem_refresh` is a no-op. Tier 2 is disabled either because
-  /// no binary was found or because the first open failed (e.g. a runtime that
-  /// cannot resolve the bootstrap manifest); see [tier2Error].
-  bool get available => _memory != null && !_tier2Disabled;
+  /// resolved *and* the store has not been disabled by an open failure. When
+  /// `false` the plane runs tier-1-only and `mem_refresh` is a no-op. Tier 2 is
+  /// disabled either because no binary was found or because the first open
+  /// failed (e.g. a runtime that cannot resolve the bootstrap manifest); see
+  /// [tier2Error]. Keyed on the binary root (not the lazily-built [_memory]) so
+  /// it is stable before and after the first warm.
+  bool get available => _vecRoot != null && !_tier2Disabled;
 
   /// The error that disabled the tier-2 store on first open, if any. `null`
   /// while tier 2 is healthy or was never configured.
@@ -154,6 +200,13 @@ class SpecMemoryPlane {
     await controller.ensureLoaded();
     final projections = _projectNodes();
     _index.rebuild(projections);
+    final vecRoot = _vecRoot;
+    if (vecRoot != null && _memory == null && !_tier2Disabled) {
+      // Build the store on first warm — this is where the one-time embedder
+      // choice (provider probe vs. hash) is made, before any section is
+      // embedded into the store.
+      _memory = await _buildMemory(vecRoot);
+    }
     final memory = _memory;
     if (memory != null && _document == null && !_tier2Disabled) {
       // The vector tier is best-effort: a missing/incompatible runtime
@@ -171,6 +224,39 @@ class SpecMemoryPlane {
         _tier2Error = error;
       }
     }
+  }
+
+  /// Builds the tier-2 store under [vecRoot], picking the embedder **once**.
+  ///
+  /// When a provider embedder is configured, its boot [SpecProviderEmbedder.probe]
+  /// runs first: on success the store embeds through the provider (per-text +
+  /// batch); on failure (no daemon / dimension mismatch) the plane catches the
+  /// error and falls back to the deterministic hash for this fresh store —
+  /// never mixing the two identities. With no provider configured the hash is
+  /// used directly.
+  Future<SpecMemory> _buildMemory(String vecRoot) async {
+    SpecEmbedder embedder = _embed;
+    SpecBatchEmbedder? batchEmbedder;
+    final provider = _providerEmbedder;
+    if (provider != null) {
+      try {
+        await provider.probe();
+        embedder = provider.embedder;
+        batchEmbedder = provider.batchEmbedder;
+        _usingProviderEmbeddings = true;
+        _embedderError = null;
+      } catch (error) {
+        // Provider unreachable or mismatched: this fresh store uses the hash.
+        _usingProviderEmbeddings = false;
+        _embedderError = error;
+      }
+    }
+    return SpecMemory(
+      memoryRoot: '$_workspaceRoot/agent/memory',
+      sqliteVecBinariesRoot: vecRoot,
+      embedder: embedder,
+      batchEmbedder: batchEmbedder,
+    );
   }
 
   /// Tier-2 recall delegate for [SpecRecall]. Returns nothing while tier 2 is
@@ -257,11 +343,12 @@ class SpecMemoryPlane {
   }
 
   /// Detaches the change-log listener, stops the indexer, and closes the
-  /// profile store. Idempotent.
+  /// profile store and the provider embedder (if any). Idempotent.
   Future<void> dispose() async {
     controller.changeLog.removeListener(_onChangeLog);
     indexer.dispose();
     await _memory?.close();
+    await _providerEmbedder?.close();
   }
 
   List<SpecNodeProjection> _projectNodes() => SpecQueryEngine(
@@ -271,7 +358,8 @@ class SpecMemoryPlane {
 
   /// The deterministic 768-dim local embedder (see the class doc). Same text →
   /// identical vector, so the embed→vector-recall pipeline is exact and
-  /// backend-free. F6 swaps in the provider-backed embedding API.
+  /// backend-free. The default embedder and the fallback when the provider-backed
+  /// embedder (step 15) is disabled or its boot probe fails.
   static Future<Vec> _embed(String text) async {
     const dims = 768;
     final values = Float32List(dims);
