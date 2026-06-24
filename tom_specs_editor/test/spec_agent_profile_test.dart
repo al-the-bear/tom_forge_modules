@@ -63,8 +63,13 @@ void main() {
   SpecAgentProfiles profiles({String guidelinesPrompt = 'DOCSPECS GUIDELINES'}) =>
       SpecAgentProfiles(
         compose: (template) {
-          expect(template, '\${guidelines-$docSpecsGuidelinesName}');
-          return _composeWith(guidelinesPrompt);
+          // The composer is always invoked with a guidelines placeholder. The
+          // DocSpecs token yields the configured prompt; the other applications'
+          // guidelines docs are unauthored on disk → lenient-empty.
+          expect(template, startsWith('\${guidelines-'));
+          return template == '\${guidelines-$docSpecsGuidelinesName}'
+              ? _composeWith(guidelinesPrompt)
+              : '';
         },
         servers: module.servers,
         serverToolGroups: module.serverToolGroups,
@@ -123,14 +128,34 @@ void main() {
     expect(scope.document, 'pd00');
   });
 
-  test('an unauthored application falls back to the DocSpecs profile', () {
+  test('all three canonical applications are authored with their own context '
+      '(item 10)', () {
     final resolver = profiles();
     expect(resolver.isAuthored(docSpecsApplication), isTrue);
-    expect(resolver.isAuthored(codeSpecsApplication), isFalse);
-    expect(resolver.isAuthored(implementationApplication), isFalse);
+    expect(resolver.isAuthored(codeSpecsApplication), isTrue);
+    expect(resolver.isAuthored(implementationApplication), isTrue);
+    expect(resolver.authoredApplications.toSet(), tomSpecsApplications.toSet());
 
+    // CodeSpecs binds its own application + the full surface, not the fallback.
     final codeSpecs = resolver.profileFor(codeSpecsApplication);
-    expect(codeSpecs.application, docSpecsApplication);
-    expect(resolver.authoredApplications, [docSpecsApplication]);
+    expect(codeSpecs.application, codeSpecsApplication);
+    expect(codeSpecs.toolset, {
+      AgentToolGroup.doc,
+      AgentToolGroup.memory,
+      AgentToolGroup.file,
+      AgentToolGroup.script,
+    });
+    expect(codeSpecs.scopeNames, ['spec', 'files', 'memory']);
+    expect(codeSpecs.mcpServers.keys.toSet(), module.servers.keys.toSet());
+
+    final implementation = resolver.profileFor(implementationApplication);
+    expect(implementation.application, implementationApplication);
+  });
+
+  test('a non-canonical application falls back to the DocSpecs profile', () {
+    final resolver = profiles();
+    expect(resolver.isAuthored('nope'), isFalse);
+    final fallback = resolver.profileFor('nope');
+    expect(fallback.application, docSpecsApplication);
   });
 }

@@ -20,10 +20,11 @@
 //     groups the context's `toolset` enables;
 //   * the **scope profile** — the D4rt base-scope names the application enables.
 //
-// `SpecAgentProfiles` holds the per-application contexts (DocSpecs is the only
-// authored one today — item 10 authors CodeSpecs / Implementation) and resolves
-// the live profile by application name, falling back to the DocSpecs profile for
-// an unauthored application so the editor always has a valid binding.
+// `SpecAgentProfiles` holds the per-application contexts (all three canonical
+// applications — DocSpecs / CodeSpecs / Implementation — are now authored, item
+// 10) and resolves the live profile by application name, falling back to the
+// DocSpecs profile only for a non-canonical application so the editor always has
+// a valid binding.
 
 import 'package:tom_core_agentic/tom_core_agentic.dart' show AgentSendConfig;
 import 'package:tom_spec_engine/agent.dart';
@@ -112,8 +113,8 @@ class SpecAgentProfiles {
   ///   * [servers] — the editor's MCP servers (`AgentToolsModule.servers`);
   ///   * [serverToolGroups] — which §8 tool groups each server provides
   ///     (`AgentToolsModule.serverToolGroups`);
-  ///   * [contexts] — the application contexts (defaults to a registry holding
-  ///     the reference [docSpecsAgentContext]).
+  ///   * [contexts] — the application contexts (defaults to
+  ///     [tomSpecsContextRegistry] — all three canonical applications authored).
   SpecAgentProfiles({
     required String Function(String template) compose,
     required Map<String, McpServerConfig> servers,
@@ -130,11 +131,11 @@ class SpecAgentProfiles {
   final AgentContextRegistry _contexts;
   final Map<String, SpecAgentProfile> _cache = {};
 
-  static AgentContextRegistry _defaultContexts() =>
-      AgentContextRegistry()..register(docSpecsAgentContext());
+  static AgentContextRegistry _defaultContexts() => tomSpecsContextRegistry();
 
   /// Whether [application] has an authored context (vs. falling back to
-  /// DocSpecs). Only DocSpecs is authored today (item 10 authors the rest).
+  /// DocSpecs). All three canonical applications (DocSpecs / CodeSpecs /
+  /// Implementation) are authored; only a non-canonical name falls back.
   bool isAuthored(String application) => _contexts.has(application);
 
   /// The names of the applications with an authored context.
@@ -143,9 +144,10 @@ class SpecAgentProfiles {
   /// The DocSpecs profile — the reference application bound live.
   SpecAgentProfile get docSpecs => profileFor(docSpecsApplication);
 
-  /// The live profile for [application]. An unauthored application falls back
-  /// to the DocSpecs profile so the editor always has a valid binding (item 10
-  /// replaces the fallback with the application's own context).
+  /// The live profile for [application]. A non-canonical (unauthored)
+  /// application falls back to the DocSpecs profile so the editor always has a
+  /// valid binding; the three canonical applications each resolve to their own
+  /// context.
   SpecAgentProfile profileFor(String application) {
     final resolved =
         _contexts.has(application) ? application : docSpecsApplication;
