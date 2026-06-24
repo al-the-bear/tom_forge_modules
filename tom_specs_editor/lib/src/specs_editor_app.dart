@@ -9,6 +9,7 @@ import 'package:tom_forge_agentic/tom_forge_agentic.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
 import 'agent/agent_tools_module.dart';
+import 'agent/send_controller_conversational_driver.dart';
 import 'agent/spec_agent_profile.dart';
 import 'agent/spec_prompt_composer.dart';
 import 'config/raw_file_module.dart';
@@ -144,6 +145,16 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
     _chatModule = widget.chatModule ?? _buildChatModule();
     _chatModule.activate(_shell);
     (_shell.modules as DefaultModuleRegistry).register(_chatModule);
+
+    // The live mode-(a) conversational substrate (§10, item 9): bind the chat
+    // send controller as the conversational driver now that it exists. It is
+    // built after the tools module (its send config folds in the module's MCP
+    // servers), so the decision-maker is late-bound here rather than at module
+    // construction. With it bound, the module's `tomspecs-converse` runtime can
+    // drive the multi-turn loop instead of reporting `available:false`.
+    _toolsModule.bindConversationalDriver(
+      SendControllerConversationalDriver(_chatModule.sendController),
+    );
 
     // The config module (§12, step 18) hosts the seven custom config editors
     // and the basic-prefs settings panel; its raw-file module backs the

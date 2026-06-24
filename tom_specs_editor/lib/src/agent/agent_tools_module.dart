@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 import 'package:tom_spec_engine/agent.dart' show AgentToolGroup;
+import 'package:tom_spec_engine/agent_runtime.dart' show ConversationalDriver;
 import 'package:tom_spec_engine/scripting.dart' show SpecFileFacade;
 import 'package:tom_vscode_scripting_api/tom_vscode_scripting_api.dart';
 
@@ -11,6 +12,8 @@ import '../structure/spec_model.dart';
 import 'spec_agent_tools.dart';
 import 'spec_brain_runtime.dart';
 import 'spec_brain_tools.dart';
+import 'spec_conversational_runtime.dart';
+import 'spec_conversational_tools.dart';
 import 'spec_engine_tools.dart';
 import 'spec_memory_plane.dart';
 import 'spec_script_runner.dart';
@@ -39,6 +42,7 @@ class AgentToolsModule extends ForgeModule {
     SpecDocumentController? controller,
     this.serverName = 'tomspecs',
     String? scriptWorkspaceRoot,
+    ConversationalDriver? conversationalDriver,
   }) : controller = controller ??
             SpecDocumentController(
               modelFuture: modelFuture,
@@ -72,6 +76,14 @@ class AgentToolsModule extends ForgeModule {
       facade: facade,
     );
     _brainServer = SpecBrainTools(brainRuntime).buildServer(name: brainServerName);
+    conversationalRuntime = SpecConversationalRuntime(
+      controller: this.controller,
+      memoryPlane: memoryPlane,
+      facade: facade,
+      driver: conversationalDriver,
+    );
+    _converseServer = SpecConversationalTools(conversationalRuntime)
+        .buildServer(name: converseServerName);
   }
 
   /// The MCP server name exposed to the Agent SDK.
@@ -85,6 +97,11 @@ class AgentToolsModule extends ForgeModule {
   /// The MCP server name for the live mode-(b) agent runtime (`agent_run` /
   /// `agent_trail`; followup item 8), kept distinct from the other surfaces.
   final String brainServerName = 'tomspecs-brain';
+
+  /// The MCP server name for the live mode-(a) conversational runtime
+  /// (`converse_run` / `converse_trail`; followup item 9), kept distinct from
+  /// the other surfaces.
+  final String converseServerName = 'tomspecs-converse';
 
   /// The shared document controller every tool reads/mutates through.
   final SpecDocumentController controller;
@@ -105,6 +122,21 @@ class AgentToolsModule extends ForgeModule {
   /// Reports `available:false` when the memory store is degraded.
   late final SpecBrainRuntime brainRuntime;
 
+  /// The live mode-(a) conversational runtime (followup item 9): drives the
+  /// complex agent procedure across multiple turns chosen by the bound
+  /// conversational driver, recalling the RAG memory before each turn. Reports
+  /// `available:false` when no conversational driver is bound.
+  late final SpecConversationalRuntime conversationalRuntime;
+
+  /// Late-binds the live conversational [driver] onto [conversationalRuntime].
+  ///
+  /// The live driver wraps the chat send controller, which is built after this
+  /// module (the send config folds in this module's MCP servers), so the app
+  /// binds the decision-maker here once that controller exists. Tests inject the
+  /// driver at construction via `conversationalDriver` instead.
+  void bindConversationalDriver(ConversationalDriver driver) =>
+      conversationalRuntime.bindDriver(driver);
+
   late final McpSdkServerConfig _server;
 
   /// The engine toolsets server (DocTools / FileTools / ScriptTools / MemoryTools
@@ -116,12 +148,17 @@ class AgentToolsModule extends ForgeModule {
   /// item 8) wrapping [brainRuntime].
   late final McpSdkServerConfig _brainServer;
 
+  /// The live mode-(a) conversational runtime server (`converse_run` /
+  /// `converse_trail`; followup item 9) wrapping [conversationalRuntime].
+  late final McpSdkServerConfig _converseServer;
+
   /// The `mcpServers` map to fold into the agent send config (§7.2) — the editor's
   /// bespoke §8 tools plus the reusable engine toolsets.
   Map<String, McpServerConfig> get servers => {
         serverName: _server,
         engineServerName: _engineServer,
         brainServerName: _brainServer,
+        converseServerName: _converseServer,
       };
 
   /// Which §8 [AgentToolGroup]s each MCP server in [servers] provides — the
@@ -131,8 +168,9 @@ class AgentToolsModule extends ForgeModule {
   /// The bespoke `tomspecs` server carries the §8 navigation/mutation tools
   /// (`doc` + `script`); the `tomspecs-engine` server carries the reusable
   /// DocTools / FileTools / ScriptTools / MemoryTools (all four groups); the
-  /// `tomspecs-brain` server's single run touches every plane (doc + memory +
-  /// file + script), so it carries the full group set too. The servers are
+  /// `tomspecs-brain` (mode b) and `tomspecs-converse` (mode a, multi-turn)
+  /// servers each drive a run that touches every plane (doc + memory + file +
+  /// script), so they carry the full group set too. The servers are
   /// coarse — per-tool gating within a server is deferred; the engine's
   /// **toolset ⊆ scopes** invariant is the real capability guarantee.
   Map<String, Set<AgentToolGroup>> get serverToolGroups => {
@@ -144,6 +182,12 @@ class AgentToolsModule extends ForgeModule {
           AgentToolGroup.memory,
         },
         brainServerName: const {
+          AgentToolGroup.doc,
+          AgentToolGroup.file,
+          AgentToolGroup.script,
+          AgentToolGroup.memory,
+        },
+        converseServerName: const {
           AgentToolGroup.doc,
           AgentToolGroup.file,
           AgentToolGroup.script,
