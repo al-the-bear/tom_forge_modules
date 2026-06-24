@@ -90,7 +90,7 @@ void main() {
   setUp(() => dir = Directory.systemTemp.createTempSync('specs_engine_tools_'));
   tearDown(() => dir.deleteSync(recursive: true));
 
-  test('the engine server registers the doc_/file_/script_ tools (no mem_)', () {
+  test('the engine server registers the doc_/file_/script_/mem_ tools', () {
     final h = _harness(dir);
     expect(
       h.tools.keys.toSet(),
@@ -107,10 +107,11 @@ void main() {
         'script_run',
         'script_list',
         'script_get',
+        // The embeddable memory plane (followup item 6) is now linked in-editor.
+        'mem_recall',
+        'mem_refresh',
       },
     );
-    // MemoryTools are deferred to followup item 6 (server-only memory plane).
-    expect(h.tools.keys.where((k) => k.startsWith('mem_')), isEmpty);
   });
 
   group('doc_* tools', () {

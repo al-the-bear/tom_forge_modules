@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:tom_som_dart_runtime/tom_som_dart_runtime.dart'
     show SpecNodeKind, SpecQuery, SpecQueryEngine, SpecStateFilter;
+import 'package:tom_spec_engine/memory.dart' show MemRecallMode, MemoryTools;
 import 'package:tom_spec_engine/scripting.dart'
     show DocTools, FileTools, ScriptTools, SpecFileFacade;
 import 'package:tom_vscode_scripting_api/tom_vscode_scripting_api.dart';
@@ -23,11 +24,15 @@ import 'engine_spec_controller.dart';
 ///   * [FileTools] → `file_read` / `file_find` / `file_write` over the audited
 ///     read-anywhere / write-whitelist [SpecFileFacade];
 ///   * [ScriptTools] → `script_author` / `script_validate` / `script_run` /
-///     `script_list` / `script_get` over the shared `spec`-scope registry.
+///     `script_list` / `script_get` over the shared `spec`-scope registry;
+///   * [MemoryTools] → `mem_recall` / `mem_refresh` over the editor's embeddable
+///     memory plane (followup item 6) — registered **only** when a [memoryTools]
+///     is supplied, so a headless build with no memory plane still exposes the
+///     §8.1/§8.2 surface unchanged.
 ///
-/// The `mem_*` `MemoryTools` are deliberately **not** registered: they depend on
-/// the server-only memory plane (`tom_brain_memory`), which is not in the Flutter
-/// compile. Wiring them is followup item 6 (the embeddable memory plane).
+/// Where a memory plane is wired, [ensureMemoryWarm] is awaited before each
+/// memory-touching handler so the always-fresh tier-1 index is rebuilt and the
+/// tier-2 store is opened before recall runs.
 ///
 /// Every handler returns **compact JSON** (`jsonEncode`, no pretty-printing) as a
 /// single text content item, mirroring [SpecAgentTools]; the engine result types
@@ -37,10 +42,15 @@ class SpecEngineTools {
   /// `script_run` mutation land in the one change log), the audited file
   /// [facade], and the shared [scriptTools] (the same instance the editor's
   /// `SpecScriptRunner` drives, so authored scripts share one store).
+  ///
+  /// When [memoryTools] is supplied the `mem_*` tools are registered; the
+  /// optional [ensureMemoryWarm] is awaited before each memory-touching handler.
   SpecEngineTools({
     required this.controller,
     required this.facade,
     required this.scriptTools,
+    this.memoryTools,
+    this.ensureMemoryWarm,
   });
 
   /// The shared document controller `doc_*` tools read/mutate through.
@@ -51,6 +61,12 @@ class SpecEngineTools {
 
   /// The script toolset backing the `script_*` tools (shared with the runner).
   final ScriptTools scriptTools;
+
+  /// The memory toolset backing the `mem_*` tools, or `null` to omit them.
+  final MemoryTools? memoryTools;
+
+  /// Awaited before each memory-touching handler to (re)warm the plane.
+  final Future<void> Function()? ensureMemoryWarm;
 
   late final FileTools _fileTools = FileTools(facade);
 
@@ -76,6 +92,7 @@ class SpecEngineTools {
           _scriptRun(),
           _scriptList(),
           _scriptGet(),
+          if (memoryTools != null) ...[_memRecall(), _memRefresh()],
         ],
       );
 
@@ -476,6 +493,70 @@ class SpecEngineTools {
           } on ArgumentError catch (e) {
             return _err(e.message?.toString() ?? 'no such script');
           }
+        },
+      );
+
+  // --- mem_* (the §9 fused two-tier recall) -------------------------------
+
+  SdkMcpTool _memRecall() => SdkMcpTool(
+        name: 'mem_recall',
+        description:
+            'Recall the sections most relevant to a query from the live §9 '
+            'two-tier memory (tier-1 lexical/structural fused with tier-2 '
+            'vectors). Reports degraded:true when the vector tier is cold.',
+        inputSchema: const {
+          'type': 'object',
+          'properties': {
+            'query': {'type': 'string'},
+            'mode': {
+              'type': 'string',
+              'description':
+                  'Restrict hits to one mode: fused|lexical|symbolic|vector '
+                  '(default fused).',
+            },
+            'k': {'type': 'integer', 'description': 'Max hits (default 10).'},
+          },
+          'required': ['query'],
+        },
+        handler: (args) async {
+          final tools = memoryTools;
+          if (tools == null) return _err('memory plane not wired');
+          final query = _str(args, 'query');
+          if (query == null) return _err('Missing "query".');
+          final modeName = _str(args, 'mode');
+          final MemRecallMode mode;
+          if (modeName == null) {
+            mode = MemRecallMode.fused;
+          } else {
+            final parsed = MemRecallMode.values
+                .where((e) => e.name == modeName)
+                .cast<MemRecallMode?>()
+                .firstWhere((_) => true, orElse: () => null);
+            if (parsed == null) return _err('Unknown mode "$modeName".');
+            mode = parsed;
+          }
+          await ensureMemoryWarm?.call();
+          final result = await tools.recallQuery(
+            query,
+            mode: mode,
+            k: _int(args, 'k') ?? 10,
+          );
+          return _ok(result.toJson());
+        },
+      );
+
+  SdkMcpTool _memRefresh() => SdkMcpTool(
+        name: 'mem_refresh',
+        description:
+            'Re-index the live document into the memory plane: rebuild tier-1 '
+            'and re-embed only the sections whose content moved (the '
+            'embed-changed-only path). Reports refreshed:false in degraded mode.',
+        inputSchema: const {'type': 'object', 'properties': {}},
+        handler: (args) async {
+          final tools = memoryTools;
+          if (tools == null) return _err('memory plane not wired');
+          await ensureMemoryWarm?.call();
+          return _ok((await tools.refresh()).toJson());
         },
       );
 }

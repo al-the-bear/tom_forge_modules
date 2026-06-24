@@ -3,6 +3,7 @@ import 'package:tom_spec_engine/scripting.dart'
         FileScriptStore,
         ScopeRegistry,
         ScriptRunResult,
+        ScriptScope,
         ScriptTools,
         ScriptValidation,
         specScope;
@@ -22,15 +23,28 @@ import 'engine_spec_controller.dart';
 /// Authored scripts persist under `<workspaceRoot>/agent/scripts/` via the
 /// engine's [FileScriptStore], keeping them reviewable and re-runnable alongside
 /// the document.
+///
+/// [extraScopes] lets the host register additional base scopes beyond the
+/// default `spec` scope — the editor passes the read-only `memory` scope here so
+/// a script can `await memory.recall(...)` over the live two-tier recall (§4,
+/// §9; followup item 6).
 class SpecScriptRunner {
   /// Builds the runner over the live [controller], persisting authored scripts
-  /// beneath [workspaceRoot].
+  /// beneath [workspaceRoot]. [extraScopes] are registered alongside the default
+  /// `spec` scope.
   SpecScriptRunner({
     required this.controller,
     required String workspaceRoot,
+    List<ScriptScope> extraScopes = const <ScriptScope>[],
   }) : tools = ScriptTools(
-          registry: ScopeRegistry()
-            ..register(specScope(EngineSpecController(controller))),
+          registry: () {
+            final registry = ScopeRegistry()
+              ..register(specScope(EngineSpecController(controller)));
+            for (final scope in extraScopes) {
+              registry.register(scope);
+            }
+            return registry;
+          }(),
           store: FileScriptStore(workspaceRoot),
         );
 

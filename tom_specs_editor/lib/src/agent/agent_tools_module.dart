@@ -9,6 +9,7 @@ import '../structure/review_store.dart';
 import '../structure/spec_model.dart';
 import 'spec_agent_tools.dart';
 import 'spec_engine_tools.dart';
+import 'spec_memory_plane.dart';
 import 'spec_script_runner.dart';
 
 /// Forge module owning the agent's navigation/mutation tools (§8).
@@ -42,14 +43,21 @@ class AgentToolsModule extends ForgeModule {
             ) {
     final workspaceRoot = scriptWorkspaceRoot ?? Directory.current.path;
     _server = SpecAgentTools(this.controller).buildServer(name: serverName);
+    memoryPlane = SpecMemoryPlane(
+      controller: this.controller,
+      workspaceRoot: workspaceRoot,
+    );
     scriptRunner = SpecScriptRunner(
       controller: this.controller,
       workspaceRoot: workspaceRoot,
+      extraScopes: [memoryPlane.scriptScope],
     );
     _engineServer = SpecEngineTools(
       controller: this.controller,
       facade: SpecFileFacade(workspaceRoot: workspaceRoot),
       scriptTools: scriptRunner.tools,
+      memoryTools: memoryPlane.tools,
+      ensureMemoryWarm: memoryPlane.ensureWarm,
     ).buildServer(name: engineServerName);
   }
 
@@ -69,11 +77,16 @@ class AgentToolsModule extends ForgeModule {
   /// see script and tool edits identically (§5).
   late final SpecScriptRunner scriptRunner;
 
+  /// The embeddable memory plane (followup item 6): the live two-tier recall
+  /// behind the `memory` script scope and the `mem_*` tools. Runs tier-1-only
+  /// when the `vec0` binary is absent ([SpecMemoryPlane.available] is `false`).
+  late final SpecMemoryPlane memoryPlane;
+
   late final McpSdkServerConfig _server;
 
-  /// The engine toolsets server (DocTools / FileTools / ScriptTools wrapped as
-  /// MCP tools; followup item 5). The `mem_*` MemoryTools are excluded — they
-  /// need the server-only memory plane (followup item 6).
+  /// The engine toolsets server (DocTools / FileTools / ScriptTools / MemoryTools
+  /// wrapped as MCP tools; followup items 5 + 6). The `mem_*` tools are now live
+  /// via the in-editor [memoryPlane].
   late final McpSdkServerConfig _engineServer;
 
   /// The `mcpServers` map to fold into the agent send config (§7.2) — the editor's
