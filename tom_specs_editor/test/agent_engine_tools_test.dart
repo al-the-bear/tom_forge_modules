@@ -272,6 +272,57 @@ void main() {
       expect(matches.any((m) => m.endsWith('found.md')), isTrue);
     });
 
+    test('file_find `**/*.md` matches across directories (item 18)', () async {
+      final h = _harness(dir);
+      await _invoke(h.tools['file_write']!,
+          {'path': 'agent/scratchpad/top.md', 'content': '# t'});
+      await _invoke(h.tools['file_write']!,
+          {'path': 'agent/scratchpad/sub/deep.md', 'content': '# d'});
+      final f = await _invoke(
+        h.tools['file_find']!,
+        {'glob': '**/*.md', 'dir': 'agent/scratchpad'},
+      );
+      final names =
+          (f['matches'] as List).cast<String>().map((m) => m.split('/').last);
+      expect(names, containsAll(['top.md', 'deep.md']));
+    });
+
+    test('file_find includeAssets surfaces a declared asset dir (item 18)',
+        () async {
+      // An out-of-workspace asset directory, wired onto the module.
+      final assets = Directory.systemTemp.createTempSync('specs_assets_');
+      addTearDown(() {
+        if (assets.existsSync()) assets.deleteSync(recursive: true);
+      });
+      File('${assets.path}/schema.md').writeAsStringSync('# schema');
+
+      final model = SpecModel.fromJson(_sampleJson());
+      final review = ReviewStore(File('${dir.path}/review.yaml'));
+      final module = AgentToolsModule(
+        modelFuture: Future<SpecModel>.value(model),
+        review: review,
+        scriptWorkspaceRoot: dir.path,
+        assetDirs: [assets.path],
+      );
+      final server = module.servers['tomspecs-engine'] as McpSdkServerConfig;
+      final tools = {for (final t in server.tools) t.name: t};
+
+      // Without includeAssets the out-of-workspace asset is invisible.
+      final without = await _invoke(tools['file_find']!, {'glob': '*.md'});
+      final withoutNames =
+          (without['matches'] as List).cast<String>().map((m) => m.split('/').last);
+      expect(withoutNames, isNot(contains('schema.md')));
+
+      // With includeAssets it is enumerated.
+      final withAssets = await _invoke(
+        tools['file_find']!,
+        {'glob': '*.md', 'includeAssets': true},
+      );
+      final withNames =
+          (withAssets['matches'] as List).cast<String>().map((m) => m.split('/').last);
+      expect(withNames, contains('schema.md'));
+    });
+
     test('file_read of a missing file reports exists:false', () async {
       final h = _harness(dir);
       final r = await _invoke(h.tools['file_read']!, {'path': 'absent.txt'});

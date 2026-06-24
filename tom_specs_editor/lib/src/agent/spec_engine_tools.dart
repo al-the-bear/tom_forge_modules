@@ -113,6 +113,13 @@ class SpecEngineTools {
     return null;
   }
 
+  bool _bool(Map<String, dynamic> args, String key) {
+    final v = args[key];
+    if (v is bool) return v;
+    if (v is String) return v.toLowerCase() == 'true';
+    return false;
+  }
+
   List<String>? _strList(Map<String, dynamic> args, String key) {
     final v = args[key];
     if (v is List) return [for (final e in v) e.toString()];
@@ -320,20 +327,35 @@ class SpecEngineTools {
   SdkMcpTool _fileFind() => SdkMcpTool(
         name: 'file_find',
         description:
-            'List paths under a directory whose basename matches a glob '
-            '(read-only exploration; dir defaults to the workspace root).',
+            'List paths under a directory matching a glob (read-only '
+            'exploration; dir defaults to the workspace root). The glob supports '
+            '* / ** / ? / [...] / {a,b}; a glob containing "/" matches the path '
+            'relative to the search root, otherwise the basename. With '
+            'includeAssets the search also walks the profile-declared asset '
+            'directories.',
         inputSchema: const {
           'type': 'object',
           'properties': {
             'glob': {'type': 'string'},
             'dir': {'type': 'string'},
+            'includeAssets': {
+              'type': 'boolean',
+              'description':
+                  'Also search the declared asset directories (default false).',
+            },
           },
           'required': ['glob'],
         },
         handler: (args) async {
           final glob = _str(args, 'glob');
           if (glob == null) return _err('Missing "glob".');
-          return _ok(_fileTools.find(glob, dir: _str(args, 'dir') ?? '.').toJson());
+          return _ok(_fileTools
+              .find(
+                glob,
+                dir: _str(args, 'dir') ?? '.',
+                includeAssets: _bool(args, 'includeAssets'),
+              )
+              .toJson());
         },
       );
 

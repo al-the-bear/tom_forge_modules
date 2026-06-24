@@ -44,6 +44,7 @@ class AgentToolsModule extends ForgeModule {
     String? scriptWorkspaceRoot,
     ConversationalDriver? conversationalDriver,
     bool enableProviderEmbeddings = false,
+    List<String> assetDirs = const [],
   }) : controller = controller ??
             SpecDocumentController(
               modelFuture: modelFuture,
@@ -52,8 +53,10 @@ class AgentToolsModule extends ForgeModule {
     final workspaceRoot = scriptWorkspaceRoot ?? Directory.current.path;
     // One audited file facade is shared by the engine `file_*` tools and the
     // live mode-(b) runtime's `file_*` surface, so an agent run reads/writes
-    // through the same boundary as a direct tool call.
-    final facade = SpecFileFacade(workspaceRoot: workspaceRoot);
+    // through the same boundary as a direct tool call. The profile's opt-in
+    // asset directories become extra read-only `file_find` roots (item 18).
+    final facade =
+        SpecFileFacade(workspaceRoot: workspaceRoot, assetDirs: assetDirs);
     _server = SpecAgentTools(this.controller).buildServer(name: serverName);
     memoryPlane = SpecMemoryPlane(
       controller: this.controller,
