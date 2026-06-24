@@ -55,6 +55,14 @@ class SpecMemoryPlane {
     recall = SpecRecall(index: _index, vectorRecall: _vectorRecall, graph: null);
     tools = MemoryTools(recall: recall, onRefresh: _refresh);
     scriptScope = memoryScope(recall);
+    indexer = SpecIncrementalIndexer(
+      index: _index,
+      projections: _projectNodes,
+      // No tier-2 callback in degraded mode (no `vec0`): the indexer then runs
+      // tier-1-only and reports a `null` tier-2 result.
+      tier2: _memory == null ? null : _reindexTier2,
+    );
+    controller.changeLog.addListener(_onChangeLog);
   }
 
   /// The live document controller tier-1 is projected from and tier-2 indexes.
@@ -97,6 +105,19 @@ class SpecMemoryPlane {
 
   /// The read-only `memory` script scope bound to [recall].
   late final ScriptScope scriptScope;
+
+  /// The change-log-driven incremental re-indexer (followup item 14, closing
+  /// D53). An edit's section paths are derived from [controller]'s change log
+  /// (`[_onChangeLog]`) and [SpecIncrementalIndexer.touch]ed here; the indexer
+  /// debounces a burst and re-indexes **both tiers off the edit path** — tier-1
+  /// in place, tier-2 embed-changed-only — so typing never blocks on a re-embed.
+  /// Exposed so a host can drain it ([SpecIncrementalIndexer.flush]) or observe
+  /// a refresh.
+  late final SpecIncrementalIndexer indexer;
+
+  /// How far through [controller]'s change log [_onChangeLog] has consumed, so
+  /// each notify enqueues only the **newly**-recorded entries' section paths.
+  int _changeCursor = 0;
 
   /// The tier-1 index, rebuilt from the object model on every [ensureWarm].
   final StructuralLexicalIndex _index = StructuralLexicalIndex();
@@ -187,8 +208,59 @@ class SpecMemoryPlane {
     );
   }
 
-  /// Closes the profile store. Idempotent.
+  /// Change-log listener: derives the section paths of the **newly**-recorded
+  /// entries (since [_changeCursor]) and [SpecIncrementalIndexer.touch]es them,
+  /// so the debounced re-index runs off the edit path. A log reset (on save,
+  /// when [ChangeLog.entries] shrinks below the cursor) rebases the cursor
+  /// without touching anything. No-op while the model is not yet loaded.
+  void _onChangeLog() {
+    final entries = controller.changeLog.entries;
+    if (entries.length < _changeCursor) {
+      // The log was reset (e.g. on save) — rebase the cursor and wait for the
+      // next edit rather than re-touching the whole document.
+      _changeCursor = entries.length;
+      return;
+    }
+    if (entries.length == _changeCursor) return;
+    final fresh = entries.sublist(_changeCursor);
+    _changeCursor = entries.length;
+    if (!controller.isModelLoaded) return;
+    indexer.touch([for (final entry in fresh) entry.sectionId]);
+  }
+
+  /// Tier-2 re-embed callback handed to [indexer]. Re-embeds only the changed
+  /// sections of [graph] into the open document (the engine's
+  /// embed-changed-only path) and refreshes [_indexedPaths] to the current node
+  /// set. A no-op refresh result while tier 2 is cold (the indexer still drove
+  /// tier 1 in place).
+  Future<SpecRagRefreshResult> _reindexTier2(
+    SpecRagGraph graph, {
+    required Set<String> changedPaths,
+    required Set<String> removedPaths,
+  }) async {
+    final document = _document;
+    if (document == null) {
+      return const SpecRagRefreshResult(
+        embedded: 0,
+        unchanged: 0,
+        edgeCount: 0,
+        removed: 0,
+      );
+    }
+    final result = await document.indexChangedSections(
+      graph,
+      changedPaths: changedPaths,
+      removedPaths: removedPaths,
+    );
+    _indexedPaths = {for (final node in graph.nodes) node.path};
+    return result;
+  }
+
+  /// Detaches the change-log listener, stops the indexer, and closes the
+  /// profile store. Idempotent.
   Future<void> dispose() async {
+    controller.changeLog.removeListener(_onChangeLog);
+    indexer.dispose();
     await _memory?.close();
   }
 
