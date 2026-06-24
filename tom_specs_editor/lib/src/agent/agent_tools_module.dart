@@ -1,12 +1,14 @@
 import 'dart:io';
 
 import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_spec_engine/scripting.dart' show SpecFileFacade;
 import 'package:tom_vscode_scripting_api/tom_vscode_scripting_api.dart';
 
 import '../document/spec_document_controller.dart';
 import '../structure/review_store.dart';
 import '../structure/spec_model.dart';
 import 'spec_agent_tools.dart';
+import 'spec_engine_tools.dart';
 import 'spec_script_runner.dart';
 
 /// Forge module owning the agent's navigation/mutation tools (§8).
@@ -38,15 +40,26 @@ class AgentToolsModule extends ForgeModule {
               modelFuture: modelFuture,
               review: review,
             ) {
+    final workspaceRoot = scriptWorkspaceRoot ?? Directory.current.path;
     _server = SpecAgentTools(this.controller).buildServer(name: serverName);
     scriptRunner = SpecScriptRunner(
       controller: this.controller,
-      workspaceRoot: scriptWorkspaceRoot ?? Directory.current.path,
+      workspaceRoot: workspaceRoot,
     );
+    _engineServer = SpecEngineTools(
+      controller: this.controller,
+      facade: SpecFileFacade(workspaceRoot: workspaceRoot),
+      scriptTools: scriptRunner.tools,
+    ).buildServer(name: engineServerName);
   }
 
   /// The MCP server name exposed to the Agent SDK.
   final String serverName;
+
+  /// The MCP server name for the reusable engine toolsets (`doc_*` / `file_*` /
+  /// `script_*`), kept distinct from [serverName] so the two surfaces stay
+  /// cleanly namespaced.
+  final String engineServerName = 'tomspecs-engine';
 
   /// The shared document controller every tool reads/mutates through.
   final SpecDocumentController controller;
@@ -58,8 +71,17 @@ class AgentToolsModule extends ForgeModule {
 
   late final McpSdkServerConfig _server;
 
-  /// The `mcpServers` map to fold into the agent send config (§7.2).
-  Map<String, McpServerConfig> get servers => {serverName: _server};
+  /// The engine toolsets server (DocTools / FileTools / ScriptTools wrapped as
+  /// MCP tools; followup item 5). The `mem_*` MemoryTools are excluded — they
+  /// need the server-only memory plane (followup item 6).
+  late final McpSdkServerConfig _engineServer;
+
+  /// The `mcpServers` map to fold into the agent send config (§7.2) — the editor's
+  /// bespoke §8 tools plus the reusable engine toolsets.
+  Map<String, McpServerConfig> get servers => {
+        serverName: _server,
+        engineServerName: _engineServer,
+      };
 
   @override
   String get displayName => 'TomSpecs Agent Tools';
