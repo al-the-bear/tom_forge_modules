@@ -1,0 +1,8 @@
+# Dart / pub
+.dart_tool/
+.packages
+build/
+pubspec.lock
+
+# Testkit
+testlog/

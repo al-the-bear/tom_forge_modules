@@ -1,0 +1,10 @@
+/// tom_dart_editor_bundler — public library surface.
+///
+/// Exposes the tool definition and executor so they can be embedded by the CLI
+/// entry-point (`bin/dart_editor_bundler.dart`) and exercised by tests. Bundle
+/// generation internals are added by later plan items.
+library;
+
+export 'src/bundler_tool.dart';
+export 'src/bundler_executor.dart';
+export 'src/version.versioner.dart';

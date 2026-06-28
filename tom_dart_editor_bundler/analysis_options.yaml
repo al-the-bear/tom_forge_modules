@@ -1,0 +1,12 @@
+# Static analysis configuration for tom_dart_editor_bundler.
+#
+# Enables the 'recommended' lint set from package:lints (the same baseline used
+# across the workspace's pure-Dart tooling, e.g. tom_specs_clitool).
+
+include: package:lints/recommended.yaml
+
+analyzer:
+  errors:
+    # tom_analyzer_shared / tom_build_base expose some functionality through
+    # src/ imports by workspace convention; do not flag those as errors.
+    implementation_imports: ignore
