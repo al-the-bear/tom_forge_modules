@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show AssetManifest, rootBundle;
 import 'package:tom_dart_editor/tom_dart_editor.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart'
     show EditorCapabilities, EditorStateSnapshot, StandardEditingActions;
@@ -397,16 +396,19 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
       );
 
   Widget _contentField(SpecField field, String path) {
-    // Dart-code content (`@ContentType('code'|'code-dart')`) gets the
-    // summary-backed Dart editor (§13 l / B1) — SDK-free analysis from the
-    // embedded `assets/summaries/*.sum` bundles, with a graceful fall-back to a
-    // plain monospace field when those assets are not bundled (the common case
-    // in tests/CI/dev). Non-Dart code (sql/ddl) and prose stay plain text.
-    if (isDartCodeContentType(field.contentType)) {
+    // Dart/d4rt-code content gets the summary-backed Dart editor (§13 l / B1),
+    // analysed against the summary scope its `@ContentType` maps to (step 11):
+    // `code`/`code-dart` → `dart-plain`, `code-d4rt-flutter` → `d4rt-flutter`,
+    // `code-d4rt-doc` → `d4rt-document`. `_CodeField` degrades to a plain field
+    // when the scope is not registered (assets absent or scope not yet declared).
+    // Non-Dart code (sql/ddl) and prose stay plain text.
+    final codeScope = scopeForContentType(field.contentType);
+    if (codeScope != null) {
       return _FieldBlock(
         header: _fieldHeader(field, path),
         child: _CodeField(
           key: ValueKey('code:$path'),
+          scope: codeScope,
           value: _controller.content(path) ?? '',
           onChanged: (v) => _controller.setContent(path, v),
         ),
@@ -698,11 +700,36 @@ class _ListItem extends StatelessWidget {
   }
 }
 
-/// Whether a `@ContentType` value denotes Dart/d4rt code — the only flavour the
-/// summary-backed Dart editor understands (§13 l). SQL/DDL `code-*` and prose
+/// Maps a `@ContentType` code flavour to the summary scope its editor analyses
+/// against (step 11), or null for non-code content (prose, sql/ddl, layout) that
+/// never gets the summary-backed Dart editor.
+///
+/// Scope names are the bundle names declared in `tom_specs_editor/buildkit.yaml`
+/// (registered by the generated `SummaryScopes.initialize()`). They are kept as
+/// string literals — not the generated `SummaryScopes` constants — so this
+/// routing compiles even when the generated helper has not been produced yet.
+/// `code-d4rt-doc` maps to a scope (`d4rt-document`) that is not declared yet;
+/// until it is, that scope stays unregistered and the field degrades to plain
+/// text (the absent-scope fallback below).
+String? scopeForContentType(String? contentType) {
+  switch (contentType) {
+    case 'code':
+    case 'code-dart':
+      return 'dart-plain';
+    case 'code-d4rt-flutter':
+      return 'd4rt-flutter';
+    case 'code-d4rt-doc':
+      return 'd4rt-document';
+    default:
+      return null;
+  }
+}
+
+/// Whether a `@ContentType` value denotes Dart/d4rt code the summary-backed
+/// editor handles — i.e. it maps to a summary scope. SQL/DDL `code-*` and prose
 /// stay plain text. Public so the routing can be unit-tested without widgets.
 bool isDartCodeContentType(String? contentType) =>
-    contentType == 'code' || contentType == 'code-dart';
+    scopeForContentType(contentType) != null;
 
 /// Whether a `@ContentType` value denotes a live Flutter layout — content that
 /// is d4rt-flutter source meant to be *rendered* (not edited as text) via
@@ -716,65 +743,45 @@ bool isFlutterLayoutContentType(String? contentType) =>
     contentType == 'flutter-layout' ||
     contentType == 'd4rt-flutter';
 
-/// Asset paths for the pre-generated analyzer summaries (B1). Bundled by the
-/// build (`build.dart` step 4); gitignored, so absent in a plain dev checkout.
-const String _kSdkSummaryAsset = 'assets/summaries/sdk_summary.sum';
-const String _kPackagesSummaryAsset = 'assets/summaries/packages.sum';
-
-/// One-shot, cached probe for whether both summary bundles are actually present
-/// in the asset bundle. Uses the asset manifest (cheap) rather than loading the
-/// ~40 MB packages bundle. Cached so the per-keystroke rebuilds stay free.
-Future<bool>? _summaryAssetsProbe;
-Future<bool> _summaryAssetsAvailable() {
-  return _summaryAssetsProbe ??= () async {
-    try {
-      final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
-      final assets = manifest.listAssets().toSet();
-      return assets.contains(_kSdkSummaryAsset) &&
-          assets.contains(_kPackagesSummaryAsset);
-    } catch (_) {
-      return false;
-    }
-  }();
-}
-
 /// A Dart-code content field (§13 l). Renders the summary-backed Dart editor
-/// when the embedded `.sum` bundles are available, else degrades to the plain
-/// multiline [_ValueField] so dev/test/CI without the heavy assets still work.
+/// bound to its [scope] when that scope is registered, else degrades to the
+/// plain multiline [_ValueField] so dev/test/CI without the heavy `.sum` bundles
+/// — and not-yet-declared scopes — still work.
 class _CodeField extends StatelessWidget {
   const _CodeField({
     super.key,
+    required this.scope,
     required this.value,
     required this.onChanged,
   });
 
+  /// Summary scope (bundle) name this code field analyses against.
+  final String scope;
   final String value;
   final ValueChanged<String> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<bool>(
-      future: _summaryAssetsAvailable(),
-      builder: (context, snap) {
-        if (snap.data == true) {
-          return SizedBox(
-            height: 240,
-            child: SimpleSummaryBackedDartCodeEditor(
-              initialCode: value,
-              sdkSummaryAsset: _kSdkSummaryAsset,
-              packageSummaryAsset: _kPackagesSummaryAsset,
-              onChanged: onChanged,
-            ),
-          );
-        }
-        // Assets absent (or still probing): plain multiline fallback.
-        return _ValueField(
-          value: value,
-          minLines: 3,
-          maxLines: 12,
+    // Per-scope availability probe (step 11): render the summary-backed editor
+    // only when [scope] is registered (its `.sum` bundles were generated and
+    // `SummaryScopes.initialize()` ran in `main()` before `runApp`). The check is
+    // synchronous because registration completes before the first frame; in
+    // dev/test/CI without the assets the scope stays absent and we fall back.
+    if (SummaryScopeRegistry.instance.isRegistered(scope)) {
+      return SizedBox(
+        height: 240,
+        child: SimpleSummaryBackedDartCodeEditor(
+          initialCode: value,
+          scope: scope,
           onChanged: onChanged,
-        );
-      },
+        ),
+      );
+    }
+    return _ValueField(
+      value: value,
+      minLines: 3,
+      maxLines: 12,
+      onChanged: onChanged,
     );
   }
 }

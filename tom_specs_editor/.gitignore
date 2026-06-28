@@ -54,3 +54,10 @@ assets/docspecs-schema/*.docspecs-schema.yaml
 # are always valid. The `**` pattern also covers the per-scope subdirectory
 # bundles (e.g. assets/summaries/d4rt-flutter/packages.sum).
 assets/summaries/**/*.sum
+
+# The generated scope-init helper IS committed (re-included past tom_forge's
+# repo-wide `*.g.dart` ignore): `lib/main.dart` imports it at compile time, so a
+# fresh checkout must have it to build. It is tiny and regenerated deterministically
+# from the committed `buildkit.yaml` by tom_dart_editor_bundler. (The heavy `.sum`
+# bundles it references stay gitignored, per the policy above.)
+!lib/generated/summary_scopes.g.dart

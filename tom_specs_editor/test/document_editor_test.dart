@@ -254,11 +254,29 @@ void main() {
     test('isDartCodeContentType matches only Dart/d4rt code flavours', () {
       expect(isDartCodeContentType('code'), isTrue);
       expect(isDartCodeContentType('code-dart'), isTrue);
+      // d4rt code flavours route to the summary-backed editor too (step 11).
+      expect(isDartCodeContentType('code-d4rt-flutter'), isTrue);
+      expect(isDartCodeContentType('code-d4rt-doc'), isTrue);
       // Non-Dart code and prose stay plain text.
       expect(isDartCodeContentType('code-sql'), isFalse);
       expect(isDartCodeContentType('code-ddl'), isFalse);
       expect(isDartCodeContentType('text'), isFalse);
       expect(isDartCodeContentType(null), isFalse);
+    });
+
+    test('scopeForContentType maps each code flavour to its summary scope', () {
+      // Names match the bundles declared in tom_specs_editor/buildkit.yaml.
+      expect(scopeForContentType('code'), 'dart-plain');
+      expect(scopeForContentType('code-dart'), 'dart-plain');
+      expect(scopeForContentType('code-d4rt-flutter'), 'd4rt-flutter');
+      // Maps to a scope that is not declared yet → unregistered at runtime, so
+      // the field degrades to plain text via the absent-scope fallback.
+      expect(scopeForContentType('code-d4rt-doc'), 'd4rt-document');
+      // Non-code content has no scope.
+      expect(scopeForContentType('code-sql'), isNull);
+      expect(scopeForContentType('d4rt-flutter'), isNull);
+      expect(scopeForContentType('text'), isNull);
+      expect(scopeForContentType(null), isNull);
     });
   });
 
