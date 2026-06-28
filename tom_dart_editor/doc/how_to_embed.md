@@ -69,3 +69,13 @@ flutter:
     - assets/sdk_summary.sum
     - assets/packages.sum
 ```
+
+## Summary scopes (planned)
+
+The explicit-asset embedding above ties one editor instance to one fixed
+`(sdk_summary.sum, packages.sum)` pair. A planned **summary scopes** design
+replaces the two asset paths with a single named `scope:` (e.g. `dart-plain`,
+`d4rt-flutter`, `d4rt-document`), resolved through a shared, ref-counted
+`SummaryScopeRegistry` so multiple editors can share one parsed bundle in
+memory. See **[Summary Scopes](summary_scopes.md)** (status: specified, not yet
+implemented).

@@ -123,3 +123,16 @@ Two workarounds in `analyzer_with_packages.dart` compensate for SDK limitations:
 | `tom_dart_editor_test/tool/build_packages_summary.dart` | Build tool for `packages.sum` |
 | `tom_dart_editor_test/tool/diagnose_packages_sum.dart` | Diagnostic tool to inspect bundle contents |
 | `tom_dart_editor_test/tool/check_sdk_sum.dart` | Diagnostic tool to inspect SDK bundle |
+
+---
+
+## Next: named summary scopes (planned)
+
+The build described above produces a single `(sdk_summary.sum, packages.sum)`
+pair tied to one fixed dependency closure. A planned evolution introduces
+**named summary scopes** — one bundle per bridged surface (plain Dart,
+d4rt-flutter, d4rt-document) — built by a dedicated `tom_dart_editor_bundler`
+tool and selected at editor-construction time by `scope:` name.
+
+See **[Summary Scopes](summary_scopes.md)** for the full design (status:
+specified, not yet implemented).

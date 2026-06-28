@@ -421,3 +421,4 @@ void main() {
 ## Related Documentation
 
 - [Package Summary Generation](package_summary_generation.md) — Building `.sum` files
+- [Summary Scopes](summary_scopes.md) — Planned named per-surface summary scopes and the `tom_dart_editor_bundler` tool

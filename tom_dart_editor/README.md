@@ -74,6 +74,7 @@ class _MyCodeEditorState extends State<MyCodeEditor> {
 
 - **[Usage Guide](doc/dart_editor_usage_guide.md)** — Complete guide with embedding patterns, theming, and settings
 - **[Package Summary Generation](doc/package_summary_generation.md)** — How to build `.sum` files for SDK-free analysis
+- **[Summary Scopes](doc/summary_scopes.md)** — Planned design for named, per-surface summary scopes and the `tom_dart_editor_bundler` tool
 
 ## Theming
 
