@@ -79,13 +79,18 @@ Configuration:
       - name: d4rt-flutter
         packages: [tom_d4rt_flutter]
 
+Options:
+  --config <path>   Use an explicit config file (default: project buildkit.yaml)
+  --bundle <name>   Build only the named scope (the shared SDK summary is still
+                    emitted, since every scope depends on it)
+  --verbose         Print per-step progress
+
 Output:
-  - <out-dir>/<sdk-summary>            (one SDK summary)
+  - <out-dir>/<sdk-summary>            (one SDK summary, reused if present)
   - <out-dir>/<name>/packages.sum      (one grouped bundle per non sdk-only bundle)
-  - the generated-helper Dart file with a `SummaryScopes` registrar
 
 Status:
-  Scaffold only. Config parsing and bundle generation are implemented in
-  subsequent plan items (see tom_dart_editor_summary_scoping_plan.md).
+  Generates the `.sum` asset set. The generated-helper Dart file
+  (`SummaryScopes` registrar) is emitted by a later plan item.
 ''',
 );

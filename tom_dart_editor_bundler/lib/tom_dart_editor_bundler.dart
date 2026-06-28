@@ -5,6 +5,7 @@
 /// generation internals are added by later plan items.
 library;
 
+export 'src/bundle_generator.dart';
 export 'src/bundler_config.dart';
 export 'src/bundler_tool.dart';
 export 'src/bundler_executor.dart';

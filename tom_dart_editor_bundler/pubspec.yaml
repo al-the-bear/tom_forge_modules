@@ -23,11 +23,18 @@ dependencies:
   # scaffolding). Base-first: never reimplement CLI plumbing locally.
   tom_build_base:
     path: ../../tom_ai/basics/tom_build_base
-  # Base-first owner of analyzer-summary infrastructure (SDK summary, dependency
-  # resolution, the grouped package-bundle entry-point added in plan item 3).
-  # The bundler must never call package:analyzer summary APIs directly.
-  tom_analyzer_shared:
-    path: ../../tom_ai/basics/tom_analyzer_shared
+  # Base-first owner of the grouped package-bundle infrastructure (the
+  # load-bearing package-resolver order). Consumed as the PUBLISHED package
+  # (plan item 3 shipped GroupedPackageBundleBuilder in 0.5.0) — a version
+  # constraint, NOT a path: the local checkout is behind origin and a path dep
+  # would resolve the missing API the wrong way.
+  tom_analyzer_shared: ^0.5.0
+  # Public SDK-summary entry-point only (`buildSdkSummary` /
+  # `PhysicalResourceProvider`). The grouped packages.sum build stays delegated
+  # to tom_analyzer_shared; per the plan item-3 decision the one-shot SDK summary
+  # is produced at this generator layer via analyzer's public API — exactly as
+  # tom_specs_clitool/bin/summaries.dart does. No analyzer `src/` internals.
+  analyzer: ^10.0.0
   path: ^1.9.0
   yaml: ^3.1.2
 
