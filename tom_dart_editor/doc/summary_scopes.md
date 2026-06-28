@@ -1,19 +1,20 @@
 # Summary Scopes & the `tom_dart_editor_bundler`
 
-> **Status: specified, not yet implemented.** This document describes the target
-> design for *scoped* analyzer-summary bundles and the multi-instance memory
-> model. It is the package-level home of the design recorded in the `tom_specs`
-> quest:
+> **Status: implemented.** Scoped analyzer-summary bundles, the
+> `tom_dart_editor_bundler` CLI, and the shared-store multi-instance memory model
+> all ship. This document describes the design; for the as-built reference see the
+> [package README's "Embedding with Summary Scopes"](../README.md) section and the
+> companion CLI at [`../../tom_dart_editor_bundler`](../../tom_dart_editor_bundler).
+> It is the package-level home of the design recorded in the `tom_specs` quest:
 > [`tom_dart_editor_summary_scoping.md`](../../../_ai/quests/tom_specs/tom_dart_editor_summary_scoping.md)
-> (spec, §§6–10 are the target),
+> (spec, §§6–10 describe the shipped system),
 > [`…_plan.md`](../../../_ai/quests/tom_specs/tom_dart_editor_summary_scoping_plan.md)
-> (numbered implementation plan), and
+> (numbered implementation plan, items 1–14 done), and
 > [`…_questions.md`](../../../_ai/quests/tom_specs/tom_dart_editor_summary_scoping_questions.md)
-> (decisions D1–D8). Until the bundler ships, use the single-pair flow in
+> (decisions D1–D8). The single-pair flow in
 > [`package_summary_generation.md`](package_summary_generation.md) and the
-> explicit-asset constructors in [`how_to_embed.md`](how_to_embed.md). When the
-> bundler lands, the quest spec §§6–10 are revised to describe the actual
-> implementation and this doc is updated to drop the "planned" framing.
+> explicit-asset constructors in [`how_to_embed.md`](how_to_embed.md) remain as
+> the lower-level escape hatch.
 
 `tom_dart_editor` does **SDK-free** static analysis inside code-typed fields by
 loading pre-built `.sum` bundles at runtime (see
@@ -245,7 +246,7 @@ Once the bundler ships, embedding a scoped editor in a Flutter app is:
 | D4 | Config lives in the **consuming app's** `buildkit.yaml`, key `dart-editor-bundler`. |
 | D5 | Build on **`tom_analyzer_shared`** (base-first owner of summary generation); never reimplement. |
 | D6 | The registry **parses once and releases the bytes** — the memory model of §2.1. |
-| D7 | The quest turn produced spec + plan only; **no implementation yet** (this doc tracks the target). |
+| D7 | (Historical) The first quest turn produced spec + plan only; the implementation shipped in later turns — plan items 1–14 done. |
 | D8 | The **grouped-bundle** capability is added to `tom_analyzer_shared` and consumed by both the bundler and `tom_specs_clitool` (one algorithm). |
 
 **Deferred (settled at implementation):** whether generated `.sum` assets are
