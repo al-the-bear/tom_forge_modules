@@ -25,6 +25,8 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
+  # Path joins for building the SDK-summary fixture in registry tests.
+  path: ^1.9.0
 
 flutter:
   # This package does not include any assets by default.

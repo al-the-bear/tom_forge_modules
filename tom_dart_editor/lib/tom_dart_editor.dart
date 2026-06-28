@@ -67,7 +67,19 @@ export 'src/syntax_highlighter.dart'
 
 // Analyzer integration (uses internal analyzer APIs)
 export 'src/analyzer_with_packages.dart'
-    show AnalysisDriverWithPackages, createAnalysisDriverWithPackages;
+    show
+        AnalysisDriverWithPackages,
+        createAnalysisDriverWithPackages,
+        ParsedSummaryModel,
+        buildAnalysisDriver;
+
+// Shared, name-keyed summary-scope registry
+export 'src/summary_scope_registry.dart'
+    show
+        SummaryScopeAsset,
+        SummaryScope,
+        SummaryScopeRegistry,
+        SummaryAssetBytesLoader;
 
 // Reusable summary-backed analyzer/completion adapter
 export 'src/summary_analysis_adapter.dart'

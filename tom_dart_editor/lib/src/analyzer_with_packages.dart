@@ -50,38 +50,105 @@ AnalysisDriverWithPackages createAnalysisDriverWithPackages({
   required Packages packages,
   ByteStore? byteStore,
 }) {
-  // Load SDK bundle
-  var sdkBundle = PackageBundleReader(sdkSummaryBytes);
-  var sdk = SummaryBasedDartSdk.forBundle(sdkBundle);
+  final model = ParsedSummaryModel.fromSummaries(
+    sdkSummaryBytes: sdkSummaryBytes,
+    packageSummaryBytes: packageSummaryBytes,
+  );
+  return buildAnalysisDriver(
+    model: model,
+    resourceProvider: resourceProvider,
+    analysisOptions: analysisOptions,
+    uriResolvers: uriResolvers,
+    packages: packages,
+    byteStore: byteStore,
+  );
+}
 
-  // Create data store and add SDK bundle
-  var dataStore = SummaryDataStore();
-  dataStore.addBundle('sdk', sdkBundle);
+/// The expensive, shareable result of parsing summary bytes once.
+///
+/// Parsing the SDK + package `.sum` bytes into the analyzer element model
+/// ([SummaryBasedDartSdk] + [SummaryDataStore]) is the costly step; an
+/// [AnalysisDriver] built over an already-parsed model is comparatively cheap.
+/// Holding the parsed model once and building *N* light drivers over it (one
+/// per editor) is the memory win behind the summary-scope registry (spec §3.1):
+/// the byte buffers are consumed here and only the shared parsed structures are
+/// retained.
+class ParsedSummaryModel {
+  /// SDK element model, shared as the [DartUriResolver] source.
+  final SummaryBasedDartSdk sdk;
 
-  // Add package bundle if provided
-  List<String> packageLibraryUris = [];
-  if (packageSummaryBytes != null && packageSummaryBytes.isNotEmpty) {
-    var packageBundle = PackageBundleReader(packageSummaryBytes);
-    dataStore.addBundle('packages', packageBundle);
+  /// External summaries (SDK + packages), shared as `externalSummaries`.
+  final SummaryDataStore dataStore;
 
-    // Collect library URIs from the package bundle
-    packageLibraryUris =
-        packageBundle.libraries.map((lib) => lib.uriStr).toList();
+  /// URIs of libraries in the SDK.
+  final List<Uri> sdkLibraryUris;
 
-    // WORKAROUND: buildPackageBundle stores unit URIs as file:// paths
-    // (the resolved path from the build machine's pub-cache) rather than
-    // package: URIs.  SummaryDataStore.addBundle only registers unit URIs
-    // in uriToSummaryPath, so package: lookups via InSummaryUriResolver
-    // fail.  Explicitly register each library's package: URI so the
-    // resolver can find them.
-    for (var library in packageBundle.libraries) {
-      var libraryUri = library.uriStr;
-      if (!dataStore.uriToSummaryPath.containsKey(libraryUri)) {
-        dataStore.uriToSummaryPath[libraryUri] = 'packages';
+  /// URIs of libraries in the package bundle (empty for an SDK-only model).
+  final List<String> packageLibraryUris;
+
+  ParsedSummaryModel._(
+    this.sdk,
+    this.dataStore,
+    this.sdkLibraryUris,
+    this.packageLibraryUris,
+  );
+
+  /// Parses [sdkSummaryBytes] (and optional [packageSummaryBytes]) into a
+  /// shared element model. The raw byte buffers are not retained on the model.
+  factory ParsedSummaryModel.fromSummaries({
+    required Uint8List sdkSummaryBytes,
+    Uint8List? packageSummaryBytes,
+  }) {
+    final sdkBundle = PackageBundleReader(sdkSummaryBytes);
+    final sdk = SummaryBasedDartSdk.forBundle(sdkBundle);
+
+    final dataStore = SummaryDataStore();
+    dataStore.addBundle('sdk', sdkBundle);
+
+    final packageLibraryUris = <String>[];
+    if (packageSummaryBytes != null && packageSummaryBytes.isNotEmpty) {
+      final packageBundle = PackageBundleReader(packageSummaryBytes);
+      dataStore.addBundle('packages', packageBundle);
+
+      packageLibraryUris
+          .addAll(packageBundle.libraries.map((lib) => lib.uriStr));
+
+      // WORKAROUND: buildPackageBundle stores unit URIs as file:// paths
+      // (the resolved path from the build machine's pub-cache) rather than
+      // package: URIs.  SummaryDataStore.addBundle only registers unit URIs
+      // in uriToSummaryPath, so package: lookups via InSummaryUriResolver
+      // fail.  Explicitly register each library's package: URI so the
+      // resolver can find them.
+      for (final library in packageBundle.libraries) {
+        final libraryUri = library.uriStr;
+        if (!dataStore.uriToSummaryPath.containsKey(libraryUri)) {
+          dataStore.uriToSummaryPath[libraryUri] = 'packages';
+        }
       }
     }
-  }
 
+    return ParsedSummaryModel._(
+      sdk,
+      dataStore,
+      sdk.libraryUris,
+      packageLibraryUris,
+    );
+  }
+}
+
+/// Builds a fresh [AnalysisDriver] over an already-parsed [model].
+///
+/// The SDK and data store are shared from [model]; only the per-driver
+/// machinery (scheduler, byte store, source factory) is created here, so many
+/// drivers can be built cheaply over one parsed model.
+AnalysisDriverWithPackages buildAnalysisDriver({
+  required ParsedSummaryModel model,
+  required ResourceProvider resourceProvider,
+  required List<UriResolver> uriResolvers,
+  required Packages packages,
+  AnalysisOptions? analysisOptions,
+  ByteStore? byteStore,
+}) {
   // Create source factory.
   // File-system resolvers (e.g. PackageMapUriResolver) must come BEFORE
   // summary resolvers so that package: URIs are mapped to real file paths
@@ -91,30 +158,31 @@ AnalysisDriverWithPackages createAnalysisDriverWithPackages({
   // This is needed because the bundle's resolution bytes reference ALL
   // imported/exported URIs, and InSummaryUriResolver only resolves URIs
   // explicitly registered in uriToSummaryPath.
-  var packageSummaryResolver = PackageSummaryUriResolver(dataStore);
-  var sourceFactory = SourceFactory([
-    DartUriResolver(sdk),
+  final packageSummaryResolver = PackageSummaryUriResolver(model.dataStore);
+  final sourceFactory = SourceFactory([
+    DartUriResolver(model.sdk),
     ...uriResolvers,
     packageSummaryResolver,
   ]);
 
-  var logger = PerformanceLog(null);
+  final logger = PerformanceLog(null);
   byteStore ??= MemoryByteStore();
 
-  var scheduler = AnalysisDriverScheduler(logger);
+  final scheduler = AnalysisDriverScheduler(logger);
   scheduler.events.drain<void>().ignore();
 
-  var sharedOptions = analysisOptions as AnalysisOptionsImpl;
-  var optionsMap = AnalysisOptionsMap.forSharedOptions(sharedOptions);
+  final sharedOptions = (analysisOptions ?? AnalysisOptionsImpl())
+      as AnalysisOptionsImpl;
+  final optionsMap = AnalysisOptionsMap.forSharedOptions(sharedOptions);
 
-  var driver = AnalysisDriver(
+  final driver = AnalysisDriver(
     scheduler: scheduler,
     logger: logger,
     resourceProvider: resourceProvider,
     byteStore: byteStore,
     sourceFactory: sourceFactory,
     analysisOptionsMap: optionsMap,
-    externalSummaries: dataStore,
+    externalSummaries: model.dataStore,
     packages: packages,
     shouldReportInconsistentAnalysisException: false,
     withFineDependencies: false,
@@ -123,8 +191,8 @@ AnalysisDriverWithPackages createAnalysisDriverWithPackages({
   scheduler.start();
 
   return AnalysisDriverWithPackages._(
-    sdk.libraryUris,
-    packageLibraryUris,
+    model.sdkLibraryUris,
+    model.packageLibraryUris,
     driver,
   );
 }
