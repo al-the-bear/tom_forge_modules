@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 
 import 'dart_code_editor.dart';
 import 'summary_analysis_adapter.dart';
+import 'summary_scope_registry.dart';
 
 /// High-level Dart editor widget with built-in summary-backed analysis.
 ///
@@ -11,6 +12,14 @@ import 'summary_analysis_adapter.dart';
 /// applications only provide configuration and regular editor callbacks.
 class SummaryBackedDartCodeEditor extends StatefulWidget {
   final DartCodeController controller;
+
+  /// Registry scope (bundle) name. When set, analysis/completion resolve the
+  /// shared parsed store from [SummaryScopeRegistry] and the editor defaults
+  /// (implicit imports, completion filters) are inherited from the registered
+  /// scope unless overridden by the params below. When null, the editor loads
+  /// the [sdkSummaryAsset] / [packageSummaryAsset] bytes directly (escape hatch).
+  final String? scope;
+
   final String sdkSummaryAsset;
   final String packageSummaryAsset;
   final List<String>? implicitImports;
@@ -31,6 +40,7 @@ class SummaryBackedDartCodeEditor extends StatefulWidget {
   const SummaryBackedDartCodeEditor({
     super.key,
     required this.controller,
+    this.scope,
     this.sdkSummaryAsset = 'assets/sdk_summary.sum',
     this.packageSummaryAsset = 'assets/packages.sum',
     this.implicitImports,
@@ -71,6 +81,7 @@ class _SummaryBackedDartCodeEditorState
 
     final importsChanged = !_listEquals(oldWidget.implicitImports,
         widget.implicitImports ?? widget.controller.implicitImports);
+    final scopeChanged = oldWidget.scope != widget.scope;
     final assetsChanged = oldWidget.sdkSummaryAsset != widget.sdkSummaryAsset ||
         oldWidget.packageSummaryAsset != widget.packageSummaryAsset;
     final completionScopeChanged = oldWidget.includeAllPackageCompletions !=
@@ -80,7 +91,10 @@ class _SummaryBackedDartCodeEditorState
           widget.allowedPackagePrefixes,
         );
 
-    if (importsChanged || assetsChanged || completionScopeChanged) {
+    if (importsChanged ||
+        scopeChanged ||
+        assetsChanged ||
+        completionScopeChanged) {
       _adapter = _createAdapter();
       _scheduleAnalysis(immediate: true);
     }
@@ -93,6 +107,20 @@ class _SummaryBackedDartCodeEditorState
   }
 
   SummaryBackedDartAnalysisAdapter _createAdapter() {
+    final scope = widget.scope;
+    if (scope != null) {
+      // Scope mode: inherit the registered scope's editor defaults; a null
+      // widget param means "inherit", a set one overrides. `includeAll` is a
+      // non-nullable bool, so only its `true` value is forwarded as an override
+      // (a default `false` lets the scope's setting stand).
+      return SummaryBackedDartAnalysisAdapter.scope(
+        scope,
+        implicitImports: widget.implicitImports,
+        includeAllPackageCompletions:
+            widget.includeAllPackageCompletions ? true : null,
+        allowedPackagePrefixes: widget.allowedPackagePrefixes,
+      );
+    }
     return SummaryBackedDartAnalysisAdapter(
       sdkSummaryAsset: widget.sdkSummaryAsset,
       packageSummaryAsset: widget.packageSummaryAsset,

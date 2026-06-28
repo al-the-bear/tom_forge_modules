@@ -11,6 +11,13 @@ class SimpleSummaryBackedDartCodeEditor extends StatefulWidget {
   final String initialCode;
   final List<String> implicitImports;
 
+  /// Registry scope (bundle) name. When set, analysis/completion resolve the
+  /// shared parsed store from the registry instead of loading the
+  /// [sdkSummaryAsset] / [packageSummaryAsset] bytes. [implicitImports] still
+  /// drives this editor's display offset and is forwarded as the analysis
+  /// override; the scope supplies the bridged surface + completion config.
+  final String? scope;
+
   final String sdkSummaryAsset;
   final String packageSummaryAsset;
   final bool includeAllPackageCompletions;
@@ -35,6 +42,7 @@ class SimpleSummaryBackedDartCodeEditor extends StatefulWidget {
       'dart:collection',
       'dart:math',
     ],
+    this.scope,
     this.sdkSummaryAsset = 'assets/sdk_summary.sum',
     this.packageSummaryAsset = 'assets/packages.sum',
     this.includeAllPackageCompletions = false,
@@ -94,6 +102,7 @@ class _SimpleSummaryBackedDartCodeEditorState
   Widget build(BuildContext context) {
     return SummaryBackedDartCodeEditor(
       controller: _controller,
+      scope: widget.scope,
       sdkSummaryAsset: widget.sdkSummaryAsset,
       packageSummaryAsset: widget.packageSummaryAsset,
       implicitImports: widget.implicitImports,
