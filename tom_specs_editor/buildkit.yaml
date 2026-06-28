@@ -1,0 +1,34 @@
+# Tom Build Configuration for tom_specs_editor.
+#
+# `dart-editor-bundler` declares the summary scopes consumed by the embedded
+# `tom_dart_editor` code fields (§13 l / B1). The bundler
+# (tom_forge/tom_dart_editor_bundler) reads this block and emits:
+#   - one shared SDK summary  → assets/summaries/sdk_summary.sum
+#   - one grouped bundle per non-sdk-only scope
+#                             → assets/summaries/<name>/packages.sum
+#   - a generated scope-init helper → lib/generated/summary_scopes.g.dart
+#     (call SummaryScopes.initialize() once at app startup; it registers every
+#      scope with tom_dart_editor's SummaryScopeRegistry).
+#
+# Regenerate from this directory with:
+#   dart run ../tom_dart_editor_bundler/bin/dart_editor_bundler.dart \
+#     --config buildkit.yaml --verbose
+dart-editor-bundler:
+  out-dir: assets/summaries
+  generated-helper: lib/generated/summary_scopes.g.dart
+  sdk-summary: sdk_summary.sum
+  bundles:
+    # Plain Dart snippets (`@ContentType('code' | 'code-dart')`): SDK only, no
+    # third-party package surface.
+    - name: dart-plain
+      sdk-only: true
+      implicit-imports: [dart:async, dart:collection, dart:math]
+
+    # Live Flutter-layout snippets (`@ContentType('code-d4rt-flutter')`) rendered
+    # via SourceFlutterD4rt: the closure of `tom_d4rt_flutter` (which pulls in
+    # Flutter + the d4rt-flutter runtime). `package:flutter/material.dart` is the
+    # default surface authors write against.
+    - name: d4rt-flutter
+      packages:
+        - ../../tom_ai/d4rt/tom_d4rt_flutter
+      implicit-imports: [package:flutter/material.dart]

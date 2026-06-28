@@ -102,10 +102,15 @@ flutter:
     # `flutter pub get` (without a build) keeps a valid asset path; the generated
     # *.docspecs-schema.yaml files are gitignored build artifacts.
     - assets/docspecs-schema/
-    # Pre-generated analyzer summaries (sdk_summary.sum + packages.sum) embedded
-    # by the build (§17 step 4 / B1). The directory ships a committed .gitkeep so
-    # `flutter pub get` keeps a valid asset path; the heavy *.sum bundles are
+    # Pre-generated analyzer summaries (sdk_summary.sum + per-scope packages.sum)
+    # embedded by the build (§17 step 4 / B1), declared per summary scope in
+    # buildkit.yaml's `dart-editor-bundler` block and produced by
+    # tom_dart_editor_bundler. The directories ship committed .gitkeep files so
+    # `flutter pub get` keeps valid asset paths; the heavy *.sum bundles are
     # gitignored generated artifacts (their canonical committed home is the
-    # tom_binaries L2 layer — see OE-1 questions note). Code-typed fields detect
-    # their presence at runtime and fall back to a plain text field when absent.
+    # tom_binaries L2 layer — see OE-1 questions note). Flutter asset directory
+    # entries are non-recursive, so each non-sdk-only scope's subdir is listed
+    # explicitly. Code-typed fields detect a scope's presence at runtime and fall
+    # back to a plain text field when absent.
     - assets/summaries/
+    - assets/summaries/d4rt-flutter/
