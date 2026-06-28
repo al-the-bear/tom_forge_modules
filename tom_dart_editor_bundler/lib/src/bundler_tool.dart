@@ -88,9 +88,11 @@ Options:
 Output:
   - <out-dir>/<sdk-summary>            (one SDK summary, reused if present)
   - <out-dir>/<name>/packages.sum      (one grouped bundle per non sdk-only bundle)
+  - <generated-helper>                 (SummaryScopes registrar Dart file)
 
 Status:
-  Generates the `.sum` asset set. The generated-helper Dart file
-  (`SummaryScopes` registrar) is emitted by a later plan item.
+  Generates the `.sum` asset set and the generated-helper Dart file
+  (`SummaryScopes` registrar). The helper registers every declared scope via
+  `tom_dart_editor`'s SummaryScopeRegistry (added in a later plan item).
 ''',
 );

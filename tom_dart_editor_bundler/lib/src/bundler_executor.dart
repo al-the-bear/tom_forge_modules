@@ -13,6 +13,7 @@ import 'package:tom_build_base/tom_build_base_v2.dart';
 
 import 'bundle_generator.dart';
 import 'bundler_config.dart';
+import 'helper_writer.dart';
 
 /// Executor key for the bundler's single command.
 const String kDartEditorBundlerCommand = 'default';
@@ -36,9 +37,18 @@ class DartEditorBundlerExecutor extends CommandExecutor {
         log: verbose ? print : null,
       );
 
+      // Emit the scope-init helper Dart file (§6.3). Written from the full
+      // config (not the bundle filter) so the helper always registers every
+      // declared scope, matching the assets a full build produces.
+      final helper = writeScopeInitHelper(
+        config: loaded.config,
+        baseDir: loaded.baseDir,
+        log: verbose ? print : null,
+      );
+
       // The single-command ToolRunner path prints only the folder header and the
       // exit code, so surface the outcome here for an informative CLI.
-      final message = _summarize(result);
+      final message = _summarize(result, helper);
       stdout.writeln(message);
       return ItemResult.success(
         path: context.path,
@@ -55,12 +65,13 @@ class DartEditorBundlerExecutor extends CommandExecutor {
     }
   }
 
-  String _summarize(BundleGenerationResult result) {
+  String _summarize(BundleGenerationResult result, HelperWriteResult helper) {
     final pkgScopes = result.bundles.where((b) => !b.sdkOnly).length;
     final sdkScopes = result.bundles.where((b) => b.sdkOnly).length;
     final sdkNote = result.sdkSummaryBuilt ? 'built' : 'reused';
     return 'SDK summary $sdkNote; $pkgScopes package bundle(s), '
-        '$sdkScopes sdk-only scope(s)';
+        '$sdkScopes sdk-only scope(s); scope-init helper '
+        '${helper.scopeCount} scope(s)';
   }
 }
 

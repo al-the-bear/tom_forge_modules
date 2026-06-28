@@ -7,6 +7,7 @@ library;
 
 export 'src/bundle_generator.dart';
 export 'src/bundler_config.dart';
+export 'src/helper_writer.dart';
 export 'src/bundler_tool.dart';
 export 'src/bundler_executor.dart';
 export 'src/version.versioner.dart';
