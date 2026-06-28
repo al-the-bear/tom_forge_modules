@@ -8,22 +8,59 @@ import 'package:analyzer/file_system/physical_file_system.dart';
 import 'package:analyzer/src/context/packages.dart';
 import 'package:analyzer/src/dart/analysis/analysis_options.dart';
 import 'package:analyzer/src/file_system/file_system.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/services.dart' show rootBundle;
 
 import 'analyzer_with_packages.dart';
 import 'completion_provider.dart';
 import 'dart_code_editor.dart';
+import 'summary_scope_registry.dart';
 
 /// Summary-backed analyzer/completion adapter for [DartCodeEditor].
 ///
 /// This provides reusable diagnostics and completion logic so host apps can
 /// embed [DartCodeEditor] without duplicating analyzer integration code.
+///
+/// Two ways to obtain the parsed summary store:
+///
+/// - **[SummaryBackedDartAnalysisAdapter.scope]** (preferred): resolves a named
+///   bundle from [SummaryScopeRegistry]. Every adapter of the same scope shares
+///   one parsed store; each builds its own cheap driver over it. Editor defaults
+///   (implicit imports, completion filters) come from the registered scope
+///   unless overridden per instance.
+/// - **The default constructor** (lower-level escape hatch): loads the `.sum`
+///   bytes for the given asset keys directly via [rootBundle] and parses them
+///   per instance.
 class SummaryBackedDartAnalysisAdapter {
+  /// The editor's documented baseline imports, used in explicit-asset mode and
+  /// as the final fallback when a scope declares none.
+  static const List<String> defaultImplicitImports = [
+    'dart:async',
+    'dart:collection',
+    'dart:math',
+    'package:path/path.dart',
+  ];
+
+  /// Registry scope (bundle) name when registry-backed; null in explicit-asset
+  /// mode.
+  final String? scope;
+
+  /// SDK summary asset key (explicit-asset mode only).
   final String sdkSummaryAsset;
+
+  /// Package summary asset key (explicit-asset mode only).
   final String packageSummaryAsset;
-  final List<String> implicitImports;
-  final bool includeAllPackageCompletions;
-  final List<String>? allowedPackagePrefixes;
+
+  // Raw per-instance config. In explicit-asset mode these are always set (the
+  // constructor defaults them). In scope mode a null override means "use the
+  // resolved scope's value", falling back to the documented defaults.
+  final List<String>? _implicitImportsOverride;
+  final bool? _includeAllPackageCompletionsOverride;
+  final List<String>? _allowedPackagePrefixesOverride;
+
+  /// The resolved shared scope (scope mode only; null until [ensureInitialized]
+  /// resolves it, or permanently null when the scope is unavailable).
+  SummaryScope? _resolvedScope;
 
   Uint8List? _sdkSummaryBytes;
   Uint8List? _packageSummaryBytes;
@@ -33,25 +70,79 @@ class SummaryBackedDartAnalysisAdapter {
   List<String>? _resolvedImplicitImports;
   List<CompletionItem>? _packageTypeCompletions;
 
+  /// Explicit-asset adapter: loads and parses the `.sum` bytes at
+  /// [sdkSummaryAsset] / [packageSummaryAsset] per instance. Lower-level escape
+  /// hatch; prefer [SummaryBackedDartAnalysisAdapter.scope] to share a store.
   SummaryBackedDartAnalysisAdapter({
     this.sdkSummaryAsset = 'assets/sdk_summary.sum',
     this.packageSummaryAsset = 'assets/packages.sum',
-    this.implicitImports = const [
-      'dart:async',
-      'dart:collection',
-      'dart:math',
-      'package:path/path.dart',
-    ],
-    this.includeAllPackageCompletions = false,
-    this.allowedPackagePrefixes,
-  });
+    List<String> implicitImports = defaultImplicitImports,
+    bool includeAllPackageCompletions = false,
+    List<String>? allowedPackagePrefixes,
+  })  : scope = null,
+        _implicitImportsOverride = implicitImports,
+        _includeAllPackageCompletionsOverride = includeAllPackageCompletions,
+        _allowedPackagePrefixesOverride = allowedPackagePrefixes;
+
+  /// Scope-backed adapter: resolves the named bundle from [SummaryScopeRegistry]
+  /// and shares its parsed store with every other adapter of the same scope.
+  ///
+  /// Editor defaults (implicit imports, completion filters) come from the
+  /// registered scope; pass the optional overrides to replace them per instance.
+  /// If the scope is not registered, the adapter degrades gracefully — analysis
+  /// and completion return empty results until the scope becomes available.
+  SummaryBackedDartAnalysisAdapter.scope(
+    String scopeName, {
+    List<String>? implicitImports,
+    bool? includeAllPackageCompletions,
+    List<String>? allowedPackagePrefixes,
+  })  : scope = scopeName,
+        sdkSummaryAsset = '',
+        packageSummaryAsset = '',
+        _implicitImportsOverride = implicitImports,
+        _includeAllPackageCompletionsOverride = includeAllPackageCompletions,
+        _allowedPackagePrefixesOverride = allowedPackagePrefixes;
+
+  /// Implicit imports auto-prepended to analysed snippets: a per-instance
+  /// override, else the resolved scope's value, else [defaultImplicitImports].
+  List<String> get implicitImports =>
+      _implicitImportsOverride ??
+      _resolvedScope?.implicitImports ??
+      defaultImplicitImports;
+
+  /// Whether completions are offered for all package libraries.
+  bool get includeAllPackageCompletions =>
+      _includeAllPackageCompletionsOverride ??
+      _resolvedScope?.includeAllPackageCompletions ??
+      false;
+
+  /// Completion prefix filter for package libraries.
+  List<String>? get allowedPackagePrefixes =>
+      _allowedPackagePrefixesOverride ?? _resolvedScope?.allowedPackagePrefixes;
+
+  /// The resolved shared scope, for tests asserting two adapters share a store.
+  @visibleForTesting
+  SummaryScope? get debugResolvedScope => _resolvedScope;
+
+  /// Whether the adapter has a usable summary store: a resolved scope (scope
+  /// mode) or loaded SDK bytes (explicit-asset mode).
+  bool get _isReady =>
+      scope != null ? _resolvedScope != null : _sdkSummaryBytes != null;
 
   Future<void> ensureInitialized() async {
-    if (_sdkSummaryBytes != null) return;
-    final sdkByteData = await rootBundle.load(sdkSummaryAsset);
-    final pkgByteData = await rootBundle.load(packageSummaryAsset);
-    _sdkSummaryBytes = sdkByteData.buffer.asUint8List();
-    _packageSummaryBytes = pkgByteData.buffer.asUint8List();
+    if (scope != null) {
+      if (_resolvedScope != null) return;
+      _resolvedScope = SummaryScopeRegistry.instance.scope(scope!);
+      // Unavailable scope: stay un-ready and retry on the next call (the scope
+      // may be registered later).
+      if (_resolvedScope == null) return;
+    } else {
+      if (_sdkSummaryBytes != null) return;
+      final sdkByteData = await rootBundle.load(sdkSummaryAsset);
+      final pkgByteData = await rootBundle.load(packageSummaryAsset);
+      _sdkSummaryBytes = sdkByteData.buffer.asUint8List();
+      _packageSummaryBytes = pkgByteData.buffer.asUint8List();
+    }
     _cachedDriver = null;
     _packageUrisRegistered = false;
     _implicitImportsValidated = false;
@@ -68,7 +159,7 @@ class SummaryBackedDartAnalysisAdapter {
     required bool retryOnFailure,
   }) async {
     await ensureInitialized();
-    if (_sdkSummaryBytes == null) return const [];
+    if (!_isReady) return const [];
 
     Directory? tempDir;
     try {
@@ -165,7 +256,7 @@ class SummaryBackedDartAnalysisAdapter {
     required bool retryOnFailure,
   }) async {
     await ensureInitialized();
-    if (_sdkSummaryBytes == null) return const [];
+    if (!_isReady) return const [];
 
     try {
       _cachedDriver ??= _createAnalysisDriver();
@@ -222,8 +313,17 @@ class SummaryBackedDartAnalysisAdapter {
   }
 
   AnalysisDriverWithPackages _createAnalysisDriver() {
-    final resourceProvider = PhysicalResourceProvider.INSTANCE;
     _packageUrisRegistered = false;
+
+    // Scope mode: build a fresh, lightweight driver over the registry's shared
+    // parsed store (no re-parse) — this is the §3.1 multi-instance memory win.
+    final resolvedScope = _resolvedScope;
+    if (resolvedScope != null) {
+      return resolvedScope.createDriver();
+    }
+
+    // Explicit-asset mode: parse this instance's own loaded bytes.
+    final resourceProvider = PhysicalResourceProvider.INSTANCE;
     return createAnalysisDriverWithPackages(
       resourceProvider: resourceProvider,
       sdkSummaryBytes: _sdkSummaryBytes!,
