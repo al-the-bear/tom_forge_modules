@@ -122,7 +122,7 @@ class SpecDocumentController extends ChangeNotifier {
   // --- §14 root navigation (step 20) -------------------------------------
 
   /// The section id / type name of the document root the editor renders, or
-  /// `null` for the default (Project Definition). Driven by the §14 root
+  /// `null` for the default (the Solution Blueprint master). Driven by the §14 root
   /// navigator; the editor projects the *same* shared [document] through the
   /// chosen root, so switching roots never copies or forks data.
   String? _activeRootType;

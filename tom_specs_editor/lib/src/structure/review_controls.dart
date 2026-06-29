@@ -11,7 +11,7 @@ Color scopeColor(ReviewScope scope) {
   switch (scope) {
     case ReviewScope.none:
       return Colors.grey.shade400;
-    case ReviewScope.onlyPd:
+    case ReviewScope.onlyThisDocument:
       return Colors.blue.shade400;
     case ReviewScope.global:
       return Colors.green.shade400;

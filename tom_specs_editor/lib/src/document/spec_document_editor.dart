@@ -27,7 +27,7 @@ import 'spec_markdown.dart';
 ///
 /// The active root is driven by the §14 root navigator through the shared
 /// [SpecDocumentController] (step 20): the editor projects the *same* document
-/// through whichever root is selected (Project Definition by default), so
+/// through whichever root is selected (the Solution Blueprint master by default), so
 /// switching roots re-renders consistently without copying data. An optional
 /// fixed [rootType] override pins a single projection (used by focused tests).
 class SpecDocumentEditor extends ForgeEditor {

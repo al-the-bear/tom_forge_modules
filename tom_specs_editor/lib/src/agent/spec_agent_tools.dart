@@ -412,8 +412,9 @@ class SpecAgentTools {
             'path': {'type': 'string'},
             'scope': {
               'type': 'string',
-              'description':
-                  'none | only_pd | global | global_with_adaptations.',
+              'description': 'none | only_this_document | global | '
+                  'global_with_adaptations. (Legacy "only_pd" is also accepted '
+                  'on read for back-compat.)',
             },
             'stopHere': {'type': 'boolean'},
             'addDetails': {'type': 'boolean'},

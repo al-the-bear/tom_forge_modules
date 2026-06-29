@@ -7,13 +7,13 @@ import 'package:yaml/yaml.dart';
 /// Where a reviewed node belongs in the eventual document set.
 ///
 /// This is the primary review decision: does this structural node stay only in
-/// the Project Definition, become a global (shared) section, become global but
-/// with per-document adaptations, or is it not yet decided?
+/// the document currently being reviewed, become a global (shared) section,
+/// become global but with per-document adaptations, or is it not yet decided?
 ///
 /// Ported from the `tom_ai/ai_build/tom_specs_editor` prototype (step 10).
 enum ReviewScope {
   none,
-  onlyPd,
+  onlyThisDocument,
   global,
   globalWithAdaptations;
 
@@ -22,8 +22,8 @@ enum ReviewScope {
     switch (this) {
       case ReviewScope.none:
         return 'none';
-      case ReviewScope.onlyPd:
-        return 'only_pd';
+      case ReviewScope.onlyThisDocument:
+        return 'only_this_document';
       case ReviewScope.global:
         return 'global';
       case ReviewScope.globalWithAdaptations:
@@ -36,8 +36,8 @@ enum ReviewScope {
     switch (this) {
       case ReviewScope.none:
         return 'Undecided';
-      case ReviewScope.onlyPd:
-        return 'Only PD';
+      case ReviewScope.onlyThisDocument:
+        return 'Only this document';
       case ReviewScope.global:
         return 'Global';
       case ReviewScope.globalWithAdaptations:
@@ -47,8 +47,12 @@ enum ReviewScope {
 
   static ReviewScope parse(String? raw) {
     switch (raw) {
+      case 'only_this_document':
+      // `only_pd` is the legacy token (pre-`Dxx` redesign, when the master was
+      // called the "Project Definition"). Existing `structure_review.yaml`
+      // files still carry it, so map it on read for back-compat.
       case 'only_pd':
-        return ReviewScope.onlyPd;
+        return ReviewScope.onlyThisDocument;
       case 'global':
         return ReviewScope.global;
       case 'global_with_adaptations':

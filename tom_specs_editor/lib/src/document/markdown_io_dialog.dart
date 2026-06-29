@@ -12,7 +12,7 @@ import 'spec_document_controller.dart';
 /// The markdown import/export dialogs (§15.2).
 ///
 /// Export offers a **scope** — *single* (one root projection), *multiple* (a
-/// subset of roots), or *global* (the Project Definition master) — previews the
+/// subset of roots), or *global* (the Solution Blueprint master) — previews the
 /// generated, schema-conformant markdown, and can **save it to a `*.md` file**.
 /// Import either pastes markdown or **loads it from a `*.md` file**, then
 /// applies it as a full overwrite of the covered scope, surfacing the

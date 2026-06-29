@@ -3,7 +3,7 @@ import 'package:tom_som_dart_runtime/tom_som_dart_runtime.dart';
 import 'spec_document_controller.dart';
 
 /// The scope of a markdown import/export (§15.2): one root projection, a subset
-/// of roots, or the Project Definition master.
+/// of roots, or the Solution Blueprint master.
 enum MarkdownScope { single, multiple, global }
 
 /// Why an imported markdown block was rejected (§15.2 parse-rejection protocol).

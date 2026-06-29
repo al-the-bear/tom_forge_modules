@@ -134,6 +134,33 @@ void main() {
     expect(reloadedAgain.count, 0);
   });
 
+  test('ReviewScope.parse maps the legacy only_pd token to onlyThisDocument', () {
+    // Pre-`Dxx`-redesign review files persisted the scope as `only_pd` (when the
+    // master was the "Project Definition"). Loading them must still resolve to
+    // the renamed scope so existing reviews are not silently downgraded.
+    expect(ReviewScope.parse('only_pd'), ReviewScope.onlyThisDocument);
+    expect(ReviewScope.parse('only_this_document'), ReviewScope.onlyThisDocument);
+    // The canonical token written back out is the new one.
+    expect(ReviewScope.onlyThisDocument.token, 'only_this_document');
+  });
+
+  test('a structure_review.yaml carrying legacy only_pd still loads', () {
+    final dir = Directory.systemTemp.createTempSync('specs_review_legacy_');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    final file = File('${dir.path}/structure_review.yaml')
+      ..writeAsStringSync('version: 1\n'
+          'entries:\n'
+          '  "DemoDoc/items/§item/content":\n'
+          '    scope: only_pd\n'
+          '    comment: "from a pre-rename review"\n');
+
+    final store = ReviewStore(file)..load();
+    final entry = store.entryFor('DemoDoc/items/§item/content');
+    expect(entry, isNotNull);
+    expect(entry!.scope, ReviewScope.onlyThisDocument);
+    expect(entry.comment, 'from a pre-rename review');
+  });
+
   test('SpecStructureModule hosts its view as the DocSpecs Structure tab', () {
     final model = SpecModel.fromJson(_sampleJson());
     final dir = Directory.systemTemp.createTempSync('specs_review_module_');
