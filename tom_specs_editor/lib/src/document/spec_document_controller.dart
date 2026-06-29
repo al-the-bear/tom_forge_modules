@@ -143,27 +143,27 @@ class SpecDocumentController extends ChangeNotifier {
   // --- §14 cross-projection identity (N12, OE-18) ------------------------
 
   /// Whether [rootSeg] names a *projection* root — one of the twelve Phase-3
-  /// `@Document(basedOn: [ProjectDefinition])` roots — rather than the Project
-  /// Definition master itself.
+  /// `@Document(basedOn: [SolutionBlueprint])` roots — rather than the Solution
+  /// Blueprint master itself.
   ///
-  /// Project Definition (`type == 'ProjectDefinition'` or `sectionId == 'PD'`)
-  /// is the source of truth; every other root projects a subset of PD's
-  /// sections. Returns `false` for an unknown [rootSeg].
+  /// Solution Blueprint (`type == 'SolutionBlueprint'` or `sectionId == 'SBP'`)
+  /// is the source of truth; every other root projects a subset of the
+  /// blueprint's sections. Returns `false` for an unknown [rootSeg].
   bool isProjectionRoot(String rootSeg) {
     final root = _rootBySeg(rootSeg);
     if (root == null) return false;
-    return !(root.type == 'ProjectDefinition' || root.sectionId == 'PD');
+    return !(root.type == 'SolutionBlueprint' || root.sectionId == 'SBP');
   }
 
   /// Maps a structural [path] to its **canonical** form, anchored on the deepest
   /// section that carries a stable section id *and* a projection annotation
   /// (`@MapsTo` / `@DetailedIn`) — the N12 projection→PD binding.
   ///
-  /// A projection root (e.g. `RequirementsCatalog`) aggregates the *same* PD00
-  /// classes the master uses. When such an aggregated class is annotated, its
-  /// unique class section id identifies the one shared underlying section
+  /// A projection root (e.g. `RequirementsSpecification`) aggregates the *same*
+  /// SBP00 classes the master uses. When such an aggregated class is annotated,
+  /// its unique class section id identifies the one shared underlying section
   /// regardless of which root the editor reached it through. So
-  /// `RC/functionalRequirements` and `PD/systemOverview/requirements/
+  /// `RSP/functionalRequirements` and `SBP/systemOverview/requirements/
   /// functionalRequirements` both canonicalize to `FR/…`, naming the identical
   /// node.
   ///

@@ -1,13 +1,13 @@
-// Tests for §14 cross-projection PD identity (N12 binding, OE-18).
+// Tests for §14 cross-projection blueprint identity (N12 binding, OE-18).
 //
-// A spec is ONE document with thirteen roots: ProjectDefinition (the master /
+// A spec is ONE document with thirteen roots: SolutionBlueprint (the master /
 // source of truth) plus twelve Phase-3 projection roots that aggregate the
-// SAME PD00 classes. When an aggregated class is annotated (`@MapsTo` /
+// SAME SBP00 classes. When an aggregated class is annotated (`@MapsTo` /
 // `@DetailedIn`), its unique class section id names the one shared underlying
 // section regardless of which root the editor reached it through. These tests
 // pin `SpecDocumentController.canonicalPathFor` / `isProjectionRoot` over a
-// synthetic PD + RequirementsCatalog model that mirrors the real asset's shape
-// (FunctionalRequirements is reachable via both PD and RC).
+// synthetic SBP + RequirementsSpecification model that mirrors the real asset's
+// shape (FunctionalRequirements is reachable via both SBP and RSP).
 
 import 'dart:io';
 
@@ -17,28 +17,28 @@ import 'package:tom_specs_editor/src/document/spec_document_controller.dart';
 import 'package:tom_specs_editor/src/structure/review_store.dart';
 import 'package:tom_specs_editor/src/structure/spec_model.dart';
 
-/// A two-root model: `ProjectDefinition` (PD, the master) and
-/// `RequirementsCatalog` (RC, a projection). `FunctionalRequirements` is
+/// A two-root model: `SolutionBlueprint` (SBP, the master) and
+/// `RequirementsSpecification` (RSP, a projection). `FunctionalRequirements` is
 /// annotated (`detailedIn`) and reachable through *both* roots; its list of
 /// requirements carries its own section id; `DocumentHeader` is an *unannotated*
-/// shared class reached only through RC (route-local — must not be conflated).
-Map<String, dynamic> _pdRcJson() => {
+/// shared class reached only through RSP (route-local — must not be conflated).
+Map<String, dynamic> _sbpRspJson() => {
       'roots': [
         {
-          'type': 'ProjectDefinition',
-          'title': 'Project Definition',
-          'sectionId': 'PD',
+          'type': 'SolutionBlueprint',
+          'title': 'Solution Blueprint',
+          'sectionId': 'SBP',
         },
         {
-          'type': 'RequirementsCatalog',
-          'title': 'Requirements Catalog',
-          'sectionId': 'RC',
+          'type': 'RequirementsSpecification',
+          'title': 'Requirements Specification',
+          'sectionId': 'RSP',
         },
       ],
       'classes': {
-        'ProjectDefinition': {
-          'name': 'ProjectDefinition',
-          'sectionId': 'PD',
+        'SolutionBlueprint': {
+          'name': 'SolutionBlueprint',
+          'sectionId': 'SBP',
           'fields': [
             {
               'name': 'systemOverview',
@@ -49,7 +49,7 @@ Map<String, dynamic> _pdRcJson() => {
         },
         'SystemOverview': {
           'name': 'SystemOverview',
-          'sectionId': 'PD-SO',
+          'sectionId': 'SBP-SO',
           'fields': [
             {
               'name': 'requirements',
@@ -60,7 +60,7 @@ Map<String, dynamic> _pdRcJson() => {
         },
         'Requirements': {
           'name': 'Requirements',
-          'sectionId': 'PD-SO-REQ',
+          'sectionId': 'SBP-SO-REQ',
           'fields': [
             {
               'name': 'functionalRequirements',
@@ -69,9 +69,9 @@ Map<String, dynamic> _pdRcJson() => {
             },
           ],
         },
-        'RequirementsCatalog': {
-          'name': 'RequirementsCatalog',
-          'sectionId': 'RC',
+        'RequirementsSpecification': {
+          'name': 'RequirementsSpecification',
+          'sectionId': 'RSP',
           'fields': [
             {'name': 'header', 'kind': 'complex', 'type': 'DocumentHeader'},
             {
@@ -86,7 +86,7 @@ Map<String, dynamic> _pdRcJson() => {
         'FunctionalRequirements': {
           'name': 'FunctionalRequirements',
           'sectionId': 'FR',
-          'detailedIn': 'RequirementsCatalog',
+          'detailedIn': 'RequirementsSpecification',
           'fields': [
             {
               'name': 'requirementsList',
@@ -124,7 +124,7 @@ ReviewStore _tempReviewStore() {
 
 Future<SpecDocumentController> _controller() async {
   final controller = SpecDocumentController(
-    modelFuture: Future<SpecModel>.value(SpecModel.fromJson(_pdRcJson())),
+    modelFuture: Future<SpecModel>.value(SpecModel.fromJson(_sbpRspJson())),
     review: _tempReviewStore(),
   );
   await controller.ensureLoaded();
@@ -134,14 +134,14 @@ Future<SpecDocumentController> _controller() async {
 
 void main() {
   group('isProjectionRoot (§14 / N12)', () {
-    test('PD is the master, the others are projections', () async {
+    test('SBP is the master, the others are projections', () async {
       final c = await _controller();
-      expect(c.isProjectionRoot('PD'), isFalse,
-          reason: 'the Project Definition root is the source of truth');
-      expect(c.isProjectionRoot('ProjectDefinition'), isFalse,
+      expect(c.isProjectionRoot('SBP'), isFalse,
+          reason: 'the Solution Blueprint root is the source of truth');
+      expect(c.isProjectionRoot('SolutionBlueprint'), isFalse,
           reason: 'matched by type name, still the master');
-      expect(c.isProjectionRoot('RC'), isTrue);
-      expect(c.isProjectionRoot('RequirementsCatalog'), isTrue);
+      expect(c.isProjectionRoot('RSP'), isTrue);
+      expect(c.isProjectionRoot('RequirementsSpecification'), isTrue);
     });
 
     test('an unknown root is not a projection', () async {
@@ -151,25 +151,25 @@ void main() {
   });
 
   group('canonicalPathFor (§14 / N12)', () {
-    test('an annotated class canonicalizes identically via PD and RC routes',
+    test('an annotated class canonicalizes identically via SBP and RSP routes',
         () async {
       final c = await _controller();
-      const pdRoute =
-          'PD/systemOverview/requirements/functionalRequirements';
-      const rcRoute = 'RC/functionalRequirements';
-      expect(c.canonicalPathFor(pdRoute), 'FR');
-      expect(c.canonicalPathFor(rcRoute), 'FR');
-      expect(c.canonicalPathFor(pdRoute), c.canonicalPathFor(rcRoute),
+      const sbpRoute =
+          'SBP/systemOverview/requirements/functionalRequirements';
+      const rspRoute = 'RSP/functionalRequirements';
+      expect(c.canonicalPathFor(sbpRoute), 'FR');
+      expect(c.canonicalPathFor(rspRoute), 'FR');
+      expect(c.canonicalPathFor(sbpRoute), c.canonicalPathFor(rspRoute),
           reason: 'both routes name the one shared FunctionalRequirements');
     });
 
     test('segments below the anchor are preserved verbatim', () async {
       final c = await _controller();
-      const pdRoute =
-          'PD/systemOverview/requirements/functionalRequirements/FRE-REQU-LST';
-      const rcRoute = 'RC/functionalRequirements/FRE-REQU-LST';
-      expect(c.canonicalPathFor(pdRoute), 'FR/FRE-REQU-LST');
-      expect(c.canonicalPathFor(rcRoute), 'FR/FRE-REQU-LST');
+      const sbpRoute =
+          'SBP/systemOverview/requirements/functionalRequirements/FRE-REQU-LST';
+      const rspRoute = 'RSP/functionalRequirements/FRE-REQU-LST';
+      expect(c.canonicalPathFor(sbpRoute), 'FR/FRE-REQU-LST');
+      expect(c.canonicalPathFor(rspRoute), 'FR/FRE-REQU-LST');
     });
 
     test('an unannotated shared class stays route-local (no conflation)',
@@ -177,16 +177,16 @@ void main() {
       final c = await _controller();
       // DocumentHeader has a section id but no @MapsTo/@DetailedIn — each
       // document keeps its own header instance, so the route prefix is kept.
-      expect(c.canonicalPathFor('RC/header'), 'RC/header');
+      expect(c.canonicalPathFor('RSP/header'), 'RSP/header');
     });
 
-    test('the PD master root and its unannotated nodes are unchanged',
+    test('the SBP master root and its unannotated nodes are unchanged',
         () async {
       final c = await _controller();
-      expect(c.canonicalPathFor('PD'), 'PD');
-      expect(c.canonicalPathFor('PD/systemOverview'), 'PD/systemOverview');
-      expect(c.canonicalPathFor('PD/systemOverview/requirements'),
-          'PD/systemOverview/requirements');
+      expect(c.canonicalPathFor('SBP'), 'SBP');
+      expect(c.canonicalPathFor('SBP/systemOverview'), 'SBP/systemOverview');
+      expect(c.canonicalPathFor('SBP/systemOverview/requirements'),
+          'SBP/systemOverview/requirements');
     });
   });
 }

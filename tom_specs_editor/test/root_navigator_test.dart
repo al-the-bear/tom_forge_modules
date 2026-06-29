@@ -1,4 +1,4 @@
-// Tests for the §14 root navigator (step 20): Project Definition first, a
+// Tests for the §14 root navigator (step 20): Solution Blueprint first, a
 // separator, then the other roots alphabetically; selecting a root re-renders
 // the document editor as that projection over the *same* shared document.
 //
@@ -17,48 +17,48 @@ import 'package:tom_specs_editor/src/document/spec_document_editor.dart';
 import 'package:tom_specs_editor/src/structure/review_store.dart';
 import 'package:tom_specs_editor/src/structure/spec_model.dart';
 
-/// Three roots in deliberately non-alphabetical, non-PD-first order so the
-/// ordering policy (PD first, then alphabetical by title) is actually exercised.
-/// Each root's class carries one distinctively-named content field so the
-/// rendered projection is identifiable by its chip/editor.
+/// Three roots in deliberately non-alphabetical, non-blueprint-first order so
+/// the ordering policy (Solution Blueprint first, then alphabetical by title) is
+/// actually exercised. Each root's class carries one distinctively-named content
+/// field so the rendered projection is identifiable by its chip/editor.
 Map<String, dynamic> _multiRootJson() => {
       'roots': [
         {
-          'type': 'CurrentSituation',
-          'title': 'Current Situation',
-          'sectionId': 'CS',
+          'type': 'CurrentLandscapeAssessment',
+          'title': 'Current Landscape Assessment',
+          'sectionId': 'CLA',
         },
         {
-          'type': 'ProjectDefinition',
-          'title': 'Project Definition',
-          'sectionId': 'PD',
+          'type': 'SolutionBlueprint',
+          'title': 'Solution Blueprint',
+          'sectionId': 'SBP',
         },
         {
-          'type': 'AuthorizationConcept',
-          'title': 'Authorization Concept',
-          'sectionId': 'AC',
+          'type': 'SecurityAccessSpecification',
+          'title': 'Security Access Specification',
+          'sectionId': 'SAS',
         },
       ],
       'classes': {
-        'ProjectDefinition': {
-          'name': 'ProjectDefinition',
-          'sectionId': 'PD',
+        'SolutionBlueprint': {
+          'name': 'SolutionBlueprint',
+          'sectionId': 'SBP',
           'fields': [
-            {'name': 'pdOverview', 'kind': 'content', 'sectionId': 'PD-OVR'},
+            {'name': 'sbpOverview', 'kind': 'content', 'sectionId': 'SBP-OVR'},
           ],
         },
-        'CurrentSituation': {
-          'name': 'CurrentSituation',
-          'sectionId': 'CS',
+        'CurrentLandscapeAssessment': {
+          'name': 'CurrentLandscapeAssessment',
+          'sectionId': 'CLA',
           'fields': [
-            {'name': 'csOverview', 'kind': 'content', 'sectionId': 'CS-OVR'},
+            {'name': 'claOverview', 'kind': 'content', 'sectionId': 'CLA-OVR'},
           ],
         },
-        'AuthorizationConcept': {
-          'name': 'AuthorizationConcept',
-          'sectionId': 'AC',
+        'SecurityAccessSpecification': {
+          'name': 'SecurityAccessSpecification',
+          'sectionId': 'SAS',
           'fields': [
-            {'name': 'acOverview', 'kind': 'content', 'sectionId': 'AC-OVR'},
+            {'name': 'sasOverview', 'kind': 'content', 'sectionId': 'SAS-OVR'},
           ],
         },
       },
@@ -101,42 +101,45 @@ Future<void> _pumpTree(
 
 void main() {
   group('navigator ordering (§14)', () {
-    test('Project Definition is first, then the rest alphabetically by title',
+    test('Solution Blueprint is first, then the rest alphabetically by title',
         () {
       final model = SpecModel.fromJson(_multiRootJson());
       final ordered = navigatorRootOrder(model.roots).map((r) => r.type);
       expect(
         ordered,
-        ['ProjectDefinition', 'AuthorizationConcept', 'CurrentSituation'],
+        ['SolutionBlueprint', 'CurrentLandscapeAssessment',
+            'SecurityAccessSpecification'],
       );
     });
 
-    test('defaultNavigatorRoot is Project Definition when present', () {
+    test('defaultNavigatorRoot is Solution Blueprint when present', () {
       final model = SpecModel.fromJson(_multiRootJson());
-      expect(defaultNavigatorRoot(model.roots)!.type, 'ProjectDefinition');
+      expect(defaultNavigatorRoot(model.roots)!.type, 'SolutionBlueprint');
     });
 
-    test('defaultNavigatorRoot falls back to the first root without a PD', () {
+    test('defaultNavigatorRoot falls back to the first root without a blueprint',
+        () {
       final roots = [
-        SpecRoot(type: 'CurrentSituation', title: 'Current Situation',
-            sectionId: 'CS'),
-        SpecRoot(type: 'UseCases', title: 'Use Cases', sectionId: 'UC'),
+        SpecRoot(type: 'CurrentLandscapeAssessment',
+            title: 'Current Landscape Assessment', sectionId: 'CLA'),
+        SpecRoot(type: 'InteractionScenarios', title: 'Interaction Scenarios',
+            sectionId: 'ISC'),
       ];
-      expect(defaultNavigatorRoot(roots)!.type, 'CurrentSituation');
+      expect(defaultNavigatorRoot(roots)!.type, 'CurrentLandscapeAssessment');
       expect(defaultNavigatorRoot(const [])?.type, isNull);
     });
   });
 
   group('RootNavigator widget (§14)', () {
-    testWidgets('lists every root with Project Definition first + a separator',
+    testWidgets('lists every root with Solution Blueprint first + a separator',
         (tester) async {
       final controller = await _controller();
       await _pumpNavigator(tester, controller);
 
-      expect(find.text('Project Definition'), findsOneWidget);
-      expect(find.text('Current Situation'), findsOneWidget);
-      expect(find.text('Authorization Concept'), findsOneWidget);
-      // The separator after Project Definition.
+      expect(find.text('Solution Blueprint'), findsOneWidget);
+      expect(find.text('Current Landscape Assessment'), findsOneWidget);
+      expect(find.text('Security Access Specification'), findsOneWidget);
+      // The separator after the Solution Blueprint.
       expect(find.byType(Divider), findsOneWidget);
     });
 
@@ -144,24 +147,24 @@ void main() {
       final controller = await _controller();
       await _pumpNavigator(tester, controller);
 
-      // Defaults to Project Definition with nothing explicitly selected.
+      // Defaults to the Solution Blueprint with nothing explicitly selected.
       expect(controller.activeRootType, isNull);
 
-      await tester.tap(find.text('Current Situation'));
+      await tester.tap(find.text('Current Landscape Assessment'));
       await tester.pump();
-      expect(controller.activeRootType, 'CS');
+      expect(controller.activeRootType, 'CLA');
     });
   });
 
   group('document tree follows the active root (Done condition)', () {
-    testWidgets('renders Project Definition by default, not the first root',
+    testWidgets('renders the Solution Blueprint by default, not the first root',
         (tester) async {
       final controller = await _controller();
       await _pumpTree(tester, controller);
 
-      // PD is the default projection even though CurrentSituation is roots.first.
-      expect(find.widgetWithText(ActionChip, 'pdOverview'), findsOneWidget);
-      expect(find.widgetWithText(ActionChip, 'csOverview'), findsNothing);
+      // SBP is the default projection even though CLA is roots.first.
+      expect(find.widgetWithText(ActionChip, 'sbpOverview'), findsOneWidget);
+      expect(find.widgetWithText(ActionChip, 'claOverview'), findsNothing);
     });
 
     testWidgets('selecting another root re-renders that projection',
@@ -169,11 +172,11 @@ void main() {
       final controller = await _controller();
       await _pumpTree(tester, controller);
 
-      controller.setActiveRoot('CS');
+      controller.setActiveRoot('CLA');
       await tester.pump();
 
-      expect(find.widgetWithText(ActionChip, 'csOverview'), findsOneWidget);
-      expect(find.widgetWithText(ActionChip, 'pdOverview'), findsNothing);
+      expect(find.widgetWithText(ActionChip, 'claOverview'), findsOneWidget);
+      expect(find.widgetWithText(ActionChip, 'sbpOverview'), findsNothing);
     });
 
     testWidgets('edits persist across root switches (same underlying data)',
@@ -181,21 +184,21 @@ void main() {
       final controller = await _controller();
       await _pumpTree(tester, controller);
 
-      // Author content under Project Definition's overview.
-      controller.setContent('PD/PD-OVR', 'shared body');
+      // Author content under the Solution Blueprint's overview.
+      controller.setContent('SBP/SBP-OVR', 'shared body');
       await tester.pump();
       expect(find.widgetWithText(TextField, 'shared body'), findsOneWidget);
 
-      // Switch away to Authorization Concept, then back to Project Definition.
-      controller.setActiveRoot('AC');
+      // Switch away to Security Access Specification, then back to the blueprint.
+      controller.setActiveRoot('SAS');
       await tester.pump();
       expect(find.widgetWithText(TextField, 'shared body'), findsNothing);
 
-      controller.setActiveRoot('PD');
+      controller.setActiveRoot('SBP');
       await tester.pump();
 
-      // The PD value is intact — switching projections never forks the store.
-      expect(controller.content('PD/PD-OVR'), 'shared body');
+      // The SBP value is intact — switching projections never forks the store.
+      expect(controller.content('SBP/SBP-OVR'), 'shared body');
       expect(find.widgetWithText(TextField, 'shared body'), findsOneWidget);
     });
   });

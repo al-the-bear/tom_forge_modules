@@ -8,39 +8,39 @@ import 'spec_document_controller.dart';
 /// The selector segment for a root: its section id, falling back to its type.
 String rootSelector(SpecRoot root) => root.sectionId ?? root.type;
 
-/// Whether [root] is the Project Definition (the canonical, shared root).
-bool isProjectDefinition(SpecRoot root) =>
-    root.type == 'ProjectDefinition' || root.sectionId == 'PD';
+/// Whether [root] is the Solution Blueprint (the canonical, shared master root).
+bool isSolutionBlueprint(SpecRoot root) =>
+    root.type == 'SolutionBlueprint' || root.sectionId == 'SBP';
 
 /// The default root the editor opens on when nothing is selected (§14): the
-/// Project Definition if the model has one, else the model's first root (so a
+/// Solution Blueprint if the model has one, else the model's first root (so a
 /// single-root synthetic model still resolves sensibly).
 SpecRoot? defaultNavigatorRoot(List<SpecRoot> roots) {
   if (roots.isEmpty) return null;
   for (final r in roots) {
-    if (isProjectDefinition(r)) return r;
+    if (isSolutionBlueprint(r)) return r;
   }
   return roots.first;
 }
 
-/// Orders roots for the §14 navigator: **Project Definition first**, then the
+/// Orders roots for the §14 navigator: **Solution Blueprint first**, then the
 /// remaining roots **alphabetically by title**. The navigator renders a
-/// separator after Project Definition; this pure ordering keeps that policy
+/// separator after the Solution Blueprint; this pure ordering keeps that policy
 /// testable independently of the widget.
 List<SpecRoot> navigatorRootOrder(List<SpecRoot> roots) {
-  final pd = <SpecRoot>[];
+  final master = <SpecRoot>[];
   final others = <SpecRoot>[];
   for (final r in roots) {
-    (isProjectDefinition(r) ? pd : others).add(r);
+    (isSolutionBlueprint(r) ? master : others).add(r);
   }
   others.sort(
       (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
-  return [...pd, ...others];
+  return [...master, ...others];
 }
 
 /// The §14 root navigator, surfaced as the DocSpecs left-panel "Navigator" tab.
 ///
-/// Lists the document roots (Project Definition first, a separator, then the
+/// Lists the document roots (Solution Blueprint first, a separator, then the
 /// rest alphabetically) and drives the *active root* on the shared
 /// [SpecDocumentController]. Selecting a root re-renders the document editor as
 /// that projection over the **same** underlying document — switching never
@@ -121,11 +121,11 @@ class RootNavigatorList extends StatelessWidget {
                       final selected = seg == active ||
                           root.type == active ||
                           root.sectionId == active;
-                      // A separator sits after Project Definition (index 0 when
-                      // the model has a PD root), before the alphabetical rest.
+                      // A separator sits after the Solution Blueprint (index 0
+                      // when the model has one), before the alphabetical rest.
                       final showDivider = i == 0 &&
                           ordered.length > 1 &&
-                          isProjectDefinition(root);
+                          isSolutionBlueprint(root);
                       final tile = _RootTile(
                         root: root,
                         selected: selected,
