@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-06-29T09:44:48.342305Z",
+  "generatedAt": "2026-06-29T10:02:56.737116Z",
   "metaSchemaVersion": 1,
   "modelVersion": 1,
-  "modelVersionLabel": "1.0.0+4.410187b",
+  "modelVersionLabel": "1.0.0+5.67662f0",
   "classCount": 3104,
   "rootCount": 13,
-  "containerRoot": null,
+  "containerRoot": "DocSpecsProject",
   "roots": [
     {
       "type": "ArchitectureTechnologySpecification",
