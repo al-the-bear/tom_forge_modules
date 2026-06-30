@@ -34,7 +34,7 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   # Test-only: the send-controller test fakes the Agent SDK transport to run the
   # whole §7 pipeline without opening a socket.
-  tom_vscode_scripting_api: ^1.1.0
+  tom_vscode_scripting_api: ">=1.1.0"
 
 flutter:
   uses-material-design: true
