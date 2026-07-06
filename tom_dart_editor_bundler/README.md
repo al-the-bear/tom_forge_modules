@@ -273,9 +273,5 @@ ten `d4rt-flutter` code fields cost one Flutter summary parse, not ten.
 
 ## Design references
 
-- Summary-scoping spec:
-  [`tom_dart_editor_summary_scoping.md`](../../_ai/quests/tom_specs/tom_dart_editor_summary_scoping.md)
-- Editor summary-scopes doc:
+- Summary-scopes specification:
   [`tom_dart_editor/doc/summary_scopes.md`](../tom_dart_editor/doc/summary_scopes.md)
-- Implementation plan:
-  [`tom_dart_editor_summary_scoping_plan.md`](../../_ai/quests/tom_specs/tom_dart_editor_summary_scoping_plan.md)

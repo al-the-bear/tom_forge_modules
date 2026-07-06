@@ -1,27 +1,19 @@
 # Summary Scopes & the `tom_dart_editor_bundler`
 
-> **Status: implemented.** Scoped analyzer-summary bundles, the
-> `tom_dart_editor_bundler` CLI, and the shared-store multi-instance memory model
-> all ship. This document describes the design; for the as-built reference see the
-> [package README's "Embedding with Summary Scopes"](../README.md) section and the
-> companion CLI at [`../../tom_dart_editor_bundler`](../../tom_dart_editor_bundler).
-> It is the package-level home of the design recorded in the `tom_specs` quest:
-> [`tom_dart_editor_summary_scoping.md`](../../../_ai/quests/tom_specs/tom_dart_editor_summary_scoping.md)
-> (spec, §§6–10 describe the shipped system),
-> [`…_plan.md`](../../../_ai/quests/tom_specs/tom_dart_editor_summary_scoping_plan.md)
-> (numbered implementation plan, items 1–14 done), and
-> [`…_questions.md`](../../../_ai/quests/tom_specs/tom_dart_editor_summary_scoping_questions.md)
-> (decisions D1–D8). The single-pair flow in
-> [`package_summary_generation.md`](package_summary_generation.md) and the
-> explicit-asset constructors in [`how_to_embed.md`](how_to_embed.md) remain as
-> the lower-level escape hatch.
-
 `tom_dart_editor` does **SDK-free** static analysis inside code-typed fields by
 loading pre-built `.sum` bundles at runtime (see
 [`package_summary_generation.md`](package_summary_generation.md) for what a
-`.sum` is and how one is built today). This document covers the next step: how an
-app that embeds **many** small editors — each targeting a **different** code
-surface — generates and shares those bundles efficiently.
+`.sum` is and how one is built). This document describes **summary scopes**: how
+an app that embeds **many** small editors — each targeting a **different** code
+surface — generates and shares those bundles efficiently, and the
+`tom_dart_editor_bundler` CLI that produces them.
+
+The scoped model is the primary embedding path. The single explicit-asset flow in
+[`package_summary_generation.md`](package_summary_generation.md) and the
+explicit-asset constructors in [`how_to_embed.md`](how_to_embed.md) remain as a
+lower-level escape hatch. The end-to-end reference is the package README's
+["Embedding with Summary Scopes"](../README.md) section and the companion CLI at
+[`../../tom_dart_editor_bundler`](../../tom_dart_editor_bundler).
 
 ---
 
@@ -41,20 +33,19 @@ any of several **distinct closures**, and they are not the same:
 3. **plain Dart fields** — `@ContentType('code-dart')` ordinary Dart that may
    want the SDK only, or the SDK plus a small curated closure.
 
-Today all of these would share a **single** editor-wide `packages.sum`, which is
-both **too broad** (it exposes packages a d4rt script can never reach, giving
-misleading completions) and **too heavy** (~40 MB, loaded once but conceptually
-wrong per field type). Each d4rt surface needs its **own, narrower**
-`package_config.json` so the summary matches the *bridged API*, not the app's
-transitive dependencies.
+A single editor-wide `packages.sum` serving all of these is both **too broad**
+(it exposes packages a d4rt script can never reach, giving misleading
+completions) and **too heavy** (tens of MB, loaded once but conceptually wrong
+per field type). Each d4rt surface needs its **own, narrower** package closure so
+the summary matches the *bridged API*, not the app's transitive dependencies.
 
 ---
 
-## 2. The abstraction: a named "summary scope" (a.k.a. editor type)
+## 2. The abstraction: a named "summary scope"
 
-A **summary scope** is a named bundle of *(sdk-summary asset, package-summary
-asset, implicit imports, allowed package prefixes)* describing one analysis
-surface:
+A **summary scope** (a.k.a. editor type) is a named bundle of *(sdk-summary
+asset, package-summary asset, implicit imports, allowed package prefixes)*
+describing one analysis surface:
 
 | Scope / editor type | Bridged surface | Summary source `package_config.json` |
 | --- | --- | --- |
@@ -62,44 +53,49 @@ surface:
 | `d4rt-flutter` | `tom_d4rt_flutter` `d4rtgen` modules + proxy classes | a **dedicated** config covering exactly those packages |
 | `d4rt-document` | document-scripting bridged API | a second dedicated config |
 
-Two independent multiplicities must both be supported:
+Two independent multiplicities are both supported:
 
 - **Multiple *types*** of editor (the scopes above), each bound to a content type
-  / file extension (`code-dart`, `code-d4rt-flutter`, `code-d4rt-doc`, …). The
-  host's field router picks the scope from the content type instead of one
-  hardcoded asset pair.
+  (`code-dart`, `code-d4rt-flutter`, `code-d4rt-doc`, …). The host's field router
+  picks the scope from the content type instead of one hardcoded asset pair.
 - **Multiple *instances*** of the same type — a long document can show dozens of
-  small code fields. Instantiating many editors **must not** reload or re-hold a
-  40 MB bundle per instance.
+  small code fields. Instantiating many editors does **not** reload or re-hold a
+  bundle per instance.
 
 ### 2.1 Shared, ref-counted summary stores (the memory model)
 
-The key refactoring is to **share the loaded summary data across instances of
-the same scope**. A per-instance `SummaryBackedDartAnalysisAdapter` resolves its
-summary data from a **process-wide cache keyed by scope id** — loaded once,
-parsed once, ref-counted — instead of each adapter calling `rootBundle.load(...)`
-and holding its own copy. Registration **parses the `.sum` bytes into the
-analyzer element model and then releases the byte buffers**, so after init only
-the parsed (shared) store is resident.
+The loaded summary data is **shared across instances of the same scope**. A
+per-instance `SummaryBackedDartAnalysisAdapter` resolves its summary data from a
+**process-wide cache keyed by scope name** — loaded once, parsed once,
+ref-counted — instead of each adapter calling `rootBundle.load(...)` and holding
+its own copy. Registration **parses the `.sum` bytes into the analyzer element
+model and then releases the byte buffers**, so after init only the parsed
+(shared) `ParsedSummaryModel` is resident. Each editor builds its own cheap
+`AnalysisDriverWithPackages` over that shared model.
 
 Net effect: *N* small editors of one scope cost ≈ **one** parsed store + *N*
-lightweight controllers — enabling "many small editors without much memory".
+lightweight drivers — enabling "many small editors without much memory".
 
 ---
 
 ## 3. The bundler tool — `tom_dart_editor_bundler`
 
-A new standalone `tom_build_base`-based CLI (to live at
-`tom_forge/tom_dart_editor_bundler`, beside this package — decision D2/D3) reads
-a per-app config, emits one `.sum` set per scope, and generates a scope-init
-helper.
+A standalone `tom_build_base`-based CLI at `tom_forge/tom_dart_editor_bundler`,
+beside this package. It reads a per-app config, emits one `.sum` set per scope,
+and generates a scope-init helper. The tool name is `dart-editor-bundler`
+(`ToolMode.singleCommand`); its entrypoint `bin/dart_editor_bundler.dart` runs a
+`tom_build_base` `ToolRunner` over `dartEditorBundlerTool` (arg parsing, version,
+help).
 
 ### 3.1 Config — `dart-editor-bundler` in the **app's** `buildkit.yaml`
 
 Summary bundles are per-app (the app declares which bridged surfaces its editor
 fields target), so the config lives in the **consuming app's** `buildkit.yaml`
-under a new top-level `dart-editor-bundler` key (decision D4), mirroring how
-other buildkit tools read their own key.
+under the top-level `dart-editor-bundler` key, mirroring how other buildkit tools
+read their own key. Each entry under `bundles` is one summary scope; its
+`packages` list covers the **union** of each listed package's resolved
+`.dart_tool/package_config.json` closure, so an app can scope a bundle to a
+bridged surface without depending on it.
 
 ```yaml
 dart-editor-bundler:
@@ -132,35 +128,65 @@ dart-editor-bundler:
 | `allowed-package-prefixes` | Optional completion filter (adapter's `allowedPackagePrefixes`). |
 | `include-all-package-completions` | Optional bool (adapter's `includeAllPackageCompletions`). |
 
+The config model and reader are `BundlerConfig` / `SummaryBundleSpec` with
+`loadBundlerConfig` (`lib/src/bundler_config.dart`); a `BundlerConfigException` is
+raised on schema violations — including duplicate `name`, `packages` empty without
+`sdk-only`, `sdk-only` combined with `packages`, and unknown keys.
+
 ### 3.2 Base-first: summary building lives in `tom_analyzer_shared`
 
 Per the workspace base-first rule, the bundler **does not reimplement** summary
 generation. `tom_ai/basics/tom_analyzer_shared` is the base-first owner of
-analyzer-summary infrastructure (`SummaryGenerator`, `DependencyResolver`,
-`resolveDartSdkPath`, `ToolCacheLocator`, `runSummaryCacheStage`) and is reused
-as-is for the SDK summary and dependency resolution.
+analyzer-summary infrastructure (SDK-summary build including the Flutter `dart:ui`
+embedder, dependency resolution, robust Dart-SDK location, shared tool cache:
+`SummaryGenerator`, `DependencyResolver`, `resolveDartSdkPath`, `ToolCacheLocator`,
+`runSummaryCacheStage`).
 
-The one capability it does **not** yet expose — building a single **grouped**
-`packages.sum` from the *union* of several package closures (with the
-load-bearing `_PackageMapUriResolver`-before-`ResourceUriResolver` order; today
-in `tom_specs_clitool/bin/summaries.dart` `buildPackageBundle` +
-`summary_package_config.dart`) — is **added to `tom_analyzer_shared`** (published,
-version-bumped) and then consumed by **both** the bundler and `tom_specs_clitool`,
-so the algorithm exists exactly once (decisions D5/D8).
+The grouped-bundle capability — building one **grouped** `packages.sum` from the
+*union* of several package closures, with the load-bearing
+`_PackageMapUriResolver`-before-`ResourceUriResolver` order (so emitted library
+URIs are `package:`, never `file:`, and the bundle is portable) — is the
+**`GroupedPackageBundleBuilder`** class in `tom_analyzer_shared`, exported from
+`package:tom_analyzer_shared/tom_analyzer_shared.dart`. Its entry-point is
+`GroupedPackageBundleBuilder(resourceProvider: …).buildFromDirs(dirs, sdkPath: …,
+onLog: …)`. It is consumed by **both** the bundler (`bundle_generator.dart`) and
+`tom_specs_clitool/bin/summaries.dart`, so the algorithm exists exactly once in
+the base library; both consumers pin `tom_analyzer_shared: ^0.5.0` (hosted from
+pub.dev, never a path override).
 
 ### 3.3 Invocation
 
+Run in the consuming app dir so relative paths resolve against it:
+
 ```bash
-dart run tom_dart_editor_bundler                       # reads ./buildkit.yaml
-dart run tom_dart_editor_bundler --config path/to/buildkit.yaml
-dart run tom_dart_editor_bundler --bundle d4rt-flutter # one bundle only
+# All scopes (default config is the project's buildkit.yaml):
+dart run ../tom_dart_editor_bundler/bin/dart_editor_bundler.dart \
+  --config buildkit.yaml --verbose
+# One scope only (the shared SDK summary is still emitted):
+dart run ../tom_dart_editor_bundler/bin/dart_editor_bundler.dart \
+  --config buildkit.yaml --bundle d4rt-flutter
 ```
+
+CLI options: `--config`/`-c` (config path; defaults to the project `buildkit.yaml`,
+and all relative paths resolve against its directory), `--bundle`/`-b` (build one
+named scope), `--verbose`, plus the standard `--help` / `--version`.
+
+The executor (`bundler_executor.dart`) sequences the work: `sdk_summary.sum` is
+generated **once** into `out-dir` (idempotent — reused if it already exists),
+each non-`sdk-only` bundle's `out-dir/<name>/packages.sum` is built via
+`BundleGenerator.generate(...)` (`bundle_generator.dart`), and the generated
+helper is written from the **full** config (so every declared scope is registered
+even under `--bundle`).
 
 ### 3.4 Generated scope-init helper
 
-The tool writes a generated Dart file the app imports and calls **once** at
-startup. It registers every declared bundle with the scope registry; registration
-parses the `.sum` bytes and releases the buffers (§2.1).
+The tool writes the `generated-helper` Dart file
+(`generateScopeInitHelper` / `writeScopeInitHelper`, `helper_writer.dart`); the
+app imports it and calls it **once** at startup. It registers every declared
+bundle with `tom_dart_editor`'s scope registry; registration parses the `.sum`
+bytes and releases the buffers (§2.1). Each bundle yields a camelCase `const`
+(`d4rt-flutter` → `d4rtFlutter`); `allowed-package-prefixes` /
+`include-all-package-completions` are emitted only when declared.
 
 ```dart
 // GENERATED — do not edit. Produced by tom_dart_editor_bundler.
@@ -169,42 +195,55 @@ import 'package:tom_dart_editor/tom_dart_editor.dart';
 abstract final class SummaryScopes {
   static const dartPlain = 'dart-plain';
   static const d4rtFlutter = 'd4rt-flutter';
-  static const d4rtDocument = 'd4rt-document';
 
-  /// Loads + parses every bundle once and registers it by name. Idempotent.
   static Future<void> initialize() async {
-    await SummaryScopeRegistry.instance.register(
-      const SummaryScopeAsset(
-        name: d4rtFlutter,
-        sdkSummaryAsset: 'assets/summaries/sdk_summary.sum',
-        packageSummaryAsset: 'assets/summaries/d4rt-flutter/packages.sum',
-        implicitImports: ['package:flutter/material.dart'],
-        allowedPackagePrefixes: ['package:flutter/', 'package:vector_math/'],
-      ),
-    );
-    // … dart-plain, d4rt-document …
+    await SummaryScopeRegistry.instance.register(const SummaryScopeAsset(
+      name: dartPlain,
+      sdkSummaryAsset: 'assets/summaries/sdk_summary.sum',
+      packageSummaryAsset: null,
+      implicitImports: ['dart:async', 'dart:collection', 'dart:math'],
+    ));
+    await SummaryScopeRegistry.instance.register(const SummaryScopeAsset(
+      name: d4rtFlutter,
+      sdkSummaryAsset: 'assets/summaries/sdk_summary.sum',
+      packageSummaryAsset: 'assets/summaries/d4rt-flutter/packages.sum',
+      implicitImports: ['package:flutter/material.dart'],
+    ));
   }
 }
 ```
 
 ---
 
-## 4. New API in `tom_dart_editor`
+## 4. API in `tom_dart_editor`
 
-- **`SummaryScopeAsset`** — immutable descriptor (name + asset paths + defaults).
-- **`SummaryScopeRegistry`** — process-wide singleton keyed by scope **name**.
-  `register(asset)` loads bytes, builds the parsed `SummaryDataStore` element
-  model (the work `createAnalysisDriverWithPackages` does today), retains the
-  **parsed** store, and discards the byte buffers; idempotent and ref-aware.
-  `scope(name)` returns a lightweight handle from which each editor builds its
-  own cheap `AnalysisDriver`/controller over the **shared** model.
-- **`SummaryBackedDartAnalysisAdapter`** — refactored to resolve its summary data
-  from the registry **by scope name** instead of holding `_sdkSummaryBytes` /
-  `_packageSummaryBytes` per instance.
+Shipped in `tom_dart_editor` (`lib/src/summary_scope_registry.dart`):
+
+- **`SummaryScopeAsset`** — the immutable descriptor (`name`, `sdkSummaryAsset`,
+  nullable `packageSummaryAsset`, `implicitImports`, `allowedPackagePrefixes`,
+  `includeAllPackageCompletions`).
+- **`SummaryScope`** — a lightweight handle exposing the asset's properties;
+  each editor builds its own cheap `AnalysisDriverWithPackages` over the
+  **shared** parsed model via `createDriver()`.
+- **`SummaryScopeRegistry`** — a process-wide singleton
+  (`SummaryScopeRegistry.instance`) keyed by scope **name**. `register(asset)`
+  loads the bytes (via an injectable `bytesLoader`, default `rootBundle`), builds
+  the parsed `ParsedSummaryModel` store, retains it, and discards the byte
+  buffers; it is idempotent and ref-aware, so repeated calls (and N editor
+  instances) share one store. `isRegistered(name)` and `scope(name)` are
+  **synchronous** probes the host uses to choose the editor vs. a fallback.
+- **`SummaryBackedDartAnalysisAdapter`** — a named `.scope(scopeName, …)`
+  constructor resolves the summary data from the registry by name instead of
+  holding `_sdkSummaryBytes` / `_packageSummaryBytes` per instance. Per-instance
+  `implicitImports` / `includeAllPackageCompletions` / `allowedPackagePrefixes`
+  overrides win, otherwise the registered scope's values are inherited. The
+  default explicit-asset constructor is retained as the escape hatch.
 - **Editor widgets** — `SimpleSummaryBackedDartCodeEditor` /
-  `SummaryBackedDartCodeEditor` gain a **`scope`** (bundle name) parameter that
-  replaces the hardcoded `sdkSummaryAsset` / `packageSummaryAsset` pair; the
-  explicit-asset constructor is retained as a lower-level escape hatch.
+  `SummaryBackedDartCodeEditor` take a nullable **`String? scope`** parameter
+  that, when set, resolves the shared parsed store from the registry instead of
+  the hardcoded `sdkSummaryAsset` / `packageSummaryAsset` pair. An absent scope
+  yields empty diagnostics with no crash; `didUpdateWidget` recreates the adapter
+  on a `scope` change.
 
 ```dart
 SimpleSummaryBackedDartCodeEditor(
@@ -214,44 +253,68 @@ SimpleSummaryBackedDartCodeEditor(
 )
 ```
 
-The host's field router maps each `@ContentType('code-dart' | 'code-d4rt-flutter'
-| 'code-d4rt-doc')` to a scope name; a **per-scope availability probe** replaces
-today's single hardcoded probe (an unregistered/absent scope falls back to a
-plain value field, exactly as the single probe does today).
+### 4.1 Field routing (host side)
+
+In an embedding app, the field router maps each content type to a scope name and
+uses the per-scope availability probe to choose the widget. In
+`tom_specs_editor`, `spec_document_editor.dart` provides
+**`scopeForContentType(String?)`** (`code`/`code-dart` → `dart-plain`,
+`code-d4rt-flutter` → `d4rt-flutter`, `code-d4rt-doc` → `d4rt-document`, else
+`null`), and `isDartCodeContentType` is defined as `scopeForContentType(ct) !=
+null`. A registered scope yields `SimpleSummaryBackedDartCodeEditor(scope: …)`;
+an unregistered/absent scope falls back to a plain value field. The synchronous
+`SummaryScopeRegistry.instance.isRegistered(scope)` probe replaces a single
+hardcoded asset probe (`initialize()` is awaited before `runApp`).
 
 ---
 
-## 5. End-to-end embedding (target)
+## 5. End-to-end embedding
 
-Once the bundler ships, embedding a scoped editor in a Flutter app is:
+Embedding a scoped editor in a Flutter app:
 
 1. Declare bundles in the app's `buildkit.yaml` (`dart-editor-bundler`, §3.1).
-2. Run `dart run tom_dart_editor_bundler` to generate the `.sum` assets and the
+2. Run the bundler (§3.3) to generate the `.sum` assets and the
    `summary_scopes.g.dart` helper.
-3. List the generated `.sum` assets in the app's `pubspec.yaml` `flutter:
-   assets:`.
-4. Call `await SummaryScopes.initialize()` once in `main()` before showing
-   editors.
+3. List the generated `.sum` asset dirs (non-recursive) in the app's
+   `pubspec.yaml` `flutter: assets:`.
+4. Call `await SummaryScopes.initialize()` once in an `async main()` before
+   `runApp`.
 5. Instantiate editors with `scope: SummaryScopes.<name>`.
+
+**Asset/commit policy.** The generated `summary_scopes.g.dart` helper is
+**committed** (committed code may not import a gitignored file), reached via a
+`.gitignore` negation; the heavy `.sum` bundles are **gitignored**
+(`assets/summaries/**/*.sum`) and regenerated from the committed config. A
+committed `.gitkeep` keeps each asset dir present for `pubspec.yaml`.
 
 ---
 
-## 6. Decisions (from the quest `_questions.md`, D1–D8)
+## 6. As-built layout, first consumer, and testing
 
-| # | Decision |
-| --- | --- |
-| D1 | Editor package is **`tom_dart_editor`**; no rename — only doc/tool naming harmonised. |
-| D2 | The tool is **`tom_dart_editor_bundler`** (aligned to the package); buildkit key `dart-editor-bundler`. |
-| D3 | Bundler location: **`tom_forge/tom_dart_editor_bundler`**, beside this package. |
-| D4 | Config lives in the **consuming app's** `buildkit.yaml`, key `dart-editor-bundler`. |
-| D5 | Build on **`tom_analyzer_shared`** (base-first owner of summary generation); never reimplement. |
-| D6 | The registry **parses once and releases the bytes** — the memory model of §2.1. |
-| D7 | (Historical) The first quest turn produced spec + plan only; the implementation shipped in later turns — plan items 1–14 done. |
-| D8 | The **grouped-bundle** capability is added to `tom_analyzer_shared` and consumed by both the bundler and `tom_specs_clitool` (one algorithm). |
+**Bundler project** (`tom_forge/tom_dart_editor_bundler`):
+`bin/dart_editor_bundler.dart` (the `ToolRunner` entrypoint) and `lib/src/`
+(`bundler_config.dart`, `bundle_generator.dart`, `helper_writer.dart`,
+`bundler_tool.dart`, `bundler_executor.dart`), depending on `tom_build_base`
+(CLI scaffold) and `tom_analyzer_shared: ^0.5.0` (summary generation incl.
+`GroupedPackageBundleBuilder`).
 
-**Deferred (settled at implementation):** whether generated `.sum` assets are
-committed in-repo or sourced from the `tom_binaries` L2 layer — decided in
-context when the first consumer (`tom_specs_editor`) wires its bundles.
+**First consumer** — `tom_forge/tom_specs_editor` wires two scopes:
+`dart-plain` (sdk-only) and `d4rt-flutter` (scoped to `tom_d4rt_flutter`; its
+`d4rt-flutter/packages.sum` covers ~80 packages / ~3340 libraries). The third
+example scope `d4rt-document` is illustrative and not wired — there is no settled
+package closure for `code-d4rt-doc`, so that content type falls back to a plain
+field.
+
+**Testing.** Shipped coverage spans: config parsing (valid multi-bundle,
+`sdk-only`, optional-field defaults, and each rejection case via
+`BundlerConfigException`); bundle generation against fixtures (`sdk_summary.sum`
+and `<name>/packages.sum` produced non-empty, SDK summary idempotent); helper
+codegen (camelCase constants, asset paths, `register(...)` calls; the emitted
+file analyzes clean); the registry in `tom_dart_editor` (`register` idempotent,
+two editors of one scope share a single parsed store, byte buffers released after
+parse, unregistered scope → graceful fallback); and editor routing in
+`tom_specs_editor` (`scopeForContentType` / `isDartCodeContentType`, and the
+summary-backed-vs-plain widget choice).
 
 ---
 
@@ -261,6 +324,6 @@ context when the first consumer (`tom_specs_editor`) wires its bundles.
   affect the object model or document format.
 - [`package_summary_generation.md`](package_summary_generation.md) — the
   single-pair `.sum` build that this design generalises into per-scope bundles.
-- [`how_to_embed.md`](how_to_embed.md) / [`dart_editor_usage_guide.md`](dart_editor_usage_guide.md)
-  — current explicit-asset embedding, which remains the escape hatch under the
-  scoped model.
+- [`how_to_embed.md`](how_to_embed.md) /
+  [`dart_editor_usage_guide.md`](dart_editor_usage_guide.md) — explicit-asset
+  embedding, which remains the escape hatch under the scoped model.
