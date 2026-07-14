@@ -257,7 +257,7 @@ void main() {
       expect(report.isClean, isFalse);
       expect(
         report.rejections
-            .any((r) => r.reason == MarkdownRejectReason.orphanBlock),
+            .any((r) => r.reason == MarkdownRejectReason.orphanContent),
         isTrue,
       );
     });
