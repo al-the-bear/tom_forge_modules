@@ -161,20 +161,24 @@ void main() {
         () async {
       final c = await _populated();
       final md = c.exportMarkdown('D00');
+      // DR1 §1: headings carry the section id as a headline comment plus a
+      // readable title; content is plain markdown text under the heading.
       expect(md, contains('<!-- docspec:'));
-      expect(md, contains('# D00'));
-      expect(md, contains('D00/D00-OVR'));
-      expect(md, contains('D00/D00-HDR'));
+      expect(md, contains('# <!--[D00]--> Demo Document'));
+      expect(md, contains('## <!--[D00-OVR]--> Overview'));
+      expect(md, contains('## <!--[D00-HDR]--> Header'));
       // Empty fields (e.g. the reviewer form field) are not emitted (sparse).
-      expect(md, isNot(contains('reviewer')));
+      expect(md, isNot(contains('Reviewer')));
     });
 
-    test('a content leaf with a backtick run is fenced wide enough to survive',
-        () async {
+    test('a content leaf with an embedded backtick run stays plain text '
+        '(no fence)', () async {
       final c = await _populated();
       final md = c.exportMarkdown('D00');
-      // The body embeds ``` so the fence must be at least four backticks.
-      expect(md, contains('````'));
+      // DR1 §1: content is plain markdown text; the body's mid-line ``` run is
+      // not a code fence, so no line starts one and the body survives verbatim.
+      expect(md, contains(_d4rtBody));
+      expect(md.split('\n').any((l) => l.startsWith('```')), isFalse);
     });
   });
 
@@ -234,25 +238,33 @@ void main() {
     test('an unknown section id is reported, valid siblings still applied',
         () async {
       final c = await _controller();
-      const md = '<!-- docspec: d00/1 -->\n'
-          '# D00 — Demo Document\n\n'
-          '## D00/D00-OVR — overview\n'
-          '```\nkept\n```\n\n'
-          '## D00/D00-NOPE — bogus\n'
-          '```\ndropped\n```\n';
+      // The bogus heading nests under `meta` (which has no list children), so
+      // it resolves to an unknown section rather than a stored-id list item.
+      const md = '<!-- docspec: demo-document/1.0 -->\n'
+          '# <!--[D00]--> Demo Document\n\n'
+          '## <!--[D00-OVR]--> Overview\n\n'
+          'kept\n\n'
+          '## <!--[D00-MET]--> Meta\n\n'
+          '### <!--[D00-NOPE]--> Bogus\n\n'
+          'dropped\n';
       final report = c.importMarkdown(md);
       expect(report.isClean, isFalse);
-      expect(report.rejections.any((r) => r.anchor == 'D00/D00-NOPE'), isTrue);
+      expect(
+        report.rejections.any((r) =>
+            r.anchor == 'D00-NOPE' &&
+            r.reason == MarkdownRejectReason.unknownSection),
+        isTrue,
+      );
       // The valid section was still applied (not silently dropped wholesale).
       expect(c.document.content('D00/D00-OVR'), 'kept');
     });
 
-    test('a fenced block with no owning section is reported as orphaned',
-        () async {
+    test('content with no owning section is reported as orphaned', () async {
       final c = await _controller();
-      const md = '<!-- docspec: d00/1 -->\n'
-          '# D00 — Demo Document\n\n'
-          '```\norphan body with no heading\n```\n';
+      const md = 'stray preamble text\n'
+          '# <!--[D00]--> Demo Document\n\n'
+          '## <!--[D00-OVR]--> Overview\n\n'
+          'kept\n';
       final report = c.importMarkdown(md);
       expect(report.isClean, isFalse);
       expect(
@@ -260,16 +272,18 @@ void main() {
             .any((r) => r.reason == MarkdownRejectReason.orphanContent),
         isTrue,
       );
+      // The valid section still parses despite the orphaned preamble.
+      expect(c.document.content('D00/D00-OVR'), 'kept');
     });
 
-    test('a form-field anchor under a non-form heading is a kind mismatch',
+    test('a child heading under a content section is a kind mismatch',
         () async {
       final c = await _controller();
-      const md = '<!-- docspec: d00/1 -->\n'
-          '# D00 — Demo Document\n\n'
-          '## D00/D00-OVR — overview\n'
-          '<!-- field: author -->\n'
-          '```\nmisplaced\n```\n';
+      const md = '# <!--[D00]--> Demo Document\n\n'
+          '## <!--[D00-OVR]--> Overview\n\n'
+          'kept\n\n'
+          '### <!--[D00-MET-NOTE]--> Note\n\n'
+          'misplaced\n';
       final report = c.importMarkdown(md);
       expect(
         report.rejections
@@ -299,7 +313,7 @@ void main() {
       await tester.pumpAndSettle();
       // The preview renders the exported markdown of the Demo (global) root.
       expect(find.textContaining('<!-- docspec:'), findsOneWidget);
-      expect(find.textContaining('D00/D00-OVR'), findsOneWidget);
+      expect(find.textContaining('<!--[D00-OVR]-->'), findsOneWidget);
     });
   });
 
@@ -323,7 +337,7 @@ void main() {
       // and the written content is exactly the previewed export.
       expect(io.savedName, 'D00.md');
       expect(io.savedContent, contains('<!-- docspec:'));
-      expect(io.savedContent, contains('D00/D00-OVR'));
+      expect(io.savedContent, contains('<!--[D00-OVR]-->'));
       // The written path is surfaced inline.
       expect(find.textContaining('Saved to /some/dir/D00.md'), findsOneWidget);
     });

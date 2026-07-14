@@ -7,7 +7,7 @@ import 'package:tom_forge_agentic/tom_forge_agentic.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart'
     show DefaultUndoManager, ShellEditorIntegration, UndoEntry;
 import 'package:tom_som_dart_runtime/tom_som_dart_runtime.dart'
-    show SpecNodeCreator;
+    show SpecNodeCreator, SomMetaTree, buildSomMetaTree;
 
 import '../structure/review_store.dart';
 import '../structure/spec_model.dart';
@@ -647,7 +647,12 @@ class SpecDocumentController extends ChangeNotifier {
   /// into the document YAML. The undo stack is kept (post-save undo still
   /// works, N6), matching [save]'s contract.
   Future<void> saveDocSpecs(File file, {String? sessionId}) async {
-    final yaml = DocSpecsFile.encode(document: document, review: review.entries);
+    await ensureLoaded();
+    final yaml = DocSpecsFile.encode(
+      document: document,
+      tree: _masterTree(),
+      review: review.entries,
+    );
     await file.parent.create(recursive: true);
     await file.writeAsString(yaml);
     await DocSpecsFile.writeSessionId(file, sessionId);
@@ -662,8 +667,9 @@ class SpecDocumentController extends ChangeNotifier {
   /// cleared (there is nothing before the loaded document to undo to), and the
   /// loaded state becomes the dirty reference.
   Future<String?> loadDocSpecs(File file) async {
-    final parsed = DocSpecsFile.decode(await file.readAsString());
-    document.loadJson(parsed.document);
+    await ensureLoaded();
+    final parsed = DocSpecsFile.decode(await file.readAsString(), _masterTree());
+    document.restoreState(parsed.document.captureState());
     review.replaceEntries(parsed.review);
     _undo.clear();
     changeLog.reset();
@@ -671,6 +677,20 @@ class SpecDocumentController extends ChangeNotifier {
     _savedFingerprint = _savedState.fingerprint;
     notifyListeners();
     return await DocSpecsFile.readSessionId(file);
+  }
+
+  /// The metadata tree of the Solution Blueprint master root — the DR9
+  /// tree-driven `*.docspecs.yaml` codec walks it to place every document value
+  /// at its hierarchical section-id path. Solution Blueprint (`type ==
+  /// 'SolutionBlueprint'` or `sectionId == 'SBP'`) is the source of truth; the
+  /// twelve Phase-3 roots project subsets of it. Falls back to the first root
+  /// for models that carry no explicit master (e.g. single-root test models).
+  SomMetaTree _masterTree() {
+    final master = model.roots.firstWhere(
+      (r) => r.type == 'SolutionBlueprint' || r.sectionId == 'SBP',
+      orElse: () => model.roots.first,
+    );
+    return buildSomMetaTree(model, rootType: master.type);
   }
 
   // --- §15.2 markdown import / export ------------------------------------

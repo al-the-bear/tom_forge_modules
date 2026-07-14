@@ -5,8 +5,8 @@ import 'package:tom_som_dart_runtime/tom_som_dart_runtime.dart';
 import '../structure/review_store.dart';
 
 /// The decoded contents of a `*.docspecs.yaml` file (§15.1): the `document:`
-/// pass as a [SpecDocument.loadJson]-shaped map, plus the `review:` pass as
-/// structural-review entries keyed by path.
+/// pass as a live [SpecDocument] (decoded tree-driven per DR9), plus the
+/// `review:` pass as structural-review entries keyed by path.
 class DocSpecsContents {
   DocSpecsContents({
     required this.document,
@@ -14,8 +14,9 @@ class DocSpecsContents {
     this.modelVersion,
   });
 
-  /// The `document:` pass, ready for [SpecDocument.loadJson].
-  final Map<dynamic, dynamic> document;
+  /// The `document:` pass as a live [SpecDocument]. Transfer its state into a
+  /// controller's fixed document via `restoreState(document.captureState())`.
+  final SpecDocument document;
 
   /// The `review:` pass, ready for [ReviewStore.replaceEntries].
   final Map<String, ReviewEntry> review;
@@ -59,19 +60,24 @@ class DocSpecsFile {
   /// Serializes [document] + [review] to the two-pass `*.docspecs.yaml` text.
   ///
   /// The header + `version:`/`modelVersion:` stamp and the `document:` pass come
-  /// from the generic [SpecDocumentYaml] codec; this method composes the
-  /// editor-only `review:` pass on top using the same shared block-scalar
-  /// machinery so both passes stay byte-compatible. [modelVersion] stamps the
-  /// authoring object-model version (`major.minor`); an unstamped file (null)
-  /// omits the key.
+  /// from the generic [SpecDocumentYaml] codec — which walks [tree] (the
+  /// document root's metadata tree) to place every value at its hierarchical
+  /// section-id path (DR9). This method composes the editor-only `review:` pass
+  /// on top using the same shared block-scalar machinery so both passes stay
+  /// byte-compatible. [modelVersion] stamps the authoring object-model version
+  /// (`major.minor`); an unstamped file (null) omits the key.
   static String encode({
     required SpecDocument document,
+    required SomMetaTree tree,
     required Map<String, ReviewEntry> review,
     String? modelVersion,
   }) {
     final b = StringBuffer();
-    SpecDocumentYaml.writeHeader(b, modelVersion: modelVersion);
-    SpecDocumentYaml.writeDocumentPass(b, document.toJson());
+    b.write(SpecDocumentYaml.encode(
+      document: document,
+      tree: tree,
+      modelVersion: modelVersion,
+    ));
     _writeReview(b, review);
     return b.toString();
   }
@@ -110,12 +116,14 @@ class DocSpecsFile {
   // --- Decode -------------------------------------------------------------
 
   /// Parses a `*.docspecs.yaml` document into its two passes. The generic codec
-  /// reads the `document:`/`review:` passes + the model-version stamp; this maps
-  /// the raw `review:` map onto the editor's [ReviewEntry] type. A missing pass
-  /// decodes as empty rather than failing, so a partial/hand-written file still
-  /// loads what it has.
-  static DocSpecsContents decode(String yaml) {
-    final contents = SpecDocumentYaml.decode(yaml);
+  /// walks [tree] to decode the `document:` pass into a live [SpecDocument]
+  /// (DR9), reads the `review:` pass + the model-version stamp; this maps the
+  /// raw `review:` map onto the editor's [ReviewEntry] type. Per DR9 the codec
+  /// throws [SpecYamlFormatException] on malformed input (non-mapping YAML,
+  /// missing/unsupported `version:`, wrong root key), so a hand-written file
+  /// must carry a valid header.
+  static DocSpecsContents decode(String yaml, SomMetaTree tree) {
+    final contents = SpecDocumentYaml.decode(yaml, tree);
 
     final review = <String, ReviewEntry>{};
     contents.review.forEach((k, v) {

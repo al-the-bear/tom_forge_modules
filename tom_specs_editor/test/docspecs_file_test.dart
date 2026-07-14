@@ -1,14 +1,19 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tom_som_dart_runtime/tom_som_dart_runtime.dart'
+    show buildSomMetaTree, SpecYamlFormatException;
 import 'package:tom_specs_editor/src/document/docspecs_file.dart';
 import 'package:tom_specs_editor/src/document/spec_document.dart';
 import 'package:tom_specs_editor/src/document/spec_document_controller.dart';
 import 'package:tom_specs_editor/src/structure/review_store.dart';
 import 'package:tom_specs_editor/src/structure/spec_model.dart';
 
-/// A trivial single-root model; the codec operates on section-ID paths, so the
-/// schema shape is irrelevant for round-trip tests.
+/// A single-root model exercising the field kinds the DR9 tree-driven codec
+/// walks: content sections, a `@Form`, a complex list with a section-id
+/// pattern, and a scalar list. The codec keys every value by its hierarchical
+/// section-id path from the root (`D00/D00-OVR`, `D00/D00-HDR`, …), so the
+/// schema shape drives which paths are valid.
 Map<String, dynamic> _model() => {
       'roots': [
         {'type': 'DemoDoc', 'title': 'Demo', 'sectionId': 'D00'},
@@ -18,84 +23,146 @@ Map<String, dynamic> _model() => {
           'name': 'DemoDoc',
           'sectionId': 'D00',
           'fields': [
-            {'name': 'overview', 'kind': 'content', 'sectionId': 'D00-OVR'},
+            {
+              'name': 'overview',
+              'kind': 'content',
+              'sectionId': 'D00-OVR',
+              'serializationOrder': 0,
+            },
+            {
+              'name': 'summary',
+              'kind': 'content',
+              'sectionId': 'D00-SUM',
+              'serializationOrder': 1,
+            },
+            {
+              'name': 'header',
+              'kind': 'form',
+              'sectionId': 'D00-HDR',
+              'serializationOrder': 2,
+              'formFields': [
+                {'name': 'title', 'label': 'Title', 'type': 'String'},
+                {'name': 'owner', 'label': 'Owner', 'type': 'String'},
+              ],
+            },
+            {
+              'name': 'requirements',
+              'kind': 'list',
+              'sectionId': 'D00-REQ',
+              'sectionIdPattern': 'REQ-xxx',
+              'elementType': 'Requirement',
+              'elementIsComplex': true,
+              'serializationOrder': 3,
+            },
+            {
+              'name': 'tags',
+              'kind': 'list',
+              'sectionId': 'D00-TAG',
+              'elementType': 'String',
+              'elementIsComplex': false,
+              'serializationOrder': 4,
+            },
+          ],
+        },
+        'Requirement': {
+          'name': 'Requirement',
+          'fields': [
+            {'name': 'text', 'kind': 'content', 'serializationOrder': 0},
           ],
         },
       },
     };
 
-/// Encodes [doc] + [review], then decodes and applies onto a fresh document /
-/// review map — the load→save→load round-trip under test.
-({SpecDocument doc, Map<String, ReviewEntry> review}) roundTrip(
-  SpecDocument doc,
-  Map<String, ReviewEntry> review,
-) {
-  final yaml = DocSpecsFile.encode(document: doc, review: review);
-  final parsed = DocSpecsFile.decode(yaml);
-  final outDoc = SpecDocument()..loadJson(parsed.document);
-  return (doc: outDoc, review: parsed.review);
-}
-
 void main() {
+  final tree = buildSomMetaTree(SpecModel.fromJson(_model()));
+
+  String encode(SpecDocument doc, {Map<String, ReviewEntry> review = const {}}) =>
+      DocSpecsFile.encode(document: doc, tree: tree, review: review);
+
+  /// Encodes [doc] + [review], then decodes back to a live document / review
+  /// map — the save→load round-trip under test. Per DR9 the decoder returns a
+  /// live [SpecDocument] directly.
+  ({SpecDocument doc, Map<String, ReviewEntry> review}) roundTrip(
+    SpecDocument doc, [
+    Map<String, ReviewEntry> review = const {},
+  ]) {
+    final parsed = DocSpecsFile.decode(encode(doc, review: review), tree);
+    return (doc: parsed.document, review: parsed.review);
+  }
+
   group('document pass round-trip', () {
     test('content values survive a save→load', () {
       final doc = SpecDocument()
-        ..setContent('D00-OVR', 'hello world')
-        ..setContent('D00-SUM', 'a summary');
-      final out = roundTrip(doc, const {}).doc;
-      expect(out.content('D00-OVR'), 'hello world');
-      expect(out.content('D00-SUM'), 'a summary');
+        ..setContent('D00/D00-OVR', 'hello world')
+        ..setContent('D00/D00-SUM', 'a summary');
+      final out = roundTrip(doc).doc;
+      expect(out.content('D00/D00-OVR'), 'hello world');
+      expect(out.content('D00/D00-SUM'), 'a summary');
     });
 
     test('form fields survive a save→load', () {
       final doc = SpecDocument()
-        ..setFormField('D00-HDR', 'title', 'My System')
-        ..setFormField('D00-HDR', 'owner', 'Alice');
-      final out = roundTrip(doc, const {}).doc;
-      expect(out.formField('D00-HDR', 'title'), 'My System');
-      expect(out.formField('D00-HDR', 'owner'), 'Alice');
+        ..setFormField('D00/D00-HDR', 'title', 'My System')
+        ..setFormField('D00/D00-HDR', 'owner', 'Alice');
+      final out = roundTrip(doc).doc;
+      expect(out.formField('D00/D00-HDR', 'title'), 'My System');
+      expect(out.formField('D00/D00-HDR', 'owner'), 'Alice');
     });
 
-    test('list items and the seq counter survive (D3 continuity)', () {
+    test('list items survive with their ids, content, and order', () {
       final doc = SpecDocument();
-      final a = doc.addListItem('D00-REQ'); // -1
-      final b = doc.addListItem('D00-REQ'); // -2
+      final a = doc.addListItem('D00/D00-REQ', sectionId: 'REQ-1');
+      final b = doc.addListItem('D00/D00-REQ'); // anonymous positional item
       doc.setContent('$a/text', 'first');
       doc.setContent('$b/text', 'second');
-      doc.removeListItem(a); // seq stays at 2, item -1 gone
 
-      final out = roundTrip(doc, const {}).doc;
-      expect(out.listItems('D00-REQ'), [b]);
-      expect(out.content('$b/text'), 'second');
+      final out = roundTrip(doc).doc;
+      final items = out.listItems('D00/D00-REQ');
+      expect(items, hasLength(2));
+      expect(out.itemSectionId(items[0]), 'REQ-1');
+      expect(out.itemSectionId(items[1]), isNull); // anonymous stays anonymous
+      expect(out.content('${items[0]}/text'), 'first');
+      expect(out.content('${items[1]}/text'), 'second');
+    });
 
-      // The counter resumed from 2 → next add is -3, never reusing -1/-2.
-      final c = out.addListItem('D00-REQ');
-      expect(c, 'D00-REQ-3');
+    test('scalar list items round-trip', () {
+      final doc = SpecDocument();
+      final t = doc.addListItem('D00/D00-TAG');
+      doc.setContent(t, 'alpha');
+      final out = roundTrip(doc).doc;
+      final tags = out.listItems('D00/D00-TAG');
+      expect(out.content(tags.single), 'alpha');
     });
 
     test('multi-line, leading-space, and trailing-newline values round-trip '
         'exactly', () {
-      final tricky = {
-        'D00-A': 'line one\nline two\nline three',
-        'D00-B': '  indented first line\n    deeper',
-        'D00-C': 'ends with newline\n',
-        'D00-D': 'two trailing newlines\n\n', // JSON-quoted fallback
-        'D00-E': '', // cleared → absent, never emitted
-        'D00-F': 'value: with: colons # and hash',
-      };
-      final doc = SpecDocument();
-      tricky.forEach(doc.setContent);
-      final out = roundTrip(doc, const {}).doc;
-      for (final e in tricky.entries) {
-        expect(out.content(e.key), e.value.isEmpty ? isNull : e.value,
-            reason: 'key ${e.key} must round-trip verbatim');
+      final tricky = <String>[
+        'line one\nline two\nline three',
+        '  indented first line\n    deeper',
+        'ends with newline\n',
+        'two trailing newlines\n\n', // JSON-quoted fallback
+        'value: with: colons # and hash',
+        '- looks: like\n  yaml: [a, b]\n# comment-ish',
+      ];
+      for (var i = 0; i < tricky.length; i++) {
+        final doc = SpecDocument()..setContent('D00/D00-OVR', tricky[i]);
+        final out = roundTrip(doc).doc;
+        expect(out.content('D00/D00-OVR'), tricky[i],
+            reason: 'case #$i must round-trip verbatim');
       }
+    });
+
+    test('a cleared (empty) value is never emitted', () {
+      final doc = SpecDocument()..setContent('D00/D00-OVR', '');
+      final yaml = encode(doc);
+      expect(yaml, contains('document: {}'));
+      expect(roundTrip(doc).doc.content('D00/D00-OVR'), isNull);
     });
 
     test('the encoded YAML is human-readable: block scalars for multi-line '
         'content', () {
-      final doc = SpecDocument()..setContent('D00-OVR', 'line one\nline two');
-      final yaml = DocSpecsFile.encode(document: doc, review: const {});
+      final doc = SpecDocument()..setContent('D00/D00-OVR', 'line one\nline two');
+      final yaml = encode(doc);
       // A literal block scalar header, and the body visible as plain lines.
       expect(yaml, contains('|2-'));
       expect(yaml, contains('line one'));
@@ -103,20 +170,20 @@ void main() {
     });
 
     test('an empty document omits all sections', () {
-      final yaml = DocSpecsFile.encode(document: SpecDocument(), review: const {});
+      final yaml = encode(SpecDocument());
       expect(yaml, contains('document: {}'));
-      expect(yaml, isNot(contains('content:')));
-      expect(yaml, isNot(contains('forms:')));
-      expect(yaml, isNot(contains('lists:')));
+      expect(yaml, isNot(contains('D00-OVR')));
+      expect(yaml, isNot(contains('D00-HDR')));
+      expect(yaml, isNot(contains('D00-REQ')));
     });
 
-    test('no duplicate subtrees: each section path appears once', () {
+    test('no duplicate subtrees: each section is emitted once', () {
       final doc = SpecDocument()
-        ..setContent('D00-OVR', 'x')
-        ..setContent('D00-OVR/child', 'y');
-      final yaml = DocSpecsFile.encode(document: doc, review: const {});
-      expect('"D00-OVR":'.allMatches(yaml).length, 1);
-      expect('"D00-OVR/child":'.allMatches(yaml).length, 1);
+        ..setContent('D00/D00-OVR', 'x')
+        ..setContent('D00/D00-SUM', 'y');
+      final yaml = encode(doc);
+      expect('D00-OVR overview:'.allMatches(yaml).length, 1);
+      expect('D00-SUM summary:'.allMatches(yaml).length, 1);
     });
   });
 
@@ -139,59 +206,78 @@ void main() {
     });
 
     test('an empty review map encodes as `review: {}`', () {
-      final yaml = DocSpecsFile.encode(document: SpecDocument(), review: const {});
+      final yaml = encode(SpecDocument());
       expect(yaml, contains('review: {}'));
     });
   });
 
-  group('decode tolerance', () {
-    test('a missing pass decodes as empty rather than throwing', () {
-      final parsed = DocSpecsFile.decode('version: 1\n');
-      expect(parsed.document, isEmpty);
-      expect(parsed.review, isEmpty);
+  group('strict decode (DR9)', () {
+    test('a version-1 (flat path-map) file is rejected', () {
+      expect(
+        () => DocSpecsFile.decode('version: 1\ndocument: {}\n', tree),
+        throwsA(isA<SpecYamlFormatException>().having(
+            (e) => e.message, 'message', contains('version 1'))),
+      );
     });
 
-    test('an empty string decodes as empty', () {
-      final parsed = DocSpecsFile.decode('');
-      expect(parsed.document, isEmpty);
-      expect(parsed.review, isEmpty);
+    test('an empty string is rejected', () {
+      expect(() => DocSpecsFile.decode('', tree),
+          throwsA(isA<SpecYamlFormatException>()));
+    });
+
+    test('a missing version is rejected', () {
+      expect(() => DocSpecsFile.decode('document: {}\n', tree),
+          throwsA(isA<SpecYamlFormatException>()));
+    });
+
+    test('a value the metadata tree cannot place is a structured error', () {
+      final doc = SpecDocument()..setContent('D00/ghost', 'x');
+      expect(() => encode(doc), throwsA(isA<SpecYamlFormatException>()));
+    });
+
+    test('a missing/empty document pass on a v2 file decodes as empty', () {
+      expect(
+          DocSpecsFile.decode('version: 2\n', tree).document.isEmpty, isTrue);
+      expect(
+          DocSpecsFile.decode('version: 2\ndocument: {}\n', tree)
+              .document
+              .isEmpty,
+          isTrue);
     });
   });
 
-  group('document model-version stamp (step 2)', () {
+  group('document model-version stamp', () {
     test('encode writes the authoring modelVersion beside the format version',
         () {
       final yaml = DocSpecsFile.encode(
         document: SpecDocument(),
+        tree: tree,
         review: const {},
         modelVersion: '0.7',
       );
       expect(yaml, contains('version: ${DocSpecsFile.formatVersion}'));
       expect(yaml, contains('modelVersion: '));
       // The stamp must read back through decode (the generic runtime path).
-      expect(DocSpecsFile.decode(yaml).modelVersion, '0.7');
+      expect(DocSpecsFile.decode(yaml, tree).modelVersion, '0.7');
     });
 
     test('a fixture *.docspecs.yaml carries the stamp, read back on decode', () {
       const fixture = '''
-version: 1
+version: 2
 modelVersion: "1.2"
 document: {}
 review: {}
 ''';
-      final parsed = DocSpecsFile.decode(fixture);
+      final parsed = DocSpecsFile.decode(fixture, tree);
       expect(parsed.modelVersion, '1.2');
-      expect(parsed.document, isEmpty);
+      expect(parsed.document.isEmpty, isTrue);
       expect(parsed.review, isEmpty);
     });
 
     test('a file without the stamp decodes modelVersion as null', () {
-      final yaml = DocSpecsFile.encode(
-        document: SpecDocument(),
-        review: const {},
-      );
+      final yaml = encode(SpecDocument());
       expect(yaml, isNot(contains('modelVersion:')));
-      expect(DocSpecsFile.decode(yaml).modelVersion, isNull);
+      expect(DocSpecsFile.decode(yaml, tree).modelVersion, isNull);
     });
   });
 
@@ -201,8 +287,8 @@ review: {}
     tearDown(() => dir.deleteSync(recursive: true));
 
     test('the session id lives in a sidecar, never in the document YAML', () {
-      final doc = SpecDocument()..setContent('D00-OVR', 'x');
-      final yaml = DocSpecsFile.encode(document: doc, review: const {});
+      final doc = SpecDocument()..setContent('D00/D00-OVR', 'x');
+      final yaml = encode(doc);
       expect(yaml, isNot(contains('sess-1234')));
     });
 
@@ -233,8 +319,8 @@ review: {}
         () async {
       final file = File('${dir.path}/doc.docspecs.yaml');
       final c = makeController();
-      c.setContent('D00-OVR', 'authored');
-      c.setReview('D00-OVR', (e) => e.scope = ReviewScope.global);
+      c.setContent('D00/D00-OVR', 'authored');
+      c.setReview('D00/D00-OVR', (e) => e.scope = ReviewScope.global);
       expect(c.isDirty, isTrue);
       expect(c.canUndo, isTrue);
 
@@ -245,8 +331,8 @@ review: {}
       // A fresh controller loads the file and sees the same state.
       final c2 = makeController();
       final session = await c2.loadDocSpecs(file);
-      expect(c2.content('D00-OVR'), 'authored');
-      expect(c2.review.entryFor('D00-OVR')?.scope, ReviewScope.global);
+      expect(c2.content('D00/D00-OVR'), 'authored');
+      expect(c2.review.entryFor('D00/D00-OVR')?.scope, ReviewScope.global);
       expect(session, 'sess-42');
       expect(c2.isDirty, isFalse); // load is a fresh save point
       expect(c2.canUndo, isFalse); // undo stack cleared on load
@@ -256,7 +342,7 @@ review: {}
         () async {
       final file = File('${dir.path}/doc.docspecs.yaml');
       final c = makeController();
-      c.setContent('D00-OVR', 'x');
+      c.setContent('D00/D00-OVR', 'x');
       expect(c.changeLog.length, 1);
 
       await c.saveDocSpecs(file);
