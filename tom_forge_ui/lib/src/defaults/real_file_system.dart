@@ -138,6 +138,16 @@ class RealFileSystem implements ForgeFileSystem {
   }
 
   @override
+  Future<void> createDirectory(Uri uri) async {
+    final path = _resolvePath(uri);
+    await Directory(path).create(recursive: true);
+    _changeController.add(FileChangeEvent(
+      uri: uri,
+      type: FileChangeType.created,
+    ));
+  }
+
+  @override
   Future<void> delete(Uri uri) async {
     final path = _resolvePath(uri);
     final file = File(path);

@@ -10,6 +10,14 @@ abstract class ForgeFileSystem {
   Future<List<int>> readBytes(Uri uri);
   Future<void> write(Uri uri, String content);
   Future<void> save(Uri uri);
+
+  /// Creates the directory at [uri] (and any missing parents).
+  ///
+  /// Routing directory creation through the abstraction keeps the explorer
+  /// view free of raw `dart:io` calls, so an in-memory file system can back it
+  /// in tests.
+  Future<void> createDirectory(Uri uri);
+
   Future<void> delete(Uri uri);
   Future<bool> exists(Uri uri);
   Future<FileStat> stat(Uri uri);

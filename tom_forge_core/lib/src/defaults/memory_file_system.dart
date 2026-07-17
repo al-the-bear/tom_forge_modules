@@ -126,6 +126,14 @@ class MemoryFileSystem implements ForgeFileSystem {
 
   final Map<String, List<int>> _files = {};
 
+  /// Explicitly created directories that hold no files yet.
+  ///
+  /// Directories implied by a file path are derived on demand in [list], but an
+  /// empty directory (e.g. one created via [createDirectory]) has no backing
+  /// file, so it is tracked here to remain listable. Keys are stored without a
+  /// trailing slash.
+  final Set<String> _directories = {};
+
   final _changeController =
       StreamController<FileChangeEvent>.broadcast();
   final _saveController = StreamController<Uri>.broadcast();
@@ -187,6 +195,23 @@ class MemoryFileSystem implements ForgeFileSystem {
   }
 
   @override
+  Future<void> createDirectory(Uri uri) async {
+    final key = _stripTrailingSlash(uri.path);
+    if (key.isEmpty) return;
+    // Register the directory and any missing parents so the tree can list it.
+    final segments = key.split('/');
+    for (var i = segments.length; i > 0; i--) {
+      final path = segments.sublist(0, i).join('/');
+      if (path.isEmpty) continue;
+      _directories.add(path);
+    }
+    _changeController.add(FileChangeEvent(
+      uri: uri,
+      type: FileChangeType.created,
+    ));
+  }
+
+  @override
   Future<void> delete(Uri uri) async {
     final key = uri.path;
     final dirPrefix = key.endsWith('/') ? key : '$key/';
@@ -195,6 +220,9 @@ class MemoryFileSystem implements ForgeFileSystem {
     for (final path in nested) {
       _files.remove(path);
     }
+    final strippedKey = _stripTrailingSlash(key);
+    _directories.remove(strippedKey);
+    _directories.removeWhere((p) => p.startsWith(dirPrefix));
     _changeController.add(FileChangeEvent(
       uri: uri,
       type: FileChangeType.deleted,
@@ -205,8 +233,11 @@ class MemoryFileSystem implements ForgeFileSystem {
   Future<bool> exists(Uri uri) async {
     final key = uri.path;
     if (_files.containsKey(key)) return true;
+    final strippedKey = _stripTrailingSlash(key);
+    if (_directories.contains(strippedKey)) return true;
     final dirPrefix = key.endsWith('/') ? key : '$key/';
-    return _files.keys.any((p) => p.startsWith(dirPrefix));
+    return _files.keys.any((p) => p.startsWith(dirPrefix)) ||
+        _directories.any((p) => p.startsWith(dirPrefix));
   }
 
   @override
@@ -216,12 +247,20 @@ class MemoryFileSystem implements ForgeFileSystem {
       return MemoryFileStat(size: bytes.length);
     }
     final key = uri.path;
+    final strippedKey = _stripTrailingSlash(key);
     final dirPrefix = key.endsWith('/') ? key : '$key/';
-    if (_files.keys.any((p) => p.startsWith(dirPrefix))) {
+    if (_directories.contains(strippedKey) ||
+        _files.keys.any((p) => p.startsWith(dirPrefix)) ||
+        _directories.any((p) => p.startsWith(dirPrefix))) {
       return MemoryFileStat(isDirectory: true);
     }
     return MemoryFileStat(size: 0);
   }
+
+  static String _stripTrailingSlash(String path) =>
+      path.endsWith('/') && path.length > 1
+          ? path.substring(0, path.length - 1)
+          : path;
 
   @override
   Future<List<FileSystemEntity>> list(Uri directoryUri,
@@ -249,6 +288,21 @@ class MemoryFileSystem implements ForgeFileSystem {
         } else {
           dirs.add('$prefix${relative.substring(0, slashIndex)}');
         }
+      }
+    }
+
+    // Include explicitly created (possibly empty) directories.
+    for (final dir in _directories) {
+      if (!dir.startsWith(prefix)) continue;
+      final relative = dir.substring(prefix.length);
+      if (relative.isEmpty) continue;
+      if (recursive) {
+        dirs.add(dir);
+      } else {
+        final slashIndex = relative.indexOf('/');
+        dirs.add(slashIndex == -1
+            ? dir
+            : '$prefix${relative.substring(0, slashIndex)}');
       }
     }
 
