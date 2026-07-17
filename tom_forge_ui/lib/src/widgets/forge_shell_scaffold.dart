@@ -3325,8 +3325,14 @@ Press "?" for this help document.
       try {
         targetTabs.add(PanelTabConfig(
           title: title,
+          // codePoint/fontFamily are restored from persisted panel data, so
+          // they are genuinely runtime values and cannot be const. The newer
+          // SDK analyzer flags non-const IconData (it defeats icon tree-shaking);
+          // that trade-off is intentional for dynamically restored tabs.
           icon: IconData(
+            // ignore: non_const_argument_for_const_parameter
             codePoint,
+            // ignore: non_const_argument_for_const_parameter
             fontFamily: fontFamily is String ? fontFamily : 'MaterialIcons',
           ),
           sections: [], // mutable list for later editor drops
