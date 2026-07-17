@@ -28,7 +28,10 @@ dependencies:
   # (plan item 3 shipped GroupedPackageBundleBuilder in 0.5.0) — a version
   # constraint, NOT a path: the local checkout is behind origin and a path dep
   # would resolve the missing API the wrong way.
-  tom_analyzer_shared: ">=0.6.0"
+  # Floor 0.7.1: the summary cache is partitioned by Dart SDK version, not just
+  # analyzer major, so a point-SDK bundle-format drift can't crash the cached
+  # `.sum` reader (RCJ3).
+  tom_analyzer_shared: ">=0.7.1"
   # Public SDK-summary entry-point only (`buildSdkSummary` /
   # `PhysicalResourceProvider`). The grouped packages.sum build stays delegated
   # to tom_analyzer_shared; per the plan item-3 decision the one-shot SDK summary
