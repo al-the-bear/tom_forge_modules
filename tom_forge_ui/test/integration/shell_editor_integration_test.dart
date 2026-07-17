@@ -147,14 +147,18 @@ void main() {
 
     test('executeAction recursion guard prevents stack overflow', () {
       // Simulate the bug: a placeholder action whose execute callback
-      // calls shellApi.executeAction with its own ID.
+      // calls shellApi.executeAction with its own ID. Uses a non-standard
+      // action id so it routes through the global registry path (standard
+      // editing ids are routed to the active editor instead), which is where
+      // the recursion guard for placeholder actions applies.
       int callCount = 0;
+      const recursiveId = 'app.test.recursiveAction';
       final recursiveAction = ForgeAction(
-        id: 'forge.edit.copy',
-        label: 'Copy',
+        id: recursiveId,
+        label: 'Recursive',
         execute: (_) async {
           callCount++;
-          shellApi.executeAction('forge.edit.copy');
+          shellApi.executeAction(recursiveId);
           return null;
         },
         isEnabled: () => true,
@@ -162,7 +166,7 @@ void main() {
       );
 
       shellApi.actionRegistry.registerAction(recursiveAction);
-      final result = shellApi.executeAction('forge.edit.copy');
+      final result = shellApi.executeAction(recursiveId);
 
       // Should execute once (the outer call), but the recursive inner call
       // should be short-circuited by the guard.

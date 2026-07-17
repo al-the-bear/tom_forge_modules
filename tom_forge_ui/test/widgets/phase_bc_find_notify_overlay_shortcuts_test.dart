@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:tom_forge_core/tom_forge_core.dart';
+// ForgeMenuLocation is exported by both barrels; the module's ForgeAction is
+// the tom_forge_ui type, so use its ForgeMenuLocation and hide the core one.
+import 'package:tom_forge_core/tom_forge_core.dart' hide ForgeMenuLocation;
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 import 'package:tom_forge_ui/src/widgets/forge_notification_popup.dart';
 
@@ -378,14 +380,22 @@ void main() {
         // The input box should be visible with the prompt.
         expect(find.text('Enter file name'), findsOneWidget);
 
-        // Type a value.
-        final textField = find.byType(TextField);
-        expect(textField, findsAtLeastNWidgets(1));
-        await tester.enterText(textField.first, 'my_file.dart');
+        // Type a value into the input box's own field. Target it by key: the
+        // shell tree contains other TextFields, and enterText/receiveAction act
+        // on the *connected* input client, so we must focus the overlay's field
+        // specifically (not `find.byType(TextField).first`, which can resolve to
+        // a different field earlier in tree order).
+        final textField = find.byKey(const Key('forge-input-box-field'));
+        expect(textField, findsOneWidget);
+        await tester.enterText(textField, 'my_file.dart');
         await tester.pumpAndSettle();
 
-        // Press Enter to submit.
-        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        // Submit the single-line field. Pressing Enter in a real text field
+        // triggers the platform's submit action (TextInputAction.done) rather
+        // than bubbling a raw key event to an ancestor — the modern SDK's
+        // EditableText consumes the raw Enter — so simulate the action the
+        // field actually receives.
+        await tester.testTextInput.receiveAction(TextInputAction.done);
         await tester.pumpAndSettle();
 
         String? submitted;
@@ -435,11 +445,10 @@ void main() {
         );
         await tester.pump();
 
-        // Track which actions were executed.
-        final executedActions = <String>[];
-        harness.module.mainEditor.onActionExecuted = (id) {
-          executedActions.add(id);
-        };
+        // The module registers recording 'edit.undo' / 'edit.redo' actions
+        // (mirroring the real application), so tapping the menu items should
+        // dispatch those IDs through the action registry.
+        final executedActions = harness.module.executedActions;
 
         // Open Edit menu.
         await tester.tap(find.text('Edit'));
@@ -658,10 +667,44 @@ class _PhaseBCModule extends ForgeModule {
       title: 'Secondary',
       content: 'secondary file content\n',
     );
+    // The Edit-menu Undo/Redo items dispatch the registry action IDs
+    // 'edit.undo' / 'edit.redo' (the same IDs the real application registers,
+    // wired to the shell undo manager). Register recording actions here so a
+    // test can assert the menu routed the correct IDs into the registry.
+    _editActions = [
+      ForgeAction(
+        id: 'edit.undo',
+        label: 'Undo',
+        icon: Icons.undo,
+        menu: ForgeMenuLocation.edit,
+        execute: (_) async {
+          executedActions.add('edit.undo');
+          return null;
+        },
+        isEnabled: () => true,
+        isVisible: () => true,
+      ),
+      ForgeAction(
+        id: 'edit.redo',
+        label: 'Redo',
+        icon: Icons.redo,
+        menu: ForgeMenuLocation.edit,
+        execute: (_) async {
+          executedActions.add('edit.redo');
+          return null;
+        },
+        isEnabled: () => true,
+        isVisible: () => true,
+      ),
+    ];
   }
 
   late final _PhaseBCEditor mainEditor;
   late final _PhaseBCEditor secondaryEditor;
+
+  /// Records IDs of edit actions dispatched through the menu bar.
+  final List<String> executedActions = <String>[];
+  late final List<ForgeAction> _editActions;
 
   @override
   String get displayName => 'Phase BC Module';
@@ -679,7 +722,7 @@ class _PhaseBCModule extends ForgeModule {
   List<ForgeView> get views => const [];
 
   @override
-  List<ForgeAction> get actions => const [];
+  List<ForgeAction> get actions => _editActions;
 
   @override
   List<ForgeShortcutBinding> get shortcuts => const [];
@@ -708,9 +751,6 @@ class _PhaseBCEditor extends ForgeTestTextEditor {
   final Uri _uri;
   final ValueNotifier<String> _titleNotifier;
 
-  /// Callback for tracking action executions in tests.
-  void Function(String actionId)? onActionExecuted;
-
   @override
   ValueListenable<String> get title => _titleNotifier;
 
@@ -727,12 +767,6 @@ class _PhaseBCEditor extends ForgeTestTextEditor {
 
   @override
   String? getContent() => document.text;
-
-  @override
-  bool executeAction(String actionId) {
-    onActionExecuted?.call(actionId);
-    return super.executeAction(actionId);
-  }
 
   @override
   Widget buildMain(BuildContext context) {

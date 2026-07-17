@@ -33,10 +33,27 @@ void main() {
   testWidgets('Shell shortcut executes file.save action', (
     WidgetTester tester,
   ) async {
+    // Suppress layout overflow errors – the default test surface is too
+    // small for the full scaffold, but that's irrelevant for shortcut logic.
+    final oldOnError = FlutterError.onError;
+    FlutterError.onError = (details) {
+      if (details.toString().contains('overflowed')) return;
+      oldOnError?.call(details);
+    };
+    addTearDown(() => FlutterError.onError = oldOnError);
+
     final harness = _PhaseAHarness.create();
 
     await tester.pumpWidget(harness.buildShellApp());
     await tester.pumpAndSettle();
+
+    // ForgeShellScaffold registers its own concrete file.saveAll handler in
+    // initState, which shadows any earlier module registration. Reinstall the
+    // probe action as the effective handler so this test can observe that the
+    // Ctrl+S shortcut dispatches the file.saveAll action id.
+    for (final action in harness.module.actions) {
+      harness.shell.actionRegistry.registerAction(action);
+    }
 
     final usesMeta = defaultTargetPlatform == TargetPlatform.macOS;
     final modifier = usesMeta

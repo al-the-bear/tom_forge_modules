@@ -4,6 +4,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
 import 'support/shell_test_utils.dart';
@@ -14,6 +15,10 @@ void main() {
   group(
     'Phase AB: explorer context paths and side-panel state transitions',
     () {
+      setUp(() {
+        SharedPreferences.setMockInitialValues(<String, Object>{});
+      });
+
       testWidgets('01: explorer context menu Open opens selected file', (
         WidgetTester tester,
       ) async {
@@ -25,7 +30,7 @@ void main() {
         await tester.pumpWidget(harness.buildExplorerHost());
         await tester.pumpAndSettle();
 
-        final readmePath = await harness.pathForRootEntry('README.md');
+        final readmePath = harness.pathForRootEntry('README.md');
         await _openExplorerContextMenuByPath(tester, readmePath);
         await tester.tap(find.text('Open'));
         await tester.pumpAndSettle();
@@ -44,7 +49,7 @@ void main() {
         await tester.pumpWidget(harness.buildExplorerHost());
         await tester.pumpAndSettle();
 
-        final readmePath = await harness.pathForRootEntry('README.md');
+        final readmePath = harness.pathForRootEntry('README.md');
         await _openExplorerContextMenuByPath(tester, readmePath);
         await tester.tap(find.text('Delete'));
         await tester.pumpAndSettle();
@@ -65,7 +70,7 @@ void main() {
         await tester.pumpWidget(harness.buildExplorerHost());
         await tester.pumpAndSettle();
 
-        final readmePath = await harness.pathForRootEntry('README.md');
+        final readmePath = harness.pathForRootEntry('README.md');
         await _openExplorerContextMenuByPath(tester, readmePath);
         await tester.tap(find.text('Delete'));
         await tester.pumpAndSettle();
@@ -86,7 +91,7 @@ void main() {
         await tester.pumpWidget(harness.buildExplorerHost());
         await tester.pumpAndSettle();
 
-        final srcPath = await harness.pathForRootEntry('src');
+        final srcPath = harness.pathForRootEntry('src');
         await _openExplorerContextMenuByPath(tester, srcPath);
         await tester.tap(find.text('New Folder...'));
         await tester.pumpAndSettle();
@@ -119,7 +124,7 @@ void main() {
         await tester.pumpWidget(harness.buildExplorerHost());
         await tester.pumpAndSettle();
 
-        final readmePath = await harness.pathForRootEntry('README.md');
+        final readmePath = harness.pathForRootEntry('README.md');
         await _openExplorerContextMenuByPath(tester, readmePath);
         await tester.tap(find.text('New Folder...'));
         await tester.pumpAndSettle();
@@ -150,7 +155,7 @@ void main() {
         await tester.pumpWidget(harness.buildExplorerHost());
         await tester.pumpAndSettle();
 
-        final srcPath = await harness.pathForRootEntry('src');
+        final srcPath = harness.pathForRootEntry('src');
         await _openExplorerContextMenuByPath(tester, srcPath);
         await tester.tap(find.text('New File...'));
         await tester.pumpAndSettle();
@@ -184,7 +189,7 @@ void main() {
         await tester.pumpWidget(harness.buildExplorerHost());
         await tester.pumpAndSettle();
 
-        final readmePath = await harness.pathForRootEntry('README.md');
+        final readmePath = harness.pathForRootEntry('README.md');
         await _openExplorerContextMenuByPath(tester, readmePath);
         await tester.tap(find.text('Rename...'));
         await tester.pumpAndSettle();
@@ -219,7 +224,7 @@ void main() {
         await tester.pumpWidget(harness.buildExplorerHost());
         await tester.pumpAndSettle();
 
-        final readmePath = await harness.pathForRootEntry('README.md');
+        final readmePath = harness.pathForRootEntry('README.md');
         await _openExplorerContextMenuByPath(tester, readmePath);
         await tester.tap(find.text('Rename...'));
         await tester.pumpAndSettle();
@@ -365,26 +370,26 @@ class _PhaseABExplorerHarness {
 
   final DefaultShellApi shell;
   final String workspaceRoot;
-  final RealFileSystem fileSystem;
+  final MemoryFileSystem fileSystem;
   final ForgeFileExplorerView explorerView;
 
   static _PhaseABExplorerHarness create() {
+    // A synthetic absolute root; nothing is written to real disk. The explorer
+    // is backed by an in-memory file system so its stream-free `list()`
+    // resolves under the widget test's fake-async zone. (A real-disk
+    // `Directory.list()` never delivers its I/O events once the binding is in
+    // fake-async mode, which would deadlock the test.)
     final workspaceRoot =
         '${Directory.current.path}/test/phase_ab_fixture_workspace';
-    final workspaceDir = Directory(workspaceRoot);
-    if (workspaceDir.existsSync()) {
-      workspaceDir.deleteSync(recursive: true);
-    }
-
-    Directory('$workspaceRoot/src/nested').createSync(recursive: true);
-    File('$workspaceRoot/README.md').writeAsStringSync('# Readme\n');
-    File(
-      '$workspaceRoot/src/main.dart',
-    ).writeAsStringSync('void main() { print("hi"); }\n');
-    File('$workspaceRoot/src/nested/deep.txt').writeAsStringSync('deep\n');
 
     final navigatorKey = GlobalKey<NavigatorState>();
-    final fileSystem = RealFileSystem(rootDirectory: workspaceDir);
+    final fileSystem = MemoryFileSystem(
+      seed: {
+        '$workspaceRoot/README.md': '# Readme\n',
+        '$workspaceRoot/src/main.dart': 'void main() { print("hi"); }\n',
+        '$workspaceRoot/src/nested/deep.txt': 'deep\n',
+      },
+    );
     final shell = DefaultShellApi.withDefaultsAndFileSystem(
       fileSystem: fileSystem,
       appName: 'Phase AB Harness',
@@ -407,12 +412,7 @@ class _PhaseABExplorerHarness {
           shell.fileDecorations as DefaultFileDecorationManager,
     );
 
-    addTearDown(() {
-      shell.dispose();
-      if (workspaceDir.existsSync()) {
-        workspaceDir.deleteSync(recursive: true);
-      }
-    });
+    addTearDown(shell.dispose);
 
     return _PhaseABExplorerHarness._(
       shell: shell,
@@ -422,13 +422,12 @@ class _PhaseABExplorerHarness {
     );
   }
 
-  Future<String> pathForRootEntry(String basename) async {
-    final entries = await fileSystem.list(Uri.file(workspaceRoot));
-    final match = entries.firstWhere(
-      (entry) => entry.path.split('/').last == basename,
-    );
-    return match.path;
-  }
+  /// Resolves a root-level fixture entry to its absolute path.
+  ///
+  /// The in-memory fixture layout is known at construction time, so the path is
+  /// deterministic. The explorer's entry keys use the same absolute
+  /// `$workspaceRoot/<name>` form, so key lookups in the tests match.
+  String pathForRootEntry(String basename) => '$workspaceRoot/$basename';
 
   Widget buildExplorerHost() {
     return MaterialApp(

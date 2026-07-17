@@ -25,7 +25,7 @@ export 'editor_theme.dart';
 /// Controller for managing Dart code state.
 class DartCodeController extends ChangeNotifier {
   String _userCode = '';
-  List<String> _implicitImports; // comment 
+  List<String> _implicitImports; // comment
 
   DartCodeController({
     String initialCode = '',
@@ -829,7 +829,8 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
       StandardEditingActions.cutActionId,
       _cutSelection,
       isEnabled: () =>
-          !widget.readOnly && _textController.selection.isValid &&
+          !widget.readOnly &&
+          _textController.selection.isValid &&
           !_textController.selection.isCollapsed,
     );
     _integration.registerAction(
@@ -896,8 +897,8 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
 
     // Alternative shortcuts for trigger completion
     for (final altKey in DartEditorActions.triggerCompletionAltShortcuts) {
-      _shortcuts[altKey.toActivator()] =
-          const _DartEditorActionIntent(DartEditorActions.triggerCompletionActionId);
+      _shortcuts[altKey.toActivator()] = const _DartEditorActionIntent(
+          DartEditorActions.triggerCompletionActionId);
     }
 
     // Explicit Ctrl+Z → undo, Ctrl+Shift+Z → redo overrides for the case
@@ -905,8 +906,8 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
     // shortcuts consume the event.
     _shortcuts[const SingleActivator(LogicalKeyboardKey.keyZ, control: true)] =
         const _DartEditorActionIntent(StandardEditingActions.undoActionId);
-    _shortcuts[const SingleActivator(
-            LogicalKeyboardKey.keyZ, control: true, shift: true)] =
+    _shortcuts[const SingleActivator(LogicalKeyboardKey.keyZ,
+            control: true, shift: true)] =
         const _DartEditorActionIntent(StandardEditingActions.redoActionId);
     // Note: Ctrl+Y is intentionally NOT mapped to redo here — it is
     // handled by the shell's shortcut binding system (Delete Line).
@@ -1026,8 +1027,7 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
     final offset = _scrollController.offset;
     final viewportHeight = _scrollController.position.viewportDimension;
     final startLine = (offset / lineHeight).floor();
-    final endLine =
-        ((offset + viewportHeight) / lineHeight).ceil();
+    final endLine = ((offset + viewportHeight) / lineHeight).ceil();
     widget.onVisibleRangeChanged?.call((
       startLine: startLine,
       endLine: endLine,
@@ -1808,8 +1808,8 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
       final newCode =
           '${code.substring(0, lineRange.end)}\n$line${code.substring(lineRange.end)}';
       // Place cursor on the duplicated line at the same column
-      final newCursor = (lineRange.end + 1 + columnOffset)
-          .clamp(0, newCode.length);
+      final newCursor =
+          (lineRange.end + 1 + columnOffset).clamp(0, newCode.length);
 
       _textController.text = newCode;
       _textController.selection = TextSelection.collapsed(offset: newCursor);
@@ -1833,8 +1833,7 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
       if (currentRange.start == 0) return; // Already at top
 
       final prevRange = _getLineRange(code, currentRange.start - 1);
-      final currentLine =
-          code.substring(currentRange.start, currentRange.end);
+      final currentLine = code.substring(currentRange.start, currentRange.end);
       final prevLine = code.substring(prevRange.start, prevRange.end);
       final columnOffset = cursor - currentRange.start;
 
@@ -1865,8 +1864,7 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
       if (currentRange.end >= code.length) return; // Already at bottom
 
       final nextRange = _getLineRange(code, currentRange.end + 1);
-      final currentLine =
-          code.substring(currentRange.start, currentRange.end);
+      final currentLine = code.substring(currentRange.start, currentRange.end);
       final nextLine = code.substring(nextRange.start, nextRange.end);
       final columnOffset = cursor - currentRange.start;
 
@@ -1901,7 +1899,6 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
     }
     return (start: start, end: end);
   }
-
 
   void _showCompletion() {
     // Remove old overlay without clearing items
@@ -2215,76 +2212,92 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       child: Row(
         children: [
-          // Auto-complete
-          if (_settings.showAutoCompleteToggle) ...[
-            toggle(
-              'Auto-complete',
-              _settings.autoCompleteEnabled,
-              (v) =>
-                  _updateSettings(_settings.copyWith(autoCompleteEnabled: v)),
-              tooltip: 'Toggle auto-completion while typing',
+          // Toggles scroll horizontally so the toolbar never overflows on a
+          // narrow editor; the Open Reference button stays pinned at the right.
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  // Auto-complete
+                  if (_settings.showAutoCompleteToggle) ...[
+                    toggle(
+                      'Auto-complete',
+                      _settings.autoCompleteEnabled,
+                      (v) => _updateSettings(
+                          _settings.copyWith(autoCompleteEnabled: v)),
+                      tooltip: 'Toggle auto-completion while typing',
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  // Error group
+                  if (_settings.showErrorToggles) ...[
+                    toggle(
+                      'Err',
+                      _settings.showErrorMarkers,
+                      (v) => _updateSettings(
+                          _settings.copyWith(showErrorMarkers: v)),
+                      tooltip: 'Show/hide error markers & underlines',
+                    ),
+                    toggle(
+                      'Err tip',
+                      _settings.showErrorTooltips,
+                      (v) => _updateSettings(
+                          _settings.copyWith(showErrorTooltips: v)),
+                      tooltip: 'Show/hide error hover tooltips',
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  // Warning group
+                  if (_settings.showWarningToggles) ...[
+                    toggle(
+                      'Warn',
+                      _settings.showWarningMarkers,
+                      (v) => _updateSettings(
+                          _settings.copyWith(showWarningMarkers: v)),
+                      tooltip: 'Show/hide warning markers & underlines',
+                    ),
+                    toggle(
+                      'Warn tip',
+                      _settings.showWarningTooltips,
+                      (v) => _updateSettings(
+                          _settings.copyWith(showWarningTooltips: v)),
+                      tooltip: 'Show/hide warning hover tooltips',
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  // Info group
+                  if (_settings.showInfoToggles) ...[
+                    toggle(
+                      'Info',
+                      _settings.showInfoMarkers,
+                      (v) => _updateSettings(
+                          _settings.copyWith(showInfoMarkers: v)),
+                      tooltip: 'Show/hide info markers & underlines',
+                    ),
+                    toggle(
+                      'Info tip',
+                      _settings.showInfoTooltips,
+                      (v) => _updateSettings(
+                          _settings.copyWith(showInfoTooltips: v)),
+                      tooltip: 'Show/hide info hover tooltips',
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  // Popup position preference
+                  if (_settings.showPopupPositionToggle)
+                    toggle(
+                      _settings.popupPreferBelow ? 'Pop ↓' : 'Pop ↑',
+                      _settings.popupPreferBelow,
+                      (v) => _updateSettings(
+                          _settings.copyWith(popupPreferBelow: v)),
+                      tooltip:
+                          'Toggle whether completion popups prefer to appear below or above the cursor',
+                    ),
+                ],
+              ),
             ),
-            const SizedBox(width: 4),
-          ],
-          // Error group
-          if (_settings.showErrorToggles) ...[
-            toggle(
-              'Err',
-              _settings.showErrorMarkers,
-              (v) => _updateSettings(_settings.copyWith(showErrorMarkers: v)),
-              tooltip: 'Show/hide error markers & underlines',
-            ),
-            toggle(
-              'Err tip',
-              _settings.showErrorTooltips,
-              (v) => _updateSettings(_settings.copyWith(showErrorTooltips: v)),
-              tooltip: 'Show/hide error hover tooltips',
-            ),
-            const SizedBox(width: 4),
-          ],
-          // Warning group
-          if (_settings.showWarningToggles) ...[
-            toggle(
-              'Warn',
-              _settings.showWarningMarkers,
-              (v) => _updateSettings(_settings.copyWith(showWarningMarkers: v)),
-              tooltip: 'Show/hide warning markers & underlines',
-            ),
-            toggle(
-              'Warn tip',
-              _settings.showWarningTooltips,
-              (v) =>
-                  _updateSettings(_settings.copyWith(showWarningTooltips: v)),
-              tooltip: 'Show/hide warning hover tooltips',
-            ),
-            const SizedBox(width: 4),
-          ],
-          // Info group
-          if (_settings.showInfoToggles) ...[
-            toggle(
-              'Info',
-              _settings.showInfoMarkers,
-              (v) => _updateSettings(_settings.copyWith(showInfoMarkers: v)),
-              tooltip: 'Show/hide info markers & underlines',
-            ),
-            toggle(
-              'Info tip',
-              _settings.showInfoTooltips,
-              (v) => _updateSettings(_settings.copyWith(showInfoTooltips: v)),
-              tooltip: 'Show/hide info hover tooltips',
-            ),
-            const SizedBox(width: 4),
-          ],
-          // Popup position preference
-          if (_settings.showPopupPositionToggle)
-            toggle(
-              _settings.popupPreferBelow ? 'Pop ↓' : 'Pop ↑',
-              _settings.popupPreferBelow,
-              (v) => _updateSettings(_settings.copyWith(popupPreferBelow: v)),
-              tooltip:
-                  'Toggle whether completion popups prefer to appear below or above the cursor',
-            ),
-          const Spacer(),
+          ),
           // Open Reference button
           if (_settings.showOpenReferenceButton &&
               widget.onCompletionRequest != null)
@@ -2365,7 +2378,8 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
     debugPrint('[Gutter] gutterTP: height=${gutterTP.height}, '
         'baseline=${gutterTP.computeDistanceToActualBaseline(TextBaseline.alphabetic)}, '
         'preferredLineHeight=${gutterTP.preferredLineHeight}');
-    debugPrint('[Gutter] lineHeight=$lineHeight, contentPadding=${theme.editor.contentPadding}');
+    debugPrint(
+        '[Gutter] lineHeight=$lineHeight, contentPadding=${theme.editor.contentPadding}');
     editorTP.dispose();
     gutterTP.dispose();
 
@@ -2385,7 +2399,7 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
           itemCount: lineCount,
           itemExtent: lineHeight,
           padding: EdgeInsets.only(
-            top: theme.editor.contentPadding - 5,  // DEBUG: trying -5
+            top: theme.editor.contentPadding - 5, // DEBUG: trying -5
           ),
           itemBuilder: (context, index) {
             final lineNum = index + 1;
