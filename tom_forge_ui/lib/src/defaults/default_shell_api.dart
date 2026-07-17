@@ -579,5 +579,9 @@ class DefaultShellApi implements ForgeShellApi {
     if (diag is DefaultDiagnosticManager) {
       diag.dispose();
     }
+    final notif = notifications;
+    if (notif is DefaultNotificationManager) {
+      notif.dispose();
+    }
   }
 }

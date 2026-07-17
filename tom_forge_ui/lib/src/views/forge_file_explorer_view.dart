@@ -1,8 +1,9 @@
 import 'dart:async';
-import 'dart:io' show Directory, FileSystemEntity, FileSystemEntityType;
+import 'dart:io' show FileSystemEntity, FileSystemEntityType;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 
 import '../components/forge_component.dart';
@@ -281,11 +282,13 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
                 await _toggleDirectory(path, isExpanded);
               }
             },
-            onDoubleTap: () {
-              if (!isDirectory) {
-                widget.layoutController.openFile(entryUri);
-              }
-            },
+            // Only files react to a double tap (open). Leaving [onDoubleTap]
+            // null for directories lets their single-tap toggle fire
+            // immediately, instead of waiting out the double-tap disambiguation
+            // delay — matching the instant expand/collapse users expect.
+            onDoubleTap: isDirectory
+                ? null
+                : () => widget.layoutController.openFile(entryUri),
             onSecondaryTapDown: (details) {
               _showContextMenu(context, details.globalPosition, entry);
             },
@@ -416,33 +419,16 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
 
   Future<void> _showRenameDialog(FileSystemEntity entry) async {
     final name = _nameForPath(entry.path);
-    final controller = TextEditingController(text: name);
-    controller.selection =
-        TextSelection(baseOffset: 0, extentOffset: name.lastIndexOf('.').clamp(0, name.length));
-
     final newName = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Rename'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(
-            hintText: 'New name',
-            isDense: true,
-          ),
-          onSubmitted: (v) => Navigator.of(ctx).pop(v),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancel')),
-          TextButton(
-              onPressed: () => Navigator.of(ctx).pop(controller.text),
-              child: const Text('Rename')),
-        ],
+      builder: (ctx) => _TextPromptDialog(
+        title: 'Rename',
+        hintText: 'New name',
+        confirmLabel: 'Rename',
+        initialValue: name,
+        selectBaseName: true,
       ),
     );
-    controller.dispose();
 
     if (newName == null || newName.isEmpty || newName == name || !mounted) return;
 
@@ -510,30 +496,14 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
   }
 
   Future<void> _showNewFileDialog(String parentDir) async {
-    final controller = TextEditingController();
     final name = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('New File'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(
-            hintText: 'filename.dart',
-            isDense: true,
-          ),
-          onSubmitted: (v) => Navigator.of(ctx).pop(v),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancel')),
-          TextButton(
-              onPressed: () => Navigator.of(ctx).pop(controller.text),
-              child: const Text('Create')),
-        ],
+      builder: (ctx) => const _TextPromptDialog(
+        title: 'New File',
+        hintText: 'filename.dart',
+        confirmLabel: 'Create',
       ),
     );
-    controller.dispose();
 
     if (name == null || name.isEmpty || !mounted) return;
 
@@ -556,35 +526,19 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
   }
 
   Future<void> _showNewFolderDialog(String parentDir) async {
-    final controller = TextEditingController();
     final name = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('New Folder'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(
-            hintText: 'folder name',
-            isDense: true,
-          ),
-          onSubmitted: (v) => Navigator.of(ctx).pop(v),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancel')),
-          TextButton(
-              onPressed: () => Navigator.of(ctx).pop(controller.text),
-              child: const Text('Create')),
-        ],
+      builder: (ctx) => const _TextPromptDialog(
+        title: 'New Folder',
+        hintText: 'folder name',
+        confirmLabel: 'Create',
       ),
     );
-    controller.dispose();
 
     if (name == null || name.isEmpty || !mounted) return;
 
     try {
-      await Directory('$parentDir/$name').create();
+      await widget.fileSystem.createDirectory(Uri.file('$parentDir/$name'));
       if (_directoryChildren.containsKey(parentDir)) {
         await _loadDirectoryChildren(parentDir);
       } else {
@@ -643,5 +597,105 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
       'txt' => Icons.text_snippet,
       _ => Icons.insert_drive_file_outlined,
     };
+  }
+}
+
+/// A small text-input dialog used by the explorer's New File / New Folder /
+/// Rename actions.
+///
+/// It owns its [TextEditingController] and disposes it in [State.dispose], so
+/// the controller stays alive for the whole route lifetime — including the
+/// dismiss transition. Creating the controller in the caller and disposing it
+/// as soon as `showDialog` returns is unsafe: the route is still animating out
+/// and rebuilds the field against the (now disposed) controller.
+///
+/// Pops the entered text on confirm/submit, or `null` on cancel.
+class _TextPromptDialog extends StatefulWidget {
+  const _TextPromptDialog({
+    required this.title,
+    required this.hintText,
+    required this.confirmLabel,
+    this.initialValue = '',
+    this.selectBaseName = false,
+  });
+
+  final String title;
+  final String hintText;
+  final String confirmLabel;
+  final String initialValue;
+
+  /// When true, preselects the name up to (but excluding) its last `.` so a
+  /// rename edits the base name while keeping the extension.
+  final bool selectBaseName;
+
+  @override
+  State<_TextPromptDialog> createState() => _TextPromptDialogState();
+}
+
+class _TextPromptDialogState extends State<_TextPromptDialog> {
+  late final TextEditingController _controller =
+      TextEditingController(text: widget.initialValue);
+  final _focusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.selectBaseName) {
+      final name = widget.initialValue;
+      _controller.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: name.lastIndexOf('.').clamp(0, name.length),
+      );
+    }
+    _focusNode.requestFocus();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _submit() => Navigator.of(context).pop(_controller.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
+      // A `Focus` wrapper submits on Enter even when the field itself does not
+      // deliver an `onSubmitted` action (e.g. under a raw hardware key event),
+      // matching the input-box overlay's behaviour.
+      content: Focus(
+        onKeyEvent: (_, event) {
+          if (event is KeyDownEvent &&
+              event.logicalKey == LogicalKeyboardKey.enter) {
+            _submit();
+            return KeyEventResult.handled;
+          }
+          return KeyEventResult.ignored;
+        },
+        child: TextField(
+          controller: _controller,
+          focusNode: _focusNode,
+          autofocus: true,
+          decoration: InputDecoration(
+            hintText: widget.hintText,
+            isDense: true,
+          ),
+          onSubmitted: (_) => _submit(),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: _submit,
+          child: Text(widget.confirmLabel),
+        ),
+      ],
+    );
   }
 }

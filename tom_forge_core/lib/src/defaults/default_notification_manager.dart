@@ -56,6 +56,11 @@ class DefaultNotificationManager implements ForgeNotificationManager {
   /// Whether the notification popup is currently visible.
   final ForgeValueNotifier<bool> popupVisible = ForgeValueNotifier(false);
 
+  /// Pending auto-dismiss timers, tracked so [dispose] can cancel them —
+  /// a leaked timer outlives the widget tree and trips the test teardown
+  /// invariant (and needlessly wakes a disposed manager in production).
+  final Set<Timer> _autoDismissTimers = <Timer>{};
+
   DefaultNotificationManager({
     this.autoDismissDuration = const Duration(seconds: 4),
     this.maxHistory = 200,
@@ -116,9 +121,15 @@ class DefaultNotificationManager implements ForgeNotificationManager {
       print('[DefaultNotificationManager] $severity: $message');
     }
 
-    // Auto-dismiss if no actions.
+    // Auto-dismiss if no actions. Held in a tracked Timer so dispose can
+    // cancel it before the widget tree is torn down.
     if (actions.isEmpty) {
-      Future.delayed(autoDismissDuration, () => remove(item));
+      late final Timer timer;
+      timer = Timer(autoDismissDuration, () {
+        _autoDismissTimers.remove(timer);
+        remove(item);
+      });
+      _autoDismissTimers.add(timer);
     }
 
     return item.response;
@@ -131,6 +142,10 @@ class DefaultNotificationManager implements ForgeNotificationManager {
 
   /// Dispose resources.
   void dispose() {
+    for (final t in _autoDismissTimers) {
+      t.cancel();
+    }
+    _autoDismissTimers.clear();
     for (final n in _notifications.value) {
       n.dismiss();
     }

@@ -259,11 +259,24 @@ class _ForgeEditorTabBarState extends State<ForgeEditorTabBar> {
                     return ValueListenableBuilder<bool>(
                       valueListenable: editor.isDirty,
                       builder: (context, isDirty, _) {
-                        return Text(
-                          isDirty ? '$title *' : title,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            fontWeight:
-                                isActive ? FontWeight.bold : FontWeight.normal,
+                        // The tab's accessible identity lives on the title:
+                        // one merged node carrying the editor name (label),
+                        // its selected state, and the active/inactive hint.
+                        // The close button stays a separate actionable node.
+                        return MergeSemantics(
+                          child: Semantics(
+                            selected: isActive,
+                            hint: isActive
+                                ? 'Active editor tab'
+                                : 'Editor tab',
+                            child: Text(
+                              isDirty ? '$title *' : title,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                fontWeight: isActive
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                              ),
+                            ),
                           ),
                         );
                       },
@@ -335,55 +348,54 @@ class _ForgeEditorTabBarState extends State<ForgeEditorTabBar> {
       ),
     );
 
-    // Wrap tab in Draggable for cross-panel tab moves, with accessibility.
-    return Semantics(
-      selected: isActive,
-      label: editor.title.value,
-      hint: isActive ? 'Active editor tab' : 'Editor tab',
-      child: GestureDetector(
-        onSecondaryTapUp: (details) => _showTabContextMenu(
-          details.globalPosition,
-          editor,
-        ),
-        child: Draggable<TabDragData>(
-          data: TabDragData(editor: editor, sourcePanelIndex: widget.panelIndex),
-          feedback: MouseRegion(
-            cursor: SystemMouseCursors.grabbing,
-            child: Material(
-              elevation: 4,
-              borderRadius: BorderRadius.circular(4),
-              child: Opacity(
-                opacity: 0.85,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(editor.icon, size: 14, color: theme.colorScheme.onSurface),
-                      const SizedBox(width: 6),
-                      ValueListenableBuilder<String>(
-                        valueListenable: editor.title,
-                        builder: (context, title, _) => Text(
-                          title,
-                          style: theme.textTheme.bodySmall,
-                        ),
+    // Wrap tab in Draggable for cross-panel tab moves. The tab's accessible
+    // identity (name, selected state, active/inactive hint) lives on the
+    // merged title node inside `tabContent`; the outer widget only adds the
+    // context-menu gesture and drag behavior, so it carries no Semantics of
+    // its own (a second label node here would duplicate the title node).
+    return GestureDetector(
+      onSecondaryTapUp: (details) => _showTabContextMenu(
+        details.globalPosition,
+        editor,
+      ),
+      child: Draggable<TabDragData>(
+        data: TabDragData(editor: editor, sourcePanelIndex: widget.panelIndex),
+        feedback: MouseRegion(
+          cursor: SystemMouseCursors.grabbing,
+          child: Material(
+            elevation: 4,
+            borderRadius: BorderRadius.circular(4),
+            child: Opacity(
+              opacity: 0.85,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(editor.icon, size: 14, color: theme.colorScheme.onSurface),
+                    const SizedBox(width: 6),
+                    ValueListenableBuilder<String>(
+                      valueListenable: editor.title,
+                      builder: (context, title, _) => Text(
+                        title,
+                        style: theme.textTheme.bodySmall,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
-          childWhenDragging: Opacity(
-            opacity: 0.35,
-            child: tabContent,
-          ),
+        ),
+        childWhenDragging: Opacity(
+          opacity: 0.35,
           child: tabContent,
         ),
+        child: tabContent,
       ),
     );
   }

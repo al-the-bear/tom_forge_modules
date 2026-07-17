@@ -123,8 +123,14 @@ class _ForgeInputBoxOverlayState extends State<ForgeInputBoxOverlay> {
                               const SizedBox(height: 8),
                             ],
                             TextField(
+                              key: const Key('forge-input-box-field'),
                               controller: _controller,
                               focusNode: _focusNode,
+                              // A focused single-line TextField consumes the
+                              // Enter KeyDownEvent, so it never reaches the
+                              // ancestor Focus.onKeyEvent below. Submit from the
+                              // field's own onSubmitted (the idiomatic path).
+                              onSubmitted: (_) => _submit(),
                               onChanged: (text) {
                                 if (widget.validateInput != null) {
                                   setState(() {

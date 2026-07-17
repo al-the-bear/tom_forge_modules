@@ -2761,8 +2761,17 @@ Press "?" for this help document.
                 builder: (context, constraints) {
                   final availableWidth = constraints.maxWidth;
                   final switcherMaxWidth = availableWidth < 520 ? 120.0 : 180.0;
-                  final searchWidth = (availableWidth - switcherMaxWidth - 20)
-                      .clamp(220.0, 400.0)
+                  // Fixed-width siblings the search box shares the row with:
+                  // the two 48px back/forward IconButtons plus the inter-child
+                  // spacing (8 before the search box, 12 after it). These must
+                  // be reserved so the min-sized row never overflows.
+                  const navButtonsWidth = 96.0;
+                  const rowSpacing = 8.0 + 12.0;
+                  final searchWidth = (availableWidth -
+                          navButtonsWidth -
+                          switcherMaxWidth -
+                          rowSpacing)
+                      .clamp(180.0, 400.0)
                       .toDouble();
 
                   return Row(
