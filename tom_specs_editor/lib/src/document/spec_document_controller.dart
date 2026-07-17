@@ -7,7 +7,13 @@ import 'package:tom_forge_agentic/tom_forge_agentic.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart'
     show DefaultUndoManager, ShellEditorIntegration, UndoEntry;
 import 'package:tom_som_dart_runtime/tom_som_dart_runtime.dart'
-    show SpecNodeCreator, SomMetaTree, buildSomMetaTree;
+    show
+        SpecNodeCreator,
+        SomMetaTree,
+        SpecDocumentMarkdown,
+        SpecSectionIdCollision,
+        buildSomMetaTree,
+        generateListItemSectionId;
 
 import '../structure/review_store.dart';
 import '../structure/spec_model.dart';
@@ -65,15 +71,25 @@ class SpecDocumentController extends ChangeNotifier {
     this.defaultOutlineDepth = 2,
     ChangeLog? changeLog,
     int maxSnapshots = 50,
+    bool strictHeadlineEditing = true,
   })  : _modelFuture = modelFuture,
         document = document ?? SpecDocument(),
         changeLog = changeLog ?? ChangeLog(),
+        strictHeadlineEditing = ValueNotifier<bool>(strictHeadlineEditing),
         _undo = DefaultUndoManager(maxEntries: maxSnapshots) {
     _savedState = this.document.captureState();
     _savedFingerprint = _savedState.fingerprint;
   }
 
   final Future<SpecModel> _modelFuture;
+
+  /// Editor "strict" mode (YRD9): when `true`, headline/id editing is offered
+  /// only on list-entry sections; fixed sections show their effective default
+  /// headline read-only. When `false`, headlines are editable everywhere. The
+  /// document tree listens to this notifier so a preference change re-renders
+  /// the header controls without rebuilding the controller. It gates *writes*
+  /// only — no document/format change of its own.
+  final ValueNotifier<bool> strictHeadlineEditing;
 
   /// The structural-review store (shared with the structure browser).
   final ReviewStore review;
@@ -445,6 +461,81 @@ class SpecDocumentController extends ChangeNotifier {
   String? formField(String path, String field) =>
       document.formField(path, field);
 
+  // --- YRD9 headline + list-item section id --------------------------------
+
+  /// The stored headline at [path], or `null` when the section renders its
+  /// effective default (YRD3 store). Editors compose this with
+  /// [effectiveHeadline] to show the current title.
+  String? headline(String path) => document.headline(path);
+
+  /// The effective default headline of the node at [path] — the title shown
+  /// when no headline is stored (YRD4 precedence: `@Headline` default, else the
+  /// derived Title-Case name / list-item stem). Returns the empty string when
+  /// [path] does not resolve.
+  ///
+  /// This is the *default*, not the stored value: [headline] wins over it. New
+  /// sections prefill their headline field from this (YRD9 item 4), and strict
+  /// mode shows it read-only for fixed sections.
+  String effectiveDefaultHeadline(String path) {
+    final node = resolve(path);
+    if (node == null) return '';
+    if (node.isListItem) {
+      final elem = node.cls;
+      return elem?.headline ??
+          SpecDocumentMarkdown.itemTitleStem(node.type ?? 'item');
+    }
+    final field = node.field;
+    if (field != null) {
+      return field.headline ?? SpecDocumentMarkdown.titleCase(field.name);
+    }
+    // A document root: its title, else the Title-Case type name.
+    final root = _rootBySeg(node.path.split('/').first);
+    if (root != null) {
+      final title = root.title;
+      if (title.isNotEmpty) return title;
+      return SpecDocumentMarkdown.titleCase(root.type);
+    }
+    return SpecDocumentMarkdown.titleCase(node.type ?? node.path);
+  }
+
+  /// Sets the stored headline at [path]. To keep untouched documents
+  /// byte-stable (YRD3 §8.7), a value equal to the [effectiveDefaultHeadline]
+  /// *clears* the stored headline rather than storing a redundant copy. Routes
+  /// through the undo/dirty machinery (no change-log entry — headlines are not
+  /// part of the agent change log).
+  void setHeadline(String path, String value) {
+    final effective =
+        value.trim() == effectiveDefaultHeadline(path).trim() ? '' : value;
+    if (document.headline(path) == (effective.isEmpty ? null : effective)) {
+      return;
+    }
+    final before = document.captureState();
+    document.setHeadline(path, effective);
+    _commitDocMutation(before);
+  }
+
+  /// The stored section id of the list item at [itemPath], or `null` when it
+  /// carries only its positional pattern id (AA1 read path).
+  String? itemSectionId(String itemPath) => document.itemSectionId(itemPath);
+
+  /// Overrides the section id of the list item at [itemPath] (AA1 criterion 5),
+  /// routed through undo/dirty. Returns `false` (mutating nothing) when [id] is
+  /// empty, unchanged, or collides with another id in the same list — the
+  /// editor re-seeds its field to the stored value on a rejected edit.
+  bool setItemSectionId(String itemPath, String id) {
+    if (id.isEmpty || document.itemSectionId(itemPath) == id) return false;
+    final before = document.captureState();
+    try {
+      document.setItemSectionId(itemPath, id);
+    } on SpecSectionIdCollision {
+      return false;
+    } on ArgumentError {
+      return false;
+    }
+    _commitDocMutation(before);
+    return true;
+  }
+
   /// Sets the content at [path]. Snapshots + records the change unless it is a
   /// no-op (§9, §10).
   void setContent(String path, String value) {
@@ -489,9 +580,16 @@ class SpecDocumentController extends ChangeNotifier {
   }
 
   /// Appends a list item at [listPath] and returns its new path.
+  ///
+  /// When the owning list field carries a `@SectionIdPattern`, the new item is
+  /// prefilled with a generated section id (YRD9 item 4 / AA1) built from the
+  /// pattern, the current date, and the list's existing ids. The id is stored
+  /// but editable per the editor mode; generation is skipped for lists without
+  /// a pattern (they keep their positional id).
   String addListItem(String listPath) {
     final before = document.captureState();
-    final itemPath = document.addListItem(listPath);
+    final generatedId = _generatedItemSectionId(listPath);
+    final itemPath = document.addListItem(listPath, sectionId: generatedId);
     _commit(
       before,
       () => ChangeEntry(
@@ -784,6 +882,39 @@ class SpecDocumentController extends ChangeNotifier {
 
   String _turnIdForEdit() => _currentTurnId ?? 'u${++_editSeq}';
 
+  /// The section id to prefill a new item of the list at [listPath] with, or
+  /// `null` when the list field has no `@SectionIdPattern` (YRD9 item 4 / AA1).
+  String? _generatedItemSectionId(String listPath) {
+    final field = resolve(listPath)?.field;
+    final pattern = field?.sectionIdPattern;
+    if (pattern == null || pattern.isEmpty) return null;
+    return generateListItemSectionId(
+      pattern,
+      DateTime.now(),
+      document.listItemSectionIds(listPath),
+    );
+  }
+
+  /// Pushes a before→after undo snapshot for a document mutation that is *not*
+  /// part of the agent change log (headline / list-item id edits, YRD9). Undo,
+  /// redo, and dirty tracking work exactly as for content edits; only the
+  /// change-log/turn machinery is skipped. A no-op edit snapshots nothing.
+  void _commitDocMutation(SpecDocumentState before) {
+    final after = document.captureState();
+    if (before.fingerprint == after.fingerprint) return;
+    _undo.push(UndoEntry(
+      undo: () async {
+        document.restoreState(before);
+        notifyListeners();
+      },
+      redo: () async {
+        document.restoreState(after);
+        notifyListeners();
+      },
+    ));
+    notifyListeners();
+  }
+
   /// Pushes the before→after snapshot pair and records [makeEntry] — unless the
   /// edit changed nothing (no-op edits don't snapshot or record, §10).
   void _commit(SpecDocumentState before, ChangeEntry Function() makeEntry) {
@@ -805,6 +936,7 @@ class SpecDocumentController extends ChangeNotifier {
 
   @override
   void dispose() {
+    strictHeadlineEditing.dispose();
     _undo.dispose();
     changeLog.dispose();
     super.dispose();

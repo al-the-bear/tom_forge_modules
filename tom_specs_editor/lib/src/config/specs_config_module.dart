@@ -34,6 +34,7 @@ class SpecsConfigModule extends ForgeModule {
     AgentSettingsStore? settingsStore,
     AgentProfileStore? profileStore,
     String Function(String source)? compose,
+    this.onPreferencesChanged,
   })  : _specs = specs ?? SpecsConfigSpecs(compose: compose),
         rawFileModule = rawFileModule ?? RawFileModule(),
         _preferencesStore =
@@ -45,6 +46,11 @@ class SpecsConfigModule extends ForgeModule {
 
   /// The plain-text module the editors' "Open raw file" buttons target.
   final RawFileModule rawFileModule;
+
+  /// Notified after a basic-prefs Save persists new [EditorPreferences], so the
+  /// host can propagate live settings (e.g. YRD9 strict headline mode into the
+  /// document controller) without a restart.
+  final ValueChanged<EditorPreferences>? onPreferencesChanged;
 
   final EditorPreferencesStore _preferencesStore;
   final AgentSettingsStore _settingsStore;
@@ -150,6 +156,7 @@ class SpecsConfigModule extends ForgeModule {
           onSave: () async {
             _preferencesStore.save(_prefs);
             _settingsStore.save(_settings);
+            onPreferencesChanged?.call(_prefs);
           },
         ),
       ];

@@ -12,6 +12,7 @@ import 'agent/agent_tools_module.dart';
 import 'agent/send_controller_conversational_driver.dart';
 import 'agent/spec_agent_profile.dart';
 import 'agent/spec_prompt_composer.dart';
+import 'config/editor_preferences.dart';
 import 'config/raw_file_module.dart';
 import 'config/specs_config_module.dart';
 import 'document/root_navigator.dart';
@@ -64,6 +65,7 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
   /// max-tokens / interrupt-retry prefix) is a deferred settings concern
   /// (tracked in the OE-14 questions file).
   String? _selectedProfileId;
+  late final EditorPreferencesStore _preferencesStore;
   late final SpecsConfigModule _configModule;
   late final SpecsShellModule _shellModule;
   late final ShellEditorIntegration _documentIntegration;
@@ -94,12 +96,20 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
     _structureModule.activate(_shell);
     (_shell.modules as DefaultModuleRegistry).register(_structureModule);
 
+    // Editor preferences are loaded once here (from the same store the config
+    // module persists to) so the document controller starts in the persisted
+    // strict/relaxed headline mode (YRD9). The store is shared with the config
+    // module so a Save and the controller's live mode agree on one file.
+    _preferencesStore = EditorPreferencesStore.resolveDefault();
+    final editorPreferences = _preferencesStore.load();
+
     // One document controller is shared by the agent tools (§8) and the
     // model-driven document editor (§13), so a mutation from either the UI or
     // the agent lands on the same live document and both re-render.
     _documentController = SpecDocumentController(
       modelFuture: modelFuture,
       review: reviewStore,
+      strictHeadlineEditing: editorPreferences.strictHeadlineEditing,
     );
 
     // The agent tools module owns the §8 navigation/mutation tools over the
@@ -167,7 +177,13 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
 
     _configModule = SpecsConfigModule(
       rawFileModule: _rawFileModule,
+      preferencesStore: _preferencesStore,
       compose: _promptComposer.compose,
+      // A basic-prefs Save can flip strict headline mode (YRD9); push it into
+      // the live controller so the document editor re-gates its headline/id
+      // fields without a restart.
+      onPreferencesChanged: (prefs) => _documentController
+          .strictHeadlineEditing.value = prefs.strictHeadlineEditing,
     );
     _configModule.activate(_shell);
     (_shell.modules as DefaultModuleRegistry).register(_configModule);

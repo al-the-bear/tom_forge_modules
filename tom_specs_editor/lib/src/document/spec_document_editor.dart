@@ -263,8 +263,17 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
   SpecModel get _model => widget.model;
   ReviewStore get _store => widget.controller.review;
 
+  /// Editor strict mode (YRD9): headline editing is offered only on list-entry
+  /// sections; fixed sections show their default headline read-only.
+  bool get _strict => _controller.strictHeadlineEditing.value;
+
   String _rootSeg(SpecRoot r) => r.sectionId ?? r.type;
   String _fieldSeg(SpecField f) => f.sectionId ?? f.name;
+
+  /// The title shown for the section at [path]: its stored headline (YRD3) when
+  /// present, else the effective default (YRD4 `@Headline` / derived name).
+  String _titleFor(String path) =>
+      _controller.headline(path) ?? _controller.effectiveDefaultHeadline(path);
 
   /// A node is empty when no value exists at or beneath its path (D4).
   bool _isEmpty(String path) => !_controller.hasValuesUnder(path);
@@ -298,7 +307,8 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
     // navigator switch (a controller notification) re-renders the new
     // projection — not just the captured initial root.
     return AnimatedBuilder(
-      animation: Listenable.merge([_controller, _store]),
+      animation: Listenable.merge(
+          [_controller, _store, _controller.strictHeadlineEditing]),
       builder: (context, _) {
         final root = _activeRoot();
         if (root == null) {
@@ -309,12 +319,20 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           children: [
             _NodeHeader(
-              label: root.title,
+              label: _titleFor(_rootSeg(root)),
               sectionId: _rootSeg(root),
               path: _rootSeg(root),
               store: _store,
               help: root.description,
               isHeading: true,
+              // The root is a fixed section: headline editing only in
+              // non-strict mode (YRD9 item 2/3).
+              headlineEditable: !_strict,
+              headlineValue: _controller.headline(_rootSeg(root)),
+              headlineDefault:
+                  _controller.effectiveDefaultHeadline(_rootSeg(root)),
+              onHeadlineChanged: (v) =>
+                  _controller.setHeadline(_rootSeg(root), v),
             ),
             if (cls != null)
               _classBody(cls, _rootSeg(root), {root.type})
@@ -388,11 +406,18 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
   }
 
   Widget _fieldHeader(SpecField field, String path) => _NodeHeader(
-        label: field.name,
+        label: _titleFor(path),
         sectionId: field.sectionId,
         path: path,
         store: _store,
         help: field.help ?? field.doc,
+        // A field is a fixed section (its id is the model's @SectionId): its
+        // headline is editable only in non-strict mode (YRD9 item 2/3). The
+        // section id itself is never editable here — only list-entry ids are.
+        headlineEditable: !_strict,
+        headlineValue: _controller.headline(path),
+        headlineDefault: _controller.effectiveDefaultHeadline(path),
+        onHeadlineChanged: (v) => _controller.setHeadline(path, v),
       );
 
   Widget _contentField(SpecField field, String path) {
@@ -501,8 +526,17 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
         children: [
           for (final itemPath in items)
             _ListItem(
+              itemPath: itemPath,
               label: field.elementType ?? 'item',
               onRemove: () => _controller.removeListItem(itemPath),
+              // A list item is a list-entry section: its headline and section
+              // id are editable in BOTH modes (YRD9 item 2). The headline
+              // prefills from the element class's @Headline default / stem
+              // (item 4); the id from the @SectionIdPattern generator on add.
+              headline: _titleFor(itemPath),
+              idValue: _controller.itemSectionId(itemPath),
+              onHeadlineChanged: (v) => _controller.setHeadline(itemPath, v),
+              onIdChanged: (v) => _controller.setItemSectionId(itemPath, v),
               child: (elem == null || recursive)
                   ? _recursiveNote(field.elementType)
                   : _classBody(elem, itemPath, nextSeen),
@@ -571,8 +605,14 @@ class _FieldBlock extends StatelessWidget {
   }
 }
 
-/// The headline of a node: markdown label, optional section-id chip, and the
-/// review-state badge beside it (D5). Help text renders below.
+/// The headline of a node: its title (markdown label, or an editable field in
+/// non-strict mode), optional section-id chip, and the review-state badge
+/// beside it (D5). Help text renders below.
+///
+/// YRD9: for a fixed section the title is editable only when [headlineEditable]
+/// is true (non-strict mode); otherwise it renders read-only. The section id of
+/// a fixed section is never editable here (it is the model's `@SectionId`) — only
+/// list-entry ids are, and those are edited by [_ListItem].
 class _NodeHeader extends StatelessWidget {
   const _NodeHeader({
     required this.label,
@@ -581,6 +621,10 @@ class _NodeHeader extends StatelessWidget {
     this.sectionId,
     this.help,
     this.isHeading = false,
+    this.headlineEditable = false,
+    this.headlineValue,
+    this.headlineDefault = '',
+    this.onHeadlineChanged,
   });
 
   final String label;
@@ -589,6 +633,16 @@ class _NodeHeader extends StatelessWidget {
   final String? sectionId;
   final String? help;
   final bool isHeading;
+
+  /// Whether the headline renders as an editable field (non-strict mode).
+  final bool headlineEditable;
+
+  /// The stored headline (YRD3), or `null` when the section shows its default.
+  final String? headlineValue;
+
+  /// The effective default headline (YRD4), used as the field's prefill/hint.
+  final String headlineDefault;
+  final ValueChanged<String>? onHeadlineChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -599,9 +653,17 @@ class _NodeHeader extends StatelessWidget {
         Row(
           children: [
             Flexible(
-              child: SpecMarkdown(
-                isHeading ? '## $label' : '**$label**',
-              ),
+              child: (headlineEditable && onHeadlineChanged != null)
+                  ? _HeaderEditField(
+                      key: ValueKey('headline:$path'),
+                      value: headlineValue ?? headlineDefault,
+                      hint: headlineDefault,
+                      bold: true,
+                      onCommitted: onHeadlineChanged!,
+                    )
+                  : SpecMarkdown(
+                      isHeading ? '## $label' : '**$label**',
+                    ),
             ),
             if (sectionId != null) ...[
               const SizedBox(width: 6),
@@ -631,6 +693,87 @@ class _NodeHeader extends StatelessWidget {
   }
 }
 
+/// A compact commit-on-blur text field for editing a section's headline or a
+/// list item's section id (YRD9). Unlike the value fields it does *not* commit
+/// per keystroke — it commits on Enter or focus loss, so a headline edit is one
+/// undo step and an in-progress id never trips a mid-typing uniqueness check.
+/// It re-seeds its text when an external change makes the incoming [value]
+/// diverge from what the user typed (e.g. a rejected id edit reverting).
+class _HeaderEditField extends StatefulWidget {
+  const _HeaderEditField({
+    super.key,
+    required this.value,
+    required this.onCommitted,
+    this.hint,
+    this.bold = false,
+  });
+
+  final String value;
+  final ValueChanged<String> onCommitted;
+  final String? hint;
+  final bool bold;
+
+  @override
+  State<_HeaderEditField> createState() => _HeaderEditFieldState();
+}
+
+class _HeaderEditFieldState extends State<_HeaderEditField> {
+  late final TextEditingController _ctrl =
+      TextEditingController(text: widget.value);
+  late final FocusNode _focus = FocusNode()..addListener(_onFocusChange);
+
+  void _onFocusChange() {
+    if (!_focus.hasFocus) _commit();
+  }
+
+  void _commit() {
+    if (_ctrl.text == widget.value) return;
+    widget.onCommitted(_ctrl.text);
+  }
+
+  @override
+  void didUpdateWidget(_HeaderEditField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Re-seed only when not being edited, so an external revert (e.g. a rejected
+    // id) shows through without clobbering an in-progress edit.
+    if (!_focus.hasFocus && widget.value != _ctrl.text) {
+      _ctrl.value = TextEditingValue(
+        text: widget.value,
+        selection: TextSelection.collapsed(offset: widget.value.length),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _focus.removeListener(_onFocusChange);
+    _focus.dispose();
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: _ctrl,
+      focusNode: _focus,
+      style: TextStyle(
+        fontSize: 13,
+        fontWeight: widget.bold ? FontWeight.w600 : FontWeight.normal,
+      ),
+      decoration: InputDecoration(
+        isDense: true,
+        hintText: widget.hint,
+        border: const OutlineInputBorder(),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      ),
+      onSubmitted: (_) => _commit(),
+      onEditingComplete: _commit,
+    );
+  }
+}
+
 /// A clickable chip standing in for an empty node/subtree (§13.1, D2).
 class _EmptyChip extends StatelessWidget {
   const _EmptyChip({required this.label, required this.onTap});
@@ -653,13 +796,33 @@ class _EmptyChip extends StatelessWidget {
 /// A populated list item: a remove affordance plus the item's sub-tree (D3).
 class _ListItem extends StatelessWidget {
   const _ListItem({
+    required this.itemPath,
     required this.label,
     required this.onRemove,
+    required this.headline,
+    required this.idValue,
+    required this.onHeadlineChanged,
+    required this.onIdChanged,
     required this.child,
   });
 
+  /// The item's structural path (`…/§item`), used to key the edit fields so
+  /// they keep their identity across rebuilds.
+  final String itemPath;
+
+  /// The element-type label shown as a muted caption on the item's header row.
   final String label;
   final VoidCallback onRemove;
+
+  /// The item's effective headline (stored value, or the @Headline / stem
+  /// default) — always editable for a list-entry section (YRD9 item 2).
+  final String headline;
+
+  /// The item's stored section id (YRD3), or `null` while none is stored.
+  final String? idValue;
+
+  final ValueChanged<String> onHeadlineChanged;
+  final ValueChanged<String> onIdChanged;
   final Widget child;
 
   @override
@@ -677,13 +840,27 @@ class _ListItem extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label,
-                  style: TextStyle(
-                      fontSize: 11,
-                      fontStyle: FontStyle.italic,
-                      color: theme.colorScheme.onSurfaceVariant)),
-              const Spacer(),
+              Expanded(
+                child: _HeaderEditField(
+                  key: ValueKey('item-headline:$itemPath'),
+                  value: headline,
+                  hint: label,
+                  bold: true,
+                  onCommitted: onHeadlineChanged,
+                ),
+              ),
+              const SizedBox(width: 6),
+              SizedBox(
+                width: 120,
+                child: _HeaderEditField(
+                  key: ValueKey('item-id:$itemPath'),
+                  value: idValue ?? '',
+                  hint: 'id',
+                  onCommitted: onIdChanged,
+                ),
+              ),
               IconButton(
                 tooltip: 'Remove item',
                 visualDensity: VisualDensity.compact,
@@ -692,6 +869,14 @@ class _ListItem extends StatelessWidget {
                 icon: const Icon(Icons.delete_outline),
               ),
             ],
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(label,
+                style: TextStyle(
+                    fontSize: 11,
+                    fontStyle: FontStyle.italic,
+                    color: theme.colorScheme.onSurfaceVariant)),
           ),
           child,
         ],

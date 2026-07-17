@@ -108,6 +108,18 @@ class _BasicPrefsPanelState extends State<BasicPrefsPanel> {
           onChanged: (v) => _setPrefs(_prefs.copyWith(defaultApplication: v)),
         ),
         const SizedBox(height: 12),
+        SwitchListTile(
+          key: const Key('prefs-strict-headlines'),
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Strict headline editing'),
+          subtitle: const Text(
+              'Edit headlines/ids only on list-entry sections; fixed sections '
+              'stay read-only.'),
+          value: _prefs.strictHeadlineEditing,
+          onChanged: (v) =>
+              _setPrefs(_prefs.copyWith(strictHeadlineEditing: v)),
+        ),
+        const SizedBox(height: 12),
         _dropdown(
           key: const Key('prefs-default-profile'),
           label: 'Default profile',

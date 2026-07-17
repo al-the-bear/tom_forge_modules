@@ -15,6 +15,7 @@ class EditorPreferences {
     this.themeMode = 'dark',
     this.fontFamily = 'system',
     this.defaultApplication = 'DocSpecs',
+    this.strictHeadlineEditing = true,
   });
 
   /// `system` | `light` | `dark`.
@@ -26,15 +27,25 @@ class EditorPreferences {
   /// Application shown on launch: `DocSpecs` | `CodeSpecs` | `Implementation`.
   final String defaultApplication;
 
+  /// Editor "strict" mode (YRD9): when `true`, headline/id inputs are editable
+  /// only on list-entry sections; fixed sections render their stored or
+  /// `@Headline`-default headline read-only. When `false`, headlines are
+  /// editable everywhere. Defaults to strict so every document of a given type
+  /// keeps a consistent fixed-section headline structure.
+  final bool strictHeadlineEditing;
+
   EditorPreferences copyWith({
     String? themeMode,
     String? fontFamily,
     String? defaultApplication,
+    bool? strictHeadlineEditing,
   }) =>
       EditorPreferences(
         themeMode: themeMode ?? this.themeMode,
         fontFamily: fontFamily ?? this.fontFamily,
         defaultApplication: defaultApplication ?? this.defaultApplication,
+        strictHeadlineEditing:
+            strictHeadlineEditing ?? this.strictHeadlineEditing,
       );
 
   factory EditorPreferences.fromYaml(Map<String, dynamic> yaml) =>
@@ -42,12 +53,14 @@ class EditorPreferences {
         themeMode: yaml['themeMode'] as String? ?? 'dark',
         fontFamily: yaml['fontFamily'] as String? ?? 'system',
         defaultApplication: yaml['defaultApplication'] as String? ?? 'DocSpecs',
+        strictHeadlineEditing: yaml['strictHeadlineEditing'] as bool? ?? true,
       );
 
   Map<String, dynamic> toYaml() => <String, dynamic>{
         'themeMode': themeMode,
         'fontFamily': fontFamily,
         'defaultApplication': defaultApplication,
+        'strictHeadlineEditing': strictHeadlineEditing,
       };
 }
 
