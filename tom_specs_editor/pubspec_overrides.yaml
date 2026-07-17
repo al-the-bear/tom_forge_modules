@@ -1,0 +1,9 @@
+# Local-development override (same mechanism as tom_som_dart_v0's generated
+# overrides file): the editor consumes `tom_spec_engine` → `tom_som_dart_v0`,
+# whose pubspec declares the *hosted* `tom_som_dart_runtime ^1.0.0`. Transitive
+# path packages' own pubspec_overrides.yaml files are not honored by pub, so
+# without this root-level override version solving fails against the editor's
+# direct path dependency on the co-developed runtime.
+dependency_overrides:
+  tom_som_dart_runtime:
+    path: ../../tom_ai/ai_build/tom_som_dart_runtime
