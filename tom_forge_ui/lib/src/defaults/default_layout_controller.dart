@@ -296,6 +296,10 @@ class DefaultLayoutController implements ForgeLayoutController {
     if (_systemState.openEditors.contains(editor)) {
       _systemState.setActiveEditor(editor);
       _editorLastFocused[editor] = DateTime.now();
+      // An open editor must always live in a middle panel. If it lost its
+      // placement (e.g. a layout restore re-added it to the open set without
+      // a panel), repair that here so re-opening makes it visible again.
+      _ensureEditorPlaced(editor, middlePanelIndex);
       return;
     }
     _systemState.addOpenEditor(editor);
@@ -310,6 +314,22 @@ class DefaultLayoutController implements ForgeLayoutController {
     _middlePanels.value = panels;
 
     _evictLruEditors();
+  }
+
+  /// Ensures [editor] is present in some middle panel, inserting it into the
+  /// requested [middlePanelIndex] (or the active panel) when it is currently
+  /// placed in none. This is a no-op when the editor already sits in a panel.
+  void _ensureEditorPlaced(ForgeEditor editor, int? middlePanelIndex) {
+    final panels = _middlePanels.value;
+    if (panels.any((panel) => panel.contains(editor))) return;
+    if (panels.isEmpty) return;
+    final target = (middlePanelIndex ?? _activeMiddlePanelIndex.value).clamp(
+      0,
+      panels.length - 1,
+    );
+    final updated = List<List<ForgeEditor>>.from(panels);
+    updated[target] = [...updated[target], editor];
+    _middlePanels.value = updated;
   }
 
   @override

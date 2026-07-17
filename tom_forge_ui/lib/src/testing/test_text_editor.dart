@@ -203,6 +203,9 @@ class ForgeTestTextEditor extends ForgeTextEditor {
       Map.unmodifiable(_decorations);
 
   @override
+  String? getContent() => _document.text;
+
+  @override
   void markClean() {
     _isDirty.value = false;
   }
