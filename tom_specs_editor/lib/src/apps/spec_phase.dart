@@ -29,9 +29,10 @@ class PhaseComponent {
 /// phase consumes, produces, and gates on. Phase 1 of the editor leaves these
 /// two applications as empty skeletons (§1 non-goals); step 25 populates them
 /// with their phase overviews so each app presents genuine methodology content
-/// rather than a blank placeholder. The full model-driven CodeSpecs /
-/// Implementation document editors (their own object models in `tom_specs_model`
-/// / `tom_code_specs`) remain phase-2 follow-ups — see the quest's
+/// rather than a blank placeholder. CodeSpecs is code only (no separate document
+/// model — the former `tom_code_specs` package was removed); the Phase-4/6
+/// surfaces are driven by the DocSpecs ↔ CodeSpecs link (`codespecs_mapping.md`
+/// §9) and remain phase-2 follow-ups — see the quest's
 /// `completion_steps.tom_specs.md`.
 @immutable
 class SpecPhase {

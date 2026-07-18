@@ -13,9 +13,10 @@ import 'spec_phase.dart';
 /// view, the queue/trail editors, the change log) — they drive and reflect the
 /// agent's edits to the live DocSpecs document. The **CodeSpecs** and
 /// **Implementation** phase-2 apps do not yet own a live model-driven document
-/// controller (that is OE-24a — merging `tom_code_specs` into `spec_model.json`,
-/// regenerating the asset, and routing each app from the read-only
-/// `PhaseOverviewEditor` to a `SpecDocumentEditor`). Hosting the *shared*
+/// controller (that is OE-24a — routing each app from the read-only
+/// `PhaseOverviewEditor` to a `SpecDocumentEditor`; CodeSpecs is code only, so
+/// there is no `tom_code_specs` document to merge — the link is the DocSpecs ↔
+/// CodeSpecs annotations of `codespecs_mapping.md` §9). Hosting the *shared*
 /// DocSpecs instances here would let the agent mutate the DocSpecs document
 /// while the user is "in" CodeSpecs/Implementation — semantically wrong and
 /// worse than an honest, labelled surface. So until OE-24a lands the phase-2
