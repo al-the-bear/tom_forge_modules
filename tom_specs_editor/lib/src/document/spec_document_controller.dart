@@ -12,8 +12,10 @@ import 'package:tom_som_dart_runtime/tom_som_dart_runtime.dart'
         SomMetaTree,
         SpecDocumentMarkdown,
         SpecSectionIdCollision,
+        SpecValidationError,
         buildSomMetaTree,
-        generateListItemSectionId;
+        generateListItemSectionId,
+        validateDocument;
 
 import '../structure/review_store.dart';
 import '../structure/spec_model.dart';
@@ -72,10 +74,12 @@ class SpecDocumentController extends ChangeNotifier {
     ChangeLog? changeLog,
     int maxSnapshots = 50,
     bool strictHeadlineEditing = true,
+    bool strictValidation = false,
   })  : _modelFuture = modelFuture,
         document = document ?? SpecDocument(),
         changeLog = changeLog ?? ChangeLog(),
         strictHeadlineEditing = ValueNotifier<bool>(strictHeadlineEditing),
+        strictValidation = ValueNotifier<bool>(strictValidation),
         _undo = DefaultUndoManager(maxEntries: maxSnapshots) {
     _savedState = this.document.captureState();
     _savedFingerprint = _savedState.fingerprint;
@@ -90,6 +94,16 @@ class SpecDocumentController extends ChangeNotifier {
   /// the header controls without rebuilding the controller. It gates *writes*
   /// only — no document/format change of its own.
   final ValueNotifier<bool> strictHeadlineEditing;
+
+  /// Editor "strict mode" for **document validation** (csmc9): when `true`, the
+  /// document editor runs the canonical runtime document validator
+  /// ([validateDocument]) over the live document on load and after every edit,
+  /// and surfaces each [SpecValidationError] as a diagnostic badge on the
+  /// section it anchors on (including `oneOfCaseMismatch`). When `false`, no
+  /// validation runs and no diagnostics show. It is a pure read-only overlay —
+  /// it never blocks or mutates an edit. Distinct from [strictHeadlineEditing],
+  /// which gates headline/id *writes* (YRD9).
+  final ValueNotifier<bool> strictValidation;
 
   /// The structural-review store (shared with the structure browser).
   final ReviewStore review;
@@ -438,6 +452,42 @@ class SpecDocumentController extends ChangeNotifier {
       }
     }
     return meta;
+  }
+
+  // --- csmc9 strict-mode document validation -----------------------------
+
+  /// Runs the canonical runtime document validator ([validateDocument]) over the
+  /// live [document] against the resolved [model], returning every
+  /// [SpecValidationError] in the runtime's stable order. Returns an empty list
+  /// when the model has not resolved yet (validation is schema-dependent) — the
+  /// caller [ensureLoaded]s before relying on it, but the guard keeps a
+  /// pre-load call safe. The full result covers every [SpecValidationCode]
+  /// (`danglingPath`, `kindMismatch`, `unknownFormField`, `minItems`,
+  /// `oneOfCaseMismatch`).
+  List<SpecValidationError> validate() {
+    if (_model == null) return const [];
+    return validateDocument(_model!, document);
+  }
+
+  /// The [validate] result grouped by the section path each error anchors on,
+  /// so the document editor can slice out the diagnostics for a single section
+  /// header in one lookup. The `oneOfCaseMismatch` for a mis-selected subsection
+  /// is keyed on that subsection's path, so it surfaces on the offending node.
+  Map<String, List<SpecValidationError>> validationByPath() {
+    final byPath = <String, List<SpecValidationError>>{};
+    for (final err in validate()) {
+      (byPath[err.path] ??= <SpecValidationError>[]).add(err);
+    }
+    return byPath;
+  }
+
+  /// Toggles strict-mode document validation (csmc9). Notifies listeners so the
+  /// document tree re-renders with (or without) the diagnostics overlay; the
+  /// [strictValidation] notifier itself also fires for direct listeners.
+  void setStrictValidation(bool value) {
+    if (strictValidation.value == value) return;
+    strictValidation.value = value;
+    notifyListeners();
   }
 
   // --- Layer C: content + mutations --------------------------------------
@@ -937,6 +987,7 @@ class SpecDocumentController extends ChangeNotifier {
   @override
   void dispose() {
     strictHeadlineEditing.dispose();
+    strictValidation.dispose();
     _undo.dispose();
     changeLog.dispose();
     super.dispose();

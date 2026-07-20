@@ -191,9 +191,72 @@ class _MarkdownIoBar extends StatelessWidget {
               icon: const Icon(Icons.download_outlined, size: 16),
               label: const Text('Import md'),
             ),
+            const Spacer(),
+            _StrictValidationToggle(controller: controller),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// The csmc9 strict-mode document-validation toggle for the top bar. When on, it
+/// shows the live count of [SpecValidationError]s the runtime validator reports
+/// for the whole document; toggling it flips [SpecDocumentController.strictValidation]
+/// so the tree renders (or hides) the per-section diagnostics overlay. It
+/// rebuilds on every controller change so the error count stays live as the
+/// user edits.
+class _StrictValidationToggle extends StatelessWidget {
+  const _StrictValidationToggle({required this.controller});
+
+  final SpecDocumentController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return AnimatedBuilder(
+      animation: Listenable.merge([controller, controller.strictValidation]),
+      builder: (context, _) {
+        final on = controller.strictValidation.value;
+        final errorCount = on ? controller.validate().length : 0;
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (on) ...[
+              Icon(
+                errorCount == 0
+                    ? Icons.check_circle_outline
+                    : Icons.error_outline,
+                size: 16,
+                color: errorCount == 0
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.error,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                errorCount == 0
+                    ? 'Valid'
+                    : '$errorCount issue${errorCount == 1 ? '' : 's'}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: errorCount == 0
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.error,
+                ),
+              ),
+              const SizedBox(width: 6),
+            ],
+            const Text('Strict', style: TextStyle(fontSize: 12)),
+            Transform.scale(
+              scale: 0.8,
+              child: Switch(
+                value: on,
+                onChanged: controller.setStrictValidation,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -267,6 +330,15 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
   /// sections; fixed sections show their default headline read-only.
   bool get _strict => _controller.strictHeadlineEditing.value;
 
+  /// The current per-section validation diagnostics (csmc9). Empty unless
+  /// strict-mode validation is on; recomputed in [build] on every controller
+  /// change so the overlay tracks edits live.
+  Map<String, List<SpecValidationError>> _diagnostics = const {};
+
+  /// The diagnostics anchored on [path] (empty when none / strict mode off).
+  List<SpecValidationError> _diagnosticsFor(String path) =>
+      _diagnostics[path] ?? const [];
+
   String _rootSeg(SpecRoot r) => r.sectionId ?? r.type;
   String _fieldSeg(SpecField f) => f.sectionId ?? f.name;
 
@@ -307,9 +379,18 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
     // navigator switch (a controller notification) re-renders the new
     // projection — not just the captured initial root.
     return AnimatedBuilder(
-      animation: Listenable.merge(
-          [_controller, _store, _controller.strictHeadlineEditing]),
+      animation: Listenable.merge([
+        _controller,
+        _store,
+        _controller.strictHeadlineEditing,
+        _controller.strictValidation,
+      ]),
       builder: (context, _) {
+        // csmc9: recompute the validation overlay for this frame. Only when
+        // strict-mode validation is on — otherwise no diagnostics render.
+        _diagnostics = _controller.strictValidation.value
+            ? _controller.validationByPath()
+            : const {};
         final root = _activeRoot();
         if (root == null) {
           return const Center(child: Text('No document roots in the model'));
@@ -324,6 +405,7 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
               path: _rootSeg(root),
               store: _store,
               help: root.description,
+              diagnostics: _diagnosticsFor(_rootSeg(root)),
               isHeading: true,
               // The root is a fixed section: headline editing only in
               // non-strict mode (YRD9 item 2/3).
@@ -411,6 +493,7 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
         path: path,
         store: _store,
         help: field.help ?? field.doc,
+        diagnostics: _diagnosticsFor(path),
         // A field is a fixed section (its id is the model's @SectionId): its
         // headline is editable only in non-strict mode (YRD9 item 2/3). The
         // section id itself is never editable here — only list-entry ids are.
@@ -528,6 +611,7 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
             _ListItem(
               itemPath: itemPath,
               label: field.elementType ?? 'item',
+              diagnostics: _diagnosticsFor(itemPath),
               onRemove: () => _controller.removeListItem(itemPath),
               // A list item is a list-entry section: its headline and section
               // id are editable in BOTH modes (YRD9 item 2). The headline
@@ -625,6 +709,7 @@ class _NodeHeader extends StatelessWidget {
     this.headlineValue,
     this.headlineDefault = '',
     this.onHeadlineChanged,
+    this.diagnostics = const [],
   });
 
   final String label;
@@ -633,6 +718,11 @@ class _NodeHeader extends StatelessWidget {
   final String? sectionId;
   final String? help;
   final bool isHeading;
+
+  /// The strict-mode validation errors anchored on this section (csmc9). Empty
+  /// unless strict-mode validation is on and the runtime validator flagged this
+  /// path; rendered as a badge beside the title.
+  final List<SpecValidationError> diagnostics;
 
   /// Whether the headline renders as an editable field (non-strict mode).
   final bool headlineEditable;
@@ -679,6 +769,10 @@ class _NodeHeader extends StatelessWidget {
                         fontSize: 10, fontFamily: 'monospace')),
               ),
             ],
+            if (diagnostics.isNotEmpty) ...[
+              const SizedBox(width: 6),
+              _DiagnosticsBadge(diagnostics: diagnostics),
+            ],
             const SizedBox(width: 6),
             ReviewControls(store: store, path: path, nodeLabel: label),
           ],
@@ -689,6 +783,48 @@ class _NodeHeader extends StatelessWidget {
             child: SpecMarkdown(help!, muted: true),
           ),
       ],
+    );
+  }
+}
+
+/// The csmc9 strict-mode diagnostics badge shown beside a section's title: an
+/// error icon with a count, whose tooltip lists every [SpecValidationError]
+/// anchored on the section (`code: message`). It is a pure read-only overlay of
+/// the runtime validator's output — one badge per offending section, so a
+/// `oneOfCaseMismatch` shows on exactly the mis-selected subsection.
+class _DiagnosticsBadge extends StatelessWidget {
+  const _DiagnosticsBadge({required this.diagnostics});
+
+  final List<SpecValidationError> diagnostics;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final count = diagnostics.length;
+    return Tooltip(
+      message: [
+        for (final e in diagnostics) '• ${e.code.name}: ${e.message}',
+      ].join('\n'),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.errorContainer,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline,
+                size: 12, color: theme.colorScheme.onErrorContainer),
+            const SizedBox(width: 3),
+            Text('$count',
+                style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.onErrorContainer)),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -804,6 +940,7 @@ class _ListItem extends StatelessWidget {
     required this.onHeadlineChanged,
     required this.onIdChanged,
     required this.child,
+    this.diagnostics = const [],
   });
 
   /// The item's structural path (`…/§item`), used to key the edit fields so
@@ -824,6 +961,10 @@ class _ListItem extends StatelessWidget {
   final ValueChanged<String> onHeadlineChanged;
   final ValueChanged<String> onIdChanged;
   final Widget child;
+
+  /// Strict-mode validation errors anchored on this list-item section (csmc9) —
+  /// e.g. a `oneOfCaseMismatch` when the item is itself a `@OneOf` container.
+  final List<SpecValidationError> diagnostics;
 
   @override
   Widget build(BuildContext context) {
@@ -861,6 +1002,10 @@ class _ListItem extends StatelessWidget {
                   onCommitted: onIdChanged,
                 ),
               ),
+              if (diagnostics.isNotEmpty) ...[
+                const SizedBox(width: 6),
+                _DiagnosticsBadge(diagnostics: diagnostics),
+              ],
               IconButton(
                 tooltip: 'Remove item',
                 visualDensity: VisualDensity.compact,
