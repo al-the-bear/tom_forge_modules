@@ -172,9 +172,11 @@ class SpecDocumentController extends ChangeNotifier {
 
   // --- §14 cross-projection identity (N12, OE-18) ------------------------
 
-  /// Whether [rootSeg] names a *projection* root — one of the twelve Phase-3
-  /// `@Document(basedOn: [SolutionBlueprint])` roots — rather than the Solution
-  /// Blueprint master itself.
+  /// Whether [rootSeg] names a *projection* root — one of the thirteen roots
+  /// that project over the Solution Blueprint (the twelve Phase-3
+  /// `@Document(basedOn: [SolutionBlueprint])` documents plus
+  /// `D13CodeSpecsProjection`, the Phase-4 code-generation projection) —
+  /// rather than the Solution Blueprint master itself.
   ///
   /// Solution Blueprint (`type == 'SolutionBlueprint'` or `sectionId == 'SBP'`)
   /// is the source of truth; every other root projects a subset of the
