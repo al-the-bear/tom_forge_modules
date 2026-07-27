@@ -1,10 +1,10 @@
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/dart/analysis/results.dart' as results;
 import 'package:analyzer/dart/element/element.dart';
-import 'package:analyzer/file_system/physical_file_system.dart';
+import 'package:analyzer/file_system/memory_file_system.dart';
+import 'package:analyzer/file_system/overlay_file_system.dart';
 import 'package:analyzer/src/context/packages.dart';
 import 'package:analyzer/src/dart/analysis/analysis_options.dart';
 import 'package:analyzer/src/file_system/file_system.dart';
@@ -61,6 +61,27 @@ class SummaryBackedDartAnalysisAdapter {
   /// The resolved shared scope (scope mode only; null until [ensureInitialized]
   /// resolves it, or permanently null when the scope is unavailable).
   SummaryScope? _resolvedScope;
+
+  /// The analysed snippet's home: an overlay over an in-memory filesystem.
+  ///
+  /// The editor buffer is set as the overlay content for [_analysisPath] and
+  /// read straight back by the driver, so the analysed source never reaches a
+  /// disk. That is not an optimisation — a `script` section decrypted out of a
+  /// `.webwork.kdbx` container must not be written out in plaintext (D33 §3.6),
+  /// a temp file would outlive a crash, and web has no filesystem at all
+  /// (D3 §5). This is the analyzer's own mechanism for unsaved buffers.
+  final OverlayResourceProvider _resourceProvider =
+      OverlayResourceProvider(MemoryResourceProvider());
+
+  /// Synthetic path of the analysed snippet. Nothing exists at it in the base
+  /// filesystem; only the overlay gives it content.
+  late final String _analysisPath = _resourceProvider.pathContext.join(
+    _resourceProvider.pathContext.rootPrefix(
+      _resourceProvider.pathContext.current,
+    ),
+    'dart_editor',
+    'analysis_target.dart',
+  );
 
   Uint8List? _sdkSummaryBytes;
   Uint8List? _packageSummaryBytes;
@@ -124,6 +145,15 @@ class SummaryBackedDartAnalysisAdapter {
   @visibleForTesting
   SummaryScope? get debugResolvedScope => _resolvedScope;
 
+  /// The overlay filesystem the analysed snippet lives in, for tests asserting
+  /// the source never reaches a disk.
+  @visibleForTesting
+  OverlayResourceProvider get debugAnalysisResourceProvider => _resourceProvider;
+
+  /// The synthetic path the analysed snippet is overlaid at.
+  @visibleForTesting
+  String get debugAnalysisPath => _analysisPath;
+
   /// Whether the adapter has a usable summary store: a resolved scope (scope
   /// mode) or loaded SDK bytes (explicit-asset mode).
   bool get _isReady =>
@@ -161,11 +191,7 @@ class SummaryBackedDartAnalysisAdapter {
     await ensureInitialized();
     if (!_isReady) return const [];
 
-    Directory? tempDir;
     try {
-      tempDir = await Directory.systemTemp.createTemp('dart_editor_analyzer_');
-      final tempFile = File('${tempDir.path}/analysis_target.dart');
-
       _cachedDriver ??= _createAnalysisDriver();
       await _ensurePackageUrisRegistered(_cachedDriver!);
       await _ensureImplicitImportsResolvable(_cachedDriver!);
@@ -174,14 +200,21 @@ class SummaryBackedDartAnalysisAdapter {
       final lineOffset = _lineOffset;
       final codeOffset = fullCode.length - code.length;
 
-      await tempFile.writeAsString(fullCode);
+      // Hand the driver the buffer itself. The overlay is replaced on every
+      // pass rather than removed afterwards: it is the editor's live content,
+      // already resident in memory, and the driver must be able to re-read it.
+      _resourceProvider.setOverlay(
+        _analysisPath,
+        content: fullCode,
+        modificationStamp: DateTime.now().millisecondsSinceEpoch,
+      );
 
       final driver = _cachedDriver!;
-      driver.changeFile(tempFile.path);
+      driver.changeFile(_analysisPath);
       await driver.applyPendingFileChanges();
 
       final session = driver.currentSession;
-      final errorsResult = await session.getErrors(tempFile.path);
+      final errorsResult = await session.getErrors(_analysisPath);
       if (errorsResult is! ErrorsResult) return const [];
 
       final lineInfo = errorsResult.lineInfo;
@@ -227,12 +260,6 @@ class SummaryBackedDartAnalysisAdapter {
       _packageTypeCompletions = null;
 
       return _analyzeCodeInternal(code, retryOnFailure: false);
-    } finally {
-      if (tempDir != null) {
-        try {
-          await tempDir.delete(recursive: true);
-        } catch (_) {}
-      }
     }
   }
 
@@ -315,21 +342,22 @@ class SummaryBackedDartAnalysisAdapter {
   AnalysisDriverWithPackages _createAnalysisDriver() {
     _packageUrisRegistered = false;
 
+    // Both modes resolve sources through this adapter's overlay filesystem, so
+    // the only file the driver can see is the in-memory snippet.
     // Scope mode: build a fresh, lightweight driver over the registry's shared
     // parsed store (no re-parse) — this is the §3.1 multi-instance memory win.
     final resolvedScope = _resolvedScope;
     if (resolvedScope != null) {
-      return resolvedScope.createDriver();
+      return resolvedScope.createDriver(resourceProvider: _resourceProvider);
     }
 
     // Explicit-asset mode: parse this instance's own loaded bytes.
-    final resourceProvider = PhysicalResourceProvider.INSTANCE;
     return createAnalysisDriverWithPackages(
-      resourceProvider: resourceProvider,
+      resourceProvider: _resourceProvider,
       sdkSummaryBytes: _sdkSummaryBytes!,
       packageSummaryBytes: _packageSummaryBytes,
       analysisOptions: AnalysisOptionsImpl(),
-      uriResolvers: [ResourceUriResolver(resourceProvider)],
+      uriResolvers: [ResourceUriResolver(_resourceProvider)],
       packages: Packages.empty,
     );
   }

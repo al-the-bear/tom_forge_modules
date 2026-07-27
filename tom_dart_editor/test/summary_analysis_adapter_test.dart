@@ -5,6 +5,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:analyzer/dart/sdk/build_sdk_summary.dart';
+import 'package:analyzer/file_system/memory_file_system.dart';
 import 'package:analyzer/file_system/physical_file_system.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -114,6 +115,99 @@ void main() {
       expect(a.debugResolvedScope, isNull);
       expect(await a.analyzeCode('void main() {}'), isEmpty);
       expect(await a.completions('void main() {}', 0, ''), isEmpty);
+    });
+  });
+
+  group('analysis keeps the analysed source in memory', () {
+    test('surfaces real analyzer diagnostics for a deliberate error', () async {
+      await registry.register(sdkOnly);
+      final a = SummaryBackedDartAnalysisAdapter.scope('dart-plain');
+
+      final errors =
+          await a.analyzeCode("void main() { int x = 'not an int'; }");
+
+      expect(errors, isNotEmpty,
+          reason: 'a type error must still reach the caller');
+      final invalidAssignment = errors.where(
+        (e) => e.code.contains('invalid_assignment'),
+      );
+      expect(invalidAssignment, isNotEmpty,
+          reason: 'diagnostics come from the analyzer, not a stub');
+      // Offsets are rebased onto the user snippet, not the implicit-import
+      // preamble, so line 1 is the snippet's first line.
+      expect(invalidAssignment.first.line, 1);
+    });
+
+    test('analyses through an in-memory overlay, never a real file', () async {
+      await registry.register(sdkOnly);
+      final a = SummaryBackedDartAnalysisAdapter.scope('dart-plain');
+
+      await a.analyzeCode("void main() { int x = 'not an int'; }");
+
+      // The mechanism, asserted directly: the driver reads the snippet from an
+      // overlay over an in-memory filesystem. There is no physical provider in
+      // the chain, so there is no path by which the source could reach a disk.
+      final provider = a.debugAnalysisResourceProvider;
+      expect(provider.baseProvider, isA<MemoryResourceProvider>());
+      expect(provider.hasOverlay(a.debugAnalysisPath), isTrue,
+          reason: 'the analysed buffer lives in the overlay');
+      expect(
+        provider.getFile(a.debugAnalysisPath).readAsStringSync(),
+        contains("int x = 'not an int';"),
+      );
+      // The base filesystem never received it — the overlay shadows a file
+      // that was never created.
+      expect(provider.baseProvider.getFile(a.debugAnalysisPath).exists, isFalse);
+    });
+
+    test('leaves no residue in the system temp directory', () async {
+      await registry.register(sdkOnly);
+      final a = SummaryBackedDartAnalysisAdapter.scope('dart-plain');
+      // Warm the driver so the measured window covers only the analysis pass.
+      await a.analyzeCode('void main() {}');
+
+      final before =
+          Directory.systemTemp.listSync().map((e) => e.path).toSet();
+
+      await a.analyzeCode("void main() { int x = 'not an int'; }");
+
+      final after =
+          Directory.systemTemp.listSync().map((e) => e.path).toSet();
+
+      // A weaker guard than it looks: the superseded temp-file path deleted its
+      // directory in a `finally`, so a before/after diff could not see it, and
+      // macOS delivers no watch events for the system temp directory. This
+      // catches a *surviving* temp artifact (the lifetime hazard); the two
+      // assertions above are what catch the write itself.
+      expect(after.difference(before), isEmpty,
+          reason: 'an analysis pass must leave nothing behind on disk');
+      expect(after.where((p) => p.contains('dart_editor_analyzer_')), isEmpty,
+          reason: 'the temp-directory analysis path must be gone entirely');
+    });
+
+    test('no library source reaches for a filesystem', () {
+      // The one remaining physical-provider reference: `createDriver()` still
+      // defaults to PhysicalResourceProvider for callers that pass none. No
+      // production caller does — the adapter always injects its overlay — so it
+      // cannot carry analysed source to a disk, but it does keep the package
+      // off web. Removing it is tracked as wonecodeprp6.
+      const tracked = {'lib/src/summary_scope_registry.dart'};
+
+      final offenders = <String>[];
+      for (final entity in Directory('lib').listSync(recursive: true)) {
+        if (entity is! File || !entity.path.endsWith('.dart')) continue;
+        final relative = p.relative(entity.path);
+        if (tracked.contains(p.split(relative).join('/'))) continue;
+        final source = entity.readAsStringSync();
+        if (source.contains("import 'dart:io'") ||
+            source.contains('systemTemp') ||
+            source.contains('physical_file_system.dart')) {
+          offenders.add(relative);
+        }
+      }
+      expect(offenders, isEmpty,
+          reason: 'analysed source must never be able to reach a disk, and '
+              'the editor must run where there is no disk (web — D3 §5)');
     });
   });
 
