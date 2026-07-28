@@ -101,6 +101,18 @@ Map<String, dynamic> _sbpRspJson() => {
           'name': 'Requirement',
           'fields': [
             {'name': 'label', 'kind': 'content', 'sectionId': 'FRE-LBL'},
+            // An annotated class *below* a list item. Identity down here is
+            // positional (which requirement), so the anchor scan must stop at
+            // the item rather than collapsing every item onto REQ-DET.
+            {'name': 'detail', 'kind': 'complex', 'type': 'RequirementDetail'},
+          ],
+        },
+        'RequirementDetail': {
+          'name': 'RequirementDetail',
+          'sectionId': 'REQ-DET',
+          'detailedIn': 'RequirementsSpecification',
+          'fields': [
+            {'name': 'rationale', 'kind': 'content', 'sectionId': 'REQ-DET-RAT'},
           ],
         },
         // An UNannotated shared class: reached via RC only, stays route-local.
@@ -113,6 +125,11 @@ Map<String, dynamic> _sbpRspJson() => {
         },
       },
     };
+
+/// The two routes to the one shared `FunctionalRequirements` section: through
+/// the Solution Blueprint master, and through the RSP projection.
+const _sbpFr = 'SBP/systemOverview/requirements/functionalRequirements';
+const _rspFr = 'RSP/functionalRequirements';
 
 ReviewStore _tempReviewStore() {
   final dir = Directory.systemTemp.createTempSync('projection_identity');
@@ -187,6 +204,135 @@ void main() {
       expect(c.canonicalPathFor('SBP/systemOverview'), 'SBP/systemOverview');
       expect(c.canonicalPathFor('SBP/systemOverview/requirements'),
           'SBP/systemOverview/requirements');
+    });
+  });
+
+  group('storagePathFor (§14 storage identity)', () {
+    test('both routes key on the master structural path', () async {
+      final c = await _controller();
+      expect(c.storagePathFor(_rspFr), _sbpFr);
+      expect(c.storagePathFor(_sbpFr), _sbpFr,
+          reason: 'the identity on the master route');
+    });
+
+    test('segments below the anchor are carried verbatim', () async {
+      final c = await _controller();
+      expect(c.storagePathFor('$_rspFr/FRE-REQU-LST'), '$_sbpFr/FRE-REQU-LST');
+    });
+
+    test('an unannotated shared class stays route-local', () async {
+      final c = await _controller();
+      expect(c.storagePathFor('RSP/header'), 'RSP/header');
+      expect(c.storagePathFor('RSP/header/DOCHD-AUT'), 'RSP/header/DOCHD-AUT');
+    });
+
+    test('is idempotent and prefix-preserving, as the store requires',
+        () async {
+      final c = await _controller();
+      for (final path in [
+        _sbpFr,
+        _rspFr,
+        '$_rspFr/FRE-REQU-LST',
+        '$_rspFr/FRE-REQU-LST-1/detail',
+        'RSP/header',
+        'SBP/systemOverview',
+      ]) {
+        final once = c.storagePathFor(path);
+        expect(c.storagePathFor(once), once, reason: 'f(f($path)) == f($path)');
+      }
+      // A subtree maps onto a subtree: prefix scans over storage keys must keep
+      // seeing everything beneath the prefix they were given.
+      expect(c.storagePathFor('$_rspFr/FRE-REQU-LST-1/detail'),
+          startsWith('${c.storagePathFor(_rspFr)}/'));
+      expect(c.storagePathFor(_rspFr),
+          startsWith('${c.storagePathFor('SBP/systemOverview')}/'));
+    });
+
+    test('the anchor scan stops at a list item, so items stay distinct',
+        () async {
+      final c = await _controller();
+      // RequirementDetail is annotated, but it sits below a list item: anchoring
+      // on it would give every requirement's detail the same key.
+      final first = c.storagePathFor('$_rspFr/FRE-REQU-LST-1/detail');
+      final second = c.storagePathFor('$_rspFr/FRE-REQU-LST-2/detail');
+      expect(first, '$_sbpFr/FRE-REQU-LST-1/detail');
+      expect(second, '$_sbpFr/FRE-REQU-LST-2/detail');
+      expect(first, isNot(second));
+    });
+  });
+
+  group('one section, one store entry (§14 value + review folding)', () {
+    test('an edit through RSP is the same value as an edit through SBP',
+        () async {
+      final c = await _controller();
+      c.setContent('$_rspFr/FRE-REQU-LST', 'authored via the projection');
+
+      expect(c.content('$_sbpFr/FRE-REQU-LST'), 'authored via the projection',
+          reason: 'the master route reads the projection edit');
+      expect(c.document.toJson()['content'], hasLength(1),
+          reason: 'one section is one entry, not one per route');
+
+      c.setContent('$_sbpFr/FRE-REQU-LST', 'rewritten via the master');
+      expect(c.content('$_rspFr/FRE-REQU-LST'), 'rewritten via the master');
+      expect(c.document.toJson()['content'], hasLength(1));
+    });
+
+    test('a form field folds across routes too', () async {
+      final c = await _controller();
+      c.setFormField(_rspFr, 'owner', 'ops');
+      expect(c.formField(_sbpFr, 'owner'), 'ops');
+      expect(c.document.toJson()['forms'], hasLength(1));
+    });
+
+    test('hasValuesUnder holds in storage space from either route', () async {
+      final c = await _controller();
+      c.setContent('$_rspFr/FRE-REQU-LST', 'v');
+
+      // The scan is a prefix match over storage keys, so an ancestor of the
+      // *master* route sees a value written through the projection route.
+      expect(c.document.hasValuesUnder('SBP/systemOverview'), isTrue);
+      expect(c.document.hasValuesUnder('SBP/systemOverview/requirements'),
+          isTrue);
+      expect(c.document.hasValuesUnder(_rspFr), isTrue);
+      expect(c.document.hasValuesUnder(_sbpFr), isTrue);
+      expect(c.document.hasValuesUnder('RSP/header'), isFalse);
+    });
+
+    test('a purge through one route clears the value seen by the other',
+        () async {
+      final c = await _controller();
+      c.setContent('$_rspFr/FRE-REQU-LST', 'v');
+      c.document.removeValuesUnder('SBP/systemOverview');
+      expect(c.content('$_rspFr/FRE-REQU-LST'), isNull);
+      expect(c.document.hasValuesUnder(_sbpFr), isFalse);
+    });
+
+    test('a review decision folds onto one entry', () async {
+      final c = await _controller();
+      c.setReview(_rspFr, (e) => e.scope = ReviewScope.global);
+      expect(c.review.entryFor(_sbpFr)?.scope, ReviewScope.global);
+      expect(c.review.count, 1);
+    });
+
+    test('values written before the model resolves are re-keyed on load',
+        () async {
+      // The mapping is derived from the model, so it cannot be installed at
+      // construction. Edits made in that gap key raw and must be folded in
+      // rather than stranded.
+      final c = SpecDocumentController(
+        modelFuture: Future<SpecModel>.value(SpecModel.fromJson(_sbpRspJson())),
+        review: _tempReviewStore(),
+      );
+      addTearDown(c.dispose);
+      c.setContent('$_rspFr/FRE-REQU-LST', 'early');
+      c.setReview('$_rspFr/FRE-REQU-LST', (e) => e.stopHere = true);
+
+      await c.ensureLoaded();
+
+      expect(c.content('$_sbpFr/FRE-REQU-LST'), 'early');
+      expect(c.document.toJson()['content'], hasLength(1));
+      expect(c.review.entryFor('$_sbpFr/FRE-REQU-LST')?.stopHere, isTrue);
+      expect(c.review.count, 1);
     });
   });
 }

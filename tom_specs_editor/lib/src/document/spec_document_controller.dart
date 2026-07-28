@@ -55,6 +55,19 @@ class ResolvedNode {
   });
 }
 
+/// A projection anchor found along a structural path (§14, N12): the section id
+/// of the deepest annotated class on the path, and the index of the segment it
+/// was found at. Shared by [SpecDocumentController.canonicalPathFor] (which
+/// re-roots on the id) and [SpecDocumentController.storagePathFor] (which
+/// re-roots on the master's structural path), so the two can never disagree
+/// about *which* section a path names.
+class _PathAnchor {
+  const _PathAnchor(this.sectionId, this.index);
+
+  final String sectionId;
+  final int index;
+}
+
 /// The single document controller shared by the UI and the agent tools (§8).
 ///
 /// It wraps the read-only [SpecModel] (schema), the live sparse [SpecDocument]
@@ -146,8 +159,21 @@ class SpecDocumentController extends ChangeNotifier {
   /// schema-dependent operations like [exportMarkdown].
   bool get isModelLoaded => _model != null;
 
-  /// Loads and caches the model future on first use.
-  Future<SpecModel> ensureLoaded() async => _model ??= await _modelFuture;
+  /// Loads and caches the model future on first use, then binds both stores to
+  /// [storagePathFor] so every projection route folds onto one entry (§14).
+  ///
+  /// The binding waits for the model because the mapping is derived from it.
+  /// Both stores tolerate being written before that: [storagePathFor] is the
+  /// identity while the model is unresolved (there is nothing to fold before a
+  /// model exists), and both stores re-key whatever they already hold when the
+  /// mapper arrives.
+  Future<SpecModel> ensureLoaded() async {
+    if (_model != null) return _model!;
+    _model = await _modelFuture;
+    document.installPathNormalizer(storagePathFor);
+    review.installKeyMapper(storagePathFor);
+    return _model!;
+  }
 
   // --- §14 root navigation (step 20) -------------------------------------
 
@@ -207,30 +233,129 @@ class SpecDocumentController extends ChangeNotifier {
   /// *unannotated* shared class (e.g. each document's own `DocumentHeader`)
   /// distinct rather than conflated.
   ///
-  /// This is a read-only binding primitive. Re-keying the live value/review
-  /// storage onto canonical paths — so an edit through a projection mutates the
-  /// byte-identical PD value — is deferred with OE-2a (see the OE-18 questions
-  /// note); it needs the per-root connect bindings and a storage migration that
-  /// the current prefix-based purge cannot express across the anchor boundary.
+  /// This is the **identity** primitive — it answers "are these two routes the
+  /// same section?" in a root-independent name. It is not the storage key:
+  /// values and reviews are keyed by [storagePathFor], which resolves the same
+  /// anchor but re-roots it on the master's structural path (so the store stays
+  /// a prefix-consistent tree).
   String canonicalPathFor(String path) {
     final segs = path.split('/');
-    if (segs.isEmpty) return path;
-    String? anchorId;
-    var anchorIdx = -1;
+    final anchor = _anchorOf(segs);
+    if (anchor == null) return path;
+    final below = segs.sublist(anchor.index + 1);
+    return [anchor.sectionId, ...below].join('/');
+  }
+
+  /// Maps a structural [path] to the **storage key** the value store and the
+  /// [ReviewStore] hold it under: the same anchor [canonicalPathFor] finds, but
+  /// re-rooted on where that anchored section sits in the **Solution Blueprint
+  /// master** tree.
+  ///
+  /// So `RSP/functionalRequirements` and
+  /// `SBP/systemOverview/requirements/functionalRequirements` both store as the
+  /// latter — one entry, edited identically from either route (§14, N12). A
+  /// path with no anchor (a route-local unannotated class such as each
+  /// document's own `DocumentHeader`, or a bare root segment) is returned
+  /// unchanged and stays route-local.
+  ///
+  /// **Why the master path and not the bare anchor id.** The store's emptiness
+  /// and purge logic is a prefix scan, so its key space has to be a tree: a
+  /// subtree of paths must map to a subtree of keys. Anchor-id-rooted canonical
+  /// paths are *not* — everything above the anchor is replaced, so
+  /// `hasValuesUnder('SBP/systemOverview')` would stop seeing a value stored
+  /// under `FR/…`. Master structural paths are the fixed point of that
+  /// requirement: the rewrite is the identity on the master route, every
+  /// projection route folds *into* the master tree rather than out of it, and
+  /// prefix scans keep working untouched. It is also the key space the
+  /// `*.docspecs.yaml` codec, the document validator, the markdown codec and
+  /// [SpecNodeCreator] already walk, so they all see projection edits for free.
+  ///
+  /// Idempotent and prefix-preserving, as [SpecDocument.pathNormalizer]
+  /// requires. Before the model resolves there is nothing to fold, so the
+  /// mapping is the identity; [ensureLoaded] re-keys both stores once it can
+  /// answer properly. Memoized from then on — the model is immutable once
+  /// loaded, so a path's key never changes again.
+  String storagePathFor(String path) {
+    if (!isModelLoaded) return path;
+    return _storagePathCache[path] ??= _computeStoragePath(path);
+  }
+
+  final Map<String, String> _storagePathCache = {};
+
+  String _computeStoragePath(String path) {
+    final segs = path.split('/');
+    final anchor = _anchorOf(segs);
+    if (anchor == null) return path;
+    final masterBase = _masterPathBySectionId()[anchor.sectionId];
+    // No master home (a projection-local annotated class — a §14 pure-projection
+    // invariant violation): keep the path route-local rather than invent a key
+    // outside the structural tree.
+    if (masterBase == null) return path;
+    final below = segs.sublist(anchor.index + 1);
+    return [masterBase, ...below].join('/');
+  }
+
+  /// The deepest projection anchor along [segs] — the last segment whose
+  /// resolved class carries **both** a section id and a projection annotation
+  /// (`@MapsTo` / `@DetailedIn`) — or `null` when the path has none.
+  ///
+  /// The scan **stops at the first list item**. Below an item, identity is
+  /// positional (which item), not class-level: anchoring there would collapse
+  /// every item of the list onto one key. The item's own suffix is instead
+  /// carried verbatim under the anchor that owns the list.
+  _PathAnchor? _anchorOf(List<String> segs) {
+    if (segs.isEmpty) return null;
+    _PathAnchor? anchor;
     var acc = '';
     for (var i = 0; i < segs.length; i++) {
       acc = i == 0 ? segs[0] : '$acc/${segs[i]}';
-      final cls = resolve(acc)?.cls;
+      final node = resolve(acc);
+      if (node == null) break;
+      if (node.isListItem) break;
+      final cls = node.cls;
       if (cls != null &&
           cls.sectionId != null &&
           (cls.mapsTo != null || cls.detailedIn != null)) {
-        anchorId = cls.sectionId;
-        anchorIdx = i;
+        anchor = _PathAnchor(cls.sectionId!, i);
       }
     }
-    if (anchorId == null) return path;
-    final below = segs.sublist(anchorIdx + 1);
-    return [anchorId, ...below].join('/');
+    return anchor;
+  }
+
+  Map<String, String>? _masterPathIndex;
+
+  /// Section id → its structural path in the **Solution Blueprint master**
+  /// tree, built once per model. Only single-valued (root and complex) field
+  /// steps are walked: a list element class has no fixed path (its identity is
+  /// the `-N` item suffix), and [_anchorOf] never anchors below an item, so
+  /// such a class can never be looked up here.
+  Map<String, String> _masterPathBySectionId() =>
+      _masterPathIndex ??= _buildMasterPathIndex();
+
+  Map<String, String> _buildMasterPathIndex() {
+    final index = <String, String>{};
+    final master = model.roots.firstWhere(
+      (r) => r.type == 'SolutionBlueprint' || r.sectionId == 'SBP',
+      orElse: () => model.roots.first,
+    );
+    // Visited classes are never revisited: the first (document-order) path a
+    // class is reached by is its home, and every class beneath it was recorded
+    // from there. That also bounds the walk linearly over a shared DAG.
+    final visited = <String>{};
+    void walk(SpecClass? cls, String path) {
+      if (cls == null || !visited.add(cls.name)) return;
+      final id = cls.sectionId;
+      // First occurrence wins: `@SectionId` is globally unique (§8.6), so a
+      // second hit would be a model defect, not a legitimate second home.
+      if (id != null) index.putIfAbsent(id, () => path);
+      for (final f in cls.fields) {
+        if (f.kind != SpecFieldKind.complex) continue;
+        walk(model.classNamed(f.type), '$path/${_segOf(f)}');
+      }
+    }
+
+    walk(model.classNamed(master.type), _rootSeg(master));
+    return index;
   }
 
   // --- Layer A: schema lookups -------------------------------------------
@@ -590,7 +715,12 @@ class SpecDocumentController extends ChangeNotifier {
 
   /// Sets the content at [path]. Snapshots + records the change unless it is a
   /// no-op (§9, §10).
+  ///
+  /// The change log is keyed by [storagePathFor], like the store itself, so two
+  /// routes to one section produce one section's history (§14) — and the
+  /// `baseAtLastSave` lookup hits the raw snapshot map with the right key.
   void setContent(String path, String value) {
+    final key = storagePathFor(path);
     final before = document.captureState();
     final beforeVal = document.content(path);
     document.setContent(path, value);
@@ -598,12 +728,12 @@ class SpecDocumentController extends ChangeNotifier {
       before,
       () => ChangeEntry(
         id: _nextEntryId(),
-        sectionId: path,
+        sectionId: key,
         kind: ChangeKind.content,
         turnId: _turnIdForEdit(),
         beforeThisEdit: beforeVal,
         afterThisEdit: value.isEmpty ? null : value,
-        baseAtLastSave: _savedState.contentAt(path),
+        baseAtLastSave: _savedState.contentAt(key),
         toolCallId: activeToolCallId,
       ),
     );
@@ -612,6 +742,7 @@ class SpecDocumentController extends ChangeNotifier {
   /// Sets the form [field] at [path]. Snapshots + records the change unless it
   /// is a no-op.
   void setFormField(String path, String field, String value) {
+    final key = storagePathFor(path);
     final before = document.captureState();
     final beforeVal = document.formField(path, field);
     document.setFormField(path, field, value);
@@ -619,13 +750,13 @@ class SpecDocumentController extends ChangeNotifier {
       before,
       () => ChangeEntry(
         id: _nextEntryId(),
-        sectionId: path,
+        sectionId: key,
         kind: ChangeKind.formField,
         field: field,
         turnId: _turnIdForEdit(),
         beforeThisEdit: beforeVal,
         afterThisEdit: value.isEmpty ? null : value,
-        baseAtLastSave: _savedState.formFieldAt(path, field),
+        baseAtLastSave: _savedState.formFieldAt(key, field),
         toolCallId: activeToolCallId,
       ),
     );
@@ -716,7 +847,7 @@ class SpecDocumentController extends ChangeNotifier {
     review.update(path, mutate);
     changeLog.record(ChangeEntry(
       id: _nextEntryId(),
-      sectionId: path,
+      sectionId: storagePathFor(path),
       kind: ChangeKind.review,
       turnId: _turnIdForEdit(),
       toolCallId: activeToolCallId,
@@ -872,6 +1003,11 @@ class SpecDocumentController extends ChangeNotifier {
   /// parsed values, as one undo entry. Built by merging the parsed values over
   /// the live document minus the covered scope, then reloading — so other roots
   /// are untouched and list seq/item paths are restored exactly.
+  ///
+  /// This is the one place that works on the raw stores
+  /// ([SpecDocument.toJson]/[SpecDocument.loadJson] bypass the key normalizer),
+  /// so the parser's structural paths and the covered scope are mapped through
+  /// [storagePathFor] by hand before they meet the live keys.
   void _applyMarkdownImport(MarkdownImportResult result) {
     if (result.rootPrefixes.isEmpty) return;
     final before = document.captureState();
@@ -884,15 +1020,16 @@ class SpecDocumentController extends ChangeNotifier {
     (doc['forms'] as Map?)?.forEach((k, v) => forms['$k'] = v);
     (doc['lists'] as Map?)?.forEach((k, v) => lists['$k'] = v);
 
-    bool underScope(String key) => result.rootPrefixes.any(
-        (p) => key == p || key.startsWith('$p/') || key.startsWith('$p-'));
+    final scope = result.rootPrefixes.map(storagePathFor).toList();
+    bool underScope(String key) => scope
+        .any((p) => key == p || key.startsWith('$p/') || key.startsWith('$p-'));
     content.removeWhere((k, _) => underScope(k));
     forms.removeWhere((k, _) => underScope(k));
     lists.removeWhere((k, _) => underScope(k));
 
-    content.addAll(result.content);
-    forms.addAll(result.forms);
-    lists.addAll(result.lists);
+    content.addAll(_toStorageKeys(result.content));
+    forms.addAll(_toStorageKeys(result.forms));
+    lists.addAll(_listsToStorageKeys(result.lists));
 
     document.loadJson({'content': content, 'forms': forms, 'lists': lists});
 
@@ -909,6 +1046,34 @@ class SpecDocumentController extends ChangeNotifier {
       },
     ));
     notifyListeners();
+  }
+
+  /// [values] re-keyed from structural into storage space ([storagePathFor]).
+  Map<String, Object?> _toStorageKeys(Map<String, Object?> values) => {
+        for (final e in values.entries) storagePathFor(e.key): e.value,
+      };
+
+  /// [lists] re-keyed into storage space — the list paths *and* the item paths
+  /// nested inside each `{seq, items, ids?}` record, which are stored as keys
+  /// in their own right and so must move with their list.
+  Map<String, Object?> _listsToStorageKeys(
+      Map<String, Map<String, Object?>> lists) {
+    final out = <String, Object?>{};
+    for (final entry in lists.entries) {
+      final spec = Map<String, Object?>.of(entry.value);
+      final items = spec['items'];
+      if (items is List) {
+        spec['items'] = [for (final it in items) storagePathFor('$it')];
+      }
+      final ids = spec['ids'];
+      if (ids is Map) {
+        spec['ids'] = {
+          for (final e in ids.entries) storagePathFor('${e.key}'): e.value,
+        };
+      }
+      out[storagePathFor(entry.key)] = spec;
+    }
+    return out;
   }
 
   /// Wires the controller's [undo]/[redo] into the Forge shell via

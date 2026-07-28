@@ -144,7 +144,9 @@ class ReviewEntry {
 /// Holds all review entries and persists them to a YAML file on every edit.
 ///
 /// The store is keyed by structural path so a reviewer's decision can later be
-/// mapped straight back onto the object model for rework. Saving happens
+/// mapped straight back onto the object model for rework — folded onto one key
+/// per section by the host's [installKeyMapper] where several routes reach the
+/// same section. Saving happens
 /// synchronously after each mutation — the data set is small (one entry per
 /// reviewed node) and the guarantee that nothing is lost on crash is worth more
 /// than micro-optimising writes.
@@ -153,6 +155,48 @@ class ReviewStore extends ChangeNotifier {
   final Map<String, ReviewEntry> _entries = {};
 
   ReviewStore(this.file);
+
+  /// The host's storage-key mapper, or `null` for identity (see
+  /// [installKeyMapper]).
+  String Function(String path)? _keyMapper;
+
+  /// [path] as this store keys it.
+  String _key(String path) => _keyMapper?.call(path) ?? path;
+
+  /// Installs the host's storage-key mapper and **migrates the entries already
+  /// held** onto the mapped keys.
+  ///
+  /// A review decision is about a *section*, not about the route the reviewer
+  /// happened to reach it by, so a host whose object model reaches one section
+  /// along several routes (the editor's projection roots,
+  /// tom_specs_editor_specification.md §14) installs
+  /// `SpecDocumentController.storagePathFor` here. Every read and write then
+  /// folds onto the one key, so a decision recorded through a projection is the
+  /// same entry as the one recorded through the master route.
+  ///
+  /// Installation is also the **migration for review passes saved before the
+  /// re-key**: [load] and [replaceEntries] can run before the model resolves
+  /// (the mapper is model-dependent), so whatever route-keyed entries are
+  /// already held are re-keyed here. Where two old keys collapse onto one, the
+  /// first in sorted-key order wins — they describe the same section, so the
+  /// loss is a duplicate, not a decision.
+  void installKeyMapper(String Function(String path) mapper) {
+    _keyMapper = mapper;
+    final migrated = <String, ReviewEntry>{};
+    for (final key in _entries.keys.toList()..sort()) {
+      migrated.putIfAbsent(mapper(key), () => _entries[key]!);
+    }
+    if (_mapEquals(migrated, _entries)) return;
+    _entries
+      ..clear()
+      ..addAll(migrated);
+    _save();
+    notifyListeners();
+  }
+
+  bool _mapEquals(Map<String, ReviewEntry> a, Map<String, ReviewEntry> b) =>
+      a.length == b.length &&
+      a.entries.every((e) => identical(b[e.key], e.value));
 
   /// Resolves the review file location. Honors `TOM_SPECS_REVIEW_FILE`; falls
   /// back to `<cwd>/review/structure_review.yaml`.
@@ -167,20 +211,21 @@ class ReviewStore extends ChangeNotifier {
   /// Number of non-empty review entries currently held.
   int get count => _entries.length;
 
-  /// An unmodifiable view of every held entry, keyed by structural path — the
+  /// An unmodifiable view of every held entry, keyed by storage path — the
   /// source for the §15.1 `review:` pass when saving a `*.docspecs.yaml`.
   Map<String, ReviewEntry> get entries => Map.unmodifiable(_entries);
 
   /// Replaces the whole entry set in one shot (used when loading a
-  /// `*.docspecs.yaml` restores the review pass). Empty entries are dropped so
-  /// the store stays tidy; persists once and notifies unless [persist] is off.
+  /// `*.docspecs.yaml` restores the review pass). Keys are mapped through the
+  /// installed key mapper (first in sorted order wins a collision) and empty
+  /// entries are dropped so the store stays tidy; persists once and notifies
+  /// unless [persist] is off.
   void replaceEntries(Map<String, ReviewEntry> entries, {bool persist = true}) {
-    _entries
-      ..clear()
-      ..addAll({
-        for (final e in entries.entries)
-          if (!e.value.isEmpty) e.key: e.value,
-      });
+    _entries.clear();
+    for (final key in entries.keys.toList()..sort()) {
+      final entry = entries[key]!;
+      if (!entry.isEmpty) _entries.putIfAbsent(_key(key), () => entry);
+    }
     if (persist) _save();
     notifyListeners();
   }
@@ -195,31 +240,33 @@ class ReviewStore extends ChangeNotifier {
     final entries = doc['entries'];
     if (entries is! YamlMap) return;
     _entries.clear();
-    entries.forEach((key, value) {
+    for (final key in entries.keys.map((k) => k.toString()).toList()..sort()) {
+      final value = entries[key];
       if (value is YamlMap) {
-        _entries[key.toString()] = ReviewEntry.fromMap(value);
+        _entries.putIfAbsent(_key(key), () => ReviewEntry.fromMap(value));
       }
-    });
+    }
   }
 
   /// Returns the entry for [path], or `null` if none has been recorded.
-  ReviewEntry? entryFor(String path) => _entries[path];
+  ReviewEntry? entryFor(String path) => _entries[_key(path)];
 
   /// Returns the entry for [path], creating an empty one if absent. The
   /// returned object is *not* yet stored — call [update] to persist edits.
-  ReviewEntry entryOrNew(String path) => _entries[path] ?? ReviewEntry();
+  ReviewEntry entryOrNew(String path) => _entries[_key(path)] ?? ReviewEntry();
 
   /// Applies [mutate] to the entry at [path] and persists immediately.
   ///
   /// If the resulting entry is empty it is removed (keeping the file tidy and
   /// the reverse mapping unambiguous).
   void update(String path, void Function(ReviewEntry) mutate) {
-    final entry = _entries[path] ?? ReviewEntry();
+    final key = _key(path);
+    final entry = _entries[key] ?? ReviewEntry();
     mutate(entry);
     if (entry.isEmpty) {
-      _entries.remove(path);
+      _entries.remove(key);
     } else {
-      _entries[path] = entry;
+      _entries[key] = entry;
     }
     _save();
     notifyListeners();
