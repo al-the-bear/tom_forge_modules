@@ -1,4 +1,5 @@
-// Tests for the seven custom config editors + basic-prefs panel (step 18, §12).
+// Tests for the seven custom config editors + basic-prefs panel (step 18,
+// `tom_specs_editor_specification.md` §12).
 //
 // Done condition for step 18: each editor opens, validates, and its
 // "Open raw file" button opens the backing YAML/markdown. These tests drive
@@ -82,7 +83,8 @@ void _registerListTests<T>(
 }
 
 void main() {
-  group('config list editors (§12 step 18)', () {
+  group('config list editors (tom_specs_editor_specification.md §12 '
+      'step 18)', () {
     late Directory dir;
     late SpecsConfigSpecs specs;
 
@@ -119,7 +121,8 @@ void main() {
 
     testWidgets(
         'the prompt-templates editor shows a live placeholder preview when a '
-        'composer is wired (§12, OE-14)', (tester) async {
+        'composer is wired (tom_specs_editor_specification.md §12, OE-14)',
+        (tester) async {
       // A composer that uppercases a known placeholder, so the preview's
       // expansion is visibly distinct from the raw body.
       final specsWithCompose = SpecsConfigSpecs(
@@ -158,7 +161,8 @@ void main() {
       expect(specs.promptTemplateSpec().fields, hasLength(3));
     });
 
-    testWidgets('a field renders its contextual help caption (§12, OE-15)',
+    testWidgets('a field renders its contextual help caption '
+        '(tom_specs_editor_specification.md §12, OE-15)',
         (tester) async {
       final field = ConfigField<String>.text(
         label: 'Name',
@@ -174,7 +178,8 @@ void main() {
       expect(find.byKey(const ValueKey('cfg-help-Name')), findsOneWidget);
     });
 
-    testWidgets('a field without help renders no help caption (§12, OE-15)',
+    testWidgets('a field without help renders no help caption '
+        '(tom_specs_editor_specification.md §12, OE-15)',
         (tester) async {
       final field = ConfigField<String>.text(
         label: 'Name',
@@ -189,7 +194,8 @@ void main() {
     });
 
     testWidgets(
-        'an authored field help string renders in the editor (§12, OE-15)',
+        'an authored field help string renders in the editor '
+        '(tom_specs_editor_specification.md §12, OE-15)',
         (tester) async {
       // Every config editor authors per-field help; the queue's Prompt field is
       // a representative one. It shows once an item is selected.
@@ -228,7 +234,8 @@ void main() {
     });
   });
 
-  group('agent-settings singleton editor (§12 step 18)', () {
+  group('agent-settings singleton editor '
+      '(tom_specs_editor_specification.md §12 step 18)', () {
     testWidgets('opens and renders its title', (tester) async {
       final specs = _specsIn(_tempDir());
       final spec = specs.agentSettingsSpec();
@@ -270,7 +277,8 @@ void main() {
     });
   });
 
-  group('basic-prefs panel (§12 — theme/font/default-app/default-profile)', () {
+  group('basic-prefs panel (tom_specs_editor_specification.md §12 — '
+      'theme/font/default-app/default-profile)', () {
     testWidgets('edits flow back through the change callbacks', (tester) async {
       EditorPreferences? prefs;
       AgentSettings? settings;

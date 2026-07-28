@@ -1,4 +1,5 @@
-// Tests for the §8 navigation & mutation tools (step 14).
+// Tests for the `tom_specs_editor_specification.md` §8 navigation & mutation
+// tools (step 14).
 //
 // The step's Done condition: each tool returns compact JSON, and a mutation
 // tool edits the live model. These tests drive the `SdkMcpTool` handlers
@@ -98,7 +99,8 @@ void main() {
   });
   tearDown(() => dir.deleteSync(recursive: true));
 
-  test('the server exposes all 13 §8 tools', () {
+  test('the server exposes all 13 tom_specs_editor_specification.md §8 '
+      'tools', () {
     final h = _harness(dir);
     expect(
       h.tools.keys,

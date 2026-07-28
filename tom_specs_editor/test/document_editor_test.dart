@@ -1,4 +1,5 @@
-// Tests for the model-driven document editor + compact tree (step 19, §13).
+// Tests for the model-driven document editor + compact tree (step 19,
+// `tom_specs_editor_specification.md` §13).
 //
 // The step's Done condition: the bundled model renders; empty nodes collapse to
 // clickable chips; lists add/remove. These tests drive the value-backed
@@ -127,7 +128,8 @@ Future<void> _pump(WidgetTester tester, SpecDocumentController controller) {
 }
 
 void main() {
-  group('SpecDocument.hasValuesUnder (§13.1 D4 emptiness)', () {
+  group('SpecDocument.hasValuesUnder (tom_specs_editor_specification.md §13.1 '
+      'D4 emptiness)', () {
     test('a path is empty until a value is set at or beneath it', () {
       final doc = SpecDocument();
       expect(doc.hasValuesUnder('D00/D00-OVR'), isFalse);
@@ -148,7 +150,7 @@ void main() {
     });
   });
 
-  group('compact tree (§13.1)', () {
+  group('compact tree (tom_specs_editor_specification.md §13.1)', () {
     testWidgets('an empty document renders every field as a chip, no editors',
         (tester) async {
       final controller = await _controller();
@@ -245,7 +247,8 @@ void main() {
     });
   });
 
-  group('code content routing (§13 l / OE-1)', () {
+  group('code content routing (tom_specs_editor_specification.md §13 l / '
+      'OE-1)', () {
     // The widget choice (summary-backed editor vs plain-text fallback) is
     // exercised by the production path: `flutter build linux` embeds the .sum
     // bundles and `_CodeField` renders the real editor when they are present.
@@ -280,7 +283,8 @@ void main() {
     });
   });
 
-  group('layout content routing (§13 k / OE-3)', () {
+  group('layout content routing (tom_specs_editor_specification.md §13 k / '
+      'OE-3)', () {
     // The live d4rt-flutter render is deferred (OE-3a: analyzer ^8/^10
     // conflict); here we pin which content types route to the layout seam so
     // the convention and a future model-side layout section line up.

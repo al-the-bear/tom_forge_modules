@@ -4,7 +4,8 @@ import 'package:tom_forge_agentic/tom_forge_agentic.dart';
 import 'package:tom_spec_engine/agent_runtime.dart'
     show ConversationContext, ConversationalDecision, ConversationalDriver;
 
-/// The **live conversational substrate** driver (followup item 9, §10 mode a).
+/// The **live conversational substrate** driver (followup item 9,
+/// `llm_and_d4rt_tools.md` §10 mode a).
 ///
 /// Binds the engine's [ConversationalDriver] port to the editor's live
 /// [AgentSendController] — the Agent SDK / Claude Code loop over the VS Code

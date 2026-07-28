@@ -55,9 +55,10 @@ class ResolvedNode {
   });
 }
 
-/// A projection anchor found along a structural path (§14, N12): the section id
-/// of the deepest annotated class on the path, and the index of the segment it
-/// was found at. Shared by [SpecDocumentController.canonicalPathFor] (which
+/// A projection anchor found along a structural path
+/// (`tom_specs_editor_specification.md` §14, N12): the section id of the
+/// deepest annotated class on the path, and the index of the segment it was
+/// found at. Shared by [SpecDocumentController.canonicalPathFor] (which
 /// re-roots on the id) and [SpecDocumentController.storagePathFor] (which
 /// re-roots on the master's structural path), so the two can never disagree
 /// about *which* section a path names.
@@ -68,7 +69,8 @@ class _PathAnchor {
   final int index;
 }
 
-/// The single document controller shared by the UI and the agent tools (§8).
+/// The single document controller shared by the UI and the agent tools
+/// (`tom_specs_editor_specification.md` §8).
 ///
 /// It wraps the read-only [SpecModel] (schema), the live sparse [SpecDocument]
 /// (instance values), and the [ReviewStore] (structural review). Every mutation
@@ -127,20 +129,24 @@ class SpecDocumentController extends ChangeNotifier {
   /// Default recursion depth for [outline] when the caller omits one.
   final int defaultOutlineDepth;
 
-  /// The agent change log (§9): records every mutation; resets on save.
+  /// The agent change log (`tom_specs_editor_specification.md` §9): records
+  /// every mutation; resets on save.
   final ChangeLog changeLog;
 
-  /// The snapshot-based undo stack (§10), capped at `maxSnapshots` entries.
+  /// The snapshot-based undo stack (`tom_specs_editor_specification.md` §10),
+  /// capped at `maxSnapshots` entries.
   final DefaultUndoManager _undo;
 
   /// The document state as of the last save (or load) — the review's base pane
-  /// (`baseAtLastSave`, §9) and the dirty reference (§10).
+  /// (`baseAtLastSave`, `tom_specs_editor_specification.md` §9) and the dirty
+  /// reference (`tom_specs_editor_specification.md` §10).
   late SpecDocumentState _savedState;
   late String _savedFingerprint;
 
-  /// The active agent turn id, or `null` when the user is editing freely.
-  /// Edits made during a turn share this id so the change log groups them and
-  /// the undo stack collapses them into one step (§9, §10).
+  /// The active agent turn id, or `null` when the user is editing freely. Edits
+  /// made during a turn share this id so the change log groups them and the
+  /// undo stack collapses them into one step
+  /// (`tom_specs_editor_specification.md` §9, §10).
   String? _currentTurnId;
 
   /// Per-edit counter feeding synthetic turn ids for free user edits.
@@ -160,7 +166,8 @@ class SpecDocumentController extends ChangeNotifier {
   bool get isModelLoaded => _model != null;
 
   /// Loads and caches the model future on first use, then binds both stores to
-  /// [storagePathFor] so every projection route folds onto one entry (§14).
+  /// [storagePathFor] so every projection route folds onto one entry
+  /// (`tom_specs_editor_specification.md` §14).
   ///
   /// The binding waits for the model because the mapping is derived from it.
   /// Both stores tolerate being written before that: [storagePathFor] is the
@@ -175,12 +182,13 @@ class SpecDocumentController extends ChangeNotifier {
     return _model!;
   }
 
-  // --- §14 root navigation (step 20) -------------------------------------
+  // --- `tom_specs_editor_specification.md` §14 root navigation (step 20) -----
 
   /// The section id / type name of the document root the editor renders, or
-  /// `null` for the default (the Solution Blueprint master). Driven by the §14 root
-  /// navigator; the editor projects the *same* shared [document] through the
-  /// chosen root, so switching roots never copies or forks data.
+  /// `null` for the default (the Solution Blueprint master). Driven by the
+  /// `tom_specs_editor_specification.md` §14 root navigator; the editor
+  /// projects the *same* shared [document] through the chosen root, so
+  /// switching roots never copies or forks data.
   String? _activeRootType;
 
   /// The active root selector (section id or type name), or `null` for default.
@@ -196,7 +204,8 @@ class SpecDocumentController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // --- §14 cross-projection identity (N12, OE-18) ------------------------
+  // --- `tom_specs_editor_specification.md` §14 cross-projection
+  // --- identity (N12, OE-18) --------------------------------------------
 
   /// Whether [rootSeg] names a *projection* root — one of the thirteen roots
   /// that project over the Solution Blueprint (the twelve Phase-3
@@ -253,10 +262,11 @@ class SpecDocumentController extends ChangeNotifier {
   ///
   /// So `RSP/functionalRequirements` and
   /// `SBP/systemOverview/requirements/functionalRequirements` both store as the
-  /// latter — one entry, edited identically from either route (§14, N12). A
-  /// path with no anchor (a route-local unannotated class such as each
-  /// document's own `DocumentHeader`, or a bare root segment) is returned
-  /// unchanged and stays route-local.
+  /// latter — one entry, edited identically from either route
+  /// (`tom_specs_editor_specification.md` §14, N12). A path with no anchor (a
+  /// route-local unannotated class such as each document's own
+  /// `DocumentHeader`, or a bare root segment) is returned unchanged and stays
+  /// route-local.
   ///
   /// **Why the master path and not the bare anchor id.** The store's emptiness
   /// and purge logic is a prefix scan, so its key space has to be a tree: a
@@ -287,9 +297,10 @@ class SpecDocumentController extends ChangeNotifier {
     final anchor = _anchorOf(segs);
     if (anchor == null) return path;
     final masterBase = _masterPathBySectionId()[anchor.sectionId];
-    // No master home (a projection-local annotated class — a §14 pure-projection
-    // invariant violation): keep the path route-local rather than invent a key
-    // outside the structural tree.
+    // No master home (a projection-local annotated class — a
+    // `tom_specs_editor_specification.md` §14 pure-projection invariant
+    // violation): keep the path route-local rather than invent a key outside
+    // the structural tree.
     if (masterBase == null) return path;
     final below = segs.sublist(anchor.index + 1);
     return [masterBase, ...below].join('/');
@@ -358,7 +369,7 @@ class SpecDocumentController extends ChangeNotifier {
     return index;
   }
 
-  // --- Layer A: schema lookups -------------------------------------------
+  // --- Layer A: schema lookups -----------------------------------------------
 
   /// The class identified by [id], which may be a class name or a section id.
   SpecClass? classById(String id) {
@@ -370,7 +381,7 @@ class SpecDocumentController extends ChangeNotifier {
     return null;
   }
 
-  // --- Path resolution ----------------------------------------------------
+  // --- Path resolution -------------------------------------------------------
 
   String _segOf(SpecField f) => f.sectionId ?? f.name;
   String _rootSeg(SpecRoot r) => r.sectionId ?? r.type;
@@ -473,7 +484,7 @@ class SpecDocumentController extends ChangeNotifier {
     return node;
   }
 
-  // --- Layer B: live outline ---------------------------------------------
+  // --- Layer B: live outline -------------------------------------------------
 
   /// A compact outline of the live document beneath [rootId] (a root section id
   /// or type name), to [depth] levels. Each node carries its path, kind, type,
@@ -581,7 +592,7 @@ class SpecDocumentController extends ChangeNotifier {
     return meta;
   }
 
-  // --- csmc9 strict-mode document validation -----------------------------
+  // --- csmc9 strict-mode document validation ---------------------------------
 
   /// Runs the canonical runtime document validator ([validateDocument]) over the
   /// live [document] against the resolved [model], returning every
@@ -617,7 +628,7 @@ class SpecDocumentController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // --- Layer C: content + mutations --------------------------------------
+  // --- Layer C: content + mutations ------------------------------------------
 
   /// The tool-call id to stamp on the next recorded change, when a mutation
   /// originates from an agent tool. Cleared per turn by [endTurn].
@@ -627,8 +638,9 @@ class SpecDocumentController extends ChangeNotifier {
   String? content(String path) => document.content(path);
 
   /// Whether any value exists at [path] or beneath it — the structural
-  /// emptiness test the compact tree uses to decide chip-vs-expanded (§13.1,
-  /// D4). An untouched node is empty and renders as a clickable chip.
+  /// emptiness test the compact tree uses to decide chip-vs-expanded
+  /// (`tom_specs_editor_specification.md` §13.1, D4). An untouched node is
+  /// empty and renders as a clickable chip.
   bool hasValuesUnder(String path) => document.hasValuesUnder(path);
 
   /// The ordered item paths of the list at [listPath] (empty when none).
@@ -638,7 +650,7 @@ class SpecDocumentController extends ChangeNotifier {
   String? formField(String path, String field) =>
       document.formField(path, field);
 
-  // --- YRD9 headline + list-item section id --------------------------------
+  // --- YRD9 headline + list-item section id ----------------------------------
 
   /// The stored headline at [path], or `null` when the section renders its
   /// effective default (YRD3 store). Editors compose this with
@@ -676,7 +688,8 @@ class SpecDocumentController extends ChangeNotifier {
   }
 
   /// Sets the stored headline at [path]. To keep untouched documents
-  /// byte-stable (YRD3 §8.7), a value equal to the [effectiveDefaultHeadline]
+  /// byte-stable (YRD3, SOM §11.7), a value equal to the
+  /// [effectiveDefaultHeadline]
   /// *clears* the stored headline rather than storing a redundant copy. Routes
   /// through the undo/dirty machinery (no change-log entry — headlines are not
   /// part of the agent change log).
@@ -714,11 +727,12 @@ class SpecDocumentController extends ChangeNotifier {
   }
 
   /// Sets the content at [path]. Snapshots + records the change unless it is a
-  /// no-op (§9, §10).
+  /// no-op (`tom_specs_editor_specification.md` §9, §10).
   ///
   /// The change log is keyed by [storagePathFor], like the store itself, so two
-  /// routes to one section produce one section's history (§14) — and the
-  /// `baseAtLastSave` lookup hits the raw snapshot map with the right key.
+  /// routes to one section produce one section's history
+  /// (tom_specs_editor_specification.md §14) — and the `baseAtLastSave` lookup
+  /// hits the raw snapshot map with the right key.
   void setContent(String path, String value) {
     final key = storagePathFor(path);
     final before = document.captureState();
@@ -840,9 +854,10 @@ class SpecDocumentController extends ChangeNotifier {
   /// [ReviewStore] (which persists immediately).
   ///
   /// Review decisions live in the [ReviewStore], not the [SpecDocument], so a
-  /// review is **recorded** in the change log (it is a mutation, §9) but is not
-  /// part of the snapshot/undo stack (§10) — undoing a review is a separate
-  /// concern owned by the review store.
+  /// review is **recorded** in the change log (it is a mutation,
+  /// `tom_specs_editor_specification.md` §9) but is not part of the
+  /// snapshot/undo stack (`tom_specs_editor_specification.md` §10) — undoing a
+  /// review is a separate concern owned by the review store.
   void setReview(String path, void Function(ReviewEntry) mutate) {
     review.update(path, mutate);
     changeLog.record(ChangeEntry(
@@ -855,7 +870,7 @@ class SpecDocumentController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // --- §9 Change log & three-way review ----------------------------------
+  // --- `tom_specs_editor_specification.md` §9 change log & review -------
 
   /// Resolves the live current value at [entry]'s section, for the review's
   /// pane-3 ("current") column.
@@ -864,10 +879,11 @@ class SpecDocumentController extends ChangeNotifier {
           ? document.formField(entry.sectionId, entry.field!)
           : document.content(entry.sectionId);
 
-  /// Applies a **pick-a-pane** resolution (§9, M1): the chosen [pane]'s value
-  /// becomes the section's new value. This is an ordinary edit — it routes
-  /// through [setContent]/[setFormField], so picking a *different* value
-  /// **creates a new undo entry**; picking the current value is a no-op.
+  /// Applies a **pick-a-pane** resolution (`tom_specs_editor_specification.md`
+  /// §9, M1): the chosen [pane]'s value becomes the section's new value. This
+  /// is an ordinary edit — it routes through [setContent]/[setFormField], so
+  /// picking a *different* value **creates a new undo entry**; picking the
+  /// current value is a no-op.
   void applyPanePick(ChangeEntry entry, ReviewPane pane) {
     final value = entry.valueForPane(pane, current: currentValueFor(entry));
     if (entry.kind == ChangeKind.formField) {
@@ -877,10 +893,11 @@ class SpecDocumentController extends ChangeNotifier {
     }
   }
 
-  // --- §10 Undo / redo ----------------------------------------------------
+  // --- `tom_specs_editor_specification.md` §10 Undo / redo -------------------
 
   /// Begins an agent [turnId]: edits until [endTurn] share the turn (change-log
-  /// grouping, §9) and collapse into a single undo step (§10).
+  /// grouping, `tom_specs_editor_specification.md` §9) and collapse into a
+  /// single undo step (`tom_specs_editor_specification.md` §10).
   void beginTurn(String turnId) {
     _currentTurnId = turnId;
     _undo.beginUndoGroup(label: 'Agent turn $turnId');
@@ -899,7 +916,8 @@ class SpecDocumentController extends ChangeNotifier {
   /// Whether there is an undone edit to redo.
   bool get canRedo => _undo.redoCount > 0;
 
-  /// Whether the document differs from its last-saved state (§10).
+  /// Whether the document differs from its last-saved state
+  /// (`tom_specs_editor_specification.md` §10).
   bool get isDirty => document.captureState().fingerprint != _savedFingerprint;
 
   /// Undoes the most recent edit (or agent turn).
@@ -908,9 +926,10 @@ class SpecDocumentController extends ChangeNotifier {
   /// Redoes the most recently undone edit (or agent turn).
   Future<void> redo() => _undo.redo();
 
-  /// Save-point bookkeeping (§9, §10): the saved state becomes the new base,
-  /// the change log resets, and dirty clears. The undo stack is deliberately
-  /// **kept** so post-save undo still works (§9, N6).
+  /// Save-point bookkeeping (`tom_specs_editor_specification.md` §9, §10): the
+  /// saved state becomes the new base, the change log resets, and dirty clears.
+  /// The undo stack is deliberately **kept** so post-save undo still works
+  /// (`tom_specs_editor_specification.md` §9, N6).
   void save() {
     _savedState = document.captureState();
     _savedFingerprint = _savedState.fingerprint;
@@ -918,10 +937,11 @@ class SpecDocumentController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // --- §15.1 native `*.docspecs.yaml` save / load ------------------------
+  // --- `tom_specs_editor_specification.md` §15.1 `*.docspecs.yaml` I/O ---
 
   /// Serializes the document + review state to [file] as a two-pass
-  /// `*.docspecs.yaml` (§15.1), then re-baselines as a save point.
+  /// `*.docspecs.yaml` (`tom_specs_editor_specification.md` §15.1), then
+  /// re-baselines as a save point.
   ///
   /// The agent change log is **not** serialized (it resets on save, M2); the
   /// optional [sessionId] is written to a `<file>.session` sidecar (A2), never
@@ -941,8 +961,8 @@ class SpecDocumentController extends ChangeNotifier {
   }
 
   /// Loads document + review state from a two-pass `*.docspecs.yaml` [file]
-  /// (§15.1), restoring the full UI state. Returns the SDK session id from the
-  /// sidecar, or `null` when absent.
+  /// (`tom_specs_editor_specification.md` §15.1), restoring the full UI state.
+  /// Returns the SDK session id from the sidecar, or `null` when absent.
   ///
   /// A load is a fresh save point: the change log resets, the undo stack is
   /// cleared (there is nothing before the loaded document to undo to), and the
@@ -974,12 +994,12 @@ class SpecDocumentController extends ChangeNotifier {
     return buildSomMetaTree(model, rootType: master.type);
   }
 
-  // --- §15.2 markdown import / export ------------------------------------
+  // --- `tom_specs_editor_specification.md` §15.2 markdown import / export ----
 
   /// Renders the populated subtree of the root identified by [rootSeg] (a root
   /// section id or type name) as a schema-conformant markdown document with a
-  /// `<!-- docspec: -->` header (§15.2). Throws [ArgumentError] for an unknown
-  /// root.
+  /// `<!-- docspec: -->` header (`tom_specs_editor_specification.md` §15.2).
+  /// Throws [ArgumentError] for an unknown root.
   String exportMarkdown(String rootSeg) {
     final root = _rootBySeg(rootSeg);
     if (root == null) {
@@ -988,11 +1008,11 @@ class SpecDocumentController extends ChangeNotifier {
     return MarkdownDocument(this).exportRoot(root);
   }
 
-  /// Imports [text] as a **full overwrite** of the covered root scope (§15.2,
-  /// IO1): the parsed values replace everything under the imported root(s),
-  /// applied as a single undoable step. Returns the parse report — unmapped or
-  /// malformed blocks are listed in [MarkdownImportResult.rejections], never
-  /// silently dropped.
+  /// Imports [text] as a **full overwrite** of the covered root scope
+  /// (`tom_specs_editor_specification.md` §15.2, IO1): the parsed values
+  /// replace everything under the imported root(s), applied as a single
+  /// undoable step. Returns the parse report — unmapped or malformed blocks are
+  /// listed in [MarkdownImportResult.rejections], never silently dropped.
   MarkdownImportResult importMarkdown(String text) {
     final result = MarkdownDocument(this).parse(text);
     _applyMarkdownImport(result);
@@ -1077,9 +1097,9 @@ class SpecDocumentController extends ChangeNotifier {
   }
 
   /// Wires the controller's [undo]/[redo] into the Forge shell via
-  /// [ShellEditorIntegration.registerAction] (§10). The controller's own undo
-  /// stack is the single authority; the shell's undo/redo actions dispatch to
-  /// it.
+  /// [ShellEditorIntegration.registerAction]
+  /// (`tom_specs_editor_specification.md` §10). The controller's own undo stack
+  /// is the single authority; the shell's undo/redo actions dispatch to it.
   void attachIntegration(ShellEditorIntegration integration) {
     integration.registerAction(
       StandardEditingActions.undoActionId,
@@ -1093,7 +1113,7 @@ class SpecDocumentController extends ChangeNotifier {
     );
   }
 
-  // --- internals ----------------------------------------------------------
+  // --- internals -------------------------------------------------------------
 
   String _nextEntryId() => 'c${++_entrySeq}';
 
@@ -1133,7 +1153,8 @@ class SpecDocumentController extends ChangeNotifier {
   }
 
   /// Pushes the before→after snapshot pair and records [makeEntry] — unless the
-  /// edit changed nothing (no-op edits don't snapshot or record, §10).
+  /// edit changed nothing (no-op edits don't snapshot or record,
+  /// tom_specs_editor_specification.md §10).
   void _commit(SpecDocumentState before, ChangeEntry Function() makeEntry) {
     final after = document.captureState();
     if (before.fingerprint == after.fingerprint) return;

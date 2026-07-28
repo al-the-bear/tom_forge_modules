@@ -4,9 +4,10 @@ import 'package:tom_som_dart_runtime/tom_som_dart_runtime.dart';
 
 import '../structure/review_store.dart';
 
-/// The decoded contents of a `*.docspecs.yaml` file (§15.1): the `document:`
-/// pass as a live [SpecDocument] (decoded tree-driven), plus the
-/// `review:` pass as structural-review entries keyed by path.
+/// The decoded contents of a `*.docspecs.yaml` file
+/// (`tom_specs_editor_specification.md` §15.1): the `document:` pass as a live
+/// [SpecDocument] (decoded tree-driven), plus the `review:` pass as
+/// structural-review entries keyed by path.
 class DocSpecsContents {
   DocSpecsContents({
     required this.document,
@@ -29,7 +30,8 @@ class DocSpecsContents {
   final String? modelVersion;
 }
 
-/// Codec for the native `*.docspecs.yaml` document format (§15.1).
+/// Codec for the native `*.docspecs.yaml` document format
+/// (`tom_specs_editor_specification.md` §15.1).
 ///
 /// The file has **two top-level passes** — `document:` (the live object-model
 /// values, sorted by full section id) and `review:` (structural-review state
@@ -55,7 +57,7 @@ class DocSpecsFile {
   /// (step 4 of the multi-platform spec-model plan).
   static const int formatVersion = SpecDocumentYaml.formatVersion;
 
-  // --- Encode -------------------------------------------------------------
+  // --- Encode ----------------------------------------------------------------
 
   /// Serializes [document] + [review] to the two-pass `*.docspecs.yaml` text.
   ///
@@ -113,7 +115,7 @@ class DocSpecsFile {
   // above reuses its [SpecDocumentYaml.writeScalar] / [SpecDocumentYaml.yamlKey]
   // helpers so both passes stay byte-compatible.
 
-  // --- Decode -------------------------------------------------------------
+  // --- Decode ----------------------------------------------------------------
 
   /// Parses a `*.docspecs.yaml` document into its two passes. The generic codec
   /// walks [tree] to decode the `document:` pass into a live [SpecDocument]
@@ -137,7 +139,7 @@ class DocSpecsFile {
     );
   }
 
-  // --- Session-id sidecar (A2) --------------------------------------------
+  // --- Session-id sidecar (A2) -----------------------------------------------
 
   /// The session-id sidecar path for a document [file] (`<path>.session`).
   static File sidecarFor(File file) => File('${file.path}.session');

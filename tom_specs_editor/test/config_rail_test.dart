@@ -1,4 +1,5 @@
-// Tests for the dedicated config rail (§12, step 18 #3 / OE-16).
+// Tests for the dedicated config rail (`tom_specs_editor_specification.md` §12,
+// step 18 #3 / OE-16).
 //
 // The rail is a left-panel view listing every config editor as a one-tap
 // launcher. These tests drive: (1) the rail view renders one keyed launcher per
@@ -70,7 +71,8 @@ Future<void> _pump(WidgetTester tester, Widget body) {
 }
 
 void main() {
-  group('config rail view (§12 step 18 #3 / OE-16)', () {
+  group('config rail view (tom_specs_editor_specification.md §12 step 18 #3 / '
+      'OE-16)', () {
     testWidgets('lists one keyed launcher per editor and routes taps',
         (tester) async {
       final specs = _specsIn(_tempDir());
@@ -101,7 +103,8 @@ void main() {
     });
   });
 
-  group('SpecsConfigModule rail (§12 step 18 #3 / OE-16)', () {
+  group('SpecsConfigModule rail (tom_specs_editor_specification.md §12 step 18 '
+      '#3 / OE-16)', () {
     test('the rail is null before activation and covers all editors after', () {
       final module = _moduleIn(_tempDir());
       expect(module.configRailView, isNull,
@@ -125,7 +128,8 @@ void main() {
     });
   });
 
-  group('SpecsShellModule config tab (§12 step 18 #3 / OE-16)', () {
+  group('SpecsShellModule config tab (tom_specs_editor_specification.md §12 '
+      'step 18 #3 / OE-16)', () {
     test('hosts the injected rail as the DocSpecs left panel "Config" tab', () {
       final rail = ConfigRailView(editors: const [], onOpen: (_) {});
       final module = SpecsShellModule(configRailView: rail);

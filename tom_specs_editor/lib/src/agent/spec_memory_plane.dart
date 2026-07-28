@@ -12,8 +12,9 @@ import '../document/spec_document_controller.dart';
 ///
 /// Binds the engine's profile-isolated Tom Brain memory surface — re-exported
 /// through `package:tom_spec_engine/memory.dart` — to the live
-/// [SpecDocumentController] so the `memory` script scope and the §9 fused
-/// two-tier recall are live **in the editor**, in-process, with no IPC:
+/// [SpecDocumentController] so the `memory` script scope and the
+/// `llm_and_d4rt_tools.md` §9 fused two-tier recall are live **in the editor**,
+/// in-process, with no IPC:
 ///
 ///   * **tier 1** — the always-available [StructuralLexicalIndex] (BM25 +
 ///     structural facets), rebuilt directly from the object model on every

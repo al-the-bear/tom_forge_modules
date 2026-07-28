@@ -6,7 +6,8 @@ import '../document/spec_document_controller.dart';
 import '../structure/review_store.dart';
 import '../structure/spec_model.dart';
 
-/// Builds the in-process MCP server exposing the §8 navigation & mutation tools.
+/// Builds the in-process MCP server exposing the
+/// `tom_specs_editor_specification.md` §8 navigation & mutation tools.
 ///
 /// The three layers (A = object-model schema, B = live instance structure, C =
 /// live content) plus the five mutations are all routed through one shared
@@ -40,7 +41,7 @@ class SpecAgentTools {
         ],
       );
 
-  // --- result helpers -----------------------------------------------------
+  // --- result helpers --------------------------------------------------------
 
   CallToolResult _ok(Object? payload) =>
       CallToolResult.text(jsonEncode(payload));
@@ -72,7 +73,7 @@ class SpecAgentTools {
         'fields': [for (final f in c.fields) _fieldSummary(f)],
       };
 
-  // --- Layer A ------------------------------------------------------------
+  // --- Layer A ---------------------------------------------------------------
 
   SdkMcpTool _modelListDocuments() => SdkMcpTool(
         name: 'model_list_documents',
@@ -199,7 +200,7 @@ class SpecAgentTools {
         },
       );
 
-  // --- Layer B ------------------------------------------------------------
+  // --- Layer B ---------------------------------------------------------------
 
   SdkMcpTool _docOutline() => SdkMcpTool(
         name: 'doc_outline',
@@ -254,7 +255,7 @@ class SpecAgentTools {
         },
       );
 
-  // --- Layer C ------------------------------------------------------------
+  // --- Layer C ---------------------------------------------------------------
 
   SdkMcpTool _docGetContent() => SdkMcpTool(
         name: 'doc_get_content',
@@ -300,7 +301,7 @@ class SpecAgentTools {
         },
       );
 
-  // --- Mutations ----------------------------------------------------------
+  // --- Mutations -------------------------------------------------------------
 
   SdkMcpTool _docSetContent() => SdkMcpTool(
         name: 'doc_set_content',

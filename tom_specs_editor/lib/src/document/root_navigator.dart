@@ -12,9 +12,10 @@ String rootSelector(SpecRoot root) => root.sectionId ?? root.type;
 bool isSolutionBlueprint(SpecRoot root) =>
     root.type == 'SolutionBlueprint' || root.sectionId == 'SBP';
 
-/// The default root the editor opens on when nothing is selected (§14): the
-/// Solution Blueprint if the model has one, else the model's first root (so a
-/// single-root synthetic model still resolves sensibly).
+/// The default root the editor opens on when nothing is selected
+/// (`tom_specs_editor_specification.md` §14): the Solution Blueprint if the
+/// model has one, else the model's first root (so a single-root synthetic model
+/// still resolves sensibly).
 SpecRoot? defaultNavigatorRoot(List<SpecRoot> roots) {
   if (roots.isEmpty) return null;
   for (final r in roots) {
@@ -23,10 +24,10 @@ SpecRoot? defaultNavigatorRoot(List<SpecRoot> roots) {
   return roots.first;
 }
 
-/// Orders roots for the §14 navigator: **Solution Blueprint first**, then the
-/// remaining roots **alphabetically by title**. The navigator renders a
-/// separator after the Solution Blueprint; this pure ordering keeps that policy
-/// testable independently of the widget.
+/// Orders roots for the `tom_specs_editor_specification.md` §14 navigator:
+/// **Solution Blueprint first**, then the remaining roots **alphabetically by
+/// title**. The navigator renders a separator after the Solution Blueprint;
+/// this pure ordering keeps that policy testable independently of the widget.
 List<SpecRoot> navigatorRootOrder(List<SpecRoot> roots) {
   final master = <SpecRoot>[];
   final others = <SpecRoot>[];
@@ -38,13 +39,14 @@ List<SpecRoot> navigatorRootOrder(List<SpecRoot> roots) {
   return [...master, ...others];
 }
 
-/// The §14 root navigator, surfaced as the DocSpecs left-panel "Navigator" tab.
+/// The `tom_specs_editor_specification.md` §14 root navigator, surfaced as the
+/// DocSpecs left-panel "Navigator" tab.
 ///
 /// Lists the document roots (Solution Blueprint first, a separator, then the
 /// rest alphabetically) and drives the *active root* on the shared
 /// [SpecDocumentController]. Selecting a root re-renders the document editor as
 /// that projection over the **same** underlying document — switching never
-/// copies or forks data (step 20 / §14).
+/// copies or forks data (step 20 / `tom_specs_editor_specification.md` §14).
 class RootNavigator extends ForgeView {
   RootNavigator({required this.controller})
       : _title = ValueNotifier<String>('Navigator'),
@@ -150,9 +152,10 @@ class RootNavigatorList extends StatelessWidget {
 }
 
 /// A compact footer reporting the model-version stamp the bundled
-/// `spec_model.json` was generated against (§17, B2). Makes model drift
-/// observable from the running app: an official build shows e.g. `model v3
-/// · 1.0.0+3.abc1234`; an unstamped manual export shows `model: unstamped`.
+/// `spec_model.json` was generated against (`tom_specs_editor_specification.md`
+/// §17, B2). Makes model drift observable from the running app: an official
+/// build shows e.g. `model v3 · 1.0.0+3.abc1234`; an unstamped manual export
+/// shows `model: unstamped`.
 class _ModelVersionFooter extends StatelessWidget {
   const _ModelVersionFooter({required this.model});
 

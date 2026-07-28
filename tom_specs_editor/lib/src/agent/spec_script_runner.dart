@@ -14,22 +14,23 @@ import '../document/spec_document_controller.dart';
 import 'engine_spec_controller.dart';
 
 /// The in-process scripting capability the agent drives over the live document
-/// (§3, §8.1, plan step 18).
+/// (`llm_and_d4rt_tools.md` §3, §8.1, plan step 18).
 ///
 /// It links the engine's [ScriptTools] to the editor by registering the `spec`
 /// scope against an [EngineSpecController] wrapping the live
-/// [SpecDocumentController]. A script run therefore mutates the *same* controller
-/// the §8 tools use — no IPC, no second document — so its edits land in the one
-/// change log and undo stack (§5).
+/// [SpecDocumentController]. A script run therefore mutates the *same*
+/// controller the `tom_specs_editor_specification.md` §8 tools use — no IPC, no
+/// second document — so its edits land in the one change log and undo stack
+/// (`llm_and_d4rt_tools.md` §5).
 ///
 /// Authored scripts persist under `<workspaceRoot>/agent/scripts/` via the
 /// engine's [FileScriptStore], keeping them reviewable and re-runnable alongside
 /// the document.
 ///
 /// [extraScopes] lets the host register additional base scopes beyond the
-/// default `spec` scope — the editor passes the read-only `memory` scope here so
-/// a script can `await memory.recall(...)` over the live two-tier recall (§4,
-/// §9; followup item 6).
+/// default `spec` scope — the editor passes the read-only `memory` scope here
+/// so a script can `await memory.recall(...)` over the live two-tier recall
+/// (`llm_and_d4rt_tools.md` §4, §9; followup item 6).
 class SpecScriptRunner {
   /// Builds the runner over the live [controller], persisting authored scripts
   /// beneath [workspaceRoot]. [extraScopes] are registered alongside the default
@@ -43,20 +44,21 @@ class SpecScriptRunner {
             final registry = ScopeRegistry()
               ..register(specScope(
                 EngineSpecController(controller),
-                // The read-only `model` reflection global (§4, §5; followup
-                // item 11). Lazy + null-tolerant: queried on every interpreter
-                // build, it returns the live model once loaded and `null`
-                // before then, so a synchronous `validate` against a not-yet-
-                // loaded controller degrades gracefully. `run` awaits
+                // The read-only `model` reflection global
+                // (`llm_and_d4rt_tools.md` §4, §5; followup item 11). Lazy +
+                // null-tolerant: queried on every interpreter build, it returns
+                // the live model once loaded and `null` before then, so a
+                // synchronous `validate` against a not-yet- loaded controller
+                // degrades gracefully. `run` awaits
                 // [SpecDocumentController.ensureLoaded] first.
                 model: () =>
                     controller.isModelLoaded ? controller.model : null,
-                // The read-only §6 grep global `search` (plan steps 7, 19;
-                // followup item 12, D97). Same lazy + null-tolerant contract as
-                // `model`: bound to a fresh [SpecQueryEngine] over the live
-                // (model, document) pair once the model has loaded, so a script
-                // pages the same lexical/structural search the `doc_search` MCP
-                // tool exposes.
+                // The read-only `llm_and_d4rt_tools.md` §6 grep global `search`
+                // (plan steps 7, 19; followup item 12, D97). Same lazy +
+                // null-tolerant contract as `model`: bound to a fresh
+                // [SpecQueryEngine] over the live (model, document) pair once
+                // the model has loaded, so a script pages the same
+                // lexical/structural search the `doc_search` MCP tool exposes.
                 search: () => controller.isModelLoaded
                     ? SpecQueryEngine(
                         model: controller.model,
@@ -76,12 +78,14 @@ class SpecScriptRunner {
   final SpecDocumentController controller;
 
   /// The engine toolset backing `script_author` / `script_validate` /
-  /// `script_run` / `script_list` / `script_get` (§8.1).
+  /// `script_run` / `script_list` / `script_get` (`llm_and_d4rt_tools.md`
+  /// §8.1).
   final ScriptTools tools;
 
-  /// Runs [source] under the `spec` scope (the §8.1 default), returning the
-  /// captured stdout / `main()` result / error. Mutations land on the shared
-  /// controller, so the change log and undo reflect them like any tool edit.
+  /// Runs [source] under the `spec` scope (the `llm_and_d4rt_tools.md` §8.1
+  /// default), returning the captured stdout / `main()` result / error.
+  /// Mutations land on the shared controller, so the change log and undo
+  /// reflect them like any tool edit.
   Future<ScriptRunResult> run(
     String source, {
     List<String>? scopes,
@@ -94,7 +98,8 @@ class SpecScriptRunner {
   }
 
   /// Parses / resolves [source] against the granted scope **without** running
-  /// it, returning diagnostics the agent can iterate on (§8.1).
+  /// it, returning diagnostics the agent can iterate on
+  /// (`llm_and_d4rt_tools.md` §8.1).
   ScriptValidation validate(String source, {List<String>? scopes}) =>
       tools.validate(source: source, scopes: scopes);
 }

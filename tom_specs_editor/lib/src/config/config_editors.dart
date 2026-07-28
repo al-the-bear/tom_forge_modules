@@ -8,10 +8,11 @@ import 'package:tom_forge_ui/tom_forge_ui.dart';
 import 'config_field.dart';
 import 'raw_file_module.dart';
 
-/// Declarative description of a **list** config editor (§12): a backing store,
-/// the detail-form fields, and the add/remove/label hooks. One generic
-/// [ConfigListEditor] renders any of these, so the seven config editors share
-/// one list-management/validation/raw-file implementation.
+/// Declarative description of a **list** config editor
+/// (`tom_specs_editor_specification.md` §12): a backing store, the detail-form
+/// fields, and the add/remove/label hooks. One generic [ConfigListEditor]
+/// renders any of these, so the seven config editors share one
+/// list-management/validation/raw-file implementation.
 class ConfigListSpec<T> {
   ConfigListSpec({
     required this.title,
@@ -50,8 +51,9 @@ class ConfigListSpec<T> {
   final bool Function(T item)? isReadOnly;
 }
 
-/// Declarative description of a **singleton** config editor (§12) — one object,
-/// no list. Used by the Agent Settings editor.
+/// Declarative description of a **singleton** config editor
+/// (`tom_specs_editor_specification.md` §12) — one object, no list. Used by the
+/// Agent Settings editor.
 class ConfigObjectSpec<T> {
   ConfigObjectSpec({
     required this.title,
@@ -72,8 +74,9 @@ class ConfigObjectSpec<T> {
   final List<ConfigField<T>> fields;
 }
 
-/// A toolbar button that persists the current state then opens the backing
-/// file via the injected [RawFileOpener] (§12 — "Open raw file").
+/// A toolbar button that persists the current state then opens the backing file
+/// via the injected [RawFileOpener] (`tom_specs_editor_specification.md` §12 —
+/// "Open raw file").
 class RawFileButton extends StatelessWidget {
   const RawFileButton({super.key, required this.uri, required this.onOpen});
 
@@ -91,8 +94,9 @@ class RawFileButton extends StatelessWidget {
   }
 }
 
-/// Generic list+detail config editor (§12). Handles selection, add/remove,
-/// per-field validation, persistence on edit, and the raw-file button.
+/// Generic list+detail config editor (`tom_specs_editor_specification.md` §12).
+/// Handles selection, add/remove, per-field validation, persistence on edit,
+/// and the raw-file button.
 class ConfigListEditor<T> extends ForgeEditor {
   ConfigListEditor({required this.spec, required this.onOpenRawFile})
       : _title = ValueNotifier<String>(spec.title),
@@ -354,8 +358,8 @@ class _ConfigListBodyState<T> extends State<_ConfigListBody<T>> {
   }
 }
 
-/// Generic singleton config editor (§12) — one object, validation, raw-file
-/// button. Used by the Agent Settings editor.
+/// Generic singleton config editor (`tom_specs_editor_specification.md` §12) —
+/// one object, validation, raw-file button. Used by the Agent Settings editor.
 class ConfigObjectEditor<T> extends ForgeEditor {
   ConfigObjectEditor({required this.spec, required this.onOpenRawFile})
       : _title = ValueNotifier<String>(spec.title),

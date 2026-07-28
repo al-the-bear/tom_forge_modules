@@ -1,6 +1,7 @@
 // Step 18 done-criterion: a D4rt script run through the in-process engine
-// scripting surface edits the *live* document, and the change log + undo reflect
-// it exactly like a §8 tool edit (§3, §5).
+// scripting surface edits the *live* document, and the change log + undo
+// reflect it exactly like a `tom_specs_editor_specification.md` §8 tool edit
+// (`llm_and_d4rt_tools.md` §3, §5).
 //
 // `AgentToolsModule.scriptRunner` binds the engine's `spec` scope to the shared
 // `SpecDocumentController` via `EngineSpecController`. Running a script that
@@ -62,7 +63,8 @@ void main() {
     expect(result.ok, isTrue, reason: result.error ?? '');
     // ...and its mutation landed on the shared controller.
     expect(c.content('D00-OVR'), 'from script');
-    // It is recorded as one change-log entry, exactly like a tool edit (§5).
+    // It is recorded as one change-log entry, exactly like a tool edit
+    // (`llm_and_d4rt_tools.md` §5).
     expect(c.changeLog.length, 1);
 
     // And it is on the one undo stack — a single undo reverts the script edit.
@@ -76,8 +78,9 @@ void main() {
       () async {
     // Followup item 11: the `spec` scope injects a read-only reflection facade
     // as the `model` global, bound to the live controller's SpecModel. A script
-    // can therefore ask meta-model questions over the same model the §8 tools
-    // see — and the run resolves it because `run` awaits the model load first.
+    // can therefore ask meta-model questions over the same model the
+    // `tom_specs_editor_specification.md` §8 tools see — and the run resolves
+    // it because `run` awaits the model load first.
     final module = makeModule();
 
     final result = await module.scriptRunner.run('''
@@ -97,10 +100,11 @@ List main() => [
 
   test('a D4rt script greps the live document through the `search` global',
       () async {
-    // Followup item 12: the `spec` scope injects a read-only §6 grep facade as
-    // the `search` global, bound to a SpecQueryEngine over the live (model,
-    // document) pair. A script pages the *same* lexical search the `doc_search`
-    // MCP tool exposes, so it sees an edit it just made.
+    // Followup item 12: the `spec` scope injects a read-only
+    // `llm_and_d4rt_tools.md` §6 grep facade as the `search` global, bound to a
+    // SpecQueryEngine over the live (model, document) pair. A script pages the
+    // *same* lexical search the `doc_search` MCP tool exposes, so it sees an
+    // edit it just made.
     final module = makeModule();
 
     final result = await module.scriptRunner.run('''

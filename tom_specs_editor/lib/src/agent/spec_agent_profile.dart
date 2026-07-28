@@ -1,13 +1,13 @@
 // SpecAgentProfile / SpecAgentProfiles — the editor's live Tom Brain
-// **profile binding** (followup item 7, plan 17, §11).
+// **profile binding** (followup item 7, plan 17, `llm_and_d4rt_tools.md` §11).
 //
-// §11 makes the *application* the unit of agent configuration: each application
-// (DocSpecs / CodeSpecs / Implementation) is a Tom Brain **profile** whose
-// prompt is its guidelines document, whose tools are its MCP surface, and whose
-// enabled D4rt scripting surfaces are its scope profile (the Q1 mapping,
-// decision F1). The engine carries the *value* — `AgentContext` — and the
-// editor performs the *live binding* here: it resolves that value into the
-// running send configuration the active application drives.
+// `llm_and_d4rt_tools.md` §11 makes the *application* the unit of agent
+// configuration: each application (DocSpecs / CodeSpecs / Implementation) is a
+// Tom Brain **profile** whose prompt is its guidelines document, whose tools
+// are its MCP surface, and whose enabled D4rt scripting surfaces are its scope
+// profile (the Q1 mapping, decision F1). The engine carries the *value* —
+// `AgentContext` — and the editor performs the *live binding* here: it resolves
+// that value into the running send configuration the active application drives.
 //
 // This replaces the static `AgentSendConfig(mcpServers: …)` the editor used to
 // build with no per-application differentiation. A `SpecAgentProfile` resolves
@@ -34,7 +34,8 @@ import 'package:tom_vscode_scripting_api/tom_vscode_scripting_api.dart'
 
 /// One application's live binding of an engine [AgentContext] onto the editor's
 /// running resources: the resolved guidelines **prompt**, the enabled **MCP
-/// surface**, and the application's **scope profile** (§11, item 7).
+/// surface**, and the application's **scope profile** (llm_and_d4rt_tools.md
+/// §11, item 7).
 class SpecAgentProfile {
   /// Binds [context] to its already-resolved [systemPrompt] and [mcpServers].
   /// Built by [SpecAgentProfiles.profileFor]; not constructed directly by UI.
@@ -60,11 +61,12 @@ class SpecAgentProfile {
   /// The Tom Brain profile this application binds to (= the application name).
   String get application => context.application;
 
-  /// The D4rt base-scope names this application enables (§4 scope profile).
+  /// The D4rt base-scope names this application enables
+  /// (`llm_and_d4rt_tools.md` §4 scope profile).
   List<String> get scopeNames =>
       context.scopeProfile.scopeNames.toList(growable: false);
 
-  /// The §8 tool groups this application exposes.
+  /// The `llm_and_d4rt_tools.md` §8 tool groups this application exposes.
   Set<AgentToolGroup> get toolset => context.toolset;
 
   /// Addresses one run's memory per the Q1 mapping (F1): this application's
@@ -97,8 +99,8 @@ class SpecAgentProfile {
 }
 
 /// Holds the per-application [AgentContext]s and resolves the live
-/// [SpecAgentProfile] for an application — the §11 **application switch** made
-/// live in the editor (item 7).
+/// [SpecAgentProfile] for an application — the `llm_and_d4rt_tools.md` §11
+/// **application switch** made live in the editor (item 7).
 ///
 /// The MCP surface is derived by intersecting each context's
 /// [AgentContext.toolset] with the [serverToolGroups] each editor MCP server
@@ -111,8 +113,8 @@ class SpecAgentProfiles {
   ///   * [compose] — the placeholder prompt registry (the editor's
   ///     `SpecPromptComposer.compose`) used to expand the guidelines doc;
   ///   * [servers] — the editor's MCP servers (`AgentToolsModule.servers`);
-  ///   * [serverToolGroups] — which §8 tool groups each server provides
-  ///     (`AgentToolsModule.serverToolGroups`);
+  ///   * [serverToolGroups] — which `llm_and_d4rt_tools.md` §8 tool groups each
+  ///     server provides (`AgentToolsModule.serverToolGroups`);
   ///   * [contexts] — the application contexts (defaults to
   ///     [tomSpecsContextRegistry] — all three canonical applications authored).
   SpecAgentProfiles({

@@ -11,8 +11,9 @@ import 'spec_phase.dart';
 /// inputs, produced artifacts, components, and exit criteria — rendered through
 /// the same [SpecMarkdown] seam the DocSpecs document editor uses.
 ///
-/// This is the **real content** §20 step 25 requires the two phase-2 apps to
-/// render, in place of the empty placeholder editor those apps carried in phase
+/// This is the **real content** `tom_specs_editor_specification.md` §20 step 25
+/// requires the two phase-2 apps to render, in place of the empty placeholder
+/// editor those apps carried in phase
 /// 1. The full model-driven CodeSpecs / Implementation document editors (their
 /// own object models) are phase-2 follow-ups tracked in the quest's
 /// `completion_steps.tom_specs.md`.

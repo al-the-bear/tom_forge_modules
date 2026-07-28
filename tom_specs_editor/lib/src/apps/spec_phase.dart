@@ -25,14 +25,15 @@ class PhaseComponent {
 /// `tom_specs_project_flow.md` (§PF-PHA).
 ///
 /// This is the **real content** the phase-2 *CodeSpecs* and *Implementation*
-/// applications render (§20 step 25): the authoritative definition of what each
-/// phase consumes, produces, and gates on. Phase 1 of the editor leaves these
-/// two applications as empty skeletons (§1 non-goals); step 25 populates them
+/// applications render (`tom_specs_editor_specification.md` §20 step 25): the
+/// authoritative definition of what each phase consumes, produces, and gates
+/// on. Phase 1 of the editor leaves these two applications as empty skeletons
+/// (`tom_specs_editor_specification.md` §1 non-goals); step 25 populates them
 /// with their phase overviews so each app presents genuine methodology content
-/// rather than a blank placeholder. CodeSpecs is code only (no separate document
-/// model — the former `tom_code_specs` package was removed); the Phase-4/6
-/// surfaces are driven by the DocSpecs ↔ CodeSpecs link (`codespecs_mapping.md`
-/// §9) and remain phase-2 follow-ups — see the quest's
+/// rather than a blank placeholder. CodeSpecs is code only (no separate
+/// document model — the former `tom_code_specs` package was removed); the
+/// Phase-4/6 surfaces are driven by the DocSpecs ↔ CodeSpecs link
+/// (`codespecs_mapping.md` §9) and remain phase-2 follow-ups — see the quest's
 /// `completion_steps.tom_specs.md`.
 @immutable
 class SpecPhase {

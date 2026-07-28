@@ -38,7 +38,8 @@ void main() {
   });
   tearDown(() => workspace.deleteSync(recursive: true));
 
-  group('built-in placeholders (§11.5 P1)', () {
+  group('built-in placeholders (tom_specs_editor_specification.md §11.5 '
+      'P1)', () {
     test('quest resolves to the workspace name; date/time to the clock', () {
       final composer = make(role: 'Engineer');
       expect(
@@ -55,7 +56,8 @@ void main() {
     });
   });
 
-  group('host-context built-ins chat/file (§11.5 P1, OE-12)', () {
+  group('host-context built-ins chat/file (tom_specs_editor_specification.md '
+      '§11.5 P1, OE-12)', () {
     test('\${chat} resolves via the injected transcript provider', () {
       final composer = make(
         chatTranscript: () => 'User: hi\nAssistant: hello',
@@ -86,7 +88,7 @@ void main() {
     });
   });
 
-  group('chat variables (§11.4) + alias', () {
+  group('chat variables (tom_specs_editor_specification.md §11.4) + alias', () {
     test('a custom variable resolves via \${name} and the {{name}} alias', () {
       final composer = make(variables: const <ChatVariable>[
         ChatVariable(name: 'project', value: 'TomSpecs'),
@@ -96,7 +98,8 @@ void main() {
     });
   });
 
-  group('file-injection against the _ai/ folder (§11.5 P1)', () {
+  group('file-injection against the _ai/ folder '
+      '(tom_specs_editor_specification.md §11.5 P1)', () {
     test('\${file-<relpath>} injects the file contents from _ai/', () {
       File('${aiFolder.path}/notes/brief.md')
         ..createSync(recursive: true)
@@ -112,7 +115,8 @@ void main() {
     });
   });
 
-  group('namespaced file-injection prefixes (§11.5 P1, OE-13)', () {
+  group('namespaced file-injection prefixes (tom_specs_editor_specification.md '
+      '§11.5 P1, OE-13)', () {
     test('\${guidelines-<name>} reads _copilot_guidelines/<name>.md at the '
         'workspace root', () {
       File('${workspace.path}/_copilot_guidelines/coding.md')
@@ -159,7 +163,8 @@ void main() {
     });
   });
 
-  group('expression form is disabled (§11.5)', () {
+  group('expression form is disabled '
+      '(tom_specs_editor_specification.md §11.5)', () {
     test('\${{ … }} yields the clear unsupported-error', () {
       final composer = make();
       expect(

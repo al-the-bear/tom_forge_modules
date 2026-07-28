@@ -45,7 +45,8 @@ class SpecConversationalTools {
   SdkMcpTool _converseRun() => SdkMcpTool(
         name: 'converse_run',
         description:
-            'Run the multi-turn conversational loop (§10 mode a) for a goal: '
+            'Run the multi-turn conversational loop (llm_and_d4rt_tools.md §10 '
+            'mode a) for a goal: '
             'each turn recalls the RAG memory, the live conversational driver '
             'decides the turn, and the complex procedure runs through the base '
             'substrate. Edits land in the one change log. Reports '

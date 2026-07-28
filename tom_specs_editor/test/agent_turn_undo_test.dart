@@ -4,9 +4,10 @@
 // `ChatSendCoordinator` (tom_forge_agentic) is wired with the host's
 // `SpecDocumentController.beginTurn`/`endTurn`, exactly as `SpecsEditorApp`
 // wires it in production. A faked SDK transport mutates the shared document
-// three times while the send is in flight (standing in for the §8 tools the
-// agent would drive mid-turn). The whole exchange must collapse to a single
-// undo step, while the individual edits stay inspectable in the change log.
+// three times while the send is in flight (standing in for the
+// `tom_specs_editor_specification.md` §8 tools the agent would drive mid-turn).
+// The whole exchange must collapse to a single undo step, while the individual
+// edits stay inspectable in the change log.
 
 import 'dart:async';
 import 'dart:io';

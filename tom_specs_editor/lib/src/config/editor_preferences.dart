@@ -3,10 +3,11 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:tom_core_agentic/tom_core_agentic.dart';
 
-/// Basic editor preferences surfaced through the Forge config section (§12 —
-/// "Basic prefs → Forge config section": theme, font, default app). The
-/// default **profile** lives in [AgentSettings] (single source of truth); the
-/// basic-prefs panel reads/writes it there.
+/// Basic editor preferences surfaced through the Forge config section
+/// (`tom_specs_editor_specification.md` §12 — "Basic prefs → Forge config
+/// section": theme, font, default app). The default **profile** lives in
+/// [AgentSettings] (single source of truth); the basic-prefs panel reads/writes
+/// it there.
 ///
 /// Held in the spec workspace as YAML, out of the document `*.docspecs.yaml`
 /// pass — mirrors the agent stores' resolve/load/save shape.

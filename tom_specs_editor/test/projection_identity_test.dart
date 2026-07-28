@@ -1,4 +1,5 @@
-// Tests for §14 cross-projection blueprint identity (N12 binding, OE-18).
+// Tests for `tom_specs_editor_specification.md` §14 cross-projection blueprint
+// identity (N12 binding, OE-18).
 //
 // A spec is ONE document with thirteen roots: SolutionBlueprint (the master /
 // source of truth) plus twelve Phase-3 projection roots that aggregate the
@@ -150,7 +151,7 @@ Future<SpecDocumentController> _controller() async {
 }
 
 void main() {
-  group('isProjectionRoot (§14 / N12)', () {
+  group('isProjectionRoot (tom_specs_editor_specification.md §14 / N12)', () {
     test('SBP is the master, the others are projections', () async {
       final c = await _controller();
       expect(c.isProjectionRoot('SBP'), isFalse,
@@ -167,7 +168,7 @@ void main() {
     });
   });
 
-  group('canonicalPathFor (§14 / N12)', () {
+  group('canonicalPathFor (tom_specs_editor_specification.md §14 / N12)', () {
     test('an annotated class canonicalizes identically via SBP and RSP routes',
         () async {
       final c = await _controller();
@@ -207,7 +208,8 @@ void main() {
     });
   });
 
-  group('storagePathFor (§14 storage identity)', () {
+  group('storagePathFor (tom_specs_editor_specification.md §14 storage '
+      'identity)', () {
     test('both routes key on the master structural path', () async {
       final c = await _controller();
       expect(c.storagePathFor(_rspFr), _sbpFr);
@@ -261,7 +263,8 @@ void main() {
     });
   });
 
-  group('one section, one store entry (§14 value + review folding)', () {
+  group('one section, one store entry (tom_specs_editor_specification.md §14 '
+      'value + review folding)', () {
     test('an edit through RSP is the same value as an edit through SBP',
         () async {
       final c = await _controller();

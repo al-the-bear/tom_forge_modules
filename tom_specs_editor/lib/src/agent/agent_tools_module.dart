@@ -18,23 +18,27 @@ import 'spec_engine_tools.dart';
 import 'spec_memory_plane.dart';
 import 'spec_script_runner.dart';
 
-/// Forge module owning the agent's navigation/mutation tools (§8).
+/// Forge module owning the agent's navigation/mutation tools
+/// (tom_specs_editor_specification.md §8).
 ///
-/// It builds the shared [SpecDocumentController] (over the supplied model future
-/// and the shared [ReviewStore]) and the in-process MCP server that exposes the
-/// §8 tools. The host wires [servers] into the agent send config's `mcpServers`
-/// seam so the Agent SDK can call the tools mid-turn; all calls land on the same
-/// controller the document UI uses, keeping agent and human edits coherent.
+/// It builds the shared [SpecDocumentController] (over the supplied model
+/// future and the shared [ReviewStore]) and the in-process MCP server that
+/// exposes the `tom_specs_editor_specification.md` §8 tools. The host wires
+/// [servers] into the agent send config's `mcpServers` seam so the Agent SDK
+/// can call the tools mid-turn; all calls land on the same controller the
+/// document UI uses, keeping agent and human edits coherent.
 ///
 /// The module contributes no views/editors of its own — it is a pure capability
 /// provider — so it slots into the registry alongside the structure and chat
 /// modules without touching the layout.
 ///
-/// Beyond the single-shot §8 tools it also owns the in-process [scriptRunner]
-/// (§3, §8.1): the engine's D4rt scripting surface bound to the *same*
-/// [controller], so an agent script and a tool both mutate one document and land
-/// in the one change log / undo stack (§5). The engine is linked in-process via
-/// its Flutter-safe `package:tom_spec_engine/scripting.dart` facade — no IPC.
+/// Beyond the single-shot `tom_specs_editor_specification.md` §8 tools it also
+/// owns the in-process [scriptRunner] (`llm_and_d4rt_tools.md` §3, §8.1): the
+/// engine's D4rt scripting surface bound to the *same* [controller], so an
+/// agent script and a tool both mutate one document and land in the one change
+/// log / undo stack (`llm_and_d4rt_tools.md` §5). The engine is linked
+/// in-process via its Flutter-safe `package:tom_spec_engine/scripting.dart`
+/// facade — no IPC.
 class AgentToolsModule extends ForgeModule {
   AgentToolsModule({
     required Future<SpecModel> modelFuture,
@@ -113,9 +117,10 @@ class AgentToolsModule extends ForgeModule {
   /// The shared document controller every tool reads/mutates through.
   final SpecDocumentController controller;
 
-  /// The in-process D4rt scripting surface bound to [controller] (§8.1). Scripts
-  /// it runs mutate the same document the §8 tools do, so the change log and undo
-  /// see script and tool edits identically (§5).
+  /// The in-process D4rt scripting surface bound to [controller]
+  /// (`llm_and_d4rt_tools.md` §8.1). Scripts it runs mutate the same document
+  /// the `tom_specs_editor_specification.md` §8 tools do, so the change log and
+  /// undo see script and tool edits identically (`llm_and_d4rt_tools.md` §5).
   late final SpecScriptRunner scriptRunner;
 
   /// The embeddable memory plane (followup item 6): the live two-tier recall
@@ -159,8 +164,10 @@ class AgentToolsModule extends ForgeModule {
   /// `converse_trail`; followup item 9) wrapping [conversationalRuntime].
   late final McpSdkServerConfig _converseServer;
 
-  /// The `mcpServers` map to fold into the agent send config (§7.2) — the editor's
-  /// bespoke §8 tools plus the reusable engine toolsets.
+  /// The `mcpServers` map to fold into the agent send config
+  /// (`tom_specs_editor_specification.md` §7.2) — the editor's bespoke
+  /// `tom_specs_editor_specification.md` §8 tools plus the reusable engine
+  /// toolsets.
   Map<String, McpServerConfig> get servers => {
         serverName: _server,
         engineServerName: _engineServer,
@@ -168,18 +175,20 @@ class AgentToolsModule extends ForgeModule {
         converseServerName: _converseServer,
       };
 
-  /// Which §8 [AgentToolGroup]s each MCP server in [servers] provides — the
-  /// mapping the live agent profile (followup item 7) intersects with an
-  /// [AgentContext]'s toolset to select the application's MCP surface.
+  /// Which `llm_and_d4rt_tools.md` §8 [AgentToolGroup]s each MCP server in
+  /// [servers] provides — the mapping the live agent profile (followup item 7)
+  /// intersects with an [AgentContext]'s toolset to select the application's
+  /// MCP surface.
   ///
-  /// The bespoke `tomspecs` server carries the §8 navigation/mutation tools
-  /// (`doc` + `script`); the `tomspecs-engine` server carries the reusable
-  /// DocTools / FileTools / ScriptTools / MemoryTools (all four groups); the
+  /// The bespoke `tomspecs` server carries the
+  /// `tom_specs_editor_specification.md` §8 navigation/mutation tools (`doc` +
+  /// `script`); the `tomspecs-engine` server carries the reusable DocTools /
+  /// FileTools / ScriptTools / MemoryTools (all four groups); the
   /// `tomspecs-brain` (mode b) and `tomspecs-converse` (mode a, multi-turn)
   /// servers each drive a run that touches every plane (doc + memory + file +
-  /// script), so they carry the full group set too. The servers are
-  /// coarse — per-tool gating within a server is deferred; the engine's
-  /// **toolset ⊆ scopes** invariant is the real capability guarantee.
+  /// script), so they carry the full group set too. The servers are coarse —
+  /// per-tool gating within a server is deferred; the engine's **toolset ⊆
+  /// scopes** invariant is the real capability guarantee.
   Map<String, Set<AgentToolGroup>> get serverToolGroups => {
         serverName: const {AgentToolGroup.doc, AgentToolGroup.script},
         engineServerName: const {

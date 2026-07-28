@@ -16,20 +16,22 @@ import 'root_navigator.dart';
 import 'spec_document_controller.dart';
 import 'spec_markdown.dart';
 
-/// The model-driven document editor (§13).
+/// The model-driven document editor (`tom_specs_editor_specification.md` §13).
 ///
 /// Walks the [SpecModel] class graph for the active root and renders each
 /// `SpecField` by kind, backed by the shared [SpecDocumentController] so the
-/// human UI and the agent tools (§8) edit one document. The body is a compact,
-/// variable-height tree (§13.1): empty nodes/subtrees collapse to a single
-/// clickable chip that inline-expands the editor in place; non-empty nodes
-/// render expanded; lists carry add/remove.
+/// human UI and the agent tools (`tom_specs_editor_specification.md` §8) edit
+/// one document. The body is a compact, variable-height tree
+/// (`tom_specs_editor_specification.md` §13.1): empty nodes/subtrees collapse
+/// to a single clickable chip that inline-expands the editor in place;
+/// non-empty nodes render expanded; lists carry add/remove.
 ///
-/// The active root is driven by the §14 root navigator through the shared
-/// [SpecDocumentController] (step 20): the editor projects the *same* document
-/// through whichever root is selected (the Solution Blueprint master by default), so
-/// switching roots re-renders consistently without copying data. An optional
-/// fixed [rootType] override pins a single projection (used by focused tests).
+/// The active root is driven by the `tom_specs_editor_specification.md` §14
+/// root navigator through the shared [SpecDocumentController] (step 20): the
+/// editor projects the *same* document through whichever root is selected (the
+/// Solution Blueprint master by default), so switching roots re-renders
+/// consistently without copying data. An optional fixed [rootType] override
+/// pins a single projection (used by focused tests).
 class SpecDocumentEditor extends ForgeEditor {
   SpecDocumentEditor({
     required this.controller,
@@ -102,7 +104,8 @@ class SpecDocumentEditor extends ForgeEditor {
   @override
   Widget buildCopy(BuildContext context) => buildMain(context);
 
-  // ── EditorActionProvider: shell global undo/redo (§10, OE-11) ──
+  // ── EditorActionProvider: shell global undo/redo
+  // ── (`tom_specs_editor_specification.md` §10, OE-11) ──
   //
   // The shell routes the standard `forge.edit.undo`/`forge.edit.redo` actions
   // to the *active editor* (`DefaultShellApi.executeAction`), and derives their
@@ -154,7 +157,8 @@ class SpecDocumentEditor extends ForgeEditor {
   Stream<void> get onStateChanged => _stateChanges.stream;
 }
 
-/// The §15.2 markdown import/export action bar above the document tree.
+/// The `tom_specs_editor_specification.md` §15.2 markdown import/export action
+/// bar above the document tree.
 class _MarkdownIoBar extends StatelessWidget {
   const _MarkdownIoBar({required this.controller});
 
@@ -301,7 +305,8 @@ class SpecDocumentTreeView extends StatelessWidget {
   }
 }
 
-/// The compact, value-backed document tree (§13.1).
+/// The compact, value-backed document tree (`tom_specs_editor_specification.md`
+/// §13.1).
 class SpecDocumentTree extends StatefulWidget {
   const SpecDocumentTree({
     super.key,
@@ -357,10 +362,11 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
   void _toggleOpen(String path) =>
       setState(() => _manuallyExpanded.add(path));
 
-  /// The root to render: the navigator's active selection (§14, step 20), then
-  /// this editor's fixed [rootType] override, then the default (Project
-  /// Definition). The tree rebuilds on every controller change, so a navigator
-  /// selection re-renders this projection over the same shared document.
+  /// The root to render: the navigator's active selection
+  /// (tom_specs_editor_specification.md §14, step 20), then this editor's fixed
+  /// [rootType] override, then the default (Project Definition). The tree
+  /// rebuilds on every controller change, so a navigator selection re-renders
+  /// this projection over the same shared document.
   SpecRoot? _activeRoot() {
     final roots = _model.roots;
     if (roots.isEmpty) return null;
@@ -504,12 +510,13 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
       );
 
   Widget _contentField(SpecField field, String path) {
-    // Dart/d4rt-code content gets the summary-backed Dart editor (§13 l / B1),
-    // analysed against the summary scope its `@ContentType` maps to (step 11):
-    // `code`/`code-dart` → `dart-plain`, `code-d4rt-flutter` → `d4rt-flutter`,
-    // `code-d4rt-doc` → `d4rt-document`. `_CodeField` degrades to a plain field
-    // when the scope is not registered (assets absent or scope not yet declared).
-    // Non-Dart code (sql/ddl) and prose stay plain text.
+    // Dart/d4rt-code content gets the summary-backed Dart editor
+    // (`tom_specs_editor_specification.md` §13 l / B1), analysed against the
+    // summary scope its `@ContentType` maps to (step 11): `code`/`code-dart` →
+    // `dart-plain`, `code-d4rt-flutter` → `d4rt-flutter`, `code-d4rt-doc` →
+    // `d4rt-document`. `_CodeField` degrades to a plain field when the scope is
+    // not registered (assets absent or scope not yet declared). Non-Dart code
+    // (sql/ddl) and prose stay plain text.
     final codeScope = scopeForContentType(field.contentType);
     if (codeScope != null) {
       return _FieldBlock(
@@ -522,7 +529,8 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
         ),
       );
     }
-    // Flutter-layout content (§13 k) renders live from d4rt-flutter source.
+    // Flutter-layout content (`tom_specs_editor_specification.md` §13 k)
+    // renders live from d4rt-flutter source.
     if (isFlutterLayoutContentType(field.contentType)) {
       return _FieldBlock(
         header: _fieldHeader(field, path),
@@ -910,7 +918,8 @@ class _HeaderEditFieldState extends State<_HeaderEditField> {
   }
 }
 
-/// A clickable chip standing in for an empty node/subtree (§13.1, D2).
+/// A clickable chip standing in for an empty node/subtree
+/// (`tom_specs_editor_specification.md` §13.1, D2).
 class _EmptyChip extends StatelessWidget {
   const _EmptyChip({required this.label, required this.onTap});
 
@@ -1063,20 +1072,22 @@ bool isDartCodeContentType(String? contentType) =>
 
 /// Whether a `@ContentType` value denotes a live Flutter layout — content that
 /// is d4rt-flutter source meant to be *rendered* (not edited as text) via
-/// `SourceFlutterD4rt().build<Widget>(source, context)` (§13 k). No such
-/// content type exists in the model yet; this predicate fixes the convention so
-/// the routing and a future model-side layout section line up. Public for unit
-/// testing the routing without widgets.
+/// `SourceFlutterD4rt().build<Widget>(source, context)`
+/// (`tom_specs_editor_specification.md` §13 k). No such content type exists in
+/// the model yet; this predicate fixes the convention so the routing and a
+/// future model-side layout section line up. Public for unit testing the
+/// routing without widgets.
 bool isFlutterLayoutContentType(String? contentType) =>
     contentType == 'layout' ||
     contentType == 'flutter' ||
     contentType == 'flutter-layout' ||
     contentType == 'd4rt-flutter';
 
-/// A Dart-code content field (§13 l). Renders the summary-backed Dart editor
-/// bound to its [scope] when that scope is registered, else degrades to the
-/// plain multiline [_ValueField] so dev/test/CI without the heavy `.sum` bundles
-/// — and not-yet-declared scopes — still work.
+/// A Dart-code content field (`tom_specs_editor_specification.md` §13 l).
+/// Renders the summary-backed Dart editor bound to its [scope] when that scope
+/// is registered, else degrades to the plain multiline [_ValueField] so
+/// dev/test/CI without the heavy `.sum` bundles — and not-yet-declared scopes —
+/// still work.
 class _CodeField extends StatelessWidget {
   const _CodeField({
     super.key,
@@ -1116,14 +1127,15 @@ class _CodeField extends StatelessWidget {
   }
 }
 
-/// A Flutter-layout content field (§13 k). The §13 target is a *live* preview
+/// A Flutter-layout content field (`tom_specs_editor_specification.md` §13 k).
+/// The `tom_specs_editor_specification.md` §13 target is a *live* preview
 /// rendered by `SourceFlutterD4rt().build<Widget>(source, context)` from
 /// `tom_d4rt_flutter`. That package cannot currently be a dependency of this
 /// editor: its transitive `tom_d4rt → analyzer ^8` conflicts with
 /// `tom_dart_editor → analyzer ^10` (the OE-1 code editor). Until `tom_d4rt`
 /// moves to analyzer ^10 (d4rt-quest scope — tracked as OE-3a), this seam
-/// renders the layout source read-only beneath a note. The single drop-in
-/// point for the live call is marked below.
+/// renders the layout source read-only beneath a note. The single drop-in point
+/// for the live call is marked below.
 class _LayoutField extends StatelessWidget {
   const _LayoutField({
     super.key,
@@ -1142,7 +1154,7 @@ class _LayoutField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // ── §13 k drop-in point ───────────────────────────────────────────────
+    // ── `tom_specs_editor_specification.md` §13 k drop-in point ──────────────
     // Once `tom_d4rt_flutter` is addable (OE-3a), replace the read-only
     // preview below with a guarded live render:
     //   try {

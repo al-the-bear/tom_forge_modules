@@ -10,17 +10,19 @@ import 'package:tom_vscode_scripting_api/tom_vscode_scripting_api.dart';
 import '../document/spec_document_controller.dart';
 import 'engine_spec_controller.dart';
 
-/// Builds the in-process MCP server exposing the **engine's** §8.2 / §8.1 tool
-/// classes (plan step 5 of `d4rt_and_llm_tools_followup.md`).
+/// Builds the in-process MCP server exposing the **engine's**
+/// llm_and_d4rt_tools.md §8.2 / §8.1 tool classes (plan step 5 of
+/// `d4rt_and_llm_tools_followup.md`).
 ///
 /// Where [SpecAgentTools] exposes the editor's bespoke layer-A/B/C navigation +
 /// mutation tools, this server registers the reusable engine toolsets that live
 /// in `tom_spec_engine` so the agent reaches the *same* surfaces a headless run
 /// would:
 ///
-///   * [DocTools] → `doc_search` / `doc_search_iterate` (the §6 edit-stable
-///     cursor), `doc_reflect` (meta-model facts), `doc_add_node` (a
-///     meta-model-validated add routed through the one change log);
+///   * [DocTools] → `doc_search` / `doc_search_iterate` (the
+///     `llm_and_d4rt_tools.md` §6 edit-stable cursor), `doc_reflect`
+///     (meta-model facts), `doc_add_node` (a meta-model-validated add routed
+///     through the one change log);
 ///   * [FileTools] → `file_read` / `file_find` / `file_write` over the audited
 ///     read-anywhere / write-whitelist [SpecFileFacade];
 ///   * [ScriptTools] → `script_author` / `script_validate` / `script_run` /
@@ -28,7 +30,7 @@ import 'engine_spec_controller.dart';
 ///   * [MemoryTools] → `mem_recall` / `mem_refresh` over the editor's embeddable
 ///     memory plane (followup item 6) — registered **only** when a [memoryTools]
 ///     is supplied, so a headless build with no memory plane still exposes the
-///     §8.1/§8.2 surface unchanged.
+///     `llm_and_d4rt_tools.md` §8.1/§8.2 surface unchanged.
 ///
 /// Where a memory plane is wired, [ensureMemoryWarm] is awaited before each
 /// memory-touching handler so the always-fresh tier-1 index is rebuilt and the
@@ -96,7 +98,7 @@ class SpecEngineTools {
         ],
       );
 
-  // --- result helpers -----------------------------------------------------
+  // --- result helpers --------------------------------------------------------
 
   CallToolResult _ok(Object? payload) =>
       CallToolResult.text(jsonEncode(payload));
@@ -158,12 +160,13 @@ class SpecEngineTools {
     );
   }
 
-  // --- doc_* (the §6 query facility + reflection + add) --------------------
+  // --- doc_* (`llm_and_d4rt_tools.md` §6 query + reflection + add) -------
 
   SdkMcpTool _docSearch() => SdkMcpTool(
         name: 'doc_search',
         description:
-            'Run a §6 query over the live document and return the first page '
+            'Run a llm_and_d4rt_tools.md §6 query over the live document and '
+            'return the first page '
             '(opens a cursor; continue with doc_search_iterate). Every supplied '
             'dimension is AND-combined.',
         inputSchema: const {
@@ -197,11 +200,11 @@ class SpecEngineTools {
         },
         handler: (args) async {
           final docs = await _docs();
-          // Build the §6 query through the *shared* builder behind the in-script
-          // `search` facade (followup item 12), so the tool and a script accept
-          // the same dimensions and coerce them identically. Its ArgumentError
-          // (unknown kind / state) carries the same message the inline parse
-          // used to emit.
+          // Build the `llm_and_d4rt_tools.md` §6 query through the *shared*
+          // builder behind the in-script `search` facade (followup item 12), so
+          // the tool and a script accept the same dimensions and coerce them
+          // identically. Its ArgumentError (unknown kind / state) carries the
+          // same message the inline parse used to emit.
           final SpecQuery query;
           try {
             query = specQueryFromArgs(args);
@@ -216,7 +219,8 @@ class SpecEngineTools {
   SdkMcpTool _docSearchIterate() => SdkMcpTool(
         name: 'doc_search_iterate',
         description:
-            'Advance an open doc_search cursor by one page (the §6 edit-stable '
+            'Advance an open doc_search cursor by one page (the '
+            'llm_and_d4rt_tools.md §6 edit-stable '
             'lazy iteration). Rejects an unknown or exhausted cursor.',
         inputSchema: const {
           'type': 'object',
@@ -312,7 +316,7 @@ class SpecEngineTools {
         },
       );
 
-  // --- file_* (audited read-any / write-whitelist) ------------------------
+  // --- file_* (audited read-any / write-whitelist) ---------------------------
 
   SdkMcpTool _fileRead() => SdkMcpTool(
         name: 'file_read',
@@ -391,7 +395,7 @@ class SpecEngineTools {
         },
       );
 
-  // --- script_* (author / validate / run / list / get) -------------------
+  // --- script_* (author / validate / run / list / get) -----------------------
 
   SdkMcpTool _scriptAuthor() => SdkMcpTool(
         name: 'script_author',
@@ -536,12 +540,13 @@ class SpecEngineTools {
         },
       );
 
-  // --- mem_* (the §9 fused two-tier recall) -------------------------------
+  // --- mem_* (the `llm_and_d4rt_tools.md` §9 fused two-tier recall) ----------
 
   SdkMcpTool _memRecall() => SdkMcpTool(
         name: 'mem_recall',
         description:
-            'Recall the sections most relevant to a query from the live §9 '
+            'Recall the sections most relevant to a query from the live '
+            'llm_and_d4rt_tools.md §9 '
             'two-tier memory (tier-1 lexical/structural fused with tier-2 '
             'vectors). Reports degraded:true when the vector tier is cold.',
         inputSchema: const {

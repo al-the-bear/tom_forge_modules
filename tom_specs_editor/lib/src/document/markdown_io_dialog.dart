@@ -9,7 +9,8 @@ import 'markdown_document.dart';
 import 'root_navigator.dart';
 import 'spec_document_controller.dart';
 
-/// The markdown import/export dialogs (§15.2).
+/// The markdown import/export dialogs (`tom_specs_editor_specification.md`
+/// §15.2).
 ///
 /// Export offers a **scope** — *single* (one root projection), *multiple* (a
 /// subset of roots), or *global* (the Solution Blueprint master) — previews the

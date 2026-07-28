@@ -6,14 +6,16 @@ import 'apps/phase_surfaces.dart';
 import 'apps/spec_phase.dart';
 import 'placeholder_components.dart';
 
-/// Bootstrap module for the TomSpecs Editor (§4.2).
+/// Bootstrap module for the TomSpecs Editor
+/// (`tom_specs_editor_specification.md` §4.2).
 ///
 /// Registers the three top-level [ForgeApplication]s — **DocSpecs**,
-/// **CodeSpecs**, **Implementation** — and the common 4-region layout
-/// skeleton (§5). The application switcher in the shell toolbar reads the
-/// registered set from [DefaultSystemState.applications]; selecting one calls
-/// the host's `onApplicationSwitch`, which re-renders the scaffold with the
-/// chosen application's layout.
+/// **CodeSpecs**, **Implementation** — and the common 4-region layout skeleton
+/// (`tom_specs_editor_specification.md` §5). The application switcher in the
+/// shell toolbar reads the registered set from
+/// [DefaultSystemState.applications]; selecting one calls the host's
+/// `onApplicationSwitch`, which re-renders the scaffold with the chosen
+/// application's layout.
 ///
 /// **DocSpecs** is the phase-1 functional application: its four regions are
 /// populated with the real document editor, structure browser, navigator and
@@ -40,32 +42,35 @@ class SpecsShellModule extends ForgeModule {
     this.configRailView,
   });
 
-  /// The model-driven document editor (§13), hosted as the DocSpecs middle
-  /// "Document" split when provided. Null in the skeleton tests that predate
-  /// step 19, where the split falls back to a [PlaceholderEditor].
+  /// The model-driven document editor (`tom_specs_editor_specification.md`
+  /// §13), hosted as the DocSpecs middle "Document" split when provided. Null
+  /// in the skeleton tests that predate step 19, where the split falls back to
+  /// a [PlaceholderEditor].
   final ForgeEditor? documentEditor;
 
   /// The prompt-queue editor (from [AgentChatModule]), hosted as the DocSpecs
-  /// middle "Prompt Queue" split (§5 Col 2) when provided. Null in the skeleton
-  /// tests that predate the chat suite, where the split falls back to a
-  /// [PlaceholderEditor].
+  /// middle "Prompt Queue" split (`tom_specs_editor_specification.md` §5 Col 2)
+  /// when provided. Null in the skeleton tests that predate the chat suite,
+  /// where the split falls back to a [PlaceholderEditor].
   final ForgeEditor? queueEditor;
 
   /// The prompt-trail editor (from [AgentChatModule]), hosted as the DocSpecs
-  /// middle "Prompt Trail" split (§5 Col 3) when provided. Null in the skeleton
-  /// tests that predate the chat suite, where the split falls back to a
-  /// [PlaceholderEditor].
+  /// middle "Prompt Trail" split (`tom_specs_editor_specification.md` §5 Col 3)
+  /// when provided. Null in the skeleton tests that predate the chat suite,
+  /// where the split falls back to a [PlaceholderEditor].
   final ForgeEditor? trailEditor;
 
-  /// The §14 root navigator (step 20), hosted as the DocSpecs left panel's
-  /// "Navigator" tab when provided. Null in the skeleton tests that predate
-  /// step 20, where the tab falls back to a labelled placeholder.
+  /// The `tom_specs_editor_specification.md` §14 root navigator (step 20),
+  /// hosted as the DocSpecs left panel's "Navigator" tab when provided. Null in
+  /// the skeleton tests that predate step 20, where the tab falls back to a
+  /// labelled placeholder.
   final ForgeView? navigatorView;
 
   /// The structure browser view (from [SpecStructureModule]), hosted as the
-  /// DocSpecs left panel's "Structure" tab when provided (§5 — left panel's
-  /// optional second tab = the document/section explorer). Null in the bare
-  /// skeleton tests that predate step 10.
+  /// DocSpecs left panel's "Structure" tab when provided
+  /// (tom_specs_editor_specification.md §5 — left panel's optional second tab =
+  /// the document/section explorer). Null in the bare skeleton tests that
+  /// predate step 10.
   final ForgeView? structureView;
 
   /// The dedicated config rail (from [SpecsConfigModule], OE-16), hosted as the
@@ -74,10 +79,11 @@ class SpecsShellModule extends ForgeModule {
   final ForgeView? configRailView;
 
   /// The agent chat view (from [AgentChatModule]), hosted as the DocSpecs
-  /// bottom panel's "Chat" tab when provided (§5 — bottom panel = the chat
-  /// suite). In step 11 it carries the connection picker only; the composer,
-  /// streaming output, queue and trail arrive in later steps. Falls back to a
-  /// labelled placeholder in the bare skeleton tests that predate step 11.
+  /// bottom panel's "Chat" tab when provided (tom_specs_editor_specification.md
+  /// §5 — bottom panel = the chat suite). In step 11 it carries the connection
+  /// picker only; the composer, streaming output, queue and trail arrive in
+  /// later steps. Falls back to a labelled placeholder in the bare skeleton
+  /// tests that predate step 11.
   final ForgeView? chatView;
 
   final List<ForgeView> _views = [];
@@ -141,11 +147,11 @@ class SpecsShellModule extends ForgeModule {
     required bool populated,
     SpecPhase? phase,
   }) {
-    // Middle split 1: the document editor. Always present so the editor
-    // region is never empty. DocSpecs uses the injected model-driven
-    // [SpecDocumentEditor] when provided (§13); the phase-2 apps render their
-    // [PhaseOverviewEditor]; bare pre-step-19/25 skeleton tests fall back to a
-    // placeholder stub.
+    // Middle split 1: the document editor. Always present so the editor region
+    // is never empty. DocSpecs uses the injected model-driven
+    // [SpecDocumentEditor] when provided (`tom_specs_editor_specification.md`
+    // §13); the phase-2 apps render their [PhaseOverviewEditor]; bare
+    // pre-step-19/25 skeleton tests fall back to a placeholder stub.
     final ForgeEditor docEditor = (populated && documentEditor != null)
         ? documentEditor!
         : (phase != null)
@@ -166,16 +172,17 @@ class SpecsShellModule extends ForgeModule {
     ];
 
     if (!populated) {
-      // CodeSpecs / Implementation (§5, step 25 + OE-26): the phase overview in
-      // the document region plus an "Overview" left-panel tab listing the phase
-      // components, and the same four surrounding surfaces DocSpecs carries —
-      // chat (bottom), change log (right), and the queue/trail middle splits —
-      // but as phase-aware [PhaseSurface] placeholders. The *live* shared
-      // DocSpecs instances are deliberately NOT hosted here: the agent edits the
-      // live DocSpecs document, and a phase-2 app has no model-driven document
-      // controller of its own yet (OE-24a), so a live surface would mutate the
-      // wrong document. The placeholders keep the 4-region layout consistent
-      // across all three apps and name when each surface activates.
+      // CodeSpecs / Implementation (`tom_specs_editor_specification.md` §5,
+      // step 25 + OE-26): the phase overview in the document region plus an
+      // "Overview" left-panel tab listing the phase components, and the same
+      // four surrounding surfaces DocSpecs carries — chat (bottom), change log
+      // (right), and the queue/trail middle splits — but as phase-aware
+      // [PhaseSurface] placeholders. The *live* shared DocSpecs instances are
+      // deliberately NOT hosted here: the agent edits the live DocSpecs
+      // document, and a phase-2 app has no model-driven document controller of
+      // its own yet (OE-24a), so a live surface would mutate the wrong
+      // document. The placeholders keep the 4-region layout consistent across
+      // all three apps and name when each surface activates.
       final List<PanelTabConfig> leftTabs = [];
       if (phase != null) {
         final outline = PhaseOutlineView(phase: phase);
@@ -242,8 +249,9 @@ class SpecsShellModule extends ForgeModule {
 
     // DocSpecs: the two further middle splits (Queue = Col 2, Trail = Col 3)
     // plus all four surrounding regions. The queue/trail editors come from the
-    // injected [AgentChatModule] (the real §11.2/§11.3 columns); the skeleton
-    // tests that predate the chat suite fall back to labelled placeholders.
+    // injected [AgentChatModule] (the real `tom_specs_editor_specification.md`
+    // §11.2/§11.3 columns); the skeleton tests that predate the chat suite fall
+    // back to labelled placeholders.
     final ForgeEditor queueSplit = queueEditor ??
         PlaceholderEditor(
           title: 'Prompt Queue',
@@ -264,8 +272,9 @@ class SpecsShellModule extends ForgeModule {
       MiddlePanelConfig(tabs: [MiddleTabConfig(editor: trailSplit)]),
     );
 
-    // The §14 root navigator drives the document editor's active root (step
-    // 20); falls back to a labelled placeholder in the pre-step-20 skeleton.
+    // The `tom_specs_editor_specification.md` §14 root navigator drives the
+    // document editor's active root (step 20); falls back to a labelled
+    // placeholder in the pre-step-20 skeleton.
     final ForgeView navigator = navigatorView ??
         PlaceholderView(
           title: 'Navigator',

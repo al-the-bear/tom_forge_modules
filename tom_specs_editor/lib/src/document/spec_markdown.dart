@@ -1,20 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:tom_md_editor/tom_md_editor.dart';
 
-/// Inline markdown renderer used for every label, help text and content
-/// preview in the document editor (§13, requirements *j*/*m*).
+/// Inline markdown renderer used for every label, help text and content preview
+/// in the document editor (`tom_specs_editor_specification.md` §13,
+/// requirements *j*/*m*).
 ///
 /// This is the single seam through which the editor renders authored markdown.
-/// §13 j asks `SpecMarkdown` to wrap `tom_md_editor`'s `MdPreviewPanel`, but
-/// that widget is a whole-document, section-navigating preview *panel* (it owns
-/// an `MdEditorController`, parses the text into navigable sections, and needs a
-/// bounded height) — the wrong granularity for the dozens of short inline
-/// labels a compact tree shows. So `SpecMarkdown` pays the panel's weight only
-/// **where it is justified** (OE-3): when the source actually uses rich
-/// markdown features the lightweight renderer cannot show — fenced code blocks,
-/// GFM tables, math, or embedded images. Plain labels, help text and prose
-/// (the overwhelming majority) keep the lightweight inline renderer: no
-/// controller, no panel chrome, no bounded-height container.
+/// `tom_specs_editor_specification.md` §13 j asks `SpecMarkdown` to wrap
+/// `tom_md_editor`'s `MdPreviewPanel`, but that widget is a whole-document,
+/// section-navigating preview *panel* (it owns an `MdEditorController`, parses
+/// the text into navigable sections, and needs a bounded height) — the wrong
+/// granularity for the dozens of short inline labels a compact tree shows. So
+/// `SpecMarkdown` pays the panel's weight only **where it is justified**
+/// (OE-3): when the source actually uses rich markdown features the lightweight
+/// renderer cannot show — fenced code blocks, GFM tables, math, or embedded
+/// images. Plain labels, help text and prose (the overwhelming majority) keep
+/// the lightweight inline renderer: no controller, no panel chrome, no
+/// bounded-height container.
 ///
 /// Lightweight subset: ATX headings (`#`–`######`), unordered list items
 /// (`-`/`*`), `**bold**`/`*italic*`/`` `code` `` inline spans, and blank-line
@@ -149,9 +151,10 @@ final RegExp _kMathRe =
 
 /// Whether [source] uses markdown features the lightweight inline renderer
 /// cannot show — the only case where the heavier [MdPreviewPanel] is justified
-/// (§13 j/m, OE-3). Conservative on purpose: a false negative degrades to the
-/// (correct, lighter) inline renderer; a false positive only wastes a panel.
-/// Exposed for unit testing the routing without building widgets.
+/// (`tom_specs_editor_specification.md` §13 j/m, OE-3). Conservative on
+/// purpose: a false negative degrades to the (correct, lighter) inline
+/// renderer; a false positive only wastes a panel. Exposed for unit testing the
+/// routing without building widgets.
 bool isRichMarkdown(String source) => _isRichMarkdown(source);
 
 bool _isRichMarkdown(String source) {
@@ -163,10 +166,10 @@ bool _isRichMarkdown(String source) {
 }
 
 /// Read-only rich preview backed by `tom_md_editor`'s [MdPreviewPanel]
-/// (tables/math/mermaid/images, §13 j/m). Owns a short-lived
-/// [MdEditorController] seeded from the source; rebuilt in place when the
-/// source changes and disposed with the widget. Bounded + internally scrollable
-/// because the panel lays its body out with `Expanded`.
+/// (tables/math/mermaid/images, `tom_specs_editor_specification.md` §13 j/m).
+/// Owns a short-lived [MdEditorController] seeded from the source; rebuilt in
+/// place when the source changes and disposed with the widget. Bounded +
+/// internally scrollable because the panel lays its body out with `Expanded`.
 class _RichMarkdown extends StatefulWidget {
   const _RichMarkdown({required this.source, required this.maxHeight});
 

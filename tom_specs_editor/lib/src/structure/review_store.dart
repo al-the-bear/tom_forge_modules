@@ -212,7 +212,8 @@ class ReviewStore extends ChangeNotifier {
   int get count => _entries.length;
 
   /// An unmodifiable view of every held entry, keyed by storage path — the
-  /// source for the §15.1 `review:` pass when saving a `*.docspecs.yaml`.
+  /// source for the `tom_specs_editor_specification.md` §15.1 `review:` pass
+  /// when saving a `*.docspecs.yaml`.
   Map<String, ReviewEntry> get entries => Map.unmodifiable(_entries);
 
   /// Replaces the whole entry set in one shot (used when loading a

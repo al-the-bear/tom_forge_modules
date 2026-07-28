@@ -1,5 +1,5 @@
 // Tests for markdown import/export + the parse-rejection protocol (step 22,
-// §15.2).
+// `tom_specs_editor_specification.md` §15.2).
 //
 // The step's Done condition: a round-trip export→import preserves embedded
 // d4rt/Dart bodies, and bad input is reported (not silently dropped). These

@@ -2,26 +2,30 @@ import 'package:tom_som_dart_runtime/tom_som_dart_runtime.dart';
 
 import 'spec_document_controller.dart';
 
-/// The scope of a markdown import/export (§15.2): one root projection, a subset
-/// of roots, or the Solution Blueprint master.
+/// The scope of a markdown import/export (`tom_specs_editor_specification.md`
+/// §15.2): one root projection, a subset of roots, or the Solution Blueprint
+/// master.
 enum MarkdownScope { single, multiple, global }
 
-/// Why an imported markdown block was rejected (§15.2 parse-rejection protocol).
+/// Why an imported markdown block was rejected
+/// (`tom_specs_editor_specification.md` §15.2 parse-rejection protocol).
 ///
 /// The codec now lives in the generic runtime; this is the editor's alias for
 /// its [SpecMarkdownRejectReason] so existing call sites keep their names.
 typedef MarkdownRejectReason = SpecMarkdownRejectReason;
 
-/// One rejected block in a markdown import (§15.2). Alias of the runtime's
-/// [SpecMarkdownRejection].
+/// One rejected block in a markdown import (`tom_specs_editor_specification.md`
+/// §15.2). Alias of the runtime's [SpecMarkdownRejection].
 typedef MarkdownRejection = SpecMarkdownRejection;
 
-/// The outcome of parsing a markdown document (§15.2). Alias of the runtime's
+/// The outcome of parsing a markdown document
+/// (`tom_specs_editor_specification.md` §15.2). Alias of the runtime's
 /// [SpecMarkdownResult]; values are keyed exactly like [SpecDocument.toJson] so
 /// the controller can merge them as a full overwrite of the covered scope.
 typedef MarkdownImportResult = SpecMarkdownResult;
 
-/// Controller-facing adapter for the markdown import/export format (§15.2).
+/// Controller-facing adapter for the markdown import/export format
+/// (`tom_specs_editor_specification.md` §15.2).
 ///
 /// The format and all parse/render logic live in the generic
 /// [SpecDocumentMarkdown] codec; this thin wrapper binds it to the editor's

@@ -8,16 +8,18 @@ import '../document/spec_document_controller.dart';
 import 'engine_spec_controller.dart';
 import 'spec_memory_plane.dart';
 
-/// The editor's **live mode-(a) conversational runtime** (followup item 9, §10).
+/// The editor's **live mode-(a) conversational runtime** (followup item 9,
+/// llm_and_d4rt_tools.md §10).
 ///
-/// Where [SpecBrainRuntime] binds §10 mode (b) (the Tom Brain session envelope),
-/// this binds §10 **mode (a)**: the *conversational* substrate driven across
-/// **multiple turns**. It wraps a [DirectAgentSubstrate] (the headless complex
-/// procedure over the live tools) in a [ConversationalAgentSubstrate], so each
-/// turn it recalls the RAG memory for the goal, lets the injected
-/// [ConversationalDriver] decide the next turn, and runs the procedure for that
-/// turn — every edit landing on the shared [SpecDocumentController] (the one
-/// change log, §5).
+/// Where [SpecBrainRuntime] binds `llm_and_d4rt_tools.md` §10 mode (b) (the Tom
+/// Brain session envelope), this binds `llm_and_d4rt_tools.md` §10 **mode
+/// (a)**: the *conversational* substrate driven across **multiple turns**. It
+/// wraps a [DirectAgentSubstrate] (the headless complex procedure over the live
+/// tools) in a [ConversationalAgentSubstrate], so each turn it recalls the RAG
+/// memory for the goal, lets the injected [ConversationalDriver] decide the
+/// next turn, and runs the procedure for that turn — every edit landing on the
+/// shared [SpecDocumentController] (the one change log, `llm_and_d4rt_tools.md`
+/// §5).
 ///
 /// The conversational substrate is the live Agent SDK / LLM; the pure-Dart
 /// engine cannot host it, so the runtime takes a [ConversationalDriver] port. In

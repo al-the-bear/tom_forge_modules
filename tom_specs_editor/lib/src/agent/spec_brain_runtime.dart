@@ -9,16 +9,18 @@ import '../document/spec_document_controller.dart';
 import 'engine_spec_controller.dart';
 import 'spec_memory_plane.dart';
 
-/// The editor's **live mode-(b) agent runtime** (followup item 8, §10).
+/// The editor's **live mode-(b) agent runtime** (followup item 8,
+/// llm_and_d4rt_tools.md §10).
 ///
-/// Where [SpecMemoryPlane] makes the §9 *recall* live in the editor, this binds
-/// the §10 *run* surface: it drives the complex agent procedure through a
-/// [BrainAgentSubstrate] whose Tom Brain session envelope is the live
-/// [SpecBrainSessionEnvelope] over the plane's in-process store — so each run is
-/// recorded as a node (with its [RunEffort]) in the *same* document-named memory
-/// the section index uses ([SpecMemoryPlane.scope]). The agent's edits land on
-/// the shared [SpecDocumentController], so they join the one change log exactly
-/// as a tool/script edit does (§5).
+/// Where [SpecMemoryPlane] makes the `llm_and_d4rt_tools.md` §9 *recall* live
+/// in the editor, this binds the `llm_and_d4rt_tools.md` §10 *run* surface: it
+/// drives the complex agent procedure through a [BrainAgentSubstrate] whose Tom
+/// Brain session envelope is the live [SpecBrainSessionEnvelope] over the
+/// plane's in-process store — so each run is recorded as a node (with its
+/// [RunEffort]) in the *same* document-named memory the section index uses
+/// ([SpecMemoryPlane.scope]). The agent's edits land on the shared
+/// [SpecDocumentController], so they join the one change log exactly as a
+/// tool/script edit does (`llm_and_d4rt_tools.md` §5).
 ///
 /// **Graceful degradation.** The live envelope needs the tier-2 store; when the
 /// plane is degraded ([SpecMemoryPlane.available] is `false`, e.g. no `vec0`

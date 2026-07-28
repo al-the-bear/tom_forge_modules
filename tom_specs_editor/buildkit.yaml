@@ -1,8 +1,9 @@
 # Tom Build Configuration for tom_specs_editor.
 #
 # `dart-editor-bundler` declares the summary scopes consumed by the embedded
-# `tom_dart_editor` code fields (§13 l / B1). The bundler
-# (tom_forge/tom_dart_editor_bundler) reads this block and emits:
+# `tom_dart_editor` code fields (`tom_specs_editor_specification.md` §13 l /
+# B1). The bundler (tom_forge/tom_dart_editor_bundler) reads this block and
+# emits:
 #   - one shared SDK summary  → assets/summaries/sdk_summary.sum
 #   - one grouped bundle per non-sdk-only scope
 #                             → assets/summaries/<name>/packages.sum

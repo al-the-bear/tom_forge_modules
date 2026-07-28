@@ -1,6 +1,7 @@
-// Tests for the §14 root navigator (step 20): Solution Blueprint first, a
-// separator, then the other roots alphabetically; selecting a root re-renders
-// the document editor as that projection over the *same* shared document.
+// Tests for the `tom_specs_editor_specification.md` §14 root navigator (step
+// 20): Solution Blueprint first, a separator, then the other roots
+// alphabetically; selecting a root re-renders the document editor as that
+// projection over the *same* shared document.
 //
 // The Done condition — "switching roots re-renders the same underlying data
 // consistently" — is driven here over a synthetic multi-root model and a
@@ -100,7 +101,7 @@ Future<void> _pumpTree(
 }
 
 void main() {
-  group('navigator ordering (§14)', () {
+  group('navigator ordering (tom_specs_editor_specification.md §14)', () {
     test('Solution Blueprint is first, then the rest alphabetically by title',
         () {
       final model = SpecModel.fromJson(_multiRootJson());
@@ -130,7 +131,7 @@ void main() {
     });
   });
 
-  group('RootNavigator widget (§14)', () {
+  group('RootNavigator widget (tom_specs_editor_specification.md §14)', () {
     testWidgets('lists every root with Solution Blueprint first + a separator',
         (tester) async {
       final controller = await _controller();
@@ -203,7 +204,7 @@ void main() {
     });
   });
 
-  group('model version stamp (§17, B2)', () {
+  group('model version stamp (tom_specs_editor_specification.md §17, B2)', () {
     test('SpecModel.fromJson parses modelVersion + label when stamped', () {
       final json = _multiRootJson()
         ..['modelVersion'] = 3

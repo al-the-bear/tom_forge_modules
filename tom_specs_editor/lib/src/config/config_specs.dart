@@ -6,11 +6,11 @@ import 'config_field.dart';
 import 'editor_preferences.dart';
 
 /// Builds the declarative [ConfigListSpec]/[ConfigObjectSpec]s for the seven
-/// config editors (§12). Each spec binds a `tom_core_agentic` store to a
-/// detail form; the generic editors render them. Models are immutable value
-/// types with `toYaml`/`fromYaml` but no `copyWith`, so each field setter edits
-/// through a `fromYaml(toYaml()..[key] = value)` round-trip — the same pattern
-/// the step-16 queue controller uses.
+/// config editors (`tom_specs_editor_specification.md` §12). Each spec binds a
+/// `tom_core_agentic` store to a detail form; the generic editors render them.
+/// Models are immutable value types with `toYaml`/`fromYaml` but no `copyWith`,
+/// so each field setter edits through a `fromYaml(toYaml()..[key] = value)`
+/// round-trip — the same pattern the step-16 queue controller uses.
 class SpecsConfigSpecs {
   SpecsConfigSpecs({
     AgentProfileStore? profiles,
@@ -41,10 +41,11 @@ class SpecsConfigSpecs {
   final AgentSettingsStore agentSettings;
   final EditorPreferencesStore preferences;
 
-  /// Expands a placeholder-bearing string for the §12 live placeholder preview
-  /// (OE-14) — typically `SpecPromptComposer.compose`. When null, the preview
-  /// field is omitted (the editors stay usable without a wired composer, e.g.
-  /// in unit tests).
+  /// Expands a placeholder-bearing string for the
+  /// `tom_specs_editor_specification.md` §12 live placeholder preview (OE-14) —
+  /// typically `SpecPromptComposer.compose`. When null, the preview field is
+  /// omitted (the editors stay usable without a wired composer, e.g. in unit
+  /// tests).
   final String Function(String source)? compose;
 
   static String _newId(String prefix) =>
@@ -54,7 +55,7 @@ class SpecsConfigSpecs {
 
   Uri _uri(String path) => Uri(scheme: 'specs-config', host: 'config', path: path);
 
-  // ── Prompt Queue ──────────────────────────────────────────────────────────
+  // ── Prompt Queue ───────────────────────────────────────────────────────────
 
   ConfigListSpec<QueuedPrompt> queueSpec() => ConfigListSpec<QueuedPrompt>(
         title: 'Prompt Queue',
@@ -98,7 +99,7 @@ class SpecsConfigSpecs {
         ],
       );
 
-  // ── Queue Templates ─────────────────────────────────────────────────────────
+  // ── Queue Templates ────────────────────────────────────────────────────────
 
   ConfigListSpec<QueueTemplate> queueTemplateSpec() =>
       ConfigListSpec<QueueTemplate>(
@@ -172,7 +173,8 @@ class SpecsConfigSpecs {
             set: (p, v) =>
                 AgentProfile.fromYaml(p.toYaml()..['systemPrompt'] = v),
           ),
-          // §12 "live placeholder preview" — only when a composer is wired.
+          // `tom_specs_editor_specification.md` §12 "live placeholder preview"
+          // — only when a composer is wired.
           if (compose != null)
             ConfigField.placeholderPreview(
               label: 'System prompt preview',
@@ -216,7 +218,7 @@ class SpecsConfigSpecs {
         ],
       );
 
-  // ── Prompt Templates ─────────────────────────────────────────────────────────
+  // ── Prompt Templates ───────────────────────────────────────────────────────
 
   ConfigListSpec<PromptTemplate> promptTemplateSpec() =>
       ConfigListSpec<PromptTemplate>(
@@ -247,7 +249,8 @@ class SpecsConfigSpecs {
             set: (t, v) =>
                 PromptTemplate.fromYaml(t.toYaml()..['body'] = v),
           ),
-          // §12 "live placeholder preview" — only when a composer is wired.
+          // `tom_specs_editor_specification.md` §12 "live placeholder preview"
+          // — only when a composer is wired.
           if (compose != null)
             ConfigField.placeholderPreview(
               label: 'Preview',
@@ -356,7 +359,7 @@ class SpecsConfigSpecs {
         ],
       );
 
-  // ── Agent Settings (singleton) ───────────────────────────────────────────────
+  // ── Agent Settings (singleton) ─────────────────────────────────────────────
 
   ConfigObjectSpec<AgentSettings> agentSettingsSpec() =>
       ConfigObjectSpec<AgentSettings>(

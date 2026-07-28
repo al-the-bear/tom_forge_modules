@@ -3,8 +3,9 @@ import 'package:tom_core_agentic/tom_core_agentic.dart';
 
 import 'editor_preferences.dart';
 
-/// The basic-preferences settings panel (§12 — "Basic prefs → Forge config
-/// section": theme, font, default app, default profile).
+/// The basic-preferences settings panel (`tom_specs_editor_specification.md`
+/// §12 — "Basic prefs → Forge config section": theme, font, default app,
+/// default profile).
 ///
 /// Unlike the seven config editors, basic prefs is *not* a custom editor — it
 /// is a [ForgeConfigPanel] surfaced in the shell's settings dialog. This widget

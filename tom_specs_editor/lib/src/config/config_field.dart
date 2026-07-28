@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:tom_forge_agentic/tom_forge_agentic.dart' show PlaceholderPreview;
 
-/// A single editable field in a configuration detail form (§12).
+/// A single editable field in a configuration detail form
+/// (`tom_specs_editor_specification.md` §12).
 ///
 /// Each config editor (profiles, templates, chat variables, …) declares its
 /// detail form as a `List<ConfigField<T>>` rather than hand-writing a bespoke
@@ -32,9 +33,10 @@ class ConfigField<T> {
   /// acceptable for this field.
   final String? Function(T value)? validate;
 
-  /// Optional contextual help (§12 "renders help text"): a one-line caption
-  /// rendered beneath the field by [buildField], explaining what the field does
-  /// or how its value is used. Null fields render no caption.
+  /// Optional contextual help (`tom_specs_editor_specification.md` §12 "renders
+  /// help text"): a one-line caption rendered beneath the field by
+  /// [buildField], explaining what the field does or how its value is used.
+  /// Null fields render no caption.
   final String? help;
 
   /// Renders the field's editor widget plus its [help] caption (when authored).
@@ -132,12 +134,13 @@ class ConfigField<T> {
     );
   }
 
-  /// A read-only **live placeholder preview** (§12, OE-14): renders [get]'s
-  /// text with its supported placeholders expanded via [compose]. Used by the
-  /// Prompt Templates editor so the author sees what a template resolves to as
-  /// they type. Has no setter — it derives from another field — and never
-  /// validates. An unsupported `${{ … }}` form renders inline rather than
-  /// crashing the editor ([PlaceholderPreview] catches the throw).
+  /// A read-only **live placeholder preview**
+  /// (`tom_specs_editor_specification.md` §12, OE-14): renders [get]'s text
+  /// with its supported placeholders expanded via [compose]. Used by the Prompt
+  /// Templates editor so the author sees what a template resolves to as they
+  /// type. Has no setter — it derives from another field — and never validates.
+  /// An unsupported `${{ … }}` form renders inline rather than crashing the
+  /// editor ([PlaceholderPreview] catches the throw).
   factory ConfigField.placeholderPreview({
     required String label,
     required String Function(T value) get,
@@ -275,7 +278,8 @@ class _ConfigTextFieldState extends State<_ConfigTextField> {
   }
 }
 
-/// The contextual help caption rendered beneath a [ConfigField] (§12, OE-15).
+/// The contextual help caption rendered beneath a [ConfigField]
+/// (`tom_specs_editor_specification.md` §12, OE-15).
 ///
 /// A muted one-liner keyed `cfg-help-<label>` so tests and the layout can find
 /// the help for a specific field.

@@ -304,7 +304,7 @@ review: {}
     });
   });
 
-  group('controller wiring (§15.1)', () {
+  group('controller wiring (tom_specs_editor_specification.md §15.1)', () {
     late Directory dir;
 
     SpecDocumentController makeController() => SpecDocumentController(

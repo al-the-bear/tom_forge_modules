@@ -5,9 +5,9 @@
 // The item's Done condition: the four engine tool classes are reachable as MCP
 // tools in the editor, each returning compact JSON, with mutations landing on
 // the one shared controller (so a doc_add_node / script_run edit is coherent
-// with the §8 tools). MemoryTools (mem_*) are intentionally absent — they need
-// the server-only memory plane (item 6). These tests drive the handlers
-// directly (no bridge transport).
+// with the `tom_specs_editor_specification.md` §8 tools). MemoryTools (mem_*)
+// are intentionally absent — they need the server-only memory plane (item 6).
+// These tests drive the handlers directly (no bridge transport).
 
 import 'dart:convert';
 import 'dart:io';

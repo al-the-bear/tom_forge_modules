@@ -21,7 +21,7 @@ Future<SpecModel> loadSpecModelFromAsset() async {
 }
 
 /// The structure browser + structural review, surfaced as a Forge panel view
-/// (§4.2 — `SpecStructureModule`).
+/// (`tom_specs_editor_specification.md` §4.2 — `SpecStructureModule`).
 ///
 /// Ported from the standalone prototype's `StartPage` (step 10). The prototype
 /// was a full-window master-detail page; here the same [SpecTree] is reused

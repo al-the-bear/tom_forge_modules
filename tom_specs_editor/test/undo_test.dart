@@ -68,7 +68,7 @@ void main() {
     });
   });
 
-  group('agent turn grouping (§9/§10)', () {
+  group('agent turn grouping (tom_specs_editor_specification.md §9/§10)', () {
     test('an agent turn is one undo step but individual changes are inspectable',
         () async {
       final c = makeController();
@@ -90,7 +90,7 @@ void main() {
     });
   });
 
-  group('pick-a-pane (§9 M1)', () {
+  group('pick-a-pane (tom_specs_editor_specification.md §9 M1)', () {
     test('applying a pane pick creates a new undo entry', () async {
       final c = makeController();
       c.setContent('D00-OVR', 'base');
@@ -120,7 +120,7 @@ void main() {
     });
   });
 
-  group('save lifecycle (§9 M2)', () {
+  group('save lifecycle (tom_specs_editor_specification.md §9 M2)', () {
     test('save resets the change log but keeps the undo stack', () {
       final c = makeController();
       c.setContent('D00-OVR', 'v');

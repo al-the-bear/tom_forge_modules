@@ -6,8 +6,8 @@ import 'package:tom_forge_ui/tom_forge_ui.dart';
 import 'spec_phase.dart';
 
 /// The four agent-driven surfaces a TomSpecs application surrounds its document
-/// region with (§5): the chat suite, the change log, the prompt queue, and the
-/// prompt trail.
+/// region with (`tom_specs_editor_specification.md` §5): the chat suite, the
+/// change log, the prompt queue, and the prompt trail.
 ///
 /// On **DocSpecs** these are the *live* injected instances (the real agent chat
 /// view, the queue/trail editors, the change log) — they drive and reflect the

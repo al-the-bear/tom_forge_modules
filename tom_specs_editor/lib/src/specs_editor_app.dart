@@ -27,11 +27,12 @@ import 'structure/spec_structure_view.dart';
 ///
 /// Step 9 registers the [SpecsShellModule], which contributes the three
 /// top-level applications (DocSpecs / CodeSpecs / Implementation) and their
-/// 4-region layouts (§4.2, §5). DocSpecs is shown on launch and is the only
-/// functional one — its four regions are populated with placeholder
-/// views/editors. The shell toolbar's application switcher lets the user move
-/// between the three; selecting one calls [onApplicationSwitch], which
-/// re-renders the scaffold with the chosen application's layout.
+/// 4-region layouts (`tom_specs_editor_specification.md` §4.2, §5). DocSpecs is
+/// shown on launch and is the only functional one — its four regions are
+/// populated with placeholder views/editors. The shell toolbar's application
+/// switcher lets the user move between the three; selecting one calls
+/// [onApplicationSwitch], which re-renders the scaffold with the chosen
+/// application's layout.
 ///
 /// The spec-specific editors/views (structure browser, document editor, chat
 /// suite, change log) arrive in later steps (10–18).
@@ -60,10 +61,10 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
   late final AgentChatModule _chatModule;
   late final RawFileModule _rawFileModule;
 
-  /// The composer's currently-picked profile (§11.1, OE-14). The picker records
-  /// the choice here; feeding it into the send `Options` (system prompt /
-  /// max-tokens / interrupt-retry prefix) is a deferred settings concern
-  /// (tracked in the OE-14 questions file).
+  /// The composer's currently-picked profile (tom_specs_editor_specification.md
+  /// §11.1, OE-14). The picker records the choice here; feeding it into the
+  /// send `Options` (system prompt / max-tokens / interrupt-retry prefix) is a
+  /// deferred settings concern (tracked in the OE-14 questions file).
   String? _selectedProfileId;
   late final EditorPreferencesStore _preferencesStore;
   late final SpecsConfigModule _configModule;
@@ -103,18 +104,21 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
     _preferencesStore = EditorPreferencesStore.resolveDefault();
     final editorPreferences = _preferencesStore.load();
 
-    // One document controller is shared by the agent tools (§8) and the
-    // model-driven document editor (§13), so a mutation from either the UI or
-    // the agent lands on the same live document and both re-render.
+    // One document controller is shared by the agent tools
+    // (`tom_specs_editor_specification.md` §8) and the model-driven document
+    // editor (`tom_specs_editor_specification.md` §13), so a mutation from
+    // either the UI or the agent lands on the same live document and both
+    // re-render.
     _documentController = SpecDocumentController(
       modelFuture: modelFuture,
       review: reviewStore,
       strictHeadlineEditing: editorPreferences.strictHeadlineEditing,
     );
 
-    // The agent tools module owns the §8 navigation/mutation tools over the
-    // shared document controller; its server config is folded into the agent
-    // send config below so the embedded agent can call the tools mid-turn.
+    // The agent tools module owns the `tom_specs_editor_specification.md` §8
+    // navigation/mutation tools over the shared document controller; its server
+    // config is folded into the agent send config below so the embedded agent
+    // can call the tools mid-turn.
     _toolsModule = AgentToolsModule(
       modelFuture: modelFuture,
       review: reviewStore,
@@ -124,23 +128,25 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
     (_shell.modules as DefaultModuleRegistry).register(_toolsModule);
 
     // The prompt trail is constructed here (not left to the chat module's
-    // default) so the §11.5 placeholder composer can read it for the `${chat}`
-    // built-in (OE-12) — the composer is built *before* the chat module, so the
-    // transcript source must exist first and be injected into the module.
+    // default) so the `tom_specs_editor_specification.md` §11.5 placeholder
+    // composer can read it for the `${chat}` built-in (OE-12) — the composer is
+    // built *before* the chat module, so the transcript source must exist first
+    // and be injected into the module.
     _trailController = PromptTrailController();
 
-    // The §11.5 placeholder composer is built once and shared: the chat module
-    // uses it to expand sent prompts and to drive the composer's live preview
-    // (OE-14), and the config module uses it for the Prompt Templates / profile
-    // "live placeholder preview" (§12, OE-14).
+    // The `tom_specs_editor_specification.md` §11.5 placeholder composer is
+    // built once and shared: the chat module uses it to expand sent prompts and
+    // to drive the composer's live preview (OE-14), and the config module uses
+    // it for the Prompt Templates / profile "live placeholder preview"
+    // (`tom_specs_editor_specification.md` §12, OE-14).
     _promptComposer = _buildPromptComposer();
 
-    // The live Tom Brain profile binding (§11, item 7): per application, an
-    // engine AgentContext resolved into the running send config — the
-    // guidelines prompt (via the composer registry), the MCP surface its
-    // toolset enables, and its scope profile. DocSpecs is the authored
-    // reference (item 10 authors CodeSpecs / Implementation); it drives the
-    // launch send config below, replacing the static placeholder.
+    // The live Tom Brain profile binding (`llm_and_d4rt_tools.md` §11, item 7):
+    // per application, an engine AgentContext resolved into the running send
+    // config — the guidelines prompt (via the composer registry), the MCP
+    // surface its toolset enables, and its scope profile. DocSpecs is the
+    // authored reference (item 10 authors CodeSpecs / Implementation); it
+    // drives the launch send config below, replacing the static placeholder.
     _agentProfiles = SpecAgentProfiles(
       compose: _promptComposer.compose,
       servers: _toolsModule.servers,
@@ -150,27 +156,29 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
     // The agent chat module owns the bridge connection picker; it is registered
     // before the shell so its chat view exists when the DocSpecs bottom panel
     // is built. Activation kicks off the port scan (19900–19909). The send
-    // controller carries the §8 tool server (mcpServers seam) unless a test
-    // injects its own chat module.
+    // controller carries the `tom_specs_editor_specification.md` §8 tool server
+    // (mcpServers seam) unless a test injects its own chat module.
     _chatModule = widget.chatModule ?? _buildChatModule();
     _chatModule.activate(_shell);
     (_shell.modules as DefaultModuleRegistry).register(_chatModule);
 
-    // The live mode-(a) conversational substrate (§10, item 9): bind the chat
-    // send controller as the conversational driver now that it exists. It is
-    // built after the tools module (its send config folds in the module's MCP
-    // servers), so the decision-maker is late-bound here rather than at module
-    // construction. With it bound, the module's `tomspecs-converse` runtime can
-    // drive the multi-turn loop instead of reporting `available:false`.
+    // The live mode-(a) conversational substrate (`llm_and_d4rt_tools.md` §10,
+    // item 9): bind the chat send controller as the conversational driver now
+    // that it exists. It is built after the tools module (its send config folds
+    // in the module's MCP servers), so the decision-maker is late-bound here
+    // rather than at module construction. With it bound, the module's
+    // `tomspecs-converse` runtime can drive the multi-turn loop instead of
+    // reporting `available:false`.
     _toolsModule.bindConversationalDriver(
       SendControllerConversationalDriver(_chatModule.sendController),
     );
 
-    // The config module (§12, step 18) hosts the seven custom config editors
-    // and the basic-prefs settings panel; its raw-file module backs the
-    // editors' "Open raw file" buttons. The raw-file module is registered and
-    // activated first so it can route plain-text editors into the layout when a
-    // config editor opens its backing YAML/markdown.
+    // The config module (`tom_specs_editor_specification.md` §12, step 18)
+    // hosts the seven custom config editors and the basic-prefs settings panel;
+    // its raw-file module backs the editors' "Open raw file" buttons. The
+    // raw-file module is registered and activated first so it can route
+    // plain-text editors into the layout when a config editor opens its backing
+    // YAML/markdown.
     _rawFileModule = RawFileModule();
     _rawFileModule.activate(_shell);
     (_shell.modules as DefaultModuleRegistry).register(_rawFileModule);
@@ -198,20 +206,22 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
       queueEditor: _chatModule.queueEditor,
       trailEditor: _chatModule.trailEditor,
       navigatorView: RootNavigator(controller: _documentController),
-      // The dedicated config rail (§12, OE-16) — a left-panel launcher for the
-      // seven config editors, hosted as the DocSpecs "Config" tab.
+      // The dedicated config rail (`tom_specs_editor_specification.md` §12,
+      // OE-16) — a left-panel launcher for the seven config editors, hosted as
+      // the DocSpecs "Config" tab.
       configRailView: _configModule.configRailView,
     );
     _shellModule.activate(_shell);
     (_shell.modules as DefaultModuleRegistry).register(_shellModule);
 
-    // Register the document editor's undo/redo with the shell (§10, OE-11) so
-    // the global undo/redo affordances (action bar, Edit menu, shortcut) carry
-    // their metadata and dispatch into the shared controller's snapshot stack.
-    // The controller stays the single undo authority; the active editor's
-    // EditorActionProvider (SpecDocumentEditor) drives enablement/execution. No
-    // `notifyTextEdit` bridge entries are pushed onto the shell's own undo
-    // manager — that would double-count the controller's stack.
+    // Register the document editor's undo/redo with the shell
+    // (tom_specs_editor_specification.md §10, OE-11) so the global undo/redo
+    // affordances (action bar, Edit menu, shortcut) carry their metadata and
+    // dispatch into the shared controller's snapshot stack. The controller
+    // stays the single undo authority; the active editor's EditorActionProvider
+    // (SpecDocumentEditor) drives enablement/execution. No `notifyTextEdit`
+    // bridge entries are pushed onto the shell's own undo manager — that would
+    // double-count the controller's stack.
     _documentIntegration = ShellEditorIntegration(
       shellApi: _shell,
       editorId: 'specs-document-editor',
@@ -223,23 +233,27 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
     _application = _shellModule.docSpecs;
   }
 
-  /// Builds the production chat module whose send controller carries the §8
-  /// tool server in its `mcpServers`. The connection and send controllers are
-  /// constructed explicitly so the same connection drives both, and the
-  /// §11.5 placeholder composer is wired in so every sent prompt — from the
-  /// composer or the queue — has its placeholders expanded first.
+  /// Builds the production chat module whose send controller carries the
+  /// `tom_specs_editor_specification.md` §8 tool server in its `mcpServers`.
+  /// The connection and send controllers are constructed explicitly so the same
+  /// connection drives both, and the `tom_specs_editor_specification.md` §11.5
+  /// placeholder composer is wired in so every sent prompt — from the composer
+  /// or the queue — has its placeholders expanded first.
   AgentChatModule _buildChatModule() {
     final connection = AgentConnectionController();
-    // The launch application is DocSpecs (§9), so its live profile drives the
+    // The launch application is DocSpecs (`tom_specs_editor_specification.md`
+    // §20 step 9 — only DocSpecs functional), so its live profile drives the
     // send config: the additive guidelines prompt + the MCP surface its toolset
-    // enables. Per-application reconfiguration on the shell's application switch
-    // is deferred (the send controller's config is final — item 8/9; F7).
+    // enables. Per-application reconfiguration on the shell's application
+    // switch is deferred (the send controller's config is final — item 8/9;
+    // F7).
     final sendController = AgentSendController(
       connection: connection,
       config: _agentProfiles.docSpecs.buildSendConfig(),
     );
-    // The composer profile picker (§11.1, OE-14): the persisted profiles mapped
-    // to the composer's lightweight type, with the default profile pre-selected.
+    // The composer profile picker (`tom_specs_editor_specification.md` §11.1,
+    // OE-14): the persisted profiles mapped to the composer's lightweight type,
+    // with the default profile pre-selected.
     final profiles = AgentProfileStore.resolveDefault().load();
     final pickerProfiles = [
       for (final profile in profiles)
@@ -263,16 +277,19 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
       selectedProfileId: _selectedProfileId,
       onProfileSelected: (id) => _selectedProfileId = id,
       // Bracket each agent send as one turn on the shared document controller
-      // (§9/§10, step 15) so every §8 tool mutation the agent makes mid-stream
-      // collapses into a single undo group / change-log turn (OE-10).
+      // (`tom_specs_editor_specification.md` §9/§10, step 15) so every
+      // `tom_specs_editor_specification.md` §8 tool mutation the agent makes
+      // mid-stream collapses into a single undo group / change-log turn
+      // (OE-10).
       onTurnBegin: _documentController.beginTurn,
       onTurnEnd: _documentController.endTurn,
     );
   }
 
-  /// Builds the §11.5 placeholder composer for the current workspace: the
-  /// quest is the workspace folder name, file-injections resolve against its
-  /// `_ai/` folder, and the user's persisted chat variables are bound.
+  /// Builds the `tom_specs_editor_specification.md` §11.5 placeholder composer
+  /// for the current workspace: the quest is the workspace folder name,
+  /// file-injections resolve against its `_ai/` folder, and the user's
+  /// persisted chat variables are bound.
   SpecPromptComposer _buildPromptComposer() {
     final workspace = Directory.current;
     return SpecPromptComposer(

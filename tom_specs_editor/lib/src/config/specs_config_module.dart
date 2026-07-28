@@ -10,7 +10,7 @@ import 'editor_preferences.dart';
 import 'raw_file_module.dart';
 
 /// Hosts the seven custom config editors and the basic-prefs settings panel
-/// (§12, step 18).
+/// (`tom_specs_editor_specification.md` §12, step 18).
 ///
 /// Six list editors (queue, queue-templates, profiles, prompt-templates,
 /// chat-variables, timed-requests) and one singleton editor (agent-settings)

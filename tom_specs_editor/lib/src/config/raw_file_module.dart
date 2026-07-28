@@ -2,7 +2,8 @@ import 'dart:io';
 
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
-/// Opens the backing YAML/markdown file for a config editor (§12, E2).
+/// Opens the backing YAML/markdown file for a config editor
+/// (`tom_specs_editor_specification.md` §12, E2).
 ///
 /// Injected into every config editor so the "Open raw file" button is testable
 /// without a live shell: production wires it to [RawFileModule.openRawFile]
@@ -10,9 +11,9 @@ import 'package:tom_forge_ui/tom_forge_ui.dart';
 /// and assert the opened URI is the editor's backing file.
 typedef RawFileOpener = void Function(Uri uri);
 
-/// Hosts the raw-text editing of config files (§12 — the `RawFileModule` the
-/// "Open raw file" buttons target, replicating VS Code's `openPanelFile` /
-/// `showFile`).
+/// Hosts the raw-text editing of config files
+/// (`tom_specs_editor_specification.md` §12 — the `RawFileModule` the "Open raw
+/// file" buttons target, replicating VS Code's `openPanelFile` / `showFile`).
 ///
 /// The config editors edit the object model; their **backing** YAML/markdown is
 /// opened here in a plain-text editor. Files are opened on demand: the module
