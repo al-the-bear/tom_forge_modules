@@ -345,7 +345,7 @@ class SpecDocumentController extends ChangeNotifier {
     void walk(SpecClass? cls, String path) {
       if (cls == null || !visited.add(cls.name)) return;
       final id = cls.sectionId;
-      // First occurrence wins: `@SectionId` is globally unique (§8.6), so a
+      // First occurrence wins: `@SectionId` is globally unique (`tom_specs_model_rules.md` §10.2), so a
       // second hit would be a model defect, not a legitimate second home.
       if (id != null) index.putIfAbsent(id, () => path);
       for (final f in cls.fields) {
