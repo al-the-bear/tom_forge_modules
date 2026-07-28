@@ -61,10 +61,11 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
   late final AgentChatModule _chatModule;
   late final RawFileModule _rawFileModule;
 
-  /// The composer's currently-picked profile (tom_specs_editor_specification.md
-  /// §11.1, OE-14). The picker records the choice here; feeding it into the
-  /// send `Options` (system prompt / max-tokens / interrupt-retry prefix) is a
-  /// deferred settings concern (tracked in the OE-14 questions file).
+  /// The composer's currently-picked profile
+  /// (`tom_specs_editor_specification.md` §11.1, OE-14). The picker records the
+  /// choice here; feeding it into the send `Options` (system prompt /
+  /// max-tokens / interrupt-retry prefix) is a deferred settings concern
+  /// (tracked in the OE-14 questions file).
   String? _selectedProfileId;
   late final EditorPreferencesStore _preferencesStore;
   late final SpecsConfigModule _configModule;
@@ -215,7 +216,7 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
     (_shell.modules as DefaultModuleRegistry).register(_shellModule);
 
     // Register the document editor's undo/redo with the shell
-    // (tom_specs_editor_specification.md §10, OE-11) so the global undo/redo
+    // (`tom_specs_editor_specification.md` §10, OE-11) so the global undo/redo
     // affordances (action bar, Edit menu, shortcut) carry their metadata and
     // dispatch into the shared controller's snapshot stack. The controller
     // stays the single undo authority; the active editor's EditorActionProvider

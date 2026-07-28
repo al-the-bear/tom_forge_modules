@@ -34,7 +34,7 @@ import 'package:tom_vscode_scripting_api/tom_vscode_scripting_api.dart'
 
 /// One application's live binding of an engine [AgentContext] onto the editor's
 /// running resources: the resolved guidelines **prompt**, the enabled **MCP
-/// surface**, and the application's **scope profile** (llm_and_d4rt_tools.md
+/// surface**, and the application's **scope profile** (`llm_and_d4rt_tools.md`
 /// §11, item 7).
 class SpecAgentProfile {
   /// Binds [context] to its already-resolved [systemPrompt] and [mcpServers].

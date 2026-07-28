@@ -16,7 +16,7 @@
 //   * built-in scalar bindings — `date`, `time`, `quest` (= workspace name),
 //     `role`, plus the host-context `chat` (current transcript) and `file`
 //     (active document), both lenient-empty until the host wires a provider;
-//   * the user's custom chat variables (tom_specs_editor_specification.md
+//   * the user's custom chat variables (`tom_specs_editor_specification.md`
 //     §11.4); and
 //   * namespaced file-injection tokens (missing files render empty in lenient
 //     mode), matching the VS Code extension's folder conventions:

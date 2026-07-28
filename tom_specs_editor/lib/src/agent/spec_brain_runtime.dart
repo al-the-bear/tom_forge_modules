@@ -10,7 +10,7 @@ import 'engine_spec_controller.dart';
 import 'spec_memory_plane.dart';
 
 /// The editor's **live mode-(b) agent runtime** (followup item 8,
-/// llm_and_d4rt_tools.md §10).
+/// `llm_and_d4rt_tools.md` §10).
 ///
 /// Where [SpecMemoryPlane] makes the `llm_and_d4rt_tools.md` §9 *recall* live
 /// in the editor, this binds the `llm_and_d4rt_tools.md` §10 *run* surface: it

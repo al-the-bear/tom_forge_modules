@@ -1,5 +1,5 @@
 // Tests for SpecMarkdown's lightweight/rich routing
-// (tom_specs_editor_specification.md §13 j/m, OE-3).
+// (`tom_specs_editor_specification.md` §13 j/m, OE-3).
 //
 // SpecMarkdown keeps the lightweight inline renderer for the dozens of short
 // labels/help strings and only pays the weight of tom_md_editor's

@@ -105,7 +105,7 @@ class SpecDocumentEditor extends ForgeEditor {
   Widget buildCopy(BuildContext context) => buildMain(context);
 
   // ── EditorActionProvider: shell global undo/redo
-  // ── (`tom_specs_editor_specification.md` §10, OE-11) ──
+  // ── (`tom_specs_editor_specification.md` §10, OE-11) ───────────────────────
   //
   // The shell routes the standard `forge.edit.undo`/`forge.edit.redo` actions
   // to the *active editor* (`DefaultShellApi.executeAction`), and derives their
@@ -363,8 +363,8 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
       setState(() => _manuallyExpanded.add(path));
 
   /// The root to render: the navigator's active selection
-  /// (tom_specs_editor_specification.md §14, step 20), then this editor's fixed
-  /// [rootType] override, then the default (Project Definition). The tree
+  /// (`tom_specs_editor_specification.md` §14, step 20), then this editor's
+  /// fixed [rootType] override, then the default (Project Definition). The tree
   /// rebuilds on every controller change, so a navigator selection re-renders
   /// this projection over the same shared document.
   SpecRoot? _activeRoot() {

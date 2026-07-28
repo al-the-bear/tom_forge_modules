@@ -205,7 +205,7 @@ class SpecDocumentController extends ChangeNotifier {
   }
 
   // --- `tom_specs_editor_specification.md` §14 cross-projection
-  // --- identity (N12, OE-18) --------------------------------------------
+  // --- identity (N12, OE-18) -------------------------------------------------
 
   /// Whether [rootSeg] names a *projection* root — one of the thirteen roots
   /// that project over the Solution Blueprint (the twelve Phase-3
@@ -356,8 +356,9 @@ class SpecDocumentController extends ChangeNotifier {
     void walk(SpecClass? cls, String path) {
       if (cls == null || !visited.add(cls.name)) return;
       final id = cls.sectionId;
-      // First occurrence wins: `@SectionId` is globally unique (`tom_specs_model_rules.md` §10.2), so a
-      // second hit would be a model defect, not a legitimate second home.
+      // First occurrence wins: `@SectionId` is globally unique
+      // (`tom_specs_model_rules.md` §10.2), so a second hit would be a model
+      // defect, not a legitimate second home.
       if (id != null) index.putIfAbsent(id, () => path);
       for (final f in cls.fields) {
         if (f.kind != SpecFieldKind.complex) continue;
@@ -731,8 +732,8 @@ class SpecDocumentController extends ChangeNotifier {
   ///
   /// The change log is keyed by [storagePathFor], like the store itself, so two
   /// routes to one section produce one section's history
-  /// (tom_specs_editor_specification.md §14) — and the `baseAtLastSave` lookup
-  /// hits the raw snapshot map with the right key.
+  /// (`tom_specs_editor_specification.md` §14) — and the `baseAtLastSave`
+  /// lookup hits the raw snapshot map with the right key.
   void setContent(String path, String value) {
     final key = storagePathFor(path);
     final before = document.captureState();
@@ -870,7 +871,7 @@ class SpecDocumentController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // --- `tom_specs_editor_specification.md` §9 change log & review -------
+  // --- `tom_specs_editor_specification.md` §9 change log & review ------------
 
   /// Resolves the live current value at [entry]'s section, for the review's
   /// pane-3 ("current") column.
@@ -937,7 +938,7 @@ class SpecDocumentController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // --- `tom_specs_editor_specification.md` §15.1 `*.docspecs.yaml` I/O ---
+  // --- `tom_specs_editor_specification.md` §15.1 `*.docspecs.yaml` I/O -------
 
   /// Serializes the document + review state to [file] as a two-pass
   /// `*.docspecs.yaml` (`tom_specs_editor_specification.md` §15.1), then
@@ -1154,7 +1155,7 @@ class SpecDocumentController extends ChangeNotifier {
 
   /// Pushes the before→after snapshot pair and records [makeEntry] — unless the
   /// edit changed nothing (no-op edits don't snapshot or record,
-  /// tom_specs_editor_specification.md §10).
+  /// `tom_specs_editor_specification.md` §10).
   void _commit(SpecDocumentState before, ChangeEntry Function() makeEntry) {
     final after = document.captureState();
     if (before.fingerprint == after.fingerprint) return;

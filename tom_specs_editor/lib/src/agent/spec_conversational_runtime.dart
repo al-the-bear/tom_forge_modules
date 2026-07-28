@@ -9,7 +9,7 @@ import 'engine_spec_controller.dart';
 import 'spec_memory_plane.dart';
 
 /// The editor's **live mode-(a) conversational runtime** (followup item 9,
-/// llm_and_d4rt_tools.md §10).
+/// `llm_and_d4rt_tools.md` §10).
 ///
 /// Where [SpecBrainRuntime] binds `llm_and_d4rt_tools.md` §10 mode (b) (the Tom
 /// Brain session envelope), this binds `llm_and_d4rt_tools.md` §10 **mode

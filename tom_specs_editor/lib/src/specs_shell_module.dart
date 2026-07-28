@@ -68,8 +68,8 @@ class SpecsShellModule extends ForgeModule {
 
   /// The structure browser view (from [SpecStructureModule]), hosted as the
   /// DocSpecs left panel's "Structure" tab when provided
-  /// (tom_specs_editor_specification.md §5 — left panel's optional second tab =
-  /// the document/section explorer). Null in the bare skeleton tests that
+  /// (`tom_specs_editor_specification.md` §5 — left panel's optional second tab
+  /// = the document/section explorer). Null in the bare skeleton tests that
   /// predate step 10.
   final ForgeView? structureView;
 
@@ -79,11 +79,11 @@ class SpecsShellModule extends ForgeModule {
   final ForgeView? configRailView;
 
   /// The agent chat view (from [AgentChatModule]), hosted as the DocSpecs
-  /// bottom panel's "Chat" tab when provided (tom_specs_editor_specification.md
-  /// §5 — bottom panel = the chat suite). In step 11 it carries the connection
-  /// picker only; the composer, streaming output, queue and trail arrive in
-  /// later steps. Falls back to a labelled placeholder in the bare skeleton
-  /// tests that predate step 11.
+  /// bottom panel's "Chat" tab when provided
+  /// (`tom_specs_editor_specification.md` §5 — bottom panel = the chat suite).
+  /// In step 11 it carries the connection picker only; the composer, streaming
+  /// output, queue and trail arrive in later steps. Falls back to a labelled
+  /// placeholder in the bare skeleton tests that predate step 11.
   final ForgeView? chatView;
 
   final List<ForgeView> _views = [];

@@ -19,7 +19,7 @@ import 'spec_memory_plane.dart';
 import 'spec_script_runner.dart';
 
 /// Forge module owning the agent's navigation/mutation tools
-/// (tom_specs_editor_specification.md §8).
+/// (`tom_specs_editor_specification.md` §8).
 ///
 /// It builds the shared [SpecDocumentController] (over the supplied model
 /// future and the shared [ReviewStore]) and the in-process MCP server that

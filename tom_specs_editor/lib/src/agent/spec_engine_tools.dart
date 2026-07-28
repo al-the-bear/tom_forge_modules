@@ -11,7 +11,7 @@ import '../document/spec_document_controller.dart';
 import 'engine_spec_controller.dart';
 
 /// Builds the in-process MCP server exposing the **engine's**
-/// llm_and_d4rt_tools.md §8.2 / §8.1 tool classes (plan step 5 of
+/// `llm_and_d4rt_tools.md` §8.2 / §8.1 tool classes (plan step 5 of
 /// `d4rt_and_llm_tools_followup.md`).
 ///
 /// Where [SpecAgentTools] exposes the editor's bespoke layer-A/B/C navigation +
