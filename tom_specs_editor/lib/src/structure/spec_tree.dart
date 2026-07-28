@@ -5,22 +5,74 @@ import 'review_controls.dart';
 import 'review_store.dart';
 import 'spec_model.dart';
 
-/// Structural-path segment standing in for "any element of this list".
+/// The structural-path segments (`kListItemSegment`, `kSectionContentSegment`,
+/// `kOneOfSegment`), the marker descriptors and the `kRenderedAnnotations`
+/// coverage contract come from `tom_som_dart_runtime` via `spec_model.dart`,
+/// shared with `tom_specs_reviewer` so the two surfaces cannot disagree about
+/// what an annotation means or which path a review entry is keyed by.
 ///
-/// All visual instances of a list element share this one segment so a review
-/// decision targets the *structure*, not a particular rendered instance.
-///
-/// Ported from the `tom_ai/ai_build/tom_specs_editor` prototype (step 10); the
-/// node chrome (section-id chips, type labels, doc text) is restyled to derive
-/// from the active [ThemeData] so it reads on the dark Forge shell.
-const String kListItemSegment = '§item';
+/// Only the palette below is this surface's own: the node chrome derives from
+/// the active [ThemeData] so it reads on the dark Forge shell, where the
+/// reviewer's light-canvas values are illegible.
 
-/// Structural-path segment for a list section's own intro content.
+/// The colour this surface gives each kind of statement a chip makes.
 ///
-/// In TomSpecs every list *is* a document section, so besides its repeated
-/// items it always carries an introductory content paragraph. This segment
-/// keys that paragraph for review, distinct from the list and its items.
-const String kSectionContentSegment = '§content';
+/// Accent variants throughout — they are what carry on the dark shell; the
+/// reviewer uses the corresponding base tones on its light canvas.
+Color _roleColor(SpecChipRole role) {
+  switch (role) {
+    case SpecChipRole.caseValue:
+      return Colors.amberAccent;
+    case SpecChipRole.codeSpecMapped:
+      return Colors.cyanAccent;
+    case SpecChipRole.codeSpecNone:
+    case SpecChipRole.followUpNone:
+      return Colors.orangeAccent;
+    case SpecChipRole.codeSpecUnmapped:
+      return Colors.blueGrey;
+    case SpecChipRole.followUpMapped:
+      return Colors.deepPurpleAccent;
+    case SpecChipRole.projection:
+      return Colors.tealAccent;
+    case SpecChipRole.unused:
+      return Colors.pinkAccent;
+    case SpecChipRole.references:
+      return Colors.blueGrey;
+    case SpecChipRole.choiceComplete:
+      return Colors.greenAccent;
+    case SpecChipRole.choiceIncomplete:
+    case SpecChipRole.choiceUncovered:
+      return Colors.orangeAccent;
+    case SpecChipRole.choiceBroken:
+      return Colors.redAccent;
+    case SpecChipRole.handoff:
+      return Colors.purpleAccent;
+    case SpecChipRole.structural:
+      return Colors.blueGrey;
+  }
+}
+
+/// Paints the shared [SpecChip] descriptors in this surface's palette.
+List<_Chip> _paint(List<SpecChip> chips) => [
+      for (final c in chips)
+        _Chip(c.label, _roleColor(c.role), tooltip: c.tooltip),
+    ];
+
+/// Marks the root of a `@CodeSpecsProjection` document.
+List<_Chip> _projectionChips() => _paint(const [projectionChip]);
+
+/// The chips stating where a node's subject matter is headed — see `kindChips`
+/// in the shared display layer for why the two taxonomies interact.
+List<_Chip> _kindChips(KindLink? codeSpec, KindLink? followUp) =>
+    _paint(kindChips(codeSpec, followUp));
+
+/// The chips a field row carries: which alternative of a closed choice it is,
+/// then where its subtree is headed.
+List<_Chip> _fieldChips(SpecField f) => _paint(fieldChips(f));
+
+/// The `@Case` bindings alone, for the merged field+class row of a complex
+/// alternative where the binding has nowhere else to be stated.
+List<_Chip> _caseChips(SpecField f) => _paint(caseChips(f));
 
 /// Shared tree-wide state read by every node via the element tree.
 ///
@@ -40,6 +92,14 @@ class SpecTreeScope extends InheritedWidget {
 
   /// Cut at `@MapsTo` hand-offs.
   final bool cutAtMaps;
+
+  /// Reveal the `@SerializationOrder` ordinal on every annotated row.
+  ///
+  /// Off by default: nearly five thousand members carry one, so showing them
+  /// always would add a badge to almost every line for a question most sessions
+  /// never ask. Lives on the scope — and therefore above the tree — so it keeps
+  /// its value when the author switches documents.
+  final bool showSerializationOrder;
 
   /// The root document type currently rendered (used to decide whether a
   /// marker points *away* from this document).
@@ -63,6 +123,7 @@ class SpecTreeScope extends InheritedWidget {
     super.key,
     required this.cutAtDetails,
     required this.cutAtMaps,
+    required this.showSerializationOrder,
     required this.rootType,
     required this.navPathTypes,
     required this.navTargetType,
@@ -89,6 +150,7 @@ class SpecTreeScope extends InheritedWidget {
   bool updateShouldNotify(SpecTreeScope old) =>
       cutAtDetails != old.cutAtDetails ||
       cutAtMaps != old.cutAtMaps ||
+      showSerializationOrder != old.showSerializationOrder ||
       rootType != old.rootType ||
       navTargetType != old.navTargetType ||
       !setEquals(navPathTypes, old.navPathTypes);
@@ -145,6 +207,9 @@ class SpecTree extends StatefulWidget {
   /// Suppress subsections at `@MapsTo` hand-off points (2d).
   final bool cutAtMaps;
 
+  /// Reveal `@SerializationOrder` ordinals on the rows that carry one.
+  final bool showSerializationOrder;
+
   /// Class to reveal and scroll to within this document (2c).
   final String? navTargetType;
 
@@ -159,6 +224,7 @@ class SpecTree extends StatefulWidget {
     required this.onHandoffTap,
     this.cutAtDetails = false,
     this.cutAtMaps = false,
+    this.showSerializationOrder = false,
     this.navTargetType,
   });
 
@@ -216,6 +282,7 @@ class _SpecTreeState extends State<SpecTree> {
     return SpecTreeScope(
       cutAtDetails: widget.cutAtDetails,
       cutAtMaps: widget.cutAtMaps,
+      showSerializationOrder: widget.showSerializationOrder,
       rootType: widget.root.type,
       navPathTypes: _navPathTypes,
       navTargetType: widget.navTargetType,
@@ -261,6 +328,13 @@ class _ClassNode extends StatefulWidget {
   /// Doc text to prefer over the class's own (the owning field's doc).
   final String? docOverride;
 
+  /// The owning field, when this class node is the collapsed field+class row.
+  ///
+  /// A field-level `@CodeSpecKind` overrides the class's for that one usage, so
+  /// the merged row must state the field's mapping when it has one and fall
+  /// back to the class's otherwise.
+  final SpecField? owningField;
+
   /// Render a `recursive` marker (this class re-enters an ancestor type).
   final bool recursive;
 
@@ -279,6 +353,7 @@ class _ClassNode extends StatefulWidget {
     this.titleOverride,
     this.sectionIdOverride,
     this.docOverride,
+    this.owningField,
     this.recursive = false,
     this.onNavPath = false,
   });
@@ -361,11 +436,20 @@ class _ClassNodeState extends State<_ClassNode> {
               ),
             if (widget.recursive) _Chip('recursive', Colors.redAccent),
             if (cut) _Chip('cut', Colors.redAccent),
+            if (cls.isCodeSpecsProjection) ..._projectionChips(),
+            // A complex alternative collapses field and class into this one
+            // row, so its `@Case` binding has nowhere else to be stated.
+            if (widget.owningField != null) ..._caseChips(widget.owningField!),
+            ..._kindChips(
+              widget.owningField?.codeSpecKind ?? cls.codeSpecKind,
+              widget.owningField?.followUpKind ?? cls.followUpKind,
+            ),
           ],
           doc: widget.docOverride ?? cls.doc ?? cls.help,
           store: widget.store,
           path: widget.path,
           nodeLabel: cls.name,
+          extras: SpecRowExtras.of(field: widget.owningField, cls: cls),
         ),
         if (expanded) ...[
           if (injectContent)
@@ -375,17 +459,145 @@ class _ClassNodeState extends State<_ClassNode> {
               nodeLabel: '$label content',
               store: widget.store,
             ),
-          for (final field in visibleFields)
+          ..._buildFields(visibleFields),
+        ],
+      ],
+    );
+  }
+
+  /// The class's fields in declaration order, with the `@OneOf` alternatives
+  /// (if any) folded into a single choice-group node at the position of the
+  /// first of them.
+  ///
+  /// Grouping can pull a later alternative forward past a common section. That
+  /// is accepted: showing which fields are mutually exclusive is worth more
+  /// here than preserving declaration order among fields that are not — and the
+  /// `@SerializationOrder` badges state the authoritative order when it matters.
+  List<Widget> _buildFields(List<SpecField> visibleFields) {
+    final group = widget.cls.oneOf;
+    final caseNames = group == null
+        ? const <String>{}
+        : {for (final f in group.caseFields) f.name};
+    // Only the alternatives that survived the hand-off cut may be shown.
+    final groupedFields =
+        visibleFields.where((f) => caseNames.contains(f.name)).toList();
+
+    final widgets = <Widget>[];
+    var groupEmitted = false;
+    for (final field in visibleFields) {
+      if (caseNames.contains(field.name)) {
+        if (groupEmitted) continue;
+        groupEmitted = true;
+        widgets.add(_OneOfGroupNode(
+          model: widget.model,
+          store: widget.store,
+          group: group!,
+          caseFields: groupedFields,
+          path: '${widget.path}/$kOneOfSegment',
+          fieldPathBase: widget.path,
+          ancestors: widget.ancestors,
+          depth: widget.depth + 1,
+          parentOnNavPath: widget.onNavPath,
+        ));
+        continue;
+      }
+      widgets.add(_FieldNode(
+        model: widget.model,
+        store: widget.store,
+        field: field,
+        path: '${widget.path}/${field.name}',
+        ancestors: widget.ancestors,
+        depth: widget.depth + 1,
+        parentOnNavPath: widget.onNavPath,
+      ));
+    }
+    return widgets;
+  }
+}
+
+/// The `@OneOf` closed choice of a class, rendered as a group whose children
+/// are the mutually exclusive alternatives (`codespecs_mapping.md` §8.2).
+///
+/// It is a node rather than a chip on each alternative because exclusivity is a
+/// statement about the *set*: nesting the alternatives one level in is what
+/// separates them from the common sections that apply to every case, and the
+/// group header is the only place the discriminator and its coverage have to
+/// live.
+class _OneOfGroupNode extends StatefulWidget {
+  final SpecModel model;
+  final ReviewStore store;
+  final OneOfGroup group;
+
+  /// The alternatives actually rendered — [OneOfGroup.caseFields] minus any the
+  /// hand-off cut removed.
+  final List<SpecField> caseFields;
+
+  /// Review path of the group itself.
+  final String path;
+
+  /// Owning class path the alternatives' own paths are built from, so grouping
+  /// does not move an existing review entry.
+  final String fieldPathBase;
+
+  final Set<String> ancestors;
+  final int depth;
+  final bool parentOnNavPath;
+
+  const _OneOfGroupNode({
+    required this.model,
+    required this.store,
+    required this.group,
+    required this.caseFields,
+    required this.path,
+    required this.fieldPathBase,
+    required this.ancestors,
+    required this.depth,
+    required this.parentOnNavPath,
+  });
+
+  @override
+  State<_OneOfGroupNode> createState() => _OneOfGroupNodeState();
+}
+
+class _OneOfGroupNodeState extends State<_OneOfGroupNode> {
+  // Expanded by default: a collapsed group would hide the alternatives behind
+  // an extra click, making the choice *less* visible than the ungrouped list it
+  // replaces.
+  bool _expanded = true;
+
+  @override
+  Widget build(BuildContext context) {
+    final g = widget.group;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _NodeRow(
+          depth: widget.depth,
+          expandable: true,
+          expanded: _expanded,
+          onToggle: () => setState(() => _expanded = !_expanded),
+          leadingIcon: Icons.alt_route,
+          iconColor: Colors.amberAccent,
+          label: 'one of: ${g.discriminator}',
+          typeLabel: 'closed choice · ${widget.caseFields.length} alternatives',
+          sectionId: null,
+          chips: _paint(oneOfChips(g)),
+          doc: g.note,
+          store: widget.store,
+          path: widget.path,
+          nodeLabel: 'one of ${g.discriminator}',
+        ),
+        if (_expanded)
+          for (final field in widget.caseFields)
             _FieldNode(
               model: widget.model,
               store: widget.store,
               field: field,
-              path: '${widget.path}/${field.name}',
+              path: '${widget.fieldPathBase}/${field.name}',
               ancestors: widget.ancestors,
               depth: widget.depth + 1,
-              parentOnNavPath: widget.onNavPath,
+              parentOnNavPath: widget.parentOnNavPath,
             ),
-        ],
       ],
     );
   }
@@ -486,12 +698,13 @@ class _FieldNodeState extends State<_FieldNode> {
           label: f.name,
           typeLabel: 'List<${elementType ?? '?'}>'
               '${f.min != null ? '  min ${f.min}' : ''}',
-          sectionId: f.sectionId ?? f.sectionIdPattern,
-          chips: const [],
+          sectionId: f.sectionId,
+          chips: _fieldChips(f),
           doc: f.doc ?? f.help,
           store: widget.store,
           path: widget.path,
           nodeLabel: '${f.name} (list)',
+          extras: SpecRowExtras.of(field: f),
         ),
         if (_expanded) ...[
           // A list is itself a document section: show its intro content first.
@@ -570,11 +783,12 @@ class _FieldNodeState extends State<_FieldNode> {
         label: f.name,
         typeLabel: '${f.type ?? '?'} (unresolved)',
         sectionId: f.sectionId,
-        chips: const [],
+        chips: _fieldChips(f),
         doc: f.doc ?? f.help,
         store: widget.store,
         path: widget.path,
         nodeLabel: f.name,
+        extras: SpecRowExtras.of(field: f),
       );
     }
     // The field (variable) and the target class are the same element, so they
@@ -593,6 +807,7 @@ class _FieldNodeState extends State<_FieldNode> {
       titleOverride: f.name,
       sectionIdOverride: f.sectionId,
       docOverride: f.doc ?? f.help,
+      owningField: f,
       recursive: recursive,
       onNavPath: childOnPath,
     );
@@ -613,11 +828,12 @@ class _FieldNodeState extends State<_FieldNode> {
           label: f.name,
           typeLabel: 'form · ${f.formFields.length} fields',
           sectionId: f.sectionId,
-          chips: const [],
+          chips: _fieldChips(f),
           doc: f.doc ?? f.help,
           store: widget.store,
           path: widget.path,
           nodeLabel: '${f.name} (form)',
+          extras: SpecRowExtras.of(field: f),
         ),
         Padding(
           padding: EdgeInsets.only(
@@ -647,11 +863,12 @@ class _FieldNodeState extends State<_FieldNode> {
           label: f.name,
           typeLabel: 'content · ${f.contentType ?? 'text'}',
           sectionId: f.sectionId,
-          chips: const [],
+          chips: _fieldChips(f),
           doc: f.doc ?? f.help,
           store: widget.store,
           path: widget.path,
           nodeLabel: '${f.name} (content)',
+          extras: SpecRowExtras.of(field: f),
         ),
         Padding(
           padding: EdgeInsets.only(
@@ -683,11 +900,12 @@ class _FieldNodeState extends State<_FieldNode> {
       label: f.name,
       typeLabel: 'section · ${f.contentType ?? 'text'}',
       sectionId: f.sectionId,
-      chips: const [],
+      chips: _fieldChips(f),
       doc: f.doc ?? f.help,
       store: widget.store,
       path: widget.path,
       nodeLabel: '${f.name} (section)',
+      extras: SpecRowExtras.of(field: f),
     );
   }
 
@@ -703,11 +921,12 @@ class _FieldNodeState extends State<_FieldNode> {
       label: f.name,
       typeLabel: 'enum · ${f.enumValues.join(', ')}',
       sectionId: f.sectionId,
-      chips: const [],
+      chips: _fieldChips(f),
       doc: f.doc ?? f.help,
       store: widget.store,
       path: widget.path,
       nodeLabel: '${f.name} (enum)',
+      extras: SpecRowExtras.of(field: f),
     );
   }
 
@@ -723,11 +942,12 @@ class _FieldNodeState extends State<_FieldNode> {
       label: f.name,
       typeLabel: f.type ?? 'value',
       sectionId: f.sectionId,
-      chips: const [],
+      chips: _fieldChips(f),
       doc: f.doc ?? f.help,
       store: widget.store,
       path: widget.path,
       nodeLabel: f.name,
+      extras: SpecRowExtras.of(field: f),
     );
   }
 }
@@ -735,15 +955,19 @@ class _FieldNodeState extends State<_FieldNode> {
 /// A small coloured chip used for annotations (mapsTo, recursive, …).
 ///
 /// When [onTap] is set the chip becomes clickable (used for hand-off markers).
+/// [tooltip] carries detail too long for the chip itself — the `@CodeSpecKind`
+/// mapping note, for instance, which explains *why* a section maps where it
+/// does and would otherwise have nowhere to go.
 class _Chip {
   final String text;
   final Color color;
   final VoidCallback? onTap;
-  const _Chip(this.text, this.color, {this.onTap});
+  final String? tooltip;
+  const _Chip(this.text, this.color, {this.onTap, this.tooltip});
 }
 
 /// The common single-line header used by every node kind.
-class _NodeRow extends StatelessWidget {
+class _NodeRow extends StatefulWidget {
   final Key? rowKey;
   final bool highlight;
   final int depth;
@@ -760,6 +984,10 @@ class _NodeRow extends StatelessWidget {
   final ReviewStore store;
   final String path;
   final String nodeLabel;
+
+  /// The annotations rendered beside the structural label. Defaults to
+  /// [SpecRowExtras.none] for the synthetic rows that have no model node.
+  final SpecRowExtras extras;
 
   const _NodeRow({
     this.rowKey,
@@ -778,33 +1006,48 @@ class _NodeRow extends StatelessWidget {
     required this.store,
     required this.path,
     required this.nodeLabel,
+    this.extras = SpecRowExtras.none,
   });
+
+  @override
+  State<_NodeRow> createState() => _NodeRowState();
+}
+
+class _NodeRowState extends State<_NodeRow> {
+  /// Whether the provenance panel is open. Per row and off by default — the
+  /// standards are long prose, and thousands of fields carry them.
+  bool _refsOpen = false;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final mutedColor = theme.colorScheme.onSurfaceVariant;
+    final extras = widget.extras;
     return Container(
-      key: rowKey,
-      color:
-          highlight ? theme.colorScheme.primary.withValues(alpha: 0.18) : null,
+      key: widget.rowKey,
+      color: widget.highlight
+          ? theme.colorScheme.primary.withValues(alpha: 0.18)
+          : null,
       child: InkWell(
-        onTap: onToggle,
+        onTap: widget.onToggle,
         child: Padding(
-          padding: EdgeInsets.only(left: 16.0 * depth, top: 2, bottom: 2),
+          padding:
+              EdgeInsets.only(left: 16.0 * widget.depth, top: 2, bottom: 2),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SizedBox(
                 width: 24,
-                child: expandable
+                child: widget.expandable
                     ? Icon(
-                        expanded ? Icons.expand_more : Icons.chevron_right,
+                        widget.expanded
+                            ? Icons.expand_more
+                            : Icons.chevron_right,
                         size: 20,
                       )
                     : const SizedBox.shrink(),
               ),
-              Icon(leadingIcon, size: 16, color: iconColor),
+              Icon(widget.leadingIcon, size: 16, color: widget.iconColor),
               const SizedBox(width: 6),
               Expanded(
                 child: Column(
@@ -815,38 +1058,63 @@ class _NodeRow extends StatelessWidget {
                       spacing: 6,
                       runSpacing: 2,
                       children: [
-                        Text(label,
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w600, fontSize: 13)),
+                        if (SpecTreeScope.of(context).showSerializationOrder &&
+                            extras.serializationOrder != null)
+                          _Badge('#${extras.serializationOrder}',
+                              tooltip: 'Serialization order'),
+                        Text(widget.label,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                              // An unused section is a keep-or-drop candidate;
+                              // striking it makes that legible while scrolling,
+                              // which a chip among seven others does not.
+                              decoration: extras.unused
+                                  ? TextDecoration.lineThrough
+                                  : null,
+                            )),
+                        if (extras.headline != null)
+                          Text('“${extras.headline}”',
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  color: theme.colorScheme.primary)),
                         ReviewControls(
-                            store: store, path: path, nodeLabel: nodeLabel),
-                        Text(typeLabel,
+                            store: widget.store,
+                            path: widget.path,
+                            nodeLabel: widget.nodeLabel),
+                        Text(widget.typeLabel,
                             style: TextStyle(
                                 fontSize: 11,
                                 color: mutedColor,
                                 fontFamily: 'monospace')),
-                        if (sectionId != null)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 4, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.surfaceContainerHighest,
-                              borderRadius: BorderRadius.circular(3),
-                            ),
-                            child: Text(sectionId!,
-                                style: TextStyle(
-                                    fontSize: 10,
-                                    fontFamily: 'monospace',
-                                    color: mutedColor)),
-                          ),
-                        for (final chip in chips) _ChipWidget(chip),
+                        if (widget.sectionId != null) _Badge(widget.sectionId!),
+                        if (extras.sectionIdPattern != null)
+                          _Badge(extras.sectionIdPattern!,
+                              tooltip: 'Section-id pattern for each item'),
+                        if (extras.unused)
+                          _ChipWidget(_Chip(unusedChip.label,
+                              _roleColor(unusedChip.role),
+                              tooltip: unusedChip.tooltip)),
+                        for (final chip in widget.chips) _ChipWidget(chip),
+                        if (extras.hasReferences)
+                          _ChipWidget(_Chip(referencesChip.label,
+                              _roleColor(referencesChip.role),
+                              tooltip: referencesChip.tooltip,
+                              onTap: () =>
+                                  setState(() => _refsOpen = !_refsOpen))),
+                        if (extras.comment != null)
+                          Text('← ${extras.comment}',
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.amberAccent,
+                                  fontStyle: FontStyle.italic)),
                       ],
                     ),
-                    if (doc != null && doc!.trim().isNotEmpty)
+                    if (widget.doc != null && widget.doc!.trim().isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(top: 1),
                         child: Text(
-                          doc!.trim(),
+                          widget.doc!.trim(),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -855,11 +1123,92 @@ class _NodeRow extends StatelessWidget {
                               fontStyle: FontStyle.italic),
                         ),
                       ),
+                    if (_refsOpen && extras.hasReferences)
+                      _ReferencesPanel(extras: extras),
                   ],
                 ),
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A small monospace badge — the section id, its pattern, or the serialization
+/// ordinal.
+class _Badge extends StatelessWidget {
+  final String text;
+  final String? tooltip;
+
+  const _Badge(this.text, {this.tooltip});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final body = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(3),
+      ),
+      child: Text(text,
+          style: TextStyle(
+              fontSize: 10,
+              fontFamily: 'monospace',
+              color: theme.colorScheme.onSurfaceVariant)),
+    );
+    return tooltip == null ? body : Tooltip(message: tooltip!, child: body);
+  }
+}
+
+/// The provenance a node records: what the section means, which public
+/// standards it derives from, and what it cross-references in the model.
+///
+/// Shown only on demand — the standards are full sentences, and inlining them
+/// on the thousands of fields that carry them would drown the structure the
+/// tree exists to show.
+class _ReferencesPanel extends StatelessWidget {
+  final SpecRowExtras extras;
+
+  const _ReferencesPanel({required this.extras});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final muted = theme.colorScheme.onSurfaceVariant;
+    final refs = extras.standardReferences;
+    return Padding(
+      padding: const EdgeInsets.only(top: 2, bottom: 2, right: 8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: theme.colorScheme.outlineVariant),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (refs?.connotation != null)
+              Text(refs!.connotation!, style: const TextStyle(fontSize: 11)),
+            for (final standard in refs?.standards ?? const <String>[])
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text('• $standard',
+                    style: TextStyle(fontSize: 11, color: muted)),
+              ),
+            if (extras.reference != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text('→ references ${extras.reference}',
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: muted,
+                        fontStyle: FontStyle.italic)),
+              ),
+          ],
         ),
       ),
     );
@@ -898,12 +1247,16 @@ class _ChipWidget extends StatelessWidget {
         ],
       ),
     );
-    if (chip.onTap == null) return body;
-    return InkWell(
-      borderRadius: BorderRadius.circular(3),
-      onTap: chip.onTap,
-      child: body,
-    );
+    final interactive = chip.onTap == null
+        ? body
+        : InkWell(
+            borderRadius: BorderRadius.circular(3),
+            onTap: chip.onTap,
+            child: body,
+          );
+    final tooltip = chip.tooltip;
+    if (tooltip == null || tooltip.trim().isEmpty) return interactive;
+    return Tooltip(message: tooltip, child: interactive);
   }
 }
 

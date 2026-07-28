@@ -90,6 +90,13 @@ class _SpecStructureBrowserState extends State<_SpecStructureBrowser> {
   /// 2d: suppress subsections at `@MapsTo` hand-off points.
   bool _cutAtMaps = false;
 
+  /// Reveal `@SerializationOrder` ordinals in the tree.
+  ///
+  /// Held here rather than inside [SpecTree] so it keeps its value for the whole
+  /// session: the tree is keyed by document type and is rebuilt from scratch on
+  /// every document switch.
+  bool _showSerializationOrder = false;
+
   /// 2c: class to reveal/scroll-to after a hand-off jump (cleared on manual
   /// document selection).
   String? _navTargetType;
@@ -184,6 +191,12 @@ class _SpecStructureBrowserState extends State<_SpecStructureBrowser> {
                 color: Colors.purpleAccent,
                 onChanged: (v) => setState(() => _cutAtMaps = v),
               ),
+              _CutToggle(
+                label: kSerializationOrderToggleLabel,
+                value: _showSerializationOrder,
+                color: Colors.blueGrey,
+                onChanged: (v) => setState(() => _showSerializationOrder = v),
+              ),
             ],
           ),
         ),
@@ -220,6 +233,7 @@ class _SpecStructureBrowserState extends State<_SpecStructureBrowser> {
                   store: widget.store,
                   cutAtDetails: _cutAtDetails,
                   cutAtMaps: _cutAtMaps,
+                  showSerializationOrder: _showSerializationOrder,
                   navTargetType: _navTargetType,
                   onHandoffTap: _onHandoffTap,
                 ),

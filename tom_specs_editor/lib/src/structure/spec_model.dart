@@ -6,16 +6,46 @@
 /// spec-model plan). Existing `import '.../structure/spec_model.dart'` sites
 /// keep resolving unchanged; the new `SpecAnnotation` surface comes along for
 /// free.
+///
+/// The shim also re-exports the *display semantics* the runtime defines — which
+/// markers a row carries, what each says, and the structural-path segments they
+/// are keyed by. Those are shared with `tom_specs_reviewer` deliberately: the
+/// two surfaces render the same class graph and must not disagree about what an
+/// annotation means, even though each paints it in its own theme.
 library;
 
 export 'package:tom_som_dart_runtime/tom_som_dart_runtime.dart'
     show
+        KindLink,
+        OneOfGroup,
         SpecAnnotation,
+        SpecChip,
+        SpecChipRole,
         SpecClass,
         SpecField,
         SpecFieldKind,
         SpecModel,
         SpecRoot,
+        SpecRowExtras,
+        StandardReferences,
         FormFieldSpec,
         SpecValidationCode,
-        SpecValidationError;
+        SpecValidationError,
+        caseChips,
+        codeSpecKindChips,
+        fieldChips,
+        followUpKindChips,
+        kindChips,
+        oneOfChips,
+        projectionChip,
+        referencesChip,
+        unusedChip,
+        kListItemSegment,
+        kOneOfSegment,
+        kProjectionExplanation,
+        kProjectionLabel,
+        kReferencesChipLabel,
+        kRenderedAnnotations,
+        kSectionContentSegment,
+        kSerializationOrderToggleLabel,
+        kUnusedChipLabel;
