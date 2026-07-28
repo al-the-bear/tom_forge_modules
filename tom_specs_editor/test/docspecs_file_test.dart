@@ -9,7 +9,7 @@ import 'package:tom_specs_editor/src/document/spec_document_controller.dart';
 import 'package:tom_specs_editor/src/structure/review_store.dart';
 import 'package:tom_specs_editor/src/structure/spec_model.dart';
 
-/// A single-root model exercising the field kinds the DR9 tree-driven codec
+/// A single-root model exercising the field kinds the tree-driven codec
 /// walks: content sections, a `@Form`, a complex list with a section-id
 /// pattern, and a scalar list. The codec keys every value by its hierarchical
 /// section-id path from the root (`D00/D00-OVR`, `D00/D00-HDR`, …), so the
@@ -80,7 +80,7 @@ void main() {
       DocSpecsFile.encode(document: doc, tree: tree, review: review);
 
   /// Encodes [doc] + [review], then decodes back to a live document / review
-  /// map — the save→load round-trip under test. Per DR9 the decoder returns a
+  /// map — the save→load round-trip under test. The decoder returns a
   /// live [SpecDocument] directly.
   ({SpecDocument doc, Map<String, ReviewEntry> review}) roundTrip(
     SpecDocument doc, [
@@ -211,7 +211,7 @@ void main() {
     });
   });
 
-  group('strict decode (DR9)', () {
+  group('strict decode', () {
     test('a version-1 (flat path-map) file is rejected', () {
       expect(
         () => DocSpecsFile.decode('version: 1\ndocument: {}\n', tree),

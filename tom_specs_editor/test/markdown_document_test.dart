@@ -161,7 +161,7 @@ void main() {
         () async {
       final c = await _populated();
       final md = c.exportMarkdown('D00');
-      // DR1 §1: headings carry the section id as a headline comment plus a
+      // SOM §11: headings carry the section id as a headline comment plus a
       // readable title; content is plain markdown text under the heading.
       expect(md, contains('<!-- docspec:'));
       expect(md, contains('# <!--[D00]--> Demo Document'));
@@ -175,7 +175,7 @@ void main() {
         '(no fence)', () async {
       final c = await _populated();
       final md = c.exportMarkdown('D00');
-      // DR1 §1: content is plain markdown text; the body's mid-line ``` run is
+      // SOM §11: content is plain markdown text; the body's mid-line ``` run is
       // not a code fence, so no line starts one and the body survives verbatim.
       expect(md, contains(_d4rtBody));
       expect(md.split('\n').any((l) => l.startsWith('```')), isFalse);

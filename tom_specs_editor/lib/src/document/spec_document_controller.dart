@@ -676,7 +676,7 @@ class SpecDocumentController extends ChangeNotifier {
     return removed;
   }
 
-  /// Adds the model-permitted child [childSegment] under [parentPath] — the §5
+  /// Adds the model-permitted child [childSegment] under [parentPath] — the SOM §13
   /// constrained-creation gate — returning the new node's path.
   ///
   /// The add is validated against the meta-model by [SpecNodeCreator]; an
@@ -829,7 +829,7 @@ class SpecDocumentController extends ChangeNotifier {
     return await DocSpecsFile.readSessionId(file);
   }
 
-  /// The metadata tree of the Solution Blueprint master root — the DR9
+  /// The metadata tree of the Solution Blueprint master root — the
   /// tree-driven `*.docspecs.yaml` codec walks it to place every document value
   /// at its hierarchical section-id path. Solution Blueprint (`type ==
   /// 'SolutionBlueprint'` or `sectionId == 'SBP'`) is the source of truth; the

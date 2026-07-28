@@ -5,7 +5,7 @@ import 'package:tom_som_dart_runtime/tom_som_dart_runtime.dart';
 import '../structure/review_store.dart';
 
 /// The decoded contents of a `*.docspecs.yaml` file (§15.1): the `document:`
-/// pass as a live [SpecDocument] (decoded tree-driven per DR9), plus the
+/// pass as a live [SpecDocument] (decoded tree-driven), plus the
 /// `review:` pass as structural-review entries keyed by path.
 class DocSpecsContents {
   DocSpecsContents({
@@ -62,7 +62,7 @@ class DocSpecsFile {
   /// The header + `version:`/`modelVersion:` stamp and the `document:` pass come
   /// from the generic [SpecDocumentYaml] codec — which walks [tree] (the
   /// document root's metadata tree) to place every value at its hierarchical
-  /// section-id path (DR9). This method composes the editor-only `review:` pass
+  /// section-id path. This method composes the editor-only `review:` pass
   /// on top using the same shared block-scalar machinery so both passes stay
   /// byte-compatible. [modelVersion] stamps the authoring object-model version
   /// (`major.minor`); an unstamped file (null) omits the key.
@@ -117,8 +117,8 @@ class DocSpecsFile {
 
   /// Parses a `*.docspecs.yaml` document into its two passes. The generic codec
   /// walks [tree] to decode the `document:` pass into a live [SpecDocument]
-  /// (DR9), reads the `review:` pass + the model-version stamp; this maps the
-  /// raw `review:` map onto the editor's [ReviewEntry] type. Per DR9 the codec
+  /// reads the `review:` pass + the model-version stamp; this maps the
+  /// raw `review:` map onto the editor's [ReviewEntry] type. The codec
   /// throws [SpecYamlFormatException] on malformed input (non-mapping YAML,
   /// missing/unsupported `version:`, wrong root key), so a hand-written file
   /// must carry a valid header.
