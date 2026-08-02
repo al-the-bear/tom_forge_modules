@@ -314,9 +314,12 @@ import 'package:tom_dart_editor/tom_dart_editor.dart';
 // Load pre-built SDK summary
 final sdkBytes = await rootBundle.load('assets/sdk_summary.sum');
 
+// Analysed source stays in memory — never a physical provider.
+final resourceProvider = OverlayResourceProvider(MemoryResourceProvider());
+
 // Create analysis driver
 final driver = createAnalysisDriverWithPackages(
-  resourceProvider: PhysicalResourceProvider.INSTANCE,
+  resourceProvider: resourceProvider,
   sdkSummaryBytes: sdkBytes.buffer.asUint8List(),
   analysisOptions: AnalysisOptionsImpl(),
   uriResolvers: [...],
@@ -328,7 +331,37 @@ final session = driver.currentSession;
 final errors = await session.getErrors(filePath);
 ```
 
-**Note:** The analyzer integration uses internal APIs from the `analyzer` package. For desktop-only usage, consider using the public `AnalysisContextCollection` API instead.
+**Note:** The analyzer integration uses internal APIs from the `analyzer` package.
+
+The resource provider is required and must be in-memory. The code being edited
+is the user's code, and it must never be written to a disk to be analysed — on
+web there is no disk to write to anyway. `PhysicalResourceProvider` is not a
+supported configuration.
+
+## Platform support
+
+The editor is built for Flutter's desktop, mobile **and web** targets. Web
+support is not an inference from the in-memory design — it is measured, by
+`test/web_build_test.dart`, which runs a real `flutter build web` over the
+companion app in `../tom_dart_editor_test`. That test runs as part of the normal
+suite (about a minute; `TOM_SKIP_WEB_BUILD=1` opts out).
+
+**Do not try to replace that build with a search for `dart:io`.** It is a
+tempting shortcut and it does not work — not because it would miss transitive
+dependencies, but because it measures a property that has nothing to do with the
+outcome. The import closure of `package:tom_dart_editor/tom_dart_editor.dart` is
+around 1900 libraries, and 45 of them name `dart:io` unconditionally. The list is
+led by Flutter itself: `package:flutter/services.dart` exports
+`src/services/text_input.dart`, whose second line is
+`import 'dart:io' show Platform;`. That library is in the closure of every
+Flutter web app ever built, all of which compile. A web build fails for a
+different reason than a `dart:io` mention — when it fails, the compiler names the
+offending library and the exact import chain that reached it, which is worth far
+more than any grep.
+
+There is a separate grep in `test/summary_analysis_adapter_test.dart` that does
+look for `dart:io` in this package's own sources. It enforces a different rule —
+that *analysed source* stays in memory — and it says so.
 
 ## License
 

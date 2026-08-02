@@ -83,9 +83,10 @@ class SummaryScope {
   /// here could only be a physical provider, which would make every caller that
   /// simply forgets the argument analyse against a real disk — silently, and
   /// correctly enough to pass its tests. Requiring it also keeps this library
-  /// free of a direct `dart:io` reference. (It does not make the package
-  /// web-compilable: `dart:io` is still reachable transitively through
-  /// `analyzer`. See `wonecodeprpb7`.)
+  /// free of a direct `dart:io` reference — which is a readability property, not
+  /// a platform one. Whether the package compiles for web is decided by a real
+  /// `flutter build web`, not by which libraries are named here; see
+  /// `test/web_build_test.dart`.
   ///
   /// The caller owns the filesystem decision; the production caller supplies an
   /// `OverlayResourceProvider` over a `MemoryResourceProvider`, so analysed

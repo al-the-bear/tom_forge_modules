@@ -195,17 +195,22 @@ void main() {
       // An empty allowlist is the point. Re-adding a name here is how this test
       // stops testing anything, so prefer injecting a provider at the call site.
       //
-      // What this does NOT establish is web-compilability. It greps OUR sources
-      // only, and `analyzer`'s own `physical_file_system.dart` — which imports
-      // `dart:io` and is transitively reachable from this package's lib — is
-      // outside its reach. The package's web build was measured directly (it
-      // succeeds, both with and without the reference this test now forbids), so
-      // the filesystem-reachability rule below is about analysed source staying
-      // in memory, not about the platform. A real web-build check is wonecodeprpb7.
+      // What this does NOT establish is web-compilability — and the reason is
+      // stronger than "it only greps our own sources". Naming `dart:io` simply
+      // does not decide a Flutter web build. The import closure of this
+      // package's public entry point is ~1900 libraries, 45 of which name
+      // `dart:io` unconditionally, headed by `package:flutter/services.dart` →
+      // `src/services/text_input.dart` (`import 'dart:io' show Platform;`) —
+      // present in every Flutter web app ever built. So this grep is not an
+      // incomplete web check; it is a different check. The rule below is about
+      // analysed source staying in memory (D-D33-9), which is confidentiality.
+      // The web build is measured for real in `web_build_test.dart`.
       final offenders = <String>[];
+      var scanned = 0;
       for (final entity in Directory('lib').listSync(recursive: true)) {
         if (entity is! File || !entity.path.endsWith('.dart')) continue;
         final relative = p.relative(entity.path);
+        scanned++;
         final source = entity.readAsStringSync();
         if (source.contains("import 'dart:io'") ||
             source.contains('systemTemp') ||
@@ -213,6 +218,13 @@ void main() {
           offenders.add(relative);
         }
       }
+      // Anti-vacuity: an empty `offenders` also results from scanning nothing —
+      // a moved `lib/`, a renamed extension, a wrong working directory. The
+      // floor is deliberately well below the real count so it tracks a broken
+      // scan, not the package's size.
+      expect(scanned, greaterThanOrEqualTo(8),
+          reason: 'only $scanned library sources were scanned — the scan is '
+              'broken, so an empty offender list means nothing');
       expect(offenders, isEmpty,
           reason: 'analysed source must never be able to reach a disk: no '
               'library source may name dart:io, systemTemp or a physical '

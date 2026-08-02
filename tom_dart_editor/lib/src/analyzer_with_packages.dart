@@ -22,14 +22,20 @@ import 'package:analyzer/src/summary2/package_bundle_format.dart';
 
 /// Creates an analysis driver with support for both SDK and package summaries.
 ///
+/// The [resourceProvider] must be an in-memory one. Analysed source is the
+/// user's source, and it must never reach a disk; the web target has no disk to
+/// reach in any case. Pass `OverlayResourceProvider(MemoryResourceProvider())`,
+/// as [SummaryBackedDartAnalysisAdapter] does.
+///
 /// Usage:
 /// ```dart
 /// // Load summaries from assets
 /// final sdkBytes = await rootBundle.load('assets/sdk_summary.sum');
 /// final pkgBytes = await rootBundle.load('assets/packages.sum');
 ///
+/// final resourceProvider = OverlayResourceProvider(MemoryResourceProvider());
 /// final driver = createAnalysisDriverWithPackages(
-///   resourceProvider: PhysicalResourceProvider.INSTANCE,
+///   resourceProvider: resourceProvider,
 ///   sdkSummaryBytes: sdkBytes.buffer.asUint8List(),
 ///   packageSummaryBytes: pkgBytes.buffer.asUint8List(),
 ///   analysisOptions: AnalysisOptionsImpl(),
