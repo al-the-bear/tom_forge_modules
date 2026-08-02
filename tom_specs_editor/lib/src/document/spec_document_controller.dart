@@ -1022,38 +1022,43 @@ class SpecDocumentController extends ChangeNotifier {
   }
 
   /// Replaces every value under [MarkdownImportResult.rootPrefixes] with the
-  /// parsed values, as one undo entry. Built by merging the parsed values over
-  /// the live document minus the covered scope, then reloading — so other roots
-  /// are untouched and list seq/item paths are restored exactly.
+  /// parsed values, as one undo entry: purge the covered scope, then merge the
+  /// parsed values over what is left and reload — so other roots are untouched
+  /// and list seq/item paths are restored exactly.
+  ///
+  /// **Both halves are store-agnostic on purpose.** The purge runs through
+  /// [SpecDocument.removeValuesUnder], which clears every store the document
+  /// holds, and the carry-over is whatever [SpecDocument.toJson] then emits.
+  /// Naming the stores here instead would silently drop any store the document
+  /// gains later — which is exactly how stored headlines (YRD3) and codeSpec
+  /// mappings (`codespecs_mapping.md` §9.2) came to be wiped across the whole
+  /// document by an import covering a single root.
   ///
   /// This is the one place that works on the raw stores
   /// ([SpecDocument.toJson]/[SpecDocument.loadJson] bypass the key normalizer),
-  /// so the parser's structural paths and the covered scope are mapped through
-  /// [storagePathFor] by hand before they meet the live keys.
+  /// so the parser's structural paths are mapped through [storagePathFor] by
+  /// hand before they meet the live keys. The scope needs no such mapping —
+  /// [SpecDocument.removeValuesUnder] normalizes what it is given.
   void _applyMarkdownImport(MarkdownImportResult result) {
     if (result.rootPrefixes.isEmpty) return;
     final before = document.captureState();
 
+    for (final prefix in result.rootPrefixes) {
+      document.removeValuesUnder(prefix);
+    }
+
     final doc = document.toJson();
-    final content = <String, Object?>{};
-    final forms = <String, Object?>{};
-    final lists = <String, Object?>{};
-    (doc['content'] as Map?)?.forEach((k, v) => content['$k'] = v);
-    (doc['forms'] as Map?)?.forEach((k, v) => forms['$k'] = v);
-    (doc['lists'] as Map?)?.forEach((k, v) => lists['$k'] = v);
-
-    final scope = result.rootPrefixes.map(storagePathFor).toList();
-    bool underScope(String key) => scope
-        .any((p) => key == p || key.startsWith('$p/') || key.startsWith('$p-'));
-    content.removeWhere((k, _) => underScope(k));
-    forms.removeWhere((k, _) => underScope(k));
-    lists.removeWhere((k, _) => underScope(k));
-
-    content.addAll(_toStorageKeys(result.content));
-    forms.addAll(_toStorageKeys(result.forms));
-    lists.addAll(_listsToStorageKeys(result.lists));
-
-    document.loadJson({'content': content, 'forms': forms, 'lists': lists});
+    document.loadJson({
+      'content': _storeOf(doc, 'content')
+        ..addAll(_toStorageKeys(result.content)),
+      'forms': _storeOf(doc, 'forms')..addAll(_toStorageKeys(result.forms)),
+      'lists': _storeOf(doc, 'lists')
+        ..addAll(_listsToStorageKeys(result.lists)),
+      'headlines': _storeOf(doc, 'headlines')
+        ..addAll(_toStorageKeys(result.headlines)),
+      'codeSpecs': _storeOf(doc, 'codeSpecs')
+        ..addAll(_toStorageKeys(result.codeSpecs)),
+    });
 
     final after = document.captureState();
     if (before.fingerprint == after.fingerprint) return;
@@ -1068,6 +1073,17 @@ class SpecDocumentController extends ChangeNotifier {
       },
     ));
     notifyListeners();
+  }
+
+  /// The [store] entry of a [SpecDocument.toJson] view as a plain mutable map,
+  /// ready to be merged into. Empty stores are omitted from that view, so a
+  /// missing entry reads as `{}`.
+  Map<String, Object?> _storeOf(Map<String, Object?> doc, String store) {
+    final held = doc[store];
+    return {
+      if (held is Map)
+        for (final e in held.entries) '${e.key}': e.value,
+    };
   }
 
   /// [values] re-keyed from structural into storage space ([storagePathFor]).

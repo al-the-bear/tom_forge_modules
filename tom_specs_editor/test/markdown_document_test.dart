@@ -111,6 +111,38 @@ const _d4rtBody = 'Column(\n'
     '  ],\n'
     ') // not a fence: ``` still inside the body';
 
+/// [_sampleJson] plus a **second root**, so an import covering one root can be
+/// checked against values living under the other. Kept separate from
+/// [_sampleJson] because the export-dialog tests assert on the single-root
+/// global scope.
+Map<String, dynamic> _twoRootJson() {
+  final json = _sampleJson();
+  (json['roots'] as List).add({
+    'type': 'OtherDoc',
+    'title': 'Other Document',
+    'sectionId': 'D02',
+    'description': 'A second root, never covered by the import.',
+  });
+  (json['classes'] as Map)['OtherDoc'] = {
+    'name': 'OtherDoc',
+    'sectionId': 'D02',
+    'fields': [
+      {'name': 'summary', 'kind': 'content', 'sectionId': 'D02-SUM'},
+    ],
+  };
+  return json;
+}
+
+Future<SpecDocumentController> _twoRootController() async {
+  final controller = SpecDocumentController(
+    modelFuture: Future<SpecModel>.value(SpecModel.fromJson(_twoRootJson())),
+    review: _tempReviewStore(),
+  );
+  await controller.ensureLoaded();
+  addTearDown(controller.dispose);
+  return controller;
+}
+
 Future<SpecDocumentController> _populated() async {
   final c = await _controller();
   c.setContent('D00/D00-OVR', 'An overview paragraph.\nWith two lines.');
@@ -220,6 +252,44 @@ void main() {
       expect(target.document.content('D00/D00-OVR'),
           'An overview paragraph.\nWith two lines.');
       expect(target.document.content('D00/D00-ST'), 'final');
+    });
+
+    test('the overwrite covers only the imported scope — headlines and '
+        'codeSpecs under another root survive', () async {
+      // A source under the imported root carrying both a stored headline
+      // (YRD3) and a codeSpec mapping (codespecs_mapping.md §9.2), so the
+      // export round-trips them.
+      final source = await _twoRootController();
+      source.setContent('D00/D00-OVR', 'An overview paragraph.');
+      source.setHeadline('D00/D00-OVR', 'Executive Overview');
+      source.document.setCodeSpec('D00/D00-OVR', 'CsForm:DemoForm');
+      final md = source.exportMarkdown('D00');
+
+      // The target holds values under a SECOND root the import never covers,
+      // plus stale ones under the imported root.
+      final target = await _twoRootController();
+      target.setContent('D02/D02-SUM', 'Untouched summary.');
+      target.setHeadline('D02/D02-SUM', 'Kept Headline');
+      target.document.setCodeSpec('D02/D02-SUM', 'CsTable:KeptTable');
+      target.setContent('D00/D00-OVR', 'STALE');
+      target.setHeadline('D00/D00-OVR', 'Stale Headline');
+      target.document.setCodeSpec('D00/D00-OVR', 'CsForm:StaleForm');
+      target.document.setCodeSpec('D00/D00-ST', 'CsEnum:StaleEnum');
+
+      final report = target.importMarkdown(md);
+      expect(report.isClean, isTrue, reason: report.rejections.toString());
+
+      // Out of scope: every store survives, not just content.
+      expect(target.document.content('D02/D02-SUM'), 'Untouched summary.');
+      expect(target.document.headline('D02/D02-SUM'), 'Kept Headline');
+      expect(target.document.codeSpec('D02/D02-SUM'), 'CsTable:KeptTable');
+      // In scope: the parsed values replace the stale ones …
+      expect(target.document.content('D00/D00-OVR'), 'An overview paragraph.');
+      expect(target.document.headline('D00/D00-OVR'), 'Executive Overview');
+      expect(target.document.codeSpec('D00/D00-OVR'), 'CsForm:DemoForm');
+      // … and a stale in-scope value the markdown does not carry is dropped,
+      // since the import is a full overwrite of the covered root.
+      expect(target.document.codeSpec('D00/D00-ST'), isNull);
     });
 
     test('an import is a single undoable step', () async {
