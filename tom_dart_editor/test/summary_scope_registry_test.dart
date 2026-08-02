@@ -5,10 +5,23 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:analyzer/dart/sdk/build_sdk_summary.dart';
+import 'package:analyzer/file_system/file_system.dart';
+import 'package:analyzer/file_system/memory_file_system.dart';
+import 'package:analyzer/file_system/overlay_file_system.dart';
 import 'package:analyzer/file_system/physical_file_system.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:tom_dart_editor/tom_dart_editor.dart';
+
+/// The provider a driver is built over in these tests — the same shape the
+/// production caller uses (`SummaryBackedDartAnalysisAdapter`), so what the
+/// tests exercise is what ships: analysed source lives in an overlay above a
+/// memory filesystem and never reaches a disk.
+///
+/// A fresh instance per driver, because a driver is per-editor and two editors
+/// must not share an analysis buffer.
+ResourceProvider analysisProvider() =>
+    OverlayResourceProvider(MemoryResourceProvider());
 
 /// Resolves the Dart SDK path inside the `flutter test` environment so we can
 /// build a real SDK summary fixture once. Prefers `FLUTTER_ROOT` (set by the
@@ -84,8 +97,8 @@ void main() {
           reason: 'one shared ParsedSummaryModel');
 
       // Each editor builds its own cheap driver over the *same* model.
-      final driverA = scopeA.createDriver();
-      final driverB = scopeB.createDriver();
+      final driverA = scopeA.createDriver(resourceProvider: analysisProvider());
+      final driverB = scopeB.createDriver(resourceProvider: analysisProvider());
       expect(driverA.sdkLibraryUris, isNotEmpty);
       expect(driverB.sdkLibraryUris, isNotEmpty);
       expect(identical(driverA, driverB), isFalse,
@@ -97,8 +110,8 @@ void main() {
       final scope = await registry.register(sdkOnly);
       // Re-registering and building extra drivers must not reload bytes.
       await registry.register(sdkOnly);
-      scope.createDriver();
-      scope.createDriver();
+      scope.createDriver(resourceProvider: analysisProvider());
+      scope.createDriver(resourceProvider: analysisProvider());
 
       expect(loadedKeys.length, 1,
           reason: 'bytes fetched exactly once; no per-call byte copies held');

@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 
 import 'package:analyzer/file_system/file_system.dart';
-import 'package:analyzer/file_system/physical_file_system.dart';
 import 'package:analyzer/src/context/packages.dart';
 import 'package:analyzer/src/file_system/file_system.dart'
     show ResourceUriResolver;
@@ -79,12 +78,25 @@ class SummaryScope {
   ///
   /// Each editor calls this to get its own driver/controller without re-parsing
   /// the `.sum` bytes — the expensive parsed model is shared.
-  AnalysisDriverWithPackages createDriver({ResourceProvider? resourceProvider}) {
-    final rp = resourceProvider ?? PhysicalResourceProvider.INSTANCE;
+  ///
+  /// [resourceProvider] is required, and deliberately has no default. A default
+  /// here could only be a physical provider, which would make every caller that
+  /// simply forgets the argument analyse against a real disk — silently, and
+  /// correctly enough to pass its tests. Requiring it also keeps this library
+  /// free of a direct `dart:io` reference. (It does not make the package
+  /// web-compilable: `dart:io` is still reachable transitively through
+  /// `analyzer`. See `wonecodeprpb7`.)
+  ///
+  /// The caller owns the filesystem decision; the production caller supplies an
+  /// `OverlayResourceProvider` over a `MemoryResourceProvider`, so analysed
+  /// source never leaves memory.
+  AnalysisDriverWithPackages createDriver({
+    required ResourceProvider resourceProvider,
+  }) {
     return buildAnalysisDriver(
       model: model,
-      resourceProvider: rp,
-      uriResolvers: [ResourceUriResolver(rp)],
+      resourceProvider: resourceProvider,
+      uriResolvers: [ResourceUriResolver(resourceProvider)],
       packages: Packages.empty,
     );
   }

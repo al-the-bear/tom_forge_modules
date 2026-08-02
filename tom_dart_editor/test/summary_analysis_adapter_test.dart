@@ -186,18 +186,26 @@ void main() {
     });
 
     test('no library source reaches for a filesystem', () {
-      // The one remaining physical-provider reference: `createDriver()` still
-      // defaults to PhysicalResourceProvider for callers that pass none. No
-      // production caller does — the adapter always injects its overlay — so it
-      // cannot carry analysed source to a disk, but it does keep the package
-      // off web. Removing it is tracked as wonecodeprp6.
-      const tracked = {'lib/src/summary_scope_registry.dart'};
-
+      // No allowlist. There was one — `summary_scope_registry.dart`, whose
+      // `createDriver()` defaulted to PhysicalResourceProvider for callers that
+      // passed none. wonecodeprp6 made the parameter required, which removed
+      // both the import and the trap: a caller that forgets the provider now
+      // fails to compile instead of silently analysing against a real disk.
+      //
+      // An empty allowlist is the point. Re-adding a name here is how this test
+      // stops testing anything, so prefer injecting a provider at the call site.
+      //
+      // What this does NOT establish is web-compilability. It greps OUR sources
+      // only, and `analyzer`'s own `physical_file_system.dart` — which imports
+      // `dart:io` and is transitively reachable from this package's lib — is
+      // outside its reach. The package's web build was measured directly (it
+      // succeeds, both with and without the reference this test now forbids), so
+      // the filesystem-reachability rule below is about analysed source staying
+      // in memory, not about the platform. A real web-build check is wonecodeprpb7.
       final offenders = <String>[];
       for (final entity in Directory('lib').listSync(recursive: true)) {
         if (entity is! File || !entity.path.endsWith('.dart')) continue;
         final relative = p.relative(entity.path);
-        if (tracked.contains(p.split(relative).join('/'))) continue;
         final source = entity.readAsStringSync();
         if (source.contains("import 'dart:io'") ||
             source.contains('systemTemp') ||
@@ -206,8 +214,9 @@ void main() {
         }
       }
       expect(offenders, isEmpty,
-          reason: 'analysed source must never be able to reach a disk, and '
-              'the editor must run where there is no disk (web — D3 §5)');
+          reason: 'analysed source must never be able to reach a disk: no '
+              'library source may name dart:io, systemTemp or a physical '
+              'resource provider');
     });
   });
 
