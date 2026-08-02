@@ -5,9 +5,11 @@
 // renders each `SpecValidationError` as a per-section diagnostics badge, behind
 // a strict-mode toggle. These tests prove:
 //   * the controller runs the runtime validator and groups errors by section
-//     path (every `SpecValidationCode`, incl. `oneOfCaseMismatch`);
+//     path (every `SpecValidationCode`, incl. `oneOfCaseMismatch` and the
+//     cross-registry `danglingReference`);
 //   * the toggle gates the overlay (off → no diagnostics; on → validation runs);
-//   * the offending `@OneOf` subsection carries the mismatch badge in the tree.
+//   * the offending `@OneOf` subsection carries the mismatch badge in the tree,
+//     and a reference form field carries the dangling-id badge.
 
 import 'dart:io';
 
@@ -58,6 +60,47 @@ Map<String, dynamic> _oneOfJson() => {
               'kind': 'complex',
               'sectionId': 'ELM',
               'type': 'Element',
+            },
+            // csrb3: a registry (`RTE.routeId`) and a reference into it
+            // (`NAV.homeRoute`), so a dangling id is reachable from the editor.
+            {
+              'name': 'routes',
+              'kind': 'list',
+              'sectionId': 'RTE-LST',
+              'sectionIdPattern': 'RTE-xxx',
+              'elementType': 'Route',
+              'elementIsComplex': true,
+            },
+            {
+              'name': 'navigation',
+              'kind': 'form',
+              'sectionId': 'NAV',
+              'formFields': [
+                {
+                  'name': 'homeRoute',
+                  'label': 'Home route',
+                  'type': 'String',
+                  'refersTo': ['RTE.routeId'],
+                },
+              ],
+            },
+          ],
+        },
+        'Route': {
+          'name': 'Route',
+          'sectionId': 'RTE',
+          'fields': [
+            {
+              'name': 'content',
+              'kind': 'form',
+              'formFields': [
+                {
+                  'name': 'routeId',
+                  'label': 'Route id',
+                  'type': 'String',
+                  'required': true,
+                },
+              ],
             },
           ],
         },
@@ -167,6 +210,22 @@ final Finder _diagnosticsBadge = find.byWidgetPredicate(
   (w) => w is Tooltip && (w.message ?? '').contains('oneOfCaseMismatch'),
 );
 
+/// A document whose `NAV.homeRoute` reference names an id no `RTE` entry
+/// declares — one `danglingReference` anchored on the referring form (csrb3).
+SpecDocument _danglingReferenceDoc() {
+  final doc = SpecDocument()
+    ..setFormField('WD00/ELM/content', 'kind', 'action')
+    ..setContent('WD00/ELM/ACT/detail', 'go')
+    ..setFormField('WD00/NAV', 'homeRoute', 'route-ghost');
+  final item = doc.addListItem('WD00/RTE-LST');
+  doc.setFormField('$item/content', 'routeId', 'route-home');
+  return doc;
+}
+
+final Finder _referenceBadge = find.byWidgetPredicate(
+  (w) => w is Tooltip && (w.message ?? '').contains('danglingReference'),
+);
+
 void main() {
   group('SpecDocumentController.validate (csmc9)', () {
     test('a well-formed document validates clean', () async {
@@ -227,6 +286,28 @@ void main() {
       expect(onSubsection.single.code, SpecValidationCode.oneOfCaseMismatch);
       expect(onSubsection.single.message, contains('input'));
     });
+
+    test('a reference to a declared registry id validates clean (csrb3)',
+        () async {
+      final doc = _danglingReferenceDoc()
+        ..setFormField('WD00/NAV', 'homeRoute', 'route-home');
+      final controller = await _controller(document: doc);
+      expect(
+        controller.validate().where(
+            (e) => e.code == SpecValidationCode.danglingReference),
+        isEmpty,
+      );
+    });
+
+    test('a dangling reference is grouped on the referring form path (csrb3)',
+        () async {
+      final controller = await _controller(document: _danglingReferenceDoc());
+      final onForm = controller.validationByPath()['WD00/NAV'];
+      expect(onForm, hasLength(1));
+      expect(onForm!.single.code, SpecValidationCode.danglingReference);
+      expect(onForm.single.message, contains('route-ghost'));
+      expect(onForm.single.message, contains('RTE.routeId'));
+    });
   });
 
   group('SpecDocumentController.setStrictValidation (csmc9)', () {
@@ -275,6 +356,19 @@ void main() {
       final tooltip = tester.widget<Tooltip>(_diagnosticsBadge);
       expect(tooltip.message, contains('oneOfCaseMismatch'));
       expect(tooltip.message, contains('input'));
+    });
+
+    testWidgets(
+        'a dangling reference surfaces on the referring form in strict mode '
+        '(csrb3)', (tester) async {
+      final controller = await _controller(document: _danglingReferenceDoc());
+      controller.setStrictValidation(true);
+      await pump(tester, controller);
+
+      expect(_referenceBadge, findsOneWidget);
+      final tooltip = tester.widget<Tooltip>(_referenceBadge);
+      expect(tooltip.message, contains('route-ghost'));
+      expect(tooltip.message, contains('RTE.routeId'));
     });
 
     testWidgets('turning strict mode back off clears the overlay',

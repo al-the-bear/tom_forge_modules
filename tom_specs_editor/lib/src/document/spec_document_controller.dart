@@ -114,7 +114,8 @@ class SpecDocumentController extends ChangeNotifier {
   /// document editor runs the canonical runtime document validator
   /// ([validateDocument]) over the live document on load and after every edit,
   /// and surfaces each [SpecValidationError] as a diagnostic badge on the
-  /// section it anchors on (including `oneOfCaseMismatch`). When `false`, no
+  /// section it anchors on (including `oneOfCaseMismatch` and the
+  /// cross-registry `danglingReference`). When `false`, no
   /// validation runs and no diagnostics show. It is a pure read-only overlay —
   /// it never blocks or mutates an edit. Distinct from [strictHeadlineEditing],
   /// which gates headline/id *writes* (YRD9).
