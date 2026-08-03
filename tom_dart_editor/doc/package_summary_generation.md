@@ -24,7 +24,8 @@ Two summary files are required:
 The SDK summary is generated from your installed Dart SDK:
 
 ```bash
-dart run tool/build_sdk_summary.dart assets/sdk_summary.sum
+cd tom_ai/ai_build/tom_specs_clitool
+dart run bin/summaries.dart --sdk-only --out-dir assets
 ```
 
 Or use the analyzer's built-in function in your own tool:
