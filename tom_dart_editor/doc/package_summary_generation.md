@@ -127,13 +127,21 @@ Two workarounds in `analyzer_with_packages.dart` compensate for SDK limitations:
 
 ---
 
-## Next: named summary scopes (planned)
+## Named summary scopes
 
 The build described above produces a single `(sdk_summary.sum, packages.sum)`
-pair tied to one fixed dependency closure. A planned evolution introduces
-**named summary scopes** — one bundle per bridged surface (plain Dart,
-d4rt-flutter, d4rt-document) — built by a dedicated `tom_dart_editor_bundler`
-tool and selected at editor-construction time by `scope:` name.
+pair tied to one fixed dependency closure. **Named summary scopes** generalise
+it: one bundle per bridged surface (plain Dart, d4rt-flutter, …), sharing a
+single `sdk_summary.sum`, and selected at editor-construction time by `scope:`
+name.
 
-See **[Summary Scopes](summary_scopes.md)** for the full design (status:
-specified, not yet implemented).
+That is the shipped mechanism. `tom_forge/tom_dart_editor_bundler` is a
+`tom_build_base` CLI that reads a `dart-editor-bundler:` block from the
+consuming app's `buildkit.yaml` and emits the shared SDK bundle, a
+`<scope>/packages.sum` per bundle, and a generated registration helper. The
+first consumer is `tom_forge/tom_specs_editor`, which registers two scopes
+(`dart-plain`, `d4rt-flutter`) from `lib/generated/summary_scopes.g.dart` before
+`runApp`.
+
+See **[Summary Scopes](summary_scopes.md)** for the configuration block, the
+`BundlerConfig` / `SummaryBundleSpec` model and the registry API.
