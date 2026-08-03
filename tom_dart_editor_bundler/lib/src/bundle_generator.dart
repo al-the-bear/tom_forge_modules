@@ -1,11 +1,9 @@
 /// tom_dart_editor_bundler — config → `.sum` asset set generator (plan item 5).
 ///
 /// Turns a parsed [BundlerConfig] into the on-disk asset tree the
-/// `tom_dart_editor` runtime loads:
-///
-///   `<out-dir>/<sdk-summary>`        — one shared SDK summary (all scopes)
-///   `<out-dir>/<name>/packages.sum`  — one grouped bundle per non-`sdk-only`
-///                                      scope (union of its `packages` closures)
+/// `tom_dart_editor` runtime loads. Where each file goes is [SummaryAssetLayout]'s
+/// to say — the same declaration the generated scope-init helper derives its
+/// asset keys from, so the tree written here is the tree the app asks for.
 ///
 /// The grouped `packages.sum` build is delegated to `tom_analyzer_shared`'s
 /// [GroupedPackageBundleBuilder] (base-first owner of the load-bearing
@@ -26,6 +24,7 @@ import 'package:path/path.dart' as p;
 import 'package:tom_analyzer_shared/tom_analyzer_shared.dart'
     show GroupedPackageBundleBuilder, resolveDartSdkPath;
 
+import 'asset_layout.dart';
 import 'bundler_config.dart';
 
 /// One scope's generation outcome.
@@ -145,11 +144,11 @@ class BundleGenerator {
       );
     }
 
-    final outDir = _resolve(baseDir, config.outDir);
-    Directory(outDir).createSync(recursive: true);
+    Directory(_resolve(baseDir, config.outDir)).createSync(recursive: true);
 
     // ── shared SDK summary (idempotent: skip when present) ──────────────────
-    final sdkSummaryPath = p.join(outDir, config.sdkSummary);
+    final sdkSummaryPath = SummaryAssetLayout.filePath(
+        baseDir, SummaryAssetLayout.sdkSummarySegments(config));
     final sdkFile = File(sdkSummaryPath);
     bool sdkBuilt = false;
     if (sdkFile.existsSync()) {
@@ -187,10 +186,11 @@ class BundleGenerator {
         resourceProvider: resourceProvider,
       ).buildFromDirs(dirs, sdkPath: resolvedSdkPath, onLog: logLine);
 
-      final scopeDir = p.join(outDir, bundle.name);
-      Directory(scopeDir).createSync(recursive: true);
-      final packagesSumPath = p.join(scopeDir, 'packages.sum');
-      File(packagesSumPath).writeAsBytesSync(grouped.bytes);
+      final packagesSumPath = SummaryAssetLayout.filePath(
+          baseDir, SummaryAssetLayout.packagesSegments(config, bundle)!);
+      final file = File(packagesSumPath);
+      file.parent.createSync(recursive: true);
+      file.writeAsBytesSync(grouped.bytes);
       logLine('  → $packagesSumPath (${grouped.bytes.length} bytes, '
           '${grouped.packageCount} packages, ${grouped.libraryCount} libraries)');
 

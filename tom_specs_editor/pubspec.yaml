@@ -33,8 +33,8 @@ dependencies:
 
   # Summary-backed Dart code editor for code-typed (`@ContentType('code*')`)
   # spec fields (`tom_specs_editor_specification.md` §13 l / B1). Provides
-  # SDK-free analysis via the pre-generated `assets/summaries/*.sum` bundles
-  # (tom_specs_clitool/bin/summaries.dart).
+  # SDK-free analysis via the pre-generated `assets/summaries/**.sum` bundles
+  # that tom_dart_editor_bundler produces from this package's buildkit.yaml.
   tom_dart_editor:
     path: ../tom_dart_editor
 

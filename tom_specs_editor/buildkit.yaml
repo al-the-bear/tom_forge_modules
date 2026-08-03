@@ -11,6 +11,12 @@
 #     (call SummaryScopes.initialize() once at app startup; it registers every
 #      scope with tom_dart_editor's SummaryScopeRegistry).
 #
+# This block is the *only* declaration of the summary asset set: which scopes
+# exist, and which package closures each one covers. The build orchestrator
+# (`tom_specs_clitool/bin/build.dart --generate-summaries`) runs the bundler
+# against this file rather than generating summaries itself, so a closure is
+# added here and nowhere else.
+#
 # Regenerate from this directory with:
 #   dart run ../tom_dart_editor_bundler/bin/dart_editor_bundler.dart \
 #     --config buildkit.yaml --verbose
@@ -29,7 +35,17 @@ dart-editor-bundler:
     # via SourceFlutterD4rt: the closure of `tom_d4rt_flutter` (which pulls in
     # Flutter + the d4rt-flutter runtime). `package:flutter/material.dart` is the
     # default surface authors write against.
+    #
+    # `tom_flutter_ui` joins the same scope rather than getting one of its own
+    # (OE-25): its widgets are what the CodeSpecs phase's Flutter code fields
+    # reference, and `code-d4rt-flutter` is the only content type that routes to
+    # a Flutter scope (`scopeForContentType` in spec_document_editor.dart). A
+    # separate scope would have nothing routing to it and would never be loaded.
+    # Neither package is a Dart dependency of the editor — the bundles are read
+    # at runtime, which is what keeps the OE-3a `analyzer ^8`/`^10` conflict out
+    # of the app's own resolution.
     - name: d4rt-flutter
       packages:
         - ../../tom_ai/d4rt/tom_d4rt_flutter
+        - ../../tom_ai/core/tom_flutter_ui
       implicit-imports: [package:flutter/material.dart]

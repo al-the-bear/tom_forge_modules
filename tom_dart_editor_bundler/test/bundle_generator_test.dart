@@ -169,6 +169,48 @@ void main() {
           isTrue);
     });
 
+    test('the generated helper declares exactly the assets the run wrote',
+        () async {
+      // The claim this pins is the one that used to be made twice and checked
+      // never: the asset keys `summary_scopes.g.dart` names are the paths the
+      // generator writes. It is checkable at zero cost because the helper is a
+      // *generated* file — it states the paths in plain text — so the round-trip
+      // is both directions of one set comparison. A layout change made on only
+      // one side of SummaryAssetLayout fails here rather than silently leaving
+      // every code field on its plain-text fallback.
+      final base = _writeFixture();
+      addTearDown(() => base.deleteSync(recursive: true));
+
+      final loaded = loadBundlerConfig(projectDir: base.path);
+      final result = await BundleGenerator()
+          .generate(config: loaded.config, baseDir: loaded.baseDir);
+      final helper = generateScopeInitHelper(loaded.config);
+
+      final declared = RegExp(r"(?:sdk|package)SummaryAsset: '([^']+)'")
+          .allMatches(helper)
+          .map((m) => m.group(1)!)
+          .toSet();
+      expect(declared, isNotEmpty, reason: 'helper declares asset keys at all');
+
+      // Forward: nothing the app asks for is missing from disk.
+      for (final key in declared) {
+        expect(File(p.join(loaded.baseDir, key)).existsSync(), isTrue,
+            reason: 'declared asset "$key" was not written by the generator');
+      }
+
+      // Backward: nothing the generator writes goes unasked-for. A bundle
+      // written to a path no scope names is dead weight in the app bundle and
+      // means a scope is silently unbacked.
+      String assetKeyOf(String absolute) =>
+          p.url.joinAll(p.split(p.relative(absolute, from: loaded.baseDir)));
+      final written = <String>{
+        assetKeyOf(result.sdkSummaryPath),
+        for (final b in result.bundles)
+          if (b.packagesSumPath != null) assetKeyOf(b.packagesSumPath!),
+      };
+      expect(written, declared);
+    });
+
     test('--bundle filter rejects an unknown scope name', () async {
       final base = _writeFixture();
       addTearDown(() => base.deleteSync(recursive: true));

@@ -15,6 +15,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import 'asset_layout.dart';
 import 'bundler_config.dart';
 
 /// Result of writing the generated scope-init helper.
@@ -31,10 +32,9 @@ class HelperWriteResult {
 /// Renders the scope-init helper Dart source for [config] (spec §6.3).
 ///
 /// Pure and deterministic — the same config always yields byte-identical
-/// output, which is what the golden-file test pins. Asset paths are POSIX
-/// (Flutter asset keys), derived from `config.outDir` + the per-bundle layout
-/// the [BundleGenerator] writes (`<outDir>/<sdk-summary>` and
-/// `<outDir>/<name>/packages.sum`).
+/// output, which is what the golden-file test pins. Asset keys are read off
+/// [SummaryAssetLayout], the single declaration the bundle generator writes by,
+/// so a declared key is always a file the generator produces.
 String generateScopeInitHelper(BundlerConfig config) {
   final buf = StringBuffer();
   buf.writeln(
@@ -82,9 +82,15 @@ void _writeRegistration(
   BundlerConfig config,
   SummaryBundleSpec bundle,
 ) {
-  final sdkAsset = _posixJoin(config.outDir, config.sdkSummary);
-  final packageAsset =
-      bundle.sdkOnly ? null : _posixJoin(config.outDir, bundle.name, 'packages.sum');
+  // Asset keys come from SummaryAssetLayout, the same declaration the
+  // BundleGenerator writes by — the helper cannot name a path the generator
+  // does not produce.
+  final sdkAsset = SummaryAssetLayout.assetKey(
+      SummaryAssetLayout.sdkSummarySegments(config));
+  final packagesSegments = SummaryAssetLayout.packagesSegments(config, bundle);
+  final packageAsset = packagesSegments == null
+      ? null
+      : SummaryAssetLayout.assetKey(packagesSegments);
 
   buf.writeln('    await SummaryScopeRegistry.instance.register(');
   buf.writeln('      const SummaryScopeAsset(');
@@ -115,15 +121,6 @@ String _camelCase(String name) {
     return s[0].toUpperCase() + s.substring(1);
   });
   return '$head${tail.join()}';
-}
-
-/// Joins asset path components with forward slashes (Flutter asset keys are
-/// always POSIX, regardless of host OS).
-String _posixJoin(String a, [String? b, String? c]) {
-  final parts = [a, ?b, ?c]
-      .expand((part) => part.split(RegExp(r'[\\/]+')))
-      .where((part) => part.isNotEmpty);
-  return parts.join('/');
 }
 
 /// Renders a Dart list literal of single-quoted strings: `['a', 'b']`, `[]`.

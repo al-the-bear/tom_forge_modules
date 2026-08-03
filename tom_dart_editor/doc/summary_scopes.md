@@ -171,6 +171,14 @@ CLI options: `--config`/`-c` (config path; defaults to the project `buildkit.yam
 and all relative paths resolve against its directory), `--bundle`/`-b` (build one
 named scope), `--verbose`, plus the standard `--help` / `--version`.
 
+This is the **only** generator of a consuming app's scoped summary asset set. A
+build orchestrator that wants the assets invokes this command rather than
+building them itself — `tom_specs_clitool/bin/build.dart --generate-summaries`
+does exactly that. A second generator would have to restate the output layout,
+and a layout restated twice is a layout that drifts: the app loads bundles by the
+asset keys `summary_scopes.g.dart` names, and a bundle written anywhere else
+degrades a code field to plain text with no error raised anywhere.
+
 The executor (`bundler_executor.dart`) sequences the work: `sdk_summary.sum` is
 generated **once** into `out-dir` (idempotent — reused if it already exists),
 each non-`sdk-only` bundle's `out-dir/<name>/packages.sum` is built via
