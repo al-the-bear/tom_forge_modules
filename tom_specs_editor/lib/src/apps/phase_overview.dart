@@ -16,7 +16,7 @@ import 'spec_phase.dart';
 /// editor those apps carried in phase
 /// 1. The full model-driven CodeSpecs / Implementation document editors (their
 /// own object models) are phase-2 follow-ups tracked in the quest's
-/// `completion_steps.tom_specs.md`.
+/// `deferred.tom_specs.md`.
 class PhaseOverviewEditor extends ForgeEditor {
   PhaseOverviewEditor({required this.phase})
       : _title = ValueNotifier<String>(phase.title),

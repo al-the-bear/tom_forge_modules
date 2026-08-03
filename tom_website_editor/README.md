@@ -126,7 +126,7 @@ preview reloads on every rebuild. The matcher is injectable; the default
 common reload cues (`reload`, `recompiled`, `serving at`, …). Confirming the
 exact `jaspr serve` rebuild marker against the live website is deferred to the
 §9.7 e2e step (gated on `enterprise_flutter_web`); tracked in
-`completion_steps.tom_forge.md`.
+`deferred.tom_forge.md`.
 
 In the view, `serveStart` renders as a **start/stop toggle** (plus a restart
 button while running) instead of the generic command button.
@@ -149,12 +149,12 @@ drift parsing remains deferred — see below).
   lives in `enterprise_flutter_web/website/doc/command_contract.md`, which is not
   present in this checkout, so a faithful parser cannot be authored yet. Until
   then the raw generator output is surfaced verbatim in the log (the §7 exit-code
-  taxonomy is honoured). Tracked in `completion_steps.tom_forge.md`.
+  taxonomy is honoured). Tracked in `deferred.tom_forge.md`.
 - **Real forge spawn service.** The forge shell exposes no process-spawn API
   (`ForgeExecutionMonitor` only *tracks* executions). The control controller uses
   the `dart:io`-backed `DartIoWebsiteProcessRunner` for now; wiring it to a shared
   forge spawn service (so the shell's execution monitor reflects website runs) is
-  deferred. Tracked in `completion_steps.tom_forge.md`.
+  deferred. Tracked in `deferred.tom_forge.md`.
 
 ## Content browser + manual-copy editors (§6a)
 
@@ -291,18 +291,18 @@ their file name matches. Clearing the box restores the full catalog.
   `module_and_component_web_information.md`, which is not present in this
   checkout. The browser is built generically against the §2 defaults and
   fixtures; reconciling the precise field set is deferred to §9.7. Tracked in
-  `completion_steps.tom_forge.md`.
+  `deferred.tom_forge.md`.
 - **Exact page-region grammar.** The precise `@tom:override` / `@tom:managed`
   marker grammar lives in the website's spec (enterprise §6.2), absent here. The
   region classifier is injectable (`PageMarkerClassifier`) so the exact form can
   be supplied without touching the region model; confirming it is deferred to
-  §9.7. Tracked in `completion_steps.tom_forge.md`.
+  §9.7. Tracked in `deferred.tom_forge.md`.
 - **Rich inline-editor embedding + value write-back.** Editable fields render in
   the correct inline editor *by kind* now; binding `tom_yaml_editor`'s
   `YamlSchemaEditor` (record editing, against the live component JSON Schema) and
   `tom_md_editor` (page override regions) for two-way value persistence is
   reconciled in §9.7, where the live schema lands. Tracked in
-  `completion_steps.tom_forge.md`.
+  `deferred.tom_forge.md`.
 
 ## Structure explorer (§6b)
 
@@ -372,7 +372,7 @@ inline error rather than a silent blank tree.
 - **Rich editor embedding.** File nodes route to the correct editor *by kind*
   now; binding the live `tom_yaml_editor` / `tom_md_editor` widgets into the
   detail pane for in-place editing is reconciled in §9.7 alongside the content
-  browser's editor embedding. Tracked in `completion_steps.tom_forge.md`.
+  browser's editor embedding. Tracked in `deferred.tom_forge.md`.
 
 ## Config editor (§6)
 
@@ -436,7 +436,7 @@ via `ForgeShellApi.layout.openFile`.
 > `ConfigIssue` carries no source line/column, so the offending path travels in
 > the diagnostic `code`. Precise line mapping is a deferred refinement (an
 > owning-package change in `tom_website_editor_core`); tracked in
-> `completion_steps.tom_forge.md`.
+> `deferred.tom_forge.md`.
 
 ## Reload contract (§6)
 

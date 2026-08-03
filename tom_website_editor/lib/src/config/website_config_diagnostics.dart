@@ -24,7 +24,7 @@ const String websiteConfigDiagnosticSource = 'website-editor-config';
 /// at the document head and the offending document path travels in [ForgeDiagnostic.code]
 /// (e.g. `websites[0].commands.build`). Callers that want inline squiggles per
 /// line can map [ForgeDiagnostic.code] to a line; precise line mapping is a
-/// tracked refinement (see `completion_steps.tom_forge.md`).
+/// tracked refinement (see `deferred.tom_forge.md`).
 List<ForgeDiagnostic> websiteConfigDiagnostics({
   required String yamlText,
   required Uri uri,

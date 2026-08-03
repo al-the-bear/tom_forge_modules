@@ -34,7 +34,7 @@ class PhaseComponent {
 /// document model — the former `tom_code_specs` package was removed); the
 /// Phase-4/6 surfaces are driven by the DocSpecs ↔ CodeSpecs link
 /// (`codespecs_mapping.md` §9) and remain phase-2 follow-ups — see the quest's
-/// `completion_steps.tom_specs.md`.
+/// `deferred.tom_specs.md`.
 @immutable
 class SpecPhase {
   const SpecPhase({
