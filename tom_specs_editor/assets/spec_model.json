@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-03T03:04:18.207356Z",
+  "generatedAt": "2026-08-03T14:25:28.008448Z",
   "metaSchemaVersion": 1,
   "modelVersion": 0,
   "classCount": 1262,
@@ -6789,7 +6789,7 @@
     },
     "AlertDefinitionEntry": {
       "name": "AlertDefinitionEntry",
-      "sectionId": "ALEDEFENT",
+      "sectionId": "ALEDEF",
       "doc": "Alert definition entry.",
       "standardReferences": {
         "standards": [
@@ -6812,7 +6812,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "ALEDEFENT"
+            "id": "ALEDEF"
           }
         }
       ],
@@ -7670,7 +7670,7 @@
     },
     "AlertRuleEntry": {
       "name": "AlertRuleEntry",
-      "sectionId": "ALERULENT",
+      "sectionId": "ALERUL",
       "doc": "An alert rule entry.",
       "standardReferences": {
         "standards": [
@@ -7693,7 +7693,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "ALERULENT"
+            "id": "ALERUL"
           }
         }
       ],
@@ -8253,8 +8253,8 @@
           "kind": "list",
           "doc": "Alert rules catalog.",
           "help": "Add one entry per alert rule.",
-          "sectionId": "ALERULENT-ALER-LST",
-          "sectionIdPattern": "ALERULENT-ALER-xxx",
+          "sectionId": "ALERUL-ALER-LST",
+          "sectionIdPattern": "ALERUL-ALER-xxx",
           "standardReferences": {
             "standards": [
               "Prometheus — Alertmanager (routing, grouping, silencing)"
@@ -8275,13 +8275,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "ALERULENT-ALER-LST"
+                "id": "ALERUL-ALER-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "ALERULENT-ALER-xxx"
+                "pattern": "ALERUL-ALER-xxx"
               }
             },
             {
@@ -17145,8 +17145,8 @@
           "kind": "list",
           "doc": "Contains 0+× RolePermission.",
           "help": "Add one entry per direct permission.",
-          "sectionId": "ROLPERM-DIRE-LST",
-          "sectionIdPattern": "ROLPERM-DIRE-xxx",
+          "sectionId": "ROLPER-DIRE-LST",
+          "sectionIdPattern": "ROLPER-DIRE-xxx",
           "standardReferences": {
             "standards": [
               "NIST RBAC INCITS 359-2012 — permission-to-role assignment"
@@ -17167,13 +17167,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "ROLPERM-DIRE-LST"
+                "id": "ROLPER-DIRE-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "ROLPERM-DIRE-xxx"
+                "pattern": "ROLPER-DIRE-xxx"
               }
             },
             {
@@ -17197,8 +17197,8 @@
           "kind": "list",
           "doc": "Contains 0+× RoleDataScope.",
           "help": "Add one entry per data scope.",
-          "sectionId": "ROLDSCP-DATA-LST",
-          "sectionIdPattern": "ROLDSCP-DATA-xxx",
+          "sectionId": "RODASC-DATA-LST",
+          "sectionIdPattern": "RODASC-DATA-xxx",
           "standardReferences": {
             "standards": [
               "NIST SP 800-162 — attribute-based access control constraints",
@@ -17221,13 +17221,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "ROLDSCP-DATA-LST"
+                "id": "RODASC-DATA-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "ROLDSCP-DATA-xxx"
+                "pattern": "RODASC-DATA-xxx"
               }
             },
             {
@@ -22110,7 +22110,7 @@
     },
     "BrowserCompatibilityEntry": {
       "name": "BrowserCompatibilityEntry",
-      "sectionId": "BROCOMENT",
+      "sectionId": "BROCOM",
       "doc": "Browser compatibility entry.",
       "standardReferences": {
         "standards": [
@@ -22133,7 +22133,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "BROCOMENT"
+            "id": "BROCOM"
           }
         }
       ],
@@ -22466,7 +22466,7 @@
     },
     "BrowserRequirementEntry": {
       "name": "BrowserRequirementEntry",
-      "sectionId": "BROREQENT",
+      "sectionId": "BROREQ",
       "doc": "Browser requirement entry.",
       "standardReferences": {
         "standards": [
@@ -22489,7 +22489,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "BROREQENT"
+            "id": "BROREQ"
           }
         }
       ],
@@ -23612,7 +23612,7 @@
     },
     "BusinessComponentEntry": {
       "name": "BusinessComponentEntry",
-      "sectionId": "BUSCOMENT",
+      "sectionId": "BUSCOM",
       "doc": "Business logic component entry.",
       "standardReferences": {
         "standards": [
@@ -23635,7 +23635,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "BUSCOMENT"
+            "id": "BUSCOM"
           }
         }
       ],
@@ -34432,9 +34432,9 @@
               "type": "String",
               "required": false,
               "refersTo": [
-                "BROREQENT.browserName",
-                "DEOSREEN.osName",
-                "MODEREEN.platform"
+                "BROREQ.browserName",
+                "DEOSRE.osName",
+                "MODERE.platform"
               ]
             },
             {
@@ -35494,8 +35494,8 @@
           "kind": "list",
           "doc": "Web browser requirements.",
           "help": "Add one entry per supported web browser.",
-          "sectionId": "BROREQENT-BROW-LST",
-          "sectionIdPattern": "BROREQENT-BROW-xxx",
+          "sectionId": "BROREQ-BROW-LST",
+          "sectionIdPattern": "BROREQ-BROW-xxx",
           "standardReferences": {
             "standards": [
               "WHATWG / W3C — web platform / browser standards"
@@ -35516,13 +35516,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "BROREQENT-BROW-LST"
+                "id": "BROREQ-BROW-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "BROREQENT-BROW-xxx"
+                "pattern": "BROREQ-BROW-xxx"
               }
             },
             {
@@ -35546,8 +35546,8 @@
           "kind": "list",
           "doc": "Desktop operating system requirements.",
           "help": "Add one entry per supported desktop operating system.",
-          "sectionId": "DEOSREEN-DESK-LST",
-          "sectionIdPattern": "DEOSREEN-DESK-xxx",
+          "sectionId": "DEOSRE-DESK-LST",
+          "sectionIdPattern": "DEOSRE-DESK-xxx",
           "standardReferences": {
             "standards": [
               "ISO/IEC 25010 — performance efficiency / resource utilization"
@@ -35568,13 +35568,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "DEOSREEN-DESK-LST"
+                "id": "DEOSRE-DESK-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "DEOSREEN-DESK-xxx"
+                "pattern": "DEOSRE-DESK-xxx"
               }
             },
             {
@@ -35598,8 +35598,8 @@
           "kind": "list",
           "doc": "Mobile device requirements.",
           "help": "Add one entry per supported mobile platform.",
-          "sectionId": "MODEREEN-MOBI-LST",
-          "sectionIdPattern": "MODEREEN-MOBI-xxx",
+          "sectionId": "MODERE-MOBI-LST",
+          "sectionIdPattern": "MODERE-MOBI-xxx",
           "standardReferences": {
             "standards": [
               "Android CDD / Apple HIG — mobile device platform requirements"
@@ -35620,13 +35620,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "MODEREEN-MOBI-LST"
+                "id": "MODERE-MOBI-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "MODEREEN-MOBI-xxx"
+                "pattern": "MODERE-MOBI-xxx"
               }
             },
             {
@@ -40374,8 +40374,8 @@
           "kind": "list",
           "doc": "Browser compatibility requirements.",
           "help": "Add one entry per supported browser.",
-          "sectionId": "BROCOMENT-BROW-LST",
-          "sectionIdPattern": "BROCOMENT-BROW-xxx",
+          "sectionId": "BROCOM-BROW-LST",
+          "sectionIdPattern": "BROCOM-BROW-xxx",
           "standardReferences": {
             "standards": [
               "WHATWG / W3C — web platform / browser standards",
@@ -40398,13 +40398,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "BROCOMENT-BROW-LST"
+                "id": "BROCOM-BROW-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "BROCOMENT-BROW-xxx"
+                "pattern": "BROCOM-BROW-xxx"
               }
             },
             {
@@ -40428,8 +40428,8 @@
           "kind": "list",
           "doc": "Database compatibility requirements.",
           "help": "Add one entry per supported database.",
-          "sectionId": "DATCOMENT-DATA-LST",
-          "sectionIdPattern": "DATCOMENT-DATA-xxx",
+          "sectionId": "DATCOM-DATA-LST",
+          "sectionIdPattern": "DATCOM-DATA-xxx",
           "standardReferences": {
             "standards": [
               "ISO/IEC 9075 (SQL) — relational database standard",
@@ -40452,13 +40452,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "DATCOMENT-DATA-LST"
+                "id": "DATCOM-DATA-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "DATCOMENT-DATA-xxx"
+                "pattern": "DATCOM-DATA-xxx"
               }
             },
             {
@@ -40482,8 +40482,8 @@
           "kind": "list",
           "doc": "Enterprise system compatibility requirements.",
           "help": "Add one entry per enterprise system.",
-          "sectionId": "ENSYCOEN-ENTE-LST",
-          "sectionIdPattern": "ENSYCOEN-ENTE-xxx",
+          "sectionId": "ENSYCO-ENTE-LST",
+          "sectionIdPattern": "ENSYCO-ENTE-xxx",
           "standardReferences": {
             "standards": [
               "ISO/IEC 25010 — compatibility (co-existence / interoperability)",
@@ -40506,13 +40506,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "ENSYCOEN-ENTE-LST"
+                "id": "ENSYCO-ENTE-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "ENSYCOEN-ENTE-xxx"
+                "pattern": "ENSYCO-ENTE-xxx"
               }
             },
             {
@@ -40644,8 +40644,8 @@
           "kind": "list",
           "doc": "Mobile device compatibility requirements.",
           "help": "Add one entry per supported mobile platform.",
-          "sectionId": "MOBCOMENT-MOBI-LST",
-          "sectionIdPattern": "MOBCOMENT-MOBI-xxx",
+          "sectionId": "MOBCOM-MOBI-LST",
+          "sectionIdPattern": "MOBCOM-MOBI-xxx",
           "standardReferences": {
             "standards": [
               "ISO/IEC 25010 — compatibility (co-existence / interoperability)",
@@ -40668,13 +40668,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "MOBCOMENT-MOBI-LST"
+                "id": "MOBCOM-MOBI-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "MOBCOMENT-MOBI-xxx"
+                "pattern": "MOBCOM-MOBI-xxx"
               }
             },
             {
@@ -40698,8 +40698,8 @@
           "kind": "list",
           "doc": "Third-party software compatibility requirements.",
           "help": "Add one entry per third-party software product.",
-          "sectionId": "THPACOEN-THIR-LST",
-          "sectionIdPattern": "THPACOEN-THIR-xxx",
+          "sectionId": "THPACO-THIR-LST",
+          "sectionIdPattern": "THPACO-THIR-xxx",
           "standardReferences": {
             "standards": [
               "ISO/IEC 25010 — compatibility (co-existence / interoperability)",
@@ -40722,13 +40722,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "THPACOEN-THIR-LST"
+                "id": "THPACO-THIR-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "THPACOEN-THIR-xxx"
+                "pattern": "THPACO-THIR-xxx"
               }
             },
             {
@@ -47279,7 +47279,7 @@
     },
     "ComponentStateEntry": {
       "name": "ComponentStateEntry",
-      "sectionId": "COMSTAENT",
+      "sectionId": "COMSTA",
       "doc": "A component state entry.\n\nDefines a visual/functional state of the component.",
       "standardReferences": {
         "standards": [
@@ -47304,7 +47304,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "COMSTAENT"
+            "id": "COMSTA"
           }
         },
         {
@@ -54646,7 +54646,7 @@
     },
     "CurrentStateRiskAssessment": {
       "name": "CurrentStateRiskAssessment",
-      "sectionId": "CUSTRIAS",
+      "sectionId": "CUSTRI",
       "doc": "1.6. Current State Risks.\n\nRisks tied to the current state and to its replacement. Distinct from\nthe target-side risks section which covers replacement risks.",
       "detailedIn": "D01CurrentLandscapeAssessment",
       "standardReferences": {
@@ -54670,7 +54670,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "CUSTRIAS"
+            "id": "CUSTRI"
           }
         },
         {
@@ -55406,7 +55406,7 @@
     },
     "CustomMetricEntry": {
       "name": "CustomMetricEntry",
-      "sectionId": "CUSMETENT",
+      "sectionId": "CUSMET",
       "doc": "A custom metric entry.",
       "standardReferences": {
         "standards": [
@@ -55429,7 +55429,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "CUSMETENT"
+            "id": "CUSMET"
           }
         }
       ],
@@ -60820,7 +60820,7 @@
             {
               "name": "allowedValues",
               "label": "Allowed Values",
-              "hint": "Enumerated values if applicable",
+              "hint": "The subset of values this attribute permits — value ids from the domain enum it is typed by, or the permitted literals for a non-enumerated attribute; empty means unrestricted",
               "type": "String",
               "required": false
             },
@@ -60869,7 +60869,7 @@
           "name": "OneOf",
           "arguments": {
             "discriminator": "dataType",
-            "note": "Attribute data-type closed choice (csra4): the logical type selects its promoted options subsection (text / numeric / temporal / binary / file reference); boolean, uuid and json carry only the common type and constraint subsections."
+            "note": "Attribute data-type closed choice (csra4): the logical type selects its promoted options subsection (text / numeric / temporal / binary / file reference / enumeration); boolean, uuid and json carry only the common type and constraint subsections, each for the reason stated at its constant."
           }
         },
         {
@@ -61363,6 +61363,66 @@
           ]
         },
         {
+          "name": "enumerationTypeOptions",
+          "kind": "form",
+          "doc": "Enumeration-kind type options — a promoted `@OneOf` case.\n\nPresent only for the `enumeration` logical type, and carrying exactly one\nthing: **which** domain enum the attribute is typed by. The emitted\ncolumn's value type *is* the generated enum type, so an enumerated\nattribute that names no enum cannot be emitted — which is why this is a\nrequired field rather than a hint.\n\nThe enum is **named, never restated**. `DomainEnumRegistry` is the single\nsource for closed value sets, and its entries are what the `domainEnum`\nmember kind is generated from; listing the values again here would be a\nsecond source that could disagree with the first. The same choice is made\nwherever else the model types a value by an enum — an operation request or\nresponse member (`SVOPM.domainEnum`) names its entry the same way.\n\nHow the value is **stored** is not authored here either: the backing type\nbelongs to the enum (`DMENE.backingType`), so every attribute typed by it\nstores it the same way. And *narrowing* — this attribute permitting only\nsome of the enum's values — is a constraint, authored in the `constraints`\nlist where every other per-attribute restriction lives.",
+          "sectionId": "DAATT-DTEN",
+          "standardReferences": {
+            "standards": [
+              "ISO/IEC 11179 — permissible value and representation of a data element"
+            ],
+            "connotation": "The declared value set a domain-enum attribute draws from."
+          },
+          "serializationOrder": 7,
+          "annotations": [
+            {
+              "name": "SectionId",
+              "arguments": {
+                "id": "DAATT-DTEN"
+              }
+            },
+            {
+              "name": "StandardReferences",
+              "arguments": {
+                "standards": [
+                  "ISO/IEC 11179 — permissible value and representation of a data element"
+                ],
+                "connotation": "The declared value set a domain-enum attribute draws from."
+              }
+            },
+            {
+              "name": "Case",
+              "arguments": {
+                "value": "DataAttributeKind.enumeration"
+              }
+            },
+            {
+              "name": "Form",
+              "arguments": {
+                "fields": []
+              }
+            },
+            {
+              "name": "SerializationOrder",
+              "arguments": {
+                "order": 7
+              }
+            }
+          ],
+          "formFields": [
+            {
+              "name": "domainEnum",
+              "label": "Domain Enum",
+              "hint": "DomainEnumEntry.enumName this attribute is typed by (e.g. OrderStatus) — declared once in the domain enum register, not restated here",
+              "type": "String",
+              "required": true,
+              "refersTo": [
+                "DMENE.enumName"
+              ]
+            }
+          ]
+        },
+        {
           "name": "constraints",
           "kind": "list",
           "help": "Add one entry per attribute constraint.",
@@ -61375,7 +61435,7 @@
             ],
             "connotation": "Validation constraints on this attribute, such as nullability, ranges, patterns, and default values."
           },
-          "serializationOrder": 7,
+          "serializationOrder": 8,
           "annotations": [
             {
               "name": "StandardReferences",
@@ -61408,7 +61468,7 @@
             {
               "name": "SerializationOrder",
               "arguments": {
-                "order": 7
+                "order": 8
               }
             }
           ],
@@ -61419,7 +61479,7 @@
           "name": "derivation",
           "kind": "form",
           "sectionId": "DAATT-DERI",
-          "serializationOrder": 8,
+          "serializationOrder": 9,
           "annotations": [
             {
               "name": "SectionId",
@@ -61436,7 +61496,7 @@
             {
               "name": "SerializationOrder",
               "arguments": {
-                "order": 8
+                "order": 9
               }
             }
           ],
@@ -61475,7 +61535,7 @@
           "name": "securityClassification",
           "kind": "form",
           "sectionId": "DAATT-SECU",
-          "serializationOrder": 9,
+          "serializationOrder": 10,
           "annotations": [
             {
               "name": "SectionId",
@@ -61492,7 +61552,7 @@
             {
               "name": "SerializationOrder",
               "arguments": {
-                "order": 9
+                "order": 10
               }
             }
           ],
@@ -61538,7 +61598,7 @@
           "name": "migrationLineage",
           "kind": "form",
           "sectionId": "DAATT-MIGR",
-          "serializationOrder": 10,
+          "serializationOrder": 11,
           "annotations": [
             {
               "name": "SectionId",
@@ -61555,7 +61615,7 @@
             {
               "name": "SerializationOrder",
               "arguments": {
-                "order": 10
+                "order": 11
               }
             }
           ],
@@ -61609,7 +61669,7 @@
             ],
             "connotation": "UI and display properties for this attribute, such as labels, formatting, ordering, and visibility."
           },
-          "serializationOrder": 11,
+          "serializationOrder": 12,
           "annotations": [
             {
               "name": "StandardReferences",
@@ -61641,7 +61701,7 @@
             {
               "name": "SerializationOrder",
               "arguments": {
-                "order": 11
+                "order": 12
               }
             }
           ],
@@ -63589,7 +63649,7 @@
     },
     "DataEntityMigrationEntry": {
       "name": "DataEntityMigrationEntry",
-      "sectionId": "DAENMIEN",
+      "sectionId": "DAENMI",
       "doc": "A data entity migration entry.",
       "standardReferences": {
         "standards": [
@@ -63610,7 +63670,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "DAENMIEN"
+            "id": "DAENMI"
           }
         }
       ],
@@ -71901,7 +71961,7 @@
     },
     "DatabaseCompatibilityEntry": {
       "name": "DatabaseCompatibilityEntry",
-      "sectionId": "DATCOMENT",
+      "sectionId": "DATCOM",
       "doc": "Database compatibility entry.",
       "standardReferences": {
         "standards": [
@@ -71924,7 +71984,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "DATCOMENT"
+            "id": "DATCOM"
           }
         }
       ],
@@ -75686,9 +75746,15 @@
             {
               "name": "requirementRef",
               "label": "Requirement Reference",
-              "hint": "Linked requirement ID(s) — e.g. REQ-042",
+              "hint": "Requirement ids, comma-separated — a functional requirement section id (FRE-REQU-…), or a technical/security/organizational requirement id (REQ-T001 / REQ-S001 / REQ-O001)",
               "type": "String",
-              "required": false
+              "required": false,
+              "refersTo": [
+                "FRE.@sectionId",
+                "TERQ.requirementId",
+                "SECRQ.requirementId",
+                "ORRQ.requirementId"
+              ]
             },
             {
               "name": "deliverableRef",
@@ -79199,7 +79265,7 @@
     },
     "DeploymentTargetEntry": {
       "name": "DeploymentTargetEntry",
-      "sectionId": "DEPTARENT",
+      "sectionId": "DEPTAR",
       "doc": "Deployment target specification entry.",
       "standardReferences": {
         "standards": [
@@ -79222,7 +79288,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "DEPTARENT"
+            "id": "DEPTAR"
           }
         }
       ],
@@ -81447,7 +81513,7 @@
     },
     "DesktopOsRequirementEntry": {
       "name": "DesktopOsRequirementEntry",
-      "sectionId": "DEOSREEN",
+      "sectionId": "DEOSRE",
       "doc": "Desktop operating system requirement entry.",
       "standardReferences": {
         "standards": [
@@ -81470,7 +81536,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "DEOSREEN"
+            "id": "DEOSRE"
           }
         }
       ],
@@ -90661,7 +90727,7 @@
     },
     "ElementValidationRuleEntry": {
       "name": "ElementValidationRuleEntry",
-      "sectionId": "ELVARUEN",
+      "sectionId": "ELVARU",
       "doc": "A validation rule entry (form).",
       "standardReferences": {
         "standards": [
@@ -90684,7 +90750,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "ELVARUEN"
+            "id": "ELVARU"
           }
         },
         {
@@ -91684,7 +91750,7 @@
     },
     "EnterpriseSystemCompatibilityEntry": {
       "name": "EnterpriseSystemCompatibilityEntry",
-      "sectionId": "ENSYCOEN",
+      "sectionId": "ENSYCO",
       "doc": "Enterprise system compatibility entry.",
       "standardReferences": {
         "standards": [
@@ -91707,7 +91773,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "ENSYCOEN"
+            "id": "ENSYCO"
           }
         }
       ],
@@ -92130,8 +92196,8 @@
           "kind": "list",
           "doc": "Contains 0+× ResourceKeyReference.",
           "help": "Add one entry per resource reference.",
-          "sectionId": "RESKREF-RESO-LST",
-          "sectionIdPattern": "RESKREF-RESO-xxx",
+          "sectionId": "REKERE-RESO-LST",
+          "sectionIdPattern": "REKERE-RESO-xxx",
           "standardReferences": {
             "standards": [
               "ISO/IEC 27001:2022 — control A.8.3 information access restriction",
@@ -92154,13 +92220,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "RESKREF-RESO-LST"
+                "id": "REKERE-RESO-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "RESKREF-RESO-xxx"
+                "pattern": "REKERE-RESO-xxx"
               }
             },
             {
@@ -99807,7 +99873,7 @@
     },
     "ExportFieldMappingEntry": {
       "name": "ExportFieldMappingEntry",
-      "sectionId": "EXFIMAEN",
+      "sectionId": "EXFIMA",
       "doc": "A field mapping within an export (form).",
       "standardReferences": {
         "standards": [
@@ -99830,7 +99896,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "EXFIMAEN"
+            "id": "EXFIMA"
           }
         },
         {
@@ -101192,8 +101258,8 @@
           "kind": "list",
           "doc": "Contains 0+× Export Field Mapping.",
           "help": "Add one entry per export field mapping.",
-          "sectionId": "EXFIMAEN-FIEL-LST",
-          "sectionIdPattern": "EXFIMAEN-FIEL-xxx",
+          "sectionId": "EXFIMA-FIEL-LST",
+          "sectionIdPattern": "EXFIMA-FIEL-xxx",
           "standardReferences": {
             "standards": [
               "IETF RFC 4180 — each field in a record corresponds to a named column defined by the header line",
@@ -101216,13 +101282,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "EXFIMAEN-FIEL-LST"
+                "id": "EXFIMA-FIEL-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "EXFIMAEN-FIEL-xxx"
+                "pattern": "EXFIMA-FIEL-xxx"
               }
             },
             {
@@ -102465,8 +102531,8 @@
           "kind": "list",
           "doc": "External partner connections — contains 0+× ExternalPartnerConnection.",
           "help": "Add one entry per external partner connection.",
-          "sectionId": "EXPACOEN-PART-LST",
-          "sectionIdPattern": "EXPACOEN-PART-xxx",
+          "sectionId": "EXPACO-PART-LST",
+          "sectionIdPattern": "EXPACO-PART-xxx",
           "standardReferences": {
             "standards": [
               "Enterprise Integration Patterns — messaging & integration"
@@ -102487,13 +102553,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "EXPACOEN-PART-LST"
+                "id": "EXPACO-PART-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "EXPACOEN-PART-xxx"
+                "pattern": "EXPACO-PART-xxx"
               }
             },
             {
@@ -103349,7 +103415,7 @@
     },
     "ExternalPartnerConnectionEntry": {
       "name": "ExternalPartnerConnectionEntry",
-      "sectionId": "EXPACOEN",
+      "sectionId": "EXPACO",
       "doc": "An external partner connection entry (form).",
       "standardReferences": {
         "standards": [
@@ -103374,7 +103440,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "EXPACOEN"
+            "id": "EXPACO"
           }
         }
       ],
@@ -104370,7 +104436,7 @@
     },
     "ExternalSystemContextEntry": {
       "name": "ExternalSystemContextEntry",
-      "sectionId": "EXSYCOEN",
+      "sectionId": "EXSYCO",
       "doc": "An external system context entry (form).",
       "standardReferences": {
         "standards": [
@@ -104393,7 +104459,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "EXSYCOEN"
+            "id": "EXSYCO"
           }
         }
       ],
@@ -104652,13 +104718,13 @@
           "name": "dataMapping",
           "kind": "content",
           "doc": "Data mapping details.",
-          "sectionId": "EXSYCOEN-DATA",
+          "sectionId": "EXSYCO-DATA",
           "serializationOrder": 4,
           "annotations": [
             {
               "name": "SectionId",
               "arguments": {
-                "id": "EXSYCOEN-DATA"
+                "id": "EXSYCO-DATA"
               }
             },
             {
@@ -104742,8 +104808,8 @@
           "kind": "list",
           "doc": "External system entries — contains 0+× ExternalSystemContextEntry.",
           "help": "Add one entry per external system that this system integrates with.",
-          "sectionId": "EXSYCOEN-SYST-LST",
-          "sectionIdPattern": "EXSYCOEN-SYST-xxx",
+          "sectionId": "EXSYCO-SYST-LST",
+          "sectionIdPattern": "EXSYCO-SYST-xxx",
           "standardReferences": {
             "standards": [
               "ISO/IEC/IEEE 29148 §6 — external system interfaces"
@@ -104764,13 +104830,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "EXSYCOEN-SYST-LST"
+                "id": "EXSYCO-SYST-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "EXSYCOEN-SYST-xxx"
+                "pattern": "EXSYCO-SYST-xxx"
               }
             },
             {
@@ -105096,8 +105162,6 @@
               "type": "String",
               "required": true,
               "refersTo": [
-                "ME.featureId",
-                "FSM.featureId",
                 "FPE.featureId"
               ]
             },
@@ -105108,8 +105172,6 @@
               "type": "String",
               "required": true,
               "refersTo": [
-                "ME.featureId",
-                "FSM.featureId",
                 "FPE.featureId"
               ]
             },
@@ -106115,9 +106177,9 @@
           "sectionType": "TextSection"
         },
         {
-          "name": "moscowAnalysis",
+          "name": "featurePriorityRegister",
           "kind": "complex",
-          "doc": "13.4.1. MoSCoW Analysis.",
+          "doc": "13.4.1. Feature Priority Register.\n\nThe register comes first because the three sections after it are views\nonto it: each names a feature by the id declared here.",
           "serializationOrder": 8,
           "annotations": [
             {
@@ -106127,12 +106189,12 @@
               }
             }
           ],
-          "type": "MoscowAnalysis"
+          "type": "FeaturePriorityRegister"
         },
         {
-          "name": "featureStageMatrix",
+          "name": "moscowAnalysis",
           "kind": "complex",
-          "doc": "13.4.2. Feature-Stage Matrix.",
+          "doc": "13.4.2. MoSCoW Analysis.",
           "serializationOrder": 9,
           "annotations": [
             {
@@ -106142,12 +106204,12 @@
               }
             }
           ],
-          "type": "FeatureStageMatrix"
+          "type": "MoscowAnalysis"
         },
         {
-          "name": "featurePriorityRegister",
+          "name": "featureStageMatrix",
           "kind": "complex",
-          "doc": "13.4.3. Feature Priority Register.",
+          "doc": "13.4.3. Feature-Stage Matrix.",
           "serializationOrder": 10,
           "annotations": [
             {
@@ -106157,7 +106219,7 @@
               }
             }
           ],
-          "type": "FeaturePriorityRegister"
+          "type": "FeatureStageMatrix"
         },
         {
           "name": "featureDependencies",
@@ -106258,7 +106320,7 @@
               "ISO/IEC/IEEE 12207:2017 — the software life-cycle processes standard covers requirements and feature definition",
               "PMBOK Guide 7th edition 2021 — the PMI project life-cycle guidance covers scope prioritization and dependency management"
             ],
-            "connotation": "Captures the descriptive identity of a feature: its description, category, type, size, and parent epic."
+            "connotation": "Captures the descriptive identity of a feature: its description, grouping, category, type, size, and parent epic."
           },
           "serializationOrder": 1,
           "annotations": [
@@ -106275,7 +106337,7 @@
                   "ISO/IEC/IEEE 12207:2017 — the software life-cycle processes standard covers requirements and feature definition",
                   "PMBOK Guide 7th edition 2021 — the PMI project life-cycle guidance covers scope prioritization and dependency management"
                 ],
-                "connotation": "Captures the descriptive identity of a feature: its description, category, type, size, and parent epic."
+                "connotation": "Captures the descriptive identity of a feature: its description, grouping, category, type, size, and parent epic."
               }
             },
             {
@@ -106296,6 +106358,13 @@
               "name": "featureDescription",
               "label": "Description",
               "hint": "Detailed description of the feature capability",
+              "type": "String",
+              "required": false
+            },
+            {
+              "name": "featureGroup",
+              "label": "Feature Group",
+              "hint": "Logical grouping — e.g. Authentication, Reporting, Payments, User Management",
               "type": "String",
               "required": false
             },
@@ -106774,8 +106843,6 @@
               "type": "String",
               "required": false,
               "refersTo": [
-                "ME.featureId",
-                "FSM.featureId",
                 "FPE.featureId"
               ]
             },
@@ -106786,8 +106853,6 @@
               "type": "String",
               "required": false,
               "refersTo": [
-                "ME.featureId",
-                "FSM.featureId",
                 "FPE.featureId"
               ]
             },
@@ -106908,9 +106973,15 @@
             {
               "name": "linkedRequirements",
               "label": "Linked Requirements",
-              "hint": "Requirement IDs",
+              "hint": "Requirement ids, comma-separated — a functional requirement section id (FRE-REQU-…), or a technical/security/organizational requirement id (REQ-T001 / REQ-S001 / REQ-O001)",
               "type": "String",
-              "required": false
+              "required": false,
+              "refersTo": [
+                "FRE.@sectionId",
+                "TERQ.requirementId",
+                "SECRQ.requirementId",
+                "ORRQ.requirementId"
+              ]
             },
             {
               "name": "linkedUseCases",
@@ -106934,8 +107005,8 @@
             },
             {
               "name": "linkedUserStories",
-              "label": "Linked User Stories",
-              "hint": "User story IDs in the backlog",
+              "label": "Linked User Stories (external)",
+              "hint": "Story ids from the delivery backlog — owned by the delivery tooling, not declared in this blueprint",
               "type": "String",
               "required": false
             },
@@ -107037,7 +107108,7 @@
     "FeaturePriorityRegister": {
       "name": "FeaturePriorityRegister",
       "sectionId": "FEPRRE",
-      "doc": "13.4.3. Feature Priority Register.\n\nMaster register of all features with comprehensive priority scoring,\nbusiness value analysis, effort estimates, stakeholder ownership,\nand traceability. Single source of truth for feature identity.",
+      "doc": "13.4.1. Feature Priority Register.\n\nMaster register of all features with comprehensive priority scoring,\nbusiness value analysis, effort estimates, stakeholder ownership,\nand traceability. Single source of truth for feature identity: a feature\nexists because it is declared here, and every feature reference elsewhere\nin the model resolves against `FPE.featureId`. The MoSCoW analysis\n(§13.4.2), the feature-stage matrix (§13.4.3) and the dependency map\n(§13.4.4) are views onto this register — they name a registered feature and\nadd their own view's attributes, never a second copy of its identity.",
       "standardReferences": {
         "standards": [
           "DSDM Agile Project Framework 2014 — the dynamic systems development method defines the MoSCoW prioritization technique",
@@ -107221,23 +107292,12 @@
             {
               "name": "featureId",
               "label": "Feature ID",
-              "hint": "Feature identifier — matches MoSCoW entry or register",
+              "hint": "The feature this entry stages — an id declared by the Feature Priority Register (§13.4.1), e.g. FEA-001",
               "type": "String",
-              "required": true
-            },
-            {
-              "name": "featureName",
-              "label": "Feature Name",
-              "hint": "Short descriptive name",
-              "type": "String",
-              "required": true
-            },
-            {
-              "name": "featureGroup",
-              "label": "Feature Group",
-              "hint": "Logical grouping for this feature",
-              "type": "String",
-              "required": false
+              "required": true,
+              "refersTo": [
+                "FPE.featureId"
+              ]
             }
           ]
         },
@@ -107426,8 +107486,6 @@
               "type": "String",
               "required": false,
               "refersTo": [
-                "ME.featureId",
-                "FSM.featureId",
                 "FPE.featureId"
               ]
             },
@@ -107519,7 +107577,7 @@
     "FeatureStageMatrix": {
       "name": "FeatureStageMatrix",
       "sectionId": "FESTMA",
-      "doc": "13.4.2. Feature-Stage Matrix.\n\nMaps every feature or feature group to the delivery stage, tracking\nreadiness, confidence, dependencies, and acceptance criteria.",
+      "doc": "13.4.3. Feature-Stage Matrix.\n\nMaps every feature or feature group to the delivery stage, tracking\nreadiness, confidence, dependencies, and acceptance criteria. A view onto\nthe Feature Priority Register (§13.4.1): each entry names a registered\nfeature and adds only its staging.",
       "standardReferences": {
         "standards": [
           "PMBOK Guide 7th edition 2021 — the PMI project life-cycle guidance covers scope prioritization and delivery sequencing",
@@ -119164,7 +119222,7 @@
     },
     "IndustryProtocolComplianceEntry": {
       "name": "IndustryProtocolComplianceEntry",
-      "sectionId": "INPRCOEN",
+      "sectionId": "INPRCO",
       "doc": "Industry protocol compliance entry.",
       "standardReferences": {
         "standards": [
@@ -119187,7 +119245,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "INPRCOEN"
+            "id": "INPRCO"
           }
         }
       ],
@@ -120742,7 +120800,7 @@
     },
     "InfrastructureComponentEntry": {
       "name": "InfrastructureComponentEntry",
-      "sectionId": "INFCOMENT",
+      "sectionId": "INFCOM",
       "doc": "Infrastructure component entry.",
       "standardReferences": {
         "standards": [
@@ -120765,7 +120823,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "INFCOMENT"
+            "id": "INFCOM"
           }
         }
       ],
@@ -122876,7 +122934,7 @@
     },
     "IntegrationConstraintEntry": {
       "name": "IntegrationConstraintEntry",
-      "sectionId": "INTCONENT",
+      "sectionId": "INTCON",
       "doc": "An integration constraint entry (form).\n\nDocuments a technical constraint on system integration, including\nprotocol requirements, format restrictions, and platform mandates.",
       "standardReferences": {
         "standards": [
@@ -122899,7 +122957,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "INTCONENT"
+            "id": "INTCON"
           }
         }
       ],
@@ -125753,10 +125811,16 @@
             },
             {
               "name": "relatedRequirements",
-              "label": "Related Requirements — REQ-xxx",
-              "hint": "REQ-xxx requirements satisfied here",
+              "label": "Related Requirements",
+              "hint": "Requirement ids satisfied here, comma-separated — a functional requirement section id (FRE-REQU-…), or a technical/security/organizational requirement id (REQ-T001 / REQ-S001 / REQ-O001)",
               "type": "String",
-              "required": false
+              "required": false,
+              "refersTo": [
+                "FRE.@sectionId",
+                "TERQ.requirementId",
+                "SECRQ.requirementId",
+                "ORRQ.requirementId"
+              ]
             },
             {
               "name": "relatedUseCase",
@@ -126408,8 +126472,8 @@
           "kind": "list",
           "doc": "Business processes that depend on this interface.",
           "help": "List business processes that depend on this interface, noting dependency type and fallback if the interface is unavailable.",
-          "sectionId": "INBUPREN-DEPE-LST",
-          "sectionIdPattern": "INBUPREN-DEPE-xxx",
+          "sectionId": "INBUPR-DEPE-LST",
+          "sectionIdPattern": "INBUPR-DEPE-xxx",
           "standardReferences": {
             "standards": [
               "TOGAF — system context & boundary definition"
@@ -126430,13 +126494,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "INBUPREN-DEPE-LST"
+                "id": "INBUPR-DEPE-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "INBUPREN-DEPE-xxx"
+                "pattern": "INBUPR-DEPE-xxx"
               }
             },
             {
@@ -126459,7 +126523,7 @@
     },
     "InterfaceBusinessProcessEntry": {
       "name": "InterfaceBusinessProcessEntry",
-      "sectionId": "INBUPREN",
+      "sectionId": "INBUPR",
       "doc": "Business process dependency entry.",
       "standardReferences": {
         "standards": [
@@ -126480,7 +126544,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "INBUPREN"
+            "id": "INBUPR"
           }
         }
       ],
@@ -126541,7 +126605,7 @@
     },
     "InterfaceDataEntityEntry": {
       "name": "InterfaceDataEntityEntry",
-      "sectionId": "INDAENEN",
+      "sectionId": "INDAEN",
       "doc": "Data entity exchanged.",
       "standardReferences": {
         "standards": [
@@ -126562,7 +126626,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "INDAENEN"
+            "id": "INDAEN"
           }
         }
       ],
@@ -126765,8 +126829,8 @@
           "kind": "list",
           "doc": "Data entities exchanged.",
           "help": "List each data entity exchanged, noting direction, field count, sensitive fields, and the internal entity it maps to.",
-          "sectionId": "INDAENEN-DATA-LST",
-          "sectionIdPattern": "INDAENEN-DATA-xxx",
+          "sectionId": "INDAEN-DATA-LST",
+          "sectionIdPattern": "INDAEN-DATA-xxx",
           "standardReferences": {
             "standards": [
               "OpenAPI / AsyncAPI — API specification"
@@ -126787,13 +126851,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "INDAENEN-DATA-LST"
+                "id": "INDAEN-DATA-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "INDAENEN-DATA-xxx"
+                "pattern": "INDAEN-DATA-xxx"
               }
             },
             {
@@ -128279,7 +128343,7 @@
     },
     "InterfaceSpecificationEntry": {
       "name": "InterfaceSpecificationEntry",
-      "sectionId": "INTSPEENT",
+      "sectionId": "INTSPE",
       "doc": "Interface specification entry (REST, GraphQL, gRPC, SOAP).",
       "standardReferences": {
         "standards": [
@@ -128302,7 +128366,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "INTSPEENT"
+            "id": "INTSPE"
           }
         }
       ],
@@ -129000,7 +129064,7 @@
     },
     "InterfaceTestScenarioEntry": {
       "name": "InterfaceTestScenarioEntry",
-      "sectionId": "INTESCEN",
+      "sectionId": "INTESC",
       "doc": "Test scenario entry.",
       "standardReferences": {
         "standards": [
@@ -129021,7 +129085,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "INTESCEN"
+            "id": "INTESC"
           }
         }
       ],
@@ -129324,8 +129388,8 @@
           "kind": "list",
           "doc": "Test scenarios.",
           "help": "List test scenarios for the interface, each with type, preconditions, steps, and expected result.",
-          "sectionId": "INTESCEN-TEST-LST",
-          "sectionIdPattern": "INTESCEN-TEST-xxx",
+          "sectionId": "INTESC-TEST-LST",
+          "sectionIdPattern": "INTESC-TEST-xxx",
           "standardReferences": {
             "standards": [
               "ISO/IEC/IEEE 29119 — software testing"
@@ -129346,13 +129410,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "INTESCEN-TEST-LST"
+                "id": "INTESC-TEST-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "INTESCEN-TEST-xxx"
+                "pattern": "INTESC-TEST-xxx"
               }
             },
             {
@@ -131377,7 +131441,7 @@
     },
     "ItStandardComplianceEntry": {
       "name": "ItStandardComplianceEntry",
-      "sectionId": "ITSTCOEN",
+      "sectionId": "ITSTCO",
       "doc": "IT standard compliance entry (ISO, IEEE, NIST, OASIS).",
       "standardReferences": {
         "standards": [
@@ -131400,7 +131464,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "ITSTCOEN"
+            "id": "ITSTCO"
           }
         }
       ],
@@ -142512,8 +142576,8 @@
           "kind": "list",
           "doc": "Custom metrics catalog.",
           "help": "Add one entry per custom metric.",
-          "sectionId": "CUSMETENT-CUST-LST",
-          "sectionIdPattern": "CUSMETENT-CUST-xxx",
+          "sectionId": "CUSMET-CUST-LST",
+          "sectionIdPattern": "CUSMET-CUST-xxx",
           "standardReferences": {
             "standards": [
               "Prometheus — metric types and exposition format"
@@ -142534,13 +142598,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "CUSMETENT-CUST-LST"
+                "id": "CUSMET-CUST-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "CUSMETENT-CUST-xxx"
+                "pattern": "CUSMET-CUST-xxx"
               }
             },
             {
@@ -146767,8 +146831,8 @@
             },
             {
               "name": "relatedIssues",
-              "label": "Related Issues",
-              "hint": "Issue IDs linked to this risk",
+              "label": "Related Issues (external)",
+              "hint": "Issue ids from the project issue tracker — owned by the tracker, not declared in this blueprint",
               "type": "String",
               "required": false
             },
@@ -147996,7 +148060,7 @@
     },
     "MobileCompatibilityEntry": {
       "name": "MobileCompatibilityEntry",
-      "sectionId": "MOBCOMENT",
+      "sectionId": "MOBCOM",
       "doc": "Mobile device compatibility entry.",
       "standardReferences": {
         "standards": [
@@ -148019,7 +148083,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "MOBCOMENT"
+            "id": "MOBCOM"
           }
         }
       ],
@@ -148511,7 +148575,7 @@
     },
     "MobileDeviceRequirementEntry": {
       "name": "MobileDeviceRequirementEntry",
-      "sectionId": "MODEREEN",
+      "sectionId": "MODERE",
       "doc": "Mobile device requirement entry.",
       "standardReferences": {
         "standards": [
@@ -148534,7 +148598,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "MODEREEN"
+            "id": "MODERE"
           }
         }
       ],
@@ -150017,8 +150081,8 @@
           "kind": "list",
           "doc": "Alert definitions.",
           "help": "Add one entry per alert definition.",
-          "sectionId": "ALEDEFENT-ALER-LST",
-          "sectionIdPattern": "ALEDEFENT-ALER-xxx",
+          "sectionId": "ALEDEF-ALER-LST",
+          "sectionIdPattern": "ALEDEF-ALER-xxx",
           "standardReferences": {
             "standards": [
               "Prometheus / Grafana — metrics & alerting"
@@ -150039,13 +150103,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "ALEDEFENT-ALER-LST"
+                "id": "ALEDEF-ALER-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "ALEDEFENT-ALER-xxx"
+                "pattern": "ALEDEF-ALER-xxx"
               }
             },
             {
@@ -150675,7 +150739,7 @@
     "MoscowAnalysis": {
       "name": "MoscowAnalysis",
       "sectionId": "MOAN",
-      "doc": "13.4.1. MoSCoW Analysis.\n\nClassifies every feature using the MoSCoW method (Must / Should /\nCould / Won't) and maps each to its target delivery stage.",
+      "doc": "13.4.2. MoSCoW Analysis.\n\nClassifies every feature using the MoSCoW method (Must / Should /\nCould / Won't) and maps each to its target delivery stage. A view onto the\nFeature Priority Register (§13.4.1): each entry names a registered feature\nand adds only its classification.",
       "standardReferences": {
         "standards": [
           "DSDM Agile Project Framework 2014 — the dynamic systems development method defines the MoSCoW prioritization technique",
@@ -150917,23 +150981,12 @@
             {
               "name": "featureId",
               "label": "Feature ID",
-              "hint": "Unique feature identifier — e.g. FEA-001, or reference to feature register entry",
+              "hint": "The feature this entry classifies — an id declared by the Feature Priority Register (§13.4.1), e.g. FEA-001",
               "type": "String",
-              "required": true
-            },
-            {
-              "name": "featureName",
-              "label": "Feature Name",
-              "hint": "Short descriptive name of the feature",
-              "type": "String",
-              "required": true
-            },
-            {
-              "name": "featureGroup",
-              "label": "Feature Group",
-              "hint": "Logical grouping — e.g. Authentication, Reporting, Payments, User Management",
-              "type": "String",
-              "required": false
+              "required": true,
+              "refersTo": [
+                "FPE.featureId"
+              ]
             }
           ]
         },
@@ -151178,9 +151231,15 @@
             {
               "name": "linkedRequirements",
               "label": "Linked Requirements",
-              "hint": "Requirement IDs this feature traces to — comma-separated",
+              "hint": "Requirement ids this feature traces to, comma-separated — a functional requirement section id (FRE-REQU-…), or a technical/security/organizational requirement id (REQ-T001 / REQ-S001 / REQ-O001)",
               "type": "String",
-              "required": false
+              "required": false,
+              "refersTo": [
+                "FRE.@sectionId",
+                "TERQ.requirementId",
+                "SECRQ.requirementId",
+                "ORRQ.requirementId"
+              ]
             },
             {
               "name": "linkedUseCases",
@@ -151199,8 +151258,6 @@
               "type": "String",
               "required": false,
               "refersTo": [
-                "ME.featureId",
-                "FSM.featureId",
                 "FPE.featureId"
               ]
             },
@@ -151507,8 +151564,8 @@
           "kind": "list",
           "doc": "Supported locale entries.",
           "help": "Add one entry per supported locale.",
-          "sectionId": "SUPLOCENT-SUPP-LST",
-          "sectionIdPattern": "SUPLOCENT-SUPP-xxx",
+          "sectionId": "SUPLOC-SUPP-LST",
+          "sectionIdPattern": "SUPLOC-SUPP-xxx",
           "standardReferences": {
             "standards": [
               "ISO 639 — language codes identify each supported locale",
@@ -151533,13 +151590,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "SUPLOCENT-SUPP-LST"
+                "id": "SUPLOC-SUPP-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "SUPLOCENT-SUPP-xxx"
+                "pattern": "SUPLOC-SUPP-xxx"
               }
             },
             {
@@ -164211,8 +164268,8 @@
           "kind": "list",
           "doc": "Contains 0+× OutOfScopeEntry.",
           "help": "Each entry records one excluded feature, system, or integration along with its exclusion rationale.",
-          "sectionId": "OUOFSCEN-ITEM-LST",
-          "sectionIdPattern": "OUOFSCEN-ITEM-xxx",
+          "sectionId": "OUTSCO-ITEM-LST",
+          "sectionIdPattern": "OUTSCO-ITEM-xxx",
           "standardReferences": {
             "standards": [
               "ISO/IEC/IEEE 29148 §6 — scope definition & assumptions/dependencies",
@@ -164235,13 +164292,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "OUOFSCEN-ITEM-LST"
+                "id": "OUTSCO-ITEM-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "OUOFSCEN-ITEM-xxx"
+                "pattern": "OUTSCO-ITEM-xxx"
               }
             },
             {
@@ -164264,7 +164321,7 @@
     },
     "OutOfScopeEntry": {
       "name": "OutOfScopeEntry",
-      "sectionId": "OUOFSCEN",
+      "sectionId": "OUTSCO",
       "doc": "An out-of-scope entry (form).",
       "standardReferences": {
         "standards": [
@@ -164287,7 +164344,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "OUOFSCEN"
+            "id": "OUTSCO"
           }
         }
       ],
@@ -168841,7 +168898,7 @@
     },
     "PhaseGateReviewEntry": {
       "name": "PhaseGateReviewEntry",
-      "sectionId": "PHGAREEN",
+      "sectionId": "PHGREV",
       "doc": "A phase gate review entry (form).\n\nDefines a single phase gate with its criteria, participants,\nrequired evidence, entry/exit conditions, and review schedule.",
       "standardReferences": {
         "standards": [
@@ -168864,7 +168921,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "PHGAREEN"
+            "id": "PHGREV"
           }
         }
       ],
@@ -169332,7 +169389,7 @@
               "type": "String",
               "required": false,
               "refersTo": [
-                "PHGAREEN.gateId"
+                "PHGREV.gateId"
               ]
             }
           ]
@@ -169678,8 +169735,8 @@
           "kind": "list",
           "doc": "Contains 0+× PhaseGateReviewEntry.",
           "help": "Add one entry per phase gate review.",
-          "sectionId": "PHGAREEN-ITEM-LST",
-          "sectionIdPattern": "PHGAREEN-ITEM-xxx",
+          "sectionId": "PHGREV-ITEM-LST",
+          "sectionIdPattern": "PHGREV-ITEM-xxx",
           "standardReferences": {
             "standards": [
               "PMBOK Guide 7th edition 2021 — the PMI project life-cycle guidance defines phase gates and phase-review controls",
@@ -169702,13 +169759,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "PHGAREEN-ITEM-LST"
+                "id": "PHGREV-ITEM-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "PHGAREEN-ITEM-xxx"
+                "pattern": "PHGREV-ITEM-xxx"
               }
             },
             {
@@ -170936,8 +170993,8 @@
           "kind": "list",
           "doc": "Deployment target specifications.",
           "help": "Add one entry per deployment target.",
-          "sectionId": "DEPTARENT-DEPL-LST",
-          "sectionIdPattern": "DEPTARENT-DEPL-xxx",
+          "sectionId": "DEPTAR-DEPL-LST",
+          "sectionIdPattern": "DEPTAR-DEPL-xxx",
           "standardReferences": {
             "standards": [
               "Twelve-Factor App — cloud-native methodology",
@@ -170960,13 +171017,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "DEPTARENT-DEPL-LST"
+                "id": "DEPTAR-DEPL-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "DEPTARENT-DEPL-xxx"
+                "pattern": "DEPTAR-DEPL-xxx"
               }
             },
             {
@@ -192555,7 +192612,7 @@
     },
     "ReplacementSystemDependencyEntry": {
       "name": "ReplacementSystemDependencyEntry",
-      "sectionId": "REPSDEP",
+      "sectionId": "RESYDE",
       "doc": "A system dependency entry.\n\nDocuments integrations and dependencies with other systems.",
       "standardReferences": {
         "standards": [
@@ -192576,7 +192633,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "REPSDEP"
+            "id": "RESYDE"
           }
         }
       ],
@@ -192843,7 +192900,7 @@
     },
     "ReportChartEntry": {
       "name": "ReportChartEntry",
-      "sectionId": "REPCHAENT",
+      "sectionId": "REPCHA",
       "doc": "A chart/visualization in a report\n(form).",
       "standardReferences": {
         "standards": [
@@ -192866,7 +192923,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "REPCHAENT"
+            "id": "REPCHA"
           }
         },
         {
@@ -193265,7 +193322,7 @@
     },
     "ReportColumnEntry": {
       "name": "ReportColumnEntry",
-      "sectionId": "REPCOLENT",
+      "sectionId": "REPCOL",
       "doc": "A column in a tabular report section\n(form).",
       "standardReferences": {
         "standards": [
@@ -193288,7 +193345,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "REPCOLENT"
+            "id": "REPCOL"
           }
         },
         {
@@ -195516,8 +195573,8 @@
           "kind": "list",
           "doc": "Contains 0+× Report Schedule.",
           "help": "Add one entry per report generation schedule.",
-          "sectionId": "REPSCHENT-SCHE-LST",
-          "sectionIdPattern": "REPSCHENT-SCHE-xxx",
+          "sectionId": "REPSCH-SCHE-LST",
+          "sectionIdPattern": "REPSCH-SCHE-xxx",
           "standardReferences": {
             "standards": [
               "ISO 8601-1:2019 — expresses the dates and times at which the report is generated",
@@ -195540,13 +195597,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "REPSCHENT-SCHE-LST"
+                "id": "REPSCH-SCHE-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "REPSCHENT-SCHE-xxx"
+                "pattern": "REPSCH-SCHE-xxx"
               }
             },
             {
@@ -196770,7 +196827,7 @@
     },
     "ReportScheduleEntry": {
       "name": "ReportScheduleEntry",
-      "sectionId": "REPSCHENT",
+      "sectionId": "REPSCH",
       "doc": "Scheduling rules for report generation\n(form).",
       "standardReferences": {
         "standards": [
@@ -196793,7 +196850,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "REPSCHENT"
+            "id": "REPSCH"
           }
         },
         {
@@ -197581,8 +197638,8 @@
           "kind": "list",
           "doc": "Contains 0+× Report Column.",
           "help": "Add one entry per column in the section table.",
-          "sectionId": "REPCOLENT-COLU-LST",
-          "sectionIdPattern": "REPCOLENT-COLU-xxx",
+          "sectionId": "REPCOL-COLU-LST",
+          "sectionIdPattern": "REPCOL-COLU-xxx",
           "standardReferences": {
             "standards": [
               "ISO 9241-112:2017 — presentation of information organises tabular data into columns"
@@ -197603,13 +197660,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "REPCOLENT-COLU-LST"
+                "id": "REPCOL-COLU-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "REPCOLENT-COLU-xxx"
+                "pattern": "REPCOL-COLU-xxx"
               }
             },
             {
@@ -197633,8 +197690,8 @@
           "kind": "list",
           "doc": "Contains 0+× Report Chart.",
           "help": "Add one entry per chart shown in the section.",
-          "sectionId": "REPCHAENT-CHAR-LST",
-          "sectionIdPattern": "REPCHAENT-CHAR-xxx",
+          "sectionId": "REPCHA-CHAR-LST",
+          "sectionIdPattern": "REPCHA-CHAR-xxx",
           "standardReferences": {
             "standards": [
               "ISO 9241-125:2017 — presentation of information conveys quantitative data through graphical form"
@@ -197655,13 +197712,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "REPCHAENT-CHAR-LST"
+                "id": "REPCHA-CHAR-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "REPCHAENT-CHAR-xxx"
+                "pattern": "REPCHA-CHAR-xxx"
               }
             },
             {
@@ -200853,7 +200910,7 @@
     },
     "ResourceKeyReferenceEntry": {
       "name": "ResourceKeyReferenceEntry",
-      "sectionId": "RESKREF",
+      "sectionId": "REKERE",
       "doc": "A resource key reference entry (form).",
       "standardReferences": {
         "standards": [
@@ -200876,7 +200933,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "RESKREF"
+            "id": "REKERE"
           }
         },
         {
@@ -203879,8 +203936,8 @@
           "kind": "list",
           "doc": "Business logic components.",
           "help": "Add one entry per business component.",
-          "sectionId": "BUSCOMENT-BUSI-LST",
-          "sectionIdPattern": "BUSCOMENT-BUSI-xxx",
+          "sectionId": "BUSCOM-BUSI-LST",
+          "sectionIdPattern": "BUSCOM-BUSI-xxx",
           "standardReferences": {
             "standards": [
               "Domain-Driven Design — bounded contexts / modules",
@@ -203903,13 +203960,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "BUSCOMENT-BUSI-LST"
+                "id": "BUSCOM-BUSI-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "BUSCOMENT-BUSI-xxx"
+                "pattern": "BUSCOM-BUSI-xxx"
               }
             },
             {
@@ -203933,8 +203990,8 @@
           "kind": "list",
           "doc": "Infrastructure components.",
           "help": "Add one entry per infrastructure component.",
-          "sectionId": "INFCOMENT-INFR-LST",
-          "sectionIdPattern": "INFCOMENT-INFR-xxx",
+          "sectionId": "INFCOM-INFR-LST",
+          "sectionIdPattern": "INFCOM-INFR-xxx",
           "standardReferences": {
             "standards": [
               "DRY — reusable component design",
@@ -203957,13 +204014,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "INFCOMENT-INFR-LST"
+                "id": "INFCOM-INFR-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "INFCOMENT-INFR-xxx"
+                "pattern": "INFCOM-INFR-xxx"
               }
             },
             {
@@ -206616,8 +206673,8 @@
             },
             {
               "name": "relatedIssues",
-              "label": "Related Issues — issues arising from this risk",
-              "hint": "Issues arising from this risk",
+              "label": "Related Issues (external tracker) — issues arising from this risk",
+              "hint": "Issues arising from this risk, named or cited by their tracker id — the issue log is owned outside this blueprint",
               "type": "String",
               "required": false
             },
@@ -208034,7 +208091,7 @@
     },
     "RoleDataScopeEntry": {
       "name": "RoleDataScopeEntry",
-      "sectionId": "ROLDSCP",
+      "sectionId": "RODASC",
       "doc": "A data scope entry for a role (form).\n\nSpecifies what data categories the role can access and at what level —\nsupports horizontal access control and data-level security.",
       "standardReferences": {
         "standards": [
@@ -208057,7 +208114,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "ROLDSCP"
+            "id": "RODASC"
           }
         },
         {
@@ -208818,7 +208875,7 @@
     },
     "RolePermissionEntry": {
       "name": "RolePermissionEntry",
-      "sectionId": "ROLPERM",
+      "sectionId": "ROLPER",
       "doc": "A direct permission entry for a role (form).\n\nCaptures direct permission assignments that complement or override\nentitlement-based access — useful when fine-grained per-role permissions\nare needed beyond what entitlements provide.",
       "standardReferences": {
         "standards": [
@@ -208841,7 +208898,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "ROLPERM"
+            "id": "ROLPER"
           }
         },
         {
@@ -214814,9 +214871,15 @@
             {
               "name": "relatedRequirements",
               "label": "Related Requirements (requirement IDs if applicable)",
-              "hint": "Requirement IDs related to this item, if applicable",
+              "hint": "Requirement ids related to this item, comma-separated — a functional requirement section id (FRE-REQU-…), or a technical/security/organizational requirement id (REQ-T001 / REQ-S001 / REQ-O001)",
               "type": "String",
-              "required": false
+              "required": false,
+              "refersTo": [
+                "FRE.@sectionId",
+                "TERQ.requirementId",
+                "SECRQ.requirementId",
+                "ORRQ.requirementId"
+              ]
             }
           ]
         }
@@ -216565,8 +216628,8 @@
           "kind": "list",
           "doc": "Contains 0+× ElementValidationRule.",
           "help": "Add one entry per validation rule.",
-          "sectionId": "ELVARUEN-VALI-LST",
-          "sectionIdPattern": "ELVARUEN-VALI-xxx",
+          "sectionId": "ELVARU-VALI-LST",
+          "sectionIdPattern": "ELVARU-VALI-xxx",
           "standardReferences": {
             "standards": [
               "ISO 9241-143:2012 — validation of user input in form-based interaction",
@@ -216589,13 +216652,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "ELVARUEN-VALI-LST"
+                "id": "ELVARU-VALI-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "ELVARUEN-VALI-xxx"
+                "pattern": "ELVARU-VALI-xxx"
               }
             },
             {
@@ -217532,9 +217595,15 @@
             {
               "name": "relatedRequirements",
               "label": "Related Requirements",
-              "hint": "RSP references this screen satisfies",
+              "hint": "Requirement ids this screen satisfies, comma-separated — a functional requirement section id (FRE-REQU-…), or a technical/security/organizational requirement id (REQ-T001 / REQ-S001 / REQ-O001)",
               "type": "String",
-              "required": false
+              "required": false,
+              "refersTo": [
+                "FRE.@sectionId",
+                "TERQ.requirementId",
+                "SECRQ.requirementId",
+                "ORRQ.requirementId"
+              ]
             },
             {
               "name": "relatedBusinessProcesses",
@@ -217622,8 +217691,8 @@
             },
             {
               "name": "helpTopicId",
-              "label": "Help Topic ID",
-              "hint": "Link to help/documentation topic",
+              "label": "Help Topic ID (external)",
+              "hint": "Topic id in the documentation system — owned by the documentation process, not declared in this blueprint",
               "type": "String",
               "required": false
             },
@@ -217810,8 +217879,8 @@
           "kind": "list",
           "doc": "Contains 0+× ScreenResponsiveRule.",
           "help": "Add one entry per responsive rule.",
-          "sectionId": "SCRERUEN-RESP-LST",
-          "sectionIdPattern": "SCRERUEN-RESP-xxx",
+          "sectionId": "SCRERU-RESP-LST",
+          "sectionIdPattern": "SCRERU-RESP-xxx",
           "standardReferences": {
             "standards": [
               "ISO 9241-125:2017 — adaptation of visual presentation to different display conditions",
@@ -217834,13 +217903,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "SCRERUEN-RESP-LST"
+                "id": "SCRERU-RESP-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "SCRERUEN-RESP-xxx"
+                "pattern": "SCRERU-RESP-xxx"
               }
             },
             {
@@ -218957,7 +219026,7 @@
     },
     "ScreenResponsiveRuleEntry": {
       "name": "ScreenResponsiveRuleEntry",
-      "sectionId": "SCRERUEN",
+      "sectionId": "SCRERU",
       "doc": "A responsive rule entry (form).\n\nHow the screen adapts at different breakpoints.",
       "standardReferences": {
         "standards": [
@@ -218980,7 +219049,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "SCRERUEN"
+            "id": "SCRERU"
           }
         },
         {
@@ -220122,11 +220191,11 @@
             {
               "name": "outcomeReference",
               "label": "Outcome Reference",
-              "hint": "For error, the system error code (SYERCOEN registry); for validationError, the validation message template (VMT registry) — empty for success",
+              "hint": "For error, the system error code (SYERCO registry); for validationError, the validation message template (VMT registry) — empty for success",
               "type": "String",
               "required": false,
               "refersTo": [
-                "SYERCOEN.errorCode",
+                "SYERCO.errorCode",
                 "VMT.messageId"
               ]
             }
@@ -220280,8 +220349,8 @@
           "kind": "list",
           "doc": "Contains 0+× TabBarDefinition.",
           "help": "Add one entry per tab bar or segmented control.",
-          "sectionId": "TABADEEN-TABB-LST",
-          "sectionIdPattern": "TABADEEN-TABB-xxx",
+          "sectionId": "TABADE-TABB-LST",
+          "sectionIdPattern": "TABADE-TABB-xxx",
           "standardReferences": {
             "standards": [
               "ISO 9241-143:2012 — grouped selectable navigation controls presented as tab bars"
@@ -220302,13 +220371,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "TABADEEN-TABB-LST"
+                "id": "TABADE-TABB-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "TABADEEN-TABB-xxx"
+                "pattern": "TABADE-TABB-xxx"
               }
             },
             {
@@ -224029,7 +224098,7 @@
     },
     "SecurityStandardComplianceEntry": {
       "name": "SecurityStandardComplianceEntry",
-      "sectionId": "SESTCOEN",
+      "sectionId": "SESTCO",
       "doc": "Security standard compliance entry (SOC2, ISO 27001, CIS).",
       "standardReferences": {
         "standards": [
@@ -224052,7 +224121,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "SESTCOEN"
+            "id": "SESTCO"
           }
         }
       ],
@@ -241462,8 +241531,8 @@
           "kind": "list",
           "doc": "IT standards compliance (ISO, IEEE, NIST).",
           "help": "Add one entry per IT standard.",
-          "sectionId": "ITSTCOEN-ITST-LST",
-          "sectionIdPattern": "ITSTCOEN-ITST-xxx",
+          "sectionId": "ITSTCO-ITST-LST",
+          "sectionIdPattern": "ITSTCO-ITST-xxx",
           "standardReferences": {
             "standards": [
               "ISO/IEC 25010 — product quality model",
@@ -241486,13 +241555,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "ITSTCOEN-ITST-LST"
+                "id": "ITSTCO-ITST-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "ITSTCOEN-ITST-xxx"
+                "pattern": "ITSTCO-ITST-xxx"
               }
             },
             {
@@ -241516,8 +241585,8 @@
           "kind": "list",
           "doc": "Industry protocols compliance.",
           "help": "Add one entry per industry protocol.",
-          "sectionId": "INPRCOEN-INDU-LST",
-          "sectionIdPattern": "INPRCOEN-INDU-xxx",
+          "sectionId": "INPRCO-INDU-LST",
+          "sectionIdPattern": "INPRCO-INDU-xxx",
           "standardReferences": {
             "standards": [
               "HL7 / FHIR / ISO 20022 — industry data-exchange standards",
@@ -241540,13 +241609,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "INPRCOEN-INDU-LST"
+                "id": "INPRCO-INDU-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "INPRCOEN-INDU-xxx"
+                "pattern": "INPRCO-INDU-xxx"
               }
             },
             {
@@ -241570,8 +241639,8 @@
           "kind": "list",
           "doc": "Interface specification standards.",
           "help": "Add one entry per interface specification.",
-          "sectionId": "INTSPEENT-INTE-LST",
-          "sectionIdPattern": "INTSPEENT-INTE-xxx",
+          "sectionId": "INTSPE-INTE-LST",
+          "sectionIdPattern": "INTSPE-INTE-xxx",
           "standardReferences": {
             "standards": [
               "ISO/IEC 25010 — product quality model",
@@ -241594,13 +241663,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "INTSPEENT-INTE-LST"
+                "id": "INTSPE-INTE-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "INTSPEENT-INTE-xxx"
+                "pattern": "INTSPE-INTE-xxx"
               }
             },
             {
@@ -241678,8 +241747,8 @@
           "kind": "list",
           "doc": "Security standards compliance.",
           "help": "Add one entry per security standard.",
-          "sectionId": "SESTCOEN-SECU-LST",
-          "sectionIdPattern": "SESTCOEN-SECU-xxx",
+          "sectionId": "SESTCO-SECU-LST",
+          "sectionIdPattern": "SESTCO-SECU-xxx",
           "standardReferences": {
             "standards": [
               "ISO/IEC 27001 — information security management",
@@ -241702,13 +241771,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "SESTCOEN-SECU-LST"
+                "id": "SESTCO-SECU-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "SESTCOEN-SECU-xxx"
+                "pattern": "SESTCO-SECU-xxx"
               }
             },
             {
@@ -244141,9 +244210,15 @@
             {
               "name": "relatedRequirements",
               "label": "Related Requirements",
-              "hint": "Requirement IDs that contribute to this criterion",
+              "hint": "Requirement ids that contribute to this criterion, comma-separated — a functional requirement section id (FRE-REQU-…), or a technical/security/organizational requirement id (REQ-T001 / REQ-S001 / REQ-O001)",
               "type": "String",
-              "required": false
+              "required": false,
+              "refersTo": [
+                "FRE.@sectionId",
+                "TERQ.requirementId",
+                "SECRQ.requirementId",
+                "ORRQ.requirementId"
+              ]
             },
             {
               "name": "dependencies",
@@ -244737,7 +244812,7 @@
     },
     "SupportedLocaleEntry": {
       "name": "SupportedLocaleEntry",
-      "sectionId": "SUPLOCENT",
+      "sectionId": "SUPLOC",
       "doc": "A supported locale entry.",
       "standardReferences": {
         "standards": [
@@ -244762,7 +244837,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "SUPLOCENT"
+            "id": "SUPLOC"
           }
         },
         {
@@ -245592,8 +245667,8 @@
           "kind": "list",
           "doc": "Business units and departments using this system.",
           "help": "Add one entry per business unit using the system; note user count and dependency level.",
-          "sectionId": "SYBUUNEN-BUSI-LST",
-          "sectionIdPattern": "SYBUUNEN-BUSI-xxx",
+          "sectionId": "SYBUUN-BUSI-LST",
+          "sectionIdPattern": "SYBUUN-BUSI-xxx",
           "standardReferences": {
             "standards": [
               "TOGAF — application portfolio management (business usage)"
@@ -245614,13 +245689,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "SYBUUNEN-BUSI-LST"
+                "id": "SYBUUN-BUSI-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "SYBUUNEN-BUSI-xxx"
+                "pattern": "SYBUUN-BUSI-xxx"
               }
             },
             {
@@ -245644,8 +245719,8 @@
           "kind": "list",
           "doc": "Business processes supported by this system.",
           "help": "Add one entry per business process the system supports; note its role and execution frequency.",
-          "sectionId": "SYBUPREN-SUPP-LST",
-          "sectionIdPattern": "SYBUPREN-SUPP-xxx",
+          "sectionId": "SYBUPR-SUPP-LST",
+          "sectionIdPattern": "SYBUPR-SUPP-xxx",
           "standardReferences": {
             "standards": [
               "TOGAF — application portfolio management (business processes)"
@@ -245666,13 +245741,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "SYBUPREN-SUPP-LST"
+                "id": "SYBUPR-SUPP-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "SYBUPREN-SUPP-xxx"
+                "pattern": "SYBUPR-SUPP-xxx"
               }
             },
             {
@@ -245695,7 +245770,7 @@
     },
     "SystemBusinessProcessEntry": {
       "name": "SystemBusinessProcessEntry",
-      "sectionId": "SYBUPREN",
+      "sectionId": "SYBUPR",
       "doc": "Business process supported.",
       "standardReferences": {
         "standards": [
@@ -245716,7 +245791,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "SYBUPREN"
+            "id": "SYBUPR"
           }
         }
       ],
@@ -245781,7 +245856,7 @@
     },
     "SystemBusinessUnitEntry": {
       "name": "SystemBusinessUnitEntry",
-      "sectionId": "SYBUUNEN",
+      "sectionId": "SYBUUN",
       "doc": "Business unit using the system.",
       "standardReferences": {
         "standards": [
@@ -245802,7 +245877,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "SYBUUNEN"
+            "id": "SYBUUN"
           }
         }
       ],
@@ -246985,8 +247060,8 @@
           "kind": "list",
           "doc": "Data entities to migrate.",
           "help": "Add one entry per data entity to migrate; capture record count, target mapping, and transformation rules.",
-          "sectionId": "DAENMIEN-ENTI-LST",
-          "sectionIdPattern": "DAENMIEN-ENTI-xxx",
+          "sectionId": "DAENMI-ENTI-LST",
+          "sectionIdPattern": "DAENMI-ENTI-xxx",
           "standardReferences": {
             "standards": [
               "DAMA-DMBOK2 — data migration (entity mapping)"
@@ -247007,13 +247082,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "DAENMIEN-ENTI-LST"
+                "id": "DAENMI-ENTI-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "DAENMIEN-ENTI-xxx"
+                "pattern": "DAENMI-ENTI-xxx"
               }
             },
             {
@@ -248121,7 +248196,7 @@
     },
     "SystemErrorCodeEntry": {
       "name": "SystemErrorCodeEntry",
-      "sectionId": "SYERCOEN",
+      "sectionId": "SYERCO",
       "doc": "A system error code entry.",
       "standardReferences": {
         "standards": [
@@ -248144,7 +248219,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "SYERCOEN"
+            "id": "SYERCO"
           }
         },
         {
@@ -248839,8 +248914,8 @@
           "kind": "list",
           "doc": "Error codes catalog.",
           "help": "Add one entry per system error code.",
-          "sectionId": "SYERCOEN-ERRO-LST",
-          "sectionIdPattern": "SYERCOEN-ERRO-xxx",
+          "sectionId": "SYERCO-ERRO-LST",
+          "sectionIdPattern": "SYERCO-ERRO-xxx",
           "standardReferences": {
             "standards": [
               "ISO/IEC 27001:2022 — error codes classify events so they can be logged and correlated",
@@ -248863,13 +248938,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "SYERCOEN-ERRO-LST"
+                "id": "SYERCO-ERRO-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "SYERCOEN-ERRO-xxx"
+                "pattern": "SYERCO-ERRO-xxx"
               }
             },
             {
@@ -250024,8 +250099,8 @@
           "kind": "list",
           "doc": "Contains 0+× MigrationRiskEntry — per-system migration risks.",
           "help": "Add one entry per migration risk; capture probability, impact, mitigation, and contingency.",
-          "sectionId": "SYMIRIEN-RISK-LST",
-          "sectionIdPattern": "SYMIRIEN-RISK-xxx",
+          "sectionId": "SYMIRI-RISK-LST",
+          "sectionIdPattern": "SYMIRI-RISK-xxx",
           "standardReferences": {
             "standards": [
               "PMBOK — risk management"
@@ -250046,13 +250121,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "SYMIRIEN-RISK-LST"
+                "id": "SYMIRI-RISK-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "SYMIRIEN-RISK-xxx"
+                "pattern": "SYMIRI-RISK-xxx"
               }
             },
             {
@@ -250121,7 +250196,7 @@
     },
     "SystemMigrationRiskEntry": {
       "name": "SystemMigrationRiskEntry",
-      "sectionId": "SYMIRIEN",
+      "sectionId": "SYMIRI",
       "doc": "A system migration risk entry.",
       "standardReferences": {
         "standards": [
@@ -250142,7 +250217,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "SYMIRIEN"
+            "id": "SYMIRI"
           }
         }
       ],
@@ -253676,8 +253751,8 @@
           "kind": "list",
           "doc": "Contains 0+× ReplacementSystemDependencyEntry — integrations with other systems.",
           "help": "Add one entry per integration or dependency; capture direction, criticality, and how the link will be rebuilt or eliminated.",
-          "sectionId": "REPSDEP-DEPE-LST",
-          "sectionIdPattern": "REPSDEP-DEPE-xxx",
+          "sectionId": "RESYDE-DEPE-LST",
+          "sectionIdPattern": "RESYDE-DEPE-xxx",
           "standardReferences": {
             "standards": [
               "TOGAF — application portfolio management (integration dependencies)"
@@ -253698,13 +253773,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "REPSDEP-DEPE-LST"
+                "id": "RESYDE-DEPE-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "REPSDEP-DEPE-xxx"
+                "pattern": "RESYDE-DEPE-xxx"
               }
             },
             {
@@ -254277,8 +254352,8 @@
           "kind": "list",
           "doc": "User groups requiring specific handling.",
           "help": "Add one entry per user group needing special handling; note impact level and special considerations.",
-          "sectionId": "USGRIMEN-USER-LST",
-          "sectionIdPattern": "USGRIMEN-USER-xxx",
+          "sectionId": "USGRIM-USER-LST",
+          "sectionIdPattern": "USGRIM-USER-xxx",
           "standardReferences": {
             "standards": [
               "PMBOK — stakeholder management (user groups)"
@@ -254299,13 +254374,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "USGRIMEN-USER-LST"
+                "id": "USGRIM-USER-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "USGRIMEN-USER-xxx"
+                "pattern": "USGRIM-USER-xxx"
               }
             },
             {
@@ -254428,7 +254503,7 @@
     },
     "TabBarDefinitionEntry": {
       "name": "TabBarDefinitionEntry",
-      "sectionId": "TABADEEN",
+      "sectionId": "TABADE",
       "doc": "A tab bar definition entry (form).\n\nDefines a tab bar or segmented control on a specific screen.",
       "standardReferences": {
         "standards": [
@@ -254451,7 +254526,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "TABADEEN"
+            "id": "TABADE"
           }
         },
         {
@@ -256999,8 +257074,8 @@
           "kind": "list",
           "doc": "Integration constraints — contains 0+× IntegrationConstraint.",
           "help": "List integration constraints: protocol and format requirements, platform mandates, and the interfaces they affect.",
-          "sectionId": "INTCONENT-INTE-LST",
-          "sectionIdPattern": "INTCONENT-INTE-xxx",
+          "sectionId": "INTCON-INTE-LST",
+          "sectionIdPattern": "INTCON-INTE-xxx",
           "standardReferences": {
             "standards": [
               "TOGAF — technology architecture & environment",
@@ -257023,13 +257098,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "INTCONENT-INTE-LST"
+                "id": "INTCON-INTE-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "INTCONENT-INTE-xxx"
+                "pattern": "INTCON-INTE-xxx"
               }
             },
             {
@@ -261006,9 +261081,15 @@
             {
               "name": "requirementRef",
               "label": "Requirement Reference",
-              "hint": "Requirement ID(s) — e.g. REQ-042",
+              "hint": "Requirement ids, comma-separated — a functional requirement section id (FRE-REQU-…), or a technical/security/organizational requirement id (REQ-T001 / REQ-S001 / REQ-O001)",
               "type": "String",
-              "required": false
+              "required": false,
+              "refersTo": [
+                "FRE.@sectionId",
+                "TERQ.requirementId",
+                "SECRQ.requirementId",
+                "ORRQ.requirementId"
+              ]
             },
             {
               "name": "useCaseRef",
@@ -262342,7 +262423,7 @@
     },
     "ThirdPartyCompatibilityEntry": {
       "name": "ThirdPartyCompatibilityEntry",
-      "sectionId": "THPACOEN",
+      "sectionId": "THPACO",
       "doc": "Third-party software compatibility entry.",
       "standardReferences": {
         "standards": [
@@ -262365,7 +262446,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "THPACOEN"
+            "id": "THPACO"
           }
         }
       ],
@@ -272913,7 +272994,7 @@
     },
     "UiComponentEntry": {
       "name": "UiComponentEntry",
-      "sectionId": "UICOMENT",
+      "sectionId": "UICOM",
       "doc": "A UI component entry.\n\nComprehensive specification for a single UI component covering identity,\nvisual design, behavior, states, responsiveness, accessibility,\nauthorization, and data binding.",
       "standardReferences": {
         "standards": [
@@ -272938,7 +273019,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "UICOMENT"
+            "id": "UICOM"
           }
         },
         {
@@ -272955,13 +273036,13 @@
         {
           "name": "identity",
           "kind": "form",
-          "sectionId": "UICOMENT-IDEN",
+          "sectionId": "UICOM-IDEN",
           "serializationOrder": 0,
           "annotations": [
             {
               "name": "SectionId",
               "arguments": {
-                "id": "UICOMENT-IDEN"
+                "id": "UICOM-IDEN"
               }
             },
             {
@@ -273152,13 +273233,13 @@
         {
           "name": "visualDesign",
           "kind": "form",
-          "sectionId": "UICOMENT-VISU",
+          "sectionId": "UICOM-VISU",
           "serializationOrder": 3,
           "annotations": [
             {
               "name": "SectionId",
               "arguments": {
-                "id": "UICOMENT-VISU"
+                "id": "UICOM-VISU"
               }
             },
             {
@@ -273452,13 +273533,13 @@
         {
           "name": "interactiveBehavior",
           "kind": "form",
-          "sectionId": "UICOMENT-INTE",
+          "sectionId": "UICOM-INTE",
           "serializationOrder": 8,
           "annotations": [
             {
               "name": "SectionId",
               "arguments": {
-                "id": "UICOMENT-INTE"
+                "id": "UICOM-INTE"
               }
             },
             {
@@ -273726,13 +273807,13 @@
         {
           "name": "responsiveness",
           "kind": "form",
-          "sectionId": "UICOMENT-RESP",
+          "sectionId": "UICOM-RESP",
           "serializationOrder": 12,
           "annotations": [
             {
               "name": "SectionId",
               "arguments": {
-                "id": "UICOMENT-RESP"
+                "id": "UICOM-RESP"
               }
             },
             {
@@ -273803,13 +273884,13 @@
         {
           "name": "accessibility",
           "kind": "form",
-          "sectionId": "UICOMENT-ACCE",
+          "sectionId": "UICOM-ACCE",
           "serializationOrder": 13,
           "annotations": [
             {
               "name": "SectionId",
               "arguments": {
-                "id": "UICOMENT-ACCE"
+                "id": "UICOM-ACCE"
               }
             },
             {
@@ -273887,13 +273968,13 @@
         {
           "name": "authorization",
           "kind": "form",
-          "sectionId": "UICOMENT-AUTH",
+          "sectionId": "UICOM-AUTH",
           "serializationOrder": 14,
           "annotations": [
             {
               "name": "SectionId",
               "arguments": {
-                "id": "UICOMENT-AUTH"
+                "id": "UICOM-AUTH"
               }
             },
             {
@@ -273964,13 +274045,13 @@
         {
           "name": "resourceIntegration",
           "kind": "form",
-          "sectionId": "UICOMENT-RESO",
+          "sectionId": "UICOM-RESO",
           "serializationOrder": 15,
           "annotations": [
             {
               "name": "SectionId",
               "arguments": {
-                "id": "UICOMENT-RESO"
+                "id": "UICOM-RESO"
               }
             },
             {
@@ -274073,13 +274154,13 @@
         {
           "name": "dataBinding",
           "kind": "form",
-          "sectionId": "UICOMENT-DATA",
+          "sectionId": "UICOM-DATA",
           "serializationOrder": 16,
           "annotations": [
             {
               "name": "SectionId",
               "arguments": {
-                "id": "UICOMENT-DATA"
+                "id": "UICOM-DATA"
               }
             },
             {
@@ -274175,8 +274256,8 @@
           "kind": "list",
           "doc": "Contains 0+× ComponentState.",
           "help": "Add one entry per component state.",
-          "sectionId": "COMSTAENT-STAT-LST",
-          "sectionIdPattern": "COMSTAENT-STAT-xxx",
+          "sectionId": "COMSTA-STAT-LST",
+          "sectionIdPattern": "COMSTA-STAT-xxx",
           "standardReferences": {
             "standards": [
               "W3C WAI-ARIA 1.2 — component states such as pressed, expanded, and disabled are exposed to assistive technology",
@@ -274199,13 +274280,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "COMSTAENT-STAT-LST"
+                "id": "COMSTA-STAT-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "COMSTAENT-STAT-xxx"
+                "pattern": "COMSTA-STAT-xxx"
               }
             },
             {
@@ -274780,8 +274861,8 @@
           "kind": "list",
           "doc": "10.11.2. Component Specifications — contains 0+×.",
           "help": "Add one entry per catalog component.",
-          "sectionId": "UICOMENT-COMP-LST",
-          "sectionIdPattern": "UICOMENT-COMP-xxx",
+          "sectionId": "UICOM-COMP-LST",
+          "sectionIdPattern": "UICOM-COMP-xxx",
           "standardReferences": {
             "standards": [
               "Atomic Design (Brad Frost) — each catalog component is specified as a composable building block",
@@ -274804,13 +274885,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "UICOMENT-COMP-LST"
+                "id": "UICOM-COMP-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "UICOMENT-COMP-xxx"
+                "pattern": "UICOM-COMP-xxx"
               }
             },
             {
@@ -278975,7 +279056,7 @@
     },
     "UserGroupImpactEntry": {
       "name": "UserGroupImpactEntry",
-      "sectionId": "USGRIMEN",
+      "sectionId": "USGRIM",
       "doc": "User group impact entry.",
       "standardReferences": {
         "standards": [
@@ -278996,7 +279077,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "USGRIMEN"
+            "id": "USGRIM"
           }
         }
       ],
@@ -282114,7 +282195,7 @@
     },
     "UtilityMenuItemEntry": {
       "name": "UtilityMenuItemEntry",
-      "sectionId": "UTMEITEN",
+      "sectionId": "UTMEIT",
       "doc": "A utility menu item entry (form).\n\nEntry in a utility popup/dropdown menu (e.g., user menu items).",
       "standardReferences": {
         "standards": [
@@ -282137,7 +282218,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "UTMEITEN"
+            "id": "UTMEIT"
           }
         },
         {
@@ -282410,8 +282491,8 @@
           "kind": "list",
           "doc": "Contains 0+× UtilityNavigationItem.",
           "help": "Add one entry per utility navigation item.",
-          "sectionId": "UTNAITEN-ITEM-LST",
-          "sectionIdPattern": "UTNAITEN-ITEM-xxx",
+          "sectionId": "UTNAIT-ITEM-LST",
+          "sectionIdPattern": "UTNAIT-ITEM-xxx",
           "standardReferences": {
             "standards": [
               "ISO 9241-14:1997 — menu dialogues cover the set of always-visible utility entry points",
@@ -282434,13 +282515,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "UTNAITEN-ITEM-LST"
+                "id": "UTNAIT-ITEM-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "UTNAITEN-ITEM-xxx"
+                "pattern": "UTNAIT-ITEM-xxx"
               }
             },
             {
@@ -282463,7 +282544,7 @@
     },
     "UtilityNavigationItemEntry": {
       "name": "UtilityNavigationItemEntry",
-      "sectionId": "UTNAITEN",
+      "sectionId": "UTNAIT",
       "doc": "A utility navigation item entry (form).\n\nA persistent utility element in the app bar: user avatar, notifications bell,\nhelp icon, settings.",
       "standardReferences": {
         "standards": [
@@ -282486,7 +282567,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "UTNAITEN"
+            "id": "UTNAIT"
           }
         },
         {
@@ -282711,8 +282792,8 @@
           "kind": "list",
           "doc": "Contains 0+× UtilityMenuItem.",
           "help": "Add one entry per utility menu item.",
-          "sectionId": "UTMEITEN-MENU-LST",
-          "sectionIdPattern": "UTMEITEN-MENU-xxx",
+          "sectionId": "UTMEIT-MENU-LST",
+          "sectionIdPattern": "UTMEIT-MENU-xxx",
           "standardReferences": {
             "standards": [
               "ISO 9241-14:1997 — menu dialogues structure the nested options within a utility popup or dropdown"
@@ -282733,13 +282814,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "UTMEITEN-MENU-LST"
+                "id": "UTMEIT-MENU-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "UTMEITEN-MENU-xxx"
+                "pattern": "UTMEIT-MENU-xxx"
               }
             },
             {
@@ -286182,8 +286263,8 @@
           "kind": "list",
           "doc": "WCAG success criteria mapping.",
           "help": "Add one entry per WCAG success criterion.",
-          "sectionId": "WCSUCREN-SUCC-LST",
-          "sectionIdPattern": "WCSUCREN-SUCC-xxx",
+          "sectionId": "WCSUCR-SUCC-LST",
+          "sectionIdPattern": "WCSUCR-SUCC-xxx",
           "standardReferences": {
             "standards": [
               "W3C WCAG 2.2 — each success criterion states a testable accessibility requirement",
@@ -286206,13 +286287,13 @@
             {
               "name": "SectionId",
               "arguments": {
-                "id": "WCSUCREN-SUCC-LST"
+                "id": "WCSUCR-SUCC-LST"
               }
             },
             {
               "name": "SectionIdPattern",
               "arguments": {
-                "pattern": "WCSUCREN-SUCC-xxx"
+                "pattern": "WCSUCR-SUCC-xxx"
               }
             },
             {
@@ -286235,7 +286316,7 @@
     },
     "WcagSuccessCriterionEntry": {
       "name": "WcagSuccessCriterionEntry",
-      "sectionId": "WCSUCREN",
+      "sectionId": "WCSUCR",
       "doc": "A WCAG success criterion entry.",
       "standardReferences": {
         "standards": [
@@ -286258,7 +286339,7 @@
         {
           "name": "SectionId",
           "arguments": {
-            "id": "WCSUCREN"
+            "id": "WCSUCR"
           }
         }
       ],
