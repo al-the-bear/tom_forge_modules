@@ -12,31 +12,68 @@ String rootSelector(SpecRoot root) => root.sectionId ?? root.type;
 bool isSolutionBlueprint(SpecRoot root) =>
     root.type == 'SolutionBlueprint' || root.sectionId == 'SBP';
 
+/// The heading of the navigator's second band
+/// (`tom_specs_editor_specification.md` §14).
+const String kGenerationInputsBandLabel = 'Generation inputs';
+
 /// The default root the editor opens on when nothing is selected
 /// (`tom_specs_editor_specification.md` §14): the Solution Blueprint if the
-/// model has one, else the model's first root (so a single-root synthetic model
-/// still resolves sensibly).
-SpecRoot? defaultNavigatorRoot(List<SpecRoot> roots) {
+/// model has one, else the first **authored** root, else the model's first root
+/// (so a single-root synthetic model still resolves sensibly).
+///
+/// A generation input is never the default landing root — opening the editor on
+/// the CodeSpecs projection would present a generator's input as the thing the
+/// user came to write.
+SpecRoot? defaultNavigatorRoot(SpecModel model) {
+  final roots = model.roots;
   if (roots.isEmpty) return null;
   for (final r in roots) {
     if (isSolutionBlueprint(r)) return r;
   }
+  for (final r in roots) {
+    if (!model.isGenerationInput(r)) return r;
+  }
   return roots.first;
 }
 
-/// Orders roots for the `tom_specs_editor_specification.md` §14 navigator:
-/// **Solution Blueprint first**, then the remaining roots **alphabetically by
-/// title**. The navigator renders a separator after the Solution Blueprint;
-/// this pure ordering keeps that policy testable independently of the widget.
-List<SpecRoot> navigatorRootOrder(List<SpecRoot> roots) {
+/// Orders roots for the `tom_specs_editor_specification.md` §14 navigator, in
+/// **two bands**:
+///
+/// 1. the **authored documents** — Solution Blueprint first, then the Phase-3
+///    projections alphabetically by title;
+/// 2. the **generation inputs** — [SpecModel.isGenerationInput] roots, also
+///    alphabetically, below a labelled heading.
+///
+/// The second band exists because a generation input is not a document. Listing
+/// `D13CodeSpecsProjection` as a peer of RSP and IFM states that the spec has
+/// fourteen documents to author, when it has thirteen plus one projection whose
+/// reader is the Phase-4 generator. The band is a **presentational** split
+/// only: generation-input roots stay selectable and editable, because an edit
+/// made through any projection folds onto the same Solution Blueprint storage
+/// path (§14, storage-path key) — the same edit is one click away under the
+/// blueprint, so forbidding it here would protect nothing.
+///
+/// The ordering takes the whole [model], not just its roots, because the
+/// classification lives on the root's *class* annotations. Passing roots alone
+/// would make the band silently droppable at a call site that forgot it.
+List<SpecRoot> navigatorRootOrder(SpecModel model) {
   final master = <SpecRoot>[];
-  final others = <SpecRoot>[];
-  for (final r in roots) {
-    (isSolutionBlueprint(r) ? master : others).add(r);
+  final authored = <SpecRoot>[];
+  final generationInputs = <SpecRoot>[];
+  for (final r in model.roots) {
+    if (isSolutionBlueprint(r)) {
+      master.add(r);
+    } else if (model.isGenerationInput(r)) {
+      generationInputs.add(r);
+    } else {
+      authored.add(r);
+    }
   }
-  others.sort(
-      (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
-  return [...master, ...others];
+  int byTitle(SpecRoot a, SpecRoot b) =>
+      a.title.toLowerCase().compareTo(b.title.toLowerCase());
+  authored.sort(byTitle);
+  generationInputs.sort(byTitle);
+  return [...master, ...authored, ...generationInputs];
 }
 
 /// The `tom_specs_editor_specification.md` §14 root navigator, surfaced as the
@@ -103,8 +140,11 @@ class RootNavigatorList extends StatelessWidget {
         if (model == null) {
           return const Center(child: CircularProgressIndicator());
         }
-        final ordered = navigatorRootOrder(model.roots);
-        final fallback = defaultNavigatorRoot(model.roots);
+        final ordered = navigatorRootOrder(model);
+        final fallback = defaultNavigatorRoot(model);
+        // Index of the first generation input in `ordered`, or -1 when the
+        // model has none. The band heading is drawn immediately above it.
+        final bandStart = ordered.indexWhere(model.isGenerationInput);
         // Rebuild the highlight whenever the active root changes.
         return Column(
           children: [
@@ -133,6 +173,17 @@ class RootNavigatorList extends StatelessWidget {
                         selected: selected,
                         onTap: () => controller.setActiveRoot(seg),
                       );
+                      // The generation-inputs band opens here.
+                      if (i == bandStart) {
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Divider(height: 1),
+                            const _BandHeading(kGenerationInputsBandLabel),
+                            tile,
+                          ],
+                        );
+                      }
                       if (!showDivider) return tile;
                       return Column(
                         mainAxisSize: MainAxisSize.min,
@@ -147,6 +198,31 @@ class RootNavigatorList extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// A band heading in the root navigator — the label that separates the authored
+/// documents from the generation inputs (`tom_specs_editor_specification.md`
+/// §14). Non-interactive: it names a category, it is not a selectable root.
+class _BandHeading extends StatelessWidget {
+  const _BandHeading(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+      child: Text(
+        label.toUpperCase(),
+        style: theme.textTheme.labelSmall?.copyWith(
+          letterSpacing: 0.8,
+          fontWeight: FontWeight.w600,
+          color: theme.textTheme.labelSmall?.color?.withValues(alpha: 0.6),
+        ),
+      ),
     );
   }
 }

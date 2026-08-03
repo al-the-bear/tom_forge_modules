@@ -115,8 +115,9 @@ class MarkdownExportDialog extends StatefulWidget {
 
 class _MarkdownExportDialogState extends State<MarkdownExportDialog> {
   MarkdownScope _scope = MarkdownScope.global;
-  late final List<SpecRoot> _ordered = navigatorRootOrder(widget.roots);
-  late final SpecRoot _pdRoot = defaultNavigatorRoot(widget.roots)!;
+  late final List<SpecRoot> _ordered =
+      navigatorRootOrder(widget.controller.model);
+  late final SpecRoot _pdRoot = defaultNavigatorRoot(widget.controller.model)!;
   late SpecRoot _single = _pdRoot;
   final Set<String> _multiple = {};
 

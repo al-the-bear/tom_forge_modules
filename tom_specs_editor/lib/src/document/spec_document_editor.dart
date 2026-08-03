@@ -371,11 +371,11 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
     final roots = _model.roots;
     if (roots.isEmpty) return null;
     final selector = _controller.activeRootType ?? widget.rootType;
-    if (selector == null) return defaultNavigatorRoot(roots);
+    if (selector == null) return defaultNavigatorRoot(_model);
     for (final r in roots) {
       if (r.type == selector || r.sectionId == selector) return r;
     }
-    return defaultNavigatorRoot(roots);
+    return defaultNavigatorRoot(_model);
   }
 
   @override
