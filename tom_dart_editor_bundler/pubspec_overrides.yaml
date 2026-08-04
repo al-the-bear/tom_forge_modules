@@ -1,0 +1,15 @@
+# Source unification, not a version workaround.
+#
+# This tool takes tom_build_base from path (see the pubspec: base-first CLI
+# infrastructure, developed alongside). Since 0.7.3 tom_analyzer_shared
+# declares `tom_build_base: ">=2.6.32"` from hosted, so the resolution saw
+# tom_build_base from two sources at once, which pub forbids outright
+# regardless of versions ("tom_analyzer_shared >=0.7.3 is forbidden").
+#
+# Without this the failure is silent rather than loud: `pub upgrade` does not
+# report the clash, it just settles on the newest analyzer_shared that predates
+# the dependency (0.7.2) — so the tool quietly stops tracking the library it is
+# built on. The override picks the path source, which is the one meant.
+dependency_overrides:
+  tom_build_base:
+    path: ../../tom_ai/basics/tom_build_base
