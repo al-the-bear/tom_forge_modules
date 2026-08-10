@@ -1,6 +1,7 @@
 import 'dart:async';
 
-import 'package:tom_forge_core/tom_forge_core.dart';
+import '../services/forge_undo_manager.dart';
+import '../types/forge_listenable.dart';
 
 /// An undo entry with forward and backward operations.
 ///

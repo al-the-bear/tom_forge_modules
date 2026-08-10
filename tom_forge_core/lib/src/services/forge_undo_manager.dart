@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:tom_forge_core/tom_forge_core.dart';
+import '../types/forge_listenable.dart';
 
 /// Undo/redo management for shell-level actions.
 ///
