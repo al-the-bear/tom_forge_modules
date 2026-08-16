@@ -17,6 +17,7 @@ library;
 export 'package:tom_som_dart_runtime/tom_som_dart_runtime.dart'
     show
         KindLink,
+        NoArtifactLink,
         OneOfGroup,
         SpecAnnotation,
         SpecChip,
@@ -36,6 +37,7 @@ export 'package:tom_som_dart_runtime/tom_som_dart_runtime.dart'
         fieldChips,
         followUpKindChips,
         kindChips,
+        noArtifactChips,
         oneOfChips,
         projectionChip,
         referencesChip,

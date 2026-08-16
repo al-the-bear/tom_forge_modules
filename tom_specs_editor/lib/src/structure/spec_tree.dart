@@ -32,6 +32,8 @@ Color _roleColor(SpecChipRole role) {
       return Colors.blueGrey;
     case SpecChipRole.followUpMapped:
       return Colors.deepPurpleAccent;
+    case SpecChipRole.noArtifact:
+      return Colors.blueGrey.shade200;
     case SpecChipRole.projection:
       return Colors.tealAccent;
     case SpecChipRole.unused:
@@ -62,9 +64,13 @@ List<_Chip> _paint(List<SpecChip> chips) => [
 List<_Chip> _projectionChips() => _paint(const [projectionChip]);
 
 /// The chips stating where a node's subject matter is headed — see `kindChips`
-/// in the shared display layer for why the two taxonomies interact.
-List<_Chip> _kindChips(KindLink? codeSpec, KindLink? followUp) =>
-    _paint(kindChips(codeSpec, followUp));
+/// in the shared display layer for why the three verdicts interact.
+List<_Chip> _kindChips(
+  KindLink? codeSpec,
+  KindLink? followUp,
+  NoArtifactLink? noArtifact,
+) =>
+    _paint(kindChips(codeSpec, followUp, noArtifact));
 
 /// The chips a field row carries: which alternative of a closed choice it is,
 /// then where its subtree is headed.
@@ -443,6 +449,7 @@ class _ClassNodeState extends State<_ClassNode> {
             ..._kindChips(
               widget.owningField?.codeSpecKind ?? cls.codeSpecKind,
               widget.owningField?.followUpKind ?? cls.followUpKind,
+              widget.owningField?.noArtifact ?? cls.noArtifact,
             ),
           ],
           doc: widget.docOverride ?? cls.doc ?? cls.help,
