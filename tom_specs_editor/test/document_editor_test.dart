@@ -285,9 +285,10 @@ void main() {
 
   group('layout content routing (tom_specs_editor_specification.md §13 k / '
       'OE-3)', () {
-    // The live d4rt-flutter render is deferred (OE-3a: analyzer ^8/^10
-    // conflict); here we pin which content types route to the layout seam so
-    // the convention and a future model-side layout section line up.
+    // The live d4rt-flutter render is deferred for want of the work, not for
+    // want of a takeable dependency (OE-3a). Routing is pinned here regardless,
+    // because it is what the render will be reached through: the seam has to
+    // receive exactly the layout flavours before it is worth filling.
     test('isFlutterLayoutContentType matches layout flavours only', () {
       expect(isFlutterLayoutContentType('layout'), isTrue);
       expect(isFlutterLayoutContentType('flutter'), isTrue);

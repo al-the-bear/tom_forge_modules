@@ -45,13 +45,19 @@ dependencies:
   tom_md_editor:
     path: ../tom_md_editor
 
-  # NOTE (`tom_specs_editor_specification.md` §13 k): live Flutter-layout
-  # rendering wants `tom_d4rt_flutter`
-  # (`SourceFlutterD4rt().build<Widget>(source, context)`), but that package's
-  # transitive `tom_d4rt → analyzer ^8` conflicts with `tom_dart_editor →
-  # analyzer ^10` (required by the OE-1 code editor). Until `tom_d4rt` moves to
-  # analyzer ^10 (d4rt-quest scope), the layout seam (`_LayoutField`) renders a
-  # read-only source preview. See OE-3a in the open-ends questions file.
+  # NOT YET A DEPENDENCY, AND NOTHING PREVENTS IT
+  # (`tom_specs_editor_specification.md` §13 k). Live Flutter-layout rendering
+  # wants `tom_d4rt_flutter` (`SourceFlutterD4rt().build<Widget>(source,
+  # context)`). The layout seam (`_LayoutField`) still renders a read-only
+  # source preview, but only because the render is unwritten — **not** because
+  # the dependency is un-takeable. `tom_d4rt` and `tom_dart_editor` both declare
+  # `analyzer: ^10.0.0`, so the version split that once ruled it out is gone.
+  #
+  # What remains, if you are here to do it: add `tom_d4rt_flutter`, fill the
+  # single marked drop-in point in `_LayoutField`
+  # (`lib/src/document/spec_document_editor.dart`), and check the render is
+  # sandboxed to the same degree as the editor's other d4rt use. Tracked as
+  # `OE-3a` in `tom_specs_editor_specification.md` §22.
 
   # Non-UI agent layer: provider/model API, models, placeholder engine.
   tom_core_agentic:

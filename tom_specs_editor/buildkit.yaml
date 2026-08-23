@@ -41,9 +41,18 @@ dart-editor-bundler:
     # reference, and `code-d4rt-flutter` is the only content type that routes to
     # a Flutter scope (`scopeForContentType` in spec_document_editor.dart). A
     # separate scope would have nothing routing to it and would never be loaded.
-    # Neither package is a Dart dependency of the editor — the bundles are read
-    # at runtime, which is what keeps the OE-3a `analyzer ^8`/`^10` conflict out
-    # of the app's own resolution.
+    # Neither package is a Dart dependency of the editor, and that is what a
+    # scope *is* rather than a workaround: a scope names the surface authored
+    # snippets are written against, and the bundler turns it into a summary the
+    # analyzer reads at runtime. The editor itself calls none of it. Adding a
+    # scope's packages to the pubspec would grow the app's resolution for zero
+    # call sites, so the separation holds on its own merits.
+    #
+    # It therefore says nothing about whether `tom_d4rt_flutter` is *takeable*
+    # as a dependency — it is (OE-3a; `tom_d4rt` and `tom_dart_editor` are both
+    # on `analyzer ^10`). If the live layout render is implemented, the package
+    # becomes a real dependency *and* stays a scope package here. The two roles
+    # are independent.
     - name: d4rt-flutter
       packages:
         - ../../tom_ai/d4rt/tom_d4rt_flutter

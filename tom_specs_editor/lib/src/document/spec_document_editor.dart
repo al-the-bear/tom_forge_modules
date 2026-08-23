@@ -1128,14 +1128,19 @@ class _CodeField extends StatelessWidget {
 }
 
 /// A Flutter-layout content field (`tom_specs_editor_specification.md` §13 k).
-/// The `tom_specs_editor_specification.md` §13 target is a *live* preview
-/// rendered by `SourceFlutterD4rt().build<Widget>(source, context)` from
-/// `tom_d4rt_flutter`. That package cannot currently be a dependency of this
-/// editor: its transitive `tom_d4rt → analyzer ^8` conflicts with
-/// `tom_dart_editor → analyzer ^10` (the OE-1 code editor). Until `tom_d4rt`
-/// moves to analyzer ^10 (d4rt-quest scope — tracked as OE-3a), this seam
-/// renders the layout source read-only beneath a note. The single drop-in point
-/// for the live call is marked below.
+/// The §13 target is a *live* preview rendered by
+/// `SourceFlutterD4rt().build<Widget>(source, context)` from
+/// `tom_d4rt_flutter`. This seam renders the layout source read-only beneath a
+/// note instead, because the live render is **unwritten** — not because it is
+/// blocked. `tom_d4rt_flutter` is takeable today: `tom_d4rt` and
+/// `tom_dart_editor` both declare `analyzer ^10`, so the version split that
+/// once ruled the dependency out no longer exists.
+///
+/// What the live render needs: the dependency added, the single drop-in point
+/// marked below filled, and a check that the render is sandboxed to the same
+/// degree as the editor's other d4rt use — it evaluates document content, which
+/// is untrusted in exactly the way script content is. Tracked as `OE-3a`
+/// (`tom_specs_editor_specification.md` §22).
 class _LayoutField extends StatelessWidget {
   const _LayoutField({
     super.key,
@@ -1155,11 +1160,14 @@ class _LayoutField extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     // ── `tom_specs_editor_specification.md` §13 k drop-in point ──────────────
-    // Once `tom_d4rt_flutter` is addable (OE-3a), replace the read-only
-    // preview below with a guarded live render:
+    // Add `tom_d4rt_flutter` to the pubspec (nothing blocks it — OE-3a) and
+    // replace the read-only preview below with a guarded live render:
     //   try {
     //     return SourceFlutterD4rt().build<Widget>(value, context);
     //   } catch (_) { /* fall through to the source preview */ }
+    // The catch is not optional: `value` is document content, so a malformed
+    // layout must degrade to the source preview rather than take down the
+    // field.
     // ──────────────────────────────────────────────────────────────────────
     return Container(
       width: double.infinity,
@@ -1179,8 +1187,8 @@ class _LayoutField extends StatelessWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  'Flutter layout — live preview pending d4rt analyzer-10 '
-                  'upgrade (OE-3a)',
+                  'Flutter layout — source preview; the live render is not '
+                  'implemented yet (OE-3a)',
                   style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant),
                 ),
