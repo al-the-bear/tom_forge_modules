@@ -320,8 +320,12 @@ class SpecsConfigSpecs {
         save: timedRequests.save,
         labelOf: (r) =>
             r.originalText.isEmpty ? '(empty request)' : r.originalText,
-        createNew: () =>
-            TimedRequest(id: _newId('tr'), originalText: '', intervalMinutes: 60),
+        createNew: () => TimedRequest(
+          id: _newId('tr'),
+          originalText: '',
+          scheduleMode: ScheduleMode.interval,
+          intervalMinutes: 60,
+        ),
         fields: [
           ConfigField.text(
             label: 'Prompt',
