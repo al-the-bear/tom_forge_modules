@@ -70,6 +70,29 @@ void main() {
       expect(restored.boundChoice!.port, 19900);
     });
 
+    test('a binding spelled localhost still matches a 127.0.0.1 scan',
+        () async {
+      // The sidecar and the scan get their host from different places, so a
+      // user who retypes "Bridge host" in settings leaves a binding whose
+      // spelling differs from the one the scan reports. Comparing the strings
+      // showed the bound window as merely available and offered to bind it
+      // again — the picker-side face of the same defect the reconnect
+      // coordinator showed as a still-gone modal for a live bridge.
+      final store = _tempStore()
+        ..save(const BridgeChoice(host: 'localhost', port: 19900));
+      final controller = AgentConnectionController(
+        service: _fakeService(),
+        store: store,
+      );
+
+      controller.loadPersisted();
+      await controller.scan();
+
+      expect(controller.servers.single.host, defaultBridgeHost);
+      expect(controller.bound, isNotNull);
+      expect(controller.bound!.status, BridgeServerStatus.bound);
+    });
+
     test('a failed scan records the error and clears servers', () async {
       final controller = AgentConnectionController(
         service: BridgeConnectionService(

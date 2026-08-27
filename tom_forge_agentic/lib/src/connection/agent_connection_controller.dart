@@ -60,10 +60,13 @@ class AgentConnectionController extends ChangeNotifier {
   }
 
   /// Whether [server] is the bound one.
+  ///
+  /// Endpoint identity, not string equality: a binding restored from the
+  /// sidecar and a server found by a scan can spell one loopback host
+  /// differently, and comparing the strings would show the bound window as
+  /// merely available and offer to bind it again.
   bool isBound(BridgeServer server) =>
-      _boundChoice != null &&
-      server.port == _boundChoice!.port &&
-      server.host == _boundChoice!.host;
+      _boundChoice != null && _boundChoice!.matches(server);
 
   /// Loads the persisted choice without scanning. Safe to call once at
   /// startup before [scan].
