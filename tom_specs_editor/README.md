@@ -1,5 +1,15 @@
 # tom_specs_editor
 
+> **Cross-references.**
+> [`tom_specs_model/doc/tom_specs_editor_specification.md`](../../tom_ai/ai_build/tom_specs_model/doc/tom_specs_editor_specification.md)
+> is the authority for **what this app must be** — its Forge applications,
+> layout, modules, access layers, canonical paths and undo model, plus the two
+> referent registers its code cites (decisions and open ends). This README is
+> the short orientation; that document owns the specification, and this package
+> deliberately carries no `doc/` folder of its own so there is only one
+> description of the application —
+> [tom_specs_documentation_standard.md](../../tom_ai/ai_build/tom_specs_model/doc/tom_specs_documentation_standard.md) §6.
+
 The **TomSpecs Editor** — a Tom Forge desktop app for authoring
 DocSpecs / CodeSpecs / Implementation specifications.
 
@@ -42,8 +52,13 @@ Implemented across `lib/src/`:
 - **`config/`** — config editors with a config rail, preferences, and raw-file
   editing.
 
-Covered by 23 test files spanning the above areas plus undo and shell
-navigation.
+Version **1.0.0+1**. Covered by 25 test files carrying **246 tests**, spanning
+the above areas plus undo and shell navigation.
+
+Not published: `publish_to: 'none'`, and outside the release-1 published set —
+excluded by name in
+[`tom_specs_clitool/tool/release_set.yaml`](../../tom_ai/ai_build/tom_specs_clitool/tool/release_set.yaml),
+so nothing in the released chain may depend on it.
 
 ## Build
 
