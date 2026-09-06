@@ -22,7 +22,7 @@ class PhaseComponent {
 }
 
 /// A TomSpecs creation phase, as defined in the quest's
-/// `tom_specs_project_flow.md` (§PF-PHA).
+/// `tom_specs_project_flow.md` (`tom_specs_project_flow.md` §PF-PHA).
 ///
 /// This is the **real content** the phase-2 *CodeSpecs* and *Implementation*
 /// applications render (`tom_specs_editor_specification.md` §20 step 25): the

@@ -1128,7 +1128,7 @@ class _CodeField extends StatelessWidget {
 }
 
 /// A Flutter-layout content field (`tom_specs_editor_specification.md` §13 k).
-/// The §13 target is a *live* preview rendered by
+/// The `tom_specs_editor_specification.md` §13 target is a *live* preview rendered by
 /// `SourceFlutterD4rt().build<Widget>(source, context)` from
 /// `tom_d4rt_flutter`. This seam renders the layout source read-only beneath a
 /// note instead, because the live render is **unwritten** — not because it is

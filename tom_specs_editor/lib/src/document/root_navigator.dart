@@ -50,7 +50,7 @@ SpecRoot? defaultNavigatorRoot(SpecModel model) {
 /// reader is the Phase-4 generator. The band is a **presentational** split
 /// only: generation-input roots stay selectable and editable, because an edit
 /// made through any projection folds onto the same Solution Blueprint storage
-/// path (§14, storage-path key) — the same edit is one click away under the
+/// path (`tom_specs_editor_specification.md` §14, storage-path key) — the same edit is one click away under the
 /// blueprint, so forbidding it here would protect nothing.
 ///
 /// The ordering takes the whole [model], not just its roots, because the
