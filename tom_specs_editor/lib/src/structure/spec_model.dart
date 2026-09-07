@@ -8,8 +8,9 @@
 /// free.
 ///
 /// The shim also re-exports the *display semantics* the runtime defines — which
-/// markers a row carries, what each says, and the structural-path segments they
-/// are keyed by. Those are shared with `tom_specs_reviewer` deliberately: the
+/// markers a row carries, what each says, the structural-path segments they are
+/// keyed by, and the two structural-navigation rules (`isHandoffAway`,
+/// `pathToType`) that decide where a tree cuts and what it expands. Those are shared with `tom_specs_reviewer` deliberately: the
 /// two surfaces render the same class graph and must not disagree about what an
 /// annotation means, even though each paints it in its own theme.
 library;
@@ -34,6 +35,8 @@ export 'package:tom_som_dart_runtime/tom_som_dart_runtime.dart'
         SpecValidationError,
         caseChips,
         codeSpecKindChips,
+        isHandoffAway,
+        pathToType,
         fieldChips,
         followUpKindChips,
         kindChips,

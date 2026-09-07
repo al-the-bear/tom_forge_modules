@@ -56,9 +56,8 @@ Color _roleColor(SpecChipRole role) {
 
 /// Paints the shared [SpecChip] descriptors in this surface's palette.
 List<_Chip> _paint(List<SpecChip> chips) => [
-      for (final c in chips)
-        _Chip(c.label, _roleColor(c.role), tooltip: c.tooltip),
-    ];
+  for (final c in chips) _Chip(c.label, _roleColor(c.role), tooltip: c.tooltip),
+];
 
 /// Marks the root of a `@CodeSpecsProjection` document.
 List<_Chip> _projectionChips() => _paint(const [projectionChip]);
@@ -69,8 +68,7 @@ List<_Chip> _kindChips(
   KindLink? codeSpec,
   KindLink? followUp,
   NoArtifactLink? noArtifact,
-) =>
-    _paint(kindChips(codeSpec, followUp, noArtifact));
+) => _paint(kindChips(codeSpec, followUp, noArtifact));
 
 /// The chips a field row carries: which alternative of a closed choice it is,
 /// then where its subtree is headed.
@@ -144,13 +142,17 @@ class SpecTreeScope extends InheritedWidget {
     return scope!;
   }
 
-  /// Whether [cls] is a cut point under the current switch settings: it carries
-  /// a marker pointing to a *different* document and that marker's switch is on.
-  bool isCut(SpecClass cls) {
-    final detailHandoff = cls.detailedIn != null && cls.detailedIn != rootType;
-    final mapsHandoff = cls.mapsTo != null && cls.mapsTo != rootType;
-    return (cutAtDetails && detailHandoff) || (cutAtMaps && mapsHandoff);
-  }
+  /// Whether [cls] is a cut point under the current switch settings.
+  ///
+  /// The rule itself is [isHandoffAway] in `tom_som_dart_runtime`, shared with
+  /// the reviewer: what a marker *means* must not differ between the two
+  /// surfaces, even though what it looks like may.
+  bool isCut(SpecClass cls) => isHandoffAway(
+    cls,
+    rootType,
+    cutAtDetails: cutAtDetails,
+    cutAtMaps: cutAtMaps,
+  );
 
   @override
   bool updateShouldNotify(SpecTreeScope old) =>
@@ -160,45 +162,6 @@ class SpecTreeScope extends InheritedWidget {
       rootType != old.rootType ||
       navTargetType != old.navTargetType ||
       !setEquals(navPathTypes, old.navPathTypes);
-}
-
-/// Computes the shortest chain of class names from [rootType] to [targetType]
-/// by following `elementType` / `type` references (BFS over the class graph).
-///
-/// Returns the set of every class name on that path (inclusive). Empty when the
-/// target is unreachable.
-Set<String> pathToType(SpecModel model, String rootType, String targetType) {
-  if (rootType == targetType) return {rootType};
-  final parent = <String, String>{};
-  final visited = <String>{rootType};
-  final queue = <String>[rootType];
-  while (queue.isNotEmpty) {
-    final current = queue.removeAt(0);
-    final cls = model.classNamed(current);
-    if (cls == null) continue;
-    for (final field in cls.fields) {
-      for (final ref in [field.elementType, field.type]) {
-        if (ref == null ||
-            !model.classes.containsKey(ref) ||
-            visited.contains(ref)) {
-          continue;
-        }
-        visited.add(ref);
-        parent[ref] = current;
-        if (ref == targetType) {
-          final path = <String>{targetType};
-          var cur = targetType;
-          while (parent.containsKey(cur)) {
-            cur = parent[cur]!;
-            path.add(cur);
-          }
-          return path;
-        }
-        queue.add(ref);
-      }
-    }
-  }
-  return const {};
 }
 
 /// Renders the structure tree for a single document root.
@@ -281,9 +244,11 @@ class _SpecTreeState extends State<SpecTree> {
     final cls = widget.model.classNamed(widget.root.type);
     if (cls == null) {
       return Center(
-          child: Text('Root type "${widget.root.type}" not found in model'));
+        child: Text('Root type "${widget.root.type}" not found in model'),
+      );
     }
-    final onNavPath = widget.navTargetType != null &&
+    final onNavPath =
+        widget.navTargetType != null &&
         _navPathTypes.contains(widget.root.type);
     return SpecTreeScope(
       cutAtDetails: widget.cutAtDetails,
@@ -390,19 +355,25 @@ class _ClassNodeState extends State<_ClassNode> {
     final cut = scope.isCut(cls);
     final visibleFields = cut
         ? cls.fields
-            .where((f) =>
-                f.kind != SpecFieldKind.list && f.kind != SpecFieldKind.complex)
-            .toList()
+              .where(
+                (f) =>
+                    f.kind != SpecFieldKind.list &&
+                    f.kind != SpecFieldKind.complex,
+              )
+              .toList()
         : cls.fields;
     // A section with subsections always has its own intro content. When the
     // class does not model a `content` field explicitly, inject one (mirrors
     // the list-section content part).
-    final hasContentField =
-        cls.fields.any((f) => f.kind == SpecFieldKind.content);
-    final hasSubsections = cls.fields.any((f) =>
-        f.kind == SpecFieldKind.list ||
-        f.kind == SpecFieldKind.complex ||
-        f.kind == SpecFieldKind.section);
+    final hasContentField = cls.fields.any(
+      (f) => f.kind == SpecFieldKind.content,
+    );
+    final hasSubsections = cls.fields.any(
+      (f) =>
+          f.kind == SpecFieldKind.list ||
+          f.kind == SpecFieldKind.complex ||
+          f.kind == SpecFieldKind.section,
+    );
     final injectContent = !hasContentField && hasSubsections;
 
     final hasChildren = visibleFields.isNotEmpty || injectContent;
@@ -420,8 +391,9 @@ class _ClassNodeState extends State<_ClassNode> {
           depth: widget.depth,
           expandable: hasChildren,
           expanded: expanded,
-          onToggle:
-              hasChildren ? () => setState(() => _expanded = !expanded) : null,
+          onToggle: hasChildren
+              ? () => setState(() => _expanded = !expanded)
+              : null,
           leadingIcon: Icons.account_tree,
           iconColor: Colors.indigoAccent,
           label: label,
@@ -486,8 +458,9 @@ class _ClassNodeState extends State<_ClassNode> {
         ? const <String>{}
         : {for (final f in group.caseFields) f.name};
     // Only the alternatives that survived the hand-off cut may be shown.
-    final groupedFields =
-        visibleFields.where((f) => caseNames.contains(f.name)).toList();
+    final groupedFields = visibleFields
+        .where((f) => caseNames.contains(f.name))
+        .toList();
 
     final widgets = <Widget>[];
     var groupEmitted = false;
@@ -495,28 +468,32 @@ class _ClassNodeState extends State<_ClassNode> {
       if (caseNames.contains(field.name)) {
         if (groupEmitted) continue;
         groupEmitted = true;
-        widgets.add(_OneOfGroupNode(
+        widgets.add(
+          _OneOfGroupNode(
+            model: widget.model,
+            store: widget.store,
+            group: group!,
+            caseFields: groupedFields,
+            path: '${widget.path}/$kOneOfSegment',
+            fieldPathBase: widget.path,
+            ancestors: widget.ancestors,
+            depth: widget.depth + 1,
+            parentOnNavPath: widget.onNavPath,
+          ),
+        );
+        continue;
+      }
+      widgets.add(
+        _FieldNode(
           model: widget.model,
           store: widget.store,
-          group: group!,
-          caseFields: groupedFields,
-          path: '${widget.path}/$kOneOfSegment',
-          fieldPathBase: widget.path,
+          field: field,
+          path: '${widget.path}/${field.name}',
           ancestors: widget.ancestors,
           depth: widget.depth + 1,
           parentOnNavPath: widget.onNavPath,
-        ));
-        continue;
-      }
-      widgets.add(_FieldNode(
-        model: widget.model,
-        store: widget.store,
-        field: field,
-        path: '${widget.path}/${field.name}',
-        ancestors: widget.ancestors,
-        depth: widget.depth + 1,
-        parentOnNavPath: widget.onNavPath,
-      ));
+        ),
+      );
     }
     return widgets;
   }
@@ -689,8 +666,9 @@ class _FieldNodeState extends State<_FieldNode> {
   // --- list ---------------------------------------------------------------
   Widget _buildList(SpecField f) {
     final elementType = f.elementType;
-    final cls =
-        f.elementIsComplex ? widget.model.classNamed(elementType) : null;
+    final cls = f.elementIsComplex
+        ? widget.model.classNamed(elementType)
+        : null;
     final childOnPath = _childOnNavPath(SpecTreeScope.of(context));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -703,7 +681,8 @@ class _FieldNodeState extends State<_FieldNode> {
           leadingIcon: Icons.format_list_bulleted,
           iconColor: Colors.tealAccent,
           label: f.name,
-          typeLabel: 'List<${elementType ?? '?'}>'
+          typeLabel:
+              'List<${elementType ?? '?'}>'
               '${f.min != null ? '  min ${f.min}' : ''}',
           sectionId: f.sectionId,
           chips: _fieldChips(f),
@@ -728,8 +707,13 @@ class _FieldNodeState extends State<_FieldNode> {
     );
   }
 
-  Widget _buildListItem(SpecField f, SpecClass? cls, String? elementType,
-      int index, bool childOnPath) {
+  Widget _buildListItem(
+    SpecField f,
+    SpecClass? cls,
+    String? elementType,
+    int index,
+    bool childOnPath,
+  ) {
     final itemPath = '${widget.path}/$kListItemSegment';
     if (cls != null) {
       // Complex element: identical substructure, one shared review path.
@@ -808,8 +792,7 @@ class _FieldNodeState extends State<_FieldNode> {
       store: widget.store,
       cls: cls,
       path: widget.path,
-      ancestors:
-          recursive ? widget.ancestors : {...widget.ancestors, cls.name},
+      ancestors: recursive ? widget.ancestors : {...widget.ancestors, cls.name},
       depth: widget.depth,
       titleOverride: f.name,
       sectionIdOverride: f.sectionId,
@@ -844,7 +827,10 @@ class _FieldNodeState extends State<_FieldNode> {
         ),
         Padding(
           padding: EdgeInsets.only(
-              left: 16.0 * (widget.depth + 1) + 24, top: 2, bottom: 4),
+            left: 16.0 * (widget.depth + 1) + 24,
+            top: 2,
+            bottom: 4,
+          ),
           child: _FormPanel(
             fields: f.formFields,
             store: widget.store,
@@ -879,7 +865,11 @@ class _FieldNodeState extends State<_FieldNode> {
         ),
         Padding(
           padding: EdgeInsets.only(
-              left: 16.0 * (widget.depth + 1) + 24, top: 2, bottom: 4, right: 8),
+            left: 16.0 * (widget.depth + 1) + 24,
+            top: 2,
+            bottom: 4,
+            right: 8,
+          ),
           child: TextField(
             enabled: false,
             minLines: 3,
@@ -887,7 +877,8 @@ class _FieldNodeState extends State<_FieldNode> {
             decoration: InputDecoration(
               isDense: true,
               border: const OutlineInputBorder(),
-              hintText: f.help ?? f.doc ?? 'Content (${f.contentType ?? 'text'})',
+              hintText:
+                  f.help ?? f.doc ?? 'Content (${f.contentType ?? 'text'})',
             ),
           ),
         ),
@@ -1038,8 +1029,11 @@ class _NodeRowState extends State<_NodeRow> {
       child: InkWell(
         onTap: widget.onToggle,
         child: Padding(
-          padding:
-              EdgeInsets.only(left: 16.0 * widget.depth, top: 2, bottom: 2),
+          padding: EdgeInsets.only(
+            left: 16.0 * widget.depth,
+            top: 2,
+            bottom: 2,
+          ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1067,54 +1061,78 @@ class _NodeRowState extends State<_NodeRow> {
                       children: [
                         if (SpecTreeScope.of(context).showSerializationOrder &&
                             extras.serializationOrder != null)
-                          _Badge('#${extras.serializationOrder}',
-                              tooltip: 'Serialization order'),
-                        Text(widget.label,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                              // An unused section is a keep-or-drop candidate;
-                              // striking it makes that legible while scrolling,
-                              // which a chip among seven others does not.
-                              decoration: extras.unused
-                                  ? TextDecoration.lineThrough
-                                  : null,
-                            )),
+                          _Badge(
+                            '#${extras.serializationOrder}',
+                            tooltip: 'Serialization order',
+                          ),
+                        Text(
+                          widget.label,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                            // An unused section is a keep-or-drop candidate;
+                            // striking it makes that legible while scrolling,
+                            // which a chip among seven others does not.
+                            decoration: extras.unused
+                                ? TextDecoration.lineThrough
+                                : null,
+                          ),
+                        ),
                         if (extras.headline != null)
-                          Text('“${extras.headline}”',
-                              style: TextStyle(
-                                  fontSize: 11,
-                                  color: theme.colorScheme.primary)),
-                        ReviewControls(
-                            store: widget.store,
-                            path: widget.path,
-                            nodeLabel: widget.nodeLabel),
-                        Text(widget.typeLabel,
+                          Text(
+                            '“${extras.headline}”',
                             style: TextStyle(
-                                fontSize: 11,
-                                color: mutedColor,
-                                fontFamily: 'monospace')),
+                              fontSize: 11,
+                              color: theme.colorScheme.primary,
+                            ),
+                          ),
+                        ReviewControls(
+                          store: widget.store,
+                          path: widget.path,
+                          nodeLabel: widget.nodeLabel,
+                        ),
+                        Text(
+                          widget.typeLabel,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: mutedColor,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
                         if (widget.sectionId != null) _Badge(widget.sectionId!),
                         if (extras.sectionIdPattern != null)
-                          _Badge(extras.sectionIdPattern!,
-                              tooltip: 'Section-id pattern for each item'),
+                          _Badge(
+                            extras.sectionIdPattern!,
+                            tooltip: 'Section-id pattern for each item',
+                          ),
                         if (extras.unused)
-                          _ChipWidget(_Chip(unusedChip.label,
+                          _ChipWidget(
+                            _Chip(
+                              unusedChip.label,
                               _roleColor(unusedChip.role),
-                              tooltip: unusedChip.tooltip)),
+                              tooltip: unusedChip.tooltip,
+                            ),
+                          ),
                         for (final chip in widget.chips) _ChipWidget(chip),
                         if (extras.hasReferences)
-                          _ChipWidget(_Chip(referencesChip.label,
+                          _ChipWidget(
+                            _Chip(
+                              referencesChip.label,
                               _roleColor(referencesChip.role),
                               tooltip: referencesChip.tooltip,
                               onTap: () =>
-                                  setState(() => _refsOpen = !_refsOpen))),
+                                  setState(() => _refsOpen = !_refsOpen),
+                            ),
+                          ),
                         if (extras.comment != null)
-                          Text('← ${extras.comment}',
-                              style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.amberAccent,
-                                  fontStyle: FontStyle.italic)),
+                          Text(
+                            '← ${extras.comment}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.amberAccent,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
                       ],
                     ),
                     if (widget.doc != null && widget.doc!.trim().isNotEmpty)
@@ -1125,9 +1143,10 @@ class _NodeRowState extends State<_NodeRow> {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                              fontSize: 11,
-                              color: mutedColor,
-                              fontStyle: FontStyle.italic),
+                            fontSize: 11,
+                            color: mutedColor,
+                            fontStyle: FontStyle.italic,
+                          ),
                         ),
                       ),
                     if (_refsOpen && extras.hasReferences)
@@ -1160,11 +1179,14 @@ class _Badge extends StatelessWidget {
         color: theme.colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(3),
       ),
-      child: Text(text,
-          style: TextStyle(
-              fontSize: 10,
-              fontFamily: 'monospace',
-              color: theme.colorScheme.onSurfaceVariant)),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 10,
+          fontFamily: 'monospace',
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+      ),
     );
     return tooltip == null ? body : Tooltip(message: tooltip!, child: body);
   }
@@ -1203,17 +1225,22 @@ class _ReferencesPanel extends StatelessWidget {
             for (final standard in refs?.standards ?? const <String>[])
               Padding(
                 padding: const EdgeInsets.only(top: 2),
-                child: Text('• $standard',
-                    style: TextStyle(fontSize: 11, color: muted)),
+                child: Text(
+                  '• $standard',
+                  style: TextStyle(fontSize: 11, color: muted),
+                ),
               ),
             if (extras.reference != null)
               Padding(
                 padding: const EdgeInsets.only(top: 2),
-                child: Text('→ references ${extras.reference}',
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: muted,
-                        fontStyle: FontStyle.italic)),
+                child: Text(
+                  '→ references ${extras.reference}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: muted,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
               ),
           ],
         ),
@@ -1245,12 +1272,16 @@ class _ChipWidget extends StatelessWidget {
             Icon(Icons.open_in_new, size: 10, color: chip.color),
             const SizedBox(width: 2),
           ],
-          Text(chip.text,
-              style: TextStyle(
-                  fontSize: 10,
-                  color: chip.color,
-                  fontWeight:
-                      chip.onTap != null ? FontWeight.w600 : FontWeight.normal)),
+          Text(
+            chip.text,
+            style: TextStyle(
+              fontSize: 10,
+              color: chip.color,
+              fontWeight: chip.onTap != null
+                  ? FontWeight.w600
+                  : FontWeight.normal,
+            ),
+          ),
         ],
       ),
     );
@@ -1277,12 +1308,15 @@ class _ItemBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.only(left: 16.0 * depth + 24, top: 4, bottom: 2),
-      child: Text('Item ${index + 1}',
-          style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              color: Colors.tealAccent.shade100,
-              letterSpacing: 0.5)),
+      child: Text(
+        'Item ${index + 1}',
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+          color: Colors.tealAccent.shade100,
+          letterSpacing: 0.5,
+        ),
+      ),
     );
   }
 }
@@ -1326,7 +1360,11 @@ class _SectionContent extends StatelessWidget {
         ),
         Padding(
           padding: EdgeInsets.only(
-              left: 16.0 * (depth + 1) + 24, top: 2, bottom: 4, right: 8),
+            left: 16.0 * (depth + 1) + 24,
+            top: 2,
+            bottom: 4,
+            right: 8,
+          ),
           child: const TextField(
             enabled: false,
             minLines: 3,
@@ -1384,24 +1422,34 @@ class _FormPanel extends StatelessWidget {
                     spacing: 6,
                     runSpacing: 2,
                     children: [
-                      Text(field.label,
-                          style: const TextStyle(
-                              fontSize: 12, fontWeight: FontWeight.w600)),
+                      Text(
+                        field.label,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       ReviewControls(
                         store: store,
                         path: '$basePath/${field.name}',
                         nodeLabel: 'form field: ${field.label}',
                       ),
-                      Text(field.type,
-                          style: TextStyle(
-                              fontSize: 10,
-                              color: theme.colorScheme.onSurfaceVariant,
-                              fontFamily: 'monospace')),
+                      Text(
+                        field.type,
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
                       if (field.required)
-                        Text('*',
-                            style: TextStyle(
-                                color: theme.colorScheme.error,
-                                fontWeight: FontWeight.bold)),
+                        Text(
+                          '*',
+                          style: TextStyle(
+                            color: theme.colorScheme.error,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                     ],
                   ),
                   const SizedBox(height: 2),
