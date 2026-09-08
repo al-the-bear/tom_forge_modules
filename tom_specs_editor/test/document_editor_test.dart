@@ -21,83 +21,83 @@ import 'package:tom_specs_editor/src/structure/spec_model.dart';
 /// A class graph covering every render kind: a content paragraph, an enum, a
 /// `@Form` section, an empty complex sub-section, and a list of complex items.
 Map<String, dynamic> _sampleJson() => {
-      'roots': [
+  'roots': [
+    {
+      'type': 'DemoDoc',
+      'title': 'Demo Document',
+      'sectionId': 'D00',
+      'description': 'A demo document for the editor.',
+    },
+  ],
+  'classes': {
+    'DemoDoc': {
+      'name': 'DemoDoc',
+      'sectionId': 'D00',
+      'fields': [
+        {'name': 'overview', 'kind': 'content', 'sectionId': 'D00-OVR'},
         {
-          'type': 'DemoDoc',
-          'title': 'Demo Document',
-          'sectionId': 'D00',
-          'description': 'A demo document for the editor.',
+          'name': 'status',
+          'kind': 'enum',
+          'sectionId': 'D00-ST',
+          'enumValues': ['draft', 'final'],
+        },
+        {
+          'name': 'header',
+          'kind': 'form',
+          'sectionId': 'D00-HDR',
+          'formFields': [
+            {'name': 'author', 'label': 'Author', 'type': 'String'},
+          ],
+        },
+        {
+          'name': 'meta',
+          'kind': 'complex',
+          'type': 'DemoMeta',
+          'sectionId': 'D00-MET',
+        },
+        {
+          'name': 'items',
+          'kind': 'list',
+          'elementType': 'DemoItem',
+          'elementIsComplex': true,
+          'sectionId': 'D00-ITM',
         },
       ],
-      'classes': {
-        'DemoDoc': {
-          'name': 'DemoDoc',
-          'sectionId': 'D00',
-          'fields': [
-            {'name': 'overview', 'kind': 'content', 'sectionId': 'D00-OVR'},
-            {
-              'name': 'status',
-              'kind': 'enum',
-              'sectionId': 'D00-ST',
-              'enumValues': ['draft', 'final'],
-            },
-            {
-              'name': 'header',
-              'kind': 'form',
-              'sectionId': 'D00-HDR',
-              'formFields': [
-                {'name': 'author', 'label': 'Author', 'type': 'String'},
-              ],
-            },
-            {
-              'name': 'meta',
-              'kind': 'complex',
-              'type': 'DemoMeta',
-              'sectionId': 'D00-MET',
-            },
-            {
-              'name': 'items',
-              'kind': 'list',
-              'elementType': 'DemoItem',
-              'elementIsComplex': true,
-              'sectionId': 'D00-ITM',
-            },
-          ],
-        },
-        'DemoMeta': {
-          'name': 'DemoMeta',
-          'sectionId': 'D00-MET',
-          'fields': [
-            {'name': 'note', 'kind': 'content', 'sectionId': 'D00-MET-NOTE'},
-          ],
-        },
-        'DemoItem': {
-          'name': 'DemoItem',
-          'fields': [
-            {'name': 'label', 'kind': 'content', 'sectionId': 'D01-LBL'},
-          ],
-        },
-      },
-    };
+    },
+    'DemoMeta': {
+      'name': 'DemoMeta',
+      'sectionId': 'D00-MET',
+      'fields': [
+        {'name': 'note', 'kind': 'content', 'sectionId': 'D00-MET-NOTE'},
+      ],
+    },
+    'DemoItem': {
+      'name': 'DemoItem',
+      'fields': [
+        {'name': 'label', 'kind': 'content', 'sectionId': 'D01-LBL'},
+      ],
+    },
+  },
+};
 
 /// A flat class with three content fields in document order, used to assert
 /// empty-chip placement relative to an expanded sibling (D5).
 Map<String, dynamic> _orderedJson() => {
-      'roots': [
-        {'type': 'OrderDoc', 'title': 'Ordered', 'sectionId': 'O00'},
+  'roots': [
+    {'type': 'OrderDoc', 'title': 'Ordered', 'sectionId': 'O00'},
+  ],
+  'classes': {
+    'OrderDoc': {
+      'name': 'OrderDoc',
+      'sectionId': 'O00',
+      'fields': [
+        {'name': 'alpha', 'kind': 'content', 'sectionId': 'O00-A'},
+        {'name': 'beta', 'kind': 'content', 'sectionId': 'O00-B'},
+        {'name': 'gamma', 'kind': 'content', 'sectionId': 'O00-G'},
       ],
-      'classes': {
-        'OrderDoc': {
-          'name': 'OrderDoc',
-          'sectionId': 'O00',
-          'fields': [
-            {'name': 'alpha', 'kind': 'content', 'sectionId': 'O00-A'},
-            {'name': 'beta', 'kind': 'content', 'sectionId': 'O00-B'},
-            {'name': 'gamma', 'kind': 'content', 'sectionId': 'O00-G'},
-          ],
-        },
-      },
-    };
+    },
+  },
+};
 
 ReviewStore _tempReviewStore() {
   final dir = Directory.systemTemp.createTempSync('doc_editor_review');
@@ -120,11 +120,13 @@ Future<SpecDocumentController> _controllerFor(Map<String, dynamic> json) async {
 }
 
 Future<void> _pump(WidgetTester tester, SpecDocumentController controller) {
-  return tester.pumpWidget(MaterialApp(
-    home: Scaffold(
-      body: SpecDocumentTree(controller: controller, model: controller.model),
+  return tester.pumpWidget(
+    MaterialApp(
+      home: Scaffold(
+        body: SpecDocumentTree(controller: controller, model: controller.model),
+      ),
     ),
-  ));
+  );
 }
 
 void main() {
@@ -139,20 +141,23 @@ void main() {
       expect(doc.hasValuesUnder('D00'), isTrue);
     });
 
-    test('a list path is empty with zero items, non-empty once an item lands',
-        () {
-      final doc = SpecDocument();
-      expect(doc.hasValuesUnder('D00/D00-ITM'), isFalse);
-      final item = doc.addListItem('D00/D00-ITM');
-      expect(doc.hasValuesUnder('D00/D00-ITM'), isTrue);
-      doc.removeListItem(item);
-      expect(doc.hasValuesUnder('D00/D00-ITM'), isFalse);
-    });
+    test(
+      'a list path is empty with zero items, non-empty once an item lands',
+      () {
+        final doc = SpecDocument();
+        expect(doc.hasValuesUnder('D00/D00-ITM'), isFalse);
+        final item = doc.addListItem('D00/D00-ITM');
+        expect(doc.hasValuesUnder('D00/D00-ITM'), isTrue);
+        doc.removeListItem(item);
+        expect(doc.hasValuesUnder('D00/D00-ITM'), isFalse);
+      },
+    );
   });
 
   group('compact tree (tom_specs_editor_specification.md §13.1)', () {
-    testWidgets('an empty document renders every field as a chip, no editors',
-        (tester) async {
+    testWidgets('an empty document renders every field as a chip, no editors', (
+      tester,
+    ) async {
       final controller = await _controller();
       await _pump(tester, controller);
 
@@ -163,8 +168,9 @@ void main() {
       expect(find.byType(DropdownButton<String>), findsNothing);
     });
 
-    testWidgets('an all-empty complex subtree is a single chip (no descent)',
-        (tester) async {
+    testWidgets('an all-empty complex subtree is a single chip (no descent)', (
+      tester,
+    ) async {
       final controller = await _controller();
       await _pump(tester, controller);
 
@@ -173,8 +179,9 @@ void main() {
       expect(find.text('note'), findsNothing);
     });
 
-    testWidgets('clicking a content chip inline-expands an editor (D2)',
-        (tester) async {
+    testWidgets('clicking a content chip inline-expands an editor (D2)', (
+      tester,
+    ) async {
       final controller = await _controller();
       await _pump(tester, controller);
 
@@ -186,8 +193,9 @@ void main() {
       expect(controller.content('D00/D00-OVR'), 'the overview body');
     });
 
-    testWidgets('a non-empty node renders expanded, not as a chip',
-        (tester) async {
+    testWidgets('a non-empty node renders expanded, not as a chip', (
+      tester,
+    ) async {
       final controller = await _controller();
       controller.setContent('D00/D00-OVR', 'already written');
       await _pump(tester, controller);
@@ -231,19 +239,28 @@ void main() {
       controller.setContent('O00/O00-B', 'beta body');
       await _pump(tester, controller);
 
-      final alphaDy =
-          tester.getTopLeft(find.widgetWithText(ActionChip, 'alpha')).dy;
-      final betaDy =
-          tester.getTopLeft(find.widgetWithText(TextField, 'beta body')).dy;
-      final gammaDy =
-          tester.getTopLeft(find.widgetWithText(ActionChip, 'gamma')).dy;
+      final alphaDy = tester
+          .getTopLeft(find.widgetWithText(ActionChip, 'alpha'))
+          .dy;
+      final betaDy = tester
+          .getTopLeft(find.widgetWithText(TextField, 'beta body'))
+          .dy;
+      final gammaDy = tester
+          .getTopLeft(find.widgetWithText(ActionChip, 'gamma'))
+          .dy;
 
       // `alpha` precedes the expanded `beta`; `gamma` follows it. The chips are
       // placed at their field position — not bunched into one trailing run.
-      expect(alphaDy, lessThan(betaDy),
-          reason: 'the chip for the field before the expanded one renders above');
-      expect(gammaDy, greaterThan(betaDy),
-          reason: 'the chip for the field after the expanded one renders below');
+      expect(
+        alphaDy,
+        lessThan(betaDy),
+        reason: 'the chip for the field before the expanded one renders above',
+      );
+      expect(
+        gammaDy,
+        greaterThan(betaDy),
+        reason: 'the chip for the field after the expanded one renders below',
+      );
     });
   });
 

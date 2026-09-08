@@ -191,8 +191,9 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
       // A basic-prefs Save can flip strict headline mode (YRD9); push it into
       // the live controller so the document editor re-gates its headline/id
       // fields without a restart.
-      onPreferencesChanged: (prefs) => _documentController
-          .strictHeadlineEditing.value = prefs.strictHeadlineEditing,
+      onPreferencesChanged: (prefs) =>
+          _documentController.strictHeadlineEditing.value =
+              prefs.strictHeadlineEditing,
     );
     _configModule.activate(_shell);
     (_shell.modules as DefaultModuleRegistry).register(_configModule);
@@ -358,10 +359,8 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
         layoutController: _shell.layout as DefaultLayoutController,
         systemState: _shell.systemState as DefaultSystemState,
         statusBarController: _shell.statusBar,
-        notificationManager:
-            _shell.notifications as DefaultNotificationManager,
-        onApplicationSwitch: (app) =>
-            setState(() => _application = app),
+        notificationManager: _shell.notifications as DefaultNotificationManager,
+        onApplicationSwitch: (app) => setState(() => _application = app),
       ),
     );
   }

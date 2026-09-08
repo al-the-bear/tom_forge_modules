@@ -23,12 +23,7 @@ import 'package:tom_md_editor/tom_md_editor.dart';
 /// paragraph breaks. Anything richer is routed to `MdPreviewPanel`. The widget
 /// is read-only — editing happens through the field editors, not here.
 class SpecMarkdown extends StatelessWidget {
-  const SpecMarkdown(
-    this.source, {
-    super.key,
-    this.style,
-    this.muted = false,
-  });
+  const SpecMarkdown(this.source, {super.key, this.style, this.muted = false});
 
   /// The markdown source to render.
   final String source;
@@ -51,9 +46,7 @@ class SpecMarkdown extends StatelessWidget {
     }
     final theme = Theme.of(context);
     final base = (style ?? theme.textTheme.bodyMedium ?? const TextStyle())
-        .copyWith(
-      color: muted ? theme.colorScheme.onSurfaceVariant : null,
-    );
+        .copyWith(color: muted ? theme.colorScheme.onSurfaceVariant : null);
     final blocks = <Widget>[];
     for (final line in source.split('\n')) {
       blocks.add(_lineWidget(context, line, base));
@@ -78,10 +71,10 @@ class SpecMarkdown extends StatelessWidget {
       return Padding(
         padding: const EdgeInsets.only(top: 2, bottom: 2),
         child: Text.rich(
-          _inlineSpans(text, base.copyWith(
-            fontSize: size,
-            fontWeight: FontWeight.bold,
-          )),
+          _inlineSpans(
+            text,
+            base.copyWith(fontSize: size, fontWeight: FontWeight.bold),
+          ),
         ),
       );
     }
@@ -92,10 +85,12 @@ class SpecMarkdown extends StatelessWidget {
       return Padding(
         padding: const EdgeInsets.only(left: 8, top: 1, bottom: 1),
         child: Text.rich(
-          TextSpan(children: [
-            TextSpan(text: '• ', style: base),
-            ..._inlineSpans(bullet.group(1)!, base).children!,
-          ]),
+          TextSpan(
+            children: [
+              TextSpan(text: '• ', style: base),
+              ..._inlineSpans(bullet.group(1)!, base).children!,
+            ],
+          ),
         ),
       );
     }
@@ -113,17 +108,26 @@ class SpecMarkdown extends StatelessWidget {
         spans.add(TextSpan(text: text.substring(index, m.start), style: base));
       }
       if (m.group(2) != null) {
-        spans.add(TextSpan(
+        spans.add(
+          TextSpan(
             text: m.group(2),
-            style: base.copyWith(fontWeight: FontWeight.bold)));
+            style: base.copyWith(fontWeight: FontWeight.bold),
+          ),
+        );
       } else if (m.group(4) != null) {
-        spans.add(TextSpan(
+        spans.add(
+          TextSpan(
             text: m.group(4),
-            style: base.copyWith(fontStyle: FontStyle.italic)));
+            style: base.copyWith(fontStyle: FontStyle.italic),
+          ),
+        );
       } else if (m.group(6) != null) {
-        spans.add(TextSpan(
+        spans.add(
+          TextSpan(
             text: m.group(6),
-            style: base.copyWith(fontFamily: 'monospace')));
+            style: base.copyWith(fontFamily: 'monospace'),
+          ),
+        );
       }
       index = m.end;
     }
@@ -138,16 +142,17 @@ class SpecMarkdown extends StatelessWidget {
 final RegExp _kFenceRe = RegExp(r'^[ \t]*(```|~~~)', multiLine: true);
 
 /// GFM table delimiter row, e.g. `| --- | :--: |` or `--- | ---`.
-final RegExp _kTableRe =
-    RegExp(r'^[ \t]*\|?[ \t]*:?-{3,}:?[ \t]*\|', multiLine: true);
+final RegExp _kTableRe = RegExp(
+  r'^[ \t]*\|?[ \t]*:?-{3,}:?[ \t]*\|',
+  multiLine: true,
+);
 
 /// Markdown image embed `![alt](src)`.
 final RegExp _kImageRe = RegExp(r'!\[[^\]]*\]\([^)]+\)');
 
 /// Block math `$$ … $$`, or inline `$ … $` carrying a TeX-ish token
 /// (`\cmd`, `^`, `_`, `{}`) so plain currency like `$5` does not trip it.
-final RegExp _kMathRe =
-    RegExp(r'\$\$[\s\S]+?\$\$|\$[^$\n]*[\\^_{}][^$\n]*\$');
+final RegExp _kMathRe = RegExp(r'\$\$[\s\S]+?\$\$|\$[^$\n]*[\\^_{}][^$\n]*\$');
 
 /// Whether [source] uses markdown features the lightweight inline renderer
 /// cannot show — the only case where the heavier [MdPreviewPanel] is justified
@@ -181,8 +186,9 @@ class _RichMarkdown extends StatefulWidget {
 }
 
 class _RichMarkdownState extends State<_RichMarkdown> {
-  late final MdEditorController _controller =
-      MdEditorController(initialMarkdown: widget.source);
+  late final MdEditorController _controller = MdEditorController(
+    initialMarkdown: widget.source,
+  );
 
   @override
   void didUpdateWidget(_RichMarkdown oldWidget) {

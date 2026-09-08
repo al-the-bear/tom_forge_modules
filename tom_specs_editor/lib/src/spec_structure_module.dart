@@ -16,7 +16,7 @@ import 'structure/spec_structure_view.dart';
 /// temp-file store.
 class SpecStructureModule extends ForgeModule {
   SpecStructureModule({Future<SpecModel>? modelFuture, ReviewStore? store})
-      : _store = store ?? (ReviewStore.resolveDefault()..load()) {
+    : _store = store ?? (ReviewStore.resolveDefault()..load()) {
     _view = SpecStructureView(
       modelFuture: modelFuture ?? loadSpecModelFromAsset(),
       store: _store,

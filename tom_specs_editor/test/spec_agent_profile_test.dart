@@ -17,20 +17,20 @@ import 'package:tom_specs_editor/src/structure/spec_model.dart';
 
 /// A minimal class graph with one content section.
 Map<String, dynamic> _sampleJson() => {
-      'roots': [
-        {'type': 'DemoDoc', 'title': 'Demo Document', 'sectionId': 'D00'},
+  'roots': [
+    {'type': 'DemoDoc', 'title': 'Demo Document', 'sectionId': 'D00'},
+  ],
+  'classes': {
+    'DemoDoc': {
+      'name': 'DemoDoc',
+      'sectionId': 'D00',
+      'doc': 'A demo document.',
+      'fields': [
+        {'name': 'overview', 'kind': 'content', 'sectionId': 'D00-OVR'},
       ],
-      'classes': {
-        'DemoDoc': {
-          'name': 'DemoDoc',
-          'sectionId': 'D00',
-          'doc': 'A demo document.',
-          'fields': [
-            {'name': 'overview', 'kind': 'content', 'sectionId': 'D00-OVR'},
-          ],
-        },
-      },
-    };
+    },
+  },
+};
 
 AgentToolsModule _module(Directory dir) {
   final model = SpecModel.fromJson(_sampleJson());
@@ -60,26 +60,24 @@ void main() {
     dir.deleteSync(recursive: true);
   });
 
-  SpecAgentProfiles profiles({String guidelinesPrompt = 'DOCSPECS GUIDELINES'}) =>
-      SpecAgentProfiles(
-        compose: (template) {
-          // The composer is always invoked with a guidelines placeholder. The
-          // DocSpecs token yields the configured prompt; the other applications'
-          // guidelines docs are unauthored on disk → lenient-empty.
-          expect(template, startsWith('\${guidelines-'));
-          return template == '\${guidelines-$docSpecsGuidelinesName}'
-              ? _composeWith(guidelinesPrompt)
-              : '';
-        },
-        servers: module.servers,
-        serverToolGroups: module.serverToolGroups,
-      );
+  SpecAgentProfiles profiles({
+    String guidelinesPrompt = 'DOCSPECS GUIDELINES',
+  }) => SpecAgentProfiles(
+    compose: (template) {
+      // The composer is always invoked with a guidelines placeholder. The
+      // DocSpecs token yields the configured prompt; the other applications'
+      // guidelines docs are unauthored on disk → lenient-empty.
+      expect(template, startsWith('\${guidelines-'));
+      return template == '\${guidelines-$docSpecsGuidelinesName}'
+          ? _composeWith(guidelinesPrompt)
+          : '';
+    },
+    servers: module.servers,
+    serverToolGroups: module.serverToolGroups,
+  );
 
   test('the editor server→group map covers exactly the editor MCP servers', () {
-    expect(
-      module.serverToolGroups.keys.toSet(),
-      module.servers.keys.toSet(),
-    );
+    expect(module.serverToolGroups.keys.toSet(), module.servers.keys.toSet());
   });
 
   test('the DocSpecs profile binds the reference application context', () {
@@ -94,11 +92,13 @@ void main() {
     expect(docSpecs.scopeNames, ['spec', 'files', 'memory']);
   });
 
-  test('the prompt registry resolves the guidelines doc into the system prompt',
-      () {
-    final docSpecs = profiles().docSpecs;
-    expect(docSpecs.systemPrompt, 'DOCSPECS GUIDELINES');
-  });
+  test(
+    'the prompt registry resolves the guidelines doc into the system prompt',
+    () {
+      final docSpecs = profiles().docSpecs;
+      expect(docSpecs.systemPrompt, 'DOCSPECS GUIDELINES');
+    },
+  );
 
   test('all four tool groups select both editor MCP servers', () {
     final docSpecs = profiles().docSpecs;
@@ -117,16 +117,18 @@ void main() {
     expect(config.systemPrompt, isNull);
   });
 
-  test('the memory scope addresses application/session/document (Q1 mapping)',
-      () {
-    final scope = profiles().docSpecs.memoryScope(
-      session: 'phase-3',
-      document: 'pd00',
-    );
-    expect(scope.application, docSpecsApplication);
-    expect(scope.session, 'phase-3');
-    expect(scope.document, 'pd00');
-  });
+  test(
+    'the memory scope addresses application/session/document (Q1 mapping)',
+    () {
+      final scope = profiles().docSpecs.memoryScope(
+        session: 'phase-3',
+        document: 'pd00',
+      );
+      expect(scope.application, docSpecsApplication);
+      expect(scope.session, 'phase-3');
+      expect(scope.document, 'pd00');
+    },
+  );
 
   test('all three canonical applications are authored with their own context '
       '(item 10)', () {

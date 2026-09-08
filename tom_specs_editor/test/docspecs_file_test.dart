@@ -15,69 +15,71 @@ import 'package:tom_specs_editor/src/structure/spec_model.dart';
 /// section-id path from the root (`D00/D00-OVR`, `D00/D00-HDR`, …), so the
 /// schema shape drives which paths are valid.
 Map<String, dynamic> _model() => {
-      'roots': [
-        {'type': 'DemoDoc', 'title': 'Demo', 'sectionId': 'D00'},
+  'roots': [
+    {'type': 'DemoDoc', 'title': 'Demo', 'sectionId': 'D00'},
+  ],
+  'classes': {
+    'DemoDoc': {
+      'name': 'DemoDoc',
+      'sectionId': 'D00',
+      'fields': [
+        {
+          'name': 'overview',
+          'kind': 'content',
+          'sectionId': 'D00-OVR',
+          'serializationOrder': 0,
+        },
+        {
+          'name': 'summary',
+          'kind': 'content',
+          'sectionId': 'D00-SUM',
+          'serializationOrder': 1,
+        },
+        {
+          'name': 'header',
+          'kind': 'form',
+          'sectionId': 'D00-HDR',
+          'serializationOrder': 2,
+          'formFields': [
+            {'name': 'title', 'label': 'Title', 'type': 'String'},
+            {'name': 'owner', 'label': 'Owner', 'type': 'String'},
+          ],
+        },
+        {
+          'name': 'requirements',
+          'kind': 'list',
+          'sectionId': 'D00-REQ',
+          'sectionIdPattern': 'REQ-xxx',
+          'elementType': 'Requirement',
+          'elementIsComplex': true,
+          'serializationOrder': 3,
+        },
+        {
+          'name': 'tags',
+          'kind': 'list',
+          'sectionId': 'D00-TAG',
+          'elementType': 'String',
+          'elementIsComplex': false,
+          'serializationOrder': 4,
+        },
       ],
-      'classes': {
-        'DemoDoc': {
-          'name': 'DemoDoc',
-          'sectionId': 'D00',
-          'fields': [
-            {
-              'name': 'overview',
-              'kind': 'content',
-              'sectionId': 'D00-OVR',
-              'serializationOrder': 0,
-            },
-            {
-              'name': 'summary',
-              'kind': 'content',
-              'sectionId': 'D00-SUM',
-              'serializationOrder': 1,
-            },
-            {
-              'name': 'header',
-              'kind': 'form',
-              'sectionId': 'D00-HDR',
-              'serializationOrder': 2,
-              'formFields': [
-                {'name': 'title', 'label': 'Title', 'type': 'String'},
-                {'name': 'owner', 'label': 'Owner', 'type': 'String'},
-              ],
-            },
-            {
-              'name': 'requirements',
-              'kind': 'list',
-              'sectionId': 'D00-REQ',
-              'sectionIdPattern': 'REQ-xxx',
-              'elementType': 'Requirement',
-              'elementIsComplex': true,
-              'serializationOrder': 3,
-            },
-            {
-              'name': 'tags',
-              'kind': 'list',
-              'sectionId': 'D00-TAG',
-              'elementType': 'String',
-              'elementIsComplex': false,
-              'serializationOrder': 4,
-            },
-          ],
-        },
-        'Requirement': {
-          'name': 'Requirement',
-          'fields': [
-            {'name': 'text', 'kind': 'content', 'serializationOrder': 0},
-          ],
-        },
-      },
-    };
+    },
+    'Requirement': {
+      'name': 'Requirement',
+      'fields': [
+        {'name': 'text', 'kind': 'content', 'serializationOrder': 0},
+      ],
+    },
+  },
+};
 
 void main() {
   final tree = buildSomMetaTree(SpecModel.fromJson(_model()));
 
-  String encode(SpecDocument doc, {Map<String, ReviewEntry> review = const {}}) =>
-      DocSpecsFile.encode(document: doc, tree: tree, review: review);
+  String encode(
+    SpecDocument doc, {
+    Map<String, ReviewEntry> review = const {},
+  }) => DocSpecsFile.encode(document: doc, tree: tree, review: review);
 
   /// Encodes [doc] + [review], then decodes back to a live document / review
   /// map — the save→load round-trip under test. The decoder returns a
@@ -147,8 +149,11 @@ void main() {
       for (var i = 0; i < tricky.length; i++) {
         final doc = SpecDocument()..setContent('D00/D00-OVR', tricky[i]);
         final out = roundTrip(doc).doc;
-        expect(out.content('D00/D00-OVR'), tricky[i],
-            reason: 'case #$i must round-trip verbatim');
+        expect(
+          out.content('D00/D00-OVR'),
+          tricky[i],
+          reason: 'case #$i must round-trip verbatim',
+        );
       }
     });
 
@@ -161,7 +166,8 @@ void main() {
 
     test('the encoded YAML is human-readable: block scalars for multi-line '
         'content', () {
-      final doc = SpecDocument()..setContent('D00/D00-OVR', 'line one\nline two');
+      final doc = SpecDocument()
+        ..setContent('D00/D00-OVR', 'line one\nline two');
       final yaml = encode(doc);
       // A literal block scalar header, and the body visible as plain lines.
       expect(yaml, contains('|2-'));
@@ -215,19 +221,28 @@ void main() {
     test('a version-1 (flat path-map) file is rejected', () {
       expect(
         () => DocSpecsFile.decode('version: 1\ndocument: {}\n', tree),
-        throwsA(isA<SpecYamlFormatException>().having(
-            (e) => e.message, 'message', contains('version 1'))),
+        throwsA(
+          isA<SpecYamlFormatException>().having(
+            (e) => e.message,
+            'message',
+            contains('version 1'),
+          ),
+        ),
       );
     });
 
     test('an empty string is rejected', () {
-      expect(() => DocSpecsFile.decode('', tree),
-          throwsA(isA<SpecYamlFormatException>()));
+      expect(
+        () => DocSpecsFile.decode('', tree),
+        throwsA(isA<SpecYamlFormatException>()),
+      );
     });
 
     test('a missing version is rejected', () {
-      expect(() => DocSpecsFile.decode('document: {}\n', tree),
-          throwsA(isA<SpecYamlFormatException>()));
+      expect(
+        () => DocSpecsFile.decode('document: {}\n', tree),
+        throwsA(isA<SpecYamlFormatException>()),
+      );
     });
 
     test('a value the metadata tree cannot place is a structured error', () {
@@ -237,42 +252,51 @@ void main() {
 
     test('a missing/empty document pass on a v2 file decodes as empty', () {
       expect(
-          DocSpecsFile.decode('version: 2\n', tree).document.isEmpty, isTrue);
+        DocSpecsFile.decode('version: 2\n', tree).document.isEmpty,
+        isTrue,
+      );
       expect(
-          DocSpecsFile.decode('version: 2\ndocument: {}\n', tree)
-              .document
-              .isEmpty,
-          isTrue);
+        DocSpecsFile.decode(
+          'version: 2\ndocument: {}\n',
+          tree,
+        ).document.isEmpty,
+        isTrue,
+      );
     });
   });
 
   group('document model-version stamp', () {
-    test('encode writes the authoring modelVersion beside the format version',
-        () {
-      final yaml = DocSpecsFile.encode(
-        document: SpecDocument(),
-        tree: tree,
-        review: const {},
-        modelVersion: '0.7',
-      );
-      expect(yaml, contains('version: ${DocSpecsFile.formatVersion}'));
-      expect(yaml, contains('modelVersion: '));
-      // The stamp must read back through decode (the generic runtime path).
-      expect(DocSpecsFile.decode(yaml, tree).modelVersion, '0.7');
-    });
+    test(
+      'encode writes the authoring modelVersion beside the format version',
+      () {
+        final yaml = DocSpecsFile.encode(
+          document: SpecDocument(),
+          tree: tree,
+          review: const {},
+          modelVersion: '0.7',
+        );
+        expect(yaml, contains('version: ${DocSpecsFile.formatVersion}'));
+        expect(yaml, contains('modelVersion: '));
+        // The stamp must read back through decode (the generic runtime path).
+        expect(DocSpecsFile.decode(yaml, tree).modelVersion, '0.7');
+      },
+    );
 
-    test('a fixture *.docspecs.yaml carries the stamp, read back on decode', () {
-      const fixture = '''
+    test(
+      'a fixture *.docspecs.yaml carries the stamp, read back on decode',
+      () {
+        const fixture = '''
 version: 2
 modelVersion: "1.2"
 document: {}
 review: {}
 ''';
-      final parsed = DocSpecsFile.decode(fixture, tree);
-      expect(parsed.modelVersion, '1.2');
-      expect(parsed.document.isEmpty, isTrue);
-      expect(parsed.review, isEmpty);
-    });
+        final parsed = DocSpecsFile.decode(fixture, tree);
+        expect(parsed.modelVersion, '1.2');
+        expect(parsed.document.isEmpty, isTrue);
+        expect(parsed.review, isEmpty);
+      },
+    );
 
     test('a file without the stamp decodes modelVersion as null', () {
       final yaml = encode(SpecDocument());
@@ -308,49 +332,53 @@ review: {}
     late Directory dir;
 
     SpecDocumentController makeController() => SpecDocumentController(
-          modelFuture: Future<SpecModel>.value(SpecModel.fromJson(_model())),
-          review: ReviewStore(File('${dir.path}/review.yaml')),
-        );
+      modelFuture: Future<SpecModel>.value(SpecModel.fromJson(_model())),
+      review: ReviewStore(File('${dir.path}/review.yaml')),
+    );
 
     setUp(() => dir = Directory.systemTemp.createTempSync('specs_ctl_'));
     tearDown(() => dir.deleteSync(recursive: true));
 
-    test('save→load restores the full UI state and clears dirty + undo',
-        () async {
-      final file = File('${dir.path}/doc.docspecs.yaml');
-      final c = makeController();
-      c.setContent('D00/D00-OVR', 'authored');
-      c.setReview('D00/D00-OVR', (e) => e.scope = ReviewScope.global);
-      expect(c.isDirty, isTrue);
-      expect(c.canUndo, isTrue);
+    test(
+      'save→load restores the full UI state and clears dirty + undo',
+      () async {
+        final file = File('${dir.path}/doc.docspecs.yaml');
+        final c = makeController();
+        c.setContent('D00/D00-OVR', 'authored');
+        c.setReview('D00/D00-OVR', (e) => e.scope = ReviewScope.global);
+        expect(c.isDirty, isTrue);
+        expect(c.canUndo, isTrue);
 
-      await c.saveDocSpecs(file, sessionId: 'sess-42');
-      expect(c.isDirty, isFalse); // save re-baselines
-      expect(c.canUndo, isTrue); // undo stack kept across save (N6)
+        await c.saveDocSpecs(file, sessionId: 'sess-42');
+        expect(c.isDirty, isFalse); // save re-baselines
+        expect(c.canUndo, isTrue); // undo stack kept across save (N6)
 
-      // A fresh controller loads the file and sees the same state.
-      final c2 = makeController();
-      final session = await c2.loadDocSpecs(file);
-      expect(c2.content('D00/D00-OVR'), 'authored');
-      expect(c2.review.entryFor('D00/D00-OVR')?.scope, ReviewScope.global);
-      expect(session, 'sess-42');
-      expect(c2.isDirty, isFalse); // load is a fresh save point
-      expect(c2.canUndo, isFalse); // undo stack cleared on load
-    });
+        // A fresh controller loads the file and sees the same state.
+        final c2 = makeController();
+        final session = await c2.loadDocSpecs(file);
+        expect(c2.content('D00/D00-OVR'), 'authored');
+        expect(c2.review.entryFor('D00/D00-OVR')?.scope, ReviewScope.global);
+        expect(session, 'sess-42');
+        expect(c2.isDirty, isFalse); // load is a fresh save point
+        expect(c2.canUndo, isFalse); // undo stack cleared on load
+      },
+    );
 
-    test('the agent change log is not serialized (resets on save, M2)',
-        () async {
-      final file = File('${dir.path}/doc.docspecs.yaml');
-      final c = makeController();
-      c.setContent('D00/D00-OVR', 'x');
-      expect(c.changeLog.length, 1);
+    test(
+      'the agent change log is not serialized (resets on save, M2)',
+      () async {
+        final file = File('${dir.path}/doc.docspecs.yaml');
+        final c = makeController();
+        c.setContent('D00/D00-OVR', 'x');
+        expect(c.changeLog.length, 1);
 
-      await c.saveDocSpecs(file);
-      expect(c.changeLog.length, 0); // save() reset the log
+        await c.saveDocSpecs(file);
+        expect(c.changeLog.length, 0); // save() reset the log
 
-      final yaml = await file.readAsString();
-      expect(yaml, isNot(contains('changeLog')));
-      expect(yaml, isNot(contains('change_log')));
-    });
+        final yaml = await file.readAsString();
+        expect(yaml, isNot(contains('changeLog')));
+        expect(yaml, isNot(contains('change_log')));
+      },
+    );
   });
 }

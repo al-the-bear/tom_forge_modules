@@ -75,11 +75,13 @@ class DocSpecsFile {
     String? modelVersion,
   }) {
     final b = StringBuffer();
-    b.write(SpecDocumentYaml.encode(
-      document: document,
-      tree: tree,
-      modelVersion: modelVersion,
-    ));
+    b.write(
+      SpecDocumentYaml.encode(
+        document: document,
+        tree: tree,
+        modelVersion: modelVersion,
+      ),
+    );
     _writeReview(b, review);
     return b.toString();
   }

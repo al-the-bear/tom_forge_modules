@@ -20,55 +20,56 @@ import 'package:tom_specs_editor/src/structure/spec_tree.dart';
 /// A minimal class graph covering the field kinds the tree renders: a content
 /// paragraph, a scalar, a complex sub-section, and a list of complex items.
 Map<String, dynamic> _sampleJson() => {
-      'roots': [
+  'roots': [
+    {
+      'type': 'DemoDoc',
+      'title': 'Demo Document',
+      'sectionId': 'D00',
+      'description': 'A demo document for tests.',
+    },
+  ],
+  'classes': {
+    'DemoDoc': {
+      'name': 'DemoDoc',
+      'sectionId': 'D00',
+      'fields': [
+        {'name': 'overview', 'kind': 'content', 'sectionId': 'D00-OVR'},
+        {'name': 'name', 'kind': 'scalar', 'type': 'String'},
         {
-          'type': 'DemoDoc',
-          'title': 'Demo Document',
-          'sectionId': 'D00',
-          'description': 'A demo document for tests.',
+          'name': 'meta',
+          'kind': 'complex',
+          'type': 'DemoMeta',
+          'sectionId': 'D00-MET',
+        },
+        {
+          'name': 'items',
+          'kind': 'list',
+          'elementType': 'DemoItem',
+          'elementIsComplex': true,
+          'sectionIdPattern': 'D01.N',
         },
       ],
-      'classes': {
-        'DemoDoc': {
-          'name': 'DemoDoc',
-          'sectionId': 'D00',
-          'fields': [
-            {'name': 'overview', 'kind': 'content', 'sectionId': 'D00-OVR'},
-            {'name': 'name', 'kind': 'scalar', 'type': 'String'},
-            {
-              'name': 'meta',
-              'kind': 'complex',
-              'type': 'DemoMeta',
-              'sectionId': 'D00-MET',
-            },
-            {
-              'name': 'items',
-              'kind': 'list',
-              'elementType': 'DemoItem',
-              'elementIsComplex': true,
-              'sectionIdPattern': 'D01.N',
-            },
-          ],
-        },
-        'DemoMeta': {
-          'name': 'DemoMeta',
-          'sectionId': 'D00-MET',
-          'fields': [
-            {'name': 'note', 'kind': 'scalar', 'type': 'String'},
-          ],
-        },
-        'DemoItem': {
-          'name': 'DemoItem',
-          'fields': [
-            {'name': 'label', 'kind': 'scalar', 'type': 'String'},
-          ],
-        },
-      },
-    };
+    },
+    'DemoMeta': {
+      'name': 'DemoMeta',
+      'sectionId': 'D00-MET',
+      'fields': [
+        {'name': 'note', 'kind': 'scalar', 'type': 'String'},
+      ],
+    },
+    'DemoItem': {
+      'name': 'DemoItem',
+      'fields': [
+        {'name': 'label', 'kind': 'scalar', 'type': 'String'},
+      ],
+    },
+  },
+};
 
 void main() {
-  testWidgets('SpecStructureView renders the tree for a class-graph model',
-      (tester) async {
+  testWidgets('SpecStructureView renders the tree for a class-graph model', (
+    tester,
+  ) async {
     await tester.binding.setSurfaceSize(const Size(1200, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -139,7 +140,10 @@ void main() {
     // master was the "Project Definition"). Loading them must still resolve to
     // the renamed scope so existing reviews are not silently downgraded.
     expect(ReviewScope.parse('only_pd'), ReviewScope.onlyThisDocument);
-    expect(ReviewScope.parse('only_this_document'), ReviewScope.onlyThisDocument);
+    expect(
+      ReviewScope.parse('only_this_document'),
+      ReviewScope.onlyThisDocument,
+    );
     // The canonical token written back out is the new one.
     expect(ReviewScope.onlyThisDocument.token, 'only_this_document');
   });
@@ -148,11 +152,13 @@ void main() {
     final dir = Directory.systemTemp.createTempSync('specs_review_legacy_');
     addTearDown(() => dir.deleteSync(recursive: true));
     final file = File('${dir.path}/structure_review.yaml')
-      ..writeAsStringSync('version: 1\n'
-          'entries:\n'
-          '  "DemoDoc/items/§item/content":\n'
-          '    scope: only_pd\n'
-          '    comment: "from a pre-rename review"\n');
+      ..writeAsStringSync(
+        'version: 1\n'
+        'entries:\n'
+        '  "DemoDoc/items/§item/content":\n'
+        '    scope: only_pd\n'
+        '    comment: "from a pre-rename review"\n',
+      );
 
     final store = ReviewStore(file)..load();
     final entry = store.entryFor('DemoDoc/items/§item/content');
@@ -177,14 +183,13 @@ void main() {
       appName: 'TomSpecs Editor',
       navigatorKey: GlobalKey<NavigatorState>(),
     );
-    final shellModule =
-        SpecsShellModule(structureView: structureModule.structureView)
-          ..activate(shell);
+    final shellModule = SpecsShellModule(
+      structureView: structureModule.structureView,
+    )..activate(shell);
 
     final leftTabs = shellModule.docSpecs.layout.leftPanel.tabs;
     expect(leftTabs.map((t) => t.title), contains('Structure'));
-    final structureTab =
-        leftTabs.firstWhere((t) => t.title == 'Structure');
+    final structureTab = leftTabs.firstWhere((t) => t.title == 'Structure');
     expect(structureTab.sections, contains(structureModule.structureView));
   });
 }

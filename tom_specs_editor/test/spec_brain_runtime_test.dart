@@ -14,8 +14,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_spec_engine/agent.dart' show AgentToolGroup;
-import 'package:tom_spec_engine/agent_runtime.dart'
-    show RecordingBrainEnvelope;
+import 'package:tom_spec_engine/agent_runtime.dart' show RecordingBrainEnvelope;
 import 'package:tom_spec_engine/scripting.dart' show SpecFileFacade;
 import 'package:tom_vscode_scripting_api/tom_vscode_scripting_api.dart';
 
@@ -28,33 +27,33 @@ import 'package:tom_specs_editor/src/structure/spec_model.dart';
 /// A class graph with a list of complex items — enough for the default
 /// search→recall→edit→verify procedure's constrained add.
 Map<String, dynamic> _sampleJson() => {
-      'roots': [
-        {'type': 'DemoDoc', 'title': 'Demo Document', 'sectionId': 'D00'},
+  'roots': [
+    {'type': 'DemoDoc', 'title': 'Demo Document', 'sectionId': 'D00'},
+  ],
+  'classes': {
+    'DemoDoc': {
+      'name': 'DemoDoc',
+      'sectionId': 'D00',
+      'doc': 'A demo document.',
+      'fields': [
+        {'name': 'overview', 'kind': 'content', 'sectionId': 'D00-OVR'},
+        {
+          'name': 'items',
+          'kind': 'list',
+          'elementType': 'DemoItem',
+          'elementIsComplex': true,
+          'sectionId': 'D00-ITM',
+        },
       ],
-      'classes': {
-        'DemoDoc': {
-          'name': 'DemoDoc',
-          'sectionId': 'D00',
-          'doc': 'A demo document.',
-          'fields': [
-            {'name': 'overview', 'kind': 'content', 'sectionId': 'D00-OVR'},
-            {
-              'name': 'items',
-              'kind': 'list',
-              'elementType': 'DemoItem',
-              'elementIsComplex': true,
-              'sectionId': 'D00-ITM',
-            },
-          ],
-        },
-        'DemoItem': {
-          'name': 'DemoItem',
-          'fields': [
-            {'name': 'label', 'kind': 'content', 'sectionId': 'D01-LBL'},
-          ],
-        },
-      },
-    };
+    },
+    'DemoItem': {
+      'name': 'DemoItem',
+      'fields': [
+        {'name': 'label', 'kind': 'content', 'sectionId': 'D01-LBL'},
+      ],
+    },
+  },
+};
 
 AgentToolsModule _module(Directory dir) {
   final model = SpecModel.fromJson(_sampleJson());
@@ -97,7 +96,8 @@ void main() {
   /// A runtime over the module's live controller + memory plane, but with a
   /// host-independent recording envelope injected so the run trail records
   /// without a live store (the store cannot open under `flutter test`).
-  ({SpecBrainRuntime runtime, RecordingBrainEnvelope envelope}) recordingRuntime() {
+  ({SpecBrainRuntime runtime, RecordingBrainEnvelope envelope})
+  recordingRuntime() {
     final envelope = RecordingBrainEnvelope();
     final runtime = SpecBrainRuntime(
       controller: module.controller,
@@ -110,8 +110,10 @@ void main() {
 
   test('the module exposes the tomspecs-brain server with the run tools', () {
     final server = module.servers['tomspecs-brain'] as McpSdkServerConfig;
-    expect({for (final t in server.tools) t.name},
-        {'agent_run', 'agent_trail'});
+    expect(
+      {for (final t in server.tools) t.name},
+      {'agent_run', 'agent_trail'},
+    );
     // The coarse server touches every plane a run uses, so it carries the full
     // tool-group set.
     expect(module.serverToolGroups['tomspecs-brain'], {
@@ -122,37 +124,43 @@ void main() {
     });
   });
 
-  test('an injected envelope makes the runtime available and records the run',
-      () async {
-    final h = recordingRuntime();
-    expect(h.runtime.available, isTrue);
+  test(
+    'an injected envelope makes the runtime available and records the run',
+    () async {
+      final h = recordingRuntime();
+      expect(h.runtime.available, isTrue);
 
-    final result = await h.runtime.run(
-      goal: 'append a demo item',
-      inputs: const {'parentPath': 'D00', 'childSegment': 'D00-ITM'},
-    );
+      final result = await h.runtime.run(
+        goal: 'append a demo item',
+        inputs: const {'parentPath': 'D00', 'childSegment': 'D00-ITM'},
+      );
 
-    expect(result['available'], isTrue);
-    expect(result['mode'], 'tom_brain');
-    expect(result['trailLength'], 1);
-    expect((result['result'] as Map)['ok'], isTrue,
-        reason: (result['result'] as Map)['error']?.toString());
-    // The agent's edit landed on the one shared document (one change log).
-    expect(module.controller.document.listItems('D00/D00-ITM'),
-        ['D00/D00-ITM-1']);
-    expect(module.controller.changeLog.length, 1);
+      expect(result['available'], isTrue);
+      expect(result['mode'], 'tom_brain');
+      expect(result['trailLength'], 1);
+      expect(
+        (result['result'] as Map)['ok'],
+        isTrue,
+        reason: (result['result'] as Map)['error']?.toString(),
+      );
+      // The agent's edit landed on the one shared document (one change log).
+      expect(module.controller.document.listItems('D00/D00-ITM'), [
+        'D00/D00-ITM-1',
+      ]);
+      expect(module.controller.changeLog.length, 1);
 
-    // The recorded run carries its effort metrics.
-    expect(h.envelope.runs, hasLength(1));
-    expect(h.envelope.runs.single.effort.ok, isTrue);
-    expect(result['effort'], isNotNull);
+      // The recorded run carries its effort metrics.
+      expect(h.envelope.runs, hasLength(1));
+      expect(h.envelope.runs.single.effort.ok, isTrue);
+      expect(result['effort'], isNotNull);
 
-    // The trail reads back the run polymorphically (newest last).
-    final trail = h.runtime.trail();
-    expect(trail, hasLength(1));
-    expect(trail.single['goal'], 'append a demo item');
-    expect(trail.single['effort'], isNotNull);
-  });
+      // The trail reads back the run polymorphically (newest last).
+      final trail = h.runtime.trail();
+      expect(trail, hasLength(1));
+      expect(trail.single['goal'], 'append a demo item');
+      expect(trail.single['effort'], isNotNull);
+    },
+  );
 
   test('agent_run / agent_trail MCP tools wrap the runtime', () async {
     final h = recordingRuntime();
@@ -184,22 +192,24 @@ void main() {
     expect(result.isError, isTrue);
   });
 
-  test('the runtime degrades gracefully when no live envelope resolves',
-      () async {
-    // The module's own runtime has no injected envelope; under `flutter test`
-    // the tier-2 store cannot open, so the live envelope is unresolvable and a
-    // run reports unavailable rather than running a loop it cannot persist.
-    final result = await module.brainRuntime.run(
-      goal: 'append a demo item',
-      inputs: const {'parentPath': 'D00', 'childSegment': 'D00-ITM'},
-    );
-    if (module.brainRuntime.available) {
-      expect(result['available'], isTrue);
-    } else {
-      expect(result['available'], isFalse);
-      expect(result['reason'], isNotNull);
-      // Nothing was recorded and the document was left untouched.
-      expect(module.brainRuntime.trail(), isEmpty);
-    }
-  });
+  test(
+    'the runtime degrades gracefully when no live envelope resolves',
+    () async {
+      // The module's own runtime has no injected envelope; under `flutter test`
+      // the tier-2 store cannot open, so the live envelope is unresolvable and a
+      // run reports unavailable rather than running a loop it cannot persist.
+      final result = await module.brainRuntime.run(
+        goal: 'append a demo item',
+        inputs: const {'parentPath': 'D00', 'childSegment': 'D00-ITM'},
+      );
+      if (module.brainRuntime.available) {
+        expect(result['available'], isTrue);
+      } else {
+        expect(result['available'], isFalse);
+        expect(result['reason'], isNotNull);
+        // Nothing was recorded and the document was left untouched.
+        expect(module.brainRuntime.trail(), isEmpty);
+      }
+    },
+  );
 }

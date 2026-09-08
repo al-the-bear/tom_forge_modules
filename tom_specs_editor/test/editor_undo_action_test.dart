@@ -18,27 +18,27 @@ import 'package:tom_specs_editor/src/structure/spec_model.dart';
 /// A trivial single-content-field model; the undo seam operates purely on
 /// section-ID paths, so the schema shape is irrelevant.
 Map<String, dynamic> _model() => {
-      'roots': [
-        {'type': 'DemoDoc', 'title': 'Demo', 'sectionId': 'D00'},
+  'roots': [
+    {'type': 'DemoDoc', 'title': 'Demo', 'sectionId': 'D00'},
+  ],
+  'classes': {
+    'DemoDoc': {
+      'name': 'DemoDoc',
+      'sectionId': 'D00',
+      'fields': [
+        {'name': 'overview', 'kind': 'content', 'sectionId': 'D00-OVR'},
       ],
-      'classes': {
-        'DemoDoc': {
-          'name': 'DemoDoc',
-          'sectionId': 'D00',
-          'fields': [
-            {'name': 'overview', 'kind': 'content', 'sectionId': 'D00-OVR'},
-          ],
-        },
-      },
-    };
+    },
+  },
+};
 
 void main() {
   late Directory dir;
 
   SpecDocumentController makeController() => SpecDocumentController(
-        modelFuture: Future<SpecModel>.value(SpecModel.fromJson(_model())),
-        review: ReviewStore(File('${dir.path}/review.yaml')),
-      );
+    modelFuture: Future<SpecModel>.value(SpecModel.fromJson(_model())),
+    review: ReviewStore(File('${dir.path}/review.yaml')),
+  );
 
   setUp(() => dir = Directory.systemTemp.createTempSync('specs_editor_undo_'));
   tearDown(() => dir.deleteSync(recursive: true));

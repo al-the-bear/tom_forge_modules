@@ -52,11 +52,11 @@ class SpecPromptComposer {
     this.strict = false,
     String Function()? chatTranscript,
     String Function()? activeDocument,
-  })  : aiFolder = aiFolder ?? Directory('${Directory.current.path}/_ai'),
-        _variables = List<ChatVariable>.unmodifiable(variables),
-        _clock = clock ?? DateTime.now,
-        _chatTranscript = chatTranscript ?? _empty,
-        _activeDocument = activeDocument ?? _empty;
+  }) : aiFolder = aiFolder ?? Directory('${Directory.current.path}/_ai'),
+       _variables = List<ChatVariable>.unmodifiable(variables),
+       _clock = clock ?? DateTime.now,
+       _chatTranscript = chatTranscript ?? _empty,
+       _activeDocument = activeDocument ?? _empty;
 
   /// The quest name (`tom_specs_editor_specification.md` §11.5 P1) — the Forge
   /// process's workspace folder name. Bound to the `${quest}` placeholder.
@@ -89,13 +89,13 @@ class SpecPromptComposer {
   /// their current snapshot value, read from the host providers at the moment
   /// this is called.
   List<ChatVariable> builtInsFor(DateTime now) => <ChatVariable>[
-        ChatVariable(name: 'date', value: _date(now), builtIn: true),
-        ChatVariable(name: 'time', value: _time(now), builtIn: true),
-        ChatVariable(name: 'quest', value: workspaceName, builtIn: true),
-        ChatVariable(name: 'role', value: role, builtIn: true),
-        ChatVariable(name: 'chat', value: _chatTranscript(), builtIn: true),
-        ChatVariable(name: 'file', value: _activeDocument(), builtIn: true),
-      ];
+    ChatVariable(name: 'date', value: _date(now), builtIn: true),
+    ChatVariable(name: 'time', value: _time(now), builtIn: true),
+    ChatVariable(name: 'quest', value: workspaceName, builtIn: true),
+    ChatVariable(name: 'role', value: role, builtIn: true),
+    ChatVariable(name: 'chat', value: _chatTranscript(), builtIn: true),
+    ChatVariable(name: 'file', value: _activeDocument(), builtIn: true),
+  ];
 
   /// Expands every supported placeholder in [template].
   ///
@@ -109,8 +109,10 @@ class SpecPromptComposer {
       for (final variable in _variables) variable.name: variable.value,
       ..._fileInjections(template),
     };
-    return EditorPlaceholderBindings(bindings: bindings, strict: strict)
-        .resolve(template);
+    return EditorPlaceholderBindings(
+      bindings: bindings,
+      strict: strict,
+    ).resolve(template);
   }
 
   /// The workspace root. Invariant (`tom_specs_editor_specification.md` §11.5
@@ -229,6 +231,7 @@ class SpecPromptComposer {
   /// produces a false match (and would be rejected by the resolver regardless).
   /// The scalar built-ins `${role}` / `${quest}` (no trailing dash) are not
   /// matched here.
-  static final RegExp _injectionToken =
-      RegExp(r'(?:\$\{|\{\{)\s*((?:file|guidelines|role|quest)-[^}{]+?)\s*\}');
+  static final RegExp _injectionToken = RegExp(
+    r'(?:\$\{|\{\{)\s*((?:file|guidelines|role|quest)-[^}{]+?)\s*\}',
+  );
 }

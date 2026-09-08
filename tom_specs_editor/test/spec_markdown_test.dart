@@ -27,10 +27,7 @@ void main() {
 
     test('fenced code, tables, math and images are rich', () {
       expect(isRichMarkdown('```dart\nvoid main() {}\n```'), isTrue);
-      expect(
-        isRichMarkdown('| a | b |\n| --- | --- |\n| 1 | 2 |'),
-        isTrue,
-      );
+      expect(isRichMarkdown('| a | b |\n| --- | --- |\n| 1 | 2 |'), isTrue);
       expect(isRichMarkdown(r'Block: $$ a^2 + b^2 = c^2 $$'), isTrue);
       expect(isRichMarkdown(r'Inline $x_{i}$ math'), isTrue);
       expect(isRichMarkdown('![alt](image.png)'), isTrue);
@@ -39,19 +36,21 @@ void main() {
 
   group('SpecMarkdown widget routing', () {
     testWidgets('plain text does not mount MdPreviewPanel', (tester) async {
-      await tester.pumpWidget(const MaterialApp(
-        home: Scaffold(body: SpecMarkdown('Just a label')),
-      ));
+      await tester.pumpWidget(
+        const MaterialApp(home: Scaffold(body: SpecMarkdown('Just a label'))),
+      );
       expect(find.byType(MdPreviewPanel), findsNothing);
       expect(find.text('Just a label'), findsOneWidget);
     });
 
     testWidgets('rich content mounts MdPreviewPanel', (tester) async {
-      await tester.pumpWidget(const MaterialApp(
-        home: Scaffold(
-          body: SpecMarkdown('| a | b |\n| --- | --- |\n| 1 | 2 |'),
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: SpecMarkdown('| a | b |\n| --- | --- |\n| 1 | 2 |'),
+          ),
         ),
-      ));
+      );
       await tester.pump();
       expect(find.byType(MdPreviewPanel), findsOneWidget);
     });

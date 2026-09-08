@@ -13,8 +13,8 @@ import 'package:tom_forge_ui/tom_forge_ui.dart';
 /// calls [onOpen], which the module wires to `shell.layout.openEditor`.
 class ConfigRailView extends ForgeView {
   ConfigRailView({required this.editors, required this.onOpen})
-      : _title = ValueNotifier<String>('Config'),
-        _titleExtension = ValueNotifier<String?>(null);
+    : _title = ValueNotifier<String>('Config'),
+      _titleExtension = ValueNotifier<String?>(null);
 
   /// The config editors to surface, in display order.
   final List<ForgeEditor> editors;
@@ -66,10 +66,7 @@ class _ConfigRail extends StatelessWidget {
             key: ValueKey('config-rail-entry-${editor.uri.path}'),
             dense: true,
             leading: Icon(editor.icon, size: 18),
-            title: Text(
-              editor.title.value,
-              overflow: TextOverflow.ellipsis,
-            ),
+            title: Text(editor.title.value, overflow: TextOverflow.ellipsis),
             onTap: () => onOpen(editor),
           ),
       ],

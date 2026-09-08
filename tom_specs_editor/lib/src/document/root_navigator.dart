@@ -86,8 +86,8 @@ List<SpecRoot> navigatorRootOrder(SpecModel model) {
 /// copies or forks data (step 20 / `tom_specs_editor_specification.md` §14).
 class RootNavigator extends ForgeView {
   RootNavigator({required this.controller})
-      : _title = ValueNotifier<String>('Navigator'),
-        _titleExtension = ValueNotifier<String?>(null);
+    : _title = ValueNotifier<String>('Navigator'),
+      _titleExtension = ValueNotifier<String?>(null);
 
   /// The shared controller whose active root this navigator drives.
   final SpecDocumentController controller;
@@ -130,9 +130,11 @@ class RootNavigatorList extends StatelessWidget {
           return Center(
             child: Padding(
               padding: const EdgeInsets.all(16),
-              child: Text('Failed to load model:\n${snapshot.error}',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              child: Text(
+                'Failed to load model:\n${snapshot.error}',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
             ),
           );
         }
@@ -152,7 +154,8 @@ class RootNavigatorList extends StatelessWidget {
               child: AnimatedBuilder(
                 animation: controller,
                 builder: (context, _) {
-                  final active = controller.activeRootType ??
+                  final active =
+                      controller.activeRootType ??
                       (fallback != null ? rootSelector(fallback) : null);
                   return ListView.builder(
                     padding: const EdgeInsets.symmetric(vertical: 4),
@@ -160,12 +163,14 @@ class RootNavigatorList extends StatelessWidget {
                     itemBuilder: (context, i) {
                       final root = ordered[i];
                       final seg = rootSelector(root);
-                      final selected = seg == active ||
+                      final selected =
+                          seg == active ||
                           root.type == active ||
                           root.sectionId == active;
                       // A separator sits after the Solution Blueprint (index 0
                       // when the model has one), before the alphabetical rest.
-                      final showDivider = i == 0 &&
+                      final showDivider =
+                          i == 0 &&
                           ordered.length > 1 &&
                           isSolutionBlueprint(root);
                       final tile = _RootTile(
@@ -240,8 +245,9 @@ class _ModelVersionFooter extends StatelessWidget {
   /// The user-facing string for [model]'s stamp.
   static String label(SpecModel model) {
     if (model.modelVersion <= 0) return 'model: unstamped';
-    final suffix =
-        model.modelVersionLabel != null ? ' · ${model.modelVersionLabel}' : '';
+    final suffix = model.modelVersionLabel != null
+        ? ' · ${model.modelVersionLabel}'
+        : '';
     return 'model v${model.modelVersion}$suffix';
   }
 

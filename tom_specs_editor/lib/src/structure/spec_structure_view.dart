@@ -30,8 +30,8 @@ Future<SpecModel> loadSpecModelFromAsset() async {
 /// asynchronously and the review state persists through a [ReviewStore].
 class SpecStructureView extends ForgeView {
   SpecStructureView({required this.modelFuture, required this.store})
-      : _title = ValueNotifier<String>('Structure'),
-        _titleExtension = ValueNotifier<String?>(null);
+    : _title = ValueNotifier<String>('Structure'),
+      _titleExtension = ValueNotifier<String?>(null);
 
   /// The class-graph model to browse (asset-backed in the app, synthetic in
   /// tests).
@@ -69,10 +69,7 @@ class _SpecStructureBrowser extends StatefulWidget {
   final Future<SpecModel> modelFuture;
   final ReviewStore store;
 
-  const _SpecStructureBrowser({
-    required this.modelFuture,
-    required this.store,
-  });
+  const _SpecStructureBrowser({required this.modelFuture, required this.store});
 
   @override
   State<_SpecStructureBrowser> createState() => _SpecStructureBrowserState();
@@ -104,16 +101,18 @@ class _SpecStructureBrowserState extends State<_SpecStructureBrowser> {
   @override
   void initState() {
     super.initState();
-    widget.modelFuture.then((model) {
-      if (!mounted) return;
-      setState(() {
-        _model = model;
-        _selected = model.roots.isNotEmpty ? model.roots.first : null;
-      });
-    }).catchError((Object error) {
-      if (!mounted) return;
-      setState(() => _error = error);
-    });
+    widget.modelFuture
+        .then((model) {
+          if (!mounted) return;
+          setState(() {
+            _model = model;
+            _selected = model.roots.isNotEmpty ? model.roots.first : null;
+          });
+        })
+        .catchError((Object error) {
+          if (!mounted) return;
+          setState(() => _error = error);
+        });
   }
 
   void _selectRoot(SpecRoot? root, {String? navTargetType}) {
@@ -136,9 +135,9 @@ class _SpecStructureBrowserState extends State<_SpecStructureBrowser> {
       }
     }
     if (root == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No document for "$targetRoot"')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('No document for "$targetRoot"')));
       return;
     }
     _selectRoot(root, navTargetType: targetType);
@@ -222,8 +221,7 @@ class _SpecStructureBrowserState extends State<_SpecStructureBrowser> {
               ? Center(
                   child: Text(
                     'Select a document to browse its structure',
-                    style:
-                        TextStyle(color: theme.colorScheme.onSurfaceVariant),
+                    style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
                   ),
                 )
               : SpecTree(

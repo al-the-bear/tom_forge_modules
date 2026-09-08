@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:tom_forge_agentic/tom_forge_agentic.dart' show PlaceholderPreview;
+import 'package:tom_forge_agentic/tom_forge_agentic.dart'
+    show PlaceholderPreview;
 
 /// A single editable field in a configuration detail form
 /// (`tom_specs_editor_specification.md` §12).
@@ -49,7 +50,10 @@ class ConfigField<T> {
     if (help == null) return field;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [field, _ConfigFieldHelp(label: label, text: help!)],
+      children: [
+        field,
+        _ConfigFieldHelp(label: label, text: help!),
+      ],
     );
   }
 
@@ -238,8 +242,9 @@ class _ConfigTextField extends StatefulWidget {
 }
 
 class _ConfigTextFieldState extends State<_ConfigTextField> {
-  late final TextEditingController _controller =
-      TextEditingController(text: widget.initial);
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.initial,
+  );
 
   @override
   void didUpdateWidget(_ConfigTextField old) {

@@ -19,13 +19,13 @@ import 'spec_phase.dart';
 /// `deferred.tom_specs.md`.
 class PhaseOverviewEditor extends ForgeEditor {
   PhaseOverviewEditor({required this.phase})
-      : _title = ValueNotifier<String>(phase.title),
-        _titleExtension = ValueNotifier<String?>('Phase ${phase.number}'),
-        uri = Uri(
-          scheme: 'specs',
-          host: phase.title.toLowerCase(),
-          path: '/overview',
-        );
+    : _title = ValueNotifier<String>(phase.title),
+      _titleExtension = ValueNotifier<String?>('Phase ${phase.number}'),
+      uri = Uri(
+        scheme: 'specs',
+        host: phase.title.toLowerCase(),
+        path: '/overview',
+      );
 
   /// The phase whose overview this editor renders.
   final SpecPhase phase;
@@ -70,8 +70,8 @@ class PhaseOverviewEditor extends ForgeEditor {
 /// the phase's components, so the app's side region also presents real content.
 class PhaseOutlineView extends ForgeView {
   PhaseOutlineView({required this.phase})
-      : _title = ValueNotifier<String>('Overview'),
-        _titleExtension = ValueNotifier<String?>(null);
+    : _title = ValueNotifier<String>('Overview'),
+      _titleExtension = ValueNotifier<String?>(null);
 
   /// The phase whose components this outline lists.
   final SpecPhase phase;
@@ -107,7 +107,9 @@ class PhaseOutlineView extends ForgeView {
             leading: const Icon(Icons.chevron_right, size: 18),
             title: Text(c.name, style: const TextStyle(fontSize: 13)),
             subtitle: Text(
-              c.source == null ? c.description : '${c.description}  ·  from ${c.source}',
+              c.source == null
+                  ? c.description
+                  : '${c.description}  ·  from ${c.source}',
               style: const TextStyle(fontSize: 11),
             ),
           ),
@@ -214,8 +216,11 @@ class _Phase2Note extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.science_outlined,
-                size: 18, color: theme.colorScheme.primary),
+            Icon(
+              Icons.science_outlined,
+              size: 18,
+              color: theme.colorScheme.primary,
+            ),
             const SizedBox(width: 8),
             Expanded(child: SpecMarkdown('Phase 2 — $text', muted: true)),
           ],

@@ -49,18 +49,18 @@ class AgentToolsModule extends ForgeModule {
     ConversationalDriver? conversationalDriver,
     bool enableProviderEmbeddings = false,
     List<String> assetDirs = const [],
-  }) : controller = controller ??
-            SpecDocumentController(
-              modelFuture: modelFuture,
-              review: review,
-            ) {
+  }) : controller =
+           controller ??
+           SpecDocumentController(modelFuture: modelFuture, review: review) {
     final workspaceRoot = scriptWorkspaceRoot ?? Directory.current.path;
     // One audited file facade is shared by the engine `file_*` tools and the
     // live mode-(b) runtime's `file_*` surface, so an agent run reads/writes
     // through the same boundary as a direct tool call. The profile's opt-in
     // asset directories become extra read-only `file_find` roots (item 18).
-    final facade =
-        SpecFileFacade(workspaceRoot: workspaceRoot, assetDirs: assetDirs);
+    final facade = SpecFileFacade(
+      workspaceRoot: workspaceRoot,
+      assetDirs: assetDirs,
+    );
     _server = SpecAgentTools(this.controller).buildServer(name: serverName);
     memoryPlane = SpecMemoryPlane(
       controller: this.controller,
@@ -86,15 +86,18 @@ class AgentToolsModule extends ForgeModule {
       memoryPlane: memoryPlane,
       facade: facade,
     );
-    _brainServer = SpecBrainTools(brainRuntime).buildServer(name: brainServerName);
+    _brainServer = SpecBrainTools(
+      brainRuntime,
+    ).buildServer(name: brainServerName);
     conversationalRuntime = SpecConversationalRuntime(
       controller: this.controller,
       memoryPlane: memoryPlane,
       facade: facade,
       driver: conversationalDriver,
     );
-    _converseServer = SpecConversationalTools(conversationalRuntime)
-        .buildServer(name: converseServerName);
+    _converseServer = SpecConversationalTools(
+      conversationalRuntime,
+    ).buildServer(name: converseServerName);
   }
 
   /// The MCP server name exposed to the Agent SDK.
@@ -169,11 +172,11 @@ class AgentToolsModule extends ForgeModule {
   /// `tom_specs_editor_specification.md` §8 tools plus the reusable engine
   /// toolsets.
   Map<String, McpServerConfig> get servers => {
-        serverName: _server,
-        engineServerName: _engineServer,
-        brainServerName: _brainServer,
-        converseServerName: _converseServer,
-      };
+    serverName: _server,
+    engineServerName: _engineServer,
+    brainServerName: _brainServer,
+    converseServerName: _converseServer,
+  };
 
   /// Which `llm_and_d4rt_tools.md` §8 [AgentToolGroup]s each MCP server in
   /// [servers] provides — the mapping the live agent profile (followup item 7)
@@ -190,26 +193,26 @@ class AgentToolsModule extends ForgeModule {
   /// per-tool gating within a server is deferred; the engine's **toolset ⊆
   /// scopes** invariant is the real capability guarantee.
   Map<String, Set<AgentToolGroup>> get serverToolGroups => {
-        serverName: const {AgentToolGroup.doc, AgentToolGroup.script},
-        engineServerName: const {
-          AgentToolGroup.doc,
-          AgentToolGroup.file,
-          AgentToolGroup.script,
-          AgentToolGroup.memory,
-        },
-        brainServerName: const {
-          AgentToolGroup.doc,
-          AgentToolGroup.file,
-          AgentToolGroup.script,
-          AgentToolGroup.memory,
-        },
-        converseServerName: const {
-          AgentToolGroup.doc,
-          AgentToolGroup.file,
-          AgentToolGroup.script,
-          AgentToolGroup.memory,
-        },
-      };
+    serverName: const {AgentToolGroup.doc, AgentToolGroup.script},
+    engineServerName: const {
+      AgentToolGroup.doc,
+      AgentToolGroup.file,
+      AgentToolGroup.script,
+      AgentToolGroup.memory,
+    },
+    brainServerName: const {
+      AgentToolGroup.doc,
+      AgentToolGroup.file,
+      AgentToolGroup.script,
+      AgentToolGroup.memory,
+    },
+    converseServerName: const {
+      AgentToolGroup.doc,
+      AgentToolGroup.file,
+      AgentToolGroup.script,
+      AgentToolGroup.memory,
+    },
+  };
 
   @override
   String get displayName => 'TomSpecs Agent Tools';

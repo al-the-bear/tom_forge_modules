@@ -20,42 +20,42 @@ import 'package:tom_specs_editor/src/structure/spec_model.dart';
 /// A minimal class graph covering the writable field kinds: a content section,
 /// a form, and a list of complex items each carrying a content field.
 Map<String, dynamic> _sampleJson() => {
-      'roots': [
-        {'type': 'DemoDoc', 'title': 'Demo Document', 'sectionId': 'D00'},
+  'roots': [
+    {'type': 'DemoDoc', 'title': 'Demo Document', 'sectionId': 'D00'},
+  ],
+  'classes': {
+    'DemoDoc': {
+      'name': 'DemoDoc',
+      'sectionId': 'D00',
+      'doc': 'A demo document.',
+      'fields': [
+        {'name': 'overview', 'kind': 'content', 'sectionId': 'D00-OVR'},
+        {
+          'name': 'header',
+          'kind': 'form',
+          'sectionId': 'D00-HDR',
+          'formFields': [
+            {'name': 'author', 'label': 'Author', 'type': 'String'},
+            {'name': 'date', 'label': 'Date', 'type': 'String'},
+          ],
+        },
+        {
+          'name': 'items',
+          'kind': 'list',
+          'elementType': 'DemoItem',
+          'elementIsComplex': true,
+          'sectionId': 'D00-ITM',
+        },
       ],
-      'classes': {
-        'DemoDoc': {
-          'name': 'DemoDoc',
-          'sectionId': 'D00',
-          'doc': 'A demo document.',
-          'fields': [
-            {'name': 'overview', 'kind': 'content', 'sectionId': 'D00-OVR'},
-            {
-              'name': 'header',
-              'kind': 'form',
-              'sectionId': 'D00-HDR',
-              'formFields': [
-                {'name': 'author', 'label': 'Author', 'type': 'String'},
-                {'name': 'date', 'label': 'Date', 'type': 'String'},
-              ],
-            },
-            {
-              'name': 'items',
-              'kind': 'list',
-              'elementType': 'DemoItem',
-              'elementIsComplex': true,
-              'sectionId': 'D00-ITM',
-            },
-          ],
-        },
-        'DemoItem': {
-          'name': 'DemoItem',
-          'fields': [
-            {'name': 'label', 'kind': 'content', 'sectionId': 'D01-LBL'},
-          ],
-        },
-      },
-    };
+    },
+    'DemoItem': {
+      'name': 'DemoItem',
+      'fields': [
+        {'name': 'label', 'kind': 'content', 'sectionId': 'D01-LBL'},
+      ],
+    },
+  },
+};
 
 /// Builds an agent-tools module backed by the sample model and a temp-file
 /// review store, returning the module plus the assembled `SdkMcpTool` map.
@@ -63,7 +63,8 @@ Map<String, dynamic> _sampleJson() => {
   AgentToolsModule module,
   Map<String, SdkMcpTool> tools,
   SpecDocumentController controller,
-}) _harness(Directory dir) {
+})
+_harness(Directory dir) {
   final model = SpecModel.fromJson(_sampleJson());
   final review = ReviewStore(File('${dir.path}/review.yaml'));
   final module = AgentToolsModule(
@@ -137,8 +138,10 @@ void main() {
       final json = await _invoke(h.tools['model_get_section']!, {'id': 'D00'});
       expect(json['name'], 'DemoDoc');
       final fields = (json['fields'] as List).cast<Map>();
-      expect(fields.map((f) => f['name']),
-          containsAll(['overview', 'header', 'items']));
+      expect(
+        fields.map((f) => f['name']),
+        containsAll(['overview', 'header', 'items']),
+      );
     });
 
     test('model_search finds a field by name', () async {
@@ -150,8 +153,9 @@ void main() {
 
     test('unknown section id is a structured error', () async {
       final h = _harness(dir);
-      final result =
-          await h.tools['model_get_section']!.handler!({'id': 'nope'});
+      final result = await h.tools['model_get_section']!.handler!({
+        'id': 'nope',
+      });
       expect(result.isError, isTrue);
       final json = jsonDecode(result.content.single['text'] as String);
       expect(json['error'], isNotNull);
@@ -159,47 +163,44 @@ void main() {
   });
 
   group('Mutations edit the live model', () {
-    test('doc_set_content writes content visible to doc_get_content',
-        () async {
+    test('doc_set_content writes content visible to doc_get_content', () async {
       final h = _harness(dir);
-      final set = await _invoke(
-        h.tools['doc_set_content']!,
-        {'id': 'D00/D00-OVR', 'value': 'Hello world'},
-      );
+      final set = await _invoke(h.tools['doc_set_content']!, {
+        'id': 'D00/D00-OVR',
+        'value': 'Hello world',
+      });
       expect(set['ok'], isTrue);
       // The live document holds the value.
       await h.controller.ensureLoaded();
       expect(h.controller.content('D00/D00-OVR'), 'Hello world');
       // And reading it back through the tool returns it.
-      final got = await _invoke(
-        h.tools['doc_get_content']!,
-        {'id': 'D00/D00-OVR'},
-      );
+      final got = await _invoke(h.tools['doc_get_content']!, {
+        'id': 'D00/D00-OVR',
+      });
       expect(got['value'], 'Hello world');
     });
 
     test('doc_set_form_field writes one field of a form', () async {
       final h = _harness(dir);
-      await _invoke(
-        h.tools['doc_set_form_field']!,
-        {'id': 'D00/D00-HDR', 'field': 'author', 'value': 'Ada'},
-      );
+      await _invoke(h.tools['doc_set_form_field']!, {
+        'id': 'D00/D00-HDR',
+        'field': 'author',
+        'value': 'Ada',
+      });
       await h.controller.ensureLoaded();
       expect(h.controller.formField('D00/D00-HDR', 'author'), 'Ada');
-      final got = await _invoke(
-        h.tools['doc_get_form_field']!,
-        {'id': 'D00/D00-HDR', 'field': 'author'},
-      );
+      final got = await _invoke(h.tools['doc_get_form_field']!, {
+        'id': 'D00/D00-HDR',
+        'field': 'author',
+      });
       expect(got['value'], 'Ada');
     });
 
-    test('doc_add_list_item then doc_outline reflects the new count',
-        () async {
+    test('doc_add_list_item then doc_outline reflects the new count', () async {
       final h = _harness(dir);
-      final added = await _invoke(
-        h.tools['doc_add_list_item']!,
-        {'listId': 'D00/D00-ITM'},
-      );
+      final added = await _invoke(h.tools['doc_add_list_item']!, {
+        'listId': 'D00/D00-ITM',
+      });
       expect(added['count'], 1);
       final itemId = added['itemId'] as String;
       expect(itemId, 'D00/D00-ITM-1');
@@ -207,22 +208,20 @@ void main() {
       // The outline reports the live count and the item path.
       final outline = await _invoke(h.tools['doc_outline']!, {});
       final children = (outline['children'] as List).cast<Map>();
-      final itemsNode =
-          children.firstWhere((c) => c['id'] == 'D00/D00-ITM');
+      final itemsNode = children.firstWhere((c) => c['id'] == 'D00/D00-ITM');
       expect(itemsNode['count'], 1);
       final itemNodes = (itemsNode['items'] as List).cast<Map>();
       expect(itemNodes.single['id'], 'D00/D00-ITM-1');
 
       // Content set on the item is purged when the item is removed.
-      await _invoke(
-        h.tools['doc_set_content']!,
-        {'id': 'D00/D00-ITM-1/D01-LBL', 'value': 'first'},
-      );
+      await _invoke(h.tools['doc_set_content']!, {
+        'id': 'D00/D00-ITM-1/D01-LBL',
+        'value': 'first',
+      });
       expect(h.controller.content('D00/D00-ITM-1/D01-LBL'), 'first');
-      final removed = await _invoke(
-        h.tools['doc_remove_list_item']!,
-        {'id': 'D00/D00-ITM-1'},
-      );
+      final removed = await _invoke(h.tools['doc_remove_list_item']!, {
+        'id': 'D00/D00-ITM-1',
+      });
       expect(removed['removed'], isTrue);
       expect(h.controller.content('D00/D00-ITM-1/D01-LBL'), isNull);
       expect(h.controller.document.listItems('D00/D00-ITM'), isEmpty);
@@ -232,10 +231,9 @@ void main() {
       final h = _harness(dir);
       await _invoke(h.tools['doc_add_list_item']!, {'listId': 'D00/D00-ITM'});
       await _invoke(h.tools['doc_add_list_item']!, {'listId': 'D00/D00-ITM'});
-      final meta = await _invoke(
-        h.tools['doc_section_meta']!,
-        {'id': 'D00/D00-ITM'},
-      );
+      final meta = await _invoke(h.tools['doc_section_meta']!, {
+        'id': 'D00/D00-ITM',
+      });
       expect(meta['kind'], 'list');
       expect(meta['count'], 2);
       expect(meta['elementType'], 'DemoItem');
@@ -245,15 +243,12 @@ void main() {
   group('doc_set_review routes to the shared ReviewStore', () {
     test('records a decision persisted by the store', () async {
       final h = _harness(dir);
-      final json = await _invoke(
-        h.tools['doc_set_review']!,
-        {
-          'path': 'D00/D00-ITM',
-          'scope': 'global',
-          'addDetails': true,
-          'comment': 'shared across documents',
-        },
-      );
+      final json = await _invoke(h.tools['doc_set_review']!, {
+        'path': 'D00/D00-ITM',
+        'scope': 'global',
+        'addDetails': true,
+        'comment': 'shared across documents',
+      });
       expect(json['ok'], isTrue);
       final entry = h.controller.review.entryFor('D00/D00-ITM');
       expect(entry, isNotNull);

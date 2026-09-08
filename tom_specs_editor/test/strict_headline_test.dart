@@ -25,39 +25,39 @@ import 'package:tom_specs_editor/src/structure/spec_model.dart';
 /// complex list whose element type carries its own `@Headline` default and the
 /// owning list a `@SectionIdPattern` (so added items get a generated id).
 Map<String, dynamic> _json() => {
-      'roots': [
-        {'type': 'DemoDoc', 'title': 'Demo Document', 'sectionId': 'D00'},
+  'roots': [
+    {'type': 'DemoDoc', 'title': 'Demo Document', 'sectionId': 'D00'},
+  ],
+  'classes': {
+    'DemoDoc': {
+      'name': 'DemoDoc',
+      'sectionId': 'D00',
+      'fields': [
+        {
+          'name': 'overview',
+          'kind': 'content',
+          'sectionId': 'D00-OVR',
+          'headline': 'Overview Heading',
+        },
+        {
+          'name': 'items',
+          'kind': 'list',
+          'elementType': 'DemoItem',
+          'elementIsComplex': true,
+          'sectionId': 'D00-ITM',
+          'sectionIdPattern': 'D01.N',
+        },
       ],
-      'classes': {
-        'DemoDoc': {
-          'name': 'DemoDoc',
-          'sectionId': 'D00',
-          'fields': [
-            {
-              'name': 'overview',
-              'kind': 'content',
-              'sectionId': 'D00-OVR',
-              'headline': 'Overview Heading',
-            },
-            {
-              'name': 'items',
-              'kind': 'list',
-              'elementType': 'DemoItem',
-              'elementIsComplex': true,
-              'sectionId': 'D00-ITM',
-              'sectionIdPattern': 'D01.N',
-            },
-          ],
-        },
-        'DemoItem': {
-          'name': 'DemoItem',
-          'headline': 'Item Entry',
-          'fields': [
-            {'name': 'label', 'kind': 'scalar', 'type': 'String'},
-          ],
-        },
-      },
-    };
+    },
+    'DemoItem': {
+      'name': 'DemoItem',
+      'headline': 'Item Entry',
+      'fields': [
+        {'name': 'label', 'kind': 'scalar', 'type': 'String'},
+      ],
+    },
+  },
+};
 
 ReviewStore _tempReviewStore() {
   final dir = Directory.systemTemp.createTempSync('strict_headline_review');
@@ -79,11 +79,13 @@ Future<SpecDocumentController> _controller({required bool strict}) async {
 }
 
 Future<void> _pump(WidgetTester tester, SpecDocumentController controller) {
-  return tester.pumpWidget(MaterialApp(
-    home: Scaffold(
-      body: SpecDocumentTree(controller: controller, model: controller.model),
+  return tester.pumpWidget(
+    MaterialApp(
+      home: Scaffold(
+        body: SpecDocumentTree(controller: controller, model: controller.model),
+      ),
     ),
-  ));
+  );
 }
 
 /// The `TextField` nested inside a keyed `_HeaderEditField`.
@@ -93,7 +95,10 @@ Finder _fieldOf(Finder header) =>
 /// Enters [text] into the field and commits it (the header fields commit on
 /// submit / focus loss, not per keystroke).
 Future<void> _commitText(
-    WidgetTester tester, Finder header, String text) async {
+  WidgetTester tester,
+  Finder header,
+  String text,
+) async {
   await tester.enterText(_fieldOf(header), text);
   await tester.testTextInput.receiveAction(TextInputAction.done);
   await tester.pump();
@@ -121,8 +126,10 @@ void main() {
       final header = find.byKey(const ValueKey('headline:D00/D00-OVR'));
       expect(header, findsOneWidget);
       // Prefilled from the @Headline default (YRD9 item 4 / YRD4).
-      expect(t.widget<TextField>(_fieldOf(header)).controller?.text,
-          'Overview Heading');
+      expect(
+        t.widget<TextField>(_fieldOf(header)).controller?.text,
+        'Overview Heading',
+      );
 
       // Editing it lands on the controller (values go to the YRD3 store).
       await _commitText(t, header, 'My Custom Heading');
@@ -143,8 +150,9 @@ void main() {
       expect(controller.headline('D00/D00-OVR'), isNull);
     });
 
-    testWidgets('list-entry headline and id are editable in strict mode',
-        (t) async {
+    testWidgets('list-entry headline and id are editable in strict mode', (
+      t,
+    ) async {
       final controller = await _controller(strict: true);
       await _pump(t, controller);
 
@@ -165,7 +173,9 @@ void main() {
       expect(id, findsOneWidget);
       // The headline prefills from the element class's @Headline default.
       expect(
-          t.widget<TextField>(_fieldOf(headline)).controller?.text, 'Item Entry');
+        t.widget<TextField>(_fieldOf(headline)).controller?.text,
+        'Item Entry',
+      );
 
       // Editing both lands on the controller.
       await _commitText(t, headline, 'Renamed Item');

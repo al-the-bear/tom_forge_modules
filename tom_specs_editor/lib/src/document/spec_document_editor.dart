@@ -37,10 +37,10 @@ class SpecDocumentEditor extends ForgeEditor {
     required this.controller,
     this.rootType,
     String title = 'Document',
-  })  : _title = ValueNotifier<String>(title),
-        _titleExtension = ValueNotifier<String?>(null),
-        _isDirty = ValueNotifier<bool>(controller.isDirty),
-        uri = Uri(scheme: 'specs', host: 'docspecs', path: '/document') {
+  }) : _title = ValueNotifier<String>(title),
+       _titleExtension = ValueNotifier<String?>(null),
+       _isDirty = ValueNotifier<bool>(controller.isDirty),
+       uri = Uri(scheme: 'specs', host: 'docspecs', path: '/document') {
     controller.addListener(_onControllerChanged);
   }
 
@@ -91,15 +91,14 @@ class SpecDocumentEditor extends ForgeEditor {
 
   @override
   Widget buildMain(BuildContext context) => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _MarkdownIoBar(controller: controller),
-          Expanded(
-            child:
-                SpecDocumentTreeView(controller: controller, rootType: rootType),
-          ),
-        ],
-      );
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      _MarkdownIoBar(controller: controller),
+      Expanded(
+        child: SpecDocumentTreeView(controller: controller, rootType: rootType),
+      ),
+    ],
+  );
 
   @override
   Widget buildCopy(BuildContext context) => buildMain(context);
@@ -117,27 +116,27 @@ class SpecDocumentEditor extends ForgeEditor {
 
   @override
   Set<String> get supportedActionIds => const {
-        StandardEditingActions.undoActionId,
-        StandardEditingActions.redoActionId,
-      };
+    StandardEditingActions.undoActionId,
+    StandardEditingActions.redoActionId,
+  };
 
   @override
   EditorCapabilities get capabilities => const EditorCapabilities(
-        hasTextBuffer: false,
-        supportsUndoRedo: true,
-        supportsClipboard: false,
-        supportsLineEditing: false,
-        supportsSelection: false,
-      );
+    hasTextBuffer: false,
+    supportsUndoRedo: true,
+    supportsClipboard: false,
+    supportsLineEditing: false,
+    supportsSelection: false,
+  );
 
   @override
   EditorStateSnapshot get stateSnapshot => EditorStateSnapshot(
-        // A model-driven tree, not a text buffer: line-editing actions stay
-        // disabled (isTextMode false); only undo/redo enablement is live.
-        isTextMode: false,
-        canUndo: controller.canUndo,
-        canRedo: controller.canRedo,
-      );
+    // A model-driven tree, not a text buffer: line-editing actions stay
+    // disabled (isTextMode false); only undo/redo enablement is live.
+    isTextMode: false,
+    canUndo: controller.canUndo,
+    canRedo: controller.canRedo,
+  );
 
   @override
   bool executeAction(String actionId) {
@@ -285,9 +284,11 @@ class SpecDocumentTreeView extends StatelessWidget {
           return Center(
             child: Padding(
               padding: const EdgeInsets.all(16),
-              child: Text('Failed to load model:\n${snapshot.error}',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              child: Text(
+                'Failed to load model:\n${snapshot.error}',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
             ),
           );
         }
@@ -359,8 +360,7 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
   bool _isExpanded(String path) =>
       !_isEmpty(path) || _manuallyExpanded.contains(path);
 
-  void _toggleOpen(String path) =>
-      setState(() => _manuallyExpanded.add(path));
+  void _toggleOpen(String path) => setState(() => _manuallyExpanded.add(path));
 
   /// The root to render: the navigator's active selection
   /// (`tom_specs_editor_specification.md` §14, step 20), then this editor's
@@ -417,8 +417,9 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
               // non-strict mode (YRD9 item 2/3).
               headlineEditable: !_strict,
               headlineValue: _controller.headline(_rootSeg(root)),
-              headlineDefault:
-                  _controller.effectiveDefaultHeadline(_rootSeg(root)),
+              headlineDefault: _controller.effectiveDefaultHeadline(
+                _rootSeg(root),
+              ),
               onHeadlineChanged: (v) =>
                   _controller.setHeadline(_rootSeg(root), v),
             ),
@@ -446,10 +447,12 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
 
     void flushChips() {
       if (pendingChips.isEmpty) return;
-      children.add(Padding(
-        padding: const EdgeInsets.only(top: 4, bottom: 2),
-        child: Wrap(spacing: 6, runSpacing: 4, children: pendingChips),
-      ));
+      children.add(
+        Padding(
+          padding: const EdgeInsets.only(top: 4, bottom: 2),
+          child: Wrap(spacing: 6, runSpacing: 4, children: pendingChips),
+        ),
+      );
       pendingChips = <Widget>[];
     }
 
@@ -459,10 +462,9 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
         flushChips();
         children.add(_expandedField(field, path, seenTypes));
       } else {
-        pendingChips.add(_EmptyChip(
-          label: field.name,
-          onTap: () => _toggleOpen(path),
-        ));
+        pendingChips.add(
+          _EmptyChip(label: field.name, onTap: () => _toggleOpen(path)),
+        );
       }
     }
     flushChips();
@@ -494,20 +496,20 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
   }
 
   Widget _fieldHeader(SpecField field, String path) => _NodeHeader(
-        label: _titleFor(path),
-        sectionId: field.sectionId,
-        path: path,
-        store: _store,
-        help: field.help ?? field.doc,
-        diagnostics: _diagnosticsFor(path),
-        // A field is a fixed section (its id is the model's @SectionId): its
-        // headline is editable only in non-strict mode (YRD9 item 2/3). The
-        // section id itself is never editable here — only list-entry ids are.
-        headlineEditable: !_strict,
-        headlineValue: _controller.headline(path),
-        headlineDefault: _controller.effectiveDefaultHeadline(path),
-        onHeadlineChanged: (v) => _controller.setHeadline(path, v),
-      );
+    label: _titleFor(path),
+    sectionId: field.sectionId,
+    path: path,
+    store: _store,
+    help: field.help ?? field.doc,
+    diagnostics: _diagnosticsFor(path),
+    // A field is a fixed section (its id is the model's @SectionId): its
+    // headline is editable only in non-strict mode (YRD9 item 2/3). The
+    // section id itself is never editable here — only list-entry ids are.
+    headlineEditable: !_strict,
+    headlineValue: _controller.headline(path),
+    headlineDefault: _controller.effectiveDefaultHeadline(path),
+    onHeadlineChanged: (v) => _controller.setHeadline(path, v),
+  );
 
   Widget _contentField(SpecField field, String path) {
     // Dart/d4rt-code content gets the summary-backed Dart editor
@@ -554,7 +556,6 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
     );
   }
 
-
   Widget _enumField(SpecField field, String path) {
     final current = _controller.content(path);
     return _FieldBlock(
@@ -586,9 +587,13 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(ff.label.isNotEmpty ? ff.label : ff.name,
-                      style: const TextStyle(
-                          fontSize: 12, fontWeight: FontWeight.w600)),
+                  Text(
+                    ff.label.isNotEmpty ? ff.label : ff.name,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                   _ValueField(
                     key: ValueKey('form:$path/${ff.name}'),
                     value: _controller.formField(path, ff.name) ?? '',
@@ -609,7 +614,10 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
     final elem = _model.classNamed(field.elementType);
     final recursive =
         field.elementType != null && seenTypes.contains(field.elementType);
-    final nextSeen = {...seenTypes, if (field.elementType != null) field.elementType!};
+    final nextSeen = {
+      ...seenTypes,
+      if (field.elementType != null) field.elementType!,
+    };
     return _FieldBlock(
       header: _fieldHeader(field, path),
       child: Column(
@@ -662,14 +670,15 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
   }
 
   Widget _recursiveNote(String? type) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Text(
-          'recursive type${type != null ? ' · $type' : ''}',
-          style: TextStyle(
-              fontStyle: FontStyle.italic,
-              color: Theme.of(context).colorScheme.onSurfaceVariant),
-        ),
-      );
+    padding: const EdgeInsets.symmetric(vertical: 4),
+    child: Text(
+      'recursive type${type != null ? ' · $type' : ''}',
+      style: TextStyle(
+        fontStyle: FontStyle.italic,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
+    ),
+  );
 }
 
 /// A field block: its headline row plus the editor/sub-tree beneath it.
@@ -759,22 +768,20 @@ class _NodeHeader extends StatelessWidget {
                       bold: true,
                       onCommitted: onHeadlineChanged!,
                     )
-                  : SpecMarkdown(
-                      isHeading ? '## $label' : '**$label**',
-                    ),
+                  : SpecMarkdown(isHeading ? '## $label' : '**$label**'),
             ),
             if (sectionId != null) ...[
               const SizedBox(width: 6),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: Text(sectionId!,
-                    style: const TextStyle(
-                        fontSize: 10, fontFamily: 'monospace')),
+                child: Text(
+                  sectionId!,
+                  style: const TextStyle(fontSize: 10, fontFamily: 'monospace'),
+                ),
               ),
             ],
             if (diagnostics.isNotEmpty) ...[
@@ -822,14 +829,20 @@ class _DiagnosticsBadge extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.error_outline,
-                size: 12, color: theme.colorScheme.onErrorContainer),
+            Icon(
+              Icons.error_outline,
+              size: 12,
+              color: theme.colorScheme.onErrorContainer,
+            ),
             const SizedBox(width: 3),
-            Text('$count',
-                style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: theme.colorScheme.onErrorContainer)),
+            Text(
+              '$count',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: theme.colorScheme.onErrorContainer,
+              ),
+            ),
           ],
         ),
       ),
@@ -862,8 +875,9 @@ class _HeaderEditField extends StatefulWidget {
 }
 
 class _HeaderEditFieldState extends State<_HeaderEditField> {
-  late final TextEditingController _ctrl =
-      TextEditingController(text: widget.value);
+  late final TextEditingController _ctrl = TextEditingController(
+    text: widget.value,
+  );
   late final FocusNode _focus = FocusNode()..addListener(_onFocusChange);
 
   void _onFocusChange() {
@@ -909,8 +923,7 @@ class _HeaderEditFieldState extends State<_HeaderEditField> {
         isDense: true,
         hintText: widget.hint,
         border: const OutlineInputBorder(),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       ),
       onSubmitted: (_) => _commit(),
       onEditingComplete: _commit,
@@ -981,9 +994,7 @@ class _ListItem extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(top: 4),
       decoration: BoxDecoration(
-        border: Border(
-          left: BorderSide(color: theme.dividerColor, width: 2),
-        ),
+        border: Border(left: BorderSide(color: theme.dividerColor, width: 2)),
       ),
       padding: const EdgeInsets.only(left: 8),
       child: Column(
@@ -1026,11 +1037,14 @@ class _ListItem extends StatelessWidget {
           ),
           Padding(
             padding: const EdgeInsets.only(top: 2),
-            child: Text(label,
-                style: TextStyle(
-                    fontSize: 11,
-                    fontStyle: FontStyle.italic,
-                    color: theme.colorScheme.onSurfaceVariant)),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontStyle: FontStyle.italic,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
           ),
           child,
         ],
@@ -1142,11 +1156,7 @@ class _CodeField extends StatelessWidget {
 /// is untrusted in exactly the way script content is. Tracked as `OE-3a`
 /// (`tom_specs_editor_specification.md` §22).
 class _LayoutField extends StatelessWidget {
-  const _LayoutField({
-    super.key,
-    required this.value,
-    required this.onChanged,
-  });
+  const _LayoutField({super.key, required this.value, required this.onChanged});
 
   final String value;
 
@@ -1182,15 +1192,19 @@ class _LayoutField extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.dashboard_customize_outlined,
-                  size: 14, color: theme.colorScheme.onSurfaceVariant),
+              Icon(
+                Icons.dashboard_customize_outlined,
+                size: 14,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   'Flutter layout — source preview; the live render is not '
                   'implemented yet (OE-3a)',
                   style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant),
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
             ],
@@ -1232,8 +1246,9 @@ class _ValueField extends StatefulWidget {
 }
 
 class _ValueFieldState extends State<_ValueField> {
-  late final TextEditingController _ctrl =
-      TextEditingController(text: widget.value);
+  late final TextEditingController _ctrl = TextEditingController(
+    text: widget.value,
+  );
 
   @override
   void didUpdateWidget(_ValueField oldWidget) {
@@ -1263,8 +1278,7 @@ class _ValueFieldState extends State<_ValueField> {
         isDense: true,
         hintText: widget.hint,
         border: const OutlineInputBorder(),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       ),
       onChanged: widget.onChanged,
     );

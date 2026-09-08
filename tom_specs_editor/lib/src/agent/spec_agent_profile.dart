@@ -75,8 +75,7 @@ class SpecAgentProfile {
   MemoryScope memoryScope({
     required String session,
     required String document,
-  }) =>
-      context.memoryScope(session: session, document: document);
+  }) => context.memoryScope(session: session, document: document);
 
   /// Builds the send config the active application drives: the additive
   /// guidelines [systemPrompt] (omitted when empty) plus the enabled
@@ -87,15 +86,14 @@ class SpecAgentProfile {
     PermissionMode? permissionMode,
     int? maxTurns,
     String? cwd,
-  }) =>
-      AgentSendConfig(
-        model: model,
-        systemPrompt: systemPrompt.isEmpty ? null : systemPrompt,
-        permissionMode: permissionMode,
-        maxTurns: maxTurns,
-        cwd: cwd,
-        mcpServers: mcpServers.isEmpty ? null : mcpServers,
-      );
+  }) => AgentSendConfig(
+    model: model,
+    systemPrompt: systemPrompt.isEmpty ? null : systemPrompt,
+    permissionMode: permissionMode,
+    maxTurns: maxTurns,
+    cwd: cwd,
+    mcpServers: mcpServers.isEmpty ? null : mcpServers,
+  );
 }
 
 /// Holds the per-application [AgentContext]s and resolves the live
@@ -122,10 +120,10 @@ class SpecAgentProfiles {
     required Map<String, McpServerConfig> servers,
     required Map<String, Set<AgentToolGroup>> serverToolGroups,
     AgentContextRegistry? contexts,
-  })  : _compose = compose,
-        _servers = Map.unmodifiable(servers),
-        _serverToolGroups = Map.unmodifiable(serverToolGroups),
-        _contexts = contexts ?? _defaultContexts();
+  }) : _compose = compose,
+       _servers = Map.unmodifiable(servers),
+       _serverToolGroups = Map.unmodifiable(serverToolGroups),
+       _contexts = contexts ?? _defaultContexts();
 
   final String Function(String template) _compose;
   final Map<String, McpServerConfig> _servers;
@@ -151,17 +149,21 @@ class SpecAgentProfiles {
   /// valid binding; the three canonical applications each resolve to their own
   /// context.
   SpecAgentProfile profileFor(String application) {
-    final resolved =
-        _contexts.has(application) ? application : docSpecsApplication;
-    return _cache.putIfAbsent(resolved, () => _bind(_contexts.context(resolved)));
+    final resolved = _contexts.has(application)
+        ? application
+        : docSpecsApplication;
+    return _cache.putIfAbsent(
+      resolved,
+      () => _bind(_contexts.context(resolved)),
+    );
   }
 
   /// Resolves one [context] into a live [SpecAgentProfile].
   SpecAgentProfile _bind(AgentContext context) => SpecAgentProfile(
-        context: context,
-        systemPrompt: _resolvePrompt(context.guidelinesName),
-        mcpServers: _selectServers(context.toolset),
-      );
+    context: context,
+    systemPrompt: _resolvePrompt(context.guidelinesName),
+    mcpServers: _selectServers(context.toolset),
+  );
 
   /// Expands the application's guidelines doc into an additive prompt through
   /// the placeholder registry. `${guidelines-<name>}` reads

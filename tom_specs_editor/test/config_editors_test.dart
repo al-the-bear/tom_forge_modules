@@ -49,9 +49,7 @@ SpecsConfigSpecs _specsIn(Directory dir, {AgentSettingsStore? agentSettings}) {
 
 /// Pumps an editor's main body inside a minimal app.
 Future<void> _pump(WidgetTester tester, Widget body) {
-  return tester.pumpWidget(
-    MaterialApp(home: Scaffold(body: body)),
-  );
+  return tester.pumpWidget(MaterialApp(home: Scaffold(body: body)));
 }
 
 /// Registers the shared "opens" + "raw file" tests for one list editor,
@@ -73,8 +71,10 @@ void _registerListTests<T>(
   testWidgets('$name "Open raw file" opens the backing file', (tester) async {
     final spec = build(specs());
     Uri? opened;
-    final editor =
-        ConfigListEditor<T>(spec: spec, onOpenRawFile: (uri) => opened = uri);
+    final editor = ConfigListEditor<T>(
+      spec: spec,
+      onOpenRawFile: (uri) => opened = uri,
+    );
     await _pump(tester, Builder(builder: editor.buildMain));
     await tester.tap(find.byKey(const Key('config-open-raw-file')));
     await tester.pump();
@@ -93,17 +93,36 @@ void main() {
       specs = _specsIn(dir);
     });
 
-    _registerListTests<QueuedPrompt>('queue', () => specs, (s) => s.queueSpec());
+    _registerListTests<QueuedPrompt>(
+      'queue',
+      () => specs,
+      (s) => s.queueSpec(),
+    );
     _registerListTests<QueueTemplate>(
-        'queue-templates', () => specs, (s) => s.queueTemplateSpec());
+      'queue-templates',
+      () => specs,
+      (s) => s.queueTemplateSpec(),
+    );
     _registerListTests<AgentProfile>(
-        'profiles', () => specs, (s) => s.profileSpec());
+      'profiles',
+      () => specs,
+      (s) => s.profileSpec(),
+    );
     _registerListTests<PromptTemplate>(
-        'prompt-templates', () => specs, (s) => s.promptTemplateSpec());
+      'prompt-templates',
+      () => specs,
+      (s) => s.promptTemplateSpec(),
+    );
     _registerListTests<ChatVariable>(
-        'chat-variables', () => specs, (s) => s.chatVariableSpec());
+      'chat-variables',
+      () => specs,
+      (s) => s.chatVariableSpec(),
+    );
     _registerListTests<TimedRequest>(
-        'timed-requests', () => specs, (s) => s.timedRequestSpec());
+      'timed-requests',
+      () => specs,
+      (s) => s.timedRequestSpec(),
+    );
 
     testWidgets('a required field surfaces a validation error', (tester) async {
       // The queue editor's prompt is required; a freshly-added item is empty,
@@ -120,40 +139,49 @@ void main() {
     });
 
     testWidgets(
-        'the prompt-templates editor shows a live placeholder preview when a '
-        'composer is wired (tom_specs_editor_specification.md §12, OE-14)',
-        (tester) async {
-      // A composer that uppercases a known placeholder, so the preview's
-      // expansion is visibly distinct from the raw body.
-      final specsWithCompose = SpecsConfigSpecs(
-        profiles: AgentProfileStore(File('${dir.path}/profiles.yaml')),
-        promptTemplates:
-            PromptTemplateStore(File('${dir.path}/prompt_templates.yaml')),
-        queueTemplates:
-            QueueTemplateStore(File('${dir.path}/queue_templates.yaml')),
-        chatVariables:
-            ChatVariableStore(File('${dir.path}/chat_variables.yaml')),
-        timedRequests:
-            TimedRequestStore(File('${dir.path}/timed_requests.yaml')),
-        queue: PromptQueueStore(File('${dir.path}/queue.yaml')),
-        agentSettings:
-            AgentSettingsStore(File('${dir.path}/agent_settings.yaml')),
-        preferences:
-            EditorPreferencesStore(File('${dir.path}/editor_preferences.yaml')),
-        compose: (s) => s.replaceAll(r'${who}', 'Alex'),
-      );
-      specsWithCompose.promptTemplates.save([
-        PromptTemplate(id: 't1', name: 'Greeting', body: r'hi ${who}'),
-      ]);
-      final spec = specsWithCompose.promptTemplateSpec();
-      final editor =
-          ConfigListEditor<PromptTemplate>(spec: spec, onOpenRawFile: (_) {});
-      await _pump(tester, Builder(builder: editor.buildMain));
-      await tester.tap(find.byKey(const Key('config-item-0')));
-      await tester.pump();
-      // The preview field expands the body's placeholder.
-      expect(find.text('hi Alex'), findsOneWidget);
-    });
+      'the prompt-templates editor shows a live placeholder preview when a '
+      'composer is wired (tom_specs_editor_specification.md §12, OE-14)',
+      (tester) async {
+        // A composer that uppercases a known placeholder, so the preview's
+        // expansion is visibly distinct from the raw body.
+        final specsWithCompose = SpecsConfigSpecs(
+          profiles: AgentProfileStore(File('${dir.path}/profiles.yaml')),
+          promptTemplates: PromptTemplateStore(
+            File('${dir.path}/prompt_templates.yaml'),
+          ),
+          queueTemplates: QueueTemplateStore(
+            File('${dir.path}/queue_templates.yaml'),
+          ),
+          chatVariables: ChatVariableStore(
+            File('${dir.path}/chat_variables.yaml'),
+          ),
+          timedRequests: TimedRequestStore(
+            File('${dir.path}/timed_requests.yaml'),
+          ),
+          queue: PromptQueueStore(File('${dir.path}/queue.yaml')),
+          agentSettings: AgentSettingsStore(
+            File('${dir.path}/agent_settings.yaml'),
+          ),
+          preferences: EditorPreferencesStore(
+            File('${dir.path}/editor_preferences.yaml'),
+          ),
+          compose: (s) => s.replaceAll(r'${who}', 'Alex'),
+        );
+        specsWithCompose.promptTemplates.save([
+          PromptTemplate(id: 't1', name: 'Greeting', body: r'hi ${who}'),
+        ]);
+        final spec = specsWithCompose.promptTemplateSpec();
+        final editor = ConfigListEditor<PromptTemplate>(
+          spec: spec,
+          onOpenRawFile: (_) {},
+        );
+        await _pump(tester, Builder(builder: editor.buildMain));
+        await tester.tap(find.byKey(const Key('config-item-0')));
+        await tester.pump();
+        // The preview field expands the body's placeholder.
+        expect(find.text('hi Alex'), findsOneWidget);
+      },
+    );
 
     test('the preview field is omitted when no composer is wired', () {
       // Default `specs` has compose == null, so the prompt-template form keeps
@@ -162,8 +190,7 @@ void main() {
     });
 
     testWidgets('a field renders its contextual help caption '
-        '(tom_specs_editor_specification.md §12, OE-15)',
-        (tester) async {
+        '(tom_specs_editor_specification.md §12, OE-15)', (tester) async {
       final field = ConfigField<String>.text(
         label: 'Name',
         help: 'Helpful note.',
@@ -179,8 +206,7 @@ void main() {
     });
 
     testWidgets('a field without help renders no help caption '
-        '(tom_specs_editor_specification.md §12, OE-15)',
-        (tester) async {
+        '(tom_specs_editor_specification.md §12, OE-15)', (tester) async {
       final field = ConfigField<String>.text(
         label: 'Name',
         get: (v) => v,
@@ -193,17 +219,20 @@ void main() {
       expect(find.byKey(const ValueKey('cfg-help-Name')), findsNothing);
     });
 
-    testWidgets(
-        'an authored field help string renders in the editor '
-        '(tom_specs_editor_specification.md §12, OE-15)',
-        (tester) async {
+    testWidgets('an authored field help string renders in the editor '
+        '(tom_specs_editor_specification.md §12, OE-15)', (tester) async {
       // Every config editor authors per-field help; the queue's Prompt field is
       // a representative one. It shows once an item is selected.
       final spec = specs.queueSpec();
-      expect(spec.fields.first.help, isNotNull,
-          reason: 'the Prompt field must author help text');
-      final editor =
-          ConfigListEditor<QueuedPrompt>(spec: spec, onOpenRawFile: (_) {});
+      expect(
+        spec.fields.first.help,
+        isNotNull,
+        reason: 'the Prompt field must author help text',
+      );
+      final editor = ConfigListEditor<QueuedPrompt>(
+        spec: spec,
+        onOpenRawFile: (_) {},
+      );
       await _pump(tester, Builder(builder: editor.buildMain));
       await tester.tap(find.byKey(const Key('config-add')));
       await tester.pump();
@@ -212,8 +241,10 @@ void main() {
 
     test('chat-variable spec flags built-in variables as read-only', () {
       final spec = specs.chatVariableSpec();
-      expect(spec.isReadOnly?.call(const ChatVariable(name: 'b', builtIn: true)),
-          isTrue);
+      expect(
+        spec.isReadOnly?.call(const ChatVariable(name: 'b', builtIn: true)),
+        isTrue,
+      );
       expect(spec.isReadOnly?.call(const ChatVariable(name: 'c')), isFalse);
     });
 
@@ -247,8 +278,9 @@ void main() {
       expect(find.text(spec.title), findsOneWidget);
     });
 
-    testWidgets('an invalid port range surfaces a validation error',
-        (tester) async {
+    testWidgets('an invalid port range surfaces a validation error', (
+      tester,
+    ) async {
       final dir = _tempDir();
       final store = AgentSettingsStore(File('${dir.path}/agent_settings.yaml'));
       // Persist a malformed range (start > end) so the editor opens invalid.

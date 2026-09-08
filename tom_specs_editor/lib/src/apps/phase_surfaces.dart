@@ -46,7 +46,11 @@ enum PhaseSurface {
 /// model-driven document editor (OE-24a). Truthful where a bare placeholder
 /// would imply the surface is simply unbuilt.
 class PhaseSurfaceBody extends StatelessWidget {
-  const PhaseSurfaceBody({super.key, required this.phase, required this.surface});
+  const PhaseSurfaceBody({
+    super.key,
+    required this.phase,
+    required this.surface,
+  });
 
   final SpecPhase phase;
   final PhaseSurface surface;
@@ -64,15 +68,17 @@ class PhaseSurfaceBody extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               surface.label,
-              style: theme.textTheme.labelLarge
-                  ?.copyWith(color: theme.disabledColor),
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: theme.disabledColor,
+              ),
             ),
             const SizedBox(height: 4),
             Text(
               'Activates with the ${phase.title} document editor (phase 2)',
               textAlign: TextAlign.center,
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.disabledColor),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.disabledColor,
+              ),
             ),
           ],
         ),
@@ -84,8 +90,8 @@ class PhaseSurfaceBody extends StatelessWidget {
 /// A phase-2 surface hosted as a side/bottom panel tab (Chat, Change Log).
 class PhaseSurfaceView extends ForgeView {
   PhaseSurfaceView({required this.phase, required this.surface})
-      : _title = ValueNotifier<String>(surface.label),
-        _titleExtension = ValueNotifier<String?>(null);
+    : _title = ValueNotifier<String>(surface.label),
+      _titleExtension = ValueNotifier<String?>(null);
 
   final SpecPhase phase;
   final PhaseSurface surface;
@@ -120,13 +126,13 @@ class PhaseSurfaceView extends ForgeView {
 /// phase-2 middle area carries the same three columns as DocSpecs.
 class PhaseSurfaceEditor extends ForgeEditor {
   PhaseSurfaceEditor({required this.phase, required this.surface})
-      : _title = ValueNotifier<String>(surface.label),
-        _titleExtension = ValueNotifier<String?>(null),
-        uri = Uri(
-          scheme: 'specs',
-          host: phase.title.toLowerCase(),
-          path: '/${surface.slug}',
-        );
+    : _title = ValueNotifier<String>(surface.label),
+      _titleExtension = ValueNotifier<String?>(null),
+      uri = Uri(
+        scheme: 'specs',
+        host: phase.title.toLowerCase(),
+        path: '/${surface.slug}',
+      );
 
   final SpecPhase phase;
   final PhaseSurface surface;

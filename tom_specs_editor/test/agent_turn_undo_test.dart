@@ -27,19 +27,19 @@ import 'package:tom_vscode_scripting_api/tom_vscode_scripting_api.dart'
 /// undo machinery operates purely on section-ID paths, so the schema shape is
 /// irrelevant.
 Map<String, dynamic> _model() => {
-      'roots': [
-        {'type': 'DemoDoc', 'title': 'Demo', 'sectionId': 'D00'},
+  'roots': [
+    {'type': 'DemoDoc', 'title': 'Demo', 'sectionId': 'D00'},
+  ],
+  'classes': {
+    'DemoDoc': {
+      'name': 'DemoDoc',
+      'sectionId': 'D00',
+      'fields': [
+        {'name': 'overview', 'kind': 'content', 'sectionId': 'D00-OVR'},
       ],
-      'classes': {
-        'DemoDoc': {
-          'name': 'DemoDoc',
-          'sectionId': 'D00',
-          'fields': [
-            {'name': 'overview', 'kind': 'content', 'sectionId': 'D00-OVR'},
-          ],
-        },
-      },
-    };
+    },
+  },
+};
 
 /// A transport that runs [onStream] (the mid-turn mutations) while the query is
 /// in flight, then streams a success result so the send settles cleanly.
@@ -55,22 +55,24 @@ class _MutatingTransport implements AgentSdkTransport {
   @override
   Future<void> startQuery(Map<String, dynamic> params) async {
     final streamId = params['streamId'];
-    unawaited(Future<void>(() async {
-      // The agent "uses its tools" here — mutating the shared document while
-      // the send is still awaiting its result.
-      onStream();
-      _chunks.add({
-        'streamId': streamId,
-        'message': {
-          'type': 'result',
-          'subtype': 'success',
-          'is_error': false,
-          'session_id': 's1',
-          'result': 'ok',
-        },
-      });
-      _chunks.add({'streamId': streamId, 'done': true});
-    }));
+    unawaited(
+      Future<void>(() async {
+        // The agent "uses its tools" here — mutating the shared document while
+        // the send is still awaiting its result.
+        onStream();
+        _chunks.add({
+          'streamId': streamId,
+          'message': {
+            'type': 'result',
+            'subtype': 'success',
+            'is_error': false,
+            'session_id': 's1',
+            'result': 'ok',
+          },
+        });
+        _chunks.add({'streamId': streamId, 'done': true});
+      }),
+    );
   }
 
   @override
@@ -107,56 +109,58 @@ void main() {
   late Directory dir;
 
   SpecDocumentController makeController() => SpecDocumentController(
-        modelFuture: Future<SpecModel>.value(SpecModel.fromJson(_model())),
-        review: ReviewStore(File('${dir.path}/review.yaml')),
-      );
+    modelFuture: Future<SpecModel>.value(SpecModel.fromJson(_model())),
+    review: ReviewStore(File('${dir.path}/review.yaml')),
+  );
 
   setUp(() => dir = Directory.systemTemp.createTempSync('specs_turn_undo_'));
   tearDown(() => dir.deleteSync(recursive: true));
 
-  test('an agent send collapses its mid-stream mutations into one undo turn',
-      () async {
-    final c = makeController();
+  test(
+    'an agent send collapses its mid-stream mutations into one undo turn',
+    () async {
+      final c = makeController();
 
-    final transport = _MutatingTransport(() {
-      c.setContent('D00-OVR', 'first');
-      c.setContent('D00-OVR', 'second');
-      c.setContent('D00-OVR', 'third');
-    });
-    addTearDown(transport.dispose);
+      final transport = _MutatingTransport(() {
+        c.setContent('D00-OVR', 'first');
+        c.setContent('D00-OVR', 'second');
+        c.setContent('D00-OVR', 'third');
+      });
+      addTearDown(transport.dispose);
 
-    final send = AgentSendController(
-      connection: _boundConnection(dir),
-      sessionStore: SpecSessionStore(File('${dir.path}/agent_session.yaml')),
-      clientFactory: ({required host, required port}) async =>
-          AgentSdkClient(transport),
-    );
-    final trail = PromptTrailController(
-      store: PromptTrailStore(File('${dir.path}/prompt_trail.yaml')),
-    );
+      final send = AgentSendController(
+        connection: _boundConnection(dir),
+        sessionStore: SpecSessionStore(File('${dir.path}/agent_session.yaml')),
+        clientFactory: ({required host, required port}) async =>
+            AgentSdkClient(transport),
+      );
+      final trail = PromptTrailController(
+        store: PromptTrailStore(File('${dir.path}/prompt_trail.yaml')),
+      );
 
-    // Wired exactly as SpecsEditorApp wires it: the coordinator brackets the
-    // send with the host document controller's turn boundary.
-    final coordinator = ChatSendCoordinator(
-      send: send,
-      trail: trail,
-      onTurnBegin: c.beginTurn,
-      onTurnEnd: c.endTurn,
-    );
+      // Wired exactly as SpecsEditorApp wires it: the coordinator brackets the
+      // send with the host document controller's turn boundary.
+      final coordinator = ChatSendCoordinator(
+        send: send,
+        trail: trail,
+        onTurnBegin: c.beginTurn,
+        onTurnEnd: c.endTurn,
+      );
 
-    await coordinator.sendNow('do the work');
+      await coordinator.sendNow('do the work');
 
-    // All three edits landed and are individually inspectable...
-    expect(c.content('D00-OVR'), 'third');
-    expect(c.changeLog.length, 3);
-    // ...but they belong to a single turn, keyed by the trail pair id.
-    expect(c.changeLog.groups, hasLength(1));
-    expect(c.changeLog.groups.single.turnId, trail.pairs.single.id);
+      // All three edits landed and are individually inspectable...
+      expect(c.content('D00-OVR'), 'third');
+      expect(c.changeLog.length, 3);
+      // ...but they belong to a single turn, keyed by the trail pair id.
+      expect(c.changeLog.groups, hasLength(1));
+      expect(c.changeLog.groups.single.turnId, trail.pairs.single.id);
 
-    // A single undo reverts the whole turn — the turn boundary closed (no
-    // dangling open group), so the composite entry is on the undo stack.
-    await c.undo();
-    expect(c.content('D00-OVR'), isNull);
-    expect(c.canUndo, isFalse);
-  });
+      // A single undo reverts the whole turn — the turn boundary closed (no
+      // dangling open group), so the composite entry is on the undo stack.
+      await c.undo();
+      expect(c.content('D00-OVR'), isNull);
+      expect(c.canUndo, isFalse);
+    },
+  );
 }

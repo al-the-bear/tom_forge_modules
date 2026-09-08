@@ -40,14 +40,12 @@ class EditorPreferences {
     String? fontFamily,
     String? defaultApplication,
     bool? strictHeadlineEditing,
-  }) =>
-      EditorPreferences(
-        themeMode: themeMode ?? this.themeMode,
-        fontFamily: fontFamily ?? this.fontFamily,
-        defaultApplication: defaultApplication ?? this.defaultApplication,
-        strictHeadlineEditing:
-            strictHeadlineEditing ?? this.strictHeadlineEditing,
-      );
+  }) => EditorPreferences(
+    themeMode: themeMode ?? this.themeMode,
+    fontFamily: fontFamily ?? this.fontFamily,
+    defaultApplication: defaultApplication ?? this.defaultApplication,
+    strictHeadlineEditing: strictHeadlineEditing ?? this.strictHeadlineEditing,
+  );
 
   factory EditorPreferences.fromYaml(Map<String, dynamic> yaml) =>
       EditorPreferences(
@@ -58,11 +56,11 @@ class EditorPreferences {
       );
 
   Map<String, dynamic> toYaml() => <String, dynamic>{
-        'themeMode': themeMode,
-        'fontFamily': fontFamily,
-        'defaultApplication': defaultApplication,
-        'strictHeadlineEditing': strictHeadlineEditing,
-      };
+    'themeMode': themeMode,
+    'fontFamily': fontFamily,
+    'defaultApplication': defaultApplication,
+    'strictHeadlineEditing': strictHeadlineEditing,
+  };
 }
 
 /// Loads/saves the singleton [EditorPreferences] as YAML.

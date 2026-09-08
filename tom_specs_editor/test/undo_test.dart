@@ -9,24 +9,25 @@ import 'package:tom_specs_editor/src/structure/spec_model.dart';
 /// A trivial single-root model; the undo/change-log machinery operates purely
 /// on section-ID paths, so the schema shape is irrelevant here.
 Map<String, dynamic> _model() => {
-      'roots': [
-        {'type': 'DemoDoc', 'title': 'Demo', 'sectionId': 'D00'},
+  'roots': [
+    {'type': 'DemoDoc', 'title': 'Demo', 'sectionId': 'D00'},
+  ],
+  'classes': {
+    'DemoDoc': {
+      'name': 'DemoDoc',
+      'sectionId': 'D00',
+      'fields': [
+        {'name': 'overview', 'kind': 'content', 'sectionId': 'D00-OVR'},
       ],
-      'classes': {
-        'DemoDoc': {
-          'name': 'DemoDoc',
-          'sectionId': 'D00',
-          'fields': [
-            {'name': 'overview', 'kind': 'content', 'sectionId': 'D00-OVR'},
-          ],
-        },
-      },
-    };
+    },
+  },
+};
 
 void main() {
   late Directory dir;
 
-  SpecDocumentController makeController({int max = 50}) => SpecDocumentController(
+  SpecDocumentController makeController({int max = 50}) =>
+      SpecDocumentController(
         modelFuture: Future<SpecModel>.value(SpecModel.fromJson(_model())),
         review: ReviewStore(File('${dir.path}/review.yaml')),
         maxSnapshots: max,
@@ -69,25 +70,27 @@ void main() {
   });
 
   group('agent turn grouping (tom_specs_editor_specification.md §9/§10)', () {
-    test('an agent turn is one undo step but individual changes are inspectable',
-        () async {
-      final c = makeController();
-      c.beginTurn('t1');
-      c.setContent('D00-OVR', 'first');
-      c.setContent('D00-OVR', 'second');
-      c.setContent('D00-OVR', 'third');
-      c.endTurn();
+    test(
+      'an agent turn is one undo step but individual changes are inspectable',
+      () async {
+        final c = makeController();
+        c.beginTurn('t1');
+        c.setContent('D00-OVR', 'first');
+        c.setContent('D00-OVR', 'second');
+        c.setContent('D00-OVR', 'third');
+        c.endTurn();
 
-      // Three inspectable change-log entries, all in turn t1.
-      expect(c.changeLog.length, 3);
-      expect(c.changeLog.groups, hasLength(1));
-      expect(c.changeLog.groups.single.turnId, 't1');
+        // Three inspectable change-log entries, all in turn t1.
+        expect(c.changeLog.length, 3);
+        expect(c.changeLog.groups, hasLength(1));
+        expect(c.changeLog.groups.single.turnId, 't1');
 
-      // ...but a single undo step reverts the whole turn.
-      await c.undo();
-      expect(c.content('D00-OVR'), isNull);
-      expect(c.canUndo, isFalse);
-    });
+        // ...but a single undo step reverts the whole turn.
+        await c.undo();
+        expect(c.content('D00-OVR'), isNull);
+        expect(c.canUndo, isFalse);
+      },
+    );
   });
 
   group('pick-a-pane (tom_specs_editor_specification.md §9 M1)', () {

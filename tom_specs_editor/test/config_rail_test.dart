@@ -54,17 +54,19 @@ SpecsConfigModule _moduleIn(Directory dir) {
   return SpecsConfigModule(
     specs: _specsIn(dir),
     rawFileModule: RawFileModule(),
-    preferencesStore: EditorPreferencesStore(File(f('editor_preferences.yaml'))),
+    preferencesStore: EditorPreferencesStore(
+      File(f('editor_preferences.yaml')),
+    ),
     settingsStore: AgentSettingsStore(File(f('agent_settings.yaml'))),
     profileStore: AgentProfileStore(File(f('profiles.yaml'))),
   );
 }
 
 DefaultShellApi _shell() => DefaultShellApi.withDefaults(
-      fileSystemSeed: const {},
-      appName: 'TomSpecs Editor',
-      navigatorKey: GlobalKey<NavigatorState>(),
-    );
+  fileSystemSeed: const {},
+  appName: 'TomSpecs Editor',
+  navigatorKey: GlobalKey<NavigatorState>(),
+);
 
 Future<void> _pump(WidgetTester tester, Widget body) {
   return tester.pumpWidget(MaterialApp(home: Scaffold(body: body)));
@@ -73,30 +75,38 @@ Future<void> _pump(WidgetTester tester, Widget body) {
 void main() {
   group('config rail view (tom_specs_editor_specification.md §12 step 18 #3 / '
       'OE-16)', () {
-    testWidgets('lists one keyed launcher per editor and routes taps',
-        (tester) async {
+    testWidgets('lists one keyed launcher per editor and routes taps', (
+      tester,
+    ) async {
       final specs = _specsIn(_tempDir());
       final editors = <ForgeEditor>[
         ConfigListEditor(spec: specs.queueSpec(), onOpenRawFile: (_) {}),
         ConfigObjectEditor(
-            spec: specs.agentSettingsSpec(), onOpenRawFile: (_) {}),
+          spec: specs.agentSettingsSpec(),
+          onOpenRawFile: (_) {},
+        ),
       ];
       ForgeEditor? opened;
       final rail = ConfigRailView(editors: editors, onOpen: (e) => opened = e);
       await _pump(tester, Builder(builder: rail.buildMain));
 
       expect(
-          find.byKey(const ValueKey('config-rail-entry-/queue')), findsOneWidget);
-      expect(find.byKey(const ValueKey('config-rail-entry-/agent-settings')),
-          findsOneWidget);
+        find.byKey(const ValueKey('config-rail-entry-/queue')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('config-rail-entry-/agent-settings')),
+        findsOneWidget,
+      );
 
       await tester.tap(find.byKey(const ValueKey('config-rail-entry-/queue')));
       await tester.pump();
       expect(opened, same(editors.first));
     });
 
-    testWidgets('renders an empty hint when there are no editors',
-        (tester) async {
+    testWidgets('renders an empty hint when there are no editors', (
+      tester,
+    ) async {
       final rail = ConfigRailView(editors: const [], onOpen: (_) {});
       await _pump(tester, Builder(builder: rail.buildMain));
       expect(find.text('No config editors'), findsOneWidget);
@@ -107,8 +117,11 @@ void main() {
       '#3 / OE-16)', () {
     test('the rail is null before activation and covers all editors after', () {
       final module = _moduleIn(_tempDir());
-      expect(module.configRailView, isNull,
-          reason: 'no rail before the editors are built');
+      expect(
+        module.configRailView,
+        isNull,
+        reason: 'no rail before the editors are built',
+      );
 
       module.activate(_shell());
       final rail = module.configRailView;
@@ -136,16 +149,16 @@ void main() {
       module.activate(_shell());
 
       final leftTabs = module.docSpecs.layout.leftPanel.tabs;
-      final configTab =
-          leftTabs.where((t) => t.title == 'Config').toList();
+      final configTab = leftTabs.where((t) => t.title == 'Config').toList();
       expect(configTab, hasLength(1));
       expect(configTab.single.sections, contains(rail));
     });
 
     test('omits the Config tab when no rail is injected', () {
       final module = SpecsShellModule()..activate(_shell());
-      final titles =
-          module.docSpecs.layout.leftPanel.tabs.map((t) => t.title).toList();
+      final titles = module.docSpecs.layout.leftPanel.tabs
+          .map((t) => t.title)
+          .toList();
       expect(titles, isNot(contains('Config')));
     });
   });

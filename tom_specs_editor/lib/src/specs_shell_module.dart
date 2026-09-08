@@ -155,20 +155,19 @@ class SpecsShellModule extends ForgeModule {
     final ForgeEditor docEditor = (populated && documentEditor != null)
         ? documentEditor!
         : (phase != null)
-            ? PhaseOverviewEditor(phase: phase)
-            : PlaceholderEditor(
-                title: documentTitle,
-                icon: Icons.article_outlined,
-                uri: Uri(
-                    scheme: 'specs',
-                    host: title.toLowerCase(),
-                    path: '/document'),
-              );
+        ? PhaseOverviewEditor(phase: phase)
+        : PlaceholderEditor(
+            title: documentTitle,
+            icon: Icons.article_outlined,
+            uri: Uri(
+              scheme: 'specs',
+              host: title.toLowerCase(),
+              path: '/document',
+            ),
+          );
     _editors.add(docEditor);
     final middlePanels = <MiddlePanelConfig>[
-      MiddlePanelConfig(
-        tabs: [MiddleTabConfig(editor: docEditor)],
-      ),
+      MiddlePanelConfig(tabs: [MiddleTabConfig(editor: docEditor)]),
     ];
 
     if (!populated) {
@@ -187,22 +186,34 @@ class SpecsShellModule extends ForgeModule {
       if (phase != null) {
         final outline = PhaseOutlineView(phase: phase);
         _views.add(outline);
-        leftTabs.add(PanelTabConfig(
-          title: 'Overview',
-          icon: Icons.list_alt_outlined,
-          sections: [outline],
-        ));
+        leftTabs.add(
+          PanelTabConfig(
+            title: 'Overview',
+            icon: Icons.list_alt_outlined,
+            sections: [outline],
+          ),
+        );
 
         // Middle Col 2 / Col 3: queue + trail placeholder splits, so the
         // phase-2 middle area carries the same three columns as DocSpecs.
-        final queueSurface =
-            PhaseSurfaceEditor(phase: phase, surface: PhaseSurface.queue);
-        final trailSurface =
-            PhaseSurfaceEditor(phase: phase, surface: PhaseSurface.trail);
-        _editors..add(queueSurface)..add(trailSurface);
+        final queueSurface = PhaseSurfaceEditor(
+          phase: phase,
+          surface: PhaseSurface.queue,
+        );
+        final trailSurface = PhaseSurfaceEditor(
+          phase: phase,
+          surface: PhaseSurface.trail,
+        );
+        _editors
+          ..add(queueSurface)
+          ..add(trailSurface);
         middlePanels
-          ..add(MiddlePanelConfig(tabs: [MiddleTabConfig(editor: queueSurface)]))
-          ..add(MiddlePanelConfig(tabs: [MiddleTabConfig(editor: trailSurface)]));
+          ..add(
+            MiddlePanelConfig(tabs: [MiddleTabConfig(editor: queueSurface)]),
+          )
+          ..add(
+            MiddlePanelConfig(tabs: [MiddleTabConfig(editor: trailSurface)]),
+          );
       }
 
       // Bottom "Chat" and right "Change Log" surfaces (phase-aware placeholders).
@@ -252,19 +263,23 @@ class SpecsShellModule extends ForgeModule {
     // injected [AgentChatModule] (the real `tom_specs_editor_specification.md`
     // §11.2/§11.3 columns); the skeleton tests that predate the chat suite fall
     // back to labelled placeholders.
-    final ForgeEditor queueSplit = queueEditor ??
+    final ForgeEditor queueSplit =
+        queueEditor ??
         PlaceholderEditor(
           title: 'Prompt Queue',
           icon: Icons.playlist_play_outlined,
           uri: Uri(scheme: 'specs', host: 'docspecs', path: '/queue'),
         );
-    final ForgeEditor trailSplit = trailEditor ??
+    final ForgeEditor trailSplit =
+        trailEditor ??
         PlaceholderEditor(
           title: 'Prompt Trail',
           icon: Icons.history_outlined,
           uri: Uri(scheme: 'specs', host: 'docspecs', path: '/trail'),
         );
-    _editors..add(queueSplit)..add(trailSplit);
+    _editors
+      ..add(queueSplit)
+      ..add(trailSplit);
     middlePanels.add(
       MiddlePanelConfig(tabs: [MiddleTabConfig(editor: queueSplit)]),
     );
@@ -275,23 +290,22 @@ class SpecsShellModule extends ForgeModule {
     // The `tom_specs_editor_specification.md` §14 root navigator drives the
     // document editor's active root (step 20); falls back to a labelled
     // placeholder in the pre-step-20 skeleton.
-    final ForgeView navigator = navigatorView ??
-        PlaceholderView(
-          title: 'Navigator',
-          icon: Icons.account_tree_outlined,
-        );
+    final ForgeView navigator =
+        navigatorView ??
+        PlaceholderView(title: 'Navigator', icon: Icons.account_tree_outlined);
     // The bottom "Chat" tab hosts the injected agent chat view (the connection
     // picker in step 11) when provided, falling back to a placeholder.
-    final ForgeView chat = chatView ??
-        PlaceholderView(
-          title: 'Chat',
-          icon: Icons.chat_bubble_outline,
-        );
+    final ForgeView chat =
+        chatView ??
+        PlaceholderView(title: 'Chat', icon: Icons.chat_bubble_outline);
     final changeLog = PlaceholderView(
       title: 'Change Log',
       icon: Icons.rule_outlined,
     );
-    _views..add(navigator)..add(chat)..add(changeLog);
+    _views
+      ..add(navigator)
+      ..add(chat)
+      ..add(changeLog);
 
     return ForgeApplication(
       title: title,

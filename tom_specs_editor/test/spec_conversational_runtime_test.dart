@@ -28,33 +28,33 @@ import 'package:tom_specs_editor/src/structure/spec_model.dart';
 
 /// A class graph with a list of complex items — enough for the multi-turn add.
 Map<String, dynamic> _sampleJson() => {
-      'roots': [
-        {'type': 'DemoDoc', 'title': 'Demo Document', 'sectionId': 'D00'},
+  'roots': [
+    {'type': 'DemoDoc', 'title': 'Demo Document', 'sectionId': 'D00'},
+  ],
+  'classes': {
+    'DemoDoc': {
+      'name': 'DemoDoc',
+      'sectionId': 'D00',
+      'doc': 'A demo document.',
+      'fields': [
+        {'name': 'overview', 'kind': 'content', 'sectionId': 'D00-OVR'},
+        {
+          'name': 'items',
+          'kind': 'list',
+          'elementType': 'DemoItem',
+          'elementIsComplex': true,
+          'sectionId': 'D00-ITM',
+        },
       ],
-      'classes': {
-        'DemoDoc': {
-          'name': 'DemoDoc',
-          'sectionId': 'D00',
-          'doc': 'A demo document.',
-          'fields': [
-            {'name': 'overview', 'kind': 'content', 'sectionId': 'D00-OVR'},
-            {
-              'name': 'items',
-              'kind': 'list',
-              'elementType': 'DemoItem',
-              'elementIsComplex': true,
-              'sectionId': 'D00-ITM',
-            },
-          ],
-        },
-        'DemoItem': {
-          'name': 'DemoItem',
-          'fields': [
-            {'name': 'label', 'kind': 'content', 'sectionId': 'D01-LBL'},
-          ],
-        },
-      },
-    };
+    },
+    'DemoItem': {
+      'name': 'DemoItem',
+      'fields': [
+        {'name': 'label', 'kind': 'content', 'sectionId': 'D01-LBL'},
+      ],
+    },
+  },
+};
 
 AgentToolsModule _module(Directory dir) {
   final model = SpecModel.fromJson(_sampleJson());
@@ -97,33 +97,38 @@ void main() {
   /// A runtime over the module's shared controller + memory plane, with a
   /// host-independent recording driver that scripts two add-turns then stops.
   SpecConversationalRuntime recordingRuntime() => SpecConversationalRuntime(
-        controller: module.controller,
-        memoryPlane: module.memoryPlane,
-        facade: SpecFileFacade(workspaceRoot: dir.path),
-        driver: RecordingConversationalDriver(const [
-          ConversationalDecision.run(
-              inputs: {'parentPath': 'D00', 'childSegment': 'D00-ITM'}),
-          ConversationalDecision.run(
-              inputs: {'parentPath': 'D00', 'childSegment': 'D00-ITM'}),
-          ConversationalDecision.stop(reason: 'done'),
-        ]),
-      );
+    controller: module.controller,
+    memoryPlane: module.memoryPlane,
+    facade: SpecFileFacade(workspaceRoot: dir.path),
+    driver: RecordingConversationalDriver(const [
+      ConversationalDecision.run(
+        inputs: {'parentPath': 'D00', 'childSegment': 'D00-ITM'},
+      ),
+      ConversationalDecision.run(
+        inputs: {'parentPath': 'D00', 'childSegment': 'D00-ITM'},
+      ),
+      ConversationalDecision.stop(reason: 'done'),
+    ]),
+  );
 
-  test('the module exposes the tomspecs-converse server with the converse tools',
-      () {
-    final server =
-        module.servers['tomspecs-converse'] as McpSdkServerConfig;
-    expect({for (final t in server.tools) t.name},
-        {'converse_run', 'converse_trail'});
-    // A conversational run touches every plane, so the coarse server carries the
-    // full tool-group set.
-    expect(module.serverToolGroups['tomspecs-converse'], {
-      AgentToolGroup.doc,
-      AgentToolGroup.file,
-      AgentToolGroup.script,
-      AgentToolGroup.memory,
-    });
-  });
+  test(
+    'the module exposes the tomspecs-converse server with the converse tools',
+    () {
+      final server = module.servers['tomspecs-converse'] as McpSdkServerConfig;
+      expect(
+        {for (final t in server.tools) t.name},
+        {'converse_run', 'converse_trail'},
+      );
+      // A conversational run touches every plane, so the coarse server carries the
+      // full tool-group set.
+      expect(module.serverToolGroups['tomspecs-converse'], {
+        AgentToolGroup.doc,
+        AgentToolGroup.file,
+        AgentToolGroup.script,
+        AgentToolGroup.memory,
+      });
+    },
+  );
 
   test('an injected driver makes the runtime available and drives a multi-turn '
       'run', () async {
@@ -136,12 +141,17 @@ void main() {
     expect(result['mode'], 'conversational');
     expect(result['baseMode'], 'direct');
     expect(result['turnCount'], 2);
-    expect((result['result'] as Map)['ok'], isTrue,
-        reason: (result['result'] as Map)['error']?.toString());
+    expect(
+      (result['result'] as Map)['ok'],
+      isTrue,
+      reason: (result['result'] as Map)['error']?.toString(),
+    );
 
     // Two turns added two list items on the one shared document.
-    expect(module.controller.document.listItems('D00/D00-ITM'),
-        ['D00/D00-ITM-1', 'D00/D00-ITM-2']);
+    expect(module.controller.document.listItems('D00/D00-ITM'), [
+      'D00/D00-ITM-1',
+      'D00/D00-ITM-2',
+    ]);
     expect(module.controller.changeLog.length, 2);
 
     // The per-turn trail reads back, oldest first.
@@ -185,8 +195,9 @@ void main() {
     // driver is late-bound by the app once the chat send controller exists), so
     // a run reports unavailable rather than looping with no decision-maker.
     expect(module.conversationalRuntime.available, isFalse);
-    final result =
-        await module.conversationalRuntime.run(goal: 'append demo items');
+    final result = await module.conversationalRuntime.run(
+      goal: 'append demo items',
+    );
     expect(result['available'], isFalse);
     expect(result['reason'], isNotNull);
     // Nothing was recorded and the document was left untouched.
@@ -198,18 +209,23 @@ void main() {
     // The module starts degraded; binding a (recording) driver makes the
     // module's own runtime available — the seam the app uses for the live driver.
     expect(module.conversationalRuntime.available, isFalse);
-    module.bindConversationalDriver(RecordingConversationalDriver(const [
-      ConversationalDecision.run(
-          inputs: {'parentPath': 'D00', 'childSegment': 'D00-ITM'}),
-      ConversationalDecision.stop(),
-    ]));
+    module.bindConversationalDriver(
+      RecordingConversationalDriver(const [
+        ConversationalDecision.run(
+          inputs: {'parentPath': 'D00', 'childSegment': 'D00-ITM'},
+        ),
+        ConversationalDecision.stop(),
+      ]),
+    );
     expect(module.conversationalRuntime.available, isTrue);
 
-    final result =
-        await module.conversationalRuntime.run(goal: 'append demo items');
+    final result = await module.conversationalRuntime.run(
+      goal: 'append demo items',
+    );
     expect(result['available'], isTrue);
     expect(result['turnCount'], 1);
-    expect(module.controller.document.listItems('D00/D00-ITM'),
-        ['D00/D00-ITM-1']);
+    expect(module.controller.document.listItems('D00/D00-ITM'), [
+      'D00/D00-ITM-1',
+    ]);
   });
 }

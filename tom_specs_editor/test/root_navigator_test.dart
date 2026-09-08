@@ -28,64 +28,64 @@ import 'package:tom_specs_editor/src/structure/spec_model.dart';
 /// alphabetically, so a test that finds it last is seeing the band, not the
 /// alphabet.
 Map<String, dynamic> _multiRootJson({bool withGenerationInput = false}) => {
-      'roots': [
-        {
-          'type': 'CurrentLandscapeAssessment',
-          'title': 'Current Landscape Assessment',
-          'sectionId': 'CLA',
-        },
-        {
-          'type': 'SolutionBlueprint',
-          'title': 'Solution Blueprint',
-          'sectionId': 'SBP',
-        },
-        {
-          'type': 'SecurityAccessSpecification',
-          'title': 'Security Access Specification',
-          'sectionId': 'SAS',
-        },
-        if (withGenerationInput)
-          {
-            'type': 'CodeSpecsProjectionRoot',
-            'title': 'A CodeSpecs Generation Projection',
-            'sectionId': 'CGP',
-          },
-      ],
-      'classes': {
-        'SolutionBlueprint': {
-          'name': 'SolutionBlueprint',
-          'sectionId': 'SBP',
-          'fields': [
-            {'name': 'sbpOverview', 'kind': 'content', 'sectionId': 'SBP-OVR'},
-          ],
-        },
-        'CurrentLandscapeAssessment': {
-          'name': 'CurrentLandscapeAssessment',
-          'sectionId': 'CLA',
-          'fields': [
-            {'name': 'claOverview', 'kind': 'content', 'sectionId': 'CLA-OVR'},
-          ],
-        },
-        'SecurityAccessSpecification': {
-          'name': 'SecurityAccessSpecification',
-          'sectionId': 'SAS',
-          'fields': [
-            {'name': 'sasOverview', 'kind': 'content', 'sectionId': 'SAS-OVR'},
-          ],
-        },
-        if (withGenerationInput)
-          'CodeSpecsProjectionRoot': {
-            'name': 'CodeSpecsProjectionRoot',
-            'sectionId': 'CGP',
-            'annotations': [
-              {'name': 'CodeSpecsProjection', 'arguments': <String, dynamic>{}},
-            ],
-            'fields': [
-              {'name': 'cgpOverview', 'kind': 'content', 'sectionId': 'CGP-OVR'},
-            ],
-          },
+  'roots': [
+    {
+      'type': 'CurrentLandscapeAssessment',
+      'title': 'Current Landscape Assessment',
+      'sectionId': 'CLA',
+    },
+    {
+      'type': 'SolutionBlueprint',
+      'title': 'Solution Blueprint',
+      'sectionId': 'SBP',
+    },
+    {
+      'type': 'SecurityAccessSpecification',
+      'title': 'Security Access Specification',
+      'sectionId': 'SAS',
+    },
+    if (withGenerationInput)
+      {
+        'type': 'CodeSpecsProjectionRoot',
+        'title': 'A CodeSpecs Generation Projection',
+        'sectionId': 'CGP',
       },
-    };
+  ],
+  'classes': {
+    'SolutionBlueprint': {
+      'name': 'SolutionBlueprint',
+      'sectionId': 'SBP',
+      'fields': [
+        {'name': 'sbpOverview', 'kind': 'content', 'sectionId': 'SBP-OVR'},
+      ],
+    },
+    'CurrentLandscapeAssessment': {
+      'name': 'CurrentLandscapeAssessment',
+      'sectionId': 'CLA',
+      'fields': [
+        {'name': 'claOverview', 'kind': 'content', 'sectionId': 'CLA-OVR'},
+      ],
+    },
+    'SecurityAccessSpecification': {
+      'name': 'SecurityAccessSpecification',
+      'sectionId': 'SAS',
+      'fields': [
+        {'name': 'sasOverview', 'kind': 'content', 'sectionId': 'SAS-OVR'},
+      ],
+    },
+    if (withGenerationInput)
+      'CodeSpecsProjectionRoot': {
+        'name': 'CodeSpecsProjectionRoot',
+        'sectionId': 'CGP',
+        'annotations': [
+          {'name': 'CodeSpecsProjection', 'arguments': <String, dynamic>{}},
+        ],
+        'fields': [
+          {'name': 'cgpOverview', 'kind': 'content', 'sectionId': 'CGP-OVR'},
+        ],
+      },
+  },
+};
 
 ReviewStore _tempReviewStore() {
   final dir = Directory.systemTemp.createTempSync('root_nav_review');
@@ -95,11 +95,15 @@ ReviewStore _tempReviewStore() {
   return ReviewStore(File('${dir.path}/review.yaml'));
 }
 
-Future<SpecDocumentController> _controller(
-    {bool withGenerationInput = false}) async {
+Future<SpecDocumentController> _controller({
+  bool withGenerationInput = false,
+}) async {
   final controller = SpecDocumentController(
-    modelFuture: Future<SpecModel>.value(SpecModel.fromJson(
-        _multiRootJson(withGenerationInput: withGenerationInput))),
+    modelFuture: Future<SpecModel>.value(
+      SpecModel.fromJson(
+        _multiRootJson(withGenerationInput: withGenerationInput),
+      ),
+    ),
     review: _tempReviewStore(),
   );
   await controller.ensureLoaded();
@@ -108,82 +112,96 @@ Future<SpecDocumentController> _controller(
 }
 
 Future<void> _pumpNavigator(
-    WidgetTester tester, SpecDocumentController controller) async {
-  await tester.pumpWidget(MaterialApp(
-    home: Scaffold(body: RootNavigatorList(controller: controller)),
-  ));
+  WidgetTester tester,
+  SpecDocumentController controller,
+) async {
+  await tester.pumpWidget(
+    MaterialApp(
+      home: Scaffold(body: RootNavigatorList(controller: controller)),
+    ),
+  );
   await tester.pumpAndSettle();
 }
 
 Future<void> _pumpTree(
-    WidgetTester tester, SpecDocumentController controller) async {
-  await tester.pumpWidget(MaterialApp(
-    home: Scaffold(
-      body: SpecDocumentTree(controller: controller, model: controller.model),
+  WidgetTester tester,
+  SpecDocumentController controller,
+) async {
+  await tester.pumpWidget(
+    MaterialApp(
+      home: Scaffold(
+        body: SpecDocumentTree(controller: controller, model: controller.model),
+      ),
     ),
-  ));
+  );
 }
 
 void main() {
   group('navigator ordering (tom_specs_editor_specification.md §14)', () {
-    test('Solution Blueprint is first, then the rest alphabetically by title',
-        () {
-      final model = SpecModel.fromJson(_multiRootJson());
-      final ordered = navigatorRootOrder(model).map((r) => r.type);
-      expect(
-        ordered,
-        ['SolutionBlueprint', 'CurrentLandscapeAssessment',
-            'SecurityAccessSpecification'],
-      );
-    });
+    test(
+      'Solution Blueprint is first, then the rest alphabetically by title',
+      () {
+        final model = SpecModel.fromJson(_multiRootJson());
+        final ordered = navigatorRootOrder(model).map((r) => r.type);
+        expect(ordered, [
+          'SolutionBlueprint',
+          'CurrentLandscapeAssessment',
+          'SecurityAccessSpecification',
+        ]);
+      },
+    );
 
     test('defaultNavigatorRoot is Solution Blueprint when present', () {
       final model = SpecModel.fromJson(_multiRootJson());
       expect(defaultNavigatorRoot(model)!.type, 'SolutionBlueprint');
     });
 
-    test('defaultNavigatorRoot falls back to the first root without a blueprint',
-        () {
-      final model = SpecModel.fromJson({
-        'roots': [
-          {
-            'type': 'CurrentLandscapeAssessment',
-            'title': 'Current Landscape Assessment',
-            'sectionId': 'CLA',
-          },
-          {
-            'type': 'InteractionScenarios',
-            'title': 'Interaction Scenarios',
-            'sectionId': 'ISC',
-          },
-        ],
-        'classes': <String, dynamic>{},
-      });
-      expect(defaultNavigatorRoot(model)!.type, 'CurrentLandscapeAssessment');
-      expect(
-        defaultNavigatorRoot(SpecModel.fromJson(
-            {'roots': <dynamic>[], 'classes': <String, dynamic>{}}))?.type,
-        isNull,
-      );
-    });
+    test(
+      'defaultNavigatorRoot falls back to the first root without a blueprint',
+      () {
+        final model = SpecModel.fromJson({
+          'roots': [
+            {
+              'type': 'CurrentLandscapeAssessment',
+              'title': 'Current Landscape Assessment',
+              'sectionId': 'CLA',
+            },
+            {
+              'type': 'InteractionScenarios',
+              'title': 'Interaction Scenarios',
+              'sectionId': 'ISC',
+            },
+          ],
+          'classes': <String, dynamic>{},
+        });
+        expect(defaultNavigatorRoot(model)!.type, 'CurrentLandscapeAssessment');
+        expect(
+          defaultNavigatorRoot(
+            SpecModel.fromJson({
+              'roots': <dynamic>[],
+              'classes': <String, dynamic>{},
+            }),
+          )?.type,
+          isNull,
+        );
+      },
+    );
   });
 
   group('generation-input band (tom_specs_editor_specification.md §14)', () {
     test('generation inputs sort into a band below the authored documents', () {
-      final model =
-          SpecModel.fromJson(_multiRootJson(withGenerationInput: true));
+      final model = SpecModel.fromJson(
+        _multiRootJson(withGenerationInput: true),
+      );
       final ordered = navigatorRootOrder(model).map((r) => r.type);
       // 'A CodeSpecs Generation Projection' would sort *first* alphabetically;
       // it lands last because the band, not the alphabet, places it.
-      expect(
-        ordered,
-        [
-          'SolutionBlueprint',
-          'CurrentLandscapeAssessment',
-          'SecurityAccessSpecification',
-          'CodeSpecsProjectionRoot',
-        ],
-      );
+      expect(ordered, [
+        'SolutionBlueprint',
+        'CurrentLandscapeAssessment',
+        'SecurityAccessSpecification',
+        'CodeSpecsProjectionRoot',
+      ]);
     });
 
     test('a generation input is never the default landing root', () {
@@ -219,21 +237,25 @@ void main() {
       expect(defaultNavigatorRoot(model)!.type, 'CurrentLandscapeAssessment');
     });
 
-    testWidgets('the navigator draws a labelled heading above the band',
-        (tester) async {
+    testWidgets('the navigator draws a labelled heading above the band', (
+      tester,
+    ) async {
       final controller = await _controller(withGenerationInput: true);
       await _pumpNavigator(tester, controller);
 
-      expect(find.text(kGenerationInputsBandLabel.toUpperCase()),
-          findsOneWidget);
+      expect(
+        find.text(kGenerationInputsBandLabel.toUpperCase()),
+        findsOneWidget,
+      );
       // The band's root is listed, not hidden.
       expect(find.text('A CodeSpecs Generation Projection'), findsOneWidget);
       // Two dividers now: after the Solution Blueprint, and opening the band.
       expect(find.byType(Divider), findsNWidgets(2));
     });
 
-    testWidgets('a model with no generation input draws no band heading',
-        (tester) async {
+    testWidgets('a model with no generation input draws no band heading', (
+      tester,
+    ) async {
       final controller = await _controller();
       await _pumpNavigator(tester, controller);
 
@@ -241,34 +263,40 @@ void main() {
       expect(find.byType(Divider), findsOneWidget);
     });
 
-    testWidgets('a banded root stays selectable — the split is presentational',
-        (tester) async {
-      // The band says "this is not a document you author", not "you may not
-      // touch it": an edit through any projection folds onto the same
-      // Solution Blueprint storage path, so selection stays live.
-      final controller = await _controller(withGenerationInput: true);
-      await _pumpNavigator(tester, controller);
+    testWidgets(
+      'a banded root stays selectable — the split is presentational',
+      (tester) async {
+        // The band says "this is not a document you author", not "you may not
+        // touch it": an edit through any projection folds onto the same
+        // Solution Blueprint storage path, so selection stays live.
+        final controller = await _controller(withGenerationInput: true);
+        await _pumpNavigator(tester, controller);
 
-      await tester.tap(find.text('A CodeSpecs Generation Projection'));
-      await tester.pump();
-      expect(controller.activeRootType, 'CGP');
-    });
+        await tester.tap(find.text('A CodeSpecs Generation Projection'));
+        await tester.pump();
+        expect(controller.activeRootType, 'CGP');
+      },
+    );
   });
 
   group('RootNavigator widget (tom_specs_editor_specification.md §14)', () {
-    testWidgets('lists every root with Solution Blueprint first + a separator',
-        (tester) async {
-      final controller = await _controller();
-      await _pumpNavigator(tester, controller);
+    testWidgets(
+      'lists every root with Solution Blueprint first + a separator',
+      (tester) async {
+        final controller = await _controller();
+        await _pumpNavigator(tester, controller);
 
-      expect(find.text('Solution Blueprint'), findsOneWidget);
-      expect(find.text('Current Landscape Assessment'), findsOneWidget);
-      expect(find.text('Security Access Specification'), findsOneWidget);
-      // The separator after the Solution Blueprint.
-      expect(find.byType(Divider), findsOneWidget);
-    });
+        expect(find.text('Solution Blueprint'), findsOneWidget);
+        expect(find.text('Current Landscape Assessment'), findsOneWidget);
+        expect(find.text('Security Access Specification'), findsOneWidget);
+        // The separator after the Solution Blueprint.
+        expect(find.byType(Divider), findsOneWidget);
+      },
+    );
 
-    testWidgets('tapping a root sets the controller active root', (tester) async {
+    testWidgets('tapping a root sets the controller active root', (
+      tester,
+    ) async {
       final controller = await _controller();
       await _pumpNavigator(tester, controller);
 
@@ -282,18 +310,21 @@ void main() {
   });
 
   group('document tree follows the active root (Done condition)', () {
-    testWidgets('renders the Solution Blueprint by default, not the first root',
-        (tester) async {
-      final controller = await _controller();
-      await _pumpTree(tester, controller);
+    testWidgets(
+      'renders the Solution Blueprint by default, not the first root',
+      (tester) async {
+        final controller = await _controller();
+        await _pumpTree(tester, controller);
 
-      // SBP is the default projection even though CLA is roots.first.
-      expect(find.widgetWithText(ActionChip, 'sbpOverview'), findsOneWidget);
-      expect(find.widgetWithText(ActionChip, 'claOverview'), findsNothing);
-    });
+        // SBP is the default projection even though CLA is roots.first.
+        expect(find.widgetWithText(ActionChip, 'sbpOverview'), findsOneWidget);
+        expect(find.widgetWithText(ActionChip, 'claOverview'), findsNothing);
+      },
+    );
 
-    testWidgets('selecting another root re-renders that projection',
-        (tester) async {
+    testWidgets('selecting another root re-renders that projection', (
+      tester,
+    ) async {
       final controller = await _controller();
       await _pumpTree(tester, controller);
 
@@ -304,8 +335,9 @@ void main() {
       expect(find.widgetWithText(ActionChip, 'sbpOverview'), findsNothing);
     });
 
-    testWidgets('edits persist across root switches (same underlying data)',
-        (tester) async {
+    testWidgets('edits persist across root switches (same underlying data)', (
+      tester,
+    ) async {
       final controller = await _controller();
       await _pumpTree(tester, controller);
 
@@ -344,14 +376,17 @@ void main() {
       expect(model.modelVersionLabel, isNull);
     });
 
-    testWidgets('the navigator footer reports the stamped model version',
-        (tester) async {
+    testWidgets('the navigator footer reports the stamped model version', (
+      tester,
+    ) async {
       final controller = SpecDocumentController(
-        modelFuture: Future<SpecModel>.value(SpecModel.fromJson(
-          _multiRootJson()
-            ..['modelVersion'] = 5
-            ..['modelVersionLabel'] = '1.0.0+5.deadbee',
-        )),
+        modelFuture: Future<SpecModel>.value(
+          SpecModel.fromJson(
+            _multiRootJson()
+              ..['modelVersion'] = 5
+              ..['modelVersionLabel'] = '1.0.0+5.deadbee',
+          ),
+        ),
         review: _tempReviewStore(),
       );
       await controller.ensureLoaded();

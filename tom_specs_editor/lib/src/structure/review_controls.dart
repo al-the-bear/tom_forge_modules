@@ -59,8 +59,10 @@ class ReviewControls extends StatelessWidget {
                 borderRadius: BorderRadius.circular(4),
                 onTap: () => _openDialog(context),
                 child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 3,
+                    vertical: 2,
+                  ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -73,15 +75,18 @@ class ReviewControls extends StatelessWidget {
               ),
             ),
             Tooltip(
-              message:
-                  reviewed ? 'Reviewed — click to clear' : 'Mark as reviewed',
+              message: reviewed
+                  ? 'Reviewed — click to clear'
+                  : 'Mark as reviewed',
               child: InkWell(
                 borderRadius: BorderRadius.circular(4),
                 onTap: () =>
                     store.update(path, (e) => e.reviewed = !e.reviewed),
                 child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 2,
+                    vertical: 2,
+                  ),
                   child: Icon(
                     reviewed ? Icons.check_circle : Icons.check_circle_outline,
                     size: 17,
@@ -147,11 +152,8 @@ class ReviewControls extends StatelessWidget {
   void _openDialog(BuildContext context) {
     showDialog<void>(
       context: context,
-      builder: (_) => _ReviewDialog(
-        store: store,
-        path: path,
-        nodeLabel: nodeLabel,
-      ),
+      builder: (_) =>
+          _ReviewDialog(store: store, path: path, nodeLabel: nodeLabel),
     );
   }
 }
@@ -205,19 +207,24 @@ class _ReviewDialogState extends State<_ReviewDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(widget.nodeLabel,
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text(
+                widget.nodeLabel,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 2),
               SelectableText(
                 widget.path,
                 style: TextStyle(
-                    fontSize: 11,
-                    color: theme.colorScheme.onSurfaceVariant,
-                    fontFamily: 'monospace'),
+                  fontSize: 11,
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontFamily: 'monospace',
+                ),
               ),
               const Divider(height: 20),
-              const Text('Scope',
-                  style: TextStyle(fontWeight: FontWeight.w600)),
+              const Text(
+                'Scope',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
               RadioGroup<ReviewScope>(
                 groupValue: entry.scope,
                 onChanged: (value) {
@@ -239,8 +246,9 @@ class _ReviewDialogState extends State<_ReviewDialog> {
                               width: 12,
                               height: 12,
                               decoration: BoxDecoration(
-                                  color: scopeColor(scope),
-                                  shape: BoxShape.circle),
+                                color: scopeColor(scope),
+                                shape: BoxShape.circle,
+                              ),
                             ),
                             const SizedBox(width: 8),
                             Text(scope.label),
@@ -259,8 +267,10 @@ class _ReviewDialogState extends State<_ReviewDialog> {
                 title: const Text('Stop here'),
                 subtitle: const Text('Do not descend further into this branch'),
                 onChanged: (value) {
-                  widget.store
-                      .update(widget.path, (e) => e.stopHere = value ?? false);
+                  widget.store.update(
+                    widget.path,
+                    (e) => e.stopHere = value ?? false,
+                  );
                   setState(() {});
                 },
               ),
@@ -273,13 +283,17 @@ class _ReviewDialogState extends State<_ReviewDialog> {
                 subtitle: const Text('This node needs further specification'),
                 onChanged: (value) {
                   widget.store.update(
-                      widget.path, (e) => e.addDetails = value ?? false);
+                    widget.path,
+                    (e) => e.addDetails = value ?? false,
+                  );
                   setState(() {});
                 },
               ),
               const Divider(height: 20),
-              const Text('Structure',
-                  style: TextStyle(fontWeight: FontWeight.w600)),
+              const Text(
+                'Structure',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
               CheckboxListTile(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
@@ -288,7 +302,9 @@ class _ReviewDialogState extends State<_ReviewDialog> {
                 title: const Text('Must be a list'),
                 onChanged: (value) {
                   widget.store.update(
-                      widget.path, (e) => e.mustBeList = value ?? false);
+                    widget.path,
+                    (e) => e.mustBeList = value ?? false,
+                  );
                   setState(() {});
                 },
               ),
@@ -300,7 +316,9 @@ class _ReviewDialogState extends State<_ReviewDialog> {
                 title: const Text('Is only a single entry (not a list)'),
                 onChanged: (value) {
                   widget.store.update(
-                      widget.path, (e) => e.singleEntry = value ?? false);
+                    widget.path,
+                    (e) => e.singleEntry = value ?? false,
+                  );
                   setState(() {});
                 },
               ),
@@ -309,10 +327,14 @@ class _ReviewDialogState extends State<_ReviewDialog> {
                 contentPadding: EdgeInsets.zero,
                 controlAffinity: ListTileControlAffinity.leading,
                 value: entry.mustBeContentString,
-                title: const Text('Must be a content string (not a form field)'),
+                title: const Text(
+                  'Must be a content string (not a form field)',
+                ),
                 onChanged: (value) {
-                  widget.store.update(widget.path,
-                      (e) => e.mustBeContentString = value ?? false);
+                  widget.store.update(
+                    widget.path,
+                    (e) => e.mustBeContentString = value ?? false,
+                  );
                   setState(() {});
                 },
               ),
@@ -322,10 +344,13 @@ class _ReviewDialogState extends State<_ReviewDialog> {
                 controlAffinity: ListTileControlAffinity.leading,
                 value: entry.convertFormToContent,
                 title: const Text(
-                    'Convert form field → content string subsection'),
+                  'Convert form field → content string subsection',
+                ),
                 onChanged: (value) {
-                  widget.store.update(widget.path,
-                      (e) => e.convertFormToContent = value ?? false);
+                  widget.store.update(
+                    widget.path,
+                    (e) => e.convertFormToContent = value ?? false,
+                  );
                   setState(() {});
                 },
               ),

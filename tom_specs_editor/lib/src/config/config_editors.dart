@@ -99,8 +99,8 @@ class RawFileButton extends StatelessWidget {
 /// and the raw-file button.
 class ConfigListEditor<T> extends ForgeEditor {
   ConfigListEditor({required this.spec, required this.onOpenRawFile})
-      : _title = ValueNotifier<String>(spec.title),
-        _items = spec.load();
+    : _title = ValueNotifier<String>(spec.title),
+      _items = spec.load();
 
   final ConfigListSpec<T> spec;
   final RawFileOpener onOpenRawFile;
@@ -144,15 +144,15 @@ class ConfigListEditor<T> extends ForgeEditor {
 
   @override
   Widget buildMain(BuildContext context) => _ConfigListBody<T>(
-        spec: spec,
-        initialItems: _items,
-        onItemsChanged: (items) {
-          _items = items;
-          spec.save(items);
-          _isDirty.value = false;
-        },
-        onOpenRaw: _openRaw,
-      );
+    spec: spec,
+    initialItems: _items,
+    onItemsChanged: (items) {
+      _items = items;
+      spec.save(items);
+      _isDirty.value = false;
+    },
+    onOpenRaw: _openRaw,
+  );
 
   @override
   Widget buildCopy(BuildContext context) => buildMain(context);
@@ -250,10 +250,7 @@ class _ConfigListBodyState<T> extends State<_ConfigListBody<T>> {
           const SizedBox(width: 8),
           Text(spec.title, style: Theme.of(context).textTheme.titleSmall),
           const Spacer(),
-          RawFileButton(
-            uri: spec.uri,
-            onOpen: (_) => widget.onOpenRaw(),
-          ),
+          RawFileButton(uri: spec.uri, onOpen: (_) => widget.onOpenRaw()),
         ],
       ),
     );
@@ -362,8 +359,8 @@ class _ConfigListBodyState<T> extends State<_ConfigListBody<T>> {
 /// one object, validation, raw-file button. Used by the Agent Settings editor.
 class ConfigObjectEditor<T> extends ForgeEditor {
   ConfigObjectEditor({required this.spec, required this.onOpenRawFile})
-      : _title = ValueNotifier<String>(spec.title),
-        _value = spec.load();
+    : _title = ValueNotifier<String>(spec.title),
+      _value = spec.load();
 
   final ConfigObjectSpec<T> spec;
   final RawFileOpener onOpenRawFile;
@@ -405,14 +402,14 @@ class ConfigObjectEditor<T> extends ForgeEditor {
 
   @override
   Widget buildMain(BuildContext context) => _ConfigObjectBody<T>(
-        spec: spec,
-        initialValue: _value,
-        onValueChanged: (value) {
-          _value = value;
-          spec.save(value);
-        },
-        onOpenRaw: _openRaw,
-      );
+    spec: spec,
+    initialValue: _value,
+    onValueChanged: (value) {
+      _value = value;
+      spec.save(value);
+    },
+    onOpenRaw: _openRaw,
+  );
 
   @override
   Widget buildCopy(BuildContext context) => buildMain(context);
@@ -467,10 +464,7 @@ class _ConfigObjectBodyState<T> extends State<_ConfigObjectBody<T>> {
               const SizedBox(width: 8),
               Text(spec.title, style: Theme.of(context).textTheme.titleSmall),
               const Spacer(),
-              RawFileButton(
-                uri: spec.uri,
-                onOpen: (_) => widget.onOpenRaw(),
-              ),
+              RawFileButton(uri: spec.uri, onOpen: (_) => widget.onOpenRaw()),
             ],
           ),
         ),
@@ -485,8 +479,9 @@ class _ConfigObjectBodyState<T> extends State<_ConfigObjectBody<T>> {
                   child: Text(
                     error,
                     key: const Key('config-validation-error'),
-                    style:
-                        TextStyle(color: Theme.of(context).colorScheme.error),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
                   ),
                 ),
               for (final field in spec.fields)

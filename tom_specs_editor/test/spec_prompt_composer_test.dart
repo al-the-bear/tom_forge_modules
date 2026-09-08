@@ -20,17 +20,16 @@ void main() {
     bool strict = false,
     String Function()? chatTranscript,
     String Function()? activeDocument,
-  }) =>
-      SpecPromptComposer(
-        workspaceName: 'tom_agent_container',
-        aiFolder: aiFolder,
-        variables: variables,
-        clock: () => clock,
-        role: role,
-        strict: strict,
-        chatTranscript: chatTranscript,
-        activeDocument: activeDocument,
-      );
+  }) => SpecPromptComposer(
+    workspaceName: 'tom_agent_container',
+    aiFolder: aiFolder,
+    variables: variables,
+    clock: () => clock,
+    role: role,
+    strict: strict,
+    chatTranscript: chatTranscript,
+    activeDocument: activeDocument,
+  );
 
   setUp(() {
     workspace = Directory.systemTemp.createTempSync('specs_compose_');
@@ -50,8 +49,10 @@ void main() {
 
     test('builtInsFor flags every built-in as read-only', () {
       final builtIns = make().builtInsFor(clock);
-      expect(builtIns.map((v) => v.name),
-          containsAll(<String>['date', 'time', 'quest', 'role', 'chat', 'file']));
+      expect(
+        builtIns.map((v) => v.name),
+        containsAll(<String>['date', 'time', 'quest', 'role', 'chat', 'file']),
+      );
       expect(builtIns.every((v) => v.builtIn), isTrue);
     });
   });
@@ -59,11 +60,11 @@ void main() {
   group('host-context built-ins chat/file (tom_specs_editor_specification.md '
       '§11.5 P1, OE-12)', () {
     test('\${chat} resolves via the injected transcript provider', () {
-      final composer = make(
-        chatTranscript: () => 'User: hi\nAssistant: hello',
+      final composer = make(chatTranscript: () => 'User: hi\nAssistant: hello');
+      expect(
+        composer.compose(r'transcript:\n${chat}'),
+        'transcript:\\nUser: hi\nAssistant: hello',
       );
-      expect(composer.compose(r'transcript:\n${chat}'),
-          'transcript:\\nUser: hi\nAssistant: hello');
     });
 
     test('\${file} resolves via the injected active-document provider', () {
@@ -90,11 +91,15 @@ void main() {
 
   group('chat variables (tom_specs_editor_specification.md §11.4) + alias', () {
     test('a custom variable resolves via \${name} and the {{name}} alias', () {
-      final composer = make(variables: const <ChatVariable>[
-        ChatVariable(name: 'project', value: 'TomSpecs'),
-      ]);
-      expect(composer.compose(r'${project} / {{project}}'),
-          'TomSpecs / TomSpecs');
+      final composer = make(
+        variables: const <ChatVariable>[
+          ChatVariable(name: 'project', value: 'TomSpecs'),
+        ],
+      );
+      expect(
+        composer.compose(r'${project} / {{project}}'),
+        'TomSpecs / TomSpecs',
+      );
     });
   });
 
@@ -105,8 +110,10 @@ void main() {
         ..createSync(recursive: true)
         ..writeAsStringSync('the brief body');
       final composer = make();
-      expect(composer.compose(r'context: ${file-notes/brief.md}'),
-          'context: the brief body');
+      expect(
+        composer.compose(r'context: ${file-notes/brief.md}'),
+        'context: the brief body',
+      );
     });
 
     test('a missing injected file renders empty in lenient mode', () {
@@ -146,20 +153,24 @@ void main() {
 
     test('\${quest-<type>} reads the first _ai/quests/<quest>/<type>.<quest>.* '
         'match (quest = workspace name)', () {
-      File('${aiFolder.path}/quests/tom_agent_container/'
-              'overview.tom_agent_container.md')
-          .createSync(recursive: true);
-      File('${aiFolder.path}/quests/tom_agent_container/'
-              'overview.tom_agent_container.md')
-          .writeAsStringSync('quest overview body');
+      File(
+        '${aiFolder.path}/quests/tom_agent_container/'
+        'overview.tom_agent_container.md',
+      ).createSync(recursive: true);
+      File(
+        '${aiFolder.path}/quests/tom_agent_container/'
+        'overview.tom_agent_container.md',
+      ).writeAsStringSync('quest overview body');
       final composer = make();
       expect(composer.compose(r'${quest-overview}'), 'quest overview body');
     });
 
     test('a missing namespaced injection renders empty in lenient mode', () {
       final composer = make();
-      expect(composer.compose(r'[${guidelines-x}][${role-y}][${quest-z}]'),
-          '[][][]');
+      expect(
+        composer.compose(r'[${guidelines-x}][${role-y}][${quest-z}]'),
+        '[][][]',
+      );
     });
   });
 

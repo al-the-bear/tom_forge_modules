@@ -65,11 +65,16 @@ class SpecMemoryPlane {
     required String workspaceRoot,
     bool enableProviderEmbeddings = false,
     SpecProviderEmbedder? providerEmbedder,
-  })  : _workspaceRoot = workspaceRoot,
-        _vecRoot = _findSqliteVecRoot(workspaceRoot) {
-    _providerEmbedder = providerEmbedder ??
+  }) : _workspaceRoot = workspaceRoot,
+       _vecRoot = _findSqliteVecRoot(workspaceRoot) {
+    _providerEmbedder =
+        providerEmbedder ??
         (enableProviderEmbeddings ? SpecProviderEmbedder.ollama() : null);
-    recall = SpecRecall(index: _index, vectorRecall: _vectorRecall, graph: null);
+    recall = SpecRecall(
+      index: _index,
+      vectorRecall: _vectorRecall,
+      graph: null,
+    );
     tools = MemoryTools(recall: recall, onRefresh: _refresh);
     scriptScope = memoryScope(recall);
     indexer = SpecIncrementalIndexer(
@@ -355,9 +360,9 @@ class SpecMemoryPlane {
   }
 
   List<SpecNodeProjection> _projectNodes() => SpecQueryEngine(
-        model: controller.model,
-        document: controller.document,
-      ).projectNodes().toList(growable: false);
+    model: controller.model,
+    document: controller.document,
+  ).projectNodes().toList(growable: false);
 
   /// The deterministic 768-dim local embedder (see the class doc). Same text →
   /// identical vector, so the embed→vector-recall pipeline is exact and

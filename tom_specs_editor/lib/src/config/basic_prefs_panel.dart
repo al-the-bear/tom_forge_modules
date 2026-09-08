@@ -114,8 +114,9 @@ class _BasicPrefsPanelState extends State<BasicPrefsPanel> {
           contentPadding: EdgeInsets.zero,
           title: const Text('Strict headline editing'),
           subtitle: const Text(
-              'Edit headlines/ids only on list-entry sections; fixed sections '
-              'stay read-only.'),
+            'Edit headlines/ids only on list-entry sections; fixed sections '
+            'stay read-only.',
+          ),
           value: _prefs.strictHeadlineEditing,
           onChanged: (v) =>
               _setPrefs(_prefs.copyWith(strictHeadlineEditing: v)),
@@ -129,9 +130,11 @@ class _BasicPrefsPanelState extends State<BasicPrefsPanel> {
           labelOf: (id) => id == _noProfile
               ? '(none)'
               : widget.profiles
-                  .firstWhere((p) => p.id == id,
-                      orElse: () => AgentProfile(id: id, name: id))
-                  .name,
+                    .firstWhere(
+                      (p) => p.id == id,
+                      orElse: () => AgentProfile(id: id, name: id),
+                    )
+                    .name,
           onChanged: _setDefaultProfile,
         ),
       ],

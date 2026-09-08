@@ -31,10 +31,7 @@ class SpecBrainTools {
   /// Assembles the `McpSdkServerConfig` registered alongside the editor's other
   /// servers into `Options.mcpServers`.
   McpSdkServerConfig buildServer({String name = 'tomspecs-brain'}) =>
-      McpSdkServerConfig(
-        name: name,
-        tools: [_agentRun(), _agentTrail()],
-      );
+      McpSdkServerConfig(name: name, tools: [_agentRun(), _agentTrail()]);
 
   CallToolResult _ok(Object? payload) =>
       CallToolResult.text(jsonEncode(payload));
@@ -43,48 +40,48 @@ class SpecBrainTools {
       CallToolResult.text(jsonEncode({'error': message}), isError: true);
 
   SdkMcpTool _agentRun() => SdkMcpTool(
-        name: 'agent_run',
-        description:
-            'Drive the complex agent procedure (search → recall → edit → '
-            'verify) for a goal through the live Tom Brain session envelope, '
-            'recording the run (with effort metrics) into the document\'s named '
-            'memory. Edits land in the one change log. Reports available:false '
-            'when the memory store is degraded.',
-        inputSchema: const {
+    name: 'agent_run',
+    description:
+        'Drive the complex agent procedure (search → recall → edit → '
+        'verify) for a goal through the live Tom Brain session envelope, '
+        'recording the run (with effort metrics) into the document\'s named '
+        'memory. Edits land in the one change log. Reports available:false '
+        'when the memory store is degraded.',
+    inputSchema: const {
+      'type': 'object',
+      'properties': {
+        'goal': {'type': 'string', 'description': 'The run goal.'},
+        'inputs': {
           'type': 'object',
-          'properties': {
-            'goal': {'type': 'string', 'description': 'The run goal.'},
-            'inputs': {
-              'type': 'object',
-              'description':
-                  'Structured task inputs (e.g. parentPath / childSegment for '
-                  'the default add procedure).',
-            },
-          },
-          'required': ['goal'],
+          'description':
+              'Structured task inputs (e.g. parentPath / childSegment for '
+              'the default add procedure).',
         },
-        handler: (args) async {
-          final goal = args['goal']?.toString();
-          if (goal == null || goal.isEmpty) return _err('Missing "goal".');
-          final rawInputs = args['inputs'];
-          final inputs = rawInputs is Map
-              ? rawInputs.map((k, v) => MapEntry(k.toString(), v))
-              : const <String, Object?>{};
-          try {
-            return _ok(await runtime.run(goal: goal, inputs: inputs));
-          } catch (e) {
-            return _err('agent run failed: $e');
-          }
-        },
-      );
+      },
+      'required': ['goal'],
+    },
+    handler: (args) async {
+      final goal = args['goal']?.toString();
+      if (goal == null || goal.isEmpty) return _err('Missing "goal".');
+      final rawInputs = args['inputs'];
+      final inputs = rawInputs is Map
+          ? rawInputs.map((k, v) => MapEntry(k.toString(), v))
+          : const <String, Object?>{};
+      try {
+        return _ok(await runtime.run(goal: goal, inputs: inputs));
+      } catch (e) {
+        return _err('agent run failed: $e');
+      }
+    },
+  );
 
   SdkMcpTool _agentTrail() => SdkMcpTool(
-        name: 'agent_trail',
-        description:
-            'The recorded run trail for this session — each run\'s document, '
-            'goal, and effort metrics (wall-clock, transcript size, outcome), '
-            'newest last. Empty before the first run or while degraded.',
-        inputSchema: const {'type': 'object', 'properties': {}},
-        handler: (args) async => _ok({'runs': runtime.trail()}),
-      );
+    name: 'agent_trail',
+    description:
+        'The recorded run trail for this session — each run\'s document, '
+        'goal, and effort metrics (wall-clock, transcript size, outcome), '
+        'newest last. Empty before the first run or while degraded.',
+    inputSchema: const {'type': 'object', 'properties': {}},
+    handler: (args) async => _ok({'runs': runtime.trail()}),
+  );
 }

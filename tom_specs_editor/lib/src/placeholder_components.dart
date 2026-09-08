@@ -48,11 +48,9 @@ class _PlaceholderBody extends StatelessWidget {
 
 /// A non-closable [ForgeView] stub used for side/bottom panel regions.
 class PlaceholderView extends ForgeView {
-  PlaceholderView({
-    required String title,
-    required this.icon,
-  }) : _title = ValueNotifier<String>(title),
-       _titleExtension = ValueNotifier<String?>(null);
+  PlaceholderView({required String title, required this.icon})
+    : _title = ValueNotifier<String>(title),
+      _titleExtension = ValueNotifier<String?>(null);
 
   final ValueNotifier<String> _title;
   final ValueNotifier<String?> _titleExtension;

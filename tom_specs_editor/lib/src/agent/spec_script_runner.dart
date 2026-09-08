@@ -40,39 +40,41 @@ class SpecScriptRunner {
     required String workspaceRoot,
     List<ScriptScope> extraScopes = const <ScriptScope>[],
   }) : tools = ScriptTools(
-          registry: () {
-            final registry = ScopeRegistry()
-              ..register(specScope(
-                EngineSpecController(controller),
-                // The read-only `model` reflection global
-                // (`llm_and_d4rt_tools.md` §4, §5; followup item 11). Lazy +
-                // null-tolerant: queried on every interpreter build, it returns
-                // the live model once loaded and `null` before then, so a
-                // synchronous `validate` against a not-yet- loaded controller
-                // degrades gracefully. `run` awaits
-                // [SpecDocumentController.ensureLoaded] first.
-                model: () =>
-                    controller.isModelLoaded ? controller.model : null,
-                // The read-only `llm_and_d4rt_tools.md` §6 grep global `search`
-                // (plan steps 7, 19; followup item 12, D97). Same lazy +
-                // null-tolerant contract as `model`: bound to a fresh
-                // [SpecQueryEngine] over the live (model, document) pair once
-                // the model has loaded, so a script pages the same
-                // lexical/structural search the `doc_search` MCP tool exposes.
-                search: () => controller.isModelLoaded
-                    ? SpecQueryEngine(
-                        model: controller.model,
-                        document: controller.document,
-                      )
-                    : null,
-              ));
-            for (final scope in extraScopes) {
-              registry.register(scope);
-            }
-            return registry;
-          }(),
-          store: FileScriptStore(workspaceRoot),
-        );
+         registry: () {
+           final registry = ScopeRegistry()
+             ..register(
+               specScope(
+                 EngineSpecController(controller),
+                 // The read-only `model` reflection global
+                 // (`llm_and_d4rt_tools.md` §4, §5; followup item 11). Lazy +
+                 // null-tolerant: queried on every interpreter build, it returns
+                 // the live model once loaded and `null` before then, so a
+                 // synchronous `validate` against a not-yet- loaded controller
+                 // degrades gracefully. `run` awaits
+                 // [SpecDocumentController.ensureLoaded] first.
+                 model: () =>
+                     controller.isModelLoaded ? controller.model : null,
+                 // The read-only `llm_and_d4rt_tools.md` §6 grep global `search`
+                 // (plan steps 7, 19; followup item 12, D97). Same lazy +
+                 // null-tolerant contract as `model`: bound to a fresh
+                 // [SpecQueryEngine] over the live (model, document) pair once
+                 // the model has loaded, so a script pages the same
+                 // lexical/structural search the `doc_search` MCP tool exposes.
+                 search: () => controller.isModelLoaded
+                     ? SpecQueryEngine(
+                         model: controller.model,
+                         document: controller.document,
+                       )
+                     : null,
+               ),
+             );
+           for (final scope in extraScopes) {
+             registry.register(scope);
+           }
+           return registry;
+         }(),
+         store: FileScriptStore(workspaceRoot),
+       );
 
   /// The live document controller scripts mutate through.
   final SpecDocumentController controller;

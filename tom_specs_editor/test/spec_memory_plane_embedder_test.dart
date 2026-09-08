@@ -62,20 +62,21 @@ final class _OkService implements EmbeddingService {
 
   @override
   Future<List<EmbeddingResult>> embedBatch(List<String> texts) async => [
-        for (final t in texts)
-          EmbeddingResult(vec: _vecFor(t), modelIdentity: _identity),
-      ];
+    for (final t in texts)
+      EmbeddingResult(vec: _vecFor(t), modelIdentity: _identity),
+  ];
 
   @override
   Future<EmbeddingProbeResult> probeIdentity({
     EmbeddingModelIdentity? previousIdentity,
     String probeText = 'tom-brain embedding probe',
-  }) async =>
-      EmbeddingProbeResult(
-        currentIdentity: _identity,
-        probeResult:
-            EmbeddingResult(vec: _vecFor(probeText), modelIdentity: _identity),
-      );
+  }) async => EmbeddingProbeResult(
+    currentIdentity: _identity,
+    probeResult: EmbeddingResult(
+      vec: _vecFor(probeText),
+      modelIdentity: _identity,
+    ),
+  );
 
   @override
   Future<void> close() async {}
@@ -93,34 +94,35 @@ final class _FailingProbeService implements EmbeddingService {
 
   @override
   Future<List<EmbeddingResult>> embedBatch(List<String> texts) async =>
-      throw StateError('embedBatch should never be reached after a failed probe');
+      throw StateError(
+        'embedBatch should never be reached after a failed probe',
+      );
 
   @override
   Future<EmbeddingProbeResult> probeIdentity({
     EmbeddingModelIdentity? previousIdentity,
     String probeText = 'tom-brain embedding probe',
-  }) async =>
-      throw const SocketException('embedding backend unreachable');
+  }) async => throw const SocketException('embedding backend unreachable');
 
   @override
   Future<void> close() async {}
 }
 
 SpecModel _sampleModel() => SpecModel.fromJson({
-      'roots': [
-        {'type': 'DemoDoc', 'title': 'Demo Document', 'sectionId': 'D00'},
+  'roots': [
+    {'type': 'DemoDoc', 'title': 'Demo Document', 'sectionId': 'D00'},
+  ],
+  'classes': {
+    'DemoDoc': {
+      'name': 'DemoDoc',
+      'sectionId': 'D00',
+      'doc': 'A demo document.',
+      'fields': [
+        {'name': 'overview', 'kind': 'content', 'sectionId': 'D00-OVR'},
       ],
-      'classes': {
-        'DemoDoc': {
-          'name': 'DemoDoc',
-          'sectionId': 'D00',
-          'doc': 'A demo document.',
-          'fields': [
-            {'name': 'overview', 'kind': 'content', 'sectionId': 'D00-OVR'},
-          ],
-        },
-      },
-    });
+    },
+  },
+});
 
 void main() {
   late Directory dir;

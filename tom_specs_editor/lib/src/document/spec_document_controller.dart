@@ -90,12 +90,12 @@ class SpecDocumentController extends ChangeNotifier {
     int maxSnapshots = 50,
     bool strictHeadlineEditing = true,
     bool strictValidation = false,
-  })  : _modelFuture = modelFuture,
-        document = document ?? SpecDocument(),
-        changeLog = changeLog ?? ChangeLog(),
-        strictHeadlineEditing = ValueNotifier<bool>(strictHeadlineEditing),
-        strictValidation = ValueNotifier<bool>(strictValidation),
-        _undo = DefaultUndoManager(maxEntries: maxSnapshots) {
+  }) : _modelFuture = modelFuture,
+       document = document ?? SpecDocument(),
+       changeLog = changeLog ?? ChangeLog(),
+       strictHeadlineEditing = ValueNotifier<bool>(strictHeadlineEditing),
+       strictValidation = ValueNotifier<bool>(strictValidation),
+       _undo = DefaultUndoManager(maxEntries: maxSnapshots) {
     _savedState = this.document.captureState();
     _savedFingerprint = _savedState.fingerprint;
   }
@@ -537,8 +537,12 @@ class SpecDocumentController extends ChangeNotifier {
                   if (recursive)
                     'recursive': true
                   else
-                    'children':
-                        _outlineClass(elem, itemPath, depth - 1, nextSeen),
+                    'children': _outlineClass(
+                      elem,
+                      itemPath,
+                      depth - 1,
+                      nextSeen,
+                    ),
                 },
             ];
           }
@@ -548,8 +552,12 @@ class SpecDocumentController extends ChangeNotifier {
           if (depth > 1 && nested != null) {
             final nextSeen = {...seenTypes};
             if (nextSeen.add(f.type!)) {
-              node['children'] =
-                  _outlineClass(nested, path, depth - 1, nextSeen);
+              node['children'] = _outlineClass(
+                nested,
+                path,
+                depth - 1,
+                nextSeen,
+              );
             } else {
               node['recursive'] = true;
             }
@@ -696,8 +704,9 @@ class SpecDocumentController extends ChangeNotifier {
   /// through the undo/dirty machinery (no change-log entry — headlines are not
   /// part of the agent change log).
   void setHeadline(String path, String value) {
-    final effective =
-        value.trim() == effectiveDefaultHeadline(path).trim() ? '' : value;
+    final effective = value.trim() == effectiveDefaultHeadline(path).trim()
+        ? ''
+        : value;
     if (document.headline(path) == (effective.isEmpty ? null : effective)) {
       return;
     }
@@ -836,8 +845,10 @@ class SpecDocumentController extends ChangeNotifier {
   /// (plan step 18), so a script add and a tool add land in the one change log.
   String addChild(String parentPath, String childSegment, {String? itemId}) {
     final before = document.captureState();
-    final childPath = SpecNodeCreator(model, document)
-        .add(parentPath, childSegment, itemId: itemId);
+    final childPath = SpecNodeCreator(
+      model,
+      document,
+    ).add(parentPath, childSegment, itemId: itemId);
     _commit(
       before,
       () => ChangeEntry(
@@ -862,13 +873,15 @@ class SpecDocumentController extends ChangeNotifier {
   /// review is a separate concern owned by the review store.
   void setReview(String path, void Function(ReviewEntry) mutate) {
     review.update(path, mutate);
-    changeLog.record(ChangeEntry(
-      id: _nextEntryId(),
-      sectionId: storagePathFor(path),
-      kind: ChangeKind.review,
-      turnId: _turnIdForEdit(),
-      toolCallId: activeToolCallId,
-    ));
+    changeLog.record(
+      ChangeEntry(
+        id: _nextEntryId(),
+        sectionId: storagePathFor(path),
+        kind: ChangeKind.review,
+        turnId: _turnIdForEdit(),
+        toolCallId: activeToolCallId,
+      ),
+    );
     notifyListeners();
   }
 
@@ -878,8 +891,8 @@ class SpecDocumentController extends ChangeNotifier {
   /// pane-3 ("current") column.
   String? currentValueFor(ChangeEntry entry) =>
       entry.kind == ChangeKind.formField
-          ? document.formField(entry.sectionId, entry.field!)
-          : document.content(entry.sectionId);
+      ? document.formField(entry.sectionId, entry.field!)
+      : document.content(entry.sectionId);
 
   /// Applies a **pick-a-pane** resolution (`tom_specs_editor_specification.md`
   /// §9, M1): the chosen [pane]'s value becomes the section's new value. This
@@ -971,7 +984,10 @@ class SpecDocumentController extends ChangeNotifier {
   /// loaded state becomes the dirty reference.
   Future<String?> loadDocSpecs(File file) async {
     await ensureLoaded();
-    final parsed = DocSpecsFile.decode(await file.readAsString(), _masterTree());
+    final parsed = DocSpecsFile.decode(
+      await file.readAsString(),
+      _masterTree(),
+    );
     document.restoreState(parsed.document.captureState());
     review.replaceEntries(parsed.review);
     _undo.clear();
@@ -1062,16 +1078,18 @@ class SpecDocumentController extends ChangeNotifier {
 
     final after = document.captureState();
     if (before.fingerprint == after.fingerprint) return;
-    _undo.push(UndoEntry(
-      undo: () async {
-        document.restoreState(before);
-        notifyListeners();
-      },
-      redo: () async {
-        document.restoreState(after);
-        notifyListeners();
-      },
-    ));
+    _undo.push(
+      UndoEntry(
+        undo: () async {
+          document.restoreState(before);
+          notifyListeners();
+        },
+        redo: () async {
+          document.restoreState(after);
+          notifyListeners();
+        },
+      ),
+    );
     notifyListeners();
   }
 
@@ -1088,14 +1106,15 @@ class SpecDocumentController extends ChangeNotifier {
 
   /// [values] re-keyed from structural into storage space ([storagePathFor]).
   Map<String, Object?> _toStorageKeys(Map<String, Object?> values) => {
-        for (final e in values.entries) storagePathFor(e.key): e.value,
-      };
+    for (final e in values.entries) storagePathFor(e.key): e.value,
+  };
 
   /// [lists] re-keyed into storage space — the list paths *and* the item paths
   /// nested inside each `{seq, items, ids?}` record, which are stored as keys
   /// in their own right and so must move with their list.
   Map<String, Object?> _listsToStorageKeys(
-      Map<String, Map<String, Object?>> lists) {
+    Map<String, Map<String, Object?>> lists,
+  ) {
     final out = <String, Object?>{};
     for (final entry in lists.entries) {
       final spec = Map<String, Object?>.of(entry.value);
@@ -1157,16 +1176,18 @@ class SpecDocumentController extends ChangeNotifier {
   void _commitDocMutation(SpecDocumentState before) {
     final after = document.captureState();
     if (before.fingerprint == after.fingerprint) return;
-    _undo.push(UndoEntry(
-      undo: () async {
-        document.restoreState(before);
-        notifyListeners();
-      },
-      redo: () async {
-        document.restoreState(after);
-        notifyListeners();
-      },
-    ));
+    _undo.push(
+      UndoEntry(
+        undo: () async {
+          document.restoreState(before);
+          notifyListeners();
+        },
+        redo: () async {
+          document.restoreState(after);
+          notifyListeners();
+        },
+      ),
+    );
     notifyListeners();
   }
 
@@ -1176,16 +1197,18 @@ class SpecDocumentController extends ChangeNotifier {
   void _commit(SpecDocumentState before, ChangeEntry Function() makeEntry) {
     final after = document.captureState();
     if (before.fingerprint == after.fingerprint) return;
-    _undo.push(UndoEntry(
-      undo: () async {
-        document.restoreState(before);
-        notifyListeners();
-      },
-      redo: () async {
-        document.restoreState(after);
-        notifyListeners();
-      },
-    ));
+    _undo.push(
+      UndoEntry(
+        undo: () async {
+          document.restoreState(before);
+          notifyListeners();
+        },
+        redo: () async {
+          document.restoreState(after);
+          notifyListeners();
+        },
+      ),
+    );
     changeLog.record(makeEntry());
     notifyListeners();
   }

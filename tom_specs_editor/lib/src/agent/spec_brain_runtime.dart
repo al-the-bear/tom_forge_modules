@@ -42,9 +42,9 @@ class SpecBrainRuntime {
     required SpecFileFacade facade,
     MemoryScope? scope,
     BrainSessionEnvelope? envelope,
-  })  : _facade = facade,
-        _scope = scope ?? memoryPlane.scope,
-        _injectedEnvelope = envelope;
+  }) : _facade = facade,
+       _scope = scope ?? memoryPlane.scope,
+       _injectedEnvelope = envelope;
 
   /// The live document controller the agent edits land on (one change log).
   final SpecDocumentController controller;
@@ -83,7 +83,8 @@ class SpecBrainRuntime {
     if (envelope == null) {
       return <String, Object?>{
         'available': false,
-        'reason': 'memory plane unavailable — no live store to record the '
+        'reason':
+            'memory plane unavailable — no live store to record the '
             'run trail (tier-2 degraded)',
       };
     }

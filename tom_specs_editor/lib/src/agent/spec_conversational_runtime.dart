@@ -41,9 +41,9 @@ class SpecConversationalRuntime {
     required SpecFileFacade facade,
     ConversationalDriver? driver,
     int maxTurns = 8,
-  })  : _facade = facade,
-        _driver = driver,
-        _maxTurns = maxTurns;
+  }) : _facade = facade,
+       _driver = driver,
+       _maxTurns = maxTurns;
 
   /// The live document controller the agent's edits land on (one change log).
   final SpecDocumentController controller;
@@ -83,7 +83,8 @@ class SpecConversationalRuntime {
     if (driver == null) {
       return <String, Object?>{
         'available': false,
-        'reason': 'no conversational driver bound — no live Agent SDK / bridge '
+        'reason':
+            'no conversational driver bound — no live Agent SDK / bridge '
             'to decide the turns (mode a needs the conversational substrate)',
       };
     }
@@ -114,8 +115,9 @@ class SpecConversationalRuntime {
 
   /// The turns of the most recent run as JSON-able rows, oldest first. Empty
   /// before the first run or while degraded.
-  List<Map<String, Object?>> trail() =>
-      [for (final turn in _lastTurns) turn.toJson()];
+  List<Map<String, Object?>> trail() => [
+    for (final turn in _lastTurns) turn.toJson(),
+  ];
 
   /// Builds the unified agent tool surface over the live document, the shared
   /// memory tools, and the audited file facade.

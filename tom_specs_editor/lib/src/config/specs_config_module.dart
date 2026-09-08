@@ -35,12 +35,12 @@ class SpecsConfigModule extends ForgeModule {
     AgentProfileStore? profileStore,
     String Function(String source)? compose,
     this.onPreferencesChanged,
-  })  : _specs = specs ?? SpecsConfigSpecs(compose: compose),
-        rawFileModule = rawFileModule ?? RawFileModule(),
-        _preferencesStore =
-            preferencesStore ?? EditorPreferencesStore.resolveDefault(),
-        _settingsStore = settingsStore ?? AgentSettingsStore.resolveDefault(),
-        _profileStore = profileStore ?? AgentProfileStore.resolveDefault();
+  }) : _specs = specs ?? SpecsConfigSpecs(compose: compose),
+       rawFileModule = rawFileModule ?? RawFileModule(),
+       _preferencesStore =
+           preferencesStore ?? EditorPreferencesStore.resolveDefault(),
+       _settingsStore = settingsStore ?? AgentSettingsStore.resolveDefault(),
+       _profileStore = profileStore ?? AgentProfileStore.resolveDefault();
 
   final SpecsConfigSpecs _specs;
 
@@ -86,10 +86,16 @@ class SpecsConfigModule extends ForgeModule {
         ConfigListEditor(spec: _specs.queueSpec(), onOpenRawFile: open),
         ConfigListEditor(spec: _specs.queueTemplateSpec(), onOpenRawFile: open),
         ConfigListEditor(spec: _specs.profileSpec(), onOpenRawFile: open),
-        ConfigListEditor(spec: _specs.promptTemplateSpec(), onOpenRawFile: open),
+        ConfigListEditor(
+          spec: _specs.promptTemplateSpec(),
+          onOpenRawFile: open,
+        ),
         ConfigListEditor(spec: _specs.chatVariableSpec(), onOpenRawFile: open),
         ConfigListEditor(spec: _specs.timedRequestSpec(), onOpenRawFile: open),
-        ConfigObjectEditor(spec: _specs.agentSettingsSpec(), onOpenRawFile: open),
+        ConfigObjectEditor(
+          spec: _specs.agentSettingsSpec(),
+          onOpenRawFile: open,
+        ),
       ]);
     _configRail = ConfigRailView(
       editors: List<ForgeEditor>.unmodifiable(_editors),
@@ -121,43 +127,43 @@ class SpecsConfigModule extends ForgeModule {
 
   @override
   List<ForgeAction> get actions => [
-        for (final editor in _editors)
-          ForgeAction(
-            id: 'specs.config.open.${editor.uri.path}',
-            label: 'Open ${editor.title.value}',
-            icon: editor.icon,
-            menu: ForgeMenuLocation.tools,
-            group: 'config',
-            execute: (_) async {
-              _openEditor(editor);
-              return null;
-            },
-            isEnabled: () => true,
-            isVisible: () => true,
-          ),
-      ];
+    for (final editor in _editors)
+      ForgeAction(
+        id: 'specs.config.open.${editor.uri.path}',
+        label: 'Open ${editor.title.value}',
+        icon: editor.icon,
+        menu: ForgeMenuLocation.tools,
+        group: 'config',
+        execute: (_) async {
+          _openEditor(editor);
+          return null;
+        },
+        isEnabled: () => true,
+        isVisible: () => true,
+      ),
+  ];
 
   @override
   List<ForgeShortcutBinding> get shortcuts => const [];
 
   @override
   List<ForgeConfigPanel> get configPanels => [
-        ForgeConfigPanel(
-          id: 'specs.basic-prefs',
-          title: 'Basic Preferences',
-          icon: Icons.tune_outlined,
-          builder: (context) => BasicPrefsPanel(
-            prefs: _prefs,
-            settings: _settings,
-            profiles: _profileStore.load(),
-            onPrefsChanged: (p) => _prefs = p,
-            onSettingsChanged: (s) => _settings = s,
-          ),
-          onSave: () async {
-            _preferencesStore.save(_prefs);
-            _settingsStore.save(_settings);
-            onPreferencesChanged?.call(_prefs);
-          },
-        ),
-      ];
+    ForgeConfigPanel(
+      id: 'specs.basic-prefs',
+      title: 'Basic Preferences',
+      icon: Icons.tune_outlined,
+      builder: (context) => BasicPrefsPanel(
+        prefs: _prefs,
+        settings: _settings,
+        profiles: _profileStore.load(),
+        onPrefsChanged: (p) => _prefs = p,
+        onSettingsChanged: (s) => _settings = s,
+      ),
+      onSave: () async {
+        _preferencesStore.save(_prefs);
+        _settingsStore.save(_settings);
+        onPreferencesChanged?.call(_prefs);
+      },
+    ),
+  ];
 }

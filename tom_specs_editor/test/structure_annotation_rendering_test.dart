@@ -53,24 +53,27 @@ void main() {
   Future<void> pumpTree(WidgetTester tester) async {
     await tester.binding.setSurfaceSize(const Size(1400, 2400));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.pumpWidget(MaterialApp(
-      theme: ThemeData.dark(),
-      home: Scaffold(
-        body: SpecTree(
-          model: model,
-          root: model.roots.single,
-          store: store,
-          showSerializationOrder: true,
-          onHandoffTap: (_, _) {},
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData.dark(),
+        home: Scaffold(
+          body: SpecTree(
+            model: model,
+            root: model.roots.single,
+            store: store,
+            showSerializationOrder: true,
+            onHandoffTap: (_, _) {},
+          ),
         ),
       ),
-    ));
+    );
     await tester.pumpAndSettle();
     await _expandAll(tester);
   }
 
-  testWidgets('EAR1: every shared chip descriptor reaches the editor tree',
-      (tester) async {
+  testWidgets('EAR1: every shared chip descriptor reaches the editor tree', (
+    tester,
+  ) async {
     await pumpTree(tester);
 
     final expected = expectedShowcaseChipLabels(model);
@@ -79,13 +82,18 @@ void main() {
       for (final label in expected)
         if (find.text(label).evaluate().isEmpty) label,
     ];
-    expect(missing, isEmpty,
-        reason: 'the shared display layer produces these chips but the editor '
-            'tree does not render them');
+    expect(
+      missing,
+      isEmpty,
+      reason:
+          'the shared display layer produces these chips but the editor '
+          'tree does not render them',
+    );
   });
 
-  testWidgets('EAR2: the non-chip row extras reach the editor tree',
-      (tester) async {
+  testWidgets('EAR2: the non-chip row extras reach the editor tree', (
+    tester,
+  ) async {
     await pumpTree(tester);
 
     // `@Headline` — the authored section title, distinct from the member name.
@@ -112,8 +120,9 @@ void main() {
     expect(find.text('→ references $kShowcaseReference'), findsOneWidget);
   });
 
-  testWidgets('EAR4: a @SectionIdPattern list also shows its own section id',
-      (tester) async {
+  testWidgets('EAR4: a @SectionIdPattern list also shows its own section id', (
+    tester,
+  ) async {
     // The regression this pins: the tree used to render
     // `sectionId ?? sectionIdPattern`, which made the pattern unreachable on
     // every list that carries both — and in the real model, all of them do.

@@ -70,10 +70,11 @@ void main() {
 
     // The shell's system state holds the same set and DocSpecs is active.
     final systemState = shell.systemState as DefaultSystemState;
-    expect(
-      systemState.applications.map((a) => a.title).toList(),
-      ['DocSpecs', 'CodeSpecs', 'Implementation'],
-    );
+    expect(systemState.applications.map((a) => a.title).toList(), [
+      'DocSpecs',
+      'CodeSpecs',
+      'Implementation',
+    ]);
     expect(systemState.activeApplication.title, 'DocSpecs');
   });
 
@@ -125,11 +126,15 @@ void main() {
       expect(app.layout.leftPanel.tabs.single.title, 'Overview');
       // Bottom "Chat" + right "Change Log" surfaces are no longer empty.
       expect(app.layout.bottomPanel.tabs.single.title, 'Chat');
-      expect(app.layout.bottomPanel.tabs.single.sections.single,
-          isA<PhaseSurfaceView>());
+      expect(
+        app.layout.bottomPanel.tabs.single.sections.single,
+        isA<PhaseSurfaceView>(),
+      );
       expect(app.layout.rightPanel.tabs.single.title, 'Change Log');
-      expect(app.layout.rightPanel.tabs.single.sections.single,
-          isA<PhaseSurfaceView>());
+      expect(
+        app.layout.rightPanel.tabs.single.sections.single,
+        isA<PhaseSurfaceView>(),
+      );
     }
 
     expect(module.applications[1].title, 'CodeSpecs');
@@ -191,9 +196,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(
-          body: PhaseOverviewBody(phase: SpecPhase.codeSpecs),
-        ),
+        home: Scaffold(body: PhaseOverviewBody(phase: SpecPhase.codeSpecs)),
       ),
     );
     await tester.pump();

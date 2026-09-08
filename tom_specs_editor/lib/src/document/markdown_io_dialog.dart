@@ -79,8 +79,11 @@ Future<void> showMarkdownExportDialog(
   if (roots.isEmpty) return;
   await showDialog<void>(
     context: context,
-    builder: (_) =>
-        MarkdownExportDialog(controller: controller, roots: roots, fileIo: fileIo),
+    builder: (_) => MarkdownExportDialog(
+      controller: controller,
+      roots: roots,
+      fileIo: fileIo,
+    ),
   );
 }
 
@@ -92,7 +95,8 @@ Future<void> showMarkdownImportDialog(
 }) async {
   await showDialog<void>(
     context: context,
-    builder: (_) => MarkdownImportDialog(controller: controller, fileIo: fileIo),
+    builder: (_) =>
+        MarkdownImportDialog(controller: controller, fileIo: fileIo),
   );
 }
 
@@ -115,8 +119,9 @@ class MarkdownExportDialog extends StatefulWidget {
 
 class _MarkdownExportDialogState extends State<MarkdownExportDialog> {
   MarkdownScope _scope = MarkdownScope.global;
-  late final List<SpecRoot> _ordered =
-      navigatorRootOrder(widget.controller.model);
+  late final List<SpecRoot> _ordered = navigatorRootOrder(
+    widget.controller.model,
+  );
   late final SpecRoot _pdRoot = defaultNavigatorRoot(widget.controller.model)!;
   late SpecRoot _single = _pdRoot;
   final Set<String> _multiple = {};
@@ -141,8 +146,9 @@ class _MarkdownExportDialogState extends State<MarkdownExportDialog> {
   String get _preview {
     final roots = _selectedRoots;
     if (roots.isEmpty) return '(select at least one root)';
-    return roots.map((r) => widget.controller.exportMarkdown(_seg(r))).join(
-        '\n\n<!-- ─────────────── next document ─────────────── -->\n\n');
+    return roots
+        .map((r) => widget.controller.exportMarkdown(_seg(r)))
+        .join('\n\n<!-- ─────────────── next document ─────────────── -->\n\n');
   }
 
   /// Suggests a file name from the selected scope: the single root's segment for
@@ -181,11 +187,17 @@ class _MarkdownExportDialogState extends State<MarkdownExportDialog> {
             SegmentedButton<MarkdownScope>(
               segments: const [
                 ButtonSegment(
-                    value: MarkdownScope.global, label: Text('Global')),
+                  value: MarkdownScope.global,
+                  label: Text('Global'),
+                ),
                 ButtonSegment(
-                    value: MarkdownScope.single, label: Text('Single')),
+                  value: MarkdownScope.single,
+                  label: Text('Single'),
+                ),
                 ButtonSegment(
-                    value: MarkdownScope.multiple, label: Text('Multiple')),
+                  value: MarkdownScope.multiple,
+                  label: Text('Multiple'),
+                ),
               ],
               selected: {_scope},
               onSelectionChanged: (s) => setState(() => _scope = s.first),
@@ -199,8 +211,9 @@ class _MarkdownExportDialogState extends State<MarkdownExportDialog> {
                   for (final r in _ordered)
                     DropdownMenuItem(value: _seg(r), child: Text(r.title)),
                 ],
-                onChanged: (v) => setState(() => _single =
-                    _ordered.firstWhere((r) => _seg(r) == v)),
+                onChanged: (v) => setState(
+                  () => _single = _ordered.firstWhere((r) => _seg(r) == v),
+                ),
               ),
             if (_scope == MarkdownScope.multiple)
               SizedBox(
@@ -224,7 +237,10 @@ class _MarkdownExportDialogState extends State<MarkdownExportDialog> {
                 ),
               ),
             const SizedBox(height: 8),
-            const Text('Preview', style: TextStyle(fontWeight: FontWeight.w600)),
+            const Text(
+              'Preview',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
             const SizedBox(height: 4),
             Expanded(
               child: Container(
@@ -238,7 +254,9 @@ class _MarkdownExportDialogState extends State<MarkdownExportDialog> {
                   child: SelectableText(
                     _preview,
                     style: const TextStyle(
-                        fontFamily: 'monospace', fontSize: 12),
+                      fontFamily: 'monospace',
+                      fontSize: 12,
+                    ),
                   ),
                 ),
               ),
@@ -263,8 +281,7 @@ class _MarkdownExportDialogState extends State<MarkdownExportDialog> {
           child: const Text('Close'),
         ),
         FilledButton.icon(
-          onPressed:
-              _selectedRoots.isEmpty || _saving ? null : _saveToFile,
+          onPressed: _selectedRoots.isEmpty || _saving ? null : _saveToFile,
           icon: const Icon(Icons.save_outlined, size: 16),
           label: const Text('Save to file…'),
         ),
@@ -347,7 +364,7 @@ class _MarkdownImportDialogState extends State<MarkdownImportDialog> {
                 result.isClean
                     ? 'Imported ${result.appliedCount} value(s) cleanly.'
                     : 'Imported ${result.appliedCount} value(s); '
-                        '${result.rejections.length} rejected:',
+                          '${result.rejections.length} rejected:',
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
                   color: result.isClean
@@ -358,10 +375,13 @@ class _MarkdownImportDialogState extends State<MarkdownImportDialog> {
               for (final r in result.rejections)
                 Padding(
                   padding: const EdgeInsets.only(top: 2),
-                  child: Text('• $r',
-                      style: TextStyle(
-                          fontSize: 12,
-                          color: Theme.of(context).colorScheme.error)),
+                  child: Text(
+                    '• $r',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
                 ),
             ],
           ],
