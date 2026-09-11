@@ -68,3 +68,12 @@ flutter analyze
 flutter test
 flutter build linux   # or: windows | macos
 ```
+
+The suite also runs as the `editor` step of the SOM conformance driver
+([`tom_som_conformance/tool/run_all_suites.sh`](../../tom_ai/ai_build/tom_som_conformance/tool/run_all_suites.sh)),
+which is run after every model change and checks the pub cache first, so a
+red editor suite is reported where model changes are checked:
+
+```bash
+../../tom_ai/ai_build/tom_som_conformance/tool/run_all_suites.sh editor
+```
