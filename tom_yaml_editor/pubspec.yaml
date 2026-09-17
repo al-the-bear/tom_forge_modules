@@ -27,6 +27,8 @@ dependencies:
   # (We implement our own lightweight schema walker; no heavy dependency needed)
 
 dev_dependencies:
+  tom_web_build_probe:
+    path: ../tom_web_build_probe
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0

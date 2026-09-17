@@ -29,6 +29,8 @@ dependencies:
     path: ../tom_editors_shared
 
 dev_dependencies:
+  tom_web_build_probe:
+    path: ../tom_web_build_probe
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0

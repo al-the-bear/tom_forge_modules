@@ -37,6 +37,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
+import 'package:tom_web_build_probe/tom_web_build_probe.dart';
 
 void main() {
   group('web compilability', () {
@@ -51,69 +52,17 @@ void main() {
     // its libraries into `assets/packages.sum`; nothing under `lib/` imports it.
     // A declared dependency that the entry point never reaches is never
     // compiled, so it cannot fail a web build.
-    final appDir = Directory(p.join('..', 'tom_dart_editor_test'));
-    final flutterRoot = Platform.environment['FLUTTER_ROOT'];
-    final flutter = flutterRoot == null
-        ? null
-        : p.join(flutterRoot, 'bin', Platform.isWindows ? 'flutter.bat' : 'flutter');
-
-    String? skipReason() {
-      if (Platform.environment['TOM_SKIP_WEB_BUILD'] == '1') {
-        return 'TOM_SKIP_WEB_BUILD=1 is set; unset it to measure the web build';
-      }
-      if (!appDir.existsSync()) {
-        return 'the companion app is missing at ${appDir.path} — this test '
-            'builds it, so it cannot run without it';
-      }
-      if (!Directory(p.join(appDir.path, 'web')).existsSync()) {
-        return 'the companion app has no web/ scaffold — run '
-            '`flutter create --platforms=web .` in ${appDir.path}';
-      }
-      if (!File(p.join(appDir.path, '.dart_tool', 'package_config.json'))
-          .existsSync()) {
-        return 'the companion app has no resolved packages — run '
-            '`flutter pub get` in ${appDir.path} (this test does not resolve '
-            'dependencies, so that an offline run fails loudly rather than '
-            'hanging on the network)';
-      }
-      if (flutter == null || !File(flutter).existsSync()) {
-        return 'FLUTTER_ROOT does not point at a flutter executable '
-            '(${flutterRoot ?? 'unset'})';
-      }
-      return null;
-    }
-
-    final skip = skipReason();
-
-    test('the companion app compiles for the web with dart2js', () async {
-      final result = await Process.run(
-        flutter!,
-        const ['build', 'web'],
-        workingDirectory: appDir.absolute.path,
-      );
-
-      // The full output on failure, not a summary: a web-build failure names one
-      // library in one package, and that name is the entire diagnostic value.
-      expect(
-        result.exitCode,
-        0,
-        reason: 'flutter build web failed for tom_dart_editor_test, so '
-            'tom_dart_editor does not satisfy the D33 §3.6 obligation for the '
-            'D3 §5 web target. Either fix the offending import or move the web '
-            'target to the D33 §3.7 degraded editor — do not delete this test.\n'
-            'stdout:\n${result.stdout}\nstderr:\n${result.stderr}',
-      );
-
-      // Anti-vacuity: a zero exit code from a command that silently did nothing
-      // would pass the assertion above. The compiled entry point must exist.
-      final output = File(p.join(appDir.path, 'build', 'web', 'main.dart.js'));
-      expect(
-        output.existsSync(),
-        isTrue,
-        reason: 'flutter build web reported success but produced no '
-            'main.dart.js — the build did not actually compile anything',
-      );
-    }, skip: skip);
+    // The build itself is the shared probe now. It was the only one when it
+    // was written; `wonecodeprpc18` gave three more editors the same check, and
+    // a second copy of a minute-long build with its own skip reasons is how the
+    // reasons drift apart.
+    registerWebBuildTest(
+      id: 'WONECODEPRPC18-dart_editor',
+      appDirectory: '../tom_dart_editor_test',
+      because: 'This package is the one that carries the summary-backed '
+          'AnalysisDriver, so its web build is the D33 §3.6 case that matters '
+          'most.',
+    );
 
     // ── Why the build above is allowed to pass ───────────────────────────
     //
@@ -157,6 +106,9 @@ void main() {
       }
 
       final root = workspaceRoot();
+      // The c17 probes need the dart-sdk binary, which the build test no longer
+      // resolves here — it moved into the shared probe with the build.
+      final flutterRoot = Platform.environment['FLUTTER_ROOT'];
       final dart = flutterRoot == null
           ? null
           : p.join(flutterRoot, 'bin', 'cache', 'dart-sdk', 'bin',

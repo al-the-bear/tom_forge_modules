@@ -1,0 +1,16 @@
+name: tom_web_build_probe
+description: >-
+  The shared "does this companion app compile for the web" probe, used as a
+  dev_dependency by the Forge editor packages. Test-only: nothing ships it.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.0.0
+
+dependencies:
+  path: ^1.9.0
+  test: ^1.24.0
+
+dev_dependencies:
+  lints: ^5.0.0

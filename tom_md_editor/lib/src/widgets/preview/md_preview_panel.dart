@@ -12,6 +12,8 @@ import 'package:markdown/markdown.dart' as md;
 import 'package:tom_doc_specs/tom_doc_specs.dart' as specs;
 import 'package:tom_editors_shared/tom_editors_shared.dart';
 
+import 'svg_file_source.dart';
+
 import '../../controller/md_editor_controller.dart';
 import '../../debug/md_editor_debug.dart';
 import '../../models/md_section.dart';
@@ -554,7 +556,7 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
       if (uri.hasScheme && (uri.scheme == 'http' || uri.scheme == 'https')) {
         imageWidget = SvgPicture.network(uriString);
       } else if (uri.hasScheme && uri.scheme == 'file' && !kIsWeb) {
-        imageWidget = SvgPicture.file(File.fromUri(uri));
+        imageWidget = svgFromFileUri(uri);
       } else {
         final assetPath = uriString.startsWith('/') ? uriString.substring(1) : uriString;
         imageWidget = SvgPicture.asset(assetPath);
