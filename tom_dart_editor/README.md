@@ -363,6 +363,67 @@ There is a separate grep in `test/summary_analysis_adapter_test.dart` that does
 look for `dart:io` in this package's own sources. It enforces a different rule —
 that *analysed source* stays in memory — and it says so.
 
+### Why `dart:io` compiles for the web and `dart:ffi` does not
+
+The paragraph above says a `dart:io` mention predicts nothing. Here is *why*,
+because "we observe it" is a thin foundation for a supported platform, and the
+usual guess — that the unused surface is tree-shaken away before the platform
+check — is wrong.
+
+**`dart:io` is a declared dart2js library.** In `dart-sdk/lib/libraries.json`
+the `dart2js` target's own `libraries` map holds only eight entries and `io` is
+not among them; that is what makes it look absent. But the target is defined as
+`"include": [{"target": "_dart2js_common"}]`, and `_dart2js_common` declares:
+
+```json
+"io": {
+  "uri": "io/io.dart",
+  "patches": "_internal/js_runtime/lib/io_patch.dart",
+  "support_conditional_import": false
+}
+```
+
+`flutter_web_sdk/libraries.json` adds six web-only libraries and includes the
+same dart-sdk `dart2js` target, so a Flutter web build inherits it. `dart:ffi`
+appears in **no** dart2js target at all, which is why it is refused with
+*"Dart library 'dart:ffi' is not available on this platform"* — the asymmetry is
+in the SDK's own manifest, not in the compiler's cleverness.
+
+**It is not tree-shaking**, and the shortest way to see that is to use the
+library rather than merely import it. `dart compile js` compiles this:
+
+```dart
+import 'dart:io';
+void main() {
+  print(File('nope.txt').existsSync());
+  print(Directory.current.path);
+  print(Platform.operatingSystem);
+}
+```
+
+**The boundary is at run time.** `io_patch.dart` is ~825 lines of `@patch`
+methods that throw, so the program above compiles and then dies on its first
+real call with `UnsupportedError: _Namespace`. Compilable and unusable are
+different properties, and only the second is about `dart:io` being unavailable.
+
+**`dart.library.io` is `false` regardless**, which is the point of
+`support_conditional_import: false`: a conditional import routes away from
+`dart:io` on the web even though a direct `import 'dart:io'` would have
+compiled. Availability and the environment flag are two different questions, and
+a library can answer them differently.
+
+The practical consequence for this package: a web build cannot break because
+something in the closure *names* `dart:io`, and it will not start breaking if a
+future SDK tightens a check that does not exist. What it *can* break on is a
+library that actually calls into `dart:io` on a web code path — which fails at
+run time, not at build time, and which no build gate can catch.
+
+`test/web_build_test.dart` pins both halves of this with `dart compile js`
+probes that take about two seconds: a `dart:io`-using program must still
+compile, and a `dart:ffi` one must still fail. If a toolchain change ever
+reverses either, those go red with the reason attached instead of the real build
+failing somewhere unhelpful.
+
 ## License
 
 BSD-3-Clause — See [LICENSE](LICENSE) for details.
