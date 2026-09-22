@@ -104,7 +104,13 @@ class DefaultOutputChannel implements ForgeOutputChannel {
   /// All stored output lines.
   List<OutputLine> get lines => List.unmodifiable(_lines);
 
-  /// Current channel contents with uniform format: [HH:MM:SS] [TYPE] text
+  /// Current channel contents, one line per appended entry, in the uniform
+  /// format `[HH:MM:SS] [TYPE] text`.
+  ///
+  /// The timestamp and the type are **unconditional**. There is deliberately no
+  /// second, plainer spelling: the view that used to offer a timestamp toggle
+  /// no longer does, and a getter named for the distinction would imply this
+  /// one lacks what it in fact always includes.
   String get contents {
     final buf = StringBuffer();
     for (final line in _lines) {
@@ -118,9 +124,6 @@ class DefaultOutputChannel implements ForgeOutputChannel {
     }
     return buf.toString();
   }
-
-  /// Alias for [contents] — timestamps and types are always shown.
-  String get contentsWithTimestamps => contents;
 
   static String _formatTimestamp(DateTime dt) {
     final h = dt.hour.toString().padLeft(2, '0');

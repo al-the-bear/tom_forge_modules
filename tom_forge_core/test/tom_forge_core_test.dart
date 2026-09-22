@@ -249,7 +249,9 @@ void main() {
       const config = ForgeConfig();
       expect(config.autoSave.enabled, isTrue);
       expect(config.autoSave.saveOnFocusLoss, isTrue);
-      expect(config.autoSave.idleDelay, const Duration(seconds: 1));
+      // 2 s, not 1: the idle delay was widened deliberately so that a pause
+      // mid-sentence does not trigger a save (and, with it, a revision).
+      expect(config.autoSave.idleDelay, const Duration(seconds: 2));
     });
 
     test('custom autoSave', () {
@@ -640,12 +642,24 @@ void main() {
       expect(ch.lines.last.text, 'line 9');
     });
 
-    test('contentsWithTimestamps includes timestamps', () {
+    test('contents uses the uniform [HH:MM:SS] [TYPE] format', () {
       final ch = DefaultOutputChannel('test');
       ch.appendLine('hello');
-      final ts = ch.contentsWithTimestamps;
-      // Should contain a [HH:MM:SS] prefix.
-      expect(ts, matches(RegExp(r'\[\d{2}:\d{2}:\d{2}\] hello')));
+      expect(ch.contents,
+          matches(RegExp(r'^\[\d{2}:\d{2}:\d{2}\] \[INFO\] hello\n$')));
+    });
+
+    test('contents carries each line\'s own type', () {
+      // The discriminator: a formatter that hardcoded the label would satisfy
+      // the test above and fail here, which is the difference between "there
+      // is a prefix" and "the prefix says what the line is".
+      final ch = DefaultOutputChannel('test');
+      ch.appendLine('bad', type: OutputMessageType.error);
+      ch.appendLine('odd', type: OutputMessageType.warn);
+      final lines = ch.contents.trimRight().split('\n');
+      expect(lines, hasLength(2));
+      expect(lines[0], endsWith('[ERROR] bad'));
+      expect(lines[1], endsWith('[WARN] odd'));
     });
 
     test('lines list stores metadata', () {

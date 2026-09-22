@@ -11,8 +11,9 @@ import '../services/forge_output_channel_manager.dart';
 /// Output view with channel dropdown and monospace log display.
 ///
 /// Takes [ForgeOutputChannelManager] and shows the active channel's output.
-/// Supports auto-scroll (when the user is at the bottom) and optional
-/// timestamp rendering.
+/// Supports auto-scroll when the user is at the bottom. Lines are rendered in
+/// the channel's own uniform `[HH:MM:SS] [TYPE] text` form — there is no
+/// timestamp toggle, because the format is unconditional at the source.
 class ForgeOutputView extends ForgeView {
   final ForgeOutputChannelManager channelManager;
 
