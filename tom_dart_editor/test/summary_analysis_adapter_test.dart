@@ -160,29 +160,101 @@ void main() {
       expect(provider.baseProvider.getFile(a.debugAnalysisPath).exists, isFalse);
     });
 
+    // What the analysis path used to create in the system temp, by name.
+    const residueFamily = 'dart_editor_analyzer_';
+
+    Set<String> residueIn(Directory directory) => directory
+        .listSync()
+        .map((e) => p.basename(e.path))
+        .where((name) => name.startsWith(residueFamily))
+        .toSet();
+
+    /// An empty directory of this test's own, to stand in for the system temp.
+    ///
+    /// Under the workspace's `ztmp` when there is a workspace above, and under
+    /// this package's `.dart_tool` when the repository is checked out alone.
+    Directory privateTemp(String name) {
+      Directory? workspace = Directory.current.absolute;
+      while (workspace != null &&
+          !Directory(p.join(workspace.path, '.tom_metadata')).existsSync()) {
+        final parent = workspace.parent;
+        workspace = parent.path == workspace.path ? null : parent;
+      }
+      final root = workspace == null
+          ? p.join(Directory.current.path, '.dart_tool', 'test_tmp')
+          : p.join(workspace.path, 'ztmp', 'tom_dart_editor_test');
+      final directory = Directory(p.join(root, name));
+      if (directory.existsSync()) directory.deleteSync(recursive: true);
+      directory.createSync(recursive: true);
+      addTearDown(() {
+        if (directory.existsSync()) directory.deleteSync(recursive: true);
+      });
+      return directory;
+    }
+
     test('leaves no residue in the system temp directory', () async {
+      // Two questions, each asked of a directory that can answer it.
+      //
+      // This used to diff the whole system temp before and after. That
+      // directory is shared with every process on the machine — it held 68,661
+      // entries when this was measured — so the assertion held only while
+      // nothing else on the box created a file during two listings of it, and
+      // it failed about one run in nine. A guard for a confidentiality rule
+      // that fails for unrelated reasons is a guard somebody loosens.
       await registry.register(sdkOnly);
-      final a = SummaryBackedDartAnalysisAdapter.scope('dart-plain');
-      // Warm the driver so the measured window covers only the analysis pass.
-      await a.analyzeCode('void main() {}');
 
-      final before =
-          Directory.systemTemp.listSync().map((e) => e.path).toSet();
+      // 1. By NAME, in the real system temp. Whatever else appears there is
+      //    not ours to account for; an entry of the family the analysis path
+      //    used to create is.
+      final before = residueIn(Directory.systemTemp);
 
-      await a.analyzeCode("void main() { int x = 'not an int'; }");
-
-      final after =
-          Directory.systemTemp.listSync().map((e) => e.path).toSet();
+      // 2. By CATCH-ALL, in a directory nothing else writes to. Inside this
+      //    zone `Directory.systemTemp` IS that directory, so anything the pass
+      //    creates by asking Dart for the system temp lands where it can be
+      //    seen — whatever it is called.
+      final private = privateTemp('no_residue');
+      await IOOverrides.runZoned(
+        () async {
+          final a = SummaryBackedDartAnalysisAdapter.scope('dart-plain');
+          await a.analyzeCode('void main() {}');
+          await a.analyzeCode("void main() { int x = 'not an int'; }");
+        },
+        getSystemTempDirectory: () => private,
+      );
 
       // A weaker guard than it looks: the superseded temp-file path deleted its
-      // directory in a `finally`, so a before/after diff could not see it, and
-      // macOS delivers no watch events for the system temp directory. This
-      // catches a *surviving* temp artifact (the lifetime hazard); the two
-      // assertions above are what catch the write itself.
-      expect(after.difference(before), isEmpty,
+      // directory in a `finally`, so a before/after listing could not see it.
+      // This catches a *surviving* temp artifact (the lifetime hazard); the
+      // test above is what catches the write itself.
+      expect(private.listSync(), isEmpty,
           reason: 'an analysis pass must leave nothing behind on disk');
-      expect(after.where((p) => p.contains('dart_editor_analyzer_')), isEmpty,
+      expect(residueIn(Directory.systemTemp).difference(before), isEmpty,
           reason: 'the temp-directory analysis path must be gone entirely');
+    });
+
+    test('the no-residue guard can see what it guards against', () async {
+      // The control. A redirected system temp that the code under test never
+      // consulted, or a family filter that matched nothing, would leave the
+      // test above green while watching an empty room.
+      final private = privateTemp('no_residue_control');
+      final before = residueIn(private);
+
+      await IOOverrides.runZoned(
+        () async {
+          // The superseded path, as it was: a directory of the family, made by
+          // asking for the system temp — after an await, because the analysis
+          // pass does its work asynchronously and the override has to follow.
+          await Future<void>.delayed(Duration.zero);
+          final made = await Directory.systemTemp.createTemp(residueFamily);
+          File(p.join(made.path, 'snippet.dart')).writeAsStringSync('x');
+        },
+        getSystemTempDirectory: () => private,
+      );
+
+      expect(private.listSync(), hasLength(1),
+          reason: 'the catch-all sees a surviving artifact');
+      expect(residueIn(private).difference(before), hasLength(1),
+          reason: 'and the family filter names it');
     });
 
     test('no library source reaches for a filesystem', () {
