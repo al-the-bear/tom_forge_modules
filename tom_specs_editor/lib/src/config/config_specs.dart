@@ -189,7 +189,8 @@ class SpecsConfigSpecs {
         positive: true,
         help:
             'Caps the response length for this profile. Leave empty to '
-            'use the agent default.',
+            'use the agent default.'
+            ' Not applied by the Agent SDK connection, which has no such option; kept for providers that support it.',
         get: (p) => p.maxTokens,
         set: (p, n) => AgentProfile.fromYaml(p.toYaml()..['maxTokens'] = n),
       ),
@@ -197,7 +198,8 @@ class SpecsConfigSpecs {
         label: 'Thinking enabled',
         help:
             'Lets the model use extended thinking before replying, when '
-            'the model supports it.',
+            'the model supports it.'
+            ' Not applied by the Agent SDK connection, which has no such option; kept for providers that support it.',
         get: (p) => p.thinkingEnabled ?? false,
         set: (p, b) =>
             AgentProfile.fromYaml(p.toYaml()..['thinkingEnabled'] = b),
@@ -371,74 +373,77 @@ class SpecsConfigSpecs {
 
   // ── Agent Settings (singleton) ─────────────────────────────────────────────
 
-  ConfigObjectSpec<AgentSettings> agentSettingsSpec() =>
-      ConfigObjectSpec<AgentSettings>(
-        title: 'Agent Settings',
-        icon: Icons.tune_outlined,
-        uri: _uri('/agent-settings'),
-        backingFile: agentSettings.file,
-        load: agentSettings.load,
-        save: agentSettings.save,
-        fields: [
-          ConfigField.text(
-            label: 'Bridge host',
-            required: true,
-            help: 'Host the editor connects to for the VS Code bridge.',
-            get: (s) => s.bridgeHost,
-            set: (s, v) => s.copyWith(bridgeHost: v),
-          ),
-          ConfigField.integer(
-            label: 'Port scan start',
-            positive: true,
-            help: 'First port tried when discovering the bridge.',
-            get: (s) => s.portScanStart,
-            set: (s, n) => s.copyWith(portScanStart: n ?? s.portScanStart),
-          ),
-          ConfigField.integer(
-            label: 'Port scan end',
-            positive: true,
-            help: 'Last port tried. Must be >= the start port.',
-            get: (s) => s.portScanEnd,
-            set: (s, n) => s.copyWith(portScanEnd: n ?? s.portScanEnd),
-            validate: (s) => s.hasValidPortRange
-                ? null
-                : 'Port scan end must be >= port scan start',
-          ),
-          ConfigField.integer(
-            label: 'Default max tokens',
-            positive: true,
-            help:
-                'Response-length cap used when a profile does not set its '
-                'own.',
-            get: (s) => s.maxTokens,
-            set: (s, n) => AgentSettings(
-              bridgeHost: s.bridgeHost,
-              portScanStart: s.portScanStart,
-              portScanEnd: s.portScanEnd,
-              defaultProfileId: s.defaultProfileId,
-              maxTokens: n,
-              maxRounds: s.maxRounds,
-              thinkingEnabled: s.thinkingEnabled,
-              promptCachingEnabled: s.promptCachingEnabled,
-              toolApprovalMode: s.toolApprovalMode,
-            ),
-          ),
-          ConfigField.boolean(
-            label: 'Thinking enabled (default)',
-            help:
-                'Default extended-thinking setting for profiles that do not '
-                'override it.',
-            get: (s) => s.thinkingEnabled ?? false,
-            set: (s, b) => s.copyWith(thinkingEnabled: b),
-          ),
-          ConfigField.boolean(
-            label: 'Prompt caching (default)',
-            help:
-                'Enables Anthropic prompt caching to reduce repeated-context '
-                'cost.',
-            get: (s) => s.promptCachingEnabled ?? false,
-            set: (s, b) => s.copyWith(promptCachingEnabled: b),
-          ),
-        ],
-      );
+  ConfigObjectSpec<AgentSettings>
+  agentSettingsSpec() => ConfigObjectSpec<AgentSettings>(
+    title: 'Agent Settings',
+    icon: Icons.tune_outlined,
+    uri: _uri('/agent-settings'),
+    backingFile: agentSettings.file,
+    load: agentSettings.load,
+    save: agentSettings.save,
+    fields: [
+      ConfigField.text(
+        label: 'Bridge host',
+        required: true,
+        help: 'Host the editor connects to for the VS Code bridge.',
+        get: (s) => s.bridgeHost,
+        set: (s, v) => s.copyWith(bridgeHost: v),
+      ),
+      ConfigField.integer(
+        label: 'Port scan start',
+        positive: true,
+        help: 'First port tried when discovering the bridge.',
+        get: (s) => s.portScanStart,
+        set: (s, n) => s.copyWith(portScanStart: n ?? s.portScanStart),
+      ),
+      ConfigField.integer(
+        label: 'Port scan end',
+        positive: true,
+        help: 'Last port tried. Must be >= the start port.',
+        get: (s) => s.portScanEnd,
+        set: (s, n) => s.copyWith(portScanEnd: n ?? s.portScanEnd),
+        validate: (s) => s.hasValidPortRange
+            ? null
+            : 'Port scan end must be >= port scan start',
+      ),
+      ConfigField.integer(
+        label: 'Default max tokens',
+        positive: true,
+        help:
+            'Response-length cap used when a profile does not set its '
+            'own.'
+            ' Not applied by the Agent SDK connection, which has no such option; kept for providers that support it.',
+        get: (s) => s.maxTokens,
+        set: (s, n) => AgentSettings(
+          bridgeHost: s.bridgeHost,
+          portScanStart: s.portScanStart,
+          portScanEnd: s.portScanEnd,
+          defaultProfileId: s.defaultProfileId,
+          maxTokens: n,
+          maxRounds: s.maxRounds,
+          thinkingEnabled: s.thinkingEnabled,
+          promptCachingEnabled: s.promptCachingEnabled,
+          toolApprovalMode: s.toolApprovalMode,
+        ),
+      ),
+      ConfigField.boolean(
+        label: 'Thinking enabled (default)',
+        help:
+            'Default extended-thinking setting for profiles that do not '
+            'override it.'
+            ' Not applied by the Agent SDK connection, which has no such option; kept for providers that support it.',
+        get: (s) => s.thinkingEnabled ?? false,
+        set: (s, b) => s.copyWith(thinkingEnabled: b),
+      ),
+      ConfigField.boolean(
+        label: 'Prompt caching (default)',
+        help:
+            'Enables Anthropic prompt caching to reduce repeated-context '
+            'cost.'
+            ' Not applied by the Agent SDK connection, which has no such option; kept for providers that support it.',
+        get: (s) => s.promptCachingEnabled ?? false,
+        set: (s, b) => s.copyWith(promptCachingEnabled: b),
+      ),
+    ],
+  );
 }
