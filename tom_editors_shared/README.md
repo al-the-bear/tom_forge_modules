@@ -105,4 +105,4 @@ these foundations for YAML-specific editing.
 
 ## License
 
-See the repository root `LICENSE` file.
+BSD-3-Clause — See [LICENSE](LICENSE) for details.
