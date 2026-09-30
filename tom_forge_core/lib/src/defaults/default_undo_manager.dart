@@ -32,6 +32,15 @@ class UndoEntry {
 ///
 /// When undone, all entries are undone in reverse order.
 /// When redone, all entries are redone in forward order.
+///
+/// **Atomic on failure as well as on success.** If an entry's application
+/// throws part-way, the entries already applied in this pass are put back
+/// (each one's opposite operation, in reverse), and the error is rethrown.
+/// Without that a step of N entries whose k-th undo fails would be left with
+/// N−k entries undone and k not — and, because [DefaultUndoManager] keeps the
+/// entry, the next undo would apply the whole step again and *redo* the ones
+/// that had succeeded. An entry's operations are expected to be each other's
+/// inverse, which is what makes the put-back correct.
 class CompositeUndoEntry extends UndoEntry {
   final List<UndoEntry> entries;
 
@@ -41,12 +50,26 @@ class CompositeUndoEntry extends UndoEntry {
   }) : super(
           undo: () async {
             for (var i = entries.length - 1; i >= 0; i--) {
-              await entries[i].undo();
+              try {
+                await entries[i].undo();
+              } catch (_) {
+                for (var j = i + 1; j < entries.length; j++) {
+                  await entries[j].redo();
+                }
+                rethrow;
+              }
             }
           },
           redo: () async {
-            for (final entry in entries) {
-              await entry.redo();
+            for (var i = 0; i < entries.length; i++) {
+              try {
+                await entries[i].redo();
+              } catch (_) {
+                for (var j = i - 1; j >= 0; j--) {
+                  await entries[j].undo();
+                }
+                rethrow;
+              }
             }
           },
         );
@@ -58,6 +81,16 @@ class CompositeUndoEntry extends UndoEntry {
 /// composite grouping via [beginUndoGroup]/[endUndoGroup].
 ///
 /// Memory budget: max [maxEntries] entries per stack (spec §4.1: 100).
+///
+/// **An entry whose application throws stays where it was.** [undo] and
+/// [redo] move an entry between the stacks only *after* its operation has
+/// completed; if the operation throws, the entry is still on the stack it was
+/// taken from, no event is emitted, and the error propagates to the caller,
+/// which is the one place that can say what happened. This is the manager's
+/// guarantee and not a consumer's: it used to pop before awaiting, so an
+/// entry whose undo threw was gone from both stacks — the act neither undone
+/// nor redoable — and every consumer that noticed worked around it by never
+/// throwing, which is a rule hoped for rather than held.
 class DefaultUndoManager implements ForgeUndoManager {
   static bool debugEnabled = false;
 
@@ -84,8 +117,10 @@ class DefaultUndoManager implements ForgeUndoManager {
   @override
   Future<void> undo() async {
     if (_undoStack.isEmpty) return;
-    final entry = _undoStack.removeLast();
+    final entry = _undoStack.last;
+    // Applied first, moved second: a throw leaves the entry on this stack.
     await entry.undo();
+    _undoStack.removeLast();
     _redoStack.add(entry);
     _updateState();
     _eventController.add(UndoEvent(type: UndoEventType.undone, label: entry.label));
@@ -94,8 +129,9 @@ class DefaultUndoManager implements ForgeUndoManager {
   @override
   Future<void> redo() async {
     if (_redoStack.isEmpty) return;
-    final entry = _redoStack.removeLast();
+    final entry = _redoStack.last;
     await entry.redo();
+    _redoStack.removeLast();
     _undoStack.add(entry);
     _updateState();
     _eventController.add(UndoEvent(type: UndoEventType.redone, label: entry.label));
@@ -109,6 +145,15 @@ class DefaultUndoManager implements ForgeUndoManager {
 
   @override
   int get undoCount => _undoStack.length;
+
+  /// The label of the entry [undo] would apply, or null when there is none.
+  ///
+  /// Read after a failed [undo] it names the entry that failed, since the
+  /// entry is still on the stack.
+  String? get nextUndoLabel => _undoStack.isEmpty ? null : _undoStack.last.label;
+
+  /// The label of the entry [redo] would apply, or null when there is none.
+  String? get nextRedoLabel => _redoStack.isEmpty ? null : _redoStack.last.label;
 
   @override
   int get redoCount => _redoStack.length;
