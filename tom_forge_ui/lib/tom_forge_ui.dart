@@ -75,6 +75,7 @@ export 'src/testing/test_workspace.dart';
 
 // ── Defaults ──
 export 'src/defaults/default_clipboard.dart';
+export 'src/defaults/editor_save.dart';
 export 'src/defaults/default_action_registry.dart';
 export 'src/defaults/default_config_manager.dart';
 export 'src/defaults/default_diagnostic_manager.dart';

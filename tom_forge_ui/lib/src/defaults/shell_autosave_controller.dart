@@ -3,6 +3,7 @@ import 'dart:async';
 import '../components/forge_editor.dart';
 import '../services/forge_file_system.dart';
 import 'default_system_state.dart';
+import 'editor_save.dart';
 
 /// Uniform autosave controller for all open editors.
 ///
@@ -53,6 +54,9 @@ class ShellAutosaveController {
   }
 
   void _saveEditor(ForgeEditor editor) {
+    if (saveOwnedEditor(editor, trigger: ForgeSaveTrigger.automatic) != null) {
+      return;
+    }
     final content = editor.getContent();
     if (content == null) return;
     fileSystem.write(editor.uri, content).then((_) {

@@ -28,6 +28,16 @@ class StandardEditingActions {
   static const String moveLineDownActionId = 'forge.edit.moveLineDown';
   static const String toggleCommentActionId = 'forge.edit.toggleComment';
 
+  /// Saving, for an editor that **owns its model** and writes it itself.
+  ///
+  /// The host's save writes what `getContent()` returns. An editor whose content
+  /// is not one string — a multi-part container, say — returns null there and
+  /// lists this id in `supportedActionIds` instead: an explicit save is then
+  /// handed to it through `executeAction`, it clears its own dirty state when
+  /// the write lands, and the host never marks it clean on its behalf.
+  /// Automatic saves leave such an editor alone; when to write is its call.
+  static const String saveActionId = 'forge.file.save';
+
   // Standard keyboard shortcuts (using primary modifier - Cmd on Mac, Ctrl elsewhere)
   static final ForgeShortcutKey cutShortcut = ForgeShortcutKey(
     key: LogicalKeyboardKey.keyX,
@@ -420,6 +430,7 @@ class StandardEditingActions {
       moveLineUpActionId => (s) => s.isEditable && s.isTextMode,
       moveLineDownActionId => (s) => s.isEditable && s.isTextMode,
       toggleCommentActionId => (s) => s.isEditable && s.isTextMode,
+      saveActionId => (s) => s.hasContent,
       _ => (_) => false,
     };
   }

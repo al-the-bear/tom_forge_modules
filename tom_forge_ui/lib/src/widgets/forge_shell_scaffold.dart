@@ -23,6 +23,7 @@ import '../defaults/default_shell_api.dart';
 import '../defaults/stub_services.dart';
 import '../services/forge_accessibility.dart';
 import '../defaults/default_system_state.dart';
+import '../defaults/editor_save.dart';
 import '../defaults/default_workspace_state_manager.dart';
 import '../model/forge_application.dart';
 import '../services/forge_preferences_service.dart';
@@ -1148,6 +1149,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   Future<void> _performAutoSave(SaveReason reason) async {
     final dirtyEditors = widget.systemState.dirtyEditors.toList();
     for (final editor in dirtyEditors) {
+      if (saveOwnedEditor(editor, trigger: ForgeSaveTrigger.automatic) != null) {
+        continue;
+      }
       try {
         final content = editor.getContent();
         if (content != null) {
@@ -1174,6 +1178,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   void _saveActiveEditor() {
     final editor = widget.systemState.activeEditor;
     if (editor == null || !editor.isDirty.value) return;
+    if (saveOwnedEditor(editor) != null) return;
     final content = editor.getContent();
     if (content == null) return;
     widget.shell.fileSystem.write(editor.uri, content).then((_) {
@@ -1194,6 +1199,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   void _saveAllDirtyEditors() {
     final dirtyEditors = widget.systemState.dirtyEditors.toList();
     for (final editor in dirtyEditors) {
+      if (saveOwnedEditor(editor) != null) continue;
       final content = editor.getContent();
       if (content == null) continue;
       widget.shell.fileSystem.write(editor.uri, content).then((_) {
