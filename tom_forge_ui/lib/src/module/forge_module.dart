@@ -56,4 +56,15 @@ abstract class ForgeModule {
   /// [ForgeConfigPanel.priority] to control ordering (100+ recommended
   /// for modules; 0–99 is reserved for built-in panels).
   List<ForgeConfigPanel> get configPanels => [];
+
+  /// Opens [uri] itself, when this module owns documents of that kind, and
+  /// answers whether it did.
+  ///
+  /// The shell asks every module **before** it reads a file as text. That is
+  /// the whole point: a document that is not one string — a directory bundle,
+  /// an encrypted container, an archive — cannot survive the text read that
+  /// the editor-routing path starts with, and a module that opens it creates
+  /// its own editor per document and hands it to `layout.openEditor`. The
+  /// default claims nothing, so every other file takes the usual path.
+  bool openUri(Uri uri, {int? middlePanelIndex}) => false;
 }

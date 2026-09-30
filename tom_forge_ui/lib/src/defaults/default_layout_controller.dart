@@ -139,6 +139,7 @@ class DefaultLayoutController implements ForgeLayoutController {
 
   @override
   void openFile(Uri uri, {int? middlePanelIndex, int? line, int? column}) {
+    if (_openedByModule(uri, middlePanelIndex)) return;
     // Check if already open.
     final existing = _systemState.openEditors.where((e) => e.uri == uri);
     if (existing.isNotEmpty) {
@@ -156,6 +157,15 @@ class DefaultLayoutController implements ForgeLayoutController {
         column: column,
       ),
     );
+  }
+
+  /// Whether a module opened [uri] itself ([ForgeModule.openUri]) — asked
+  /// before anything reads the file as text.
+  bool _openedByModule(Uri uri, int? middlePanelIndex) {
+    for (final module in _moduleRegistry.allModules) {
+      if (module.openUri(uri, middlePanelIndex: middlePanelIndex)) return true;
+    }
+    return false;
   }
 
   Future<void> _openFileWithRecovery(
@@ -334,6 +344,7 @@ class DefaultLayoutController implements ForgeLayoutController {
 
   @override
   Future<void> openFileWith(Uri uri, {int? middlePanelIndex}) async {
+    if (_openedByModule(uri, middlePanelIndex)) return;
     // Collect all editors that can handle this URI.
     final candidates = <ForgeEditor>[];
     for (final module in _moduleRegistry.allModules) {
