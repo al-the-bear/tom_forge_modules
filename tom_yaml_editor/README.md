@@ -127,4 +127,4 @@ for the full 8-phase design document.
 
 ## License
 
-See the repository root `LICENSE` file.
+BSD-3-Clause — See [LICENSE](LICENSE) for details.
