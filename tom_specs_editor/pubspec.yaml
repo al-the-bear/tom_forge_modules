@@ -96,7 +96,7 @@ dependencies:
   # transitively via tom_forge_ui; declared directly because the editor's
   # markdown dialogs use it. The IO call sits behind a `MarkdownFileIo` seam so
   # the dialogs stay testable without the platform channel.
-  file_picker: ^10.2.0
+  file_picker: ^12.0.0
 
 dev_dependencies:
   flutter_test:

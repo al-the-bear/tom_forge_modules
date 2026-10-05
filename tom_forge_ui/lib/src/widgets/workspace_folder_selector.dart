@@ -51,7 +51,7 @@ class _WorkspaceFolderSelectorState extends State<WorkspaceFolderSelector> {
     setState(() => _isLoading = true);
 
     try {
-      final result = await FilePicker.platform.getDirectoryPath(
+      final result = await FilePicker.getDirectoryPath(
         dialogTitle: 'Select Workspace Folder',
         initialDirectory: _pathController.text.isNotEmpty
             ? _pathController.text
@@ -216,7 +216,7 @@ class _WorkspaceWelcomePageState extends State<WorkspaceWelcomePage> {
     setState(() => _isLoading = true);
 
     try {
-      final result = await FilePicker.platform.getDirectoryPath(
+      final result = await FilePicker.getDirectoryPath(
         dialogTitle: 'Select Workspace Folder',
       );
 

@@ -58,13 +58,12 @@ class DocumentPickerPage extends StatelessWidget {
   const DocumentPickerPage({super.key});
 
   Future<void> _openFile(BuildContext context) async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFile(
       type: FileType.custom,
       allowedExtensions: ['md', 'txt', 'markdown'],
       dialogTitle: 'Open Markdown File',
     );
-    if (result == null || result.files.isEmpty) return;
-    final filePath = result.files.single.path;
+    final filePath = result?.path;
     if (filePath == null) return;
 
     final file = File(filePath);
@@ -430,13 +429,12 @@ class _MdEditorDemoPageState extends State<MdEditorDemoPage> {
 
   /// Open an arbitrary markdown file from the file system.
   Future<void> _openFile() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFile(
       type: FileType.custom,
       allowedExtensions: ['md', 'txt', 'markdown'],
       dialogTitle: 'Open Markdown File',
     );
-    if (result == null || result.files.isEmpty) return;
-    final filePath = result.files.single.path;
+    final filePath = result?.path;
     if (filePath == null) return;
 
     final file = File(filePath);
@@ -479,15 +477,14 @@ class _MdEditorDemoPageState extends State<MdEditorDemoPage> {
 
   /// Pick a schema file and associate it with the document.
   Future<void> _pickSchema() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFile(
       type: FileType.custom,
       allowedExtensions: ['yaml', 'yml'],
       initialDirectory: _schemaFolderPath,
       dialogTitle: 'Select DocSpecs Schema',
     );
 
-    if (result == null || result.files.isEmpty) return;
-    final filePath = result.files.single.path;
+    final filePath = result?.path;
     if (filePath == null) return;
 
     try {
@@ -641,7 +638,7 @@ class _PreferencesDialogState extends State<_PreferencesDialog> {
   }
 
   Future<void> _pickFolder() async {
-    final result = await FilePicker.platform.getDirectoryPath(
+    final result = await FilePicker.getDirectoryPath(
       dialogTitle: 'Select Schema Folder',
       initialDirectory: _schemaFolderController.text.isEmpty
           ? null

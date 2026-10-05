@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:file_selector/file_selector.dart'
+    show XTypeGroup, getSaveLocation;
 import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart'
     show StandardEditingActions;
@@ -528,16 +530,28 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
           bool canSelectFolders = false,
           List<FileFilter>? filters,
         }) async {
-          final result = await FilePicker.platform.pickFiles(
-            dialogTitle: title ?? 'Open File',
-            allowMultiple: canSelectMany,
-            type: filters != null && filters.isNotEmpty
-                ? FileType.custom
-                : FileType.any,
-            allowedExtensions: filters?.expand((f) => f.extensions).toList(),
-          );
-          if (result == null || result.files.isEmpty) return null;
-          return result.files
+          final type = filters != null && filters.isNotEmpty
+              ? FileType.custom
+              : FileType.any;
+          final allowedExtensions =
+              filters?.expand((f) => f.extensions).toList();
+          final List<PlatformFile> files;
+          if (canSelectMany) {
+            files = await FilePicker.pickFiles(
+              dialogTitle: title ?? 'Open File',
+              type: type,
+              allowedExtensions: allowedExtensions,
+            );
+          } else {
+            final file = await FilePicker.pickFile(
+              dialogTitle: title ?? 'Open File',
+              type: type,
+              allowedExtensions: allowedExtensions,
+            );
+            files = file == null ? const [] : [file];
+          }
+          if (files.isEmpty) return null;
+          return files
               .where((f) => f.path != null)
               .map((f) => Uri.file(f.path!))
               .toList();
@@ -545,18 +559,20 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
 
     dialogs.onSaveDialog =
         ({String? title, Uri? defaultUri, List<FileFilter>? filters}) async {
-          final result = await FilePicker.platform.saveFile(
-            dialogTitle: title ?? 'Save File',
-            fileName: defaultUri?.pathSegments.isNotEmpty == true
+          // The caller writes the file; file_picker 12's saveFile writes the
+          // bytes itself, so the location comes from file_selector.
+          final location = await getSaveLocation(
+            confirmButtonText: title ?? 'Save File',
+            suggestedName: defaultUri?.pathSegments.isNotEmpty == true
                 ? defaultUri!.pathSegments.last
                 : null,
-            type: filters != null && filters.isNotEmpty
-                ? FileType.custom
-                : FileType.any,
-            allowedExtensions: filters?.expand((f) => f.extensions).toList(),
+            acceptedTypeGroups: [
+              for (final f in filters ?? const <FileFilter>[])
+                XTypeGroup(label: f.name, extensions: f.extensions),
+            ],
           );
-          if (result == null) return null;
-          return Uri.file(result);
+          if (location == null) return null;
+          return Uri.file(location.path);
         };
   }
 
@@ -1535,7 +1551,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   }
 
   Future<void> _handleOpenFolder() async {
-    final result = await FilePicker.platform.getDirectoryPath(
+    final result = await FilePicker.getDirectoryPath(
       dialogTitle: 'Open Workspace Folder',
     );
     if (result == null || !mounted) return;

@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -21,13 +20,14 @@ import 'spec_document_controller.dart';
 ///
 /// The actual file open/save call is behind the [MarkdownFileIo] seam so the
 /// dialogs are testable without the platform file-picker channel; the default
-/// [FilePickerMarkdownFileIo] uses `file_picker` + `dart:io`.
+/// [FilePickerMarkdownFileIo] uses `file_picker`.
 
 /// The file open/save seam the markdown dialogs use, so a test can supply a fake
 /// instead of driving the real platform file-picker channel.
 abstract class MarkdownFileIo {
   /// Prompts for a save location (suggesting [suggestedName]), writes [content]
-  /// there, and returns the written path — or `null` if the user cancelled.
+  /// there, and returns the written location — or `null` if the user
+  /// cancelled.
   Future<String?> saveText(String suggestedName, String content);
 
   /// Prompts for a `*.md` file to open and returns its text — or `null` if the
@@ -35,37 +35,32 @@ abstract class MarkdownFileIo {
   Future<String?> openText();
 }
 
-/// The default [MarkdownFileIo], backed by `file_picker` + `dart:io`.
+/// The default [MarkdownFileIo], backed by `file_picker`.
 class FilePickerMarkdownFileIo implements MarkdownFileIo {
   const FilePickerMarkdownFileIo();
 
   @override
   Future<String?> saveText(String suggestedName, String content) async {
-    final path = await FilePicker.platform.saveFile(
+    final uri = await FilePicker.saveFile(
       dialogTitle: 'Export markdown',
       fileName: suggestedName,
+      bytes: utf8.encode(content),
       type: FileType.custom,
       allowedExtensions: const ['md'],
     );
-    if (path == null) return null;
-    final file = File(path);
-    await file.writeAsString(content);
-    return file.path;
+    if (uri == null) return null;
+    return uri.scheme == 'file' ? uri.toFilePath() : uri.toString();
   }
 
   @override
   Future<String?> openText() async {
-    final result = await FilePicker.platform.pickFiles(
+    final picked = await FilePicker.pickFile(
       dialogTitle: 'Import markdown',
       type: FileType.custom,
       allowedExtensions: const ['md'],
-      withData: true,
     );
-    if (result == null || result.files.isEmpty) return null;
-    final picked = result.files.single;
-    if (picked.bytes != null) return utf8.decode(picked.bytes!);
-    final path = picked.path;
-    return path == null ? null : File(path).readAsString();
+    if (picked == null) return null;
+    return utf8.decode(await picked.readAsBytes());
   }
 }
 

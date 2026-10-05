@@ -11,7 +11,11 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  file_picker: ^10.2.0
+  file_picker: ^12.0.0
+  # The shell's save dialog hands the chosen location back for the caller to
+  # write; file_picker 12's saveFile writes the bytes itself, so the location
+  # comes from file_selector.
+  file_selector: ^1.1.0
   shared_preferences: ^2.2.0
   tom_forge_core:
     path: ../tom_forge_core

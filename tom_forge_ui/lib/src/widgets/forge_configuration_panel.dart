@@ -1746,7 +1746,7 @@ class _EditorSettingsSectionState extends State<_EditorSettingsSection> {
           icon: const Icon(Icons.folder_open, size: 18),
           tooltip: 'Browse\u2026',
           onPressed: () async {
-            final path = await FilePicker.platform.getDirectoryPath();
+            final path = await FilePicker.getDirectoryPath();
             if (path != null) {
               _updateConfig(configKey, path);
             }

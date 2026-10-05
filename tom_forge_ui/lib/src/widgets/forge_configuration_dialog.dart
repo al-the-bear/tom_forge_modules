@@ -201,7 +201,7 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
     setState(() => _isSelectingDirectory = true);
 
     try {
-      final result = await FilePicker.platform.getDirectoryPath(
+      final result = await FilePicker.getDirectoryPath(
         dialogTitle: 'Select Central Configuration Directory',
         initialDirectory: _centralDirController.text.isNotEmpty
             ? _centralDirController.text
