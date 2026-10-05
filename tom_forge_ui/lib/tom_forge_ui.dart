@@ -36,6 +36,7 @@ export 'src/module/forge_config_panel.dart';
 export 'src/module/forge_module.dart';
 
 // ── Shell ──
+export 'src/shell/forge_context_menu_controller.dart';
 export 'src/shell/forge_layout_controller.dart';
 export 'src/shell/forge_module_registry.dart';
 export 'src/shell/forge_shell_api.dart';

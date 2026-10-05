@@ -1,3 +1,6 @@
+import 'package:tom_forge_core/tom_forge_core.dart'
+    show ForgeContextMenuContribution;
+
 import '../actions/forge_action.dart';
 import '../actions/forge_shortcut_binding.dart';
 import '../actions/forge_shortcut_menu.dart';
@@ -34,7 +37,18 @@ abstract class ForgeModule {
   /// Shortcut bindings this module contributes.
   List<ForgeShortcutBinding> get shortcuts;
 
-  /// Context menu contributions.
+  /// Context-menu contributions: where this module's actions are drawn as
+  /// menu entries, keyed by the target kind they apply at.
+  ///
+  /// The shell draws them — at its own file explorer's rows
+  /// ([ForgeContextTarget.explorerFileKind] and
+  /// [ForgeContextTarget.explorerDirectoryKind]) and at the targets an
+  /// editor reports (a [ForgeContextTargetProvider], or a call to
+  /// `shell.contextMenus.show`). Each contribution names one of this
+  /// module's [actions] by id, says whether it applies at a given target and
+  /// why it cannot run there; the shell resolves the action, draws the entry
+  /// enabled or disabled with the reason as its tooltip, and runs the action
+  /// with the target under [ForgeContextTarget.parameterKey].
   List<ForgeContextMenuContribution> get contextMenus => [];
 
   /// Custom shortcut menus activated by `Shift+Cmd/Ctrl+<key>`.

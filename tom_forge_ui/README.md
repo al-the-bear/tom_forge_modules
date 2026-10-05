@@ -32,6 +32,25 @@ to `/example` folder.
 const like = 'sample';
 ```
 
+## Context menus
+
+The shell draws every module's context-menu contributions
+(`ForgeModule.contextMenus`, the `tom_forge_core` model). `shell.contextMenus`
+is a `ForgeContextMenuController`: `entriesFor(target)` resolves the
+contributions keyed by a target's kind — in module order, grouped, each enabled
+by the contribution's predicate and carrying its unavailable reason as a
+tooltip while disabled, then the target's own items — and `show(target,
+position)` has the mounted `ForgeShellScaffold` draw them. An editor says what
+is under the pointer by implementing `ForgeContextTargetProvider`
+(`contextTargetAt`, asked on a secondary tap in the editor area before the
+generic Cut/Copy/Paste menu), or reports a unit it already handles the
+right-click for through `show`. The built-in `ForgeFileExplorerView` appends
+the contributions for `ForgeContextTarget.explorerFileKind` /
+`explorerDirectoryKind` to its row menu when given `contextMenus:`. Entries
+carry the key `forge-context-menu:<id>`. Guideline:
+`../_copilot_guidelines/context_menu_contributions.md`; test:
+`test/widgets/module_context_menu_test.dart`.
+
 ## Platform support
 
 Desktop and mobile. **Not the web**, and the reason is architectural rather than

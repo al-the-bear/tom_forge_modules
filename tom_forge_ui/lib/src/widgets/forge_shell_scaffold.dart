@@ -30,12 +30,14 @@ import '../defaults/default_workspace_state_manager.dart';
 import '../model/forge_application.dart';
 import '../services/forge_preferences_service.dart';
 import '../services/forge_dialog_manager.dart';
+import '../shell/forge_context_menu_controller.dart';
 import '../shell/forge_layout_controller.dart';
 import '../shell/forge_status_bar_controller.dart';
 import '../actions/forge_action.dart' as shell_action;
 import '../actions/forge_shortcut_binding.dart';
 import '../services/forge_shortcut_manager.dart';
 import 'forge_configuration_panel.dart';
+import 'forge_context_menu.dart';
 import 'forge_quick_open.dart';
 import 'forge_drag_data.dart';
 import 'forge_drop_zone_overlay.dart';
@@ -327,6 +329,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     _registerFindReplaceActions();
     _registerShellShortcuts();
     _initializePreferences();
+    widget.shell.contextMenus.presenter = _presentContextMenu;
     _quickOpenSearchController.addListener(_onSearchFieldChanged);
     _wireDialogCallbacks();
     _wireTerminalCallbacks();
@@ -412,6 +415,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
 
   @override
   void dispose() {
+    if (identical(widget.shell.contextMenus.presenter, _presentContextMenu)) {
+      widget.shell.contextMenus.presenter = null;
+    }
     _autoSaveTimer?.cancel();
     _saveSubscription?.cancel();
     _editorChangeSubscription?.cancel();
@@ -1847,6 +1853,42 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     }
 
     return entries;
+  }
+
+  /// Draws the module contributions keyed by [target]'s kind, and the
+  /// target's own items, at [globalPosition] — the shell's one context menu
+  /// for every target a view or editor reports (`shell.contextMenus.show`).
+  Future<void> _presentContextMenu(
+    ForgeContextTarget target,
+    Offset globalPosition,
+  ) async {
+    if (!mounted) return;
+    await showForgeContextMenu(
+      context,
+      controller: widget.shell.contextMenus,
+      target: target,
+      globalPosition: globalPosition,
+    );
+  }
+
+  /// A secondary tap in the editor area: the editor's own target under the
+  /// pointer, when it is a [ForgeContextTargetProvider] and names one that
+  /// has entries, otherwise the generic editor menu.
+  Future<void> _showEditorAreaContextMenu(
+    Offset globalPosition,
+    ForgeEditor editor,
+  ) async {
+    if (editor is ForgeContextTargetProvider) {
+      final target =
+          (editor as ForgeContextTargetProvider).contextTargetAt(globalPosition);
+      if (target != null &&
+          widget.shell.contextMenus.entriesFor(target).isNotEmpty) {
+        widget.systemState.setActiveEditor(editor);
+        await _presentContextMenu(target, globalPosition);
+        return;
+      }
+    }
+    await _showEditorContextMenu(globalPosition, editor);
   }
 
   Future<void> _showEditorContextMenu(
@@ -3728,7 +3770,7 @@ Press "?" for this help document.
                   key: ValueKey('editor-area-context-target-$panelIndex'),
                   behavior: HitTestBehavior.translucent,
                   onSecondaryTapDown: (details) {
-                    _showEditorContextMenu(
+                    _showEditorAreaContextMenu(
                       details.globalPosition,
                       currentEditor,
                     );

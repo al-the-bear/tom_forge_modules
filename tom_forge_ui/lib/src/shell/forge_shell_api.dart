@@ -22,6 +22,7 @@ import '../services/forge_workspace_state_manager.dart';
 import '../actions/forge_action.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart'
     show ForgeTextSettings;
+import 'forge_context_menu_controller.dart';
 import 'forge_layout_controller.dart';
 import 'forge_module_registry.dart';
 import 'forge_status_bar_controller.dart';
@@ -106,6 +107,11 @@ abstract class ForgeShellApi {
 
   /// Workspace-scoped state manager for `.forge/` directory.
   ForgeWorkspaceStateManager get workspaceState;
+
+  /// Module context-menu contributions, resolved at a target and drawn by the
+  /// shell. A view or editor that knows what is under the pointer calls
+  /// `contextMenus.show(target, position)`.
+  ForgeContextMenuController get contextMenus;
 
   /// Execute an action by id if available and enabled.
   bool executeAction(String actionId);

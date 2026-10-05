@@ -32,6 +32,26 @@ to `/example` folder.
 const like = 'sample';
 ```
 
+## Context-menu contributions
+
+The pure-Dart model behind the shell's context menus
+(`src/types/forge_context_menu.dart`):
+
+- `ForgeContextTarget` — what a menu is opened on: a **kind** the producer
+  owns (`forge.explorer.file`, `<module>.<unit>`), opaque **data**, and the
+  target's own **items** (`ForgeContextMenuItem`: commands only the producer
+  can perform, drawn after the contributed entries).
+- `ForgeContextMenuContribution` — a module's declaration that one of its
+  actions, named by id, is an entry at targets of a kind: `isApplicable`
+  (absent when false), `label` and `unavailableReason` (disabled, with the
+  reason as tooltip) all read the target. The shell resolves the action from
+  its registry and runs it with the target under
+  `ForgeContextTarget.parameterKey`.
+
+The drawing lives in `tom_forge_ui` (`ForgeContextMenuController`,
+`ForgeContextTargetProvider`). See the repository guideline
+`_copilot_guidelines/context_menu_contributions.md`.
+
 ## Additional information
 
 TODO: Tell users more about the package: where to find more information, how to 

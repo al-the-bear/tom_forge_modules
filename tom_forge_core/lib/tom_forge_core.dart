@@ -10,6 +10,8 @@
 /// - **Decorations**: [ForgeDecorationType], [ForgeDecorationRange]
 /// - **Events**: Focus, selection, diagnostic, layout, and file events
 /// - **Workspace Edit**: [ForgeWorkspaceEdit], [ForgeTextEdit]
+/// - **Context menus**: [ForgeContextTarget], [ForgeContextMenuItem],
+///   [ForgeContextMenuContribution]
 /// - **Model**: [ForgeConfig], [AutoSaveConfig]
 /// - **Services**: [ForgeFileSystem], [ForgeClipboard], [ForgeConfigManager],
 ///   [ForgeDiagnosticManager], [ForgeNotificationManager],
@@ -33,6 +35,7 @@ export 'src/types/forge_error_codes.dart';
 export 'src/types/forge_events.dart';
 export 'src/types/workspace_edit.dart';
 export 'src/types/forge_listenable.dart';
+export 'src/types/forge_context_menu.dart';
 
 // Document
 export 'src/document/forge_document.dart';

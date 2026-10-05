@@ -10,6 +10,7 @@ Read these before modifying any component in `tom_forge/`.
 | Document | Purpose |
 |----------|---------|
 | [debug_mode.md](debug_mode.md) | **MANDATORY** — Debug mode pattern: static switch, event trail, heartbeat, error intercept |
+| [context_menu_contributions.md](context_menu_contributions.md) | How a module's actions reach the shell's context menus: the `tom_forge_core` model, the controller, `ForgeContextTargetProvider`, the rendering rules |
 
 ---
 
@@ -21,3 +22,6 @@ Read these before modifying any component in `tom_forge/`.
   is unwanted, but keep the code.
 - **Adding a new editor component?** Copy the pattern from `tom_yaml_editor/lib/src/tree/editor_trail.dart`
   and add a row to the table in [debug_mode.md](debug_mode.md).
+- **Adding a right-click menu?** Never a hard-coded `showMenu`: contribute through
+  `ForgeModule.contextMenus` and `shell.contextMenus`. See
+  [context_menu_contributions.md](context_menu_contributions.md).

@@ -10,7 +10,9 @@ import '../components/forge_component.dart';
 import '../components/forge_view.dart';
 import '../defaults/default_system_state.dart';
 import '../defaults/stub_services.dart';
+import '../shell/forge_context_menu_controller.dart';
 import '../shell/forge_layout_controller.dart';
+import '../widgets/forge_context_menu.dart';
 
 /// File explorer tree view.
 ///
@@ -24,6 +26,12 @@ class ForgeFileExplorerView extends ForgeView {
   final DefaultSystemState? systemState;
   final DefaultFileDecorationManager? fileDecorationManager;
 
+  /// Module context-menu contributions for the rows
+  /// ([ForgeContextTarget.explorerFileKind],
+  /// [ForgeContextTarget.explorerDirectoryKind]), drawn after the explorer's
+  /// own entries. Null draws the explorer's entries alone.
+  final ForgeContextMenuController? contextMenus;
+
   final _title = ValueNotifier<String>('Explorer');
   final _titleExtension = ValueNotifier<String?>(null);
 
@@ -33,6 +41,7 @@ class ForgeFileExplorerView extends ForgeView {
     required this.rootUri,
     this.systemState,
     this.fileDecorationManager,
+    this.contextMenus,
   });
 
   @override
@@ -57,6 +66,7 @@ class ForgeFileExplorerView extends ForgeView {
       rootUri: rootUri,
       systemState: systemState,
       fileDecorationManager: fileDecorationManager,
+      contextMenus: contextMenus,
     );
   }
 
@@ -70,6 +80,7 @@ class _FileExplorerContent extends StatefulWidget {
   final Uri rootUri;
   final DefaultSystemState? systemState;
   final DefaultFileDecorationManager? fileDecorationManager;
+  final ForgeContextMenuController? contextMenus;
 
   const _FileExplorerContent({
     required this.fileSystem,
@@ -77,6 +88,7 @@ class _FileExplorerContent extends StatefulWidget {
     required this.rootUri,
     this.systemState,
     this.fileDecorationManager,
+    this.contextMenus,
   });
 
   @override
@@ -383,7 +395,16 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
   ) {
     final isDirectory = _isDirectoryEntry(entry);
     final entryUri = Uri.file(entry.path);
-    showMenu<String>(
+    // The row as a context target, for the modules' contributions: drawn
+    // after the explorer's own entries, each enabled by its predicate.
+    final contributed = widget.contextMenus?.entriesFor(ForgeContextTarget(
+          kind: isDirectory
+              ? ForgeContextTarget.explorerDirectoryKind
+              : ForgeContextTarget.explorerFileKind,
+          data: entryUri,
+        )) ??
+        const <ForgeContextMenuEntry>[];
+    showMenu<Object>(
       context: context,
       position: RelativeRect.fromLTRB(
           position.dx, position.dy, position.dx, position.dy),
@@ -395,9 +416,17 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
         const PopupMenuDivider(),
         const PopupMenuItem(value: 'newFile', child: Text('New File...')),
         const PopupMenuItem(value: 'newFolder', child: Text('New Folder...')),
+        if (contributed.isNotEmpty) ...[
+          const PopupMenuDivider(),
+          ...forgeContextMenuItems(contributed),
+        ],
       ],
     ).then((value) {
       if (value == null || !mounted) return;
+      if (value is ForgeContextMenuEntry) {
+        value.run();
+        return;
+      }
       switch (value) {
         case 'open':
           widget.layoutController.openFile(entryUri);

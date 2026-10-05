@@ -24,6 +24,7 @@ import '../services/forge_terminal_manager.dart';
 import '../services/forge_undo_manager.dart';
 import '../services/forge_virtual_document_manager.dart';
 import '../services/forge_workspace_state_manager.dart';
+import '../shell/forge_context_menu_controller.dart';
 import '../shell/forge_layout_controller.dart';
 import '../shell/forge_module_registry.dart';
 import '../shell/forge_shell_api.dart';
@@ -134,6 +135,9 @@ class DefaultShellApi implements ForgeShellApi {
   @override
   final ForgeWorkspaceStateManager workspaceState;
 
+  @override
+  final ForgeContextMenuController contextMenus;
+
   final Map<String, ForgeTextSettings> _editorTextSettings = {};
   final Map<String, String> _fileTypeDefaults = {};
 
@@ -163,7 +167,13 @@ class DefaultShellApi implements ForgeShellApi {
     required this.actionRegistry,
     required this.shortcuts,
     ForgeWorkspaceStateManager? workspaceState,
-  }) : workspaceState = workspaceState ?? DefaultWorkspaceStateManager();
+    ForgeContextMenuController? contextMenus,
+  })  : workspaceState = workspaceState ?? DefaultWorkspaceStateManager(),
+        contextMenus = contextMenus ??
+            ForgeContextMenuController(
+              modules: modules,
+              actions: actionRegistry,
+            );
 
   /// Creates a [DefaultShellApi] with all default implementations wired.
   ///

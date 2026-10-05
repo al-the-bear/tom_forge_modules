@@ -1,7 +1,6 @@
 import 'package:flutter/widgets.dart';
 
 import 'forge_shortcut_binding.dart';
-import '../shell/forge_system_state.dart';
 
 /// Menu location for action placement.
 ///
@@ -118,15 +117,4 @@ class ForgeAction {
       isVisible: () => true,
     );
   }
-}
-
-/// A context menu contribution tied to a condition.
-class ForgeContextMenuContribution {
-  final ForgeAction action;
-  final bool Function(ForgeSystemState state) isApplicable;
-
-  const ForgeContextMenuContribution({
-    required this.action,
-    required this.isApplicable,
-  });
 }
