@@ -646,5 +646,5 @@ For each editor, verify both modes:
 | [forge_editor_base.md](forge_editor_base.md) | §3.3 Core Interfaces | Added `EditorActionDescriptor` specification |
 | [forge_editor_base.md](forge_editor_base.md) | §5 Standard Actions | Expanded required actions: added moveLineUp/Down, duplicateLine; aligned action IDs with `forge.edit.*` naming |
 | [forge_feature_checklist.md](forge_feature_checklist.md) | §10 Actions and Shortcut Framework | Add descriptor-based registration rows |
-| [dart_editor_usage_guide.md](../tom_dart_editor/doc/dart_editor_usage_guide.md) | Embedding section | Document `handleShortcuts` parameter |
-| [how_to_embed.md](../tom_yaml_editor/doc/how_to_embed.md) | Integration section | Document `handleShortcuts` parameter |
+| [dart_editor_usage_guide.md](../../tom_dart_editor/doc/dart_editor_usage_guide.md) | Embedding section | Document `handleShortcuts` parameter |
+| [how_to_embed.md](../../tom_yaml_editor/doc/how_to_embed.md) | Integration section | Document `handleShortcuts` parameter |
