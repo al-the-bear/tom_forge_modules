@@ -1038,43 +1038,19 @@ class SpecDocumentController extends ChangeNotifier {
   }
 
   /// Replaces every value under [MarkdownImportResult.rootPrefixes] with the
-  /// parsed values, as one undo entry: purge the covered scope, then merge the
-  /// parsed values over what is left and reload — so other roots are untouched
-  /// and list seq/item paths are restored exactly.
+  /// parsed values, as one undo entry.
   ///
-  /// **Both halves are store-agnostic on purpose.** The purge runs through
-  /// [SpecDocument.removeValuesUnder], which clears every store the document
-  /// holds, and the carry-over is whatever [SpecDocument.toJson] then emits.
-  /// Naming the stores here instead would silently drop any store the document
-  /// gains later — which is exactly how stored headlines (YRD3) and codeSpec
-  /// mappings (`codespecs_mapping.md` §9.2) came to be wiped across the whole
-  /// document by an import covering a single root.
-  ///
-  /// This is the one place that works on the raw stores
-  /// ([SpecDocument.toJson]/[SpecDocument.loadJson] bypass the key normalizer),
-  /// so the parser's structural paths are mapped through [storagePathFor] by
-  /// hand before they meet the live keys. The scope needs no such mapping —
-  /// [SpecDocument.removeValuesUnder] normalizes what it is given.
+  /// The apply itself is the runtime's [SpecDocument.applyMarkdownResult]: it
+  /// purges the covered roots through every store and merges the parsed
+  /// values, mapping their structural paths through the installed path
+  /// normalizer ([storagePathFor]) — list item paths and stored ids included.
+  /// Rejected blocks are allowed here: the import reports them to the user
+  /// instead of refusing the whole document.
   void _applyMarkdownImport(MarkdownImportResult result) {
     if (result.rootPrefixes.isEmpty) return;
     final before = document.captureState();
 
-    for (final prefix in result.rootPrefixes) {
-      document.removeValuesUnder(prefix);
-    }
-
-    final doc = document.toJson();
-    document.loadJson({
-      'content': _storeOf(doc, 'content')
-        ..addAll(_toStorageKeys(result.content)),
-      'forms': _storeOf(doc, 'forms')..addAll(_toStorageKeys(result.forms)),
-      'lists': _storeOf(doc, 'lists')
-        ..addAll(_listsToStorageKeys(result.lists)),
-      'headlines': _storeOf(doc, 'headlines')
-        ..addAll(_toStorageKeys(result.headlines)),
-      'codeSpecs': _storeOf(doc, 'codeSpecs')
-        ..addAll(_toStorageKeys(result.codeSpecs)),
-    });
+    document.applyMarkdownResult(result, allowRejections: true);
 
     final after = document.captureState();
     if (before.fingerprint == after.fingerprint) return;
@@ -1091,46 +1067,6 @@ class SpecDocumentController extends ChangeNotifier {
       ),
     );
     notifyListeners();
-  }
-
-  /// The [store] entry of a [SpecDocument.toJson] view as a plain mutable map,
-  /// ready to be merged into. Empty stores are omitted from that view, so a
-  /// missing entry reads as `{}`.
-  Map<String, Object?> _storeOf(Map<String, Object?> doc, String store) {
-    final held = doc[store];
-    return {
-      if (held is Map)
-        for (final e in held.entries) '${e.key}': e.value,
-    };
-  }
-
-  /// [values] re-keyed from structural into storage space ([storagePathFor]).
-  Map<String, Object?> _toStorageKeys(Map<String, Object?> values) => {
-    for (final e in values.entries) storagePathFor(e.key): e.value,
-  };
-
-  /// [lists] re-keyed into storage space — the list paths *and* the item paths
-  /// nested inside each `{seq, items, ids?}` record, which are stored as keys
-  /// in their own right and so must move with their list.
-  Map<String, Object?> _listsToStorageKeys(
-    Map<String, Map<String, Object?>> lists,
-  ) {
-    final out = <String, Object?>{};
-    for (final entry in lists.entries) {
-      final spec = Map<String, Object?>.of(entry.value);
-      final items = spec['items'];
-      if (items is List) {
-        spec['items'] = [for (final it in items) storagePathFor('$it')];
-      }
-      final ids = spec['ids'];
-      if (ids is Map) {
-        spec['ids'] = {
-          for (final e in ids.entries) storagePathFor('${e.key}'): e.value,
-        };
-      }
-      out[storagePathFor(entry.key)] = spec;
-    }
-    return out;
   }
 
   /// Wires the controller's [undo]/[redo] into the Forge shell via
