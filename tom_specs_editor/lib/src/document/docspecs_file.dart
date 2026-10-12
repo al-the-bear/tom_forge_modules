@@ -65,8 +65,7 @@ class DocSpecsFile {
   /// from the generic [SpecDocumentYaml] codec — which walks [tree] (the
   /// document root's metadata tree) to place every value at its hierarchical
   /// section-id path. This method composes the editor-only `review:` pass
-  /// on top using the same shared block-scalar machinery so both passes stay
-  /// byte-compatible. [modelVersion] stamps the authoring object-model version
+  /// through the same codec. [modelVersion] stamps the authoring object-model version
   /// (`major.minor`); an unstamped file (null) omits the key.
   static String encode({
     required SpecDocument document,
@@ -74,48 +73,19 @@ class DocSpecsFile {
     required Map<String, ReviewEntry> review,
     String? modelVersion,
   }) {
-    final b = StringBuffer();
-    b.write(
-      SpecDocumentYaml.encode(
-        document: document,
-        tree: tree,
-        modelVersion: modelVersion,
-      ),
+    // The `review:` pass is written by the runtime's pass-through writer
+    // ([SpecDocumentYaml.writeReviewPass]); only the mapping onto the editor's
+    // [ReviewEntry] type lives here. Empty entries carry nothing to persist.
+    return SpecDocumentYaml.encode(
+      document: document,
+      tree: tree,
+      modelVersion: modelVersion,
+      review: {
+        for (final e in review.entries)
+          if (!e.value.isEmpty) e.key: e.value.toMap(),
+      },
     );
-    _writeReview(b, review);
-    return b.toString();
   }
-
-  static void _writeReview(StringBuffer b, Map<String, ReviewEntry> review) {
-    final keys = review.keys.where((k) => !review[k]!.isEmpty).toList()..sort();
-    if (keys.isEmpty) {
-      b.writeln('review: {}');
-      return;
-    }
-    b.writeln('review:');
-    for (final key in keys) {
-      final e = review[key]!;
-      b.writeln('  ${SpecDocumentYaml.yamlKey(key)}:');
-      b.writeln('    scope: ${e.scope.token}');
-      if (e.stopHere) b.writeln('    stop_here: true');
-      if (e.addDetails) b.writeln('    add_details: true');
-      if (e.mustBeList) b.writeln('    must_be_list: true');
-      if (e.singleEntry) b.writeln('    single_entry: true');
-      if (e.mustBeContentString) b.writeln('    must_be_content_string: true');
-      if (e.convertFormToContent) {
-        b.writeln('    convert_form_to_content: true');
-      }
-      if (e.reviewed) b.writeln('    reviewed: true');
-      if (e.comment.trim().isNotEmpty) {
-        SpecDocumentYaml.writeScalar(b, 4, 'comment', e.comment.trim());
-      }
-    }
-  }
-
-  // The block-scalar machinery, the `document:` writer, and the raw YAML parse
-  // now live in the generic [SpecDocumentYaml] codec (step 4); the review writer
-  // above reuses its [SpecDocumentYaml.writeScalar] / [SpecDocumentYaml.yamlKey]
-  // helpers so both passes stay byte-compatible.
 
   // --- Decode ----------------------------------------------------------------
 
