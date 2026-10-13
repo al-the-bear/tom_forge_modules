@@ -100,7 +100,7 @@ class DocSpecsFile {
     final contents = SpecDocumentYaml.decode(yaml, tree);
 
     final review = <String, ReviewEntry>{};
-    contents.review.forEach((k, v) {
+    contents.review?.forEach((k, v) {
       if (v is Map) review['$k'] = ReviewEntry.fromMap(v);
     });
 
