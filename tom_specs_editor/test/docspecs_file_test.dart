@@ -160,7 +160,8 @@ void main() {
     test('a cleared (empty) value is never emitted', () {
       final doc = SpecDocument()..setContent('D00/D00-OVR', '');
       final yaml = encode(doc);
-      expect(yaml, contains('document: {}'));
+      // An empty document keeps its root key with an empty body (SOM §12.3).
+      expect(yaml, matches(RegExp(r'\ndocument:\n  [^\n]+: \{\}\n')));
       expect(roundTrip(doc).doc.content('D00/D00-OVR'), isNull);
     });
 
@@ -177,7 +178,7 @@ void main() {
 
     test('an empty document omits all sections', () {
       final yaml = encode(SpecDocument());
-      expect(yaml, contains('document: {}'));
+      expect(yaml, matches(RegExp(r'\ndocument:\n  [^\n]+: \{\}\n')));
       expect(yaml, isNot(contains('D00-OVR')));
       expect(yaml, isNot(contains('D00-HDR')));
       expect(yaml, isNot(contains('D00-REQ')));
