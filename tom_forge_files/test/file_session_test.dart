@@ -205,6 +205,22 @@ void main() {
         expect(strict.state, ForgeFileSessionState.refused);
       });
 
+      test('SESSION-8: a burst of typing is one history entry; another '
+          'group starts the next, and undo walks them back', () async {
+        await s.writeBehind('t.md', utf8.encode('ab\n'));
+        final session = await open('t.md');
+        session
+          ..edit('abc\n', 'Edit', group: 'typing')
+          ..edit('abcd\n', 'Edit', group: 'typing')
+          ..edit('abcde\n', 'Edit', group: 'typing');
+        expect(session.history, hasLength(1));
+        session.edit('Xabcde\n', 'Other', group: 'other');
+        expect(session.history, hasLength(2));
+        await session.undo();
+        await session.undo();
+        expect(session.text, 'ab\n');
+      });
+
       test('SESSION-7: listeners hear an edit, and stop hearing after '
           'removal', () async {
         final session = await open('q/todos.yaml');
