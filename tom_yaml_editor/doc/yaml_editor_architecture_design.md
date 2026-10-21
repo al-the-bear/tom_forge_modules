@@ -32,7 +32,6 @@ graph TD
         TV["TreeView\n(generic tree widget)"]
         VF["ValidationFramework\n(error model, badges, tooltips)"]
         TE["TextEditorCore\n(syntax-highlighted text field)"]
-        UH["UndoHistory\n(generic undo/redo stack)"]
         IC["InlineControls\n(add/remove/collapse buttons)"]
     end
 
@@ -255,35 +254,34 @@ classDiagram
 
 **Why shared:** Validation badges, error tooltips, and severity colors are needed by any schema-aware editor.
 
-### 3. UndoHistory
+### 3. The undo stack
 
-A generic, typed undo/redo stack with configurable depth.
+Undo/redo is not part of `tom_editors_shared`: every editor in the workspace
+keeps its history on `tom_forge_core`'s `ForgeUndoStack<E>`
+(`package:tom_forge_core/tom_forge_undo.dart`), a bounded stack that applies an
+entry first and moves it second, so a failed undo leaves the history as it was.
+The YAML controller keeps its `YamlEditOperation`s on it: undo applies
+`revert`, redo applies `apply`.
 
 ```mermaid
 classDiagram
-    class UndoHistory~T~ {
-        -List~UndoEntry~T~~ _undoStack
-        -List~UndoEntry~T~~ _redoStack
-        +int maxDepth
+    class ForgeUndoStack~E~ {
+        +int maxEntries
         +bool canUndo
         +bool canRedo
         +push(entry)
-        +undo() T
-        +redo() T
+        +undo(apply) E?
+        +redo(apply) E?
         +clear()
     }
 
-    class UndoEntry~T~ {
-        +T oldState
-        +T newState
-        +String? description
-        +DateTime timestamp
+    class YamlEditOperation {
+        +apply(document)
+        +revert(document)
     }
 
-    UndoHistory --> UndoEntry : manages
+    ForgeUndoStack --> YamlEditOperation : holds
 ```
-
-**Why shared:** Undo/redo is a universal editing pattern. The YAML controller wraps this with YAML-specific operations.
 
 ### 4. TextEditorCore
 
@@ -586,7 +584,7 @@ graph TD
 
     YEC --> YDM["YamlDocumentModel"]
     YEC --> YS["YamlSchema"]
-    YEC --> UH["UndoHistory (shared)"]
+    YEC --> UH["ForgeUndoStack (tom_forge_core)"]
     YEC --> SW["SchemaWalker"]
 
     SI --> TEC["TextEditorCore (shared)"]

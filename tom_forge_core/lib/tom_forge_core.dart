@@ -78,6 +78,7 @@ export 'src/defaults/default_output_manager.dart';
 export 'src/defaults/default_progress_manager.dart';
 export 'src/defaults/default_search_manager.dart';
 export 'src/defaults/default_undo_manager.dart';
+export 'src/defaults/undo_stack.dart';
 export 'src/defaults/test_config_manager.dart';
 export 'src/defaults/lru_cache.dart';
 export 'src/defaults/generation_cache.dart';

@@ -2,7 +2,6 @@
 ///
 /// Provides generic components with zero format-specific logic:
 ///
-/// - **Undo/Redo**: [UndoHistory] — typed undo/redo stack
 /// - **Validation**: [ValidationError], [ValidationBadge], [ValidationTooltip],
 ///   [ErrorPropagator]
 /// - **Tree**: [TreeNode], [TreeController], [TreeView]
@@ -15,9 +14,6 @@
 /// - **Text Settings**: [ForgeTextSettings], [ForgeTextContext]
 /// - **Editor Integration**: [ForgeEditorIntegration], [StandardEditingActions]
 library;
-
-// Undo/Redo
-export 'src/undo_history.dart';
 
 // Validation
 export 'src/validation/validation_error.dart';

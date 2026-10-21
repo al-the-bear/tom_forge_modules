@@ -502,8 +502,8 @@ class _PlainTextEditorWidgetState extends State<_PlainTextEditorWidget> {
   final FocusNode _focusNode = FocusNode();
 
   // Undo/redo state
-  final List<_UndoState> _undoStack = [];
-  final List<_UndoState> _redoStack = [];
+  final ForgeUndoStack<_TextChange> _history =
+      ForgeUndoStack(maxEntries: _maxUndoStackSize);
   String _lastSavedText = '';
   TextSelection _lastSavedSelection = const TextSelection.collapsed(offset: 0);
   Timer? _undoDebounceTimer;
@@ -536,12 +536,12 @@ class _PlainTextEditorWidgetState extends State<_PlainTextEditorWidget> {
     integration.registerAction(
       StandardEditingActions.undoActionId,
       _undo,
-      isEnabled: () => _undoStack.isNotEmpty,
+      isEnabled: () => _history.canUndo,
     );
     integration.registerAction(
       StandardEditingActions.redoActionId,
       _redo,
-      isEnabled: () => _redoStack.isNotEmpty,
+      isEnabled: () => _history.canRedo,
     );
 
     _shortcuts = <ShortcutActivator, Intent>{};
@@ -581,42 +581,33 @@ class _PlainTextEditorWidgetState extends State<_PlainTextEditorWidget> {
 
   void _scheduleUndoSave(String newText) {
     _undoDebounceTimer?.cancel();
-    _undoDebounceTimer = Timer(_undoDebounceDuration, () {
-      if (_lastSavedText != newText) {
-        _undoStack.add(_UndoState(
-          text: _lastSavedText,
-          selection: _lastSavedSelection,
-        ));
-        if (_undoStack.length > _maxUndoStackSize) {
-          _undoStack.removeAt(0);
-        }
-        _lastSavedText = newText;
-        _lastSavedSelection = _textController.selection;
-        _redoStack.clear();
-        widget.integration?.notifyTextEdit(label: 'Text edit');
-      }
-    });
+    _undoDebounceTimer = Timer(_undoDebounceDuration, _flushPendingUndoSave);
+  }
+
+  /// Records the typing since the last entry as one change, at once — before
+  /// an undo, so the undo takes back what is on screen rather than the entry
+  /// before it.
+  void _flushPendingUndoSave() {
+    _undoDebounceTimer?.cancel();
+    final text = _textController.text;
+    if (_lastSavedText == text) return;
+    _history.push(
+      _TextChange(
+        before: _UndoState(text: _lastSavedText, selection: _lastSavedSelection),
+        after: _UndoState(text: text, selection: _textController.selection),
+      ),
+    );
+    _lastSavedText = text;
+    _lastSavedSelection = _textController.selection;
+    widget.integration?.notifyTextEdit(label: 'Text edit');
   }
 
   void _undo() {
-    if (_undoStack.isEmpty) return;
-    _redoStack.add(_UndoState(
-      text: _textController.text,
-      selection: _textController.selection,
-    ));
-    final state = _undoStack.removeLast();
-    _applyState(state);
+    _flushPendingUndoSave();
+    _history.undo((change) => _applyState(change.before));
   }
 
-  void _redo() {
-    if (_redoStack.isEmpty) return;
-    _undoStack.add(_UndoState(
-      text: _textController.text,
-      selection: _textController.selection,
-    ));
-    final state = _redoStack.removeLast();
-    _applyState(state);
-  }
+  void _redo() => _history.redo((change) => _applyState(change.after));
 
   void _applyState(_UndoState state) {
     _textController.removeListener(_onTextChanged);
@@ -727,6 +718,13 @@ class _UndoState {
   final String text;
   final TextSelection selection;
   const _UndoState({required this.text, required this.selection});
+}
+
+/// One undoable change: the text and selection before and after it.
+class _TextChange {
+  final _UndoState before;
+  final _UndoState after;
+  const _TextChange({required this.before, required this.after});
 }
 
 /// A [TextEditingController] that applies syntax highlighting via

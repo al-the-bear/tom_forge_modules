@@ -51,7 +51,7 @@ class MdEditorDefaults {
 ///
 /// Extends [BaseStandaloneIntegration] with markdown-specific defaults and
 /// disables automatic undo tracking (the [MdEditorController] manages its
-/// own [UndoHistory<MdEditOperation>] stack).
+/// own history of `MdEditOperation`s on `tom_forge_core`'s `ForgeUndoStack`).
 ///
 /// After creation, the MdEditor widget registers its own action handlers
 /// for undo/redo, save, search, and markdown-specific operations.

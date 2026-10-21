@@ -27,6 +27,9 @@ dependencies:
     path: ../../tom_ai/ai_build/tom_doc_specs
   tom_editors_shared:
     path: ../tom_editors_shared
+  # The undo stack the controller keeps its edit operations on.
+  tom_forge_core:
+    path: ../tom_forge_core
 
 dev_dependencies:
   tom_web_build_probe:

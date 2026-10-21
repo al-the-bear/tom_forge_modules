@@ -1,4 +1,6 @@
-/// The undo/redo contract and its default implementation, on their own.
+/// The undo/redo contract, its default implementation and the stack every
+/// undo history in the workspace runs on ([ForgeUndoStack], with
+/// [forgeApplyAll] for composite steps), on their own.
 ///
 /// This is a **narrow, platform-neutral** entry point beside the default
 /// `tom_forge_core.dart` barrel, and it exists because the barrel exports
@@ -23,5 +25,6 @@
 library;
 
 export 'src/defaults/default_undo_manager.dart';
+export 'src/defaults/undo_stack.dart';
 export 'src/services/forge_undo_manager.dart';
 export 'src/types/forge_listenable.dart';

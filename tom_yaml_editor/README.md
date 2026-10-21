@@ -25,7 +25,7 @@ features.
   highlighting
 - **Full theming** — colours, fonts, structure indicators, and embedded-editor
   chrome are all customisable via `YamlEditorTheme`
-- **Undo/redo** — powered by `UndoHistory` from `tom_editors_shared`
+- **Undo/redo** — the edit operations kept on `tom_forge_core`'s `ForgeUndoStack`
 - **Tree view** — collapsible, keyboard-navigable YAML structure tree
 
 ## Quick Start

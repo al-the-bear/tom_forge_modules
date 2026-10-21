@@ -142,6 +142,4 @@ export 'package:tom_editors_shared/tom_editors_shared.dart'
         ValidationSeverity,
         ValidationBadge,
         ValidationTooltip,
-        ErrorPropagator,
-        UndoHistory,
-        UndoEntry;
+        ErrorPropagator;

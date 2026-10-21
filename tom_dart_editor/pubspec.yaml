@@ -15,6 +15,9 @@ dependencies:
   # Shared editor infrastructure (ForgeEditorIntegration, actions, settings)
   tom_editors_shared:
     path: ../tom_editors_shared
+  # The undo stack the editor keeps its text changes on.
+  tom_forge_core:
+    path: ../tom_forge_core
 
   # Dart analyzer for code analysis and syntax highlighting
   # Note: Uses some internal APIs for summary-based analysis (mobile/web support).

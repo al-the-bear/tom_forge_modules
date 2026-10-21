@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart';
+import 'package:tom_forge_core/tom_forge_undo.dart';
 
 import 'model/yaml_document_model.dart';
 import 'model/yaml_edit_operation.dart';
@@ -11,7 +12,7 @@ import 'tree/editor_trail.dart';
 /// Manages the YAML document state, undo/redo history, validation,
 /// and notifies listeners of changes.
 ///
-/// Uses [UndoHistory] from `tom_editors_shared` for undo/redo management
+/// Uses `tom_forge_core`'s `ForgeUndoStack` for undo/redo management
 /// and [ValidationError] for structured error reporting.
 ///
 /// ```dart
@@ -36,8 +37,8 @@ class YamlEditorController extends ChangeNotifier {
   /// The JSON Schema used for validation and construction help.
   final YamlSchema? _schema;
 
-  /// Typed undo/redo history backed by the shared UndoHistory component.
-  late final UndoHistory<YamlEditOperation> _history;
+  /// The undo/redo history of edit operations, on the shared undo stack.
+  late final ForgeUndoStack<YamlEditOperation> _history;
 
   /// Cached validation errors, recomputed on every document change.
   List<ValidationError> _cachedErrors = [];
@@ -56,7 +57,7 @@ class YamlEditorController extends ChangeNotifier {
     int maxUndoHistory = 100,
   })  : _document = YamlDocumentModel.parse(initialYaml),
         _schema = schema {
-    _history = UndoHistory<YamlEditOperation>(maxDepth: maxUndoHistory);
+    _history = ForgeUndoStack<YamlEditOperation>(maxEntries: maxUndoHistory);
     _revalidate();
   }
 
@@ -124,10 +125,7 @@ class YamlEditorController extends ChangeNotifier {
   void applyEdit(YamlEditOperation operation) {
     trailEvent('controller: applyEdit ${operation.kind.name} path=${operation.path}');
     try {
-      _history.push(UndoEntry(
-        oldState: operation,
-        newState: operation,
-      ));
+      _history.push(operation);
       _document = operation.apply(_document);
       _lastOperation = operation; // Store for UI to adjust expansion state
       isDirtyNotifier.value = true;
@@ -153,9 +151,10 @@ class YamlEditorController extends ChangeNotifier {
     if (!canUndo) return;
     trailEvent('controller: undo');
     try {
-      var entry = _history.undo();
+      final entry = _history.undo(
+        (operation) => _document = operation.revert(_document),
+      );
       if (entry == null) return;
-      _document = entry.oldState.revert(_document);
       _revalidate();
       notifyListeners();
     } catch (e, st) {
@@ -173,9 +172,10 @@ class YamlEditorController extends ChangeNotifier {
     if (!canRedo) return;
     trailEvent('controller: redo');
     try {
-      var entry = _history.redo();
+      final entry = _history.redo(
+        (operation) => _document = operation.apply(_document),
+      );
       if (entry == null) return;
-      _document = entry.newState.apply(_document);
       _revalidate();
       notifyListeners();
     } catch (e, st) {

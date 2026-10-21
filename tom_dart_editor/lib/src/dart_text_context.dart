@@ -19,8 +19,8 @@ import 'editor_trail.dart';
 ///   codeController: controller,
 ///   textController: textEditingController,
 ///   isDirtyFn: () => _hasUnsavedChanges,
-///   canUndoFn: () => _undoStack.isNotEmpty,
-///   canRedoFn: () => _redoStack.isNotEmpty,
+///   canUndoFn: () => _history.canUndo,
+///   canRedoFn: () => _history.canRedo,
 /// );
 /// ```
 class DartTextContext implements ForgeTextContext {

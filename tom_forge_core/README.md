@@ -124,3 +124,31 @@ from the package authors, and more.
 ## License
 
 BSD-3-Clause — See [LICENSE](LICENSE) for details.
+
+## Undo and redo
+
+One stack, `ForgeUndoStack<E>`, that every undo history in the workspace runs
+on — the shell's `DefaultUndoManager`, the text, Markdown, YAML and Dart
+editors, the file tabs' `ForgeFileSession`, and `tom_flutter_ui`'s
+`TomUndoHistory`. It is in **`package:tom_forge_core/tom_forge_undo.dart`**,
+which reaches no `dart:io` and no Flutter, beside the `ForgeUndoManager`
+contract and `DefaultUndoManager`.
+
+- **Applied first, moved second.** `undo` and `redo` apply an entry and only
+  then move it between the stacks, so an application that throws leaves the
+  entry where it was and the error reaches the caller. `undoAsync` and
+  `redoAsync` do the same for an application that completes later.
+- **Bounded.** A push clears the redo stack and drops the oldest entries
+  beyond `maxEntries`; `popNewest` takes the newest entry back so a history can
+  merge a burst of typing into one act.
+- **Atomic composite steps.** `forgeApplyAll` (and `forgeApplyAllAsync`)
+  apply a list of steps in order and, when one throws, put back the ones
+  already applied, newest first, before rethrowing. `CompositeUndoEntry`, the
+  unit a `beginUndoGroup` / `endUndoGroup` block becomes, is built on it.
+
+```dart
+final history = ForgeUndoStack<String>(maxEntries: 50);
+history.push('typed "hello"');
+history.undo((entry) => print('undo $entry')); // applied, then moved to redo
+history.redo((entry) => print('redo $entry'));
+```

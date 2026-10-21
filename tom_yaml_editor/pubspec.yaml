@@ -18,6 +18,9 @@ dependencies:
   # Shared editor foundation (undo, validation, tree, text editor)
   tom_editors_shared:
     path: ../tom_editors_shared
+  # The undo stack the controller keeps its edit operations on.
+  tom_forge_core:
+    path: ../tom_forge_core
 
   # YAML parsing — preserves comments and formatting for non-destructive editing
   yaml: ^3.1.0

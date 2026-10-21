@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:tom_doc_specs/tom_doc_specs.dart' as specs;
 import 'package:tom_editors_shared/tom_editors_shared.dart';
+import 'package:tom_forge_core/tom_forge_undo.dart';
 
 import '../debug/md_editor_debug.dart';
 import '../events/md_events.dart';
@@ -43,7 +44,9 @@ class MdEditorController extends ChangeNotifier {
     this.eventHandlers,
     this.uri,
     int maxUndoHistory = 100,
-  }) : _undoHistory = UndoHistory<MdEditOperation>(maxDepth: maxUndoHistory) {
+  }) : _undoHistory = ForgeUndoStack<MdEditOperation>(
+         maxEntries: maxUndoHistory,
+       ) {
     if (initialMarkdown != null) {
       _setMarkdownInternal(initialMarkdown);
     }
@@ -208,7 +211,7 @@ class MdEditorController extends ChangeNotifier {
 
   // ── Private state ──
 
-  final UndoHistory<MdEditOperation> _undoHistory;
+  final ForgeUndoStack<MdEditOperation> _undoHistory;
 
   // ── Content manipulation ──
 
@@ -695,17 +698,11 @@ class MdEditorController extends ChangeNotifier {
 
   void undo() {
     try {
-      final entry = _undoHistory.undo();
+      final entry = _undoHistory.undo(
+        (op) => _restore(op.oldMarkdown, op.cursorOffset),
+      );
       if (entry != null) {
         MdEditorDebug.logger.info('Undo: ${entry.description}');
-        _setMarkdownInternal(entry.oldState.oldMarkdown);
-        _refreshSelectedSection();
-        // Restore cursor position from undo entry if available.
-        final cursor = entry.oldState.cursorOffset;
-        if (cursor != null) {
-          _cursorOffset = cursor.clamp(0, _markdown.length);
-          cursorPositionNotifier.value = _cursorOffset;
-        }
         notifyListeners();
       }
     } catch (e, st) {
@@ -713,19 +710,23 @@ class MdEditorController extends ChangeNotifier {
     }
   }
 
+  /// Puts [markdown] back and the cursor where the entry recorded it.
+  void _restore(String markdown, int? cursor) {
+    _setMarkdownInternal(markdown);
+    _refreshSelectedSection();
+    if (cursor != null) {
+      _cursorOffset = cursor.clamp(0, _markdown.length);
+      cursorPositionNotifier.value = _cursorOffset;
+    }
+  }
+
   void redo() {
     try {
-      final entry = _undoHistory.redo();
+      final entry = _undoHistory.redo(
+        (op) => _restore(op.newMarkdown, op.cursorOffset),
+      );
       if (entry != null) {
         MdEditorDebug.logger.info('Redo: ${entry.description}');
-        _setMarkdownInternal(entry.newState.newMarkdown);
-        _refreshSelectedSection();
-        // Restore cursor position from redo entry if available.
-        final cursor = entry.newState.cursorOffset;
-        if (cursor != null) {
-          _cursorOffset = cursor.clamp(0, _markdown.length);
-          cursorPositionNotifier.value = _cursorOffset;
-        }
         notifyListeners();
       }
     } catch (e, st) {
@@ -1172,21 +1173,14 @@ class MdEditorController extends ChangeNotifier {
   }
 
   void _pushUndoWithStates(String oldMd, String newMd, String description) {
-    _undoHistory.push(UndoEntry(
-      oldState: MdEditOperation(
+    _undoHistory.push(
+      MdEditOperation(
         oldMarkdown: oldMd,
         newMarkdown: newMd,
         description: description,
         cursorOffset: _cursorOffset,
       ),
-      newState: MdEditOperation(
-        oldMarkdown: oldMd,
-        newMarkdown: newMd,
-        description: description,
-        cursorOffset: _cursorOffset,
-      ),
-      description: description,
-    ));
+    );
     // Notify bridge for shell undo manager integration.
     onUndoPush?.call(description);
   }

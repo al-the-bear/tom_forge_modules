@@ -57,13 +57,22 @@ TextEditorCore seems the right place to incorporate this.
 
 ### 2.4 Undo/Redo Approaches
 
-| Editor | Approach | Location |
-|--------|----------|----------|
-| MD Editor | Controller methods (`_controller.undo()`) | md_editor.dart |
-| Dart Editor | Local stack (`_undoStack`/`_redoStack`) | dart_code_editor.dart |
-| YAML Editor | `UndoHistory<YamlEditOperation>` from shared | yaml_editor_controller.dart |
+Every editor keeps its history on one stack, `tom_forge_core`'s
+`ForgeUndoStack<E>` (`package:tom_forge_core/tom_forge_undo.dart`), which
+applies an entry first and moves it second, so a failed undo leaves the history
+as it was. What differs is the entry:
 
-**Problem**: Different undo granularity and APIs.
+| Editor | Entry on the stack | Location |
+|--------|--------------------|----------|
+| MD Editor | `MdEditOperation` | md_editor_controller.dart |
+| Dart Editor | a before/after text change | dart_code_editor.dart |
+| YAML Editor | `YamlEditOperation` | yaml_editor_controller.dart |
+| Plain-text editor | a before/after text change | forge_plain_text_editor.dart |
+| Standalone integrations | `TextUndoEntry` | base_standalone_integration.dart |
+| File tabs (`ForgeFileSession`) | `ForgeFileHistoryEntry` | file_session.dart |
+
+The shell's own history, `DefaultUndoManager`, runs on the same stack, and each
+editor bridges into it with `notifyTextEdit`.
 
 ### 2.5 Font Configuration Approaches
 
@@ -1317,22 +1326,17 @@ List<ForgeAction> createStandardEditingActions({
 }
 ```
 
-#### 16.1.6 Integration with Existing UndoHistory
+#### 16.1.6 The undo stack
 
-The existing `UndoHistory<T>` in tom_editors_shared is generic. Standalone integrations should use it with a simple text-based entry:
+Standalone integrations keep a `TextUndoEntry` per change on `tom_forge_core`'s
+`ForgeUndoStack`; undo applies the entry's old text and redo its new text:
 
 ```dart
-class TextUndoEntry {
-  final String oldText;
-  final String newText;
-  final TextSelection? oldSelection;
-  final TextSelection? newSelection;
-  
-  TextUndoEntry({required this.oldText, required this.newText, this.oldSelection, this.newSelection});
-}
+final _history = ForgeUndoStack<TextUndoEntry>(maxEntries: 100);
 
-// In standalone integration:
-final _history = UndoHistory<TextUndoEntry>(maxDepth: 100);
+_history.push(TextUndoEntry(oldText: before, newText: after));
+_history.undo((e) => apply(e.oldText, e.oldSelection));
+_history.redo((e) => apply(e.newText, e.newSelection));
 ```
 
 ---

@@ -10,6 +10,7 @@ library;
 import 'package:tom_basics/utilities.dart';
 
 import 'package:tom_forge_core/files.dart';
+import 'package:tom_forge_core/tom_forge_undo.dart';
 
 /// Larger than this opens read-only.
 const int forgeReadOnlyAbove = 2 * 1024 * 1024;
@@ -46,8 +47,7 @@ sealed class ForgeFileHistoryEntry {
 /// A text edit: [removed] at [start] was replaced by [inserted].
 /// One structured edit is one of these however many lines it touched.
 class ForgeFileTextEdit extends ForgeFileHistoryEntry {
-  const ForgeFileTextEdit(
-      super.label, this.start, this.removed, this.inserted);
+  const ForgeFileTextEdit(super.label, this.start, this.removed, this.inserted);
 
   final int start;
   final String removed;
@@ -58,8 +58,7 @@ class ForgeFileTextEdit extends ForgeFileHistoryEntry {
 /// undo and redo write to disk too. Each answers the file's text
 /// and revision as the act left it.
 class ForgeFileDiskAct extends ForgeFileHistoryEntry {
-  const ForgeFileDiskAct(super.label,
-      {required this.undo, required this.redo});
+  const ForgeFileDiskAct(super.label, {required this.undo, required this.redo});
 
   final Future<ForgeFileContent> Function() undo;
   final Future<ForgeFileContent> Function() redo;
@@ -68,11 +67,11 @@ class ForgeFileDiskAct extends ForgeFileHistoryEntry {
 /// The file changed on disk while the session held unsaved edits.
 class ForgeFileExternalChange {
   const ForgeFileExternalChange.modified(this.theirs, this.revision)
-      : deleted = false;
+    : deleted = false;
   const ForgeFileExternalChange.deleted()
-      : theirs = null,
-        revision = null,
-        deleted = true;
+    : theirs = null,
+      revision = null,
+      deleted = true;
 
   final bool deleted;
 
@@ -138,8 +137,9 @@ class ForgeFileSession extends ForgeChangeNotifier {
   bool _deletedOnDisk = false;
   String? _notice;
 
-  final List<ForgeFileHistoryEntry> _undo = [];
-  final List<ForgeFileHistoryEntry> _redo = [];
+  final ForgeUndoStack<ForgeFileHistoryEntry> _history = ForgeUndoStack(
+    maxEntries: forgeFileHistoryDepth,
+  );
 
   /// The text as edited.
   String get text => _text;
@@ -173,11 +173,11 @@ class ForgeFileSession extends ForgeChangeNotifier {
   /// the file is invalid unless the user insists.
   Future<bool> Function()? beforeSave;
 
-  bool get canUndo => _undo.isNotEmpty;
-  bool get canRedo => _redo.isNotEmpty;
+  bool get canUndo => _history.canUndo;
+  bool get canRedo => _history.canRedo;
 
   /// The history, oldest first — for tests and the history view.
-  List<ForgeFileHistoryEntry> get history => List.unmodifiable(_undo);
+  List<ForgeFileHistoryEntry> get history => _history.undoEntries;
 
   /// Reads the file. Opening never writes.
   ///
@@ -192,8 +192,10 @@ class ForgeFileSession extends ForgeChangeNotifier {
         return;
       }
       if (entry.size > forgeRefuseAbove) {
-        _refuse('This file is ${(entry.size / (1024 * 1024)).toStringAsFixed(1)}'
-            ' MiB; files larger than 50 MiB are not opened.');
+        _refuse(
+          'This file is ${(entry.size / (1024 * 1024)).toStringAsFixed(1)}'
+          ' MiB; files larger than 50 MiB are not opened.',
+        );
         return;
       }
       final content = await fileSystem.read(uri);
@@ -227,9 +229,9 @@ class ForgeFileSession extends ForgeChangeNotifier {
     _readOnly = content.bytes.length > forgeReadOnlyAbove
         ? 'This file is larger than 2 MiB and is shown read-only.'
         : !decoded.encoding.writable
-            ? 'This file is not UTF-8 or UTF-16 and is shown read-only, as '
-                'Latin-1.'
-            : null;
+        ? 'This file is not UTF-8 or UTF-16 and is shown read-only, as '
+              'Latin-1.'
+        : null;
   }
 
   /// Replaces the text with [newText] as one history entry labelled [label].
@@ -241,26 +243,30 @@ class ForgeFileSession extends ForgeChangeNotifier {
     if (_readOnly != null) throw StateError(_readOnly!);
     if (newText == _text) return;
     final now = DateTime.now();
-    final last = _undo.isEmpty ? null : _undo.last;
+    final last = _history.nextUndo;
     if (group != null &&
         group == _lastGroup &&
         last is ForgeFileTextEdit &&
-        _redo.isEmpty &&
+        !_history.canRedo &&
         _lastEditAt != null &&
         now.difference(_lastEditAt!) <= forgeFileTypingPause) {
       // The text before the last entry, and one replacement from it.
       final before = _text.replaceRange(
-          last.start, last.start + last.inserted.length, last.removed);
-      _undo.removeLast();
+        last.start,
+        last.start + last.inserted.length,
+        last.removed,
+      );
+      _history.popNewest();
       final change = _diff(before, newText);
       if (change.$2.isNotEmpty || change.$3.isNotEmpty) {
-        _push(ForgeFileTextEdit(last.label, change.$1, change.$2, change.$3));
+        _history.push(
+          ForgeFileTextEdit(last.label, change.$1, change.$2, change.$3),
+        );
       }
     } else {
       final change = _diff(_text, newText);
-      _push(ForgeFileTextEdit(label, change.$1, change.$2, change.$3));
+      _history.push(ForgeFileTextEdit(label, change.$1, change.$2, change.$3));
     }
-    _redo.clear();
     _lastGroup = group;
     _lastEditAt = now;
     _text = newText;
@@ -269,11 +275,6 @@ class ForgeFileSession extends ForgeChangeNotifier {
 
   String? _lastGroup;
   DateTime? _lastEditAt;
-
-  void _push(ForgeFileHistoryEntry entry) {
-    _undo.add(entry);
-    if (_undo.length > forgeFileHistoryDepth) _undo.removeAt(0);
-  }
 
   /// The smallest single replacement turning [a] into [b].
   static (int, String, String) _diff(String a, String b) {
@@ -296,17 +297,22 @@ class ForgeFileSession extends ForgeChangeNotifier {
   /// Undoes the newest entry. An act that wrote to disk is undone on disk,
   /// and only while the tab has no other unsaved edits — otherwise the write
   /// would carry them too.
-  Future<void> undo() => _step(_undo, _redo, reverse: true);
+  Future<void> undo() async {
+    if (await _history.undoAsync((e) => _apply(e, reverse: true)) != null) {
+      _stepped();
+    }
+  }
 
-  Future<void> redo() => _step(_redo, _undo, reverse: false);
+  Future<void> redo() async {
+    if (await _history.redoAsync((e) => _apply(e, reverse: false)) != null) {
+      _stepped();
+    }
+  }
 
-  Future<void> _step(
-    List<ForgeFileHistoryEntry> from,
-    List<ForgeFileHistoryEntry> to, {
+  Future<void> _apply(
+    ForgeFileHistoryEntry entry, {
     required bool reverse,
   }) async {
-    if (from.isEmpty) return;
-    final entry = from.last;
     switch (entry) {
       case ForgeFileTextEdit():
         final (find, put) = reverse
@@ -315,8 +321,10 @@ class ForgeFileSession extends ForgeChangeNotifier {
         _text = _text.replaceRange(entry.start, entry.start + find.length, put);
       case ForgeFileDiskAct():
         if (_text != _saved) {
-          throw StateError('Save or discard the unsaved edits before '
-              '${reverse ? 'undoing' : 'redoing'} "${entry.label}".');
+          throw StateError(
+            'Save or discard the unsaved edits before '
+            '${reverse ? 'undoing' : 'redoing'} "${entry.label}".',
+          );
         }
         final result = await (reverse ? entry.undo() : entry.redo());
         final decoded = tomDecodeTextBytes(result.bytes);
@@ -324,8 +332,9 @@ class ForgeFileSession extends ForgeChangeNotifier {
         _saved = decoded.text;
         _revision = result.revision;
     }
-    from.removeLast();
-    to.add(entry);
+  }
+
+  void _stepped() {
     _lastGroup = null;
     notifyListeners();
   }
@@ -337,8 +346,7 @@ class ForgeFileSession extends ForgeChangeNotifier {
     _text = decoded.text;
     _saved = decoded.text;
     _revision = result.revision;
-    _push(act);
-    _redo.clear();
+    _history.push(act);
     notifyListeners();
   }
 
@@ -395,8 +403,7 @@ class ForgeFileSession extends ForgeChangeNotifier {
     if (_text == _saved && !_deletedOnDisk) {
       // Clean: reload, and the history goes with the text it described.
       _adopt(content);
-      _undo.clear();
-      _redo.clear();
+      _history.clear();
       _external = null;
       _notice = 'Reloaded: changed on disk';
       notifyListeners();
@@ -425,8 +432,7 @@ class ForgeFileSession extends ForgeChangeNotifier {
     _text = change.theirs!;
     _saved = change.theirs!;
     _revision = change.revision;
-    _undo.clear();
-    _redo.clear();
+    _history.clear();
     _external = null;
     notifyListeners();
   }
@@ -445,8 +451,7 @@ class ForgeFileSession extends ForgeChangeNotifier {
     _lastGroup = null;
     if (_text == _saved) return;
     _text = _saved;
-    _undo.clear();
-    _redo.clear();
+    _history.clear();
     notifyListeners();
   }
 }

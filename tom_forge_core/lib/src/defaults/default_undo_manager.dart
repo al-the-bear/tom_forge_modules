@@ -2,6 +2,7 @@ import 'dart:async';
 
 import '../services/forge_undo_manager.dart';
 import '../types/forge_listenable.dart';
+import 'undo_stack.dart';
 
 /// An undo entry with forward and backward operations.
 ///
@@ -48,57 +49,37 @@ class CompositeUndoEntry extends UndoEntry {
     required this.entries,
     super.label,
   }) : super(
-          undo: () async {
-            for (var i = entries.length - 1; i >= 0; i--) {
-              try {
-                await entries[i].undo();
-              } catch (_) {
-                for (var j = i + 1; j < entries.length; j++) {
-                  await entries[j].redo();
-                }
-                rethrow;
-              }
-            }
-          },
-          redo: () async {
-            for (var i = 0; i < entries.length; i++) {
-              try {
-                await entries[i].redo();
-              } catch (_) {
-                for (var j = i - 1; j >= 0; j--) {
-                  await entries[j].undo();
-                }
-                rethrow;
-              }
-            }
-          },
+          undo: () => forgeApplyAllAsync<UndoEntry>(
+            entries.reversed,
+            (e) => e.undo(),
+            (e) => e.redo(),
+          ),
+          redo: () => forgeApplyAllAsync<UndoEntry>(
+            entries,
+            (e) => e.redo(),
+            (e) => e.undo(),
+          ),
         );
 }
 
 /// Default implementation of [ForgeUndoManager].
 ///
-/// Maintains simple undo/redo stacks of [UndoEntry] with support for
-/// composite grouping via [beginUndoGroup]/[endUndoGroup].
+/// A [ForgeUndoStack] of [UndoEntry] with composite grouping via
+/// [beginUndoGroup]/[endUndoGroup].
 ///
 /// Memory budget: max [maxEntries] entries per stack (spec §4.1: 100).
 ///
-/// **An entry whose application throws stays where it was.** [undo] and
-/// [redo] move an entry between the stacks only *after* its operation has
-/// completed; if the operation throws, the entry is still on the stack it was
+/// **An entry whose application throws stays where it was** — the stack's
+/// guarantee: if the operation throws, the entry is still on the stack it was
 /// taken from, no event is emitted, and the error propagates to the caller,
-/// which is the one place that can say what happened. This is the manager's
-/// guarantee and not a consumer's: it used to pop before awaiting, so an
-/// entry whose undo threw was gone from both stacks — the act neither undone
-/// nor redoable — and every consumer that noticed worked around it by never
-/// throwing, which is a rule hoped for rather than held.
+/// which is the one place that can say what happened.
 class DefaultUndoManager implements ForgeUndoManager {
   static bool debugEnabled = false;
 
   /// Maximum number of undo entries to keep (spec §4.1).
   final int maxEntries;
 
-  final List<UndoEntry> _undoStack = [];
-  final List<UndoEntry> _redoStack = [];
+  final ForgeUndoStack<UndoEntry> _stack;
   final _canUndo = ForgeValueNotifier<bool>(false);
   final _canRedo = ForgeValueNotifier<bool>(false);
   final _eventController = StreamController<UndoEvent>.broadcast();
@@ -112,27 +93,21 @@ class DefaultUndoManager implements ForgeUndoManager {
   /// Entries collected during the current outermost group.
   final List<UndoEntry> _groupEntries = [];
 
-  DefaultUndoManager({this.maxEntries = 100});
+  DefaultUndoManager({this.maxEntries = 100})
+    : _stack = ForgeUndoStack<UndoEntry>(maxEntries: maxEntries);
 
   @override
   Future<void> undo() async {
-    if (_undoStack.isEmpty) return;
-    final entry = _undoStack.last;
-    // Applied first, moved second: a throw leaves the entry on this stack.
-    await entry.undo();
-    _undoStack.removeLast();
-    _redoStack.add(entry);
+    final entry = await _stack.undoAsync((e) => e.undo());
+    if (entry == null) return;
     _updateState();
     _eventController.add(UndoEvent(type: UndoEventType.undone, label: entry.label));
   }
 
   @override
   Future<void> redo() async {
-    if (_redoStack.isEmpty) return;
-    final entry = _redoStack.last;
-    await entry.redo();
-    _redoStack.removeLast();
-    _undoStack.add(entry);
+    final entry = await _stack.redoAsync((e) => e.redo());
+    if (entry == null) return;
     _updateState();
     _eventController.add(UndoEvent(type: UndoEventType.redone, label: entry.label));
   }
@@ -144,19 +119,19 @@ class DefaultUndoManager implements ForgeUndoManager {
   ForgeValueListenable<bool> get canRedo => _canRedo;
 
   @override
-  int get undoCount => _undoStack.length;
+  int get undoCount => _stack.undoCount;
 
   /// The label of the entry [undo] would apply, or null when there is none.
   ///
   /// Read after a failed [undo] it names the entry that failed, since the
   /// entry is still on the stack.
-  String? get nextUndoLabel => _undoStack.isEmpty ? null : _undoStack.last.label;
+  String? get nextUndoLabel => _stack.nextUndo?.label;
 
   /// The label of the entry [redo] would apply, or null when there is none.
-  String? get nextRedoLabel => _redoStack.isEmpty ? null : _redoStack.last.label;
+  String? get nextRedoLabel => _stack.nextRedo?.label;
 
   @override
-  int get redoCount => _redoStack.length;
+  int get redoCount => _stack.redoCount;
 
   @override
   Stream<UndoEvent> get onUndoEvent => _eventController.stream;
@@ -213,12 +188,7 @@ class DefaultUndoManager implements ForgeUndoManager {
   }
 
   void _pushInternal(UndoEntry entry) {
-    _undoStack.add(entry);
-    _redoStack.clear();
-    // Enforce memory budget (spec §4.1: 100 entries).
-    while (_undoStack.length > maxEntries) {
-      _undoStack.removeAt(0);
-    }
+    _stack.push(entry);
     _updateState();
     _eventController.add(UndoEvent(type: UndoEventType.pushed, label: entry.label));
     if (debugEnabled) {
@@ -229,8 +199,7 @@ class DefaultUndoManager implements ForgeUndoManager {
 
   /// Clear all undo/redo history.
   void clear() {
-    _undoStack.clear();
-    _redoStack.clear();
+    _stack.clear();
     _groupDepth = 0;
     _groupEntries.clear();
     _groupLabel = null;
@@ -239,8 +208,8 @@ class DefaultUndoManager implements ForgeUndoManager {
   }
 
   void _updateState() {
-    _canUndo.value = _undoStack.isNotEmpty;
-    _canRedo.value = _redoStack.isNotEmpty;
+    _canUndo.value = _stack.canUndo;
+    _canRedo.value = _stack.canRedo;
   }
 
   /// Dispose resources.

@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+import 'package:tom_forge_core/tom_forge_undo.dart';
 
 import '../../forge_bridge/editor_action_descriptor.dart';
 import '../../forge_bridge/forge_action.dart';
@@ -58,8 +59,8 @@ class BaseStandaloneIntegration extends ForgeEditorIntegration
 
   // State
   ForgeTextSettings _textSettings;
-  final List<TextUndoEntry> _undoStack = [];
-  final List<TextUndoEntry> _redoStack = [];
+  late final ForgeUndoStack<TextUndoEntry> _history =
+      ForgeUndoStack(maxEntries: maxUndoStackSize);
 
   // Listeners
   final List<TextChangeCallback> _textChangeListeners = [];
@@ -112,12 +113,12 @@ class BaseStandaloneIntegration extends ForgeEditorIntegration
     registerAction(
       StandardEditingActions.undoActionId,
       _doUndo,
-      isEnabled: () => _undoStack.isNotEmpty,
+      isEnabled: () => _history.canUndo,
     );
     registerAction(
       StandardEditingActions.redoActionId,
       _doRedo,
-      isEnabled: () => _redoStack.isNotEmpty,
+      isEnabled: () => _history.canRedo,
     );
     registerAction(
       StandardEditingActions.deleteLineActionId,
@@ -193,18 +194,12 @@ class BaseStandaloneIntegration extends ForgeEditorIntegration
   }
 
   void _addUndoEntry(TextUndoEntry entry) {
-    _undoStack.add(entry);
-    _redoStack.clear(); // Clear redo stack on new change
-
-    // Trim if needed
-    while (_undoStack.length > maxUndoStackSize) {
-      _undoStack.removeAt(0);
-    }
+    _history.push(entry);
 
     // Notify bridge for shell undo manager integration.
     notifyTextEdit(label: entry.description);
 
-    _log('Undo stack size: ${_undoStack.length}');
+    _log('Undo stack size: ${_history.undoCount}');
   }
 
   // Standard action implementations
@@ -244,39 +239,16 @@ class BaseStandaloneIntegration extends ForgeEditorIntegration
     );
   }
 
-  void _doUndo() {
-    if (_undoStack.isEmpty) return;
-    final entry = _undoStack.removeLast();
-    _log('Undo: ${entry.description ?? "change"}');
+  // Applied without triggering a new undo entry.
+  void _doUndo() => _history.undo((entry) {
+        _log('Undo: ${entry.description ?? "change"}');
+        _applyTextWithoutUndo(entry.oldText, entry.oldSelection);
+      });
 
-    // Add to redo stack before applying
-    _redoStack.add(TextUndoEntry(
-      oldText: entry.newText,
-      newText: entry.oldText,
-      oldSelection: entry.newSelection,
-      newSelection: entry.oldSelection,
-    ));
-
-    // Apply without triggering new undo entry
-    _applyTextWithoutUndo(entry.oldText, entry.oldSelection);
-  }
-
-  void _doRedo() {
-    if (_redoStack.isEmpty) return;
-    final entry = _redoStack.removeLast();
-    _log('Redo');
-
-    // Add back to undo stack
-    _undoStack.add(TextUndoEntry(
-      oldText: entry.newText,
-      newText: entry.oldText,
-      oldSelection: entry.newSelection,
-      newSelection: entry.oldSelection,
-    ));
-
-    // Apply without triggering new undo entry
-    _applyTextWithoutUndo(entry.oldText, entry.oldSelection);
-  }
+  void _doRedo() => _history.redo((entry) {
+        _log('Redo');
+        _applyTextWithoutUndo(entry.newText, entry.newSelection);
+      });
 
   // Line editing action implementations
 
@@ -455,8 +427,8 @@ class BaseStandaloneIntegration extends ForgeEditorIntegration
   ForgeTextContext get textContext => TextEditingContextImpl.withValues(
         text: controller.text,
         selections: [controller.selection],
-        canUndo: _undoStack.isNotEmpty,
-        canRedo: _redoStack.isNotEmpty,
+        canUndo: _history.canUndo,
+        canRedo: _history.canRedo,
       );
 
   @override
@@ -600,7 +572,6 @@ class BaseStandaloneIntegration extends ForgeEditorIntegration
     controller.removeListener(_onControllerChanged);
     _textChangeListeners.clear();
     _selectionChangeListeners.clear();
-    _undoStack.clear();
-    _redoStack.clear();
+    _history.clear();
   }
 }

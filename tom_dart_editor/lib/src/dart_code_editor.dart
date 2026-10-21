@@ -12,6 +12,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart';
+import 'package:tom_forge_core/tom_forge_undo.dart';
 
 import 'dart_text_context.dart';
 import 'editor_theme.dart';
@@ -678,9 +679,9 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
   String _completionPrefix = '';
 
   // Undo/Redo state
-  final List<_UndoState> _undoStack = [];
-  final List<_UndoState> _redoStack = [];
   static const int _maxUndoStackSize = 100;
+  final ForgeUndoStack<_TextChange> _history =
+      ForgeUndoStack(maxEntries: _maxUndoStackSize);
   String _lastSavedText = '';
   TextSelection _lastSavedSelection = const TextSelection.collapsed(offset: 0);
   Timer? _undoDebounceTimer;
@@ -779,8 +780,8 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
         codeController: widget.controller,
         textController: _textController,
         isDirtyFn: () => _textController.text != _lastSavedText,
-        canUndoFn: () => _undoStack.isNotEmpty,
-        canRedoFn: () => _redoStack.isNotEmpty,
+        canUndoFn: () => _history.canUndo,
+        canRedoFn: () => _history.canRedo,
       );
 
       // Register editor actions with the integration
@@ -804,12 +805,12 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
     _integration.registerAction(
       StandardEditingActions.undoActionId,
       _undo,
-      isEnabled: () => _undoStack.isNotEmpty,
+      isEnabled: () => _history.canUndo,
     );
     _integration.registerAction(
       StandardEditingActions.redoActionId,
       _redo,
-      isEnabled: () => _redoStack.isNotEmpty,
+      isEnabled: () => _history.canRedo,
     );
 
     // Dart-specific actions
@@ -1167,7 +1168,6 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
         _pushUndoState(_lastSavedText, _lastSavedSelection);
         _lastSavedText = newText;
         _lastSavedSelection = _textController.selection;
-        _redoStack.clear();
         return;
       }
     }
@@ -1177,17 +1177,22 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
         _pushUndoState(_lastSavedText, _lastSavedSelection);
         _lastSavedText = newText;
         _lastSavedSelection = _textController.selection;
-        // Clear redo stack on new edit
-        _redoStack.clear();
       }
     });
   }
 
+  /// Records the change from [text] and [selection] to what the field shows
+  /// now as one undoable entry; the push clears the redo stack.
   void _pushUndoState(String text, TextSelection selection) {
-    _undoStack.add(_UndoState(text: text, selection: selection));
-    if (_undoStack.length > _maxUndoStackSize) {
-      _undoStack.removeAt(0);
-    }
+    _history.push(
+      _TextChange(
+        before: _UndoState(text: text, selection: selection),
+        after: _UndoState(
+          text: _textController.text,
+          selection: _textController.selection,
+        ),
+      ),
+    );
     // Notify shell undo manager via bridge.
     _integration.notifyTextEdit(label: 'Dart edit');
   }
@@ -1208,36 +1213,10 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
     // Flush any pending debounce save so the pre-edit state is on the
     // stack even when the user presses Ctrl+Z within the 300ms window.
     _flushPendingUndoSave();
-    if (_undoStack.isEmpty) return;
-
-    // Save current state to redo stack
-    _redoStack.add(
-      _UndoState(
-        text: _textController.text,
-        selection: _textController.selection,
-      ),
-    );
-
-    // Pop and apply undo state
-    final state = _undoStack.removeLast();
-    _applyUndoState(state);
+    _history.undo((change) => _applyUndoState(change.before));
   }
 
-  void _redo() {
-    if (_redoStack.isEmpty) return;
-
-    // Save current state to undo stack
-    _undoStack.add(
-      _UndoState(
-        text: _textController.text,
-        selection: _textController.selection,
-      ),
-    );
-
-    // Pop and apply redo state
-    final state = _redoStack.removeLast();
-    _applyUndoState(state);
-  }
+  void _redo() => _history.redo((change) => _applyUndoState(change.after));
 
   void _applyUndoState(_UndoState state) {
     _applyingUndoState = true;
@@ -3065,6 +3044,13 @@ class _UndoState {
   final TextSelection selection;
 
   const _UndoState({required this.text, required this.selection});
+}
+
+/// One undoable change: the text and selection before and after it.
+class _TextChange {
+  final _UndoState before;
+  final _UndoState after;
+  const _TextChange({required this.before, required this.after});
 }
 
 /// API Reference popup widget that covers 90% of the editor.
