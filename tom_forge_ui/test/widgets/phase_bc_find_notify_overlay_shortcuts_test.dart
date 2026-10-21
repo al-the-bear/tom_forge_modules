@@ -531,7 +531,7 @@ class _PhaseBCHarness {
   final ForgeApplication application;
   final ForgePreferencesService preferences;
   final String workspaceRoot;
-  final MemoryFileSystem fileSystem;
+  final ForgeMemoryFileSystem fileSystem;
 
   static _PhaseBCHarness create() {
     final workspaceRoot =
@@ -549,7 +549,7 @@ class _PhaseBCHarness {
     });
 
     final navigatorKey = GlobalKey<NavigatorState>();
-    final fileSystem = MemoryFileSystem(
+    final fileSystem = ForgeMemoryFileSystem(
       seed: {
         '$workspaceRoot/main.test': 'hello world\nhello again\nhello final\n',
         '$workspaceRoot/secondary.test': 'secondary file content\n',

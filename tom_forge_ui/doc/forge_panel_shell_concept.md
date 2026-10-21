@@ -1466,38 +1466,52 @@ This section details the APIs for each service on `ForgeShellApi` that are not f
 
 #### ForgeFileSystem
 
+The contract lives in `tom_forge_core` (`package:tom_forge_core/files.dart`),
+with two implementations: `ForgeMemoryFileSystem` and, in `io.dart`,
+`ForgeLocalFileSystem` over a folder on disk. It is addressed by `Uri`; a file
+system has a `root`, and `uriOf` / `pathOf` map root-relative paths to URIs and
+back.
+
 ```dart
-abstract class ForgeFileSystem {
-  /// Read file content at the given URI.
-  Future<String> read(Uri uri);
+abstract interface class ForgeFileSystem {
+  Uri get root;
+  Uri uriOf(String path);
+  String? pathOf(Uri uri);
 
-  /// Read raw file bytes at the given URI. Used for binary files
-  /// and for the two-phase file resolution flow (canHandleContent
-  /// receives Uint8List).
-  Future<Uint8List> readBytes(Uri uri);
+  /// The entries directly in a folder.
+  Future<List<ForgeFileEntry>> list(Uri directory);
 
-  /// Write content to the given URI (creates or overwrites).
-  /// Automatically creates a revision snapshot if revisioning is enabled.
-  Future<void> write(Uri uri, String content);
+  /// One entry, or null when nothing is there.
+  Future<ForgeFileEntry?> stat(Uri uri);
+
+  /// The bytes with the revision they were read at — the input of the
+  /// two-phase file resolution flow (canHandleContent receives the bytes).
+  Future<ForgeFileContent> read(Uri uri);
+  Future<String> readText(Uri uri);
+
+  /// At most maxBytes, from the start or the end (a log read where it grows).
+  Future<String?> readSlice(Uri uri, {required int maxBytes, required bool fromEnd});
+
+  /// Atomic writes; with [expected], refused with a ForgeFileConflict when
+  /// the file is no longer that revision.
+  Future<ForgeFileRevision> write(Uri uri, Uint8List bytes, {ForgeFileRevision? expected});
+  Future<ForgeFileRevision> writeText(Uri uri, String text, {ForgeFileRevision? expected});
+
+  Future<void> create(Uri uri, {bool directory = false});
+  Future<void> rename(Uri from, Uri to);
+
+  /// Moves to the platform's trash; false where there is none.
+  Future<bool> trash(Uri uri);
+  Future<void> delete(Uri uri);
+  Future<bool> exists(Uri uri);
+
+  /// Changes below the root, or null where the platform does not watch;
+  /// [descend] names the folders not to watch into.
+  Stream<ForgeFileChange>? watch({bool Function(String path)? descend});
 
   /// Save (persist) the current content of a file.
   /// Triggers revision snapshot and dirty-state update.
   Future<void> save(Uri uri);
-
-  /// Delete a file.
-  Future<void> delete(Uri uri);
-
-  /// Check whether a file exists.
-  Future<bool> exists(Uri uri);
-
-  /// Stat a file (size, modification time, type).
-  Future<FileStat> stat(Uri uri);
-
-  /// List contents of a directory.
-  Future<List<FileSystemEntity>> list(Uri directoryUri, {bool recursive = false});
-
-  /// Watch a file or directory for changes. Returns a stream of events.
-  Stream<FileSystemEvent> watch(Uri uri, {bool recursive = false});
 
   /// Apply a workspace edit atomically — multiple file creates, deletes,
   /// renames, and text edits as a single undo step. Used for refactoring
@@ -1836,7 +1850,7 @@ Future<ForgeEditor?> findEditorForFile(Uri uri) async {
 
   // Run Phase 2 for editors that need content inspection.
   if (phase1.needsInspection.isNotEmpty) {
-    final bytes = await fileSystem.readBytes(uri);
+    final bytes = (await fileSystem.read(uri)).bytes;
     for (final editor in phase1.needsInspection) {
       final result = editor.canHandleContent(uri, bytes);
       if (result == FileHandlingResult.accept) {
@@ -1864,7 +1878,7 @@ Future<ForgeEditor?> showOpenWithDialog(Uri uri) async {
   // Phase 2 for content-inspecting editors
   final additionalOptions = <ForgeEditor>[];
   if (phase1.needsInspection.isNotEmpty) {
-    final bytes = await fileSystem.readBytes(uri);
+    final bytes = (await fileSystem.read(uri)).bytes;
     for (final editor in phase1.needsInspection) {
       final result = editor.canHandleContent(uri, bytes);
       if (result == FileHandlingResult.accept) {
@@ -3106,7 +3120,7 @@ Per Tom Forge convention, the panel shell implements trail-based debug mode:
 
 ### Phase 7 — Auto-Save and Revisioning
 
-- `ForgeFileSystem` with routed file access (`read`, `readBytes`, `write`, `save`, `delete`, `exists`, `stat`, `list`, `watch`, `applyWorkspaceEdit`)
+- `ForgeFileSystem` with routed file access (`read`, `write`, `save`, `create`, `rename`, `trash`, `delete`, `exists`, `stat`, `list`, `watch`, `applyWorkspaceEdit`)
 - Auto-save service (focus loss + idle timer)
 - File revision management in `.forge/revisions/`
 - Undo stack persistence in `.forge/undo/`

@@ -55,7 +55,7 @@ void main() {
         // After save, the file system should have been written.
         String? savedContent;
         await tester.runAsync(() async {
-          savedContent = await harness.fileSystem.read(
+          savedContent = await harness.fileSystem.readText(
             harness.module.mainEditor.uri,
           );
         });
@@ -470,7 +470,7 @@ void main() {
         // The save action should write the file content via the file system.
         String? content;
         await tester.runAsync(() async {
-          content = await harness.fileSystem.read(
+          content = await harness.fileSystem.readText(
             harness.module.mainEditor.uri,
           );
         });
@@ -547,7 +547,7 @@ class _PhaseBBHarness {
   final ForgeApplication? secondApplication;
   final ForgePreferencesService preferences;
   final String workspaceRoot;
-  final MemoryFileSystem fileSystem;
+  final ForgeMemoryFileSystem fileSystem;
 
   static _PhaseBBHarness create({
     bool withStatusBarItems = false,
@@ -568,7 +568,7 @@ class _PhaseBBHarness {
     });
 
     final navigatorKey = GlobalKey<NavigatorState>();
-    final fileSystem = MemoryFileSystem(
+    final fileSystem = ForgeMemoryFileSystem(
       seed: {
         '$workspaceRoot/main.test': 'main file content\n',
         '$workspaceRoot/secondary.test': 'secondary file content\n',

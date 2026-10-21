@@ -62,11 +62,10 @@ void main() {
       await tester.pumpAndSettle();
 
       final seeded = await harness.shell.fileSystem.list(
-        Uri.file('/workspace/'),
-        recursive: true,
+        Uri.file('/workspace/test-fixtures/'),
       );
       expect(
-        seeded.any((entry) => entry.path.endsWith('/notes.test')),
+        seeded.any((entry) => entry.name == 'notes.test'),
         isTrue,
       );
 

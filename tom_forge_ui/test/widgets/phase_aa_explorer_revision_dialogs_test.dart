@@ -29,9 +29,9 @@ void main() {
         Uri.file(harness.workspaceRoot),
       );
       final srcEntry = rootEntries.firstWhere(
-        (entry) => entry.path.endsWith('/src'),
+        (entry) => entry.name == 'src',
       );
-      expect(srcEntry.statSync().type, FileSystemEntityType.directory);
+      expect(srcEntry.isDirectory, isTrue);
 
       await tester.pumpWidget(harness.buildExplorerHost());
       await tester.pumpAndSettle();
@@ -278,7 +278,7 @@ void main() {
       await tester.runAsync(() async {
         await workspaceState.initialize(harness.workspaceRoot);
         await workspaceState.createRevision(fileUri, 'restorable-content');
-        await harness.fileSystem.write(fileUri, 'new-content');
+        await harness.fileSystem.writeText(fileUri, 'new-content');
         harness.shell.layout.openFile(fileUri);
         await harness.fileSystem.save(fileUri);
       });
@@ -289,7 +289,7 @@ void main() {
 
       String? content;
       await tester.runAsync(() async {
-        content = await harness.fileSystem.read(fileUri);
+        content = await harness.fileSystem.readText(fileUri);
       });
 
       expect(content, equals('restorable-content'));
@@ -382,7 +382,7 @@ class _PhaseAAHarness {
 
   final DefaultShellApi shell;
   final String workspaceRoot;
-  final MemoryFileSystem fileSystem;
+  final ForgeMemoryFileSystem fileSystem;
   final ForgeFileExplorerView explorerView;
   final ForgeRevisionView revisionView;
 
@@ -396,7 +396,7 @@ class _PhaseAAHarness {
     workspaceDir.createSync(recursive: true);
 
     final navigatorKey = GlobalKey<NavigatorState>();
-    final fileSystem = MemoryFileSystem(
+    final fileSystem = ForgeMemoryFileSystem(
       seed: {
         '$workspaceRoot/README.md': '# Readme\n',
         '$workspaceRoot/src/main.dart': 'void main() { print("hi"); }\n',

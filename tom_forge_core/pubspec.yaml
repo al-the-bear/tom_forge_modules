@@ -1,5 +1,7 @@
 name: tom_forge_core
-description: A starting point for Dart libraries or applications.
+description: >-
+  Tom Forge's core types, service contracts and defaults, and the one
+  file-system contract with its in-memory and local implementations.
 publish_to: none
 version: 1.0.0
 # repository: https://github.com/my_org/my_repo
@@ -9,7 +11,12 @@ environment:
 
 # Add regular dependencies here.
 dependencies:
-  # path: ^1.9.0
+  # The Windows Recycle Bin call of the local file system.
+  ffi: ^2.1.0
+  meta: ^1.16.0
+  path: ^1.9.0
+  # SHA-256 for file revisions.
+  crypto: ^3.0.0
 
 dev_dependencies:
   lints: ^6.0.0

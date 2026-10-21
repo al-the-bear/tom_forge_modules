@@ -26,13 +26,13 @@ void main() {
       final uri = Uri.parse('file:///notes.txt');
 
       // Write new content.
-      await harness.shell.fileSystem.write(uri, 'updated content');
+      await harness.shell.fileSystem.writeText(uri, 'updated content');
 
       // Save.
       await harness.shell.fileSystem.save(uri);
 
       // Read back.
-      final content = await harness.shell.fileSystem.read(uri);
+      final content = await harness.shell.fileSystem.readText(uri);
       expect(content, 'updated content');
     });
 
@@ -60,13 +60,13 @@ void main() {
 
     test('write then save round-trip', () async {
       final uri = Uri.parse('file:///new_file.dart');
-      await harness.shell.fileSystem.write(uri, 'void main() {}');
+      await harness.shell.fileSystem.writeText(uri, 'void main() {}');
       await harness.shell.fileSystem.save(uri);
 
       final exists = await harness.shell.fileSystem.exists(uri);
       expect(exists, isTrue);
 
-      final content = await harness.shell.fileSystem.read(uri);
+      final content = await harness.shell.fileSystem.readText(uri);
       expect(content, 'void main() {}');
     });
   });

@@ -298,7 +298,7 @@ class DefaultLayoutController implements ForgeLayoutController {
       return await _virtualDocuments.resolveContent(uri);
     }
     // Fall back to file system.
-    return await _fileSystem.read(uri);
+    return await _fileSystem.readText(uri);
   }
 
   @override
@@ -355,7 +355,7 @@ class DefaultLayoutController implements ForgeLayoutController {
         } else if (result == FileHandlingResult.inspect) {
           // Phase 2: check content.
           try {
-            final bytes = await _fileSystem.readBytes(uri);
+            final bytes = (await _fileSystem.read(uri)).bytes;
             if (editor.canHandleContent(uri, bytes) ==
                 FileHandlingResult.accept) {
               candidates.add(editor);

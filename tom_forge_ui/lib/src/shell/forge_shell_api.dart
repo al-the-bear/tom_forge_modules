@@ -6,7 +6,7 @@ import '../services/forge_diagnostic_manager.dart';
 import 'package:tom_forge_core/tom_forge_core.dart' show ForgeExecutionMonitor;
 import '../services/forge_environment.dart';
 import '../services/forge_file_decoration_manager.dart';
-import '../services/forge_file_system.dart';
+import 'package:tom_forge_core/files.dart' show ForgeFileSystem;
 import '../services/forge_module_storage.dart';
 import '../services/forge_notification_manager.dart';
 import '../services/forge_outline_manager.dart';

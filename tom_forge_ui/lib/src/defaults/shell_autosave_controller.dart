@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import '../components/forge_editor.dart';
-import '../services/forge_file_system.dart';
+import 'package:tom_forge_core/files.dart' show ForgeFileSystem;
 import 'default_system_state.dart';
 import 'editor_save.dart';
 
@@ -59,7 +59,7 @@ class ShellAutosaveController {
     }
     final content = editor.getContent();
     if (content == null) return;
-    fileSystem.write(editor.uri, content).then((_) {
+    fileSystem.writeText(editor.uri, content).then((_) {
       editor.markClean();
     }).catchError((Object e) {
       // Autosave failure is non-fatal; next cycle will retry.

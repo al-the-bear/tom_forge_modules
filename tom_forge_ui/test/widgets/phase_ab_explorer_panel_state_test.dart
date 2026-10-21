@@ -370,7 +370,7 @@ class _PhaseABExplorerHarness {
 
   final DefaultShellApi shell;
   final String workspaceRoot;
-  final MemoryFileSystem fileSystem;
+  final ForgeMemoryFileSystem fileSystem;
   final ForgeFileExplorerView explorerView;
 
   static _PhaseABExplorerHarness create() {
@@ -383,7 +383,7 @@ class _PhaseABExplorerHarness {
         '${Directory.current.path}/test/phase_ab_fixture_workspace';
 
     final navigatorKey = GlobalKey<NavigatorState>();
-    final fileSystem = MemoryFileSystem(
+    final fileSystem = ForgeMemoryFileSystem(
       seed: {
         '$workspaceRoot/README.md': '# Readme\n',
         '$workspaceRoot/src/main.dart': 'void main() { print("hi"); }\n',

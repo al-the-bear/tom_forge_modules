@@ -1,5 +1,3 @@
-import 'dart:io' show Directory;
-
 import 'package:tom_forge_core/tom_forge_core.dart'
     show ForgeRenameFileOperation, ForgeWorkspaceEdit;
 import 'package:tom_forge_ui/tom_forge_ui.dart';
@@ -66,16 +64,17 @@ class ForgeContentFs implements WebsiteContentFs {
       for (final entity in entities)
         ContentFsEntry(
           uri: entity.uri,
-          isDirectory: entity is Directory,
+          isDirectory: entity.isDirectory,
         ),
     ];
   }
 
   @override
-  Future<String> read(Uri uri) => _fs.read(uri);
+  Future<String> read(Uri uri) => _fs.readText(uri);
 
   @override
-  Future<void> write(Uri uri, String content) => _fs.write(uri, content);
+  Future<void> write(Uri uri, String content) =>
+      _fs.writeText(uri, content);
 
   @override
   Future<bool> exists(Uri uri) => _fs.exists(uri);

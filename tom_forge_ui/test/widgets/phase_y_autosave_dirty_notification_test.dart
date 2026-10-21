@@ -370,7 +370,7 @@ void main() {
         String? savedContent;
         await tester.runAsync(() async {
           try {
-            savedContent = await fileSystem.read(
+            savedContent = await fileSystem.readText(
               harness.module.mainEditor.uri,
             );
           } catch (_) {

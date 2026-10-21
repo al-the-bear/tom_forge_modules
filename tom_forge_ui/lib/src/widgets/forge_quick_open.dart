@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:tom_forge_core/tom_forge_core.dart'
-    show ForgeSearchConfig, GitIgnoreMatcher;
+    show ForgeFileEntry, ForgeSearchConfig, GitIgnoreMatcher;
 
 import '../actions/forge_action.dart';
 import '../actions/forge_shortcut_binding.dart';
@@ -448,11 +448,6 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
           ? workspaceRoot
           : '$workspaceRoot/');
 
-      final entities = await widget.shellApi.fileSystem.list(
-        rootUri,
-        recursive: true,
-      );
-
       // Load .gitignore rules when enabled and the root exists on disk.
       // In-memory test/workspace file systems do not necessarily map to
       // real host paths, so attempting to scan host .gitignore files can
@@ -485,17 +480,19 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
       final fileItems = <_QuickOpenItem>[];
       var count = 0;
 
-      for (final entity in entities) {
-        FileSystemEntityType type;
+      // The folders still to read, breadth first; a folder that is excluded
+      // or git-ignored is never read, so its files are never listed.
+      final fileSystem = widget.shellApi.fileSystem;
+      final folders = <Uri>[rootUri];
+      while (folders.isNotEmpty && count < config.maxFileResults) {
+        final List<ForgeFileEntry> entries;
         try {
-          type = entity.statSync().type;
+          entries = await fileSystem.list(folders.removeAt(0));
         } catch (_) {
           continue;
         }
-
-        if (type == FileSystemEntityType.file) {
-          final name = entity.uri.pathSegments.last;
-          final entityPath = entity.path;
+        for (final entity in entries) {
+          final entityPath = entity.uri.toFilePath();
           final relativePath = entityPath.startsWith(workspaceRoot)
               ? entityPath.substring(workspaceRoot.length)
               : entityPath;
@@ -503,14 +500,16 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
           final relPathClean = relativePath.startsWith('/')
               ? relativePath.substring(1)
               : relativePath;
-
-          // Check excluded directories in path segments.
-          final segments = relativePath.split('/');
-          final skipDir = segments.any((seg) {
-            if (seg.isEmpty) return false;
-            return config.isDirectoryExcluded(seg);
-          });
-          if (skipDir) continue;
+          if (entity.isDirectory) {
+            if (config.isDirectoryExcluded(entity.name)) continue;
+            if (gitIgnore != null &&
+                gitIgnore.isIgnored(relPathClean, isDirectory: true)) {
+              continue;
+            }
+            if (!entity.linkLeavesRoot) folders.add(entity.uri);
+            continue;
+          }
+          final name = entity.name;
 
           // Check excluded extensions.
           final dotIndex = name.lastIndexOf('.');
@@ -526,12 +525,7 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
           }
 
           // Check file size limit.
-          try {
-            final stat = entity.statSync();
-            if (stat.size > config.fileSizeLimit) continue;
-          } catch (_) {
-            continue;
-          }
+          if (entity.size > config.fileSizeLimit) continue;
 
           if (matchText(name) || matchText(relativePath)) {
             fileItems.add(_QuickOpenItem(
@@ -549,21 +543,6 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
             ));
             count++;
             if (count >= config.maxFileResults) break;
-          }
-        } else if (type == FileSystemEntityType.directory) {
-          // Skip excluded directories eagerly by name.
-          final dirName = entity.uri.pathSegments
-              .lastWhere((s) => s.isNotEmpty, orElse: () => '');
-          if (config.isDirectoryExcluded(dirName)) continue;
-          // Also skip git-ignored directories.
-          if (gitIgnore != null) {
-            final entityPath = entity.path;
-            final relDir = entityPath.startsWith(workspaceRoot)
-                ? entityPath.substring(workspaceRoot.length)
-                : entityPath;
-            final relDirClean =
-                relDir.startsWith('/') ? relDir.substring(1) : relDir;
-            if (gitIgnore.isIgnored(relDirClean, isDirectory: true)) continue;
           }
         }
       }

@@ -12,10 +12,6 @@ class ForgePerformanceConfig {
   /// Maximum number of editors open before LRU eviction triggers.
   final int maxOpenEditors;
 
-  /// Maximum number of file-system watcher paths before consolidation
-  /// to parent-directory watchers kicks in.
-  final int maxWatcherPaths;
-
   /// Search result cache budget in bytes.
   final int searchCacheBudgetBytes;
 
@@ -28,9 +24,6 @@ class ForgePerformanceConfig {
   /// Maximum entries in the image preview LRU cache.
   final int imageCacheMaxEntries;
 
-  /// File-watcher event batching window.
-  final Duration watcherBatchWindow;
-
   /// Diagnostic refresh debounce window.
   final Duration diagnosticDebounceWindow;
 
@@ -40,21 +33,15 @@ class ForgePerformanceConfig {
   /// Target for diagnostic subsystem scalability.
   final int diagnosticScalabilityTarget;
 
-  /// Maximum concurrent file-system operations.
-  final int maxConcurrentFileOps;
-
   const ForgePerformanceConfig({
     this.maxOpenEditors = 20,
-    this.maxWatcherPaths = 1000,
     this.searchCacheBudgetBytes = 50 * 1024 * 1024, // 50 MB
     this.imageCacheBudgetBytes = 100 * 1024 * 1024, // 100 MB
     this.searchCacheMaxEntries = 200,
     this.imageCacheMaxEntries = 100,
-    this.watcherBatchWindow = const Duration(milliseconds: 50),
     this.diagnosticDebounceWindow = const Duration(milliseconds: 100),
     this.autosaveDebounce = const Duration(milliseconds: 1000),
     this.diagnosticScalabilityTarget = 10000,
-    this.maxConcurrentFileOps = 10,
   });
 }
 

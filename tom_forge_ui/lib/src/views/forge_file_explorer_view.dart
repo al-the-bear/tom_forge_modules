@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io' show FileSystemEntity, FileSystemEntityType;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -96,8 +95,8 @@ class _FileExplorerContent extends StatefulWidget {
 }
 
 class _FileExplorerContentState extends State<_FileExplorerContent> {
-  List<FileSystemEntity> _rootEntries = [];
-  final Map<String, List<FileSystemEntity>> _directoryChildren = {};
+  List<ForgeFileEntry> _rootEntries = [];
+  final Map<String, List<ForgeFileEntry>> _directoryChildren = {};
   final Set<String> _loadingDirectories = {};
   final Set<String> _expandedDirs = {};
   Uri? _selectedUri;
@@ -169,10 +168,7 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
 
   Future<void> _loadEntries() async {
     try {
-      final entries = await widget.fileSystem.list(
-        widget.rootUri,
-        recursive: false,
-      );
+      final entries = await widget.fileSystem.list(widget.rootUri);
       if (mounted) {
         setState(() {
           _rootEntries = _sortEntries(entries);
@@ -195,10 +191,8 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
 
     setState(() => _loadingDirectories.add(directoryPath));
     try {
-      final entries = await widget.fileSystem.list(
-        Uri.file(directoryPath),
-        recursive: false,
-      );
+      final entries =
+          await widget.fileSystem.list(Uri.file(directoryPath));
       if (mounted) {
         setState(() {
           _directoryChildren[directoryPath] = _sortEntries(entries);
@@ -256,13 +250,13 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
     );
   }
 
-  Widget _buildEntry(BuildContext context, FileSystemEntity entry, int depth) {
+  Widget _buildEntry(BuildContext context, ForgeFileEntry entry, int depth) {
     final theme = Theme.of(context);
     final isDirectory = _isDirectoryEntry(entry);
-    final path = entry.path;
+    final path = _absolutePath(entry);
     final name = _nameForPath(path);
     final isExpanded = _expandedDirs.contains(path);
-    final childEntries = _directoryChildren[path] ?? const <FileSystemEntity>[];
+    final childEntries = _directoryChildren[path] ?? const <ForgeFileEntry>[];
     final isLoading = _loadingDirectories.contains(path);
     final entryUri = Uri.file(path);
     final isSelected = _selectedUri == entryUri;
@@ -391,10 +385,11 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
   void _showContextMenu(
     BuildContext context,
     Offset position,
-    FileSystemEntity entry,
+    ForgeFileEntry entry,
   ) {
     final isDirectory = _isDirectoryEntry(entry);
-    final entryUri = Uri.file(entry.path);
+    final entryUri = entry.uri;
+    final path = _absolutePath(entry);
     // The row as a context target, for the modules' contributions: drawn
     // after the explorer's own entries, each enabled by its predicate.
     final contributed = widget.contextMenus?.entriesFor(ForgeContextTarget(
@@ -435,19 +430,15 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
         case 'delete':
           _showDeleteConfirmation(entry);
         case 'newFile':
-          _showNewFileDialog(
-            isDirectory ? entry.path : _parentPath(entry.path),
-          );
+          _showNewFileDialog(isDirectory ? path : _parentPath(path));
         case 'newFolder':
-          _showNewFolderDialog(
-            isDirectory ? entry.path : _parentPath(entry.path),
-          );
+          _showNewFolderDialog(isDirectory ? path : _parentPath(path));
       }
     });
   }
 
-  Future<void> _showRenameDialog(FileSystemEntity entry) async {
-    final name = _nameForPath(entry.path);
+  Future<void> _showRenameDialog(ForgeFileEntry entry) async {
+    final name = _nameForPath(_absolutePath(entry));
     final newName = await showDialog<String>(
       context: context,
       builder: (ctx) => _TextPromptDialog(
@@ -462,13 +453,13 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
     if (newName == null || newName.isEmpty || newName == name || !mounted) return;
 
     try {
-      final parentDir = _parentPath(entry.path);
+      final parentDir = _parentPath(_absolutePath(entry));
       final newPath = '$parentDir/$newName';
       await widget.fileSystem.applyWorkspaceEdit(
         ForgeWorkspaceEdit(
           fileOperations: [
             ForgeRenameFileOperation(
-              oldUri: Uri.file(entry.path),
+              oldUri: entry.uri,
               newUri: Uri.file(newPath),
             ),
           ],
@@ -488,8 +479,8 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
     }
   }
 
-  Future<void> _showDeleteConfirmation(FileSystemEntity entry) async {
-    final name = _nameForPath(entry.path);
+  Future<void> _showDeleteConfirmation(ForgeFileEntry entry) async {
+    final name = _nameForPath(_absolutePath(entry));
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -509,8 +500,8 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
     if (confirmed != true || !mounted) return;
 
     try {
-      await widget.fileSystem.delete(Uri.file(entry.path));
-      final parentDir = _parentPath(entry.path);
+      await widget.fileSystem.delete(entry.uri);
+      final parentDir = _parentPath(_absolutePath(entry));
       await _loadEntries();
       if (_directoryChildren.containsKey(parentDir)) {
         await _loadDirectoryChildren(parentDir);
@@ -538,7 +529,7 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
 
     try {
       final uri = Uri.file('$parentDir/$name');
-      await widget.fileSystem.write(uri, '');
+      await widget.fileSystem.writeText(uri, '');
       if (_directoryChildren.containsKey(parentDir)) {
         await _loadDirectoryChildren(parentDir);
       } else {
@@ -567,7 +558,8 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
     if (name == null || name.isEmpty || !mounted) return;
 
     try {
-      await widget.fileSystem.createDirectory(Uri.file('$parentDir/$name'));
+      await widget.fileSystem
+          .create(Uri.file('$parentDir/$name'), directory: true);
       if (_directoryChildren.containsKey(parentDir)) {
         await _loadDirectoryChildren(parentDir);
       } else {
@@ -587,26 +579,27 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
     return idx > 0 ? path.substring(0, idx) : path;
   }
 
-  List<FileSystemEntity> _sortEntries(List<FileSystemEntity> entries) {
-    final sorted = List<FileSystemEntity>.of(entries);
+  /// The entries the explorer shows: hidden ones (a name starting with `.`)
+  /// left out, folders first, then by name.
+  List<ForgeFileEntry> _sortEntries(List<ForgeFileEntry> entries) {
+    final sorted = [
+      for (final entry in entries)
+        if (!entry.name.startsWith('.')) entry,
+    ];
     sorted.sort((a, b) {
       final aIsDir = _isDirectoryEntry(a);
       final bIsDir = _isDirectoryEntry(b);
       if (aIsDir != bIsDir) {
         return aIsDir ? -1 : 1;
       }
-      return _nameForPath(a.path).compareTo(_nameForPath(b.path));
+      return a.name.compareTo(b.name);
     });
     return sorted;
   }
 
-  bool _isDirectoryEntry(FileSystemEntity entry) {
-    try {
-      return entry.statSync().type == FileSystemEntityType.directory;
-    } catch (_) {
-      return false;
-    }
-  }
+  bool _isDirectoryEntry(ForgeFileEntry entry) => entry.isDirectory;
+
+  String _absolutePath(ForgeFileEntry entry) => entry.uri.toFilePath();
 
   String _nameForPath(String path) {
     final parts = path.split('/').where((segment) => segment.isNotEmpty);

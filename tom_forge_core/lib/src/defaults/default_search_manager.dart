@@ -4,20 +4,20 @@ import 'package:tom_forge_core/tom_forge_core.dart';
 
 /// Default implementation of [ForgeSearchManager].
 ///
-/// Searches across the in-memory file system entries.
+/// Searches every file under the file system's root.
 /// Caches search results in an LRU cache bounded by [maxCacheEntries]
 /// and [maxCacheSizeBytes]. Cache is invalidated when the file system
 /// emits change events.
 class DefaultSearchManager implements ForgeSearchManager {
   static bool debugEnabled = false;
 
-  final MemoryFileSystem _fileSystem;
+  final ForgeFileSystem _fileSystem;
 
   /// LRU cache for search results, keyed by query fingerprint.
   final LruCache<String, List<ForgeSearchResult>> _cache;
 
   DefaultSearchManager({
-    required MemoryFileSystem fileSystem,
+    required ForgeFileSystem fileSystem,
     int maxCacheEntries = 200,
     int maxCacheSizeBytes = 50 * 1024 * 1024,
   })  : _fileSystem = fileSystem,
@@ -32,6 +32,26 @@ class DefaultSearchManager implements ForgeSearchManager {
                     0, (ms, m) => ms + m.lineText.length * 2),
           ),
         );
+
+  /// Every file under the root, in path order; a link that leaves the root
+  /// is not followed.
+  Stream<Uri> _files() async* {
+    final files = <ForgeFileEntry>[];
+    final pending = [_fileSystem.root];
+    while (pending.isNotEmpty) {
+      for (final entry in await _fileSystem.list(pending.removeLast())) {
+        if (!entry.isDirectory) {
+          files.add(entry);
+        } else if (entry.expandable) {
+          pending.add(entry.uri);
+        }
+      }
+    }
+    files.sort((a, b) => a.path.compareTo(b.path));
+    for (final file in files) {
+      yield file.uri;
+    }
+  }
 
   /// Clear the search result cache.
   void clearCache() => _cache.clear();
@@ -81,11 +101,10 @@ class DefaultSearchManager implements ForgeSearchManager {
         isWordMatch: isWordMatch,
       );
 
-      for (final path in _fileSystem.paths) {
-        final uri = Uri.parse('file://$path');
+      await for (final uri in _files()) {
         if (!_matchesFilter(uri, includePattern, excludePattern)) continue;
 
-        final content = await _fileSystem.read(uri);
+        final content = await _fileSystem.readText(uri);
         final matches = _findMatches(content, pattern);
         if (matches.isNotEmpty) {
           results.add(ForgeSearchResult(uri: uri, matches: matches));
@@ -121,11 +140,10 @@ class DefaultSearchManager implements ForgeSearchManager {
         isWordMatch: isWordMatch,
       );
 
-      for (final path in _fileSystem.paths) {
-        final uri = Uri.parse('file://$path');
+      await for (final uri in _files()) {
         if (!_matchesFilter(uri, includePattern, excludePattern)) continue;
 
-        final content = await _fileSystem.read(uri);
+        final content = await _fileSystem.readText(uri);
         final matches = _findMatches(content, pattern);
         if (matches.isNotEmpty) {
           yield ForgeSearchResult(uri: uri, matches: matches);

@@ -1068,7 +1068,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         return;
       }
       try {
-        final content = await widget.shell.fileSystem.read(uri);
+        final content = await widget.shell.fileSystem.readText(uri);
         await wsState.createRevision(uri, content);
         await wsState.pruneRevisions(uri);
         _lastRevisionTime[uri] = now;
@@ -1177,7 +1177,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       try {
         final content = editor.getContent();
         if (content != null) {
-          await widget.shell.fileSystem.write(editor.uri, content);
+          await widget.shell.fileSystem.writeText(editor.uri, content);
         }
         await widget.shell.fileSystem.save(editor.uri);
         editor.markClean();
@@ -1203,7 +1203,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     if (saveOwnedEditor(editor) != null) return;
     final content = editor.getContent();
     if (content == null) return;
-    widget.shell.fileSystem.write(editor.uri, content).then((_) {
+    widget.shell.fileSystem.writeText(editor.uri, content).then((_) {
       return widget.shell.fileSystem.save(editor.uri);
     }).then((_) {
       editor.markClean();
@@ -1224,7 +1224,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       if (saveOwnedEditor(editor) != null) continue;
       final content = editor.getContent();
       if (content == null) continue;
-      widget.shell.fileSystem.write(editor.uri, content).then((_) {
+      widget.shell.fileSystem.writeText(editor.uri, content).then((_) {
         return widget.shell.fileSystem.save(editor.uri);
       }).then((_) {
         editor.markClean();

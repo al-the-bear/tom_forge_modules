@@ -179,7 +179,7 @@ class TestShellApi implements ForgeShellApi {
 
 **Wiring sequence in `main.dart`:**
 
-1. Create `MemoryFileSystem` and seed with sample files.
+1. Create `ForgeMemoryFileSystem` and seed with sample files.
 2. Create all service instances.
 3. Create `TestShellApi` aggregating all services.
 4. Create and activate `TomForgeShellModule` — register a `ForgeMdEditor`, `ForgeDartEditor`, and `ForgeYamlEditor`.
@@ -252,23 +252,23 @@ Collects `StatusBarItem` instances from all registered modules and the shell. Re
 
 ## 5. Service Implementations
 
-### 5.1 `MemoryFileSystem` (ForgeFileSystem)
+### 5.1 `ForgeMemoryFileSystem` (ForgeFileSystem)
 
-In-memory file system backed by `Map<String, List<int>>` for file contents and a directory tree structure.
+`tom_forge_core`'s in-memory file system: files keyed by absolute path, with
+revisions checked like on disk and no trash.
 
 **Operations:**
 
 | Method | Behavior |
 |--------|----------|
-| `read(Uri)` | Return stored string content. Throw if not found. |
-| `readBytes(Uri)` | Return stored bytes. |
-| `write(Uri, String)` | Store content. Fire `onDidChange`. |
+| `read(Uri)` / `readText(Uri)` | Return the stored bytes with their revision, or the text. Throw if not found. |
+| `write(Uri, bytes)` / `writeText(Uri, String)` | Store content, refusing a stale expected revision. Fire `onDidChange` and the watch. |
 | `save(Uri)` | Fire `onWillSave`, then `onDidSave`. Mark editor clean via system state. |
-| `delete(Uri)` | Remove entry. Fire `onDidChange`. |
-| `exists(Uri)` | Check map key. |
-| `stat(Uri)` | Return `ForgeFileStat` with size, type, modification time. |
-| `list(Uri)` | List child entries of a directory URI. |
-| `watch(Uri)` | Return stream from internal `StreamController`. |
+| `delete(Uri)` | Remove the entry, a folder with what is in it. Fire `onDidChange`. |
+| `exists(Uri)` | Check the file or folder. |
+| `stat(Uri)` | Return the `ForgeFileEntry`: name, kind, size, modification time. |
+| `list(Uri)` | List the entries directly in a folder. |
+| `watch()` | Return a stream of every change made through it. |
 
 **Seeding:** On construction, populate with the sample workspace files defined in `workspace_seed.dart` (see §11).
 
@@ -287,7 +287,7 @@ In-memory file system backed by `Map<String, List<int>>` for file contents and a
 
 ### 5.4 `TestSearchManager` (ForgeSearchManager)
 
-- `search(String query, ...)` scans all files in `MemoryFileSystem` for matches. Returns `List<ForgeSearchResult>`.
+- `search(String query, ...)` scans all files in `ForgeMemoryFileSystem` for matches. Returns `List<ForgeSearchResult>`.
 - Supports `isRegex`, `isCaseSensitive`, `isWholeWord` options.
 - `searchStream(...)` wraps `search()` result in a single-emission stream.
 
@@ -295,7 +295,7 @@ In-memory file system backed by `Map<String, List<int>>` for file contents and a
 
 - `showQuickPick(items)` shows a `SimpleDialog` with a list of selectable items.
 - `showInputBox(prompt)` shows an `AlertDialog` with a `TextField`.
-- `showOpenDialog()` / `showSaveDialog()` show a simplified picker listing files from `MemoryFileSystem`.
+- `showOpenDialog()` / `showSaveDialog()` show a simplified picker listing files from `ForgeMemoryFileSystem`.
 
 ### 5.6 `TestNotificationManager` (ForgeNotificationManager)
 
@@ -359,14 +359,14 @@ Remaining services receive minimal no-op implementations in `stub_services.dart`
 
 **Behavior:**
 
-- On construction, reads the directory tree from `MemoryFileSystem.list()` starting at root.
+- On construction, reads the directory tree from `ForgeMemoryFileSystem.list()` starting at root.
 - Directories are collapsible nodes. Files are leaf nodes.
 - **Single-click** on a file calls `layout.openFile(uri)`.
 - **Selected item** is highlighted. Tracks `systemState.selectedExplorerItems`.
 - **Right-click** (long press on mobile) shows a context menu: "Open", "Open With…", "Delete", "Reveal in Editor".
 - **File icons** by extension: `.md` → `Icons.description`, `.dart` → `Icons.code`, `.yaml` → `Icons.settings`, default → `Icons.insert_drive_file`.
 - **Dirty indicator:** File names are rendered in *italic* if the file is currently dirty (open and modified).
-- **Refresh:** Listens to `MemoryFileSystem.onDidChange` and rebuilds the tree.
+- **Refresh:** Listens to `ForgeMemoryFileSystem.onDidChange` and rebuilds the tree.
 
 ### 6.2 Problems View
 
@@ -454,10 +454,10 @@ When `layout.openFile(uri)` is called, the layout controller resolves the editor
 
 | Event | Action |
 |-------|--------|
-| **File opened** | Create editor controller, load content from `MemoryFileSystem`, create adapter, add tab. |
+| **File opened** | Create editor controller, load content from `ForgeMemoryFileSystem`, create adapter, add tab. |
 | **Tab focused** | Set `systemState.activeEditor`. Notify outline manager. |
 | **Content changed** | Mark tab dirty. Update `systemState.dirtyEditors`. |
-| **Save (Ctrl+S)** | Write content to `MemoryFileSystem.save()`. Mark clean. Show notification. |
+| **Save (Ctrl+S)** | Write content to `ForgeMemoryFileSystem.save()`. Mark clean. Show notification. |
 | **Close (clean)** | Remove tab. Dispose controller. |
 | **Close (dirty)** | Show dialog: "Save changes to {filename}?" with Save / Don't Save / Cancel. |
 
@@ -562,7 +562,7 @@ The status bar is a horizontal strip at the bottom of the window (height: 24px).
 
 | Action ID | Label | Shortcut | Behavior |
 |-----------|-------|----------|----------|
-| `file.save` | Save | `Ctrl+S` | Save active editor to `MemoryFileSystem`. |
+| `file.save` | Save | `Ctrl+S` | Save active editor to `ForgeMemoryFileSystem`. |
 | `file.saveAll` | Save All | `Ctrl+Shift+S` | Save all dirty editors. |
 | `file.close` | Close Editor | `Ctrl+W` | Close active editor tab. |
 | `file.closeAll` | Close All | `Ctrl+Shift+W` | Close all editor tabs. |
@@ -635,7 +635,7 @@ Content should be realistic but concise — enough to demonstrate editing, outli
 
 **Files:** `main.dart`, `app.dart`, `test_shell_api.dart`, `test_layout_controller.dart`, `test_system_state.dart`, `test_module_registry.dart`, `test_status_bar.dart`, `workspace_seed.dart`
 
-**Deliverable:** App launches and shows the shell scaffold with empty panels. Sample workspace is loaded into `MemoryFileSystem`. Layout controller can open/close/resize panels.
+**Deliverable:** App launches and shows the shell scaffold with empty panels. Sample workspace is loaded into `ForgeMemoryFileSystem`. Layout controller can open/close/resize panels.
 
 ### Phase 2: File System and Explorer
 

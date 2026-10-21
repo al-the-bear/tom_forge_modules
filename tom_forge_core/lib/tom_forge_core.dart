@@ -19,7 +19,7 @@
 /// - **Defaults**: [DefaultConfigManager], [DefaultDiagnosticManager],
 ///   [DefaultNotificationManager], [DefaultOutputChannelManager],
 ///   [DefaultProgressManager], [DefaultSearchManager],
-///   [DefaultUndoManager], [MemoryFileSystem]
+///   [DefaultUndoManager], [ForgeMemoryFileSystem]
 library;
 
 // Core types
@@ -54,7 +54,6 @@ export 'src/services/forge_diagnostic_manager.dart';
 export 'src/services/forge_disposable.dart';
 export 'src/services/forge_environment.dart';
 export 'src/services/forge_execution_monitor.dart';
-export 'src/services/forge_file_system.dart';
 export 'src/services/forge_notification_manager.dart';
 export 'src/services/forge_output_channel_manager.dart';
 export 'src/services/forge_progress_manager.dart';
@@ -66,6 +65,9 @@ export 'src/services/forge_virtual_document_manager.dart';
 export 'src/services/forge_performance_contract.dart';
 export 'src/services/forge_quality_gate.dart';
 
+// The file-system contract and its in-memory implementation
+export 'files.dart';
+
 // Default implementations (pure-Dart)
 export 'src/defaults/default_config_manager.dart';
 export 'src/defaults/forge_retry_policy.dart';
@@ -76,9 +78,7 @@ export 'src/defaults/default_output_manager.dart';
 export 'src/defaults/default_progress_manager.dart';
 export 'src/defaults/default_search_manager.dart';
 export 'src/defaults/default_undo_manager.dart';
-export 'src/defaults/memory_file_system.dart';
 export 'src/defaults/test_config_manager.dart';
 export 'src/defaults/lru_cache.dart';
-export 'src/defaults/event_batcher.dart';
 export 'src/defaults/generation_cache.dart';
 export 'src/defaults/image_preview_cache.dart';

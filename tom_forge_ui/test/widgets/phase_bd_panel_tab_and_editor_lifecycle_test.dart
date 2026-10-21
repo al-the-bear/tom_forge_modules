@@ -442,10 +442,10 @@ void main() {
         String? mainContent;
         String? secondaryContent;
         await tester.runAsync(() async {
-          mainContent = await harness.fileSystem.read(
+          mainContent = await harness.fileSystem.readText(
             harness.module.mainEditor.uri,
           );
-          secondaryContent = await harness.fileSystem.read(
+          secondaryContent = await harness.fileSystem.readText(
             harness.module.secondaryEditor.uri,
           );
         });
@@ -473,7 +473,7 @@ class _PhaseBDHarness {
   final ForgeApplication application;
   final ForgePreferencesService preferences;
   final String workspaceRoot;
-  final MemoryFileSystem fileSystem;
+  final ForgeMemoryFileSystem fileSystem;
 
   static _PhaseBDHarness create() {
     final workspaceRoot =
@@ -491,7 +491,7 @@ class _PhaseBDHarness {
     });
 
     final navigatorKey = GlobalKey<NavigatorState>();
-    final fileSystem = MemoryFileSystem(
+    final fileSystem = ForgeMemoryFileSystem(
       seed: {
         '$workspaceRoot/main.test': 'main file content\n',
         '$workspaceRoot/secondary.test': 'secondary file content\n',

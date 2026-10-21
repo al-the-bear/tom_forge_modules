@@ -1,3 +1,5 @@
+import 'dart:io' show Directory;
+
 import 'package:flutter/widgets.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart'
     show ForgeTextSettings, StandardEditingActions;
@@ -11,7 +13,6 @@ import '../services/forge_dialog_manager.dart';
 import '../services/forge_diagnostic_manager.dart';
 import '../services/forge_environment.dart';
 import '../services/forge_file_decoration_manager.dart';
-import '../services/forge_file_system.dart';
 import '../services/forge_module_storage.dart';
 import '../services/forge_notification_manager.dart';
 import '../services/forge_outline_manager.dart';
@@ -37,6 +38,8 @@ import 'default_diagnostic_manager.dart';
 import 'default_dialog_manager.dart';
 import 'package:tom_forge_core/tom_forge_core.dart'
     show DefaultExecutionMonitor, ForgeExecutionMonitor;
+import 'package:tom_forge_core/io.dart'
+    show ForgeFileSystem, ForgeLocalFileSystem, ForgeMemoryFileSystem;
 import 'default_layout_controller.dart';
 import 'default_module_registry.dart';
 import 'default_notification_manager.dart';
@@ -48,10 +51,8 @@ import 'default_status_bar_controller.dart';
 import 'default_system_state.dart';
 import 'default_undo_manager.dart';
 import 'default_workspace_state_manager.dart';
-import 'memory_file_system.dart';
 import 'platform_secret_storage.dart';
 import 'pty_terminal.dart';
-import 'real_file_system.dart';
 import 'real_search_manager.dart';
 import 'stub_services.dart';
 
@@ -187,7 +188,7 @@ class DefaultShellApi implements ForgeShellApi {
     ForgeConfig initialConfig = const ForgeConfig(),
     int maxOpenEditors = 20,
   }) {
-    final memFs = MemoryFileSystem(seed: fileSystemSeed);
+    final memFs = ForgeMemoryFileSystem(seed: fileSystemSeed);
     return DefaultShellApi.withDefaultsAndFileSystem(
       fileSystem: memFs,
       appName: appName,
@@ -255,31 +256,22 @@ class DefaultShellApi implements ForgeShellApi {
     final undoManager = DefaultUndoManager();
     final clipboardService = DefaultClipboard();
 
-    // Choose search manager based on file system type
-    ForgeSearchManager searchManager;
-    if (fileSystem is MemoryFileSystem) {
-      searchManager = DefaultSearchManager(fileSystem: fileSystem);
-    } else if (fileSystem is RealFileSystem) {
-      searchManager = RealSearchManager(
-        rootDirectory: fileSystem.rootDirectory,
-      );
-    } else {
-      // Fallback: create an empty MemoryFileSystem for search
-      searchManager = DefaultSearchManager(
-        fileSystem: MemoryFileSystem(seed: {}),
-      );
-    }
+    // A folder on disk is searched on disk, with its exclusions and cache;
+    // any other file system is walked through the contract.
+    final ForgeSearchManager searchManager = fileSystem is ForgeLocalFileSystem
+        ? RealSearchManager(rootDirectory: Directory(fileSystem.rootPath))
+        : DefaultSearchManager(fileSystem: fileSystem);
 
     final outlineManager = DefaultOutlineManager();
-    // Use PTY-backed terminals on desktop (RealFileSystem), fallback for tests.
-    final ForgeTerminalManager terminalManager = fileSystem is RealFileSystem
+    // Use PTY-backed terminals on desktop (a local folder), fallback for tests.
+    final ForgeTerminalManager terminalManager = fileSystem is ForgeLocalFileSystem
         ? PtyTerminalManager()
         : DefaultTerminalManager();
     final storageService = storage ?? DefaultModuleStorage();
     final environmentService = DefaultEnvironment();
     final executionMonitor = DefaultExecutionMonitor();
     // Use platform keychain on desktop, in-memory for tests.
-    final ForgeSecretStorage secretStorage = fileSystem is RealFileSystem
+    final ForgeSecretStorage secretStorage = fileSystem is ForgeLocalFileSystem
         ? PlatformSecretStorage()
         : DefaultSecretStorage();
     final fileDecorationManager = DefaultFileDecorationManager();
@@ -546,13 +538,13 @@ class DefaultShellApi implements ForgeShellApi {
 
     // Snapshot current content before overwriting.
     try {
-      final currentContent = await fileSystem.read(fileUri);
+      final currentContent = await fileSystem.readText(fileUri);
       await workspaceState.createRevision(fileUri, currentContent);
     } catch (_) {
       // If we can't snapshot current content, proceed anyway.
     }
 
-    await fileSystem.write(fileUri, content);
+    await fileSystem.writeText(fileUri, content);
     await fileSystem.save(fileUri);
 
     // Refresh open editor if present.

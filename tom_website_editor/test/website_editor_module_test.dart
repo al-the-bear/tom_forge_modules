@@ -217,7 +217,7 @@ void main() {
 
       // The generator writes a new component file on disk...
       await shell.fileSystem
-          .write(Uri.file('/site/content/components/b.yaml'), _componentB);
+          .writeText(Uri.file('/site/content/components/b.yaml'), _componentB);
 
       // ...and the user runs the generate command from the control panel.
       final code = await module.controlController!.runCommand('generateAll');

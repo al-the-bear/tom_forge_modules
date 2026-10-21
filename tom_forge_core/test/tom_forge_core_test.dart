@@ -683,11 +683,11 @@ void main() {
   // ─── DefaultSearchManager ─────────────────────────────────
 
   group('DefaultSearchManager', () {
-    late MemoryFileSystem fs;
+    late ForgeMemoryFileSystem fs;
     late DefaultSearchManager mgr;
 
     setUp(() {
-      fs = MemoryFileSystem(seed: {
+      fs = ForgeMemoryFileSystem(seed: {
         '/src/main.dart': 'void main() {\n  print("hello");\n}',
         '/src/util.dart': 'String greet() => "hello world";',
         '/README.md': '# Hello Project\nWelcome to hello.',
@@ -760,50 +760,51 @@ void main() {
     });
   });
 
-  // ─── MemoryFileSystem ─────────────────────────────────────
+  // ─── ForgeMemoryFileSystem ────────────────────────────────
 
-  group('MemoryFileSystem', () {
-    late MemoryFileSystem fs;
+  group('ForgeMemoryFileSystem', () {
+    late ForgeMemoryFileSystem fs;
 
     setUp(() {
-      fs = MemoryFileSystem(seed: {
+      fs = ForgeMemoryFileSystem(seed: {
         '/test.txt': 'hello world',
       });
     });
 
     test('read seeded file', () async {
-      final content = await fs.read(Uri.parse('file:///test.txt'));
+      final content = await fs.readText(Uri.parse('file:///test.txt'));
       expect(content, 'hello world');
     });
 
     test('read missing file throws', () {
       expect(
         () => fs.read(Uri.parse('file:///missing.txt')),
-        throwsA(isA<FileSystemException>()),
+        throwsA(isA<ForgeFileSystemException>()),
       );
     });
 
-    test('readBytes', () async {
-      final bytes = await fs.readBytes(Uri.parse('file:///test.txt'));
-      expect(bytes, isNotEmpty);
+    test('read answers the bytes and the revision', () async {
+      final content = await fs.read(Uri.parse('file:///test.txt'));
+      expect(content.bytes, isNotEmpty);
+      expect(content.revision.size, content.bytes.length);
     });
 
     test('write creates new file', () async {
-      await fs.write(Uri.parse('file:///new.txt'), 'content');
-      final content = await fs.read(Uri.parse('file:///new.txt'));
+      await fs.writeText(Uri.parse('file:///new.txt'), 'content');
+      final content = await fs.readText(Uri.parse('file:///new.txt'));
       expect(content, 'content');
     });
 
     test('write emits created event for new file', () async {
       final future = fs.onDidChange.first;
-      await fs.write(Uri.parse('file:///brand_new.txt'), 'data');
+      await fs.writeText(Uri.parse('file:///brand_new.txt'), 'data');
       final event = await future;
       expect(event.type, FileChangeType.created);
     });
 
     test('write emits modified event for existing file', () async {
       final future = fs.onDidChange.first;
-      await fs.write(Uri.parse('file:///test.txt'), 'updated');
+      await fs.writeText(Uri.parse('file:///test.txt'), 'updated');
       final event = await future;
       expect(event.type, FileChangeType.modified);
     });
@@ -830,11 +831,11 @@ void main() {
 
     test('stat returns size', () async {
       final stat = await fs.stat(Uri.parse('file:///test.txt'));
-      expect(stat.size, greaterThan(0));
+      expect(stat!.size, greaterThan(0));
     });
 
     test('list returns directory content', () async {
-      fs = MemoryFileSystem(seed: {
+      fs = ForgeMemoryFileSystem(seed: {
         '/dir/a.txt': 'a',
         '/dir/b.txt': 'b',
         '/dir/sub/c.txt': 'c',
@@ -843,13 +844,17 @@ void main() {
       expect(entries.length, greaterThanOrEqualTo(2));
     });
 
-    test('list recursive', () async {
-      fs = MemoryFileSystem(seed: {
+    test('list names a folder once, as a folder', () async {
+      fs = ForgeMemoryFileSystem(seed: {
         '/dir/a.txt': 'a',
         '/dir/sub/b.txt': 'b',
       });
-      final entries = await fs.list(Uri.parse('file:///dir'), recursive: true);
-      expect(entries.length, greaterThanOrEqualTo(2));
+      final entries = await fs.list(Uri.parse('file:///dir'));
+      expect(
+        {for (final e in entries) e.name: e.isDirectory},
+        {'a.txt': false, 'sub': true},
+      );
+      expect(entries.firstWhere((e) => e.name == 'sub').path, 'dir/sub');
     });
 
     test('save triggers onWillSave and onDidSave', () async {
@@ -881,7 +886,7 @@ void main() {
       final result = await fs.applyWorkspaceEdit(edit);
       expect(result, isTrue);
 
-      final content = await fs.read(Uri.parse('file:///test.txt'));
+      final content = await fs.readText(Uri.parse('file:///test.txt'));
       expect(content, 'HELLO world');
     });
 

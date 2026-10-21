@@ -166,7 +166,7 @@
 | `workspace.onDidChangeConfiguration` | Configuration changed | `ForgeConfigManager.onDidChange` | ✅ |
 | `workspace.registerTaskProvider` | Register task provider | ❌ No task system | ❌ |
 | `workspace.registerFileSystemProvider` | Virtual file system | ❌ No virtual FS provider (but `ForgeVirtualDocumentManager` covers content-only scenarios) | 🔶 |
-| `workspace.fs` | File system access | `ForgeFileSystem` (read, readBytes, write, save, delete, exists, stat, list, watch, applyWorkspaceEdit — routed through revisioning) | ✅ |
+| `workspace.fs` | File system access | `ForgeFileSystem` (read, write, save, create, rename, trash, delete, exists, stat, list, watch, applyWorkspaceEdit — routed through revisioning) | ✅ |
 | `workspace.isTrusted` | Workspace trust state | ❌ No workspace trust model | ❌ |
 | `workspace.onDidGrantWorkspaceTrust` | Trust granted | ❌ | ❌ |
 | `workspace.notebookDocuments` | Open notebook documents | Not applicable | ➖ |
@@ -430,7 +430,7 @@
 | `systemState` | Real-time system state (focus, editors, selection, diagnostics, layout) | Spread across `window.*`, `workspace.*`, `languages.getDiagnostics` | 🆕 (unified) |
 | `layout` | Programmatic layout control (panels, focus, open file, open with) | `window.showTextDocument`, `commands.executeCommand('workbench.*')` | 🆕 (direct API) |
 | `statusBar` | Status bar item management | `window.createStatusBarItem` | ✅ |
-| `fileSystem` | Revisioned file access (read, readBytes, write, save, delete, stat, watch, events, workspace edit) | `workspace.fs` (no revisioning, fewer events, no atomic multi-file edit) | 🆕 (revisioning + workspace edit) |
+| `fileSystem` | Revisioned file access (read, write, save, create, rename, trash, delete, stat, watch, events, workspace edit) | `workspace.fs` (no revisioning, fewer events, no atomic multi-file edit) | 🆕 (revisioning + workspace edit) |
 | `modules` | Module cross-references (type-safe) | `extensions.getExtension(id)` (untyped) | ✅ |
 | `output` | Output channel creation and management | `window.createOutputChannel` | ✅ |
 | `diagnostics` | Problem/diagnostic registration | `languages.createDiagnosticCollection` | ✅ |
@@ -637,7 +637,7 @@ All 13 gaps from the v5 comparison have been addressed in v6:
 |---|-----|-------------------|
 | 1 | Text editor decorations | `ForgeDecorationType` + `ForgeTextEditor.setDecorations()` — background, border, underline (wavy/dotted/dashed/solid), gutter icons, overview ruler, hover messages |
 | 2 | File decorations (explorer) | `ForgeFileDecorationManager.registerProvider()` — badges, color tint, tooltip, parent folder propagation |
-| 3 | readBytes for binary files | `ForgeFileSystem.readBytes(uri)` — returns `Uint8List`, completes the two-phase resolution flow |
+| 3 | Bytes for binary files | `ForgeFileSystem.read(uri)` — returns the bytes with their revision, completes the two-phase resolution flow |
 | 4 | Multi-cursor / multi-selection | `ForgeTextEditor.selections` + `setSelections()` — `ValueListenable<List<TextRange>>` |
 | 5 | Visible ranges | `ForgeTextEditor.visibleRange` — `ValueListenable<TextRange>`, changes on scroll |
 | 6 | Editor options | `ForgeTextEditorOptions` on `ForgeTextEditor` — tabSize, insertSpaces, wordWrap per editor |
@@ -726,7 +726,7 @@ These are VS Code features in domains Forge does **not currently cover**. They a
 | `ForgeSystemState` | ✅ §10 | ✅ Full — all state + streams | — |
 | `ForgeLayoutController` | ✅ §10.4 | ✅ Full — open/close/toggle panels, openFile, openFileWith, split, reveal | — |
 | `ForgeStatusBarController` | ✅ §10.4 | 🔶 Minimal — just `List<StatusBarItem> get items` | Add register/remove methods |
-| `ForgeFileSystem` | ✅ §10.4 | ✅ Full — read, readBytes, write, save, delete, exists, stat, list, watch, applyWorkspaceEdit, events | v6: added readBytes + workspace edit |
+| `ForgeFileSystem` | ✅ §10.4 | ✅ Full — read (bytes with their revision), revision-checked atomic write, save, create, rename, trash, delete, exists, stat, list, watch, applyWorkspaceEdit, events | workspace edit |
 | `ForgeModuleRegistry` | ✅ §10.4 | ✅ `get<T>()`, `allModules` | — |
 | `ForgeOutputChannelManager` | ✅ §10.4 | ✅ Full — create, get, channels, ForgeOutputChannel methods | — |
 | `ForgeDiagnosticManager` | ✅ §10.4 | ✅ Full — createCollection, all, forUri, Collection methods | — |

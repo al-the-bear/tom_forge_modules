@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
-class _TimeoutMemoryFileSystem extends MemoryFileSystem {
+class _TimeoutMemoryFileSystem extends ForgeMemoryFileSystem {
   int remainingTimeoutReads;
   int readAttempts = 0;
 
@@ -15,7 +15,7 @@ class _TimeoutMemoryFileSystem extends MemoryFileSystem {
   });
 
   @override
-  Future<String> read(Uri uri) async {
+  Future<ForgeFileContent> read(Uri uri) async {
     readAttempts++;
     if (remainingTimeoutReads > 0) {
       remainingTimeoutReads--;

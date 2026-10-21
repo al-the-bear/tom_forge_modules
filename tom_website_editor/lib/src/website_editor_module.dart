@@ -96,7 +96,7 @@ class WebsiteEditorModule extends ForgeModule {
     final configUri = _resolveConfigUri(shell);
     _configUri = configUri;
     final controller = WebsiteEditorController(
-      configReader: () => shell.fileSystem.read(configUri),
+      configReader: () => shell.fileSystem.readText(configUri),
     );
     _controller = controller;
     // §6 config editor: built on ForgeYamlEditor, self-loads the on-disk config,
@@ -107,7 +107,7 @@ class WebsiteEditorModule extends ForgeModule {
       module: this,
       configFileName: configFileName,
       onSaveReload: controller.reload,
-      configReader: () => shell.fileSystem.read(configUri),
+      configReader: () => shell.fileSystem.readText(configUri),
     );
     _configEditor = configEditor;
     final diagnostics = shell.diagnostics.createCollection('website-editor-config');
