@@ -19,8 +19,8 @@ dependencies:
   tom_forge_core:
     path: ../tom_forge_core
   # The todo file names the filter's todo-siblings rule reads.
-  tom_worktracker_core:
-    path: ../../tom_worktracker/tom_worktracker_core
+  # The shared todo model and the *.todo.yaml codec (tom_modules).
+  tom_todo_model: ^1.0.1
 
 dev_dependencies:
   lints: ^6.0.0

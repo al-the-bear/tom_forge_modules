@@ -4,7 +4,7 @@ library;
 
 import 'package:tom_basics/utilities.dart';
 import 'package:meta/meta.dart';
-import 'package:tom_worktracker_core/todo.dart';
+import 'package:tom_todo_model/tom_todo_model.dart';
 
 /// What the filter knows about one entry when it decides.
 class ForgeFilterSubject {
