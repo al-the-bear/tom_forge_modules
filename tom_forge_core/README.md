@@ -95,6 +95,22 @@ this machine alone, in Docker:
 
 It is started by hand and writes its logs to `testlog/platform_check/`.
 
+### `.gitignore` rules
+
+`forgeLoadGitignores(root)` reads every `.gitignore` under a folder into one
+`TomGitignoreSet` from `tom_basics` (`package:tom_basics/utilities.dart`),
+which parses and applies the rules; Forge's part is only the walk. The root's
+file comes first and deeper ones later, so a nested file decides inside its
+folder. The walk never enters `.git` or a folder the rules already ignore, and
+passes over a file it cannot read.
+
+```dart
+final rules = await forgeLoadGitignores('/path/to/workspace');
+if (rules.isIgnored('build/output.js', isDirectory: false)) {
+  // skip it
+}
+```
+
 ## Context-menu contributions
 
 The pure-Dart model behind the shell's context menus

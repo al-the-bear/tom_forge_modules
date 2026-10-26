@@ -5,7 +5,7 @@
 /// This is a **narrow, platform-neutral** entry point beside the default
 /// `tom_forge_core.dart` barrel, and it exists because the barrel exports
 /// three file-system libraries that import `dart:io`
-/// (`forge_file_system`, `memory_file_system`, `gitignore_matcher`) while the
+/// (`forge_file_system`, `memory_file_system`, `gitignore_loader`) while the
 /// undo machinery needs none of them — it is plain Dart over
 /// `ForgeValueListenable`.
 ///

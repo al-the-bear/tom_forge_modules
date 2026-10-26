@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:tom_forge_core/tom_forge_core.dart'
-    show ForgeFileEntry, ForgeSearchConfig, GitIgnoreMatcher;
+    show ForgeFileEntry, ForgeSearchConfig, forgeLoadGitignores;
 
 import '../actions/forge_action.dart';
 import '../actions/forge_shortcut_binding.dart';
@@ -452,11 +452,10 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
       // In-memory test/workspace file systems do not necessarily map to
       // real host paths, so attempting to scan host .gitignore files can
       // become non-deterministic.
-      GitIgnoreMatcher? gitIgnore;
-      if (config.excludeGitIgnored && Directory(workspaceRoot).existsSync()) {
-        gitIgnore = GitIgnoreMatcher();
-        await gitIgnore.loadFromRoot(workspaceRoot);
-      }
+      final gitIgnore =
+          config.excludeGitIgnored && Directory(workspaceRoot).existsSync()
+          ? await forgeLoadGitignores(workspaceRoot)
+          : null;
 
       // Capture current search options — they may change during async iteration.
       final pattern = _activePattern;

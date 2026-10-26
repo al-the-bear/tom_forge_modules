@@ -17,6 +17,8 @@ dependencies:
   path: ^1.9.0
   # SHA-256 for file revisions.
   crypto: ^3.0.0
+  # The gitignore rules (TomGitignoreSet) behind the file walk.
+  tom_basics: ">=3.3.0"
 
 dev_dependencies:
   lints: ^6.0.0

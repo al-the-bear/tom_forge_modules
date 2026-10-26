@@ -45,7 +45,7 @@ export 'src/model/forge_config.dart';
 export 'src/model/forge_search_config.dart';
 
 // Utils
-export 'src/utils/gitignore_matcher.dart';
+export 'src/utils/gitignore_loader.dart';
 
 // Services (pure-Dart interfaces)
 export 'src/services/forge_clipboard.dart';

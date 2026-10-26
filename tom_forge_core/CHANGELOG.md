@@ -10,6 +10,10 @@
   they applied when an item throws. `DefaultUndoManager` and
   `CompositeUndoEntry` run on them, as do the editors' histories and
   `tom_flutter_ui`'s `TomUndoHistory`.
+- `forgeLoadGitignores(root)`: the walk that reads every `.gitignore` under a
+  folder (never entering `.git` or a folder already ignored) into one
+  `tom_basics` `TomGitignoreSet`, which holds the rules; Forge parses none
+  itself.
 - One file-system contract, `ForgeFileSystem`, addressed by `Uri` with a
   root: revision-checked atomic writes, `stat`, `readSlice`, `create`,
   `rename`, `trash`, and a watch that can be told which folders not to enter.
