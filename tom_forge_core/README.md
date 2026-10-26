@@ -95,3 +95,6 @@ implementation, with `CompositeUndoEntry` for a `beginUndoGroup` /
 `endUndoGroup` block; both run on `tom_undo`'s `TomUndoStack` and
 `tomApplyAllAsync`. They are in **`package:tom_forge_core/tom_forge_undo.dart`**,
 which reaches no `dart:io` and no Flutter.
+
+An editor keeps its history on that stack rather than its own list:
+`_bin/check_undo_stacks.py --strict` (workspace root) finds a hand-rolled one.
