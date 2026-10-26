@@ -21,6 +21,9 @@ dependencies:
   tom_core_agentic:
     path: ../../tom_ai/core/tom_core_agentic
 
+  # The cooperative cancellation the send controller hands the send engine.
+  tom_basics: ">=3.3.0"
+
   # Forge shell contracts so the reusable agent surfaces can be contributed as
   # Forge modules/views by any agent/chat-enabled Forge tool.
   tom_forge_ui:

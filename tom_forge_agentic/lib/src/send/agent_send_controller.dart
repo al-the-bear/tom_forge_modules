@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:tom_basics/utilities.dart' show TomCancellationSource;
 import 'package:tom_core_agentic/tom_core_agentic.dart';
 
 import '../connection/agent_connection_controller.dart';
@@ -88,7 +89,7 @@ class AgentSendController extends ChangeNotifier {
   /// Cancellation source for the turn in flight, or `null`. [cancel] signals it
   /// to abort: the engine interrupts the active query (`agentSdk.cancelVce`),
   /// closing its stream so the turn unwinds without a terminal event.
-  CancellationTokenSource? _cancelSource;
+  TomCancellationSource? _cancelSource;
 
   /// Set by [cancel] so a turn aborted while the §6.1 reconnect back-off is
   /// probing is not resurrected when the probe resolves. Reset by [send].
@@ -257,7 +258,7 @@ class AgentSendController extends ChangeNotifier {
     // A per-turn cancellation source: [cancel] signals it, the engine
     // interrupts the active query (`agentSdk.cancelVce`) and ends its stream
     // silently, so the `await for` below unwinds without a terminal event.
-    final cancelSource = CancellationTokenSource();
+    final cancelSource = TomCancellationSource();
     _cancelSource = cancelSource;
     try {
       await for (final event in engine.send(prompt, cancelToken: cancelSource.token)) {
