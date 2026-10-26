@@ -1,15 +1,15 @@
 # tom_forge_files
 
 What an editor and a file browser build on the file-system contract of
-`tom_forge_core`: the editing session of one file, the filter that decides
+`tom_file_system`: the editing session of one file, the filter that decides
 what a file tree shows, and the `.env` codec. Pure Dart: no `dart:io`, no
 Flutter, so a browser build links it.
 
 ```dart
-import 'package:tom_forge_core/io.dart';
+import 'package:tom_file_system/io.dart';
 import 'package:tom_forge_files/tom_forge_files.dart';
 
-final fs = ForgeLocalFileSystem('/path/to/folder');
+final fs = TomLocalFileSystem('/path/to/folder');
 final session = ForgeFileSession(fileSystem: fs, path: 'notes/today.md');
 await session.load();
 session.edit('${session.text}- one more line\n', 'Append');

@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import '../components/forge_editor.dart';
-import 'package:tom_forge_core/files.dart' show ForgeFileSystem;
+import 'package:tom_file_system/tom_file_system.dart' show TomFileSystem;
 import 'default_system_state.dart';
 import 'editor_save.dart';
 
@@ -15,7 +15,7 @@ import 'editor_save.dart';
 /// controller that applies the same debounce uniformly.
 class ShellAutosaveController {
   final DefaultSystemState systemState;
-  final ForgeFileSystem fileSystem;
+  final TomFileSystem fileSystem;
   final Duration debounce;
   final bool saveOnFocusLoss;
 

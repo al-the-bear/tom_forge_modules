@@ -1,9 +1,10 @@
 name: tom_forge_core
 description: >-
-  Tom Forge's core types, service contracts and defaults, and the one
-  file-system contract with its in-memory and local implementations.
+  Tom Forge's core types, service contracts and defaults: documents,
+  diagnostics, decorations, the undo manager, the workspace edit and the
+  services the shell and its editors share.
 publish_to: none
-version: 1.0.0
+version: 2.0.0
 # repository: https://github.com/my_org/my_repo
 
 environment:
@@ -11,14 +12,15 @@ environment:
 
 # Add regular dependencies here.
 dependencies:
-  # The Windows Recycle Bin call of the local file system.
-  ffi: ^2.1.0
-  meta: ^1.16.0
-  path: ^1.9.0
-  # SHA-256 for file revisions.
-  crypto: ^3.0.0
   # The gitignore rules (TomGitignoreSet) behind the file walk.
   tom_basics: ">=3.3.0"
+  # The file-system contract the shell, its editors and the workspace edit
+  # work on.
+  tom_file_system:
+    path: ../../tom_ai/basics/tom_file_system
+  # The stack DefaultUndoManager runs on.
+  tom_undo:
+    path: ../../tom_ai/basics/tom_undo
 
 dev_dependencies:
   lints: ^6.0.0

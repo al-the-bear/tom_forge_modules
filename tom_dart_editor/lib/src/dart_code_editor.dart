@@ -12,7 +12,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart';
-import 'package:tom_forge_core/tom_forge_undo.dart';
+import 'package:tom_undo/tom_undo.dart';
 
 import 'dart_text_context.dart';
 import 'editor_theme.dart';
@@ -680,8 +680,8 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
 
   // Undo/Redo state
   static const int _maxUndoStackSize = 100;
-  final ForgeUndoStack<_TextChange> _history =
-      ForgeUndoStack(maxEntries: _maxUndoStackSize);
+  final TomUndoStack<_TextChange> _history =
+      TomUndoStack(maxEntries: _maxUndoStackSize);
   String _lastSavedText = '';
   TextSelection _lastSavedSelection = const TextSelection.collapsed(offset: 0);
   Timer? _undoDebounceTimer;

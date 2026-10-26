@@ -257,7 +257,7 @@ classDiagram
 ### 3. The undo stack
 
 Undo/redo is not part of `tom_editors_shared`: every editor in the workspace
-keeps its history on `tom_forge_core`'s `ForgeUndoStack<E>`
+keeps its history on `tom_undo`'s `TomUndoStack<E>`
 (`package:tom_forge_core/tom_forge_undo.dart`), a bounded stack that applies an
 entry first and moves it second, so a failed undo leaves the history as it was.
 The YAML controller keeps its `YamlEditOperation`s on it: undo applies
@@ -265,7 +265,7 @@ The YAML controller keeps its `YamlEditOperation`s on it: undo applies
 
 ```mermaid
 classDiagram
-    class ForgeUndoStack~E~ {
+    class TomUndoStack~E~ {
         +int maxEntries
         +bool canUndo
         +bool canRedo
@@ -280,7 +280,7 @@ classDiagram
         +revert(document)
     }
 
-    ForgeUndoStack --> YamlEditOperation : holds
+    TomUndoStack --> YamlEditOperation : holds
 ```
 
 ### 4. TextEditorCore
@@ -584,7 +584,7 @@ graph TD
 
     YEC --> YDM["YamlDocumentModel"]
     YEC --> YS["YamlSchema"]
-    YEC --> UH["ForgeUndoStack (tom_forge_core)"]
+    YEC --> UH["TomUndoStack (tom_undo)"]
     YEC --> SW["SchemaWalker"]
 
     SI --> TEC["TextEditorCore (shared)"]

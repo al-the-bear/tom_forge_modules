@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:tom_forge_core/tom_forge_core.dart';
+import 'package:tom_file_system/tom_file_system.dart';
 
 /// Default implementation of [ForgeSearchManager].
 ///
@@ -11,13 +12,13 @@ import 'package:tom_forge_core/tom_forge_core.dart';
 class DefaultSearchManager implements ForgeSearchManager {
   static bool debugEnabled = false;
 
-  final ForgeFileSystem _fileSystem;
+  final TomFileSystem _fileSystem;
 
   /// LRU cache for search results, keyed by query fingerprint.
   final LruCache<String, List<ForgeSearchResult>> _cache;
 
   DefaultSearchManager({
-    required ForgeFileSystem fileSystem,
+    required TomFileSystem fileSystem,
     int maxCacheEntries = 200,
     int maxCacheSizeBytes = 50 * 1024 * 1024,
   })  : _fileSystem = fileSystem,
@@ -36,7 +37,7 @@ class DefaultSearchManager implements ForgeSearchManager {
   /// Every file under the root, in path order; a link that leaves the root
   /// is not followed.
   Stream<Uri> _files() async* {
-    final files = <ForgeFileEntry>[];
+    final files = <TomFileEntry>[];
     final pending = [_fileSystem.root];
     while (pending.isNotEmpty) {
       for (final entry in await _fileSystem.list(pending.removeLast())) {

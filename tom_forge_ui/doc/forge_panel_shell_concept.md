@@ -1065,7 +1065,7 @@ abstract class ForgeShellApi {
   ForgeStatusBarController get statusBar;
 
   /// File system access (routed through .forge revisioning).
-  ForgeFileSystem get fileSystem;
+  TomFileSystem get fileSystem;
 
   /// Module cross-references (type-safe).
   ForgeModuleRegistry get modules;
@@ -1464,38 +1464,38 @@ ForgeAction(
 
 This section details the APIs for each service on `ForgeShellApi` that are not fully specified in the sections above.
 
-#### ForgeFileSystem
+#### TomFileSystem
 
-The contract lives in `tom_forge_core` (`package:tom_forge_core/files.dart`),
-with two implementations: `ForgeMemoryFileSystem` and, in `io.dart`,
-`ForgeLocalFileSystem` over a folder on disk. It is addressed by `Uri`; a file
+The contract lives in `tom_file_system` (`package:tom_file_system/tom_file_system.dart`),
+with two implementations: `TomMemoryFileSystem` and, in `io.dart`,
+`TomLocalFileSystem` over a folder on disk. It is addressed by `Uri`; a file
 system has a `root`, and `uriOf` / `pathOf` map root-relative paths to URIs and
 back.
 
 ```dart
-abstract interface class ForgeFileSystem {
+abstract interface class TomFileSystem {
   Uri get root;
   Uri uriOf(String path);
   String? pathOf(Uri uri);
 
   /// The entries directly in a folder.
-  Future<List<ForgeFileEntry>> list(Uri directory);
+  Future<List<TomFileEntry>> list(Uri directory);
 
   /// One entry, or null when nothing is there.
-  Future<ForgeFileEntry?> stat(Uri uri);
+  Future<TomFileEntry?> stat(Uri uri);
 
   /// The bytes with the revision they were read at — the input of the
   /// two-phase file resolution flow (canHandleContent receives the bytes).
-  Future<ForgeFileContent> read(Uri uri);
+  Future<TomFileContent> read(Uri uri);
   Future<String> readText(Uri uri);
 
   /// At most maxBytes, from the start or the end (a log read where it grows).
   Future<String?> readSlice(Uri uri, {required int maxBytes, required bool fromEnd});
 
-  /// Atomic writes; with [expected], refused with a ForgeFileConflict when
+  /// Atomic writes; with [expected], refused with a TomFileConflict when
   /// the file is no longer that revision.
-  Future<ForgeFileRevision> write(Uri uri, Uint8List bytes, {ForgeFileRevision? expected});
-  Future<ForgeFileRevision> writeText(Uri uri, String text, {ForgeFileRevision? expected});
+  Future<TomFileRevision> write(Uri uri, Uint8List bytes, {TomFileRevision? expected});
+  Future<TomFileRevision> writeText(Uri uri, String text, {TomFileRevision? expected});
 
   Future<void> create(Uri uri, {bool directory = false});
   Future<void> rename(Uri from, Uri to);
@@ -1507,7 +1507,7 @@ abstract interface class ForgeFileSystem {
 
   /// Changes below the root, or null where the platform does not watch;
   /// [descend] names the folders not to watch into.
-  Stream<ForgeFileChange>? watch({bool Function(String path)? descend});
+  Stream<TomFileChange>? watch({bool Function(String path)? descend});
 
   /// Save (persist) the current content of a file.
   /// Triggers revision snapshot and dirty-state update.
@@ -1519,13 +1519,13 @@ abstract interface class ForgeFileSystem {
   Future<bool> applyWorkspaceEdit(ForgeWorkspaceEdit edit);
 
   /// Fires when any file changes (create, modify, delete).
-  Stream<FileChangeEvent> get onDidChange;
+  Stream<TomFileChangeEvent> get onDidChange;
 
   /// Fires after a file is saved.
   Stream<Uri> get onDidSave;
 
   /// Fires before a file is saved. Listeners can modify content.
-  Stream<WillSaveEvent> get onWillSave;
+  Stream<TomWillSaveEvent> get onWillSave;
 }
 
 /// An atomic multi-file edit operation. All changes are applied as a
@@ -1563,18 +1563,18 @@ class ForgeRenameFileOperation extends ForgeFileOperation {
 }
 
 /// A file system change event.
-class FileChangeEvent {
+class TomFileChangeEvent {
   /// The URI that changed.
   final Uri uri;
 
   /// The type of change.
-  final FileChangeType type;
+  final TomFileChangeType type;
 }
 
-enum FileChangeType { created, modified, deleted }
+enum TomFileChangeType { created, modified, deleted }
 
 /// Event fired before a file is saved. Listeners can modify content.
-class WillSaveEvent {
+class TomWillSaveEvent {
   /// The URI being saved.
   final Uri uri;
 
@@ -1582,10 +1582,10 @@ class WillSaveEvent {
   String content;
 
   /// Reason for the save.
-  final SaveReason reason;
+  final TomSaveReason reason;
 }
 
-enum SaveReason { manual, autoSave, focusLoss }
+enum TomSaveReason { manual, autoSave, focusLoss }
 ```
 
 #### ForgeLayoutController
@@ -2537,7 +2537,7 @@ When using global configuration mode, configuration lives in `~/.forge/`:
 
 ### 12.3 File Revisioning
 
-The shell **routes all file access** through `ForgeFileSystem`, which transparently manages revisions:
+The shell **routes all file access** through `TomFileSystem`, which transparently manages revisions:
 
 - **On save:** a revision snapshot is created automatically. Sequential identical saves (same content) do not create duplicate revisions.
 - **Revision limit:** configurable (default: 50 revisions per file). Oldest revisions are pruned.
@@ -3120,7 +3120,7 @@ Per Tom Forge convention, the panel shell implements trail-based debug mode:
 
 ### Phase 7 — Auto-Save and Revisioning
 
-- `ForgeFileSystem` with routed file access (`read`, `write`, `save`, `create`, `rename`, `trash`, `delete`, `exists`, `stat`, `list`, `watch`, `applyWorkspaceEdit`)
+- `TomFileSystem` with routed file access (`read`, `write`, `save`, `create`, `rename`, `trash`, `delete`, `exists`, `stat`, `list`, `watch`, `applyWorkspaceEdit`)
 - Auto-save service (focus loss + idle timer)
 - File revision management in `.forge/revisions/`
 - Undo stack persistence in `.forge/undo/`

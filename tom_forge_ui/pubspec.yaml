@@ -9,6 +9,10 @@ environment:
   flutter: ">=1.17.0"
 
 dependencies:
+  tom_undo:
+    path: ../../tom_ai/basics/tom_undo
+  tom_file_system:
+    path: ../../tom_ai/basics/tom_file_system
   flutter:
     sdk: flutter
   file_picker: ^12.0.0

@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_file_system/tom_file_system.dart';
 
 import 'support/shell_test_utils.dart';
 
@@ -370,7 +371,7 @@ class _PhaseABExplorerHarness {
 
   final DefaultShellApi shell;
   final String workspaceRoot;
-  final ForgeMemoryFileSystem fileSystem;
+  final TomMemoryFileSystem fileSystem;
   final ForgeFileExplorerView explorerView;
 
   static _PhaseABExplorerHarness create() {
@@ -383,7 +384,7 @@ class _PhaseABExplorerHarness {
         '${Directory.current.path}/test/phase_ab_fixture_workspace';
 
     final navigatorKey = GlobalKey<NavigatorState>();
-    final fileSystem = ForgeMemoryFileSystem(
+    final fileSystem = TomMemoryFileSystem(
       seed: {
         '$workspaceRoot/README.md': '# Readme\n',
         '$workspaceRoot/src/main.dart': 'void main() { print("hi"); }\n',

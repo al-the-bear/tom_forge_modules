@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tom_forge_core/tom_forge_core.dart' hide ForgeMenuLocation;
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 import 'package:tom_forge_ui/src/widgets/forge_notification_popup.dart';
+import 'package:tom_file_system/tom_file_system.dart';
 
 import 'support/shell_test_utils.dart';
 
@@ -531,7 +532,7 @@ class _PhaseBCHarness {
   final ForgeApplication application;
   final ForgePreferencesService preferences;
   final String workspaceRoot;
-  final ForgeMemoryFileSystem fileSystem;
+  final TomMemoryFileSystem fileSystem;
 
   static _PhaseBCHarness create() {
     final workspaceRoot =
@@ -549,7 +550,7 @@ class _PhaseBCHarness {
     });
 
     final navigatorKey = GlobalKey<NavigatorState>();
-    final fileSystem = ForgeMemoryFileSystem(
+    final fileSystem = TomMemoryFileSystem(
       seed: {
         '$workspaceRoot/main.test': 'hello world\nhello again\nhello final\n',
         '$workspaceRoot/secondary.test': 'secondary file content\n',

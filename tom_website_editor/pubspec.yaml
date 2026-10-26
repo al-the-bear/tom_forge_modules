@@ -9,6 +9,8 @@ environment:
   flutter: ">=1.17.0"
 
 dependencies:
+  tom_file_system:
+    path: ../../tom_ai/basics/tom_file_system
   flutter:
     sdk: flutter
   tom_website_editor_core:

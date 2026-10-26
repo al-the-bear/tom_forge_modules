@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_file_system/tom_file_system.dart';
 
 import 'support/shell_test_utils.dart';
 
@@ -473,7 +474,7 @@ class _PhaseBDHarness {
   final ForgeApplication application;
   final ForgePreferencesService preferences;
   final String workspaceRoot;
-  final ForgeMemoryFileSystem fileSystem;
+  final TomMemoryFileSystem fileSystem;
 
   static _PhaseBDHarness create() {
     final workspaceRoot =
@@ -491,7 +492,7 @@ class _PhaseBDHarness {
     });
 
     final navigatorKey = GlobalKey<NavigatorState>();
-    final fileSystem = ForgeMemoryFileSystem(
+    final fileSystem = TomMemoryFileSystem(
       seed: {
         '$workspaceRoot/main.test': 'main file content\n',
         '$workspaceRoot/secondary.test': 'secondary file content\n',

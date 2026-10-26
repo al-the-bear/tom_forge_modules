@@ -11,7 +11,7 @@ import 'dart:typed_data';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:tom_basics/utilities.dart';
-import 'package:tom_forge_core/io.dart';
+import 'package:tom_file_system/io.dart';
 import 'package:tom_forge_files/tom_forge_files.dart';
 
 const _todos =
@@ -22,14 +22,14 @@ const _todos =
 class _Setup {
   _Setup(this.name, this.fs, this.writeBehind, this.deleteBehind, this.close);
   final String name;
-  final ForgeFileSystem fs;
+  final TomFileSystem fs;
   final Future<void> Function(String path, List<int> bytes) writeBehind;
   final Future<void> Function(String path) deleteBehind;
   final Future<void> Function() close;
 }
 
 _Setup _memory() {
-  final fs = ForgeMemoryFileSystem(root: Uri.directory('/work/'));
+  final fs = TomMemoryFileSystem(root: Uri.directory('/work/'));
   return _Setup(
     'memory',
     fs,
@@ -41,7 +41,7 @@ _Setup _memory() {
 
 _Setup _local() {
   final dir = Directory.systemTemp.createTempSync('forge_session_');
-  final fs = ForgeLocalFileSystem(dir.path);
+  final fs = TomLocalFileSystem(dir.path);
   File file(String path) => File(p.join(dir.path, path));
   return _Setup(
     'local',

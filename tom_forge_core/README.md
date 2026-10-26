@@ -12,8 +12,10 @@ and the Flutter guide for
 -->
 
 Tom Forge's core: the types, service contracts and defaults the shell is
-built from, in pure Dart, and the one file-system contract with its in-memory
-and local implementations.
+built from, in pure Dart. The file system the shell and its editors work on is
+[`tom_file_system`](../../tom_ai/basics/tom_file_system/README.md), and the undo
+stack under `DefaultUndoManager` is
+[`tom_undo`](../../tom_ai/basics/tom_undo/README.md).
 
 ## Features
 
@@ -33,69 +35,14 @@ to `/example` folder.
 const like = 'sample';
 ```
 
-## File systems
+## Workspace edits
 
-One contract, `ForgeFileSystem`, that every read and write goes through —
-the shell's editors and explorer, and Webwork's workspace browser — addressed
-by `Uri`. A file system has a `root`; `uriOf` and `pathOf` map a path relative
-to it to a `Uri` and back.
+`forgeApplyWorkspaceEdit(fs, edit)` applies a `ForgeWorkspaceEdit` — text
+edits by position and file operations, as an editor or a refactoring produces
+them — to any `TomFileSystem` as one unit: every change, or, when one fails,
+none of them. The file system itself does not know what a workspace edit is.
 
-- **`package:tom_forge_core/files.dart`** — the contract and its values
-  (`ForgeFileEntry`, `ForgeFileRevision`, `ForgeFileContent`,
-  `ForgeFileConflict`, `ForgeFileChange`), the shared base
-  (`ForgeFileSystemBase`: text reads and writes, `save` with its will-save and
-  did-save events, `applyWorkspaceEdit` all or nothing), the in-memory
-  `ForgeMemoryFileSystem` and the text test `forgeLooksLikeText`. It reaches
-  no `dart:io` and no Flutter, so a browser build links it; a dart2js compile
-  and a walk of its imports hold that on every test run.
-- **`package:tom_forge_core/io.dart`** — `ForgeLocalFileSystem` over a folder
-  on disk, with the platform parts it stands on.
-
-What the contract guarantees, on every implementation:
-
-- **Revision-checked writes.** `read` answers the bytes with the revision
-  they were read at (size and SHA-256); `write` with an `expected` revision is
-  refused with a `ForgeFileConflict` when the file is no longer that revision,
-  so a change made by someone else is never written over.
-- **Atomic writes.** The local file system writes a temporary file beside the
-  target and renames it over it; a crash leaves the old file or the new one,
-  never half of either.
-- **Containment.** A symbolic link that leaves the root is listed, marked
-  (`linkLeavesRoot`) and never followed.
-- **Trash.** `trash` moves to the platform's trash — Finder's on macOS; on
-  Linux `gio trash`, `trash-put`, or with neither the freedesktop.org home
-  trash written directly (`forgeXdgTrash`); on Windows the Recycle Bin through
-  the shell's `SHFileOperationW` (`forgeWindowsRecycle`) — and answers false
-  where there is none (the in-memory file system), so the caller can offer a
-  permanent `delete` instead.
-- **Watching.** `watch` reports changes below the root, or is null where the
-  platform does not watch. On macOS and Windows it is the platform's recursive
-  watch; on Linux, where `Directory.watch` is not recursive, every folder is
-  watched on its own (`ForgeDirectoryWatches`), a folder that appears is
-  watched as it appears, and a folder the caller's `descend` excludes is never
-  entered.
-- **Slices.** `readSlice` reads at most a given number of bytes from a file's
-  start or end, cut at a whole line — how a growing log is followed.
-
-The editing session, the tree filter and the `.env` codec built on the
-contract are `tom_forge_files`.
-
-### Checking it on Linux and Windows
-
-`tool/platform_check/run.sh` runs the parts that differ per platform from
-this machine alone, in Docker:
-
-- **linux** — `tool/platform_check/check.dart` on the Linux Dart VM (atomic
-  writes, a stale revision refused, the watch one folder down and in a folder
-  made later, the trash), then this package's suite, whose watch tests run
-  only on Linux.
-- **windows** — the same check on the Windows Dart VM under Wine: atomic
-  writes and the Recycle Bin call. Wine reports no file-system events to Dart,
-  so the watch is printed as not measured there.
-
-It is started by hand and writes its logs to `testlog/platform_check/`.
-
-### `.gitignore` rules
+## `.gitignore` rules
 
 `forgeLoadGitignores(root)` reads every `.gitignore` under a folder into one
 `TomGitignoreSet` from `tom_basics` (`package:tom_basics/utilities.dart`),
@@ -143,28 +90,8 @@ BSD-3-Clause — See [LICENSE](LICENSE) for details.
 
 ## Undo and redo
 
-One stack, `ForgeUndoStack<E>`, that every undo history in the workspace runs
-on — the shell's `DefaultUndoManager`, the text, Markdown, YAML and Dart
-editors, the file tabs' `ForgeFileSession`, and `tom_flutter_ui`'s
-`TomUndoHistory`. It is in **`package:tom_forge_core/tom_forge_undo.dart`**,
-which reaches no `dart:io` and no Flutter, beside the `ForgeUndoManager`
-contract and `DefaultUndoManager`.
-
-- **Applied first, moved second.** `undo` and `redo` apply an entry and only
-  then move it between the stacks, so an application that throws leaves the
-  entry where it was and the error reaches the caller. `undoAsync` and
-  `redoAsync` do the same for an application that completes later.
-- **Bounded.** A push clears the redo stack and drops the oldest entries
-  beyond `maxEntries`; `popNewest` takes the newest entry back so a history can
-  merge a burst of typing into one act.
-- **Atomic composite steps.** `forgeApplyAll` (and `forgeApplyAllAsync`)
-  apply a list of steps in order and, when one throws, put back the ones
-  already applied, newest first, before rethrowing. `CompositeUndoEntry`, the
-  unit a `beginUndoGroup` / `endUndoGroup` block becomes, is built on it.
-
-```dart
-final history = ForgeUndoStack<String>(maxEntries: 50);
-history.push('typed "hello"');
-history.undo((entry) => print('undo $entry')); // applied, then moved to redo
-history.redo((entry) => print('redo $entry'));
-```
+`ForgeUndoManager` is the shell's undo contract and `DefaultUndoManager` its
+implementation, with `CompositeUndoEntry` for a `beginUndoGroup` /
+`endUndoGroup` block; both run on `tom_undo`'s `TomUndoStack` and
+`tomApplyAllAsync`. They are in **`package:tom_forge_core/tom_forge_undo.dart`**,
+which reaches no `dart:io` and no Flutter.

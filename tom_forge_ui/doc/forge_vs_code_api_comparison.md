@@ -147,26 +147,26 @@
 | `workspace.getWorkspaceFolder(uri)` | Get workspace folder for a URI | Not applicable | ➖ |
 | `workspace.asRelativePath(uri)` | Convert to workspace-relative path | ❌ No path utility API | ❌ |
 | `workspace.findFiles(include, exclude)` | Glob-based file search | `ForgeSearchManager.search()` with `includePattern`/`excludePattern` | ✅ |
-| `workspace.openTextDocument(uri)` | Open a text document (model, not UI) | `ForgeFileSystem.read(uri)` for content; `ForgeTextEditor.document` for model | ✅ |
+| `workspace.openTextDocument(uri)` | Open a text document (model, not UI) | `TomFileSystem.read(uri)` for content; `ForgeTextEditor.document` for model | ✅ |
 | `workspace.registerTextDocumentContentProvider` | Virtual document content | `ForgeVirtualDocumentManager.registerProvider(scheme, provider)` — custom URI scheme content | ✅ |
 | `workspace.onDidOpenTextDocument` | Document opened | `ForgeSystemState.onEditorsChanged` | ✅ |
 | `workspace.onDidCloseTextDocument` | Document closed | `ForgeSystemState.onEditorsChanged` | ✅ |
 | `workspace.onDidChangeTextDocument` | Document content changed | `ForgeDocument.onDidChange` (per-editor) | ✅ |
-| `workspace.onDidSaveTextDocument` | Document saved | `ForgeFileSystem.onDidSave` | ✅ |
-| `workspace.onWillSaveTextDocument` | Before document save (allows edits) | `ForgeFileSystem.onWillSave` | ✅ |
-| `workspace.onDidCreateFiles` | Files created in workspace | `ForgeFileSystem.onDidChange` (FileChangeEvent) | ✅ |
-| `workspace.onDidDeleteFiles` | Files deleted | `ForgeFileSystem.onDidChange` (FileChangeEvent) | ✅ |
-| `workspace.onDidRenameFiles` | Files renamed | `ForgeFileSystem.onDidChange` (FileChangeEvent) | ✅ |
+| `workspace.onDidSaveTextDocument` | Document saved | `TomFileSystem.onDidSave` | ✅ |
+| `workspace.onWillSaveTextDocument` | Before document save (allows edits) | `TomFileSystem.onWillSave` | ✅ |
+| `workspace.onDidCreateFiles` | Files created in workspace | `TomFileSystem.onDidChange` (TomFileChangeEvent) | ✅ |
+| `workspace.onDidDeleteFiles` | Files deleted | `TomFileSystem.onDidChange` (TomFileChangeEvent) | ✅ |
+| `workspace.onDidRenameFiles` | Files renamed | `TomFileSystem.onDidChange` (TomFileChangeEvent) | ✅ |
 | `workspace.onWillCreateFiles` | Before file creation | ❌ No pre-creation hook | ❌ |
 | `workspace.onWillDeleteFiles` | Before file deletion | ❌ No pre-deletion hook | ❌ |
 | `workspace.onWillRenameFiles` | Before file rename | ❌ No pre-rename hook | ❌ |
-| `workspace.applyEdit(workspaceEdit)` | Apply multi-file edit atomically | `ForgeFileSystem.applyWorkspaceEdit(ForgeWorkspaceEdit)` — text edits + file operations as single undo step | ✅ |
-| `workspace.createFileSystemWatcher` | Watch file changes | `ForgeFileSystem.watch(uri, recursive)` | ✅ |
+| `workspace.applyEdit(workspaceEdit)` | Apply multi-file edit atomically | `TomFileSystem.applyWorkspaceEdit(ForgeWorkspaceEdit)` — text edits + file operations as single undo step | ✅ |
+| `workspace.createFileSystemWatcher` | Watch file changes | `TomFileSystem.watch(uri, recursive)` | ✅ |
 | `workspace.getConfiguration(section)` | Read configuration values | `ForgeConfigManager.current` | ✅ |
 | `workspace.onDidChangeConfiguration` | Configuration changed | `ForgeConfigManager.onDidChange` | ✅ |
 | `workspace.registerTaskProvider` | Register task provider | ❌ No task system | ❌ |
 | `workspace.registerFileSystemProvider` | Virtual file system | ❌ No virtual FS provider (but `ForgeVirtualDocumentManager` covers content-only scenarios) | 🔶 |
-| `workspace.fs` | File system access | `ForgeFileSystem` (read, write, save, create, rename, trash, delete, exists, stat, list, watch, applyWorkspaceEdit — routed through revisioning) | ✅ |
+| `workspace.fs` | File system access | `TomFileSystem` (read, write, save, create, rename, trash, delete, exists, stat, list, watch, applyWorkspaceEdit — routed through revisioning) | ✅ |
 | `workspace.isTrusted` | Workspace trust state | ❌ No workspace trust model | ❌ |
 | `workspace.onDidGrantWorkspaceTrust` | Trust granted | ❌ | ❌ |
 | `workspace.notebookDocuments` | Open notebook documents | Not applicable | ➖ |
@@ -344,7 +344,7 @@
 | `TextDocument.isDirty` | Has unsaved changes | `ForgeDocument.isDirty` / `ForgeEditor.isDirty` | ✅ |
 | `TextDocument.isUntitled` | Untitled (never saved) | `ForgeDocument.isUntitled` | ✅ |
 | `TextDocument.isClosed` | Document closed | Derivable from `ForgeSystemState.openEditors` | ✅ |
-| `TextDocument.save()` | Save the document | `ForgeFileSystem.save(uri)` | ✅ |
+| `TextDocument.save()` | Save the document | `TomFileSystem.save(uri)` | ✅ |
 | `TextDocument.eol` | End-of-line character | ❌ Not exposed | ❌ |
 | `TextDocument.lineCount` | Number of lines | `ForgeDocument.lineCount` | ✅ |
 | `TextDocument.lineAt(line)` | Get line text | `ForgeDocument.lineAt(line)` | ✅ |
@@ -572,7 +572,7 @@
 |-----------|-------------|--------------------|--------|
 | Auto-save on focus loss / idle | Configurable auto-save | `files.autoSave` setting | ✅ |
 | `.forge/` folder for revisions | File history with snapshots | No equivalent — relies on git | 🆕 |
-| Shell-routed file access (`ForgeFileSystem`) | All file ops through revisioning with events | `workspace.fs` (direct, no versioning) | 🆕 |
+| Shell-routed file access (`TomFileSystem`) | All file ops through revisioning with events | `workspace.fs` (direct, no versioning) | 🆕 |
 | Undo persistence across sessions | `.forge/undo/` stores undo stack | No equivalent — undo lost on close | 🆕 |
 | File History view | Browse/diff/restore revisions | Timeline view (git-based) | 🆕 |
 
@@ -637,11 +637,11 @@ All 13 gaps from the v5 comparison have been addressed in v6:
 |---|-----|-------------------|
 | 1 | Text editor decorations | `ForgeDecorationType` + `ForgeTextEditor.setDecorations()` — background, border, underline (wavy/dotted/dashed/solid), gutter icons, overview ruler, hover messages |
 | 2 | File decorations (explorer) | `ForgeFileDecorationManager.registerProvider()` — badges, color tint, tooltip, parent folder propagation |
-| 3 | Bytes for binary files | `ForgeFileSystem.read(uri)` — returns the bytes with their revision, completes the two-phase resolution flow |
+| 3 | Bytes for binary files | `TomFileSystem.read(uri)` — returns the bytes with their revision, completes the two-phase resolution flow |
 | 4 | Multi-cursor / multi-selection | `ForgeTextEditor.selections` + `setSelections()` — `ValueListenable<List<TextRange>>` |
 | 5 | Visible ranges | `ForgeTextEditor.visibleRange` — `ValueListenable<TextRange>`, changes on scroll |
 | 6 | Editor options | `ForgeTextEditorOptions` on `ForgeTextEditor` — tabSize, insertSpaces, wordWrap per editor |
-| 7 | Workspace edit (atomic multi-file) | `ForgeFileSystem.applyWorkspaceEdit(ForgeWorkspaceEdit)` — text edits + file create/delete/rename as single undo step |
+| 7 | Workspace edit (atomic multi-file) | `TomFileSystem.applyWorkspaceEdit(ForgeWorkspaceEdit)` — text edits + file create/delete/rename as single undo step |
 | 8 | Virtual document provider | `ForgeVirtualDocumentManager.registerProvider(scheme, provider)` — custom URI scheme content |
 | 9 | Outline / symbol provider | `ForgeOutlineManager.registerProvider()` — structured outline data with `ForgeOutlineItem` hierarchy |
 | 10 | Document version | `ForgeDocument.version` — increments on each edit |
@@ -659,7 +659,7 @@ All 13 gaps from the v5 comparison have been addressed in v6:
 | 4 | File dialog | `ForgeDialogManager` — showOpenDialog, showSaveDialog |
 | 5 | Clipboard API | `ForgeClipboard` — readText, writeText |
 | 6 | External URI opener | `ForgeEnvironment.openExternal(uri)` |
-| 7 | File system events | `ForgeFileSystem` — onDidChange, onDidSave, onWillSave, watch() |
+| 7 | File system events | `TomFileSystem` — onDidChange, onDidSave, onWillSave, watch() |
 | 8 | Document change events | `ForgeDocument.onDidChange` per text editor |
 | 9 | Text editor APIs (document, selection, modification) | `ForgeTextEditor` / `ForgeDocument` — full text editor hierarchy |
 | 10 | Per-module storage | `ForgeModuleStorage` — key-value store in `.forge/modules/<type>/` |
@@ -726,7 +726,7 @@ These are VS Code features in domains Forge does **not currently cover**. They a
 | `ForgeSystemState` | ✅ §10 | ✅ Full — all state + streams | — |
 | `ForgeLayoutController` | ✅ §10.4 | ✅ Full — open/close/toggle panels, openFile, openFileWith, split, reveal | — |
 | `ForgeStatusBarController` | ✅ §10.4 | 🔶 Minimal — just `List<StatusBarItem> get items` | Add register/remove methods |
-| `ForgeFileSystem` | ✅ §10.4 | ✅ Full — read (bytes with their revision), revision-checked atomic write, save, create, rename, trash, delete, exists, stat, list, watch, applyWorkspaceEdit, events | workspace edit |
+| `TomFileSystem` | ✅ §10.4 | ✅ Full — read (bytes with their revision), revision-checked atomic write, save, create, rename, trash, delete, exists, stat, list, watch, applyWorkspaceEdit, events | workspace edit |
 | `ForgeModuleRegistry` | ✅ §10.4 | ✅ `get<T>()`, `allModules` | — |
 | `ForgeOutputChannelManager` | ✅ §10.4 | ✅ Full — create, get, channels, ForgeOutputChannel methods | — |
 | `ForgeDiagnosticManager` | ✅ §10.4 | ✅ Full — createCollection, all, forUri, Collection methods | — |
@@ -777,7 +777,7 @@ These are VS Code features in domains Forge does **not currently cover**. They a
 | Explorer | ✅ §14 | ✅ Selection exposed + `revealInExplorer` + file decorations via `ForgeFileDecorationManager` | v6: added file decorations |
 | Search | ✅ §14 | ✅ `ForgeSearchManager` — programmatic search + searchStream | v6: added programmatic search API |
 | Outline | ✅ §14 | ✅ `ForgeOutlineManager.registerProvider()` — structured outline data | v6: added outline provider registration |
-| File History | ✅ §14 | ❌ No revision browsing API | Managed by `ForgeFileSystem` revisions |
+| File History | ✅ §14 | ❌ No revision browsing API | Managed by `TomFileSystem` revisions |
 
 ---
 

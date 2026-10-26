@@ -1,5 +1,5 @@
 // Integration reproduction for "Opening file doesn't work in the structure
-// explorer": drives a real shell (DefaultShellApi + ForgeMemoryFileSystem) through the
+// explorer": drives a real shell (DefaultShellApi + TomMemoryFileSystem) through the
 // full open seam — a tap on a structure-explorer file node must route through
 // WebsiteEditorModule._openFile → ForgeLayoutController.openFile and end with the
 // file's editor active in the shell. The widget-level seam is covered by

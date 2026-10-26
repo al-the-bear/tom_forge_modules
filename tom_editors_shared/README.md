@@ -13,7 +13,7 @@ a syntax-highlighted text editor core, and inline control widgets.
 |-----------|---------|---------|
 | **Tree** | `TreeNode`, `TreeController`, `TreeView`, `TreeTheme` | Generic tree data model with expand/collapse, selection, keyboard nav, and theming |
 | **Validation** | `ValidationError`, `ValidationBadge`, `ValidationTooltip`, `ErrorPropagator` | Severity-based errors that propagate up the tree, with badge and tooltip widgets |
-| **Undo/Redo** | `TextUndoEntry` | A text change with its before and after selection, kept on `tom_forge_core`'s `ForgeUndoStack` — the one undo stack the workspace's editors share |
+| **Undo/Redo** | `TextUndoEntry` | A text change with its before and after selection, kept on `tom_undo`'s `TomUndoStack` — the one undo stack the workspace's editors share |
 | **Text Editor** | `TextEditorCore`, `SyntaxHighlighter`, `TextMarker`, `TextEditorTheme` | Line-numbered text editor with pluggable syntax highlighting and marker overlays |
 | **Controls** | `CollapseToggle`, `ActionButton`, `NodeActionRow` | Compact widgets for tree-row inline actions (expand, add, delete, etc.) |
 
@@ -62,11 +62,11 @@ TreeView<String>(
 
 ### Undo/Redo
 
-The stack is `tom_forge_core`'s `ForgeUndoStack` (`package:tom_forge_core/tom_forge_undo.dart`);
+The stack is `tom_undo`'s `TomUndoStack` (`package:tom_undo/tom_undo.dart`);
 this package supplies the text entry the standalone integrations keep on it.
 
 ```dart
-final history = ForgeUndoStack<TextUndoEntry>(maxEntries: 50);
+final history = TomUndoStack<TextUndoEntry>(maxEntries: 50);
 
 history.push(TextUndoEntry(oldText: 'v1', newText: 'v2', description: 'edit'));
 history.undo((e) => controller.text = e.oldText); // applied, then moved to redo

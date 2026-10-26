@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:tom_doc_specs/tom_doc_specs.dart' as specs;
 import 'package:tom_editors_shared/tom_editors_shared.dart';
-import 'package:tom_forge_core/tom_forge_undo.dart';
+import 'package:tom_undo/tom_undo.dart';
 
 import '../debug/md_editor_debug.dart';
 import '../events/md_events.dart';
@@ -44,7 +44,7 @@ class MdEditorController extends ChangeNotifier {
     this.eventHandlers,
     this.uri,
     int maxUndoHistory = 100,
-  }) : _undoHistory = ForgeUndoStack<MdEditOperation>(
+  }) : _undoHistory = TomUndoStack<MdEditOperation>(
          maxEntries: maxUndoHistory,
        ) {
     if (initialMarkdown != null) {
@@ -211,7 +211,7 @@ class MdEditorController extends ChangeNotifier {
 
   // ── Private state ──
 
-  final ForgeUndoStack<MdEditOperation> _undoHistory;
+  final TomUndoStack<MdEditOperation> _undoHistory;
 
   // ── Content manipulation ──
 

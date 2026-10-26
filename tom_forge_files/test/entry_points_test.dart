@@ -13,10 +13,20 @@ import 'package:tom_forge_files/tom_forge_files.dart';
 
 final _directive = RegExp(r'''^\s*(?:import|export)\s+['"]([^'"]+)['"]''');
 
+/// Where the libraries the walk follows live: this package's, and those of
+/// the workspace packages it builds on.
+final _followed = {
+  'tom_forge_files': '${Directory.current.absolute.path}/lib/',
+  'tom_forge_core': '${Directory.current.parent.path}/tom_forge_core/lib/',
+  'tom_file_system':
+      '${Directory.current.parent.parent.path}/tom_ai/basics/tom_file_system/lib/',
+  'tom_undo':
+      '${Directory.current.parent.parent.path}/tom_ai/basics/tom_undo/lib/',
+};
+
 /// The external URIs imported by the libraries reachable from [entry],
-/// following this package's and `tom_forge_core`'s own libraries.
+/// following the libraries of the packages in [_followed].
 Set<String> _reached(String entry) {
-  final core = '${Directory.current.parent.path}/tom_forge_core/lib/';
   final seen = <String>{};
   final external = <String>{};
   final queue = [File(entry).absolute.path];
@@ -28,11 +38,12 @@ Set<String> _reached(String entry) {
     for (final line in file.readAsLinesSync()) {
       final uri = _directive.firstMatch(line)?.group(1);
       if (uri == null) continue;
-      if (uri.startsWith('package:tom_forge_files/')) {
-        queue.add('${Directory.current.absolute.path}/lib/'
-            '${uri.substring('package:tom_forge_files/'.length)}');
-      } else if (uri.startsWith('package:tom_forge_core/')) {
-        queue.add('$core${uri.substring('package:tom_forge_core/'.length)}');
+      final package = uri.startsWith('package:')
+          ? uri.substring('package:'.length, uri.indexOf('/'))
+          : null;
+      if (package != null && _followed.containsKey(package)) {
+        queue.add('${_followed[package]}'
+            '${uri.substring('package:$package/'.length)}');
       } else if (uri.contains(':')) {
         external.add(uri);
       } else {
@@ -80,17 +91,20 @@ void main() {
     });
 
     test('FORGE-FILES-WEB-2: the walk does see dart:io where it is', () {
-      expect(_reached('../tom_forge_core/lib/io.dart'), contains('dart:io'));
+      expect(
+        _reached('../../tom_ai/basics/tom_file_system/lib/io.dart'),
+        contains('dart:io'),
+      );
     });
 
     test('FORGE-FILES-WEB-3: a program over the package compiles under '
         'dart2js', () async {
       final (result, size) = await _compileJs('files', '''
-import 'package:tom_forge_core/files.dart';
 import 'package:tom_forge_files/tom_forge_files.dart';
+import 'package:tom_file_system/tom_file_system.dart';
 
 Future<void> main() async {
-  final fs = ForgeMemoryFileSystem(seed: {'/a.env': 'KEY=secret\\n'});
+  final fs = TomMemoryFileSystem(seed: {'/a.env': 'KEY=secret\\n'});
   final session = ForgeFileSession(fileSystem: fs, path: 'a.env');
   await session.load();
   session.edit('KEY=other\\n', 'Edit');

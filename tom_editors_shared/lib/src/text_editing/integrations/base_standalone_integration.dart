@@ -1,6 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
-import 'package:tom_forge_core/tom_forge_undo.dart';
+import 'package:tom_undo/tom_undo.dart';
 
 import '../../forge_bridge/editor_action_descriptor.dart';
 import '../../forge_bridge/forge_action.dart';
@@ -59,8 +59,8 @@ class BaseStandaloneIntegration extends ForgeEditorIntegration
 
   // State
   ForgeTextSettings _textSettings;
-  late final ForgeUndoStack<TextUndoEntry> _history =
-      ForgeUndoStack(maxEntries: maxUndoStackSize);
+  late final TomUndoStack<TextUndoEntry> _history =
+      TomUndoStack(maxEntries: maxUndoStackSize);
 
   // Listeners
   final List<TextChangeCallback> _textChangeListeners = [];

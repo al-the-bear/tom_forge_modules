@@ -52,7 +52,6 @@ export 'src/services/forge_diagnostic_manager.dart';
 export 'src/services/forge_disposable.dart';
 export 'src/services/forge_environment.dart';
 export 'src/services/forge_file_decoration_manager.dart';
-export 'package:tom_forge_core/io.dart';
 export 'src/services/forge_module_storage.dart';
 export 'src/services/forge_notification_manager.dart';
 export 'src/services/forge_outline_manager.dart';

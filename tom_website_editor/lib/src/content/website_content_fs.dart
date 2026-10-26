@@ -1,6 +1,6 @@
 import 'package:tom_forge_core/tom_forge_core.dart'
-    show ForgeRenameFileOperation, ForgeWorkspaceEdit;
-import 'package:tom_forge_ui/tom_forge_ui.dart';
+    show ForgeRenameFileOperation, ForgeWorkspaceEdit, forgeApplyWorkspaceEdit;
+import 'package:tom_file_system/tom_file_system.dart';
 
 /// A directory entry with its file-vs-directory kind, returned by
 /// [WebsiteContentFs.listEntries]. The structure explorer (§6b) needs the kind
@@ -17,7 +17,7 @@ class ContentFsEntry {
 
 /// Narrow file-system seam the content browser needs (§6a): list a directory,
 /// read/write a file, test existence. Kept minimal (and separate from
-/// `ForgeFileSystem`) so the content layer is unit-testable with an in-memory
+/// `TomFileSystem`) so the content layer is unit-testable with an in-memory
 /// fake; the module injects [ForgeContentFs] over the shell file system.
 abstract class WebsiteContentFs {
   /// Lists the files directly under [directory] (non-recursive).
@@ -43,11 +43,11 @@ abstract class WebsiteContentFs {
   Future<void> rename(Uri from, Uri to);
 }
 
-/// Adapts a [ForgeFileSystem] to the [WebsiteContentFs] seam.
+/// Adapts a [TomFileSystem] to the [WebsiteContentFs] seam.
 class ForgeContentFs implements WebsiteContentFs {
   const ForgeContentFs(this._fs);
 
-  final ForgeFileSystem _fs;
+  final TomFileSystem _fs;
 
   @override
   Future<List<Uri>> listFiles(Uri directory) async {
@@ -84,10 +84,9 @@ class ForgeContentFs implements WebsiteContentFs {
 
   @override
   Future<void> rename(Uri from, Uri to) async {
-    // ForgeFileSystem has no direct rename; the atomic file-operation edit is
+    // TomFileSystem has no direct rename; the atomic file-operation edit is
     // the supported path. A `false` return means the edit was rolled back.
-    final ok = await _fs.applyWorkspaceEdit(
-      ForgeWorkspaceEdit(
+    final ok = await forgeApplyWorkspaceEdit(_fs, ForgeWorkspaceEdit(
         fileOperations: [ForgeRenameFileOperation(oldUri: from, newUri: to)],
       ),
     );

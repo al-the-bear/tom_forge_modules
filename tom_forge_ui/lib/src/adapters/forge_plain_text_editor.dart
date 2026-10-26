@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart';
 import 'package:tom_md_editor/tom_md_editor.dart';
+import 'package:tom_undo/tom_undo.dart';
 
 import '../components/forge_text_editor.dart';
 import '../components/forge_component.dart';
@@ -502,8 +503,8 @@ class _PlainTextEditorWidgetState extends State<_PlainTextEditorWidget> {
   final FocusNode _focusNode = FocusNode();
 
   // Undo/redo state
-  final ForgeUndoStack<_TextChange> _history =
-      ForgeUndoStack(maxEntries: _maxUndoStackSize);
+  final TomUndoStack<_TextChange> _history =
+      TomUndoStack(maxEntries: _maxUndoStackSize);
   String _lastSavedText = '';
   TextSelection _lastSavedSelection = const TextSelection.collapsed(offset: 0);
   Timer? _undoDebounceTimer;

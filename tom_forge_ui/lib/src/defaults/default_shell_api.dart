@@ -38,8 +38,8 @@ import 'default_diagnostic_manager.dart';
 import 'default_dialog_manager.dart';
 import 'package:tom_forge_core/tom_forge_core.dart'
     show DefaultExecutionMonitor, ForgeExecutionMonitor;
-import 'package:tom_forge_core/io.dart'
-    show ForgeFileSystem, ForgeLocalFileSystem, ForgeMemoryFileSystem;
+import 'package:tom_file_system/io.dart'
+    show TomFileSystem, TomLocalFileSystem, TomMemoryFileSystem;
 import 'default_layout_controller.dart';
 import 'default_module_registry.dart';
 import 'default_notification_manager.dart';
@@ -71,7 +71,7 @@ class DefaultShellApi implements ForgeShellApi {
   final ForgeStatusBarController statusBar;
 
   @override
-  final ForgeFileSystem fileSystem;
+  final TomFileSystem fileSystem;
 
   @override
   final ForgeModuleRegistry modules;
@@ -188,7 +188,7 @@ class DefaultShellApi implements ForgeShellApi {
     ForgeConfig initialConfig = const ForgeConfig(),
     int maxOpenEditors = 20,
   }) {
-    final memFs = ForgeMemoryFileSystem(seed: fileSystemSeed);
+    final memFs = TomMemoryFileSystem(seed: fileSystemSeed);
     return DefaultShellApi.withDefaultsAndFileSystem(
       fileSystem: memFs,
       appName: appName,
@@ -198,14 +198,14 @@ class DefaultShellApi implements ForgeShellApi {
     );
   }
 
-  /// Creates a [DefaultShellApi] with a custom [ForgeFileSystem].
+  /// Creates a [DefaultShellApi] with a custom [TomFileSystem].
   ///
   /// Use this factory when you need a real file system or custom implementation.
   /// [fileSystem] is the file system to use.
   /// [appName] is used as the application config name.
   /// [navigatorKey] enables dialog routing.
   factory DefaultShellApi.withDefaultsAndFileSystem({
-    required ForgeFileSystem fileSystem,
+    required TomFileSystem fileSystem,
     required String appName,
     required GlobalKey<NavigatorState> navigatorKey,
     ForgeWorkspaceStateManager? workspaceState,
@@ -258,20 +258,20 @@ class DefaultShellApi implements ForgeShellApi {
 
     // A folder on disk is searched on disk, with its exclusions and cache;
     // any other file system is walked through the contract.
-    final ForgeSearchManager searchManager = fileSystem is ForgeLocalFileSystem
+    final ForgeSearchManager searchManager = fileSystem is TomLocalFileSystem
         ? RealSearchManager(rootDirectory: Directory(fileSystem.rootPath))
         : DefaultSearchManager(fileSystem: fileSystem);
 
     final outlineManager = DefaultOutlineManager();
     // Use PTY-backed terminals on desktop (a local folder), fallback for tests.
-    final ForgeTerminalManager terminalManager = fileSystem is ForgeLocalFileSystem
+    final ForgeTerminalManager terminalManager = fileSystem is TomLocalFileSystem
         ? PtyTerminalManager()
         : DefaultTerminalManager();
     final storageService = storage ?? DefaultModuleStorage();
     final environmentService = DefaultEnvironment();
     final executionMonitor = DefaultExecutionMonitor();
     // Use platform keychain on desktop, in-memory for tests.
-    final ForgeSecretStorage secretStorage = fileSystem is ForgeLocalFileSystem
+    final ForgeSecretStorage secretStorage = fileSystem is TomLocalFileSystem
         ? PlatformSecretStorage()
         : DefaultSecretStorage();
     final fileDecorationManager = DefaultFileDecorationManager();

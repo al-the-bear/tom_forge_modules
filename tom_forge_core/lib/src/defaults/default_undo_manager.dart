@@ -1,8 +1,9 @@
 import 'dart:async';
 
+import 'package:tom_undo/tom_undo.dart';
+
 import '../services/forge_undo_manager.dart';
 import '../types/forge_listenable.dart';
-import 'undo_stack.dart';
 
 /// An undo entry with forward and backward operations.
 ///
@@ -49,12 +50,12 @@ class CompositeUndoEntry extends UndoEntry {
     required this.entries,
     super.label,
   }) : super(
-          undo: () => forgeApplyAllAsync<UndoEntry>(
+          undo: () => tomApplyAllAsync<UndoEntry>(
             entries.reversed,
             (e) => e.undo(),
             (e) => e.redo(),
           ),
-          redo: () => forgeApplyAllAsync<UndoEntry>(
+          redo: () => tomApplyAllAsync<UndoEntry>(
             entries,
             (e) => e.redo(),
             (e) => e.undo(),
@@ -64,7 +65,7 @@ class CompositeUndoEntry extends UndoEntry {
 
 /// Default implementation of [ForgeUndoManager].
 ///
-/// A [ForgeUndoStack] of [UndoEntry] with composite grouping via
+/// A [TomUndoStack] of [UndoEntry] with composite grouping via
 /// [beginUndoGroup]/[endUndoGroup].
 ///
 /// Memory budget: max [maxEntries] entries per stack (spec §4.1: 100).
@@ -79,7 +80,7 @@ class DefaultUndoManager implements ForgeUndoManager {
   /// Maximum number of undo entries to keep (spec §4.1).
   final int maxEntries;
 
-  final ForgeUndoStack<UndoEntry> _stack;
+  final TomUndoStack<UndoEntry> _stack;
   final _canUndo = ForgeValueNotifier<bool>(false);
   final _canRedo = ForgeValueNotifier<bool>(false);
   final _eventController = StreamController<UndoEvent>.broadcast();
@@ -94,7 +95,7 @@ class DefaultUndoManager implements ForgeUndoManager {
   final List<UndoEntry> _groupEntries = [];
 
   DefaultUndoManager({this.maxEntries = 100})
-    : _stack = ForgeUndoStack<UndoEntry>(maxEntries: maxEntries);
+    : _stack = TomUndoStack<UndoEntry>(maxEntries: maxEntries);
 
   @override
   Future<void> undo() async {

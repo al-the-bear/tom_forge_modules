@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
+import 'package:tom_file_system/tom_file_system.dart';
 
 import '../components/forge_component.dart';
 import '../components/forge_view.dart';
@@ -15,11 +16,11 @@ import '../widgets/forge_context_menu.dart';
 
 /// File explorer tree view.
 ///
-/// Lists files from [ForgeFileSystem], with collapsible directories
+/// Lists files from [TomFileSystem], with collapsible directories
 /// and clickable files that open via [ForgeLayoutController].
 /// Supports selection, hover, rename, delete, and file decoration rendering.
 class ForgeFileExplorerView extends ForgeView {
-  final ForgeFileSystem fileSystem;
+  final TomFileSystem fileSystem;
   final ForgeLayoutController layoutController;
   final Uri rootUri;
   final DefaultSystemState? systemState;
@@ -74,7 +75,7 @@ class ForgeFileExplorerView extends ForgeView {
 }
 
 class _FileExplorerContent extends StatefulWidget {
-  final ForgeFileSystem fileSystem;
+  final TomFileSystem fileSystem;
   final ForgeLayoutController layoutController;
   final Uri rootUri;
   final DefaultSystemState? systemState;
@@ -95,8 +96,8 @@ class _FileExplorerContent extends StatefulWidget {
 }
 
 class _FileExplorerContentState extends State<_FileExplorerContent> {
-  List<ForgeFileEntry> _rootEntries = [];
-  final Map<String, List<ForgeFileEntry>> _directoryChildren = {};
+  List<TomFileEntry> _rootEntries = [];
+  final Map<String, List<TomFileEntry>> _directoryChildren = {};
   final Set<String> _loadingDirectories = {};
   final Set<String> _expandedDirs = {};
   Uri? _selectedUri;
@@ -250,13 +251,13 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
     );
   }
 
-  Widget _buildEntry(BuildContext context, ForgeFileEntry entry, int depth) {
+  Widget _buildEntry(BuildContext context, TomFileEntry entry, int depth) {
     final theme = Theme.of(context);
     final isDirectory = _isDirectoryEntry(entry);
     final path = _absolutePath(entry);
     final name = _nameForPath(path);
     final isExpanded = _expandedDirs.contains(path);
-    final childEntries = _directoryChildren[path] ?? const <ForgeFileEntry>[];
+    final childEntries = _directoryChildren[path] ?? const <TomFileEntry>[];
     final isLoading = _loadingDirectories.contains(path);
     final entryUri = Uri.file(path);
     final isSelected = _selectedUri == entryUri;
@@ -385,7 +386,7 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
   void _showContextMenu(
     BuildContext context,
     Offset position,
-    ForgeFileEntry entry,
+    TomFileEntry entry,
   ) {
     final isDirectory = _isDirectoryEntry(entry);
     final entryUri = entry.uri;
@@ -437,7 +438,7 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
     });
   }
 
-  Future<void> _showRenameDialog(ForgeFileEntry entry) async {
+  Future<void> _showRenameDialog(TomFileEntry entry) async {
     final name = _nameForPath(_absolutePath(entry));
     final newName = await showDialog<String>(
       context: context,
@@ -455,8 +456,7 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
     try {
       final parentDir = _parentPath(_absolutePath(entry));
       final newPath = '$parentDir/$newName';
-      await widget.fileSystem.applyWorkspaceEdit(
-        ForgeWorkspaceEdit(
+      await forgeApplyWorkspaceEdit(widget.fileSystem, ForgeWorkspaceEdit(
           fileOperations: [
             ForgeRenameFileOperation(
               oldUri: entry.uri,
@@ -479,7 +479,7 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
     }
   }
 
-  Future<void> _showDeleteConfirmation(ForgeFileEntry entry) async {
+  Future<void> _showDeleteConfirmation(TomFileEntry entry) async {
     final name = _nameForPath(_absolutePath(entry));
     final confirmed = await showDialog<bool>(
       context: context,
@@ -581,7 +581,7 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
 
   /// The entries the explorer shows: hidden ones (a name starting with `.`)
   /// left out, folders first, then by name.
-  List<ForgeFileEntry> _sortEntries(List<ForgeFileEntry> entries) {
+  List<TomFileEntry> _sortEntries(List<TomFileEntry> entries) {
     final sorted = [
       for (final entry in entries)
         if (!entry.name.startsWith('.')) entry,
@@ -597,9 +597,9 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
     return sorted;
   }
 
-  bool _isDirectoryEntry(ForgeFileEntry entry) => entry.isDirectory;
+  bool _isDirectoryEntry(TomFileEntry entry) => entry.isDirectory;
 
-  String _absolutePath(ForgeFileEntry entry) => entry.uri.toFilePath();
+  String _absolutePath(TomFileEntry entry) => entry.uri.toFilePath();
 
   String _nameForPath(String path) {
     final parts = path.split('/').where((segment) => segment.isNotEmpty);

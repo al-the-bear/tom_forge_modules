@@ -63,31 +63,6 @@ class LayoutChangeEvent {
   const LayoutChangeEvent({required this.type, this.panel});
 }
 
-/// Event fired when a file changes on the file system.
-class FileChangeEvent {
-  /// The URI that changed.
-  final Uri uri;
-
-  /// The type of change.
-  final FileChangeType type;
-
-  const FileChangeEvent({required this.uri, required this.type});
-}
-
-/// Event fired before a file is saved. Listeners can modify content.
-class WillSaveEvent {
-  /// The URI being saved.
-  final Uri uri;
-
-  /// The content to be saved. Listeners can modify this.
-  String content;
-
-  /// Reason for the save.
-  final SaveReason reason;
-
-  WillSaveEvent({required this.uri, required this.content, required this.reason});
-}
-
 /// Event fired when a configuration value changes.
 class ConfigChangeEvent {
   /// Key path of the changed configuration.

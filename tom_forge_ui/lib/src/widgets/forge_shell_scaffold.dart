@@ -10,6 +10,7 @@ import 'package:file_selector/file_selector.dart'
 import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart'
     show StandardEditingActions;
+import 'package:tom_file_system/tom_file_system.dart';
 
 import '../adapters/forge_dart_editor.dart';
 import '../adapters/forge_md_editor.dart';
@@ -1154,7 +1155,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       _windowFocusSubscription = widget.systemState.onWindowFocusChanged.listen(
         (event) {
           if (!event.focused && widget.systemState.hasUnsavedChanges) {
-            _performAutoSave(SaveReason.focusLoss);
+            _performAutoSave(TomSaveReason.focusLoss);
           }
         },
       );
@@ -1164,11 +1165,11 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   /// Schedules auto-save after the given delay.
   void _scheduleAutoSave(Duration delay) {
     _autoSaveTimer?.cancel();
-    _autoSaveTimer = Timer(delay, () => _performAutoSave(SaveReason.autoSave));
+    _autoSaveTimer = Timer(delay, () => _performAutoSave(TomSaveReason.autoSave));
   }
 
   /// Performs auto-save on all dirty editors.
-  Future<void> _performAutoSave(SaveReason reason) async {
+  Future<void> _performAutoSave(TomSaveReason reason) async {
     final dirtyEditors = widget.systemState.dirtyEditors.toList();
     for (final editor in dirtyEditors) {
       if (saveOwnedEditor(editor, trigger: ForgeSaveTrigger.automatic) != null) {

@@ -405,7 +405,7 @@ enum ForgeErrorDialogResult { primaryAction, secondaryAction, dismissed }
 
 ### 3.3 File Operation Errors
 
-**Reference:** [Concept §10.4 ForgeFileSystem]
+**Reference:** [Concept §10.4 TomFileSystem]
 
 | Operation | Error | Behavior |
 |-----------|-------|----------|
@@ -1129,11 +1129,11 @@ Content stored as: `.forge/revisions/{uri-hash}/{timestamp}.content`
    └─ Auto-save (if enabled)
    
 7. Save requested
-   └─ Fire WillSaveEvent
+   └─ Fire TomWillSaveEvent
    └─ Create revision (if changed)
    └─ Write to file system
    └─ Clear dirty state
-   └─ Fire FileChangeEvent
+   └─ Fire TomFileChangeEvent
    
 8. Close requested
    └─ If dirty: prompt save/discard/cancel
@@ -1154,14 +1154,14 @@ Content stored as: `.forge/revisions/{uri-hash}/{timestamp}.content`
 
 **Asynchronous Events:**
 
-- `FileChangeEvent`: Fires after file operation completes
-- `WillSaveEvent`: Fires before save, allows modifications
+- `TomFileChangeEvent`: Fires after file operation completes
+- `TomWillSaveEvent`: Fires before save, allows modifications
 - `ConfigChangeEvent`: Fires after config is persisted
 
 **Ordering Rules:**
 
 1. Events for the same resource fire in causal order
-2. `WillSaveEvent` always precedes `FileChangeEvent` for saves
+2. `TomWillSaveEvent` always precedes `TomFileChangeEvent` for saves
 3. `EditorListChangeEvent(opened)` fires before `FocusChangeEvent` for new editors
 4. `FocusChangeEvent` fires before `EditorListChangeEvent(closed)` for closing editors
 
@@ -1231,10 +1231,10 @@ class ForgeConfigManager {
 void main() {
   group('LayoutPersistence', () {
     late LayoutPersistence persistence;
-    late MockForgeFileSystem fileSystem;
+    late MockTomFileSystem fileSystem;
     
     setUp(() {
-      fileSystem = MockForgeFileSystem();
+      fileSystem = MockTomFileSystem();
       persistence = LayoutPersistence(fileSystem);
     });
     
@@ -1444,7 +1444,7 @@ void main() {
       expect(revisions, hasLength(1));
     });
     
-    test('WillSaveEvent allows modification before save', () async {
+    test('TomWillSaveEvent allows modification before save', () async {
       final uri = testDir.file('test.txt');
       await api.fileSystem.write(uri, utf8.encode('original'));
       
@@ -1540,7 +1540,7 @@ void main() {
 
 | Service | Unit Tests | Integration Tests | Key Scenarios |
 |---------|------------|-------------------|---------------|
-| `ForgeFileSystem` | Read/write/delete ops, path normalization | Multi-file operations, concurrent access | File conflict, permission errors |
+| `TomFileSystem` | Read/write/delete ops, path normalization | Multi-file operations, concurrent access | File conflict, permission errors |
 | `ForgeLayoutController` | Panel operations, resize bounds | Layout persistence → restore | Complex nested layout |
 | `ForgeDiagnosticManager` | CRUD operations, severity filtering | Multiple providers | Performance with 10K diagnostics |
 | `ForgeOutputChannelManager` | Channel lifecycle, line appending | Ring buffer limits | High-throughput logging |
@@ -1558,8 +1558,8 @@ void main() {
 // test/mocks/factories.dart
 
 class ForgeMocks {
-  static MockForgeFileSystem fileSystem() {
-    final mock = MockForgeFileSystem();
+  static MockTomFileSystem fileSystem() {
+    final mock = MockTomFileSystem();
     when(mock.read(any)).thenAnswer((_) async => Uint8List(0));
     when(mock.write(any, any)).thenAnswer((_) async {});
     when(mock.exists(any)).thenAnswer((_) async => true);
@@ -1567,7 +1567,7 @@ class ForgeMocks {
   }
   
   static MockForgeShellApi api({
-    MockForgeFileSystem? fileSystem,
+    MockTomFileSystem? fileSystem,
     MockForgeConfigManager? config,
   }) {
     final mock = MockForgeShellApi();
@@ -1656,7 +1656,7 @@ class ForgeMocks {
 
 | API (Concept §10.4) | Test File |
 |---------------------|-----------|
-| `ForgeFileSystem` | `test/services/file_system_test.dart` |
+| `TomFileSystem` | `test/services/file_system_test.dart` |
 | `ForgeLayoutController` | `test/services/layout_controller_test.dart` |
 | `ForgeOutputChannelManager` | `test/services/output_channel_test.dart` |
 | `ForgeDiagnosticManager` | `test/services/diagnostic_manager_test.dart` |

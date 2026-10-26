@@ -6,7 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:tom_forge_core/tom_forge_core.dart'
-    show ForgeFileEntry, ForgeSearchConfig, forgeLoadGitignores;
+    show ForgeSearchConfig, forgeLoadGitignores;
+import 'package:tom_file_system/tom_file_system.dart';
 
 import '../actions/forge_action.dart';
 import '../actions/forge_shortcut_binding.dart';
@@ -484,7 +485,7 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
       final fileSystem = widget.shellApi.fileSystem;
       final folders = <Uri>[rootUri];
       while (folders.isNotEmpty && count < config.maxFileResults) {
-        final List<ForgeFileEntry> entries;
+        final List<TomFileEntry> entries;
         try {
           entries = await fileSystem.list(folders.removeAt(0));
         } catch (_) {

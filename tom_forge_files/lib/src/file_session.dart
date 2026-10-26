@@ -9,8 +9,9 @@ library;
 
 import 'package:tom_basics/utilities.dart';
 
-import 'package:tom_forge_core/files.dart';
+import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_forge_core/tom_forge_undo.dart';
+import 'package:tom_undo/tom_undo.dart';
 
 /// Larger than this opens read-only.
 const int forgeReadOnlyAbove = 2 * 1024 * 1024;
@@ -60,8 +61,8 @@ class ForgeFileTextEdit extends ForgeFileHistoryEntry {
 class ForgeFileDiskAct extends ForgeFileHistoryEntry {
   const ForgeFileDiskAct(super.label, {required this.undo, required this.redo});
 
-  final Future<ForgeFileContent> Function() undo;
-  final Future<ForgeFileContent> Function() redo;
+  final Future<TomFileContent> Function() undo;
+  final Future<TomFileContent> Function() redo;
 }
 
 /// The file changed on disk while the session held unsaved edits.
@@ -77,7 +78,7 @@ class ForgeFileExternalChange {
 
   /// The file's text now, when it was modified.
   final String? theirs;
-  final ForgeFileRevision? revision;
+  final TomFileRevision? revision;
 }
 
 /// How a save ended.
@@ -99,7 +100,7 @@ enum ForgeFileSaveOutcome {
 class ForgeFileSession extends ForgeChangeNotifier {
   /// [isBinary] decides, from the file's name and bytes, that a file is not
   /// text and is not opened; by default a file is binary when its first
-  /// bytes do not read as text ([forgeLooksLikeText]). A host that knows file
+  /// bytes do not read as text ([tomLooksLikeText]). A host that knows file
   /// kinds by name answers for the names it claims.
   ForgeFileSession({
     required this.fileSystem,
@@ -107,7 +108,7 @@ class ForgeFileSession extends ForgeChangeNotifier {
     bool Function(String name, List<int> bytes)? isBinary,
   }) : _isBinary = isBinary ?? _bytesAreBinary;
 
-  final ForgeFileSystem fileSystem;
+  final TomFileSystem fileSystem;
 
   /// The path relative to [fileSystem]'s root.
   final String path;
@@ -118,7 +119,7 @@ class ForgeFileSession extends ForgeChangeNotifier {
   final bool Function(String name, List<int> bytes) _isBinary;
 
   static bool _bytesAreBinary(String name, List<int> bytes) =>
-      !forgeLooksLikeText(bytes);
+      !tomLooksLikeText(bytes);
 
   ForgeFileSessionState _state = ForgeFileSessionState.loading;
   ForgeFileSessionState get state => _state;
@@ -131,13 +132,13 @@ class ForgeFileSession extends ForgeChangeNotifier {
   String _text = '';
   String _saved = '';
   TomTextEncoding _encoding = TomTextEncoding.utf8;
-  ForgeFileRevision? _revision;
+  TomFileRevision? _revision;
   String? _readOnly;
   ForgeFileExternalChange? _external;
   bool _deletedOnDisk = false;
   String? _notice;
 
-  final ForgeUndoStack<ForgeFileHistoryEntry> _history = ForgeUndoStack(
+  final TomUndoStack<ForgeFileHistoryEntry> _history = TomUndoStack(
     maxEntries: forgeFileHistoryDepth,
   );
 
@@ -147,7 +148,7 @@ class ForgeFileSession extends ForgeChangeNotifier {
   TomTextEncoding get encoding => _encoding;
 
   /// The revision the session last read or wrote.
-  ForgeFileRevision? get revision => _revision;
+  TomFileRevision? get revision => _revision;
 
   /// Why the file cannot be edited, or null when it can.
   String? get readOnlyReason => _readOnly;
@@ -218,7 +219,7 @@ class ForgeFileSession extends ForgeChangeNotifier {
     notifyListeners();
   }
 
-  void _adopt(ForgeFileContent content) {
+  void _adopt(TomFileContent content) {
     _lastGroup = null;
     final decoded = tomDecodeTextBytes(content.bytes);
     _text = decoded.text;
@@ -341,7 +342,7 @@ class ForgeFileSession extends ForgeChangeNotifier {
 
   /// Records an act that has already written to disk, leaving the file at
   /// [result]. It joins the history like an edit.
-  void recordDiskAct(ForgeFileDiskAct act, ForgeFileContent result) {
+  void recordDiskAct(ForgeFileDiskAct act, TomFileContent result) {
     final decoded = tomDecodeTextBytes(result.bytes);
     _text = decoded.text;
     _saved = decoded.text;
@@ -370,7 +371,7 @@ class ForgeFileSession extends ForgeChangeNotifier {
         tomEncodeText(_text, _encoding),
         expected: _deletedOnDisk ? null : _revision,
       );
-    } on ForgeFileConflict {
+    } on TomFileConflict {
       await checkExternal();
       return ForgeFileSaveOutcome.conflict;
     }
@@ -393,7 +394,7 @@ class ForgeFileSession extends ForgeChangeNotifier {
       }
       return;
     }
-    final ForgeFileContent content;
+    final TomFileContent content;
     try {
       content = await fileSystem.read(uri);
     } on Object {

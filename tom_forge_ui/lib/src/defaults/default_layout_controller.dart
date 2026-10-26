@@ -6,6 +6,7 @@ import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_md_editor/tom_md_editor.dart';
 import 'package:tom_dart_editor/tom_dart_editor.dart';
 import 'package:tom_yaml_editor/tom_yaml_editor.dart';
+import 'package:tom_file_system/tom_file_system.dart';
 
 import '../adapters/forge_dart_editor.dart';
 import '../adapters/forge_md_editor.dart';
@@ -36,7 +37,7 @@ class DefaultLayoutController implements ForgeLayoutController {
   static const String _extYml = 'yml';
 
   final DefaultSystemState _systemState;
-  final ForgeFileSystem _fileSystem;
+  final TomFileSystem _fileSystem;
   final ForgeModuleRegistry _moduleRegistry;
   final DefaultVirtualDocumentManager? _virtualDocuments;
 
@@ -71,7 +72,7 @@ class DefaultLayoutController implements ForgeLayoutController {
 
   DefaultLayoutController({
     required DefaultSystemState systemState,
-    required ForgeFileSystem fileSystem,
+    required TomFileSystem fileSystem,
     required ForgeModuleRegistry moduleRegistry,
     DefaultVirtualDocumentManager? virtualDocuments,
     double leftSize = 250,

@@ -6,7 +6,7 @@ import '../services/forge_diagnostic_manager.dart';
 import 'package:tom_forge_core/tom_forge_core.dart' show ForgeExecutionMonitor;
 import '../services/forge_environment.dart';
 import '../services/forge_file_decoration_manager.dart';
-import 'package:tom_forge_core/files.dart' show ForgeFileSystem;
+import 'package:tom_file_system/tom_file_system.dart' show TomFileSystem;
 import '../services/forge_module_storage.dart';
 import '../services/forge_notification_manager.dart';
 import '../services/forge_outline_manager.dart';
@@ -43,7 +43,7 @@ abstract class ForgeShellApi {
   ForgeStatusBarController get statusBar;
 
   /// File system access.
-  ForgeFileSystem get fileSystem;
+  TomFileSystem get fileSystem;
 
   /// Module cross-references.
   ForgeModuleRegistry get modules;

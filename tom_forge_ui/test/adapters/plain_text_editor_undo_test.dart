@@ -1,5 +1,5 @@
 /// The plain-text editor's history runs on `tom_forge_core`'s
-/// `ForgeUndoStack`: a burst of typing is one change, undone and redone
+/// `TomUndoStack`: a burst of typing is one change, undone and redone
 /// through the shell's undo manager.
 library;
 

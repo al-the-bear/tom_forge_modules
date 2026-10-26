@@ -57,8 +57,8 @@ TextEditorCore seems the right place to incorporate this.
 
 ### 2.4 Undo/Redo Approaches
 
-Every editor keeps its history on one stack, `tom_forge_core`'s
-`ForgeUndoStack<E>` (`package:tom_forge_core/tom_forge_undo.dart`), which
+Every editor keeps its history on one stack, `tom_undo`'s
+`TomUndoStack<E>` (`package:tom_undo/tom_undo.dart`), which
 applies an entry first and moves it second, so a failed undo leaves the history
 as it was. What differs is the entry:
 
@@ -1329,10 +1329,10 @@ List<ForgeAction> createStandardEditingActions({
 #### 16.1.6 The undo stack
 
 Standalone integrations keep a `TextUndoEntry` per change on `tom_forge_core`'s
-`ForgeUndoStack`; undo applies the entry's old text and redo its new text:
+`TomUndoStack`; undo applies the entry's old text and redo its new text:
 
 ```dart
-final _history = ForgeUndoStack<TextUndoEntry>(maxEntries: 100);
+final _history = TomUndoStack<TextUndoEntry>(maxEntries: 100);
 
 _history.push(TextUndoEntry(oldText: before, newText: after));
 _history.undo((e) => apply(e.oldText, e.oldSelection));

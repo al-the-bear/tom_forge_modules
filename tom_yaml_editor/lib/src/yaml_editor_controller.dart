@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart';
-import 'package:tom_forge_core/tom_forge_undo.dart';
+import 'package:tom_undo/tom_undo.dart';
 
 import 'model/yaml_document_model.dart';
 import 'model/yaml_edit_operation.dart';
@@ -12,7 +12,7 @@ import 'tree/editor_trail.dart';
 /// Manages the YAML document state, undo/redo history, validation,
 /// and notifies listeners of changes.
 ///
-/// Uses `tom_forge_core`'s `ForgeUndoStack` for undo/redo management
+/// Uses `tom_undo`'s `TomUndoStack` for undo/redo management
 /// and [ValidationError] for structured error reporting.
 ///
 /// ```dart
@@ -38,7 +38,7 @@ class YamlEditorController extends ChangeNotifier {
   final YamlSchema? _schema;
 
   /// The undo/redo history of edit operations, on the shared undo stack.
-  late final ForgeUndoStack<YamlEditOperation> _history;
+  late final TomUndoStack<YamlEditOperation> _history;
 
   /// Cached validation errors, recomputed on every document change.
   List<ValidationError> _cachedErrors = [];
@@ -57,7 +57,7 @@ class YamlEditorController extends ChangeNotifier {
     int maxUndoHistory = 100,
   })  : _document = YamlDocumentModel.parse(initialYaml),
         _schema = schema {
-    _history = ForgeUndoStack<YamlEditOperation>(maxEntries: maxUndoHistory);
+    _history = TomUndoStack<YamlEditOperation>(maxEntries: maxUndoHistory);
     _revalidate();
   }
 

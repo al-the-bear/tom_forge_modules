@@ -13,14 +13,16 @@
 /// - **Context menus**: [ForgeContextTarget], [ForgeContextMenuItem],
 ///   [ForgeContextMenuContribution]
 /// - **Model**: [ForgeConfig], [AutoSaveConfig]
-/// - **Services**: [ForgeFileSystem], [ForgeClipboard], [ForgeConfigManager],
+/// - **Services**: [TomFileSystem], [ForgeClipboard], [ForgeConfigManager],
 ///   [ForgeDiagnosticManager], [ForgeNotificationManager],
 ///   [ForgeUndoManager], and more
 /// - **Defaults**: [DefaultConfigManager], [DefaultDiagnosticManager],
 ///   [DefaultNotificationManager], [DefaultOutputChannelManager],
 ///   [DefaultProgressManager], [DefaultSearchManager],
-///   [DefaultUndoManager], [ForgeMemoryFileSystem]
+///   [DefaultUndoManager], [TomMemoryFileSystem]
 library;
+
+import 'package:tom_file_system/tom_file_system.dart';
 
 // Core types
 export 'src/types/text_position.dart';
@@ -46,6 +48,7 @@ export 'src/model/forge_search_config.dart';
 
 // Utils
 export 'src/utils/gitignore_loader.dart';
+export 'src/utils/workspace_edit_apply.dart';
 
 // Services (pure-Dart interfaces)
 export 'src/services/forge_clipboard.dart';
@@ -65,9 +68,6 @@ export 'src/services/forge_virtual_document_manager.dart';
 export 'src/services/forge_performance_contract.dart';
 export 'src/services/forge_quality_gate.dart';
 
-// The file-system contract and its in-memory implementation
-export 'files.dart';
-
 // Default implementations (pure-Dart)
 export 'src/defaults/default_config_manager.dart';
 export 'src/defaults/forge_retry_policy.dart';
@@ -78,7 +78,6 @@ export 'src/defaults/default_output_manager.dart';
 export 'src/defaults/default_progress_manager.dart';
 export 'src/defaults/default_search_manager.dart';
 export 'src/defaults/default_undo_manager.dart';
-export 'src/defaults/undo_stack.dart';
 export 'src/defaults/test_config_manager.dart';
 export 'src/defaults/lru_cache.dart';
 export 'src/defaults/generation_cache.dart';

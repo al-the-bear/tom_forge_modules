@@ -11,6 +11,10 @@ environment:
   sdk: ^3.10.8
 
 dependencies:
+  tom_undo:
+    path: ../../tom_ai/basics/tom_undo
+  tom_file_system:
+    path: ../../tom_ai/basics/tom_file_system
   meta: ^1.16.0
   # Text decoding that keeps the encoding, and globs.
   tom_basics: ">=3.3.0"
