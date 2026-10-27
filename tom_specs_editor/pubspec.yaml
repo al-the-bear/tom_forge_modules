@@ -61,7 +61,7 @@ dependencies:
 
   # Non-UI agent layer: provider/model API, models, placeholder engine.
   tom_core_agentic:
-    path: ../../tom_ai/core/tom_core_agentic
+    path: ../../tom_ai/core_extension/tom_core_agentic
 
   # Generic TomSpecs Specification Object Model runtime: the path-keyed in-memory
   # document, the meta-model ("reflection") classes, and the document validator.

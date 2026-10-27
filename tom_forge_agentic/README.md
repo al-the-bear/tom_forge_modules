@@ -15,7 +15,7 @@ renders an identical experience:
 
 All **non-UI logic** — the provider/model API, prompt-queue/trail/profile
 models, and the placeholder engine — lives in
-[`tom_core_agentic`](../../tom_ai/core/tom_core_agentic), which this package
+[`tom_core_agentic`](../../tom_ai/core_extension/tom_core_agentic), which this package
 depends on. Widgets here render over those models; they never own transport
 specifics (the Agent-SDK transport stays in `tom_vscode_scripting_api`).
 

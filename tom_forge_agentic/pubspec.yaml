@@ -19,7 +19,7 @@ dependencies:
   # placeholder engine, and the bridge connection scan/store. This package
   # renders UI over those models only.
   tom_core_agentic:
-    path: ../../tom_ai/core/tom_core_agentic
+    path: ../../tom_ai/core_extension/tom_core_agentic
 
   # The cooperative cancellation the send controller hands the send engine.
   tom_basics: ">=3.3.0"
