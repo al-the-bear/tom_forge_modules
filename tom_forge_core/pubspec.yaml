@@ -3,9 +3,8 @@ description: >-
   Tom Forge's core types, service contracts and defaults: documents,
   diagnostics, decorations, the undo manager, the workspace edit and the
   services the shell and its editors share.
-publish_to: none
 version: 2.0.0
-# repository: https://github.com/my_org/my_repo
+repository: https://github.com/al-the-bear/tom_forge
 
 environment:
   sdk: ^3.10.8
@@ -13,7 +12,7 @@ environment:
 # Add regular dependencies here.
 dependencies:
   # The gitignore rules (TomGitignoreSet) behind the file walk.
-  tom_basics: ">=3.3.0"
+  tom_basics: ^3.3.0
   # The file-system contract the shell, its editors and the workspace edit
   # work on.
   tom_file_system:

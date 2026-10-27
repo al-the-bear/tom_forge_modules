@@ -1,38 +1,48 @@
-<!-- 
-This README describes the package. If you publish this package to pub.dev,
-this README's contents appear on the landing page for your package.
+# tom_forge_core
 
-For information about how to write a good package README, see the guide for
-[writing package pages](https://dart.dev/tools/pub/writing-package-pages). 
-
-For general information about developing packages, see the Dart guide for
-[creating packages](https://dart.dev/guides/libraries/create-packages)
-and the Flutter guide for
-[developing packages and plugins](https://flutter.dev/to/develop-packages). 
--->
+Published on pub.dev as [`tom_forge_core` 2.0.0](https://pub.dev/packages/tom_forge_core).
 
 Tom Forge's core: the types, service contracts and defaults the shell is
 built from, in pure Dart. The file system the shell and its editors work on is
-[`tom_file_system`](../../tom_ai/basics/tom_file_system/README.md), and the undo
+[`tom_file_system`](https://pub.dev/packages/tom_file_system), and the undo
 stack under `DefaultUndoManager` is
-[`tom_undo`](../../tom_ai/basics/tom_undo/README.md).
+[`tom_undo`](https://pub.dev/packages/tom_undo).
 
-## Features
+## What it holds
 
-TODO: List what your package can do. Maybe include images, gifs, or videos.
+- **Types** — positions and ranges, diagnostics and their severities,
+  decorations, editor options, the events and error codes the shell and its
+  editors exchange, a listenable, and the workspace edit.
+- **Documents and configuration** — `ForgeDocument`, `ForgeConfig` and the
+  search configuration.
+- **Service contracts** — clipboard, configuration, diagnostics, execution
+  monitoring, notifications, output channels, progress, search, secret
+  storage, terminals, undo, virtual documents, the performance contract and
+  the quality gate: interfaces the Flutter shell (`tom_forge_ui`) implements
+  or wires.
+- **Defaults** — pure-Dart implementations of most of those services, an LRU
+  cache and a retry policy, usable in a test or a headless tool.
+
+Two entry points: `package:tom_forge_core/tom_forge_core.dart` for all of the
+above, and `package:tom_forge_core/tom_forge_undo.dart` for the undo manager
+alone. Neither reaches Flutter.
 
 ## Getting started
 
-TODO: List prerequisites and provide or point to information on how to
-start using the package.
+```yaml
+dependencies:
+  tom_forge_core: ^2.0.0
+```
 
 ## Usage
 
-TODO: Include short and useful examples for package users. Add longer examples
-to `/example` folder. 
-
 ```dart
-const like = 'sample';
+import 'package:tom_forge_core/tom_forge_core.dart';
+
+void main() {
+  final pos = ForgeTextPosition(line: 1, column: 5);
+  print('Position: $pos');
+}
 ```
 
 ## Workspace edits
@@ -75,14 +85,7 @@ The pure-Dart model behind the shell's context menus
   `ForgeContextTarget.parameterKey`.
 
 The drawing lives in `tom_forge_ui` (`ForgeContextMenuController`,
-`ForgeContextTargetProvider`). See the repository guideline
-`_copilot_guidelines/context_menu_contributions.md`.
-
-## Additional information
-
-TODO: Tell users more about the package: where to find more information, how to 
-contribute to the package, how to file issues, what response they can expect 
-from the package authors, and more.
+`ForgeContextTargetProvider`).
 
 ## License
 
@@ -96,5 +99,4 @@ implementation, with `CompositeUndoEntry` for a `beginUndoGroup` /
 `tomApplyAllAsync`. They are in **`package:tom_forge_core/tom_forge_undo.dart`**,
 which reaches no `dart:io` and no Flutter.
 
-An editor keeps its history on that stack rather than its own list:
-`_bin/check_undo_stacks.py --strict` (workspace root) finds a hand-rolled one.
+An editor keeps its history on that stack rather than its own list.
