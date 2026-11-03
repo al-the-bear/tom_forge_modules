@@ -157,7 +157,7 @@ class _GoldenHarness {
 
     final application = ForgeApplication(
       title: 'Golden Test IDE',
-      layout: const ApplicationLayout(
+      layout: const PanelLayout(
         leftPanel: PanelConfig(initialSize: 250, tabs: []),
         rightPanel: PanelConfig(initialSize: 220, tabs: []),
         bottomPanel: PanelConfig(initialSize: 180, tabs: []),

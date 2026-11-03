@@ -653,7 +653,7 @@ class _PhaseZHarness {
 
     final application = ForgeApplication(
       title: 'Phase Z Full',
-      layout: ApplicationLayout(
+      layout: PanelLayout(
         leftPanel: PanelConfig(
           initialSize: 300,
           tabs: leftTabs,

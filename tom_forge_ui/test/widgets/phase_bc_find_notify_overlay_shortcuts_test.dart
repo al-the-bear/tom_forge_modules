@@ -579,7 +579,7 @@ class _PhaseBCHarness {
     final explorer = _StubView('Explorer', Icons.folder);
     final application = ForgeApplication(
       title: 'Phase BC App',
-      layout: ApplicationLayout(
+      layout: PanelLayout(
         leftPanel: PanelConfig(
           initialSize: 280,
           tabs: [

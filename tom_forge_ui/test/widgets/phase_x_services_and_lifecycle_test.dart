@@ -461,7 +461,7 @@ class _PhaseXHarness {
     // Create two applications for switching tests
     final primaryApplication = ForgeApplication(
       title: 'Phase X Full',
-      layout: ApplicationLayout(
+      layout: PanelLayout(
         leftPanel: PanelConfig(
           initialSize: 240,
           tabs: [
@@ -498,7 +498,7 @@ class _PhaseXHarness {
 
     final secondaryApplication = ForgeApplication(
       title: 'Phase X Minimal',
-      layout: ApplicationLayout(
+      layout: PanelLayout(
         leftPanel: const PanelConfig(initialSize: 200, tabs: []),
         rightPanel: const PanelConfig(initialSize: 200, tabs: []),
         bottomPanel: const PanelConfig(initialSize: 150, tabs: []),

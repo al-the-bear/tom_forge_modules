@@ -317,9 +317,65 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   /// Target accordion section index to expand when the config panel opens.
   final ValueNotifier<int?> _configSectionTarget = ValueNotifier<int?>(null);
 
+  /// The panel application the panel area shows: the active one, or — while a
+  /// full-screen application is active — the last panel application shown,
+  /// whose panel area stays in the tree offstage. Null until a panel
+  /// application has been shown.
+  ForgeApplication? _panelApplication;
+
+  /// The full-screen applications shown so far, each with the focus scope its
+  /// view runs in. Their views stay in the tree offstage while another
+  /// application is shown, so switching back finds them as they were.
+  final Map<ForgeApplication, FocusScopeNode> _fullScreenScopes = {};
+
+  /// The focus scope of the panel area, so focus returns to where it was when
+  /// a panel application is shown again.
+  final FocusScopeNode _panelScope = FocusScopeNode(
+    debugLabel: 'forge.panels',
+  );
+
+  /// The panels the panel area renders.
+  PanelLayout get _panels =>
+      _panelApplication?.panelLayout ?? const PanelLayout();
+
+  /// Records [application] as shown: the panel area follows a panel
+  /// application, a full-screen application gets its focus scope. Full-screen
+  /// applications the system state no longer lists are dropped.
+  void _noteApplication(ForgeApplication application) {
+    if (application.isFullScreen) {
+      _fullScreenScopes.putIfAbsent(
+        application,
+        () => FocusScopeNode(debugLabel: 'forge.app.${application.title}'),
+      );
+    } else {
+      _panelApplication = application;
+    }
+    final listed = widget.systemState.applications.toSet();
+    final gone = [
+      for (final app in _fullScreenScopes.keys)
+        if (app != application && !listed.contains(app)) app,
+    ];
+    for (final app in gone) {
+      _fullScreenScopes.remove(app)!.dispose();
+    }
+  }
+
+  /// Gives the focus to the shown application's scope, which restores the
+  /// child that had it when the application was last shown.
+  void _focusShownApplication() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final scope = widget.application.isFullScreen
+          ? _fullScreenScopes[widget.application]
+          : _panelScope;
+      scope?.requestFocus();
+    });
+  }
+
   @override
   void initState() {
     super.initState();
+    _noteApplication(widget.application);
     _preferences =
         widget.preferencesService ?? ForgePreferencesService.instance;
     _preferences.addListener(_onPreferencesChanged);
@@ -349,6 +405,10 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   @override
   void didUpdateWidget(covariant ForgeShellScaffold oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.application != widget.application) {
+      _noteApplication(widget.application);
+      _focusShownApplication();
+    }
     if (oldWidget.shell != widget.shell) {
       // The shell changed (e.g. placeholder → real shell).
       // Re-wire ALL shell-dependent listeners.
@@ -416,6 +476,10 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
 
   @override
   void dispose() {
+    for (final scope in _fullScreenScopes.values) {
+      scope.dispose();
+    }
+    _panelScope.dispose();
     if (identical(widget.shell.contextMenus.presenter, _presentContextMenu)) {
       widget.shell.contextMenus.presenter = null;
     }
@@ -623,7 +687,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
 
   /// Finds the Terminal tab in the bottom panel configuration.
   PanelTabConfig? get _terminalTab {
-    final tabs = widget.application.layout.bottomPanel.tabs;
+    final tabs = _panels.bottomPanel.tabs;
     for (final tab in tabs) {
       if (tab.title == 'Terminal') return tab;
     }
@@ -662,7 +726,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         ..clear()
         ..addAll(nextSections);
     } on UnsupportedError {
-      final tabs = widget.application.layout.bottomPanel.tabs;
+      final tabs = _panels.bottomPanel.tabs;
       final index = tabs.indexOf(tab);
       if (index >= 0) {
         try {
@@ -1343,7 +1407,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   /// - Editors that were dragged to side/bottom panels return to the middle.
   /// - Views that were dragged to the middle panel are closed there.
   void _resetPanelLocations() {
-    final layout = widget.application.layout;
+    final layout = _panels;
 
     // Collect editors wrapped as views in side/bottom panels and move back.
     for (final panel in [layout.leftPanel, layout.rightPanel, layout.bottomPanel]) {
@@ -2172,8 +2236,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
                   Column(
                     children: [
                       _buildTitleBar(context),
-                      // On macOS desktop, the menu is in the native menu bar.
-                      if (!_usePlatformMenu)
+                      // On macOS desktop, the menu is in the native menu bar;
+                      // a full-screen application shows none in the window.
+                      if (!_usePlatformMenu && !widget.application.isFullScreen)
                         ForgeMenuBar(
                           shellApi: widget.shell,
                           onCommandPalette: _toggleCommandPalette,
@@ -2183,7 +2248,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
                             _preferences.themeMode = mode;
                           },
                         ),
-                      Expanded(child: _buildMainArea(context)),
+                      Expanded(child: _buildContentArea(context)),
                       ForgeStatusBarWidget(
                         controller: widget.statusBarController,
                         systemState: widget.systemState,
@@ -3098,6 +3163,56 @@ Press "?" for this help document.
     );
   }
 
+  /// The content area between the title bar and the status bar: the panel
+  /// area and one view per full-screen application shown so far, only the
+  /// active application's on stage. The others stay in the tree with their
+  /// state, tickers off and out of focus traversal.
+  Widget _buildContentArea(BuildContext context) {
+    final active = widget.application;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (_panelApplication != null)
+          _contentSlot(
+            key: const ValueKey('forge.content.panels'),
+            shown: !active.isFullScreen,
+            child: FocusScope(node: _panelScope, child: _buildMainArea(context)),
+          ),
+        for (final entry in _fullScreenScopes.entries)
+          _contentSlot(
+            key: ObjectKey(entry.key),
+            shown: entry.key == active,
+            child: FocusScope(
+              node: entry.value,
+              autofocus: entry.key == active,
+              child: Builder(
+                builder: (context) => (entry.key.layout as FullScreenLayout)
+                    .view
+                    .buildMain(context),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _contentSlot({
+    required Key key,
+    required bool shown,
+    required Widget child,
+  }) {
+    return KeyedSubtree(
+      key: key,
+      child: Offstage(
+        offstage: !shown,
+        child: TickerMode(
+          enabled: shown,
+          child: ExcludeFocus(excluding: !shown, child: child),
+        ),
+      ),
+    );
+  }
+
   Widget _buildMainArea(BuildContext context) {
     return ValueListenableBuilder<LayoutPanelConfig>(
       valueListenable: _layout.leftPanel,
@@ -3114,7 +3229,7 @@ Press "?" for this help document.
                   child: _buildSidePanel(
                     context,
                     width: leftConfig.size,
-                    tabs: widget.application.layout.leftPanel.tabs,
+                    tabs: _panels.leftPanel.tabs,
                     iconStripPosition: IconStripPosition.left,
                     panelArea: PanelArea.left,
                     showConfigTab: true,
@@ -3156,7 +3271,7 @@ Press "?" for this help document.
                   child: _buildSidePanel(
                     context,
                     width: rightConfig.size,
-                    tabs: widget.application.layout.rightPanel.tabs,
+                    tabs: _panels.rightPanel.tabs,
                     iconStripPosition: IconStripPosition.right,
                     panelArea: PanelArea.right,
                     showConfigTab: false,
@@ -3315,15 +3430,15 @@ Press "?" for this help document.
     if (panelTabs is Map<String, dynamic>) {
       _restoreCustomTabs(
         panelTabs['left'],
-        widget.application.layout.leftPanel.tabs,
+        _panels.leftPanel.tabs,
       );
       _restoreCustomTabs(
         panelTabs['right'],
-        widget.application.layout.rightPanel.tabs,
+        _panels.rightPanel.tabs,
       );
       _restoreCustomTabs(
         panelTabs['bottom'],
-        widget.application.layout.bottomPanel.tabs,
+        _panels.bottomPanel.tabs,
       );
     }
 
@@ -3332,15 +3447,15 @@ Press "?" for this help document.
     if (sidePanelEditors is Map<String, dynamic>) {
       await _restorePanelEditors(
         sidePanelEditors['left'],
-        widget.application.layout.leftPanel.tabs,
+        _panels.leftPanel.tabs,
       );
       await _restorePanelEditors(
         sidePanelEditors['right'],
-        widget.application.layout.rightPanel.tabs,
+        _panels.rightPanel.tabs,
       );
       await _restorePanelEditors(
         sidePanelEditors['bottom'],
-        widget.application.layout.bottomPanel.tabs,
+        _panels.bottomPanel.tabs,
       );
     }
 
@@ -3495,7 +3610,7 @@ Press "?" for this help document.
       }).toList();
     }
 
-    final layout = widget.application.layout;
+    final layout = _panels;
     snapshot['sidePanelEditors'] = {
       'left': extractEditorUris(layout.leftPanel.tabs),
       'right': extractEditorUris(layout.rightPanel.tabs),
@@ -3986,7 +4101,7 @@ Press "?" for this help document.
       return;
     }
     if (data.sourceArea == null || data.sourceTabIndex == null) return;
-    final layout = widget.application.layout;
+    final layout = _panels;
     final tabs = switch (data.sourceArea!) {
       PanelArea.left => layout.leftPanel.tabs,
       PanelArea.right => layout.rightPanel.tabs,
@@ -4005,7 +4120,7 @@ Press "?" for this help document.
   /// Removes an entire tab from its source panel after a cross-panel move
   /// (panel tab dragged to middle panel).
   void _removePanelTab(PanelTabDragData data) {
-    final layout = widget.application.layout;
+    final layout = _panels;
     final tabs = switch (data.sourceArea) {
       PanelArea.left => layout.leftPanel.tabs,
       PanelArea.right => layout.rightPanel.tabs,
@@ -4022,7 +4137,7 @@ Press "?" for this help document.
   /// Wraps the editor as a [ForgeView] via [_EditorViewAdapter] and
   /// adds it as a section in the target panel's active tab.
   void _handleEditorDropOnPanel(TabDragData data, PanelArea targetArea) {
-    final layout = widget.application.layout;
+    final layout = _panels;
 
     // Target panel tabs.
     final targetTabs = switch (targetArea) {
@@ -4051,7 +4166,7 @@ Press "?" for this help document.
     PanelArea targetArea,
     int tabIndex,
   ) {
-    final layout = widget.application.layout;
+    final layout = _panels;
 
     final targetTabs = switch (targetArea) {
       PanelArea.left => layout.leftPanel.tabs,
@@ -4083,7 +4198,7 @@ Press "?" for this help document.
     PanelArea targetArea,
     int tabIndex,
   ) {
-    final layout = widget.application.layout;
+    final layout = _panels;
 
     final targetTabs = switch (targetArea) {
       PanelArea.left => layout.leftPanel.tabs,
@@ -4105,7 +4220,7 @@ Press "?" for this help document.
     SectionDragData data,
     PanelArea targetArea,
   ) {
-    final layout = widget.application.layout;
+    final layout = _panels;
 
     final targetTabs = switch (targetArea) {
       PanelArea.left => layout.leftPanel.tabs,
@@ -4133,7 +4248,7 @@ Press "?" for this help document.
     int fromIndex,
     int toIndex,
   ) {
-    final layout = widget.application.layout;
+    final layout = _panels;
 
     final tabs = switch (area) {
       PanelArea.left => layout.leftPanel.tabs,
@@ -4153,7 +4268,7 @@ Press "?" for this help document.
 
   /// Deletes a tab from a panel. Only allowed when the tab has no sections.
   void _handleTabDelete(PanelArea area, int tabIndex) {
-    final layout = widget.application.layout;
+    final layout = _panels;
 
     final tabs = switch (area) {
       PanelArea.left => layout.leftPanel.tabs,
@@ -4195,7 +4310,7 @@ Press "?" for this help document.
   void _handlePanelTabDrop(PanelTabDragData data, PanelArea targetArea) {
     if (data.sourceArea == targetArea) return;
 
-    final layout = widget.application.layout;
+    final layout = _panels;
 
     // Resolve source panel tabs.
     final sourceTabs = switch (data.sourceArea) {
@@ -4357,7 +4472,7 @@ Press "?" for this help document.
   }
 
   Widget _buildBottomPanel(BuildContext context, LayoutPanelConfig config) {
-    final tabs = widget.application.layout.bottomPanel.tabs;
+    final tabs = _panels.bottomPanel.tabs;
     if (tabs.isEmpty) return const SizedBox.shrink();
 
     return SizedBox(

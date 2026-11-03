@@ -88,7 +88,7 @@ void main() {
     module.activate(shell);
 
     final docSpecs = module.docSpecs;
-    final layout = docSpecs.layout;
+    final layout = docSpecs.panelLayout;
     // Three middle splits: Document, Queue, Trail.
     expect(layout.middlePanels.length, 3);
     // Each surrounding region carries a populated tab.
@@ -104,35 +104,35 @@ void main() {
     for (final i in [1, 2]) {
       final app = module.applications[i];
       // Three middle splits: phase overview + queue/trail surface placeholders.
-      expect(app.layout.middlePanels.length, 3, reason: '${app.title} middle');
+      expect(app.panelLayout.middlePanels.length, 3, reason: '${app.title} middle');
       expect(
-        app.layout.middlePanels[0].tabs.single.editor,
+        app.panelLayout.middlePanels[0].tabs.single.editor,
         isA<PhaseOverviewEditor>(),
         reason: '${app.title} document split',
       );
       expect(
-        app.layout.middlePanels[1].tabs.single.editor,
+        app.panelLayout.middlePanels[1].tabs.single.editor,
         isA<PhaseSurfaceEditor>(),
         reason: '${app.title} queue split',
       );
       expect(
-        app.layout.middlePanels[2].tabs.single.editor,
+        app.panelLayout.middlePanels[2].tabs.single.editor,
         isA<PhaseSurfaceEditor>(),
         reason: '${app.title} trail split',
       );
       // Left panel: only the "Overview" tab (Navigator/Structure/Config stay
       // DocSpecs-only — they drive the live document).
-      expect(app.layout.leftPanel.tabs, hasLength(1));
-      expect(app.layout.leftPanel.tabs.single.title, 'Overview');
+      expect(app.panelLayout.leftPanel.tabs, hasLength(1));
+      expect(app.panelLayout.leftPanel.tabs.single.title, 'Overview');
       // Bottom "Chat" + right "Change Log" surfaces are no longer empty.
-      expect(app.layout.bottomPanel.tabs.single.title, 'Chat');
+      expect(app.panelLayout.bottomPanel.tabs.single.title, 'Chat');
       expect(
-        app.layout.bottomPanel.tabs.single.sections.single,
+        app.panelLayout.bottomPanel.tabs.single.sections.single,
         isA<PhaseSurfaceView>(),
       );
-      expect(app.layout.rightPanel.tabs.single.title, 'Change Log');
+      expect(app.panelLayout.rightPanel.tabs.single.title, 'Change Log');
       expect(
-        app.layout.rightPanel.tabs.single.sections.single,
+        app.panelLayout.rightPanel.tabs.single.sections.single,
         isA<PhaseSurfaceView>(),
       );
     }
@@ -179,7 +179,7 @@ void main() {
     );
     module.activate(shell);
 
-    final middle = module.docSpecs.layout.middlePanels;
+    final middle = module.docSpecs.panelLayout.middlePanels;
     expect(middle, hasLength(3));
     // Col 1 = Document; Col 2 = the real prompt queue; Col 3 = the real trail —
     // no longer the placeholder stubs, and no longer stacked in the bottom chat

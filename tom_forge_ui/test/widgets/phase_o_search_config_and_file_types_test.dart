@@ -406,7 +406,7 @@ class _PhaseOHarness {
 
     final application = ForgeApplication(
       title: 'Phase O Harness',
-      layout: ApplicationLayout(
+      layout: PanelLayout(
         leftPanel: PanelConfig(
           initialSize: 240,
           tabs: [

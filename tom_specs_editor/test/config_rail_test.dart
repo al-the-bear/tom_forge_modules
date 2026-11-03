@@ -148,7 +148,7 @@ void main() {
       final module = SpecsShellModule(configRailView: rail);
       module.activate(_shell());
 
-      final leftTabs = module.docSpecs.layout.leftPanel.tabs;
+      final leftTabs = module.docSpecs.panelLayout.leftPanel.tabs;
       final configTab = leftTabs.where((t) => t.title == 'Config').toList();
       expect(configTab, hasLength(1));
       expect(configTab.single.sections, contains(rail));
@@ -156,7 +156,7 @@ void main() {
 
     test('omits the Config tab when no rail is injected', () {
       final module = SpecsShellModule()..activate(_shell());
-      final titles = module.docSpecs.layout.leftPanel.tabs
+      final titles = module.docSpecs.panelLayout.leftPanel.tabs
           .map((t) => t.title)
           .toList();
       expect(titles, isNot(contains('Config')));

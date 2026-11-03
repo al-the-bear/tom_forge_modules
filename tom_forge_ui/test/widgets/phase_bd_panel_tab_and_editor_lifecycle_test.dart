@@ -521,7 +521,7 @@ class _PhaseBDHarness {
 
     final application = ForgeApplication(
       title: 'Phase BD App',
-      layout: ApplicationLayout(
+      layout: PanelLayout(
         leftPanel: PanelConfig(
           initialSize: 280,
           tabs: [

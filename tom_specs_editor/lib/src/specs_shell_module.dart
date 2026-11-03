@@ -229,7 +229,7 @@ class SpecsShellModule extends ForgeModule {
       return ForgeApplication(
         title: title,
         icon: icon,
-        layout: ApplicationLayout(
+        layout: PanelLayout(
           leftPanel: PanelConfig(initialSize: 250, tabs: leftTabs),
           rightPanel: PanelConfig(
             initialSize: 220,
@@ -310,7 +310,7 @@ class SpecsShellModule extends ForgeModule {
     return ForgeApplication(
       title: title,
       icon: icon,
-      layout: ApplicationLayout(
+      layout: PanelLayout(
         leftPanel: PanelConfig(
           initialSize: 250,
           tabs: [

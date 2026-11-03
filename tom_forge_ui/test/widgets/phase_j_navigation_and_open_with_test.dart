@@ -285,7 +285,7 @@ class _PhaseJHarness {
 
     final application = ForgeApplication(
       title: 'Phase J Harness',
-      layout: ApplicationLayout(
+      layout: PanelLayout(
         leftPanel: PanelConfig(
           initialSize: 240,
           tabs: [
@@ -327,7 +327,7 @@ class _PhaseJHarness {
 
     final altApplication = ForgeApplication(
       title: 'Phase J Alt',
-      layout: const ApplicationLayout(
+      layout: const PanelLayout(
         leftPanel: PanelConfig(initialSize: 200, tabs: []),
         rightPanel: PanelConfig(initialSize: 200, tabs: []),
         bottomPanel: PanelConfig(initialSize: 150, tabs: []),

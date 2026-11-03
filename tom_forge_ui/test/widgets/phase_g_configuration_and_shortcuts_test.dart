@@ -379,7 +379,7 @@ class _PhaseGHarness {
 
     final application = ForgeApplication(
       title: 'Phase G Harness',
-      layout: ApplicationLayout(
+      layout: PanelLayout(
         leftPanel: PanelConfig(
           initialSize: 240,
           tabs: [

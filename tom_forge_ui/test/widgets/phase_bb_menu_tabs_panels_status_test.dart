@@ -603,7 +603,7 @@ class _PhaseBBHarness {
     final explorer = _StubView('Explorer', Icons.folder);
     final application = ForgeApplication(
       title: 'Phase BB App',
-      layout: ApplicationLayout(
+      layout: PanelLayout(
         leftPanel: PanelConfig(
           initialSize: 280,
           tabs: [
@@ -642,7 +642,7 @@ class _PhaseBBHarness {
     if (multipleApps) {
       secondApp = ForgeApplication(
         title: 'Second App',
-        layout: const ApplicationLayout(
+        layout: const PanelLayout(
           middlePanels: [MiddlePanelConfig()],
         ),
       );

@@ -714,11 +714,23 @@ class ForgeApplication {
   bool get isAlive => true;
 }
 
-class ApplicationLayout {
+/// How an application fills the content area between the title bar (with the
+/// application switcher) and the status bar.
+sealed class ApplicationLayout {}
+
+/// The panel shell: side, bottom and middle (editor) panels.
+class PanelLayout extends ApplicationLayout {
   final PanelConfig leftPanel;
   final PanelConfig rightPanel;
   final PanelConfig bottomPanel;
   final List<MiddlePanelConfig> middlePanels;
+}
+
+/// One view filling the content area: no panels and no in-window menu bar.
+/// The view runs in its own focus scope; keys it does not handle reach the
+/// shell's global shortcuts and command palette.
+class FullScreenLayout extends ApplicationLayout {
+  final ForgeView view;
 }
 
 class PanelConfig {
@@ -762,6 +774,8 @@ class MiddleTabConfig {
 ### 6.3 Application Switching
 
 - Switching applications does **not** close the previous application. All applications remain alive in memory with their full layout state preserved.
+- A full-screen application's view stays in the widget tree offstage while another application is shown, with its tickers off and out of focus traversal; the panel area does the same while a full-screen application is shown. Switching back finds both as they were, and the focus returns to where it was in each.
+- The system state keeps each application's open editor instances while another application is active and puts them back on the switch back; a switch neither opens nor closes an editor.
 - The dropdown shows all applications; the active one is highlighted.
 - Applications can optionally share components. A component instance opened in Application A can also appear in Application B if both reference the same URI/type. The data state is shared; each application holds its own UI copy.
 - No save-on-switch is required by default. Since applications stay alive, unsaved editors remain unsaved across switches. This behavior is configurable: an application can opt into save-on-deactivate if desired.
@@ -1191,7 +1205,7 @@ class AutoSaveConfig {
 3. Persisted config overlay
    ├─ Load .forge/config.json (or ~/.forge/config.json in split mode)
    ├─ Overlay on top of code config (user changes win)
-   ├─ Load .forge/state/layout.json → override code-based ApplicationLayout
+   ├─ Load .forge/state/layout.json → override code-based PanelLayout
    └─ Load .forge/state/open-editors.json → restore editor tabs
 
 4. Module activation
@@ -2811,7 +2825,7 @@ void main() {
       // Application with explicit layout — references module members directly
       ForgeApplication(
         title: 'Tom Flow',
-        layout: ApplicationLayout(
+        layout: PanelLayout(
           leftPanel: PanelConfig(
             initialSize: 260,
             tabs: [

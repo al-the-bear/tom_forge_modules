@@ -200,7 +200,7 @@ class _Harness {
     (shell.modules as DefaultModuleRegistry).register(module);
     final application = ForgeApplication(
       title: 'woneqrb13',
-      layout: ApplicationLayout(
+      layout: PanelLayout(
         leftPanel: PanelConfig(
           initialSize: 260,
           tabs: [

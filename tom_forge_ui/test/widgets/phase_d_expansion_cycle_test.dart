@@ -125,7 +125,7 @@ class _PhaseDHarness {
 
     final application = ForgeApplication(
       title: 'Phase D Harness',
-      layout: const ApplicationLayout(
+      layout: const PanelLayout(
         leftPanel: PanelConfig(initialSize: 250, tabs: []),
         rightPanel: PanelConfig(initialSize: 220, tabs: []),
         bottomPanel: PanelConfig(initialSize: 180, tabs: []),

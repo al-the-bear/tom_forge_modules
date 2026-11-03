@@ -397,7 +397,7 @@ class _PhaseSHarness {
 
     final application = ForgeApplication(
       title: 'Phase S Harness',
-      layout: ApplicationLayout(
+      layout: PanelLayout(
         leftPanel: PanelConfig(
           initialSize: 240,
           tabs: [

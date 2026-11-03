@@ -497,7 +497,7 @@ class _PhaseYHarness {
 
     final application = ForgeApplication(
       title: 'Phase Y Full',
-      layout: ApplicationLayout(
+      layout: PanelLayout(
         leftPanel: PanelConfig(
           initialSize: 240,
           tabs: [

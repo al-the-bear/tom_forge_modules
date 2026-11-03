@@ -194,7 +194,7 @@ class _FileLifecycleHarness {
 
     final application = ForgeApplication(
       title: 'File Lifecycle Test',
-      layout: const ApplicationLayout(
+      layout: const PanelLayout(
         leftPanel: PanelConfig(initialSize: 250, tabs: []),
         rightPanel: PanelConfig(initialSize: 220, tabs: []),
         bottomPanel: PanelConfig(initialSize: 180, tabs: []),

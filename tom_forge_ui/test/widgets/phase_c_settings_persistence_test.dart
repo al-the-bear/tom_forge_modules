@@ -44,7 +44,7 @@ void main() {
 
     final application = ForgeApplication(
       title: 'Phase C Harness',
-      layout: ApplicationLayout(
+      layout: PanelLayout(
         leftPanel: PanelConfig(initialSize: 250, tabs: []),
         rightPanel: PanelConfig(initialSize: 220, tabs: []),
         bottomPanel: PanelConfig(initialSize: 180, tabs: []),
@@ -108,7 +108,7 @@ void main() {
 
       final application = ForgeApplication(
         title: 'Phase C Runtime Sync Harness',
-        layout: const ApplicationLayout(
+        layout: const PanelLayout(
           leftPanel: PanelConfig(initialSize: 250, tabs: []),
           rightPanel: PanelConfig(initialSize: 220, tabs: []),
           bottomPanel: PanelConfig(initialSize: 180, tabs: []),
@@ -173,7 +173,7 @@ void main() {
 
     final application = ForgeApplication(
       title: 'Phase C Layout Harness',
-      layout: const ApplicationLayout(
+      layout: const PanelLayout(
         leftPanel: PanelConfig(initialSize: 250, tabs: []),
         rightPanel: PanelConfig(initialSize: 220, tabs: []),
         bottomPanel: PanelConfig(initialSize: 180, tabs: []),

@@ -163,7 +163,7 @@ void main() {
       harness.shell.terminals.create(name: 'Terminal B');
       await tester.pumpAndSettle();
 
-      final terminalTab = harness.application.layout.bottomPanel.tabs
+      final terminalTab = harness.application.panelLayout.bottomPanel.tabs
           .firstWhere((t) => t.title == 'Terminal');
       expect(terminalTab.sections.length, equals(2));
 
@@ -312,7 +312,7 @@ class _PhaseHHarness {
 
     final application = ForgeApplication(
       title: 'Phase H Harness',
-      layout: ApplicationLayout(
+      layout: PanelLayout(
         leftPanel: PanelConfig(
           initialSize: 240,
           tabs: [

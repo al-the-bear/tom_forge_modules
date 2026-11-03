@@ -187,7 +187,7 @@ void main() {
       structureView: structureModule.structureView,
     )..activate(shell);
 
-    final leftTabs = shellModule.docSpecs.layout.leftPanel.tabs;
+    final leftTabs = shellModule.docSpecs.panelLayout.leftPanel.tabs;
     expect(leftTabs.map((t) => t.title), contains('Structure'));
     final structureTab = leftTabs.firstWhere((t) => t.title == 'Structure');
     expect(structureTab.sections, contains(structureModule.structureView));

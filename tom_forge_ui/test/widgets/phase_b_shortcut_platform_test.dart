@@ -70,7 +70,7 @@ class _ShortcutHarness {
 
     final application = ForgeApplication(
       title: 'Shortcut Test',
-      layout: const ApplicationLayout(
+      layout: const PanelLayout(
         leftPanel: PanelConfig(initialSize: 250, tabs: []),
         rightPanel: PanelConfig(initialSize: 220, tabs: []),
         bottomPanel: PanelConfig(initialSize: 180, tabs: []),

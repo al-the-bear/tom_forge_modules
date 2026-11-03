@@ -62,6 +62,12 @@ class DefaultSystemState implements ForgeSystemState {
   /// Maps application title to a state map with open editors and active editor.
   final Map<String, Map<String, dynamic>> _applicationStates = {};
 
+  /// The open editor instances of each application not currently active, so
+  /// switching back to it puts the same editors back in the list. Keyed like
+  /// [_applicationStates]; the URIs there are what persistence writes.
+  final Map<String, ({List<ForgeEditor> editors, ForgeEditor? active})>
+  _liveEditorStates = {};
+
   /// Tracks last-active timestamp per application for resource management.
   final Map<String, DateTime> _applicationLastActive = {};
 
@@ -422,6 +428,7 @@ class DefaultSystemState implements ForgeSystemState {
       }
       if (oldest == null) break;
       _applicationStates.remove(oldest);
+      _liveEditorStates.remove(oldest);
       _applicationLastActive.remove(oldest);
     }
   }
@@ -435,23 +442,22 @@ class DefaultSystemState implements ForgeSystemState {
           .toList(),
       'activeEditor': _activeEditor.value?.uri,
     };
+    _liveEditorStates[app.title] = (
+      editors: _openEditors.value,
+      active: _activeEditor.value,
+    );
   }
 
-  /// Restores a previously saved application state.
-  /// Does not re-open editors — that's handled by the layout controller.
+  /// Puts [app]'s open editors back: the instances it had when it was last
+  /// switched away from, or none when it has not been active in this session.
   void _restoreApplicationState(ForgeApplication app) {
-    final state = _applicationStates[app.title];
-    if (state == null) {
-      // First time activating this app — start fresh
-      _openEditors.value = [];
-      _activeEditor.value = null;
-      _onEditorsChanged.add(
-        const EditorListChangeEvent(opened: [], closed: []),
-      );
-      return;
-    }
-    // Note: The actual editor instances are managed by the layout controller.
-    // This just clears the current state; the scaffold will restore editors.
+    final live = _liveEditorStates.remove(app.title);
+    _openEditors.value = live?.editors ?? const <ForgeEditor>[];
+    _activeEditor.value = live?.active;
+    // A switch neither opens nor closes an editor — the instances stay alive
+    // with the application that holds them — so the event names none, and
+    // nothing saves or restores per-editor state on its account.
+    _onEditorsChanged.add(const EditorListChangeEvent(opened: [], closed: []));
   }
 
   /// Returns saved state for an application (for persistence).
