@@ -119,6 +119,7 @@ class _Step5Harness {
     (shell.modules as DefaultModuleRegistry).register(module);
 
     final application = ForgeApplication(
+      id: 'step-5-harness',
       title: 'Step 5 Harness',
       layout: const PanelLayout(
         leftPanel: PanelConfig(initialSize: 250, tabs: []),
@@ -127,6 +128,7 @@ class _Step5Harness {
         middlePanels: [MiddlePanelConfig()],
       ),
     );
+    shell.applications.add(application);
 
     final layout = shell.layout as DefaultLayoutController;
     layout.openEditor(module.editor, module.editor.uri);
@@ -142,7 +144,6 @@ class _Step5Harness {
     return MaterialApp(
       home: ForgeShellScaffold(
         shell: shell,
-        application: application,
         layoutController: shell.layout as DefaultLayoutController,
         systemState: shell.systemState as DefaultSystemState,
         statusBarController: shell.statusBar,

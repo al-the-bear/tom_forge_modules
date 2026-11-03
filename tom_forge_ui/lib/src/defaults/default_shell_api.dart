@@ -1,9 +1,11 @@
-import 'dart:io' show Directory;
+import 'dart:async';
+import 'dart:io' show Directory, FileSystemException;
 
 import 'package:flutter/widgets.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart'
     show ForgeTextSettings, StandardEditingActions;
 
+import '../model/forge_application.dart';
 import '../model/forge_config.dart';
 import '../actions/forge_action.dart';
 import '../services/forge_action_registry.dart';
@@ -63,6 +65,9 @@ import 'stub_services.dart';
 class DefaultShellApi implements ForgeShellApi {
   @override
   final ForgeSystemState systemState;
+
+  @override
+  final ForgeApplicationRegistry applications;
 
   @override
   final ForgeLayoutController layout;
@@ -144,6 +149,7 @@ class DefaultShellApi implements ForgeShellApi {
 
   DefaultShellApi({
     required this.systemState,
+    required this.applications,
     required this.layout,
     required this.statusBar,
     required this.fileSystem,
@@ -169,12 +175,13 @@ class DefaultShellApi implements ForgeShellApi {
     required this.shortcuts,
     ForgeWorkspaceStateManager? workspaceState,
     ForgeContextMenuController? contextMenus,
-  })  : workspaceState = workspaceState ?? DefaultWorkspaceStateManager(),
-        contextMenus = contextMenus ??
-            ForgeContextMenuController(
-              modules: modules,
-              actions: actionRegistry,
-            );
+  }) : workspaceState = workspaceState ?? DefaultWorkspaceStateManager(),
+       contextMenus =
+           contextMenus ??
+           ForgeContextMenuController(
+             modules: modules,
+             actions: actionRegistry,
+           );
 
   /// Creates a [DefaultShellApi] with all default implementations wired.
   ///
@@ -264,7 +271,8 @@ class DefaultShellApi implements ForgeShellApi {
 
     final outlineManager = DefaultOutlineManager();
     // Use PTY-backed terminals on desktop (a local folder), fallback for tests.
-    final ForgeTerminalManager terminalManager = fileSystem is TomLocalFileSystem
+    final ForgeTerminalManager terminalManager =
+        fileSystem is TomLocalFileSystem
         ? PtyTerminalManager()
         : DefaultTerminalManager();
     final storageService = storage ?? DefaultModuleStorage();
@@ -284,6 +292,7 @@ class DefaultShellApi implements ForgeShellApi {
 
     return DefaultShellApi(
       systemState: systemState,
+      applications: systemState,
       layout: layoutController,
       statusBar: statusBarController,
       fileSystem: fileSystem,
@@ -559,11 +568,88 @@ class DefaultShellApi implements ForgeShellApi {
     return true;
   }
 
+  bool _savesApplications = false;
+  Set<String> _savedApplicationIds = const {};
+
+  /// The write in flight, and whether another change came in meanwhile:
+  /// writes run one at a time and the last change is always written.
+  Future<void>? _applicationsWrite;
+  bool _applicationsChangedDuringWrite = false;
+  final Set<String> _removedApplicationIds = {};
+
+  /// Recreates the restorable applications that were open at the last exit
+  /// (`.forge/state/applications.json`) through their factories, and from
+  /// then on writes the file whenever the open applications change.
+  ///
+  /// Call once, after the modules are activated (they register their
+  /// factories) and the workspace state is initialized. Nothing is written
+  /// before this runs, so a start cannot overwrite the last exit's list with
+  /// the static applications alone.
+  Future<void> restoreApplications() async {
+    if (!workspaceState.isInitialized || _savesApplications) return;
+    final saved = await workspaceState.loadOpenApplications();
+    if (saved != null) applications.restore(saved);
+    _savesApplications = true;
+    _savedApplicationIds = {for (final app in applications.all) app.id};
+    applications.listenable.addListener(_saveApplications);
+    _saveApplications();
+  }
+
+  /// Writes the open applications, and deletes the per-application state of
+  /// any that was removed since the last write.
+  void _saveApplications() {
+    if (!workspaceState.isInitialized) return;
+    final open = {for (final app in applications.all) app.id};
+    _removedApplicationIds.addAll(_savedApplicationIds.difference(open));
+    _savedApplicationIds = open;
+    _writeApplications();
+  }
+
+  void _writeApplications() {
+    if (_applicationsWrite != null) {
+      _applicationsChangedDuringWrite = true;
+      return;
+    }
+    _applicationsWrite = () async {
+      do {
+        _applicationsChangedDuringWrite = false;
+        final removed = [..._removedApplicationIds];
+        _removedApplicationIds.clear();
+        try {
+          await workspaceState.saveOpenApplications(applications.snapshot());
+          final state = workspaceState;
+          if (state is DefaultWorkspaceStateManager) {
+            for (final id in removed) {
+              await state.deleteApplicationState(id);
+            }
+          }
+        } on FileSystemException catch (e) {
+          notifications.showWarning(
+            'The open applications could not be saved for the next start: '
+            '${e.message} (${e.path})',
+          );
+        }
+      } while (_applicationsChangedDuringWrite);
+      _applicationsWrite = null;
+    }();
+  }
+
+  /// Completes when the open applications as they are now are on disk, and
+  /// the per-application state of the removed ones is deleted.
+  Future<void> applicationsWritten() async {
+    while (_applicationsWrite != null) {
+      await _applicationsWrite;
+    }
+  }
+
   /// Disposes all services that own resources.
   ///
   /// Sequence: deactivate modules (reverse order), then dispose layout
   /// and system state. Called from the scaffold's shutdown flow.
   void dispose() {
+    if (_savesApplications) {
+      applications.listenable.removeListener(_saveApplications);
+    }
     final registry = modules;
     if (registry is DefaultModuleRegistry) {
       registry.deactivateAll();

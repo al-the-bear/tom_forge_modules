@@ -507,7 +507,7 @@ void main() {
 
         // The system state should know about multiple apps.
         expect(systemState.applications.length, equals(2));
-        expect(systemState.activeApplication.title, equals('Phase BB App'));
+        expect(systemState.activeApplication!.title, equals('Phase BB App'));
 
         // Verify the second application is available.
         final secondApp = systemState.applications
@@ -515,10 +515,10 @@ void main() {
         expect(secondApp, isNotNull);
 
         // Switch to the second application via system state.
-        systemState.setActiveApplication(secondApp);
+        systemState.activate(secondApp.id);
         await tester.pumpAndSettle();
 
-        expect(systemState.activeApplication.title, equals('Second App'));
+        expect(systemState.activeApplication!.title, equals('Second App'));
       },
     );
   });
@@ -602,6 +602,7 @@ class _PhaseBBHarness {
 
     final explorer = _StubView('Explorer', Icons.folder);
     final application = ForgeApplication(
+      id: 'phase-bb-app',
       title: 'Phase BB App',
       layout: PanelLayout(
         leftPanel: PanelConfig(
@@ -637,20 +638,20 @@ class _PhaseBBHarness {
         middlePanels: const [MiddlePanelConfig()],
       ),
     );
+    shell.applications.add(application);
 
     ForgeApplication? secondApp;
     if (multipleApps) {
       secondApp = ForgeApplication(
+        id: 'second-app',
         title: 'Second App',
         layout: const PanelLayout(
           middlePanels: [MiddlePanelConfig()],
         ),
       );
-      systemState.setApplications([application, secondApp]);
-    } else {
-      systemState.setApplications([application]);
+      shell.applications.add(secondApp);
     }
-    systemState.setActiveApplication(application);
+    systemState.activate(application.id);
     systemState.setFocusedPanelLocation(ForgePanelLocation.middle);
 
     final preferences = ForgePreferencesService();
@@ -674,7 +675,6 @@ class _PhaseBBHarness {
           height: 1200,
           child: ForgeShellScaffold(
             shell: shell,
-            application: application,
             layoutController: shell.layout as DefaultLayoutController,
             systemState: shell.systemState as DefaultSystemState,
             statusBarController: shell.statusBar,
@@ -767,9 +767,6 @@ class _PhaseBBModule extends ForgeModule {
       ),
     ];
   }
-
-  @override
-  List<ForgeApplication> get applications => const [];
 }
 
 class _PhaseBBEditor extends ForgeTestTextEditor {

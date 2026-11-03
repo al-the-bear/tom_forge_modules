@@ -132,16 +132,11 @@ class ForgeDimensions {
 /// ```
 class ForgeShellScaffold extends StatefulWidget {
   final DefaultShellApi shell;
-  final ForgeApplication application;
   final DefaultLayoutController layoutController;
   final DefaultSystemState systemState;
   final ForgeStatusBarController statusBarController;
   final DefaultNotificationManager notificationManager;
   final ForgePreferencesService? preferencesService;
-
-  /// Callback invoked when the user requests to switch to a different application.
-  /// The parent widget should handle rebuilding the scaffold with the new application.
-  final void Function(ForgeApplication)? onApplicationSwitch;
 
   /// Callback invoked when the user selects File > Open Folder.
   /// The selected [Directory] is passed to the callback so the parent can
@@ -151,13 +146,11 @@ class ForgeShellScaffold extends StatefulWidget {
   const ForgeShellScaffold({
     super.key,
     required this.shell,
-    required this.application,
     required this.layoutController,
     required this.systemState,
     required this.statusBarController,
     required this.notificationManager,
     this.preferencesService,
-    this.onApplicationSwitch,
     this.onOpenFolder,
   });
 
@@ -317,6 +310,11 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   /// Target accordion section index to expand when the config panel opens.
   final ValueNotifier<int?> _configSectionTarget = ValueNotifier<int?>(null);
 
+  /// The application on show: the registry's active one
+  /// (`shell.applications`), followed as it changes. Null while no
+  /// application has been added.
+  ForgeApplication? _application;
+
   /// The panel application the panel area shows: the active one, or — while a
   /// full-screen application is active — the last panel application shown,
   /// whose panel area stays in the tree offstage. Null until a panel
@@ -339,25 +337,35 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       _panelApplication?.panelLayout ?? const PanelLayout();
 
   /// Records [application] as shown: the panel area follows a panel
-  /// application, a full-screen application gets its focus scope. Full-screen
-  /// applications the system state no longer lists are dropped.
+  /// application, a full-screen application gets its focus scope.
   void _noteApplication(ForgeApplication application) {
     if (application.isFullScreen) {
       _fullScreenScopes.putIfAbsent(
         application,
-        () => FocusScopeNode(debugLabel: 'forge.app.${application.title}'),
+        () => FocusScopeNode(debugLabel: 'forge.app.${application.id}'),
       );
     } else {
       _panelApplication = application;
     }
-    final listed = widget.systemState.applications.toSet();
-    final gone = [
-      for (final app in _fullScreenScopes.keys)
-        if (app != application && !listed.contains(app)) app,
-    ];
-    for (final app in gone) {
-      _fullScreenScopes.remove(app)!.dispose();
+  }
+
+  /// Follows the registry: the active application on show, closed
+  /// applications dropped, a rename or an addition redrawn in the switcher.
+  void _onApplicationsChanged() {
+    final applications = widget.shell.applications;
+    final open = applications.all.toSet();
+    for (final app in _fullScreenScopes.keys.toList()) {
+      if (!open.contains(app)) _fullScreenScopes.remove(app)!.dispose();
     }
+    if (_panelApplication != null && !open.contains(_panelApplication)) {
+      _panelApplication = null;
+    }
+    final active = applications.active;
+    final switched = !identical(active, _application);
+    _application = active;
+    if (active != null) _noteApplication(active);
+    if (switched) _focusShownApplication();
+    if (mounted) setState(() {});
   }
 
   /// Gives the focus to the shown application's scope, which restores the
@@ -365,8 +373,10 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   void _focusShownApplication() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final scope = widget.application.isFullScreen
-          ? _fullScreenScopes[widget.application]
+      final application = _application;
+      if (application == null) return;
+      final scope = application.isFullScreen
+          ? _fullScreenScopes[application]
           : _panelScope;
       scope?.requestFocus();
     });
@@ -375,7 +385,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   @override
   void initState() {
     super.initState();
-    _noteApplication(widget.application);
+    _application = widget.shell.applications.active;
+    if (_application != null) _noteApplication(_application!);
+    widget.shell.applications.listenable.addListener(_onApplicationsChanged);
     _preferences =
         widget.preferencesService ?? ForgePreferencesService.instance;
     _preferences.addListener(_onPreferencesChanged);
@@ -405,11 +417,13 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   @override
   void didUpdateWidget(covariant ForgeShellScaffold oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.application != widget.application) {
-      _noteApplication(widget.application);
-      _focusShownApplication();
-    }
     if (oldWidget.shell != widget.shell) {
+      oldWidget.shell.applications.listenable.removeListener(
+        _onApplicationsChanged,
+      );
+      widget.shell.applications.listenable.addListener(_onApplicationsChanged);
+      _onApplicationsChanged();
+
       // The shell changed (e.g. placeholder → real shell).
       // Re-wire ALL shell-dependent listeners.
 
@@ -476,6 +490,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
 
   @override
   void dispose() {
+    widget.shell.applications.listenable.removeListener(_onApplicationsChanged);
     for (final scope in _fullScreenScopes.values) {
       scope.dispose();
     }
@@ -1015,12 +1030,11 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       );
     }
 
-    if (wsState is! DefaultWorkspaceStateManager) return;
+    final application = _application;
+    if (wsState is! DefaultWorkspaceStateManager || application == null) return;
 
     try {
-      final appState = await wsState.loadApplicationState(
-        widget.application.title,
-      );
+      final appState = await wsState.loadApplicationState(application.id);
       if (appState == null) return;
 
       // Restore per-app layout if we didn't already restore from preferences.
@@ -1072,7 +1086,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       if (debugEnabled) {
         debugPrint(
           '[ForgeShellScaffold] restored workspace state for '
-          '"${widget.application.title}"',
+          '"${application.id}"',
         );
       }
     } catch (e) {
@@ -1363,15 +1377,15 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       wsState.saveLayoutState(layoutData);
 
       // Save per-application state to .forge/state/apps/
-      if (wsState is DefaultWorkspaceStateManager) {
+      final application = _application;
+      if (wsState is DefaultWorkspaceStateManager && application != null) {
         final activeUri = widget.systemState.activeEditor?.uri;
         final appState = <String, dynamic>{
           'openEditors': openUris,
           'activeEditor': activeUri?.toString(),
           'layout': layoutData,
         };
-        wsState.saveApplicationState(widget.application.title, appState);
-        wsState.saveActiveApplicationTitle(widget.application.title);
+        wsState.saveApplicationState(application.id, appState);
       }
     } catch (e) {
       debugPrint('[ForgeShellScaffold] save workspace state failed: $e');
@@ -2238,7 +2252,8 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
                       _buildTitleBar(context),
                       // On macOS desktop, the menu is in the native menu bar;
                       // a full-screen application shows none in the window.
-                      if (!_usePlatformMenu && !widget.application.isFullScreen)
+                      if (!_usePlatformMenu &&
+                          !(_application?.isFullScreen ?? false))
                         ForgeMenuBar(
                           shellApi: widget.shell,
                           onCommandPalette: _toggleCommandPalette,
@@ -2324,7 +2339,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   List<PlatformMenuItem> _buildPlatformMenus() {
     return [
       PlatformMenu(
-        label: widget.application.title,
+        label: _application?.title ?? 'Forge',
         menus: [
           PlatformMenuItemGroup(members: [
             const PlatformProvidedMenuItem(
@@ -2994,15 +3009,12 @@ Press "?" for this help document.
                       PopupMenuButton<ForgeApplication>(
                         tooltip: 'Switch Application',
                         onSelected: (app) {
-                          if (app != widget.application) {
-                            widget.systemState.setActiveApplication(app);
-                            widget.onApplicationSwitch?.call(app);
-                          }
+                          widget.shell.applications.activate(app.id);
                         },
                         itemBuilder: (context) {
-                          final apps = widget.systemState.applications;
+                          final apps = widget.shell.applications.all;
                           return apps.map((app) {
-                            final isActive = app == widget.application;
+                            final isActive = identical(app, _application);
                             return PopupMenuItem<ForgeApplication>(
                               value: app,
                               child: Row(
@@ -3031,17 +3043,17 @@ Press "?" for this help document.
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              if (widget.application.icon != null)
+                              if (_application?.icon != null)
                                 Padding(
                                   padding: const EdgeInsets.only(right: 4),
                                   child: Icon(
-                                    widget.application.icon,
+                                    _application!.icon,
                                     size: 14,
                                   ),
                                 ),
                               Flexible(
                                 child: Text(
-                                  widget.application.displayTitle,
+                                  _application?.displayTitle ?? '',
                                   style: theme.textTheme.bodySmall,
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -3168,14 +3180,14 @@ Press "?" for this help document.
   /// active application's on stage. The others stay in the tree with their
   /// state, tickers off and out of focus traversal.
   Widget _buildContentArea(BuildContext context) {
-    final active = widget.application;
+    final active = _application;
     return Stack(
       fit: StackFit.expand,
       children: [
         if (_panelApplication != null)
           _contentSlot(
             key: const ValueKey('forge.content.panels'),
-            shown: !active.isFullScreen,
+            shown: active != null && !active.isFullScreen,
             child: FocusScope(node: _panelScope, child: _buildMainArea(context)),
           ),
         for (final entry in _fullScreenScopes.entries)

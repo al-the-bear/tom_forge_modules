@@ -199,6 +199,7 @@ class _Harness {
     module.activate(shell);
     (shell.modules as DefaultModuleRegistry).register(module);
     final application = ForgeApplication(
+      id: 'woneqrb13',
       title: 'woneqrb13',
       layout: PanelLayout(
         leftPanel: PanelConfig(
@@ -216,6 +217,7 @@ class _Harness {
         middlePanels: const [MiddlePanelConfig()],
       ),
     );
+    shell.applications.add(application);
     (shell.layout as DefaultLayoutController)
         .openEditor(module.editor, module.editor.uri);
     return _Harness._(shell, module, application);
@@ -224,7 +226,6 @@ class _Harness {
   Widget app() => MaterialApp(
         home: ForgeShellScaffold(
           shell: shell,
-          application: application,
           layoutController: shell.layout as DefaultLayoutController,
           systemState: shell.systemState as DefaultSystemState,
           statusBarController: shell.statusBar,

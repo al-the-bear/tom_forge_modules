@@ -43,6 +43,7 @@ void main() {
     (shell.modules as DefaultModuleRegistry).register(shellModule);
 
     final application = ForgeApplication(
+      id: 'phase-c-harness',
       title: 'Phase C Harness',
       layout: PanelLayout(
         leftPanel: PanelConfig(initialSize: 250, tabs: []),
@@ -51,12 +52,12 @@ void main() {
         middlePanels: [MiddlePanelConfig()],
       ),
     );
+    shell.applications.add(application);
 
     await tester.pumpWidget(
       MaterialApp(
         home: ForgeShellScaffold(
           shell: shell,
-          application: application,
           layoutController: shell.layout as DefaultLayoutController,
           systemState: shell.systemState as DefaultSystemState,
           statusBarController: shell.statusBar,
@@ -107,6 +108,7 @@ void main() {
       (shell.modules as DefaultModuleRegistry).register(shellModule);
 
       final application = ForgeApplication(
+        id: 'phase-c-runtime-sync-harness',
         title: 'Phase C Runtime Sync Harness',
         layout: const PanelLayout(
           leftPanel: PanelConfig(initialSize: 250, tabs: []),
@@ -115,12 +117,12 @@ void main() {
           middlePanels: [MiddlePanelConfig()],
         ),
       );
+    shell.applications.add(application);
 
       await tester.pumpWidget(
         MaterialApp(
           home: ForgeShellScaffold(
             shell: shell,
-            application: application,
             layoutController: shell.layout as DefaultLayoutController,
             systemState: shell.systemState as DefaultSystemState,
             statusBarController: shell.statusBar,
@@ -172,6 +174,7 @@ void main() {
     (shell.modules as DefaultModuleRegistry).register(shellModule);
 
     final application = ForgeApplication(
+      id: 'phase-c-layout-harness',
       title: 'Phase C Layout Harness',
       layout: const PanelLayout(
         leftPanel: PanelConfig(initialSize: 250, tabs: []),
@@ -180,12 +183,12 @@ void main() {
         middlePanels: [MiddlePanelConfig()],
       ),
     );
+    shell.applications.add(application);
 
     await tester.pumpWidget(
       MaterialApp(
         home: ForgeShellScaffold(
           shell: shell,
-          application: application,
           layoutController: shell.layout as DefaultLayoutController,
           systemState: shell.systemState as DefaultSystemState,
           statusBarController: shell.statusBar,
@@ -224,7 +227,6 @@ void main() {
       MaterialApp(
         home: ForgeShellScaffold(
           shell: restoredShell,
-          application: application,
           layoutController: restoredShell.layout as DefaultLayoutController,
           systemState: restoredShell.systemState as DefaultSystemState,
           statusBarController: restoredShell.statusBar,

@@ -7,7 +7,6 @@ import '../actions/forge_shortcut_menu.dart';
 import '../actions/status_bar_item.dart';
 import '../components/forge_editor.dart';
 import '../components/forge_view.dart';
-import '../model/forge_application.dart';
 import '../shell/forge_shell_api.dart';
 import 'forge_config_panel.dart';
 
@@ -20,6 +19,11 @@ abstract class ForgeModule {
   String get displayName;
 
   /// Called when the module is activated.
+  ///
+  /// A module that provides applications adds its static ones with
+  /// `shell.applications.add` and registers a factory per kind it can open at
+  /// run time (and recreate at the next start) with
+  /// `shell.applications.registerFactory`.
   void activate(ForgeShellApi shell);
 
   /// Called when the module is deactivated (shutdown).
@@ -56,13 +60,6 @@ abstract class ForgeModule {
 
   /// Status bar items this module contributes.
   List<StatusBarItem> get statusBarItems => [];
-
-  /// Pre-configured applications this module provides.
-  ///
-  /// Modules can expose ready-to-use applications with pre-defined layouts
-  /// that reference the module's views and editors. This allows modules
-  /// to provide complete working environments.
-  List<ForgeApplication> get applications => [];
 
   /// Configuration panels this module contributes to the settings dialog.
   ///

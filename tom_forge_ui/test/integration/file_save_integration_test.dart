@@ -193,6 +193,7 @@ class _FileLifecycleHarness {
     registry.register(testModule);
 
     final application = ForgeApplication(
+      id: 'file-lifecycle-test',
       title: 'File Lifecycle Test',
       layout: const PanelLayout(
         leftPanel: PanelConfig(initialSize: 250, tabs: []),
@@ -201,6 +202,7 @@ class _FileLifecycleHarness {
         middlePanels: [MiddlePanelConfig()],
       ),
     );
+    shell.applications.add(application);
 
     return _FileLifecycleHarness._(
       shell: shell,

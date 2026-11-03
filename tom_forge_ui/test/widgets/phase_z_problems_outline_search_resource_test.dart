@@ -652,6 +652,7 @@ class _PhaseZHarness {
     }
 
     final application = ForgeApplication(
+      id: 'phase-z-full',
       title: 'Phase Z Full',
       layout: PanelLayout(
         leftPanel: PanelConfig(
@@ -669,10 +670,10 @@ class _PhaseZHarness {
         middlePanels: const [MiddlePanelConfig()],
       ),
     );
+    shell.applications.add(application);
 
     final systemState = shell.systemState as DefaultSystemState;
-    systemState.setApplications([application]);
-    systemState.setActiveApplication(application);
+    systemState.activate(application.id);
     systemState.setFocusedPanelLocation(ForgePanelLocation.middle);
 
     final layout = shell.layout as DefaultLayoutController;
@@ -701,7 +702,6 @@ class _PhaseZHarness {
           height: 1200,
           child: ForgeShellScaffold(
             shell: shell,
-            application: application,
             layoutController: shell.layout as DefaultLayoutController,
             systemState: shell.systemState as DefaultSystemState,
             statusBarController: shell.statusBar,
@@ -784,9 +784,6 @@ class _PhaseZModule extends ForgeModule {
 
   @override
   List<StatusBarItem> get statusBarItems => const [];
-
-  @override
-  List<ForgeApplication> get applications => const [];
 }
 
 class _PhaseZEditor extends ForgeTestTextEditor {

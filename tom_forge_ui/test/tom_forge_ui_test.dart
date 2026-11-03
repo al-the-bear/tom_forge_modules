@@ -22,7 +22,7 @@ void main() {
   });
 
   test('ForgeApplication tracks active state', () {
-    final app = ForgeApplication(title: 'Test');
+    final app = ForgeApplication(id: 'test', title: 'Test');
     expect(app.isActive, isFalse);
     app.isActive = true;
     expect(app.isActive, isTrue);

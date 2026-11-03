@@ -22,6 +22,7 @@ import '../services/forge_workspace_state_manager.dart';
 import '../actions/forge_action.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart'
     show ForgeTextSettings;
+import '../model/forge_application.dart';
 import 'forge_context_menu_controller.dart';
 import 'forge_layout_controller.dart';
 import 'forge_module_registry.dart';
@@ -35,6 +36,10 @@ import 'forge_system_state.dart';
 abstract class ForgeShellApi {
   /// Observable system state.
   ForgeSystemState get systemState;
+
+  /// The open applications, the active one, and the operations that add,
+  /// rename, remove and switch them at run time.
+  ForgeApplicationRegistry get applications;
 
   /// Layout control.
   ForgeLayoutController get layout;

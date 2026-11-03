@@ -11,11 +11,9 @@ import 'placeholder_components.dart';
 ///
 /// Registers the three top-level [ForgeApplication]s — **DocSpecs**,
 /// **CodeSpecs**, **Implementation** — and the common 4-region layout skeleton
-/// (`tom_specs_editor_specification.md` §5). The application switcher in the
-/// shell toolbar reads the registered set from
-/// [DefaultSystemState.applications]; selecting one calls the host's
-/// `onApplicationSwitch`, which re-renders the scaffold with the chosen
-/// application's layout.
+/// (`tom_specs_editor_specification.md` §5). They are added to the shell's
+/// application registry (`shell.applications`); the switcher in the shell
+/// toolbar lists them and the scaffold shows whichever is active.
 ///
 /// **DocSpecs** is the phase-1 functional application: its four regions are
 /// populated with the real document editor, structure browser, navigator and
@@ -99,9 +97,9 @@ class SpecsShellModule extends ForgeModule {
   @override
   void activate(ForgeShellApi shell) {
     _buildApplications();
-    final systemState = shell.systemState as DefaultSystemState;
-    systemState.setApplications(_applications);
-    systemState.setActiveApplication(docSpecs);
+    for (final application in _applications) {
+      shell.applications.add(application, activate: application == docSpecs);
+    }
   }
 
   void _buildApplications() {
@@ -227,6 +225,7 @@ class SpecsShellModule extends ForgeModule {
       if (changeLogSurface != null) _views.add(changeLogSurface);
 
       return ForgeApplication(
+        id: 'specs.${title.toLowerCase()}',
         title: title,
         icon: icon,
         layout: PanelLayout(
@@ -308,6 +307,7 @@ class SpecsShellModule extends ForgeModule {
       ..add(changeLog);
 
     return ForgeApplication(
+      id: 'specs.${title.toLowerCase()}',
       title: title,
       icon: icon,
       layout: PanelLayout(
@@ -373,6 +373,6 @@ class SpecsShellModule extends ForgeModule {
   @override
   List<ForgeShortcutBinding> get shortcuts => const [];
 
-  @override
+  /// The three applications, in switcher order.
   List<ForgeApplication> get applications => _applications;
 }

@@ -65,17 +65,14 @@ void main() {
       expect(forward.onPressed, isNull);
     });
 
-    testWidgets('03: application switcher invokes callback for selection', (
+    testWidgets('03: application switcher activates the selected application', (
       WidgetTester tester,
     ) async {
       suppressOverflowErrorsForTest();
       await prepareLargeSurface(tester);
       final harness = _PhaseJHarness.create();
 
-      ForgeApplication? selected;
-      await tester.pumpWidget(
-        harness.buildShellApp(onApplicationSwitch: (app) => selected = app),
-      );
+      await tester.pumpWidget(harness.buildShellApp());
       await tester.pumpAndSettle();
 
       await tester.tap(find.byTooltip('Switch Application'));
@@ -83,7 +80,7 @@ void main() {
       await tester.tap(find.text('Phase J Alt').last);
       await tester.pumpAndSettle();
 
-      expect(selected, equals(harness.altApplication));
+      expect(harness.shell.applications.active, harness.altApplication);
     });
 
     testWidgets('04: settings open with shell section expanded by default', (
@@ -284,6 +281,7 @@ class _PhaseJHarness {
     registry.register(module);
 
     final application = ForgeApplication(
+      id: 'phase-j-harness',
       title: 'Phase J Harness',
       layout: PanelLayout(
         leftPanel: PanelConfig(
@@ -324,8 +322,10 @@ class _PhaseJHarness {
         middlePanels: const [MiddlePanelConfig(), MiddlePanelConfig()],
       ),
     );
+    shell.applications.add(application);
 
     final altApplication = ForgeApplication(
+      id: 'phase-j-alt',
       title: 'Phase J Alt',
       layout: const PanelLayout(
         leftPanel: PanelConfig(initialSize: 200, tabs: []),
@@ -334,9 +334,7 @@ class _PhaseJHarness {
         middlePanels: [MiddlePanelConfig()],
       ),
     );
-
-    final state = shell.systemState as DefaultSystemState;
-    state.setApplications([application, altApplication]);
+    shell.applications.add(altApplication);
 
     final layout = shell.layout as DefaultLayoutController;
     layout.openEditor(module.editor, module.editor.uri, middlePanelIndex: 0);
@@ -352,9 +350,7 @@ class _PhaseJHarness {
     );
   }
 
-  Widget buildShellApp({
-    ValueChanged<ForgeApplication>? onApplicationSwitch,
-  }) {
+  Widget buildShellApp() {
     return MaterialApp(
       home: Scaffold(
         body: SizedBox(
@@ -362,14 +358,12 @@ class _PhaseJHarness {
           height: 1200,
           child: ForgeShellScaffold(
             shell: shell,
-            application: application,
             layoutController: shell.layout as DefaultLayoutController,
             systemState: shell.systemState as DefaultSystemState,
             statusBarController: shell.statusBar,
             notificationManager:
                 shell.notifications as DefaultNotificationManager,
             preferencesService: preferences,
-            onApplicationSwitch: onApplicationSwitch,
           ),
         ),
       ),

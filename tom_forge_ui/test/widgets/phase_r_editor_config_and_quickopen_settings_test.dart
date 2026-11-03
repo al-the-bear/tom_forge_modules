@@ -354,6 +354,7 @@ class _PhaseRHarness {
     registry.register(module);
 
     final application = ForgeApplication(
+      id: 'phase-r-harness',
       title: 'Phase R Harness',
       layout: PanelLayout(
         leftPanel: PanelConfig(
@@ -394,6 +395,7 @@ class _PhaseRHarness {
         middlePanels: const [MiddlePanelConfig()],
       ),
     );
+    shell.applications.add(application);
 
     final layout = shell.layout as DefaultLayoutController;
     layout.openEditor(module.mainEditor, module.mainEditor.uri, middlePanelIndex: 0);
@@ -416,7 +418,6 @@ class _PhaseRHarness {
           height: 1200,
           child: ForgeShellScaffold(
             shell: shell,
-            application: application,
             layoutController: shell.layout as DefaultLayoutController,
             systemState: shell.systemState as DefaultSystemState,
             statusBarController: shell.statusBar,

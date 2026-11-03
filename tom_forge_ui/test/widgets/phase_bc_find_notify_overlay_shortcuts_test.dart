@@ -578,6 +578,7 @@ class _PhaseBCHarness {
 
     final explorer = _StubView('Explorer', Icons.folder);
     final application = ForgeApplication(
+      id: 'phase-bc-app',
       title: 'Phase BC App',
       layout: PanelLayout(
         leftPanel: PanelConfig(
@@ -613,9 +614,8 @@ class _PhaseBCHarness {
         middlePanels: const [MiddlePanelConfig()],
       ),
     );
-
-    systemState.setApplications([application]);
-    systemState.setActiveApplication(application);
+    shell.applications.add(application);
+    systemState.activate(application.id);
     systemState.setFocusedPanelLocation(ForgePanelLocation.middle);
 
     final preferences = ForgePreferencesService();
@@ -638,7 +638,6 @@ class _PhaseBCHarness {
           height: 1200,
           child: ForgeShellScaffold(
             shell: shell,
-            application: application,
             layoutController: shell.layout as DefaultLayoutController,
             systemState: shell.systemState as DefaultSystemState,
             statusBarController: shell.statusBar,
@@ -730,9 +729,6 @@ class _PhaseBCModule extends ForgeModule {
 
   @override
   List<StatusBarItem> get statusBarItems => const [];
-
-  @override
-  List<ForgeApplication> get applications => const [];
 }
 
 // ── Editor ──────────────────────────────────────────────────────────────

@@ -143,20 +143,21 @@ void main() {
   group('the system state', () {
     test('FS-5: switching back restores the editor instances an application '
         'had; an application never active starts with none', () {
-      final a = ForgeApplication(title: 'A');
-      final b = ForgeApplication(title: 'B');
-      final state = DefaultSystemState(initialApplication: a)
-        ..setApplications([a, b]);
+      final a = ForgeApplication(id: 'a', title: 'A');
+      final b = ForgeApplication(id: 'b', title: 'B');
+      final state = DefaultSystemState()
+        ..add(a)
+        ..add(b);
       final editor = _StubEditor('one.md');
       state
         ..addOpenEditor(editor)
         ..setActiveEditor(editor);
 
-      state.setActiveApplication(b);
+      state.activate(b.id);
       expect(state.openEditors, isEmpty);
       expect(state.activeEditor, isNull);
 
-      state.setActiveApplication(a);
+      state.activate(a.id);
       expect(state.openEditors, [editor]);
       expect(state.activeEditor, editor);
     });
@@ -165,10 +166,12 @@ void main() {
         'asks', () {
       final view = _CounterView();
       final full = ForgeApplication(
+        id: 'f',
         title: 'F',
         layout: FullScreenLayout(view: view),
       );
       final panels = ForgeApplication(
+        id: 'p',
         title: 'P',
         layout: const PanelLayout(middlePanels: [MiddlePanelConfig()]),
       );
@@ -191,7 +194,6 @@ class _Harness {
   final ForgeApplication fullScreen;
   final _StubEditor editor;
   final executed = <String>[];
-  final _active = ValueNotifier<ForgeApplication?>(null);
 
   DefaultLayoutController get layout =>
       shell.layout as DefaultLayoutController;
@@ -204,41 +206,34 @@ class _Harness {
       navigatorKey: GlobalKey<NavigatorState>(),
     );
     final panels = ForgeApplication(
+      id: 'panels',
       title: 'Panels',
       layout: const PanelLayout(middlePanels: [MiddlePanelConfig()]),
     );
     final fullScreen = ForgeApplication(
+      id: 'webwork',
       title: 'Webwork',
       layout: FullScreenLayout(view: _CounterView()),
     );
-    final state = shell.systemState as DefaultSystemState
-      ..setApplications([panels, fullScreen]);
-    final first = startFullScreen ? fullScreen : panels;
-    state.setActiveApplication(first);
-    final h = _Harness._(shell, panels, fullScreen, _StubEditor('notes.md'));
-    h._active.value = first;
-    return h;
+    shell.applications
+      ..add(panels)
+      ..add(fullScreen, activate: startFullScreen);
+    return _Harness._(shell, panels, fullScreen, _StubEditor('notes.md'));
   }
 
   Widget app() => MaterialApp(
-    home: ValueListenableBuilder<ForgeApplication?>(
-      valueListenable: _active,
-      builder: (context, application, _) => ForgeShellScaffold(
-        shell: shell,
-        application: application!,
-        layoutController: layout,
-        systemState: systemState,
-        statusBarController: shell.statusBar,
-        notificationManager: shell.notifications as DefaultNotificationManager,
-        onApplicationSwitch: (app) => _active.value = app,
-      ),
+    home: ForgeShellScaffold(
+      shell: shell,
+      layoutController: layout,
+      systemState: systemState,
+      statusBarController: shell.statusBar,
+      notificationManager: shell.notifications as DefaultNotificationManager,
     ),
   );
 
-  /// Switches the way a host does: the system state, then the scaffold.
+  /// Switches through the registry; the scaffold follows.
   Future<void> switchTo(WidgetTester tester, ForgeApplication app) async {
-    systemState.setActiveApplication(app);
-    _active.value = app;
+    shell.applications.activate(app.id);
     await tester.pumpAndSettle();
   }
 }

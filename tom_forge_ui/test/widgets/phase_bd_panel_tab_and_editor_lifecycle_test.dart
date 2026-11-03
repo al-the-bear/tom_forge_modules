@@ -520,6 +520,7 @@ class _PhaseBDHarness {
     registry.register(module);
 
     final application = ForgeApplication(
+      id: 'phase-bd-app',
       title: 'Phase BD App',
       layout: PanelLayout(
         leftPanel: PanelConfig(
@@ -555,9 +556,8 @@ class _PhaseBDHarness {
         middlePanels: const [MiddlePanelConfig()],
       ),
     );
-
-    systemState.setApplications([application]);
-    systemState.setActiveApplication(application);
+    shell.applications.add(application);
+    systemState.activate(application.id);
     systemState.setFocusedPanelLocation(ForgePanelLocation.middle);
 
     final preferences = ForgePreferencesService();
@@ -580,7 +580,6 @@ class _PhaseBDHarness {
           height: 1200,
           child: ForgeShellScaffold(
             shell: shell,
-            application: application,
             layoutController: shell.layout as DefaultLayoutController,
             systemState: shell.systemState as DefaultSystemState,
             statusBarController: shell.statusBar,
@@ -645,9 +644,6 @@ class _PhaseBDModule extends ForgeModule {
 
   @override
   List<StatusBarItem> get statusBarItems => const [];
-
-  @override
-  List<ForgeApplication> get applications => const [];
 }
 
 // ── Editor ───────────────────────────────────────────────────────────────

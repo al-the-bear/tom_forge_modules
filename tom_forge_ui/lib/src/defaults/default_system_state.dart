@@ -16,7 +16,8 @@ import '../shell/forge_system_state.dart';
 /// Uses [ValueNotifier] for mutable state and
 /// [StreamController.broadcast] for all event streams.
 /// Exposes setter methods for internal shell use.
-class DefaultSystemState implements ForgeSystemState {
+class DefaultSystemState
+    implements ForgeSystemState, ForgeApplicationRegistry {
   static bool debugEnabled = false;
 
   final _focusedComponent = ValueNotifier<ForgeComponent?>(null);
@@ -43,8 +44,20 @@ class DefaultSystemState implements ForgeSystemState {
   /// Tracks dirty-state listeners attached to open editors.
   final Map<ForgeEditor, VoidCallback> _editorDirtyListeners = {};
 
-  late ForgeApplication _activeApplication;
-  List<ForgeApplication> _applications = [];
+  final _applications = ValueNotifier<List<ForgeApplication>>(const []);
+  ForgeApplication? _activeApplication;
+  final Map<String, ForgeApplicationFactory> _factories = {};
+
+  /// Snapshot entries [restore] could not recreate (no factory for their
+  /// kind); [snapshot] writes them back so they are not lost.
+  final List<Map<String, Object?>> _unrestored = [];
+
+  /// Activation order, most recent last: removing the active application
+  /// activates the one before it.
+  final List<String> _activationOrder = [];
+
+  /// Makes the per-start part of a fresh application id.
+  int _idSequence = 0;
   String _workspaceRootPath;
 
   // ── Event streams ──
@@ -58,8 +71,8 @@ class DefaultSystemState implements ForgeSystemState {
   final _onApplicationChanged =
       StreamController<ApplicationChangeEvent>.broadcast();
 
-  /// Per-application state storage for open editors and layout.
-  /// Maps application title to a state map with open editors and active editor.
+  /// Per-application state storage for open editors and layout, keyed by
+  /// application id.
   final Map<String, Map<String, dynamic>> _applicationStates = {};
 
   /// The open editor instances of each application not currently active, so
@@ -77,14 +90,8 @@ class DefaultSystemState implements ForgeSystemState {
 
   DefaultSystemState({
     String workspaceRootPath = '/',
-    ForgeApplication? initialApplication,
     this.maxApplicationStates = 10,
-  }) : _workspaceRootPath = workspaceRootPath {
-    _activeApplication =
-        initialApplication ??
-        ForgeApplication(title: 'Default', isActive: true);
-    _applications = [_activeApplication];
-  }
+  }) : _workspaceRootPath = workspaceRootPath;
 
   // ── ForgeSystemState getters ──
 
@@ -140,10 +147,10 @@ class DefaultSystemState implements ForgeSystemState {
   String get workspaceRootPath => _workspaceRootPath;
 
   @override
-  ForgeApplication get activeApplication => _activeApplication;
+  ForgeApplication? get activeApplication => _activeApplication;
 
   @override
-  List<ForgeApplication> get applications => _applications;
+  List<ForgeApplication> get applications => _applications.value;
 
   @override
   Set<ForgePanelLocation> get visiblePanels => _visiblePanels.value;
@@ -369,46 +376,203 @@ class DefaultSystemState implements ForgeSystemState {
     _workspaceRootPath = path;
   }
 
-  void setApplications(List<ForgeApplication> apps) {
-    _applications = apps;
+  // ── ForgeApplicationRegistry ──
+
+  @override
+  ValueListenable<List<ForgeApplication>> get listenable => _applications;
+
+  @override
+  List<ForgeApplication> get all => _applications.value;
+
+  @override
+  ForgeApplication? get active => _activeApplication;
+
+  @override
+  ForgeApplication? byId(String id) {
+    for (final app in _applications.value) {
+      if (app.id == id) return app;
+    }
+    return null;
   }
 
-  /// Switches to the specified application, preserving the previous app's state
-  /// and restoring the new app's saved state.
+  ForgeApplication _require(String id) =>
+      byId(id) ?? (throw StateError('no open application "$id"'));
+
+  @override
+  void registerFactory(ForgeApplicationFactory factory) {
+    if (_factories.containsKey(factory.kind)) {
+      throw StateError(
+        'an application factory for "${factory.kind}" is already registered',
+      );
+    }
+    _factories[factory.kind] = factory;
+  }
+
+  @override
+  void add(ForgeApplication application, {bool activate = false}) {
+    if (byId(application.id) != null) {
+      throw StateError('an application "${application.id}" is already open');
+    }
+    application.isActive = false;
+    _applications.value = [..._applications.value, application];
+    if (activate || _activeApplication == null) {
+      _activate(application);
+    }
+  }
+
+  @override
+  ForgeApplication open(
+    String kind, {
+    required String title,
+    Map<String, Object?> payload = const {},
+    bool activate = true,
+  }) {
+    final factory = _factories[kind];
+    if (factory == null) {
+      throw StateError('no application factory for "$kind"');
+    }
+    String id;
+    do {
+      id =
+          '$kind-${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}'
+          '-${(_idSequence++).toRadixString(36)}';
+    } while (byId(id) != null);
+    final application = _create(factory, id, title, payload);
+    add(application, activate: activate);
+    return application;
+  }
+
+  ForgeApplication _create(
+    ForgeApplicationFactory factory,
+    String id,
+    String title,
+    Map<String, Object?> payload,
+  ) {
+    final application = factory.create(id: id, title: title, payload: payload);
+    if (application.id != id || application.kind != factory.kind) {
+      throw StateError(
+        'the "${factory.kind}" factory made "${application.id}" of kind '
+        '"${application.kind}" when asked for "$id"',
+      );
+    }
+    return application;
+  }
+
+  @override
+  void rename(String id, String title) {
+    final application = _require(id);
+    if (application.title == title) return;
+    application.renameTo(title);
+    _applications.value = [..._applications.value];
+  }
+
+  @override
+  void remove(String id) {
+    final application = _require(id);
+    if (_applications.value.length == 1) {
+      throw StateError('the last application "$id" cannot be removed');
+    }
+    if (identical(application, _activeApplication)) {
+      final next = _activationOrder.reversed
+          .where((other) => other != id)
+          .map(byId)
+          .whereType<ForgeApplication>()
+          .firstOrNull ??
+          _applications.value.firstWhere((other) => other.id != id);
+      _activate(next);
+    }
+    _activationOrder.remove(id);
+    _applicationStates.remove(id);
+    _liveEditorStates.remove(id);
+    _applicationLastActive.remove(id);
+    _applications.value = [
+      for (final other in _applications.value)
+        if (other.id != id) other,
+    ];
+  }
+
+  @override
+  void activate(String id) => _activate(_require(id));
+
+  @override
+  Map<String, Object?> snapshot() => {
+    'applications': [
+      for (final app in _applications.value)
+        if (app.isRestorable)
+          {
+            'id': app.id,
+            'kind': app.kind,
+            'title': app.title,
+            'payload': app.payload,
+          },
+      ..._unrestored,
+    ],
+    'active': _activeApplication?.id,
+  };
+
+  @override
+  void restore(Map<String, Object?> snapshot) {
+    final entries = snapshot['applications'];
+    if (entries is List) {
+      for (final entry in entries.whereType<Map>()) {
+        final id = entry['id'];
+        final kind = entry['kind'];
+        final title = entry['title'];
+        final payload = entry['payload'];
+        if (id is! String || kind is! String || title is! String) continue;
+        if (byId(id) != null) continue;
+        final factory = _factories[kind];
+        if (factory == null) {
+          _unrestored.add(Map<String, Object?>.from(entry));
+          continue;
+        }
+        add(
+          _create(
+            factory,
+            id,
+            title,
+            payload is Map ? Map<String, Object?>.from(payload) : const {},
+          ),
+        );
+      }
+    }
+    final active = snapshot['active'];
+    if (active is String && byId(active) != null) activate(active);
+  }
+
+  /// Makes [app] active, keeping the previous application's editors and
+  /// putting [app]'s back.
   ///
   /// Emits [ApplicationChangeEvent] to notify listeners of the switch.
   /// When the number of stored application states exceeds
   /// [maxApplicationStates], the least-recently-active state is evicted.
-  void setActiveApplication(ForgeApplication app) {
-    if (_activeApplication == app) return;
-
+  void _activate(ForgeApplication app) {
     final previous = _activeApplication;
+    if (identical(previous, app)) return;
 
-    // Save current application state before switching
-    _saveApplicationState(previous);
-    _applicationLastActive[previous.title] = DateTime.now();
-
-    // Mark previous as inactive, new as active
-    previous.isActive = false;
+    if (previous != null) {
+      _saveApplicationState(previous);
+      _applicationLastActive[previous.id] = DateTime.now();
+      previous.isActive = false;
+    }
     app.isActive = true;
-
     _activeApplication = app;
-    _applicationLastActive[app.title] = DateTime.now();
+    _applicationLastActive[app.id] = DateTime.now();
+    _activationOrder
+      ..remove(app.id)
+      ..add(app.id);
 
-    // Restore new application state (if any saved)
     _restoreApplicationState(app);
-
-    // Evict least-recently-active application states if over limit.
     _evictStaleApplicationStates();
 
-    // Emit application change event
     _onApplicationChanged.add(
       ApplicationChangeEvent(
         previous: previous,
         current: app,
-        isInitial: false,
+        isInitial: previous == null,
       ),
     );
+    _applications.value = [..._applications.value];
   }
 
   /// Evicts the least-recently-active application state entries when
@@ -418,12 +582,12 @@ class DefaultSystemState implements ForgeSystemState {
       // Find the oldest non-active application.
       String? oldest;
       DateTime? oldestTime;
-      for (final title in _applicationStates.keys) {
-        if (title == _activeApplication.title) continue;
-        final lastActive = _applicationLastActive[title] ?? DateTime(2000);
+      for (final id in _applicationStates.keys) {
+        if (id == _activeApplication?.id) continue;
+        final lastActive = _applicationLastActive[id] ?? DateTime(2000);
         if (oldestTime == null || lastActive.isBefore(oldestTime)) {
           oldestTime = lastActive;
-          oldest = title;
+          oldest = id;
         }
       }
       if (oldest == null) break;
@@ -435,14 +599,14 @@ class DefaultSystemState implements ForgeSystemState {
 
   /// Saves the current state of an application (open editors, active editor).
   void _saveApplicationState(ForgeApplication app) {
-    _applicationStates[app.title] = {
+    _applicationStates[app.id] = {
       'openEditors': _openEditors.value
           .map((e) => e.uri)
           .whereType<Uri>()
           .toList(),
       'activeEditor': _activeEditor.value?.uri,
     };
-    _liveEditorStates[app.title] = (
+    _liveEditorStates[app.id] = (
       editors: _openEditors.value,
       active: _activeEditor.value,
     );
@@ -451,26 +615,13 @@ class DefaultSystemState implements ForgeSystemState {
   /// Puts [app]'s open editors back: the instances it had when it was last
   /// switched away from, or none when it has not been active in this session.
   void _restoreApplicationState(ForgeApplication app) {
-    final live = _liveEditorStates.remove(app.title);
+    final live = _liveEditorStates.remove(app.id);
     _openEditors.value = live?.editors ?? const <ForgeEditor>[];
     _activeEditor.value = live?.active;
     // A switch neither opens nor closes an editor — the instances stay alive
     // with the application that holds them — so the event names none, and
     // nothing saves or restores per-editor state on its account.
     _onEditorsChanged.add(const EditorListChangeEvent(opened: [], closed: []));
-  }
-
-  /// Returns saved state for an application (for persistence).
-  Map<String, dynamic>? getApplicationState(String appTitle) {
-    return _applicationStates[appTitle];
-  }
-
-  /// Restores application state from external source (e.g., disk).
-  void restoreApplicationStateFromPersistence(
-    String appTitle,
-    Map<String, dynamic> state,
-  ) {
-    _applicationStates[appTitle] = state;
   }
 
   /// Dispose all controllers and notifiers.
@@ -482,6 +633,7 @@ class DefaultSystemState implements ForgeSystemState {
     _editorDirtyListeners.clear();
     _focusedComponent.dispose();
     _openEditors.dispose();
+    _applications.dispose();
     _activeEditor.dispose();
     _dirtyEditors.dispose();
     _selectedExplorerItems.dispose();

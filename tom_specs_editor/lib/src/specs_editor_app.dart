@@ -30,9 +30,8 @@ import 'structure/spec_structure_view.dart';
 /// 4-region layouts (`tom_specs_editor_specification.md` §4.2, §5). DocSpecs is
 /// shown on launch and is the only functional one — its four regions are
 /// populated with placeholder views/editors. The shell toolbar's application
-/// switcher lets the user move between the three; selecting one calls
-/// [onApplicationSwitch], which re-renders the scaffold with the chosen
-/// application's layout.
+/// switcher lets the user move between the three; the scaffold shows the
+/// active one.
 ///
 /// The spec-specific editors/views (structure browser, document editor, chat
 /// suite, change log) arrive in later steps (10–18).
@@ -71,7 +70,6 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
   late final SpecsConfigModule _configModule;
   late final SpecsShellModule _shellModule;
   late final ShellEditorIntegration _documentIntegration;
-  late ForgeApplication _application;
 
   @override
   void initState() {
@@ -230,9 +228,6 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
       editorTypeId: 'specs-document',
     )..descriptors = StandardEditingActions.descriptors;
     _documentController.attachIntegration(_documentIntegration);
-
-    // Start on DocSpecs — the one functional application.
-    _application = _shellModule.docSpecs;
   }
 
   /// Builds the production chat module whose send controller carries the
@@ -344,7 +339,7 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: _application.title,
+      title: 'TomSpecs Editor',
       navigatorKey: _navigatorKey,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
@@ -355,12 +350,10 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
       ),
       home: ForgeShellScaffold(
         shell: _shell,
-        application: _application,
         layoutController: _shell.layout as DefaultLayoutController,
         systemState: _shell.systemState as DefaultSystemState,
         statusBarController: _shell.statusBar,
         notificationManager: _shell.notifications as DefaultNotificationManager,
-        onApplicationSwitch: (app) => setState(() => _application = app),
       ),
     );
   }

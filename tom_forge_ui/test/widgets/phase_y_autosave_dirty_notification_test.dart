@@ -496,6 +496,7 @@ class _PhaseYHarness {
     registry.register(module);
 
     final application = ForgeApplication(
+      id: 'phase-y-full',
       title: 'Phase Y Full',
       layout: PanelLayout(
         leftPanel: PanelConfig(
@@ -513,10 +514,10 @@ class _PhaseYHarness {
         middlePanels: const [MiddlePanelConfig()],
       ),
     );
+    shell.applications.add(application);
 
     final systemState = shell.systemState as DefaultSystemState;
-    systemState.setApplications([application]);
-    systemState.setActiveApplication(application);
+    systemState.activate(application.id);
 
     final layout = shell.layout as DefaultLayoutController;
     layout.openEditor(
@@ -544,7 +545,6 @@ class _PhaseYHarness {
           height: 1200,
           child: ForgeShellScaffold(
             shell: shell,
-            application: application,
             layoutController: shell.layout as DefaultLayoutController,
             systemState: shell.systemState as DefaultSystemState,
             statusBarController: shell.statusBar,
@@ -602,9 +602,6 @@ class _PhaseYModule extends ForgeModule {
 
   @override
   List<StatusBarItem> get statusBarItems => const [];
-
-  @override
-  List<ForgeApplication> get applications => const [];
 }
 
 /// Custom editor that overrides [getContent] so autosave can work.

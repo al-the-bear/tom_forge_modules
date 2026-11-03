@@ -491,7 +491,17 @@ class _InMemoryWorkspaceStateManager implements ForgeWorkspaceStateManager {
   final Map<String, List<_RevisionSnapshot>> _revisions = {};
   final Map<String, List<Map<String, dynamic>>> _undoHistory = {};
   Map<String, dynamic>? _config;
+  Map<String, Object?>? _openApplications;
   int _revisionCounter = 0;
+
+  @override
+  Future<void> saveOpenApplications(Map<String, Object?> snapshot) async {
+    _openApplications = snapshot;
+  }
+
+  @override
+  Future<Map<String, Object?>?> loadOpenApplications() async =>
+      _openApplications;
 
   @override
   bool get isInitialized => _initialized;

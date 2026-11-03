@@ -75,7 +75,7 @@ void main() {
       'CodeSpecs',
       'Implementation',
     ]);
-    expect(systemState.activeApplication.title, 'DocSpecs');
+    expect(systemState.activeApplication!.title, 'DocSpecs');
   });
 
   test('DocSpecs exposes all four regions; phase-2 apps mirror the skeleton', () {

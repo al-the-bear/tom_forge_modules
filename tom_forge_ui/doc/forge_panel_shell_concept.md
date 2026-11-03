@@ -696,8 +696,12 @@ class TomForgeShell {
 }
 
 class ForgeApplication {
-  /// Display title (shown in search bar and application dropdown).
-  final String title;
+  /// Stable identity: per-application state and persistence are keyed by it.
+  final String id;
+
+  /// Display title (shown in the switcher); changed through
+  /// `ForgeApplicationRegistry.rename`.
+  String get title;
 
   /// Icon for the application dropdown.
   final IconData? icon;
@@ -706,12 +710,38 @@ class ForgeApplication {
   /// Components are referenced directly as typed objects, not by string ID.
   final ApplicationLayout layout;
 
+  /// The factory kind that recreates this application at the next start,
+  /// or null for a static application its module adds on every start.
+  final String? kind;
+
+  /// What the factory needs to recreate it (e.g. a quest id).
+  final Map<String, Object?> payload;
+
   /// Whether this application is currently active (visible).
   bool get isActive;
+}
 
-  /// Whether this application's layout state is preserved in memory.
-  /// Always true — applications are never disposed when switching.
-  bool get isAlive => true;
+/// Makes the applications of one kind, at run time and at restore.
+abstract class ForgeApplicationFactory {
+  String get kind;
+  ForgeApplication create({required String id, required String title,
+      required Map<String, Object?> payload});
+}
+
+/// `ForgeShellApi.applications`: the open applications and the active one.
+abstract class ForgeApplicationRegistry {
+  ValueListenable<List<ForgeApplication>> get listenable;
+  List<ForgeApplication> get all;
+  ForgeApplication? get active;
+  void registerFactory(ForgeApplicationFactory factory);
+  void add(ForgeApplication application, {bool activate = false});
+  ForgeApplication open(String kind, {required String title,
+      Map<String, Object?> payload = const {}, bool activate = true});
+  void rename(String id, String title);
+  void remove(String id);   // the last application cannot be removed
+  void activate(String id);
+  Map<String, Object?> snapshot();
+  void restore(Map<String, Object?> snapshot);
 }
 
 /// How an application fills the content area between the title bar (with the
@@ -772,6 +802,10 @@ class MiddleTabConfig {
 **Design note:** Applications are purely **structural/layout elements** in the shell configuration. All components come from modules. An application's layout references module members directly — e.g., `shellModule.explorer` for the Explorer view or `flowEditorModule.flowEditor` for the flow editor. Modules can also expose pre-configured `ForgeApplication` instances (e.g., `dartEditorModule.d4rtScriptingApplication`) so the top-level setup stays clean.
 
 ### 6.3 Application Switching
+
+- The shell owns the applications: the scaffold shows whichever application `shell.applications` has active and follows the registry as applications are added, renamed, removed and activated — from the switcher or from code. A host builds the scaffold with the shell only.
+- Applications come and go at run time. A module registers a `ForgeApplicationFactory` per kind and opens applications of it with `shell.applications.open(kind, title:, payload:)`; several of one kind may be open, told apart by their ids. Removing the active application activates the one active before it; the last application cannot be removed.
+- At exit the restorable applications (those with a kind) and the active id are in `.forge/state/applications.json`, rewritten on every change and written atomically. At the next start the host adds its static applications, the modules register their factories, and `DefaultShellApi.restoreApplications()` has the factories recreate the rest and re-activates the one that was active. An entry whose kind has no factory this time is kept in the file, not lost. Per-application state (`.forge/state/apps/{hash of id}.json`) is keyed by id and deleted with the application.
 
 - Switching applications does **not** close the previous application. All applications remain alive in memory with their full layout state preserved.
 - A full-screen application's view stays in the widget tree offstage while another application is shown, with its tickers off and out of focus traversal; the panel area does the same while a full-screen application is shown. Switching back finds both as they were, and the focus returns to where it was in each.
@@ -896,7 +930,7 @@ Unlike VS Code extensions, Tom Forge modules are **compiled into the same Flutte
 
 - Modules expose their components as **direct typed class members** — e.g., `formEditorModule.formEditor`, `shellModule.explorer`
 - Layout configuration references these members directly (no string IDs)
-- Modules can expose pre-configured `ForgeApplication` layouts
+- Modules add their static `ForgeApplication`s to the registry (`shell.applications.add`) and register a factory for every kind they open at run time
 - The **shell itself is a module** (`TomForgeShellModule`) that provides built-in views (Explorer, Output, Problems, Terminal, Search, Outline, etc.)
 - Each module is a Dart class with a well-defined lifecycle (`activate` / `deactivate`)
 - Modules for external editors (Dart editor, flow editor, etc.) will be implemented in a separate project (`tom_forge_modules`) that wraps existing editor components into shell-compatible modules
@@ -2824,6 +2858,7 @@ void main() {
     applications: [
       // Application with explicit layout — references module members directly
       ForgeApplication(
+        id: 'tom-flow',
         title: 'Tom Flow',
         layout: PanelLayout(
           leftPanel: PanelConfig(

@@ -102,6 +102,7 @@ class _PhaseAHarness {
     registry.register(module);
 
     final application = ForgeApplication(
+      id: 'phase-a-harness',
       title: 'Phase A Harness',
       layout: const PanelLayout(
         leftPanel: PanelConfig(initialSize: 250, tabs: []),
@@ -110,6 +111,7 @@ class _PhaseAHarness {
         middlePanels: [MiddlePanelConfig()],
       ),
     );
+    shell.applications.add(application);
 
     return _PhaseAHarness._(
       shell: shell,
@@ -134,7 +136,6 @@ class _PhaseAHarness {
     return MaterialApp(
       home: ForgeShellScaffold(
         shell: shell,
-        application: application,
         layoutController: shell.layout as DefaultLayoutController,
         systemState: shell.systemState as DefaultSystemState,
         statusBarController: shell.statusBar,

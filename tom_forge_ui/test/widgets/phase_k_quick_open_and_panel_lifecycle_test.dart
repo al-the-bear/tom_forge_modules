@@ -338,6 +338,7 @@ class _PhaseKHarness {
     registry.register(module);
 
     final application = ForgeApplication(
+      id: 'phase-k-harness',
       title: 'Phase K Harness',
       layout: PanelLayout(
         leftPanel: PanelConfig(
@@ -378,6 +379,7 @@ class _PhaseKHarness {
         middlePanels: const [MiddlePanelConfig(), MiddlePanelConfig()],
       ),
     );
+    shell.applications.add(application);
 
     final layout = shell.layout as DefaultLayoutController;
     layout.openEditor(
@@ -404,7 +406,6 @@ class _PhaseKHarness {
           height: 1200,
           child: ForgeShellScaffold(
             shell: shell,
-            application: application,
             layoutController: shell.layout as DefaultLayoutController,
             systemState: shell.systemState as DefaultSystemState,
             statusBarController: shell.statusBar,

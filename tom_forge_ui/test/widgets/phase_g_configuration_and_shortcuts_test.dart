@@ -378,6 +378,7 @@ class _PhaseGHarness {
     registry.register(module);
 
     final application = ForgeApplication(
+      id: 'phase-g-harness',
       title: 'Phase G Harness',
       layout: PanelLayout(
         leftPanel: PanelConfig(
@@ -418,6 +419,7 @@ class _PhaseGHarness {
         middlePanels: const [MiddlePanelConfig(), MiddlePanelConfig()],
       ),
     );
+    shell.applications.add(application);
 
     final layout = shell.layout as DefaultLayoutController;
     layout.openEditor(module.editor, module.editor.uri, middlePanelIndex: 0);
@@ -437,7 +439,6 @@ class _PhaseGHarness {
           height: 1000,
           child: ForgeShellScaffold(
             shell: shell,
-            application: application,
             layoutController: shell.layout as DefaultLayoutController,
             systemState: shell.systemState as DefaultSystemState,
             statusBarController: shell.statusBar,

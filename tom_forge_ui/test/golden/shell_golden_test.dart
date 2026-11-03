@@ -156,6 +156,7 @@ class _GoldenHarness {
     registry.register(shellModule);
 
     final application = ForgeApplication(
+      id: 'golden-test-ide',
       title: 'Golden Test IDE',
       layout: const PanelLayout(
         leftPanel: PanelConfig(initialSize: 250, tabs: []),
@@ -164,6 +165,7 @@ class _GoldenHarness {
         middlePanels: [MiddlePanelConfig()],
       ),
     );
+    shell.applications.add(application);
 
     return _GoldenHarness._(
       shell: shell,
@@ -186,7 +188,6 @@ class _GoldenHarness {
         height: 720,
         child: ForgeShellScaffold(
           shell: shell,
-          application: application,
           layoutController: shell.layout as DefaultLayoutController,
           systemState: shell.systemState as DefaultSystemState,
           statusBarController: shell.statusBar,

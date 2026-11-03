@@ -80,6 +80,15 @@ abstract class ForgeWorkspaceStateManager {
   /// Load undo entries for a file.
   Future<List<Map<String, dynamic>>> loadUndoHistory(Uri fileUri);
 
+  // ── Applications ──
+
+  /// Save the open restorable applications and the active one
+  /// ([ForgeApplicationRegistry.snapshot]) to `.forge/state/applications.json`.
+  Future<void> saveOpenApplications(Map<String, Object?> snapshot);
+
+  /// Load what [saveOpenApplications] wrote, or null when nothing was.
+  Future<Map<String, Object?>?> loadOpenApplications();
+
   // ── Configuration ──
 
   /// Save configuration data to `.forge/config.json`.

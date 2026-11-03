@@ -80,6 +80,34 @@ class DefaultWorkspaceStateManager implements ForgeWorkspaceStateManager {
     return null;
   }
 
+  // ── Open applications ──
+
+  @override
+  Future<void> saveOpenApplications(Map<String, Object?> snapshot) async {
+    _ensureInitialized();
+    await Directory('$_forgeDir/state').create(recursive: true);
+    // Written beside and renamed over, so a reader never sees half a file.
+    final file = File('$_forgeDir/state/applications.json');
+    final temp = File('${file.path}.tmp');
+    await temp.writeAsString(_encodeJson(snapshot), flush: true);
+    await temp.rename(file.path);
+    _log('saved open applications');
+  }
+
+  @override
+  Future<Map<String, Object?>?> loadOpenApplications() async {
+    _ensureInitialized();
+    final file = File('$_forgeDir/state/applications.json');
+    if (!await file.exists()) return null;
+    try {
+      final data = jsonDecode(await file.readAsString());
+      return data is Map<String, dynamic> ? data : null;
+    } catch (e) {
+      _log('load open applications failed: $e');
+      return null;
+    }
+  }
+
   // ── Layout state ──
 
   @override
@@ -332,77 +360,40 @@ class DefaultWorkspaceStateManager implements ForgeWorkspaceStateManager {
 
   // ── Per-application state ──
 
-  /// Saves the state of an application (open editors, active editor, layout).
-  ///
-  /// Stores in `.forge/state/apps/{app-hash}.json`.
+  /// Saves the state of the application [appId] (open editors, active
+  /// editor, layout) to `.forge/state/apps/{hash of appId}.json`.
   Future<void> saveApplicationState(
-    String appTitle,
+    String appId,
     Map<String, dynamic> state,
   ) async {
     _ensureInitialized();
     await Directory('$_forgeDir/state/apps').create(recursive: true);
-    final hash = _stringHash(appTitle);
-    final file = File('$_forgeDir/state/apps/$hash.json');
-    state['_appTitle'] = appTitle;
+    final file = File('$_forgeDir/state/apps/${_stringHash(appId)}.json');
+    state['_appId'] = appId;
     await file.writeAsString(_encodeJson(state));
-    _log('saved application state for "$appTitle"');
+    _log('saved application state for "$appId"');
   }
 
-  /// Loads the saved state of an application.
-  Future<Map<String, dynamic>?> loadApplicationState(String appTitle) async {
+  /// Loads the saved state of the application [appId].
+  Future<Map<String, dynamic>?> loadApplicationState(String appId) async {
     _ensureInitialized();
-    final hash = _stringHash(appTitle);
-    final file = File('$_forgeDir/state/apps/$hash.json');
+    final file = File('$_forgeDir/state/apps/${_stringHash(appId)}.json');
     if (!await file.exists()) return null;
     try {
       final data = jsonDecode(await file.readAsString());
       return data is Map<String, dynamic> ? data : null;
     } catch (e) {
-      _log('load application state failed for "$appTitle": $e');
+      _log('load application state failed for "$appId": $e');
       return null;
     }
   }
 
-  /// Returns a list of all saved application titles.
-  Future<List<String>> listSavedApplications() async {
+  /// Deletes the saved state of the application [appId], when an application
+  /// is removed for good.
+  Future<void> deleteApplicationState(String appId) async {
     _ensureInitialized();
-    final dir = Directory('$_forgeDir/state/apps');
-    if (!await dir.exists()) return [];
-
-    final apps = <String>[];
-    await for (final entity in dir.list()) {
-      if (entity is File && entity.path.endsWith('.json')) {
-        try {
-          final data = jsonDecode(await entity.readAsString());
-          if (data is Map<String, dynamic> && data['_appTitle'] is String) {
-            apps.add(data['_appTitle'] as String);
-          }
-        } catch (_) {}
-      }
-    }
-    return apps;
-  }
-
-  /// Saves the current active application title for restoration on next launch.
-  Future<void> saveActiveApplicationTitle(String appTitle) async {
-    _ensureInitialized();
-    final file = File('$_forgeDir/state/active-app.txt');
-    await file.writeAsString(appTitle);
-    _log('saved active application: "$appTitle"');
-  }
-
-  /// Loads the last active application title.
-  Future<String?> loadActiveApplicationTitle() async {
-    _ensureInitialized();
-    final file = File('$_forgeDir/state/active-app.txt');
-    if (!await file.exists()) return null;
-    try {
-      final title = await file.readAsString();
-      return title.trim().isNotEmpty ? title.trim() : null;
-    } catch (e) {
-      _log('load active application title failed: $e');
-      return null;
-    }
+    final file = File('$_forgeDir/state/apps/${_stringHash(appId)}.json');
+    if (await file.exists()) await file.delete();
   }
 
   @override

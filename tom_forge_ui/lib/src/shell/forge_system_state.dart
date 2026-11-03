@@ -45,7 +45,7 @@ abstract class ForgeSystemState {
   String get workspaceRootPath;
 
   // ── Application ──
-  ForgeApplication get activeApplication;
+  ForgeApplication? get activeApplication;
   List<ForgeApplication> get applications;
 
   // ── Layout ──

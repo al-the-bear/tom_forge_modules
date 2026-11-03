@@ -69,6 +69,7 @@ class _ShortcutHarness {
     (shell.modules as DefaultModuleRegistry).register(module);
 
     final application = ForgeApplication(
+      id: 'shortcut-test',
       title: 'Shortcut Test',
       layout: const PanelLayout(
         leftPanel: PanelConfig(initialSize: 250, tabs: []),
@@ -77,6 +78,7 @@ class _ShortcutHarness {
         middlePanels: [MiddlePanelConfig()],
       ),
     );
+    shell.applications.add(application);
 
     return _ShortcutHarness._(
       shell: shell,
@@ -89,7 +91,6 @@ class _ShortcutHarness {
     return MaterialApp(
       home: ForgeShellScaffold(
         shell: shell,
-        application: application,
         layoutController: shell.layout as DefaultLayoutController,
         systemState: shell.systemState as DefaultSystemState,
         statusBarController: shell.statusBar,

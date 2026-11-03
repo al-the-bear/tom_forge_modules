@@ -39,7 +39,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Initially active application is primary
-      expect(systemState.activeApplication.title, equals('Phase X Full'));
+      expect(systemState.activeApplication!.title, equals('Phase X Full'));
 
       // Listen for application change event inside runAsync to avoid
       // FakeAsync zone teardown hang (stream_channel conflict).
@@ -48,7 +48,7 @@ void main() {
         final subscription = systemState.onApplicationChanged.listen((event) {
           receivedEvent = event;
         });
-        systemState.setActiveApplication(harness.secondaryApplication);
+        systemState.activate(harness.secondaryApplication.id);
         await Future<void>.delayed(Duration.zero);
         await subscription.cancel();
       });
@@ -57,7 +57,7 @@ void main() {
       await tester.pump();
 
       // Should have switched
-      expect(systemState.activeApplication.title, equals('Phase X Minimal'));
+      expect(systemState.activeApplication!.title, equals('Phase X Minimal'));
 
       // Should have received event
       expect(receivedEvent, isNotNull);
@@ -377,23 +377,23 @@ void main() {
       expect(systemState.openEditors.length, equals(2));
 
       // Switch to secondary application
-      systemState.setActiveApplication(harness.secondaryApplication);
+      systemState.activate(harness.secondaryApplication.id);
       await tester.pump();
       await tester.pump(const Duration(seconds: 1));
       await tester.pump();
 
       // Secondary app should start fresh (minimal app has no editors)
       // Note: actual behavior depends on implementation
-      expect(systemState.activeApplication.title, equals('Phase X Minimal'));
+      expect(systemState.activeApplication!.title, equals('Phase X Minimal'));
 
       // Switch back to primary application
-      systemState.setActiveApplication(harness.primaryApplication);
+      systemState.activate(harness.primaryApplication.id);
       await tester.pump();
       await tester.pump(const Duration(seconds: 1));
       await tester.pump();
 
       // Primary app should be restored
-      expect(systemState.activeApplication.title, equals('Phase X Full'));
+      expect(systemState.activeApplication!.title, equals('Phase X Full'));
     });
   });
 }
@@ -460,6 +460,7 @@ class _PhaseXHarness {
 
     // Create two applications for switching tests
     final primaryApplication = ForgeApplication(
+      id: 'phase-x-full',
       title: 'Phase X Full',
       layout: PanelLayout(
         leftPanel: PanelConfig(
@@ -495,8 +496,10 @@ class _PhaseXHarness {
         middlePanels: const [MiddlePanelConfig()],
       ),
     );
+    shell.applications.add(primaryApplication);
 
     final secondaryApplication = ForgeApplication(
+      id: 'phase-x-minimal',
       title: 'Phase X Minimal',
       layout: PanelLayout(
         leftPanel: const PanelConfig(initialSize: 200, tabs: []),
@@ -505,11 +508,11 @@ class _PhaseXHarness {
         middlePanels: const [MiddlePanelConfig()],
       ),
     );
+    shell.applications.add(secondaryApplication);
 
     // Register both applications and set primary as active
     final systemState = shell.systemState as DefaultSystemState;
-    systemState.setApplications([primaryApplication, secondaryApplication]);
-    systemState.setActiveApplication(primaryApplication);
+    systemState.activate(primaryApplication.id);
 
     final layout = shell.layout as DefaultLayoutController;
     layout.openEditor(
@@ -538,7 +541,6 @@ class _PhaseXHarness {
           height: 1200,
           child: ForgeShellScaffold(
             shell: shell,
-            application: primaryApplication,
             layoutController: shell.layout as DefaultLayoutController,
             systemState: shell.systemState as DefaultSystemState,
             statusBarController: shell.statusBar,
@@ -611,9 +613,6 @@ class _PhaseXModule extends ForgeModule {
 
   @override
   List<StatusBarItem> get statusBarItems => const [];
-
-  @override
-  List<ForgeApplication> get applications => const [];
 }
 
 class _PhaseXMainEditor extends ForgeTestTextEditor {
