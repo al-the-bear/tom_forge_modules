@@ -415,6 +415,7 @@ class DefaultSystemState
     }
     application.isActive = false;
     _applications.value = [..._applications.value, application];
+    application.lifecycle.created(application);
     if (activate || _activeApplication == null) {
       _activate(application);
     }
@@ -467,17 +468,44 @@ class DefaultSystemState
   }
 
   @override
-  void remove(String id) {
+  ForgeCloseConfirmer? confirmClose;
+
+  /// The closes in flight, so a second close of one application answers with
+  /// the first instead of asking twice.
+  final Map<String, Future<bool>> _closing = {};
+
+  @override
+  Future<bool> close(String id) {
     final application = _require(id);
     if (_applications.value.length == 1) {
-      throw StateError('the last application "$id" cannot be removed');
+      throw StateError('the last application "$id" cannot be closed');
+    }
+    // A block body: `whenComplete` waits for a future its callback returns,
+    // and `remove` would return this very future.
+    return _closing[id] ??= _close(application).whenComplete(() {
+      _closing.remove(id);
+    });
+  }
+
+  Future<bool> _close(ForgeApplication application) async {
+    final reason = await application.lifecycle.closing(application);
+    if (reason != null) {
+      final confirm = confirmClose;
+      if (confirm == null || !await confirm(application, reason)) return false;
+    }
+    // The answer may have taken a while: the application may have gone, or
+    // become the last one, meanwhile.
+    final id = application.id;
+    if (!identical(byId(id), application) || _applications.value.length == 1) {
+      return false;
     }
     if (identical(application, _activeApplication)) {
-      final next = _activationOrder.reversed
-          .where((other) => other != id)
-          .map(byId)
-          .whereType<ForgeApplication>()
-          .firstOrNull ??
+      final next =
+          _activationOrder.reversed
+              .where((other) => other != id)
+              .map(byId)
+              .whereType<ForgeApplication>()
+              .firstOrNull ??
           _applications.value.firstWhere((other) => other.id != id);
       _activate(next);
     }
@@ -489,10 +517,22 @@ class DefaultSystemState
       for (final other in _applications.value)
         if (other.id != id) other,
     ];
+    application.lifecycle.closed(application);
+    return true;
   }
 
   @override
   void activate(String id) => _activate(_require(id));
+
+  /// The shell is going away: tells every open application's lifecycle
+  /// [ForgeApplicationLifecycle.closed], so what they hold (a runtime
+  /// process) is released. The applications stay in the registry and in its
+  /// snapshot, so the next start restores them; no veto is asked.
+  void shutdown() {
+    for (final application in [..._applications.value]) {
+      application.lifecycle.closed(application);
+    }
+  }
 
   @override
   Map<String, Object?> snapshot() => {
@@ -565,6 +605,9 @@ class DefaultSystemState
     _restoreApplicationState(app);
     _evictStaleApplicationStates();
 
+    if (previous != null) previous.lifecycle.deactivated(previous);
+    app.lifecycle.activated(app);
+
     _onApplicationChanged.add(
       ApplicationChangeEvent(
         previous: previous,
@@ -576,7 +619,9 @@ class DefaultSystemState
   }
 
   /// Evicts the least-recently-active application state entries when
-  /// the stored count exceeds [maxApplicationStates].
+  /// the stored count exceeds [maxApplicationStates]. Neither the active
+  /// application nor one with background work is ever evicted, so the limit
+  /// may be exceeded while they fill it.
   void _evictStaleApplicationStates() {
     while (_applicationStates.length > maxApplicationStates) {
       // Find the oldest non-active application.
@@ -584,6 +629,7 @@ class DefaultSystemState
       DateTime? oldestTime;
       for (final id in _applicationStates.keys) {
         if (id == _activeApplication?.id) continue;
+        if (byId(id)?.lifecycle.hasBackgroundWork.value ?? false) continue;
         final lastActive = _applicationLastActive[id] ?? DateTime(2000);
         if (oldestTime == null || lastActive.isBefore(oldestTime)) {
           oldestTime = lastActive;

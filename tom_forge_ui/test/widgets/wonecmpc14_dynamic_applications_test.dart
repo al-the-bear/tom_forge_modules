@@ -74,8 +74,8 @@ void main() {
       );
     });
 
-    test('DA-3: rename and activate notify; remove activates the previously '
-        'active application and drops the removed one\'s state', () {
+    test('DA-3: rename and activate notify; close activates the previously '
+        'active application and drops the closed one\'s state', () async {
       final registry = DefaultSystemState()..add(_static('forge'));
       registry.registerFactory(_QuestFactory());
       final a = registry.open('quest', title: 'A');
@@ -94,15 +94,15 @@ void main() {
         ..addOpenEditor(editor)
         ..setActiveEditor(editor);
 
-      registry.remove(b.id);
+      expect(await registry.close(b.id), isTrue);
       expect(registry.active, a, reason: 'the one active before b');
       expect(registry.byId(b.id), isNull);
       expect(registry.openEditors, isEmpty);
 
-      registry.remove(a.id);
+      expect(await registry.close(a.id), isTrue);
       expect(registry.active!.id, 'forge');
       expect(
-        () => registry.remove('forge'),
+        () => registry.close('forge'),
         throwsStateError,
         reason: 'the last application stays',
       );
@@ -171,7 +171,7 @@ void main() {
 
       shell.applications.activate(quest.id);
       await tester.pumpAndSettle();
-      shell.applications.remove(quest.id);
+      await shell.applications.close(quest.id);
       await tester.pumpAndSettle();
       expect(shell.applications.active!.id, 'forge');
       expect(find.text('Quest webwork', skipOffstage: false), findsNothing);
@@ -209,7 +209,7 @@ void main() {
       await second.applicationsWritten();
     });
 
-    test('DA-7: removing an application deletes its stored per-application '
+    test('DA-7: closing an application deletes its stored per-application '
         'state', () async {
       final workspace = Directory.systemTemp.createTempSync('wonecmpc14_');
       addTearDown(() => workspace.deleteSync(recursive: true));
@@ -219,7 +219,7 @@ void main() {
       await state.saveApplicationState(quest.id, {'openEditors': <String>[]});
       expect(await state.loadApplicationState(quest.id), isNotNull);
 
-      shell.applications.remove(quest.id);
+      await shell.applications.close(quest.id);
       await shell.applicationsWritten();
       expect(await state.loadApplicationState(quest.id), isNull);
     });

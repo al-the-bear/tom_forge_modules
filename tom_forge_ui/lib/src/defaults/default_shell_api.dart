@@ -661,6 +661,7 @@ class DefaultShellApi implements ForgeShellApi {
     }
     final state = systemState;
     if (state is DefaultSystemState) {
+      state.shutdown();
       state.dispose();
     }
     final diag = diagnostics;

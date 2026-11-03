@@ -117,6 +117,11 @@ class ForgeApplication {
   /// JSON-encodable map (for a quest application, the quest id).
   final Map<String, Object?> payload;
 
+  /// Its lifecycle: the hooks the registry calls as the application is
+  /// created, activated, deactivated, closed, and what it reports while it
+  /// runs. [ForgeApplicationLifecycle.none] when it has nothing to say.
+  final ForgeApplicationLifecycle lifecycle;
+
   /// Whether this is the active application; maintained by the registry.
   bool isActive;
 
@@ -130,6 +135,7 @@ class ForgeApplication {
     this.workspaceFolder,
     this.kind,
     Map<String, Object?> payload = const {},
+    this.lifecycle = ForgeApplicationLifecycle.none,
     this.isActive = false,
   }) : _title = title,
        payload = Map.unmodifiable(payload);
@@ -161,6 +167,72 @@ class ForgeApplication {
   String get displayTitle =>
       workspaceFolder != null ? '$title - $workspaceFolder' : title;
 }
+
+/// What an application does as it comes and goes, and what it reports while
+/// it runs. The registry calls the hooks in this order: [created] when the
+/// application is added (opened, restored or added statically), [activated]
+/// and [deactivated] as it is switched to and away from, [closing] when it is
+/// asked to close, and — once closing is allowed — [deactivated] if it was
+/// active, then [closed] after it has left the registry.
+///
+/// An application with work that runs while it is not shown — a quest
+/// application's queue and timers — says so through [hasBackgroundWork]: its
+/// state is then never evicted from memory, and it is closed only after its
+/// [closing] veto is answered. [busy] is what the application switcher shows
+/// as its badge.
+///
+/// Every hook has a default that does nothing, so a lifecycle overrides only
+/// what it needs.
+class ForgeApplicationLifecycle {
+  const ForgeApplicationLifecycle();
+
+  /// The lifecycle of an application with nothing to report.
+  static const ForgeApplicationLifecycle none = ForgeApplicationLifecycle();
+
+  /// The application was added to the registry.
+  void created(ForgeApplication application) {}
+
+  /// The application became the active one.
+  void activated(ForgeApplication application) {}
+
+  /// Another application became active, or this one is closing.
+  void deactivated(ForgeApplication application) {}
+
+  /// The application is asked to close. Null lets it close; a reason vetoes
+  /// it — the shell then asks the user, with the reason, whether to close it
+  /// anyway (e.g. "The queue is still sending three prompts").
+  Future<String?> closing(ForgeApplication application) async => null;
+
+  /// The application has left the registry; release what it holds.
+  void closed(ForgeApplication application) {}
+
+  /// Whether the application has work running while it is not shown. While
+  /// true, its state is never evicted from memory.
+  ValueListenable<bool> get hasBackgroundWork => const _Fixed(false);
+
+  /// What the application switcher shows as this application's badge (e.g.
+  /// "Queue running"), or null for none.
+  ValueListenable<String?> get busy => const _Fixed<String?>(null);
+}
+
+/// A value that never changes.
+class _Fixed<T> implements ValueListenable<T> {
+  const _Fixed(this.value);
+
+  @override
+  final T value;
+
+  @override
+  void addListener(VoidCallback listener) {}
+
+  @override
+  void removeListener(VoidCallback listener) {}
+}
+
+/// Asks the user whether to close [application] although its lifecycle
+/// vetoed with [reason]; true closes it.
+typedef ForgeCloseConfirmer =
+    Future<bool> Function(ForgeApplication application, String reason);
 
 /// Makes the applications of one [kind]: when one is opened at run time
 /// ([ForgeApplicationRegistry.open]) and when the shell recreates the ones
@@ -217,10 +289,16 @@ abstract class ForgeApplicationRegistry {
   /// Renames the open application [id].
   void rename(String id, String title);
 
-  /// Removes the open application [id] and its stored state. Removing the
-  /// active one activates the one active before it; the last application
-  /// cannot be removed.
-  void remove(String id);
+  /// Asks the shell before a vetoed close: set by the shell that shows the
+  /// applications. Without one a veto stands.
+  ForgeCloseConfirmer? confirmClose;
+
+  /// Closes the open application [id]: asks its lifecycle ([closing]), and on
+  /// a veto [confirmClose] with the reason; then removes it and its stored
+  /// state, activating the application active before it when it was active,
+  /// and tells its lifecycle [closed]. Answers whether it closed. The last
+  /// application cannot be closed.
+  Future<bool> close(String id);
 
   /// Makes the open application [id] active.
   void activate(String id);

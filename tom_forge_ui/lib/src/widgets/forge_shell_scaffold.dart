@@ -349,11 +349,109 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     }
   }
 
+  /// The busy badges listened to, one per open application.
+  final Map<ForgeApplication, ValueListenable<String?>> _busyBadges = {};
+
+  /// What the applications not shown are busy with, one line each, or null
+  /// when none is: the switcher's badge, so background work is visible from
+  /// the application on show.
+  String? _busyElsewhere() {
+    final lines = [
+      for (final app in widget.shell.applications.all)
+        if (!identical(app, _application))
+          if (app.lifecycle.busy.value case final busy?) '${app.title}: $busy',
+    ];
+    return lines.isEmpty ? null : lines.join('\n');
+  }
+
+  void _onBusyChanged() {
+    if (mounted) setState(() {});
+  }
+
+  /// Listens to the busy badge of every open application and of no other.
+  void _followBusyBadges(Set<ForgeApplication> open) {
+    for (final app in _busyBadges.keys.toList()) {
+      if (!open.contains(app)) {
+        _busyBadges.remove(app)!.removeListener(_onBusyChanged);
+      }
+    }
+    for (final app in open) {
+      if (_busyBadges.containsKey(app)) continue;
+      final badge = app.lifecycle.busy;
+      badge.addListener(_onBusyChanged);
+      _busyBadges[app] = badge;
+    }
+  }
+
+  void _unfollowBusyBadges() {
+    for (final badge in _busyBadges.values) {
+      badge.removeListener(_onBusyChanged);
+    }
+    _busyBadges.clear();
+  }
+
+  /// Asks whether to close [application] although its lifecycle vetoed with
+  /// [reason] — the registry's [ForgeApplicationRegistry.confirmClose].
+  Future<bool> _confirmClose(ForgeApplication application, String reason) async {
+    if (!mounted) return false;
+    final close = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Close ${application.title}?'),
+        content: Text(reason),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Keep open'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Close anyway'),
+          ),
+        ],
+      ),
+    );
+    return close ?? false;
+  }
+
+  void _attachApplications(DefaultShellApi shell) {
+    shell.applications
+      ..confirmClose = _confirmClose
+      ..listenable.addListener(_onApplicationsChanged);
+  }
+
+  void _detachApplications(DefaultShellApi shell) {
+    final applications = shell.applications;
+    applications.listenable.removeListener(_onApplicationsChanged);
+    if (identical(applications.confirmClose, _confirmClose)) {
+      applications.confirmClose = null;
+    }
+    _unfollowBusyBadges();
+  }
+
+  void _registerApplicationActions() {
+    widget.shell.actionRegistry.registerAction(
+      shell_action.ForgeAction(
+        id: 'forge.application.close',
+        label: 'Close Application',
+        menu: shell_action.ForgeMenuLocation.file,
+        execute: (_) async {
+          final active = widget.shell.applications.active;
+          if (active != null) await widget.shell.applications.close(active.id);
+          return null;
+        },
+        isEnabled: () => widget.shell.applications.all.length > 1,
+        isVisible: () => true,
+      ),
+    );
+  }
+
   /// Follows the registry: the active application on show, closed
   /// applications dropped, a rename or an addition redrawn in the switcher.
   void _onApplicationsChanged() {
     final applications = widget.shell.applications;
     final open = applications.all.toSet();
+    _followBusyBadges(open);
     for (final app in _fullScreenScopes.keys.toList()) {
       if (!open.contains(app)) _fullScreenScopes.remove(app)!.dispose();
     }
@@ -387,7 +485,8 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     super.initState();
     _application = widget.shell.applications.active;
     if (_application != null) _noteApplication(_application!);
-    widget.shell.applications.listenable.addListener(_onApplicationsChanged);
+    _attachApplications(widget.shell);
+    _followBusyBadges(widget.shell.applications.all.toSet());
     _preferences =
         widget.preferencesService ?? ForgePreferencesService.instance;
     _preferences.addListener(_onPreferencesChanged);
@@ -396,6 +495,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       _onActiveEditorChanged,
     );
     _registerFindReplaceActions();
+    _registerApplicationActions();
     _registerShellShortcuts();
     _initializePreferences();
     widget.shell.contextMenus.presenter = _presentContextMenu;
@@ -418,10 +518,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   void didUpdateWidget(covariant ForgeShellScaffold oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.shell != widget.shell) {
-      oldWidget.shell.applications.listenable.removeListener(
-        _onApplicationsChanged,
-      );
-      widget.shell.applications.listenable.addListener(_onApplicationsChanged);
+      _detachApplications(oldWidget.shell);
+      _attachApplications(widget.shell);
+      _registerApplicationActions();
       _onApplicationsChanged();
 
       // The shell changed (e.g. placeholder → real shell).
@@ -490,7 +589,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
 
   @override
   void dispose() {
-    widget.shell.applications.listenable.removeListener(_onApplicationsChanged);
+    _detachApplications(widget.shell);
     for (final scope in _fullScreenScopes.values) {
       scope.dispose();
     }
@@ -3025,6 +3124,21 @@ Press "?" for this help document.
                                       child: Icon(app.icon, size: 16),
                                     ),
                                   Expanded(child: Text(app.displayTitle)),
+                                  if (app.lifecycle.busy.value case final busy?)
+                                    Padding(
+                                      padding: const EdgeInsets.only(left: 8),
+                                      child: Tooltip(
+                                        message: busy,
+                                        child: Icon(
+                                          Icons.autorenew,
+                                          key: ValueKey(
+                                            'forge.application.busy.${app.id}',
+                                          ),
+                                          size: 16,
+                                          color: theme.colorScheme.tertiary,
+                                        ),
+                                      ),
+                                    ),
                                   if (isActive)
                                     Icon(
                                       Icons.check,
@@ -3058,6 +3172,18 @@ Press "?" for this help document.
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
+                              if (_busyElsewhere() case final busy?)
+                                Tooltip(
+                                  message: busy,
+                                  child: Icon(
+                                    Icons.autorenew,
+                                    key: const ValueKey(
+                                      'forge.application.busyElsewhere',
+                                    ),
+                                    size: 14,
+                                    color: theme.colorScheme.tertiary,
+                                  ),
+                                ),
                               const Icon(Icons.arrow_drop_down, size: 18),
                             ],
                           ),

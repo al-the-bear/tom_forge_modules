@@ -717,8 +717,26 @@ class ForgeApplication {
   /// What the factory needs to recreate it (e.g. a quest id).
   final Map<String, Object?> payload;
 
+  /// Hooks as it comes and goes, and what it reports while it runs.
+  final ForgeApplicationLifecycle lifecycle;
+
   /// Whether this application is currently active (visible).
   bool get isActive;
+}
+
+/// Called by the registry in this order: created, activated / deactivated as
+/// it is switched, closing (null allows; a reason vetoes and the shell asks
+/// the user), deactivated if it was active, closed. Defaults do nothing.
+class ForgeApplicationLifecycle {
+  void created(ForgeApplication application);
+  void activated(ForgeApplication application);
+  void deactivated(ForgeApplication application);
+  Future<String?> closing(ForgeApplication application);
+  void closed(ForgeApplication application);
+  /// While true its state is never evicted from memory.
+  ValueListenable<bool> get hasBackgroundWork;
+  /// The switcher's badge for it ("Queue running"), or null.
+  ValueListenable<String?> get busy;
 }
 
 /// Makes the applications of one kind, at run time and at restore.
@@ -738,7 +756,8 @@ abstract class ForgeApplicationRegistry {
   ForgeApplication open(String kind, {required String title,
       Map<String, Object?> payload = const {}, bool activate = true});
   void rename(String id, String title);
-  void remove(String id);   // the last application cannot be removed
+  ForgeCloseConfirmer? confirmClose;   // set by the shell: asks on a veto
+  Future<bool> close(String id);      // the last application cannot be closed
   void activate(String id);
   Map<String, Object?> snapshot();
   void restore(Map<String, Object?> snapshot);
@@ -804,7 +823,8 @@ class MiddleTabConfig {
 ### 6.3 Application Switching
 
 - The shell owns the applications: the scaffold shows whichever application `shell.applications` has active and follows the registry as applications are added, renamed, removed and activated — from the switcher or from code. A host builds the scaffold with the shell only.
-- Applications come and go at run time. A module registers a `ForgeApplicationFactory` per kind and opens applications of it with `shell.applications.open(kind, title:, payload:)`; several of one kind may be open, told apart by their ids. Removing the active application activates the one active before it; the last application cannot be removed.
+- Applications come and go at run time. A module registers a `ForgeApplicationFactory` per kind and opens applications of it with `shell.applications.open(kind, title:, payload:)`; several of one kind may be open, told apart by their ids. Closing the active application activates the one active before it; the last application cannot be closed.
+- An application's `ForgeApplicationLifecycle` hears created, activated, deactivated, closing and closed, in that order. `closing` may veto with a reason; the shell then asks "Close <title>?" with the reason (Keep open / Close anyway), and without an answer the application stays. File > Close Application closes the active one. An application with background work (`hasBackgroundWork`, e.g. a quest's running queue) is never evicted from memory by the application-state limit, and its `busy` label is a badge in the switcher's list and, while another application is shown, beside the switcher. Disposing the shell tells every open application `closed`, so it releases what it holds, without removing it from the file the next start restores.
 - At exit the restorable applications (those with a kind) and the active id are in `.forge/state/applications.json`, rewritten on every change and written atomically. At the next start the host adds its static applications, the modules register their factories, and `DefaultShellApi.restoreApplications()` has the factories recreate the rest and re-activates the one that was active. An entry whose kind has no factory this time is kept in the file, not lost. Per-application state (`.forge/state/apps/{hash of id}.json`) is keyed by id and deleted with the application.
 
 - Switching applications does **not** close the previous application. All applications remain alive in memory with their full layout state preserved.
