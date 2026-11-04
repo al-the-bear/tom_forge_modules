@@ -1,4 +1,3 @@
-import 'package:flutter/widgets.dart';
 
 import '../../forge_bridge/editor_action_descriptor.dart';
 import '../md_editor_actions.dart';
@@ -89,39 +88,4 @@ class MdStandaloneIntegration extends BaseStandaloneIntegration {
         ...MdEditorActions.descriptors,
         ...StandardEditingActions.descriptors,
       ];
-
-  /// Builds a map of all registered action shortcuts plus alternatives.
-  ///
-  /// Includes both the primary shortcuts from registered [ForgeAction]s and
-  /// any alternative shortcuts defined in [MdEditorActions].
-  ///
-  /// Returns a map from [SingleActivator] to action ID, suitable for
-  /// Flutter's [Shortcuts] widget.
-  Map<SingleActivator, String> buildShortcutMap() {
-    final map = <SingleActivator, String>{};
-
-    try {
-      // Primary shortcuts from registered actions
-      for (final action in supportedActions) {
-        final key = getShortcutForAction(action.id);
-        if (key != null) {
-          map[key.toActivator()] = action.id;
-        }
-      }
-
-      // Add alternative shortcuts
-      for (final entry in MdEditorActions.alternativeShortcuts.entries) {
-        final actionId = entry.key;
-        for (final altKey in entry.value) {
-          map[altKey.toActivator()] = actionId;
-        }
-      }
-
-      _log('Built shortcut map with ${map.length} entries');
-    } catch (e) {
-      _log('Error building shortcut map: $e');
-    }
-
-    return map;
-  }
 }

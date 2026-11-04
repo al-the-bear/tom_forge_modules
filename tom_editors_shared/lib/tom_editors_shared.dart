@@ -62,6 +62,7 @@ export 'src/text_editing/forge_text_context.dart';
 export 'src/text_editing/forge_editor_integration.dart';
 export 'src/text_editing/text_undo_entry.dart';
 export 'src/text_editing/standard_editing_actions.dart';
+export 'src/text_editing/editor_shortcut_map.dart';
 export 'src/text_editing/forge_text_field.dart';
 export 'src/text_editing/integrations/base_standalone_integration.dart';
 export 'src/text_editing/integrations/dart_standalone_integration.dart';

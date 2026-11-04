@@ -85,6 +85,16 @@ void main() {
       expect(h.shell.executeAction('quest.refresh'), isTrue);
       await tester.pumpAndSettle();
       expect(h.factory.refreshed.last, 'tom_core');
+      final before = h.factory.refreshed.length;
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.f6);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.f6);
+      await tester.pumpAndSettle();
+      expect(
+        h.factory.refreshed,
+        hasLength(before + 1),
+        reason: 'the shortcut is bound again for the application now active',
+      );
+      expect(h.factory.refreshed.last, 'tom_core');
 
       h.shell.applications.activate('forge');
       await tester.pumpAndSettle();

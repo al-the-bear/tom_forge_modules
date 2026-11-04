@@ -520,6 +520,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   @override
   void initState() {
     super.initState();
+    HardwareKeyboard.instance.addHandler(_recordKeyDown);
     _application = widget.shell.applications.active;
     if (_application != null) _noteApplication(_application!);
     _attachApplications(widget.shell);
@@ -626,6 +627,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
 
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_recordKeyDown);
     _detachApplications(widget.shell);
     for (final scope in _fullScreenScopes.values) {
       scope.dispose();
@@ -2337,8 +2339,22 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       }
     }
 
-    // Detect Shift+PrimaryModifier+<key> to open a shortcut menu.
-    if (shortcutKey.shift && shortcutKey.primaryModifier && !shortcutKey.alt) {
+    final boundActionId =
+        widget.shell.shortcuts.allBindings
+            .where((binding) => !binding.isChord)
+            .where((binding) => binding.key == shortcutKey)
+            .firstOrNull
+            ?.action
+            .id ??
+        _alternateActionFor(shortcutKey);
+
+    // Detect Shift+PrimaryModifier+<key> to open a shortcut menu — unless the
+    // key is bound to an action: Shift+Primary+Z redoes, Shift+Primary+K
+    // deletes a line, and one key has one meaning.
+    if (boundActionId == null &&
+        shortcutKey.shift &&
+        shortcutKey.primaryModifier &&
+        !shortcutKey.alt) {
       if (widget.shell.shortcuts.openMenu(shortcutKey.key)) {
         return KeyEventResult.handled;
       }
@@ -2354,17 +2370,134 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       return KeyEventResult.handled;
     }
 
-    final directBinding = widget.shell.shortcuts.allBindings
-        .where((binding) => !binding.isChord)
-        .where((binding) => binding.key == shortcutKey)
-        .firstOrNull;
-    if (directBinding != null) {
-      widget.shell.executeAction(directBinding.action.id);
-      return KeyEventResult.handled;
+    final actionId = boundActionId;
+    if (actionId == null) return KeyEventResult.ignored;
+    // A text-editing key typed into a text field outside the editors — find,
+    // quick open, chat, settings — belongs to that field: its own undo, its
+    // own select-all. The shell neither runs the action nor takes the key.
+    if (actionId.startsWith('forge.edit.') && _focusInNonEditorTextField()) {
+      return KeyEventResult.ignored;
     }
-
-    return KeyEventResult.ignored;
+    // A key whose action did nothing is not consumed, so whatever is below
+    // the shell in the chain — the platform's menu, a text field — gets it.
+    return widget.shell.executeAction(actionId)
+        ? KeyEventResult.handled
+        : KeyEventResult.ignored;
   }
+
+  /// The action a platform alternate key stands for
+  /// ([StandardEditingActions.alternateShortcuts]: Ctrl+Y redoes on Windows
+  /// and Linux), or null.
+  String? _alternateActionFor(ForgeShortcutKey key) {
+    for (final entry in StandardEditingActions.alternateShortcuts.entries) {
+      for (final alternate in entry.value) {
+        if (alternate.key == key.key &&
+            alternate.usePrimaryModifier == key.primaryModifier &&
+            alternate.shift == key.shift &&
+            alternate.alt == key.alt) {
+          return entry.key;
+        }
+      }
+    }
+    return null;
+  }
+
+  /// Whether the primary focus is a text field outside the editor area.
+  bool _focusInNonEditorTextField() {
+    final context = FocusManager.instance.primaryFocus?.context;
+    if (context == null) return false;
+    if (context.findAncestorWidgetOfExactType<EditableText>() == null) {
+      return false;
+    }
+    return context.getInheritedWidgetOfExactType<_ForgeEditorRegion>() ==
+        null;
+  }
+
+  // ── The platform menu and the keystroke it may echo ──
+
+  /// The last key-down Flutter saw: the key and its modifiers, and when.
+  ({LogicalKeyboardKey key, bool meta, bool control, bool shift, bool alt})?
+  _lastKeyDown;
+  DateTime? _lastKeyDownAt;
+
+  /// Records every key-down Flutter receives, before focus dispatch, so a
+  /// platform menu selection can tell its own keystroke apart from a click.
+  bool _recordKeyDown(KeyEvent event) {
+    if (event is KeyDownEvent) {
+      final keyboard = HardwareKeyboard.instance;
+      _lastKeyDown = (
+        key: event.logicalKey,
+        meta: keyboard.isMetaPressed,
+        control: keyboard.isControlPressed,
+        shift: keyboard.isShiftPressed,
+        alt: keyboard.isAltPressed,
+      );
+      _lastKeyDownAt = DateTime.now();
+    }
+    return false;
+  }
+
+  /// Runs [run] for a platform menu selection — unless the selection is the
+  /// echo of a keystroke Flutter already received and routed: its
+  /// [accelerator]'s key-down arrived within half a second. A click, or a
+  /// keystroke the platform menu took before Flutter saw it, runs.
+  void _fromPlatformMenu(SingleActivator? accelerator, VoidCallback run) {
+    final seen = _lastKeyDown;
+    final at = _lastKeyDownAt;
+    if (accelerator != null &&
+        seen != null &&
+        at != null &&
+        DateTime.now().difference(at) < const Duration(milliseconds: 500) &&
+        seen.key == accelerator.trigger &&
+        seen.meta == accelerator.meta &&
+        seen.control == accelerator.control &&
+        seen.shift == accelerator.shift &&
+        seen.alt == accelerator.alt) {
+      if (debugEnabled) {
+        debugPrint(
+          '[ForgeShellScaffold] menu selection for '
+          '${accelerator.trigger.keyLabel} is the echo of a keystroke '
+          'already handled; not run again',
+        );
+      }
+      return;
+    }
+    run();
+  }
+
+  /// A platform menu item with an accelerator, guarded against running a
+  /// second time for a keystroke Flutter already handled.
+  PlatformMenuItem _guardedPlatformMenuItem({
+    required String label,
+    required SingleActivator? shortcut,
+    required VoidCallback run,
+  }) {
+    return PlatformMenuItem(
+      label: label,
+      shortcut: shortcut,
+      onSelected: () => _fromPlatformMenu(shortcut, run),
+    );
+  }
+
+  /// The menu accelerator of [actionId]: its binding in the shell's table.
+  SingleActivator? _acceleratorFor(String actionId) {
+    final binding = widget.shell.shortcuts.getBinding(actionId);
+    if (binding == null || binding.isChord) return null;
+    return binding.key.toActivator();
+  }
+
+  PlatformMenuItem _platformMenuItem(
+    String label,
+    String actionId, {
+    String? bindingId,
+  }) {
+    return _guardedPlatformMenuItem(
+      label: label,
+      shortcut: _acceleratorFor(bindingId ?? actionId),
+      run: () => widget.shell.executeAction(actionId),
+    );
+  }
+
 
   /// Whether to use the native platform menu bar (macOS desktop).
   bool get _usePlatformMenu =>
@@ -2504,13 +2637,13 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
           ]),
           // Concept §11.3: Cmd+S = "Save all dirty editors".
           PlatformMenuItemGroup(members: [
-            PlatformMenuItem(
+            _guardedPlatformMenuItem(
               label: 'Save All',
               shortcut: const SingleActivator(
                 LogicalKeyboardKey.keyS,
                 meta: true,
               ),
-              onSelected: () => widget.shell.executeAction('file.saveAll'),
+              run: () => widget.shell.executeAction('file.saveAll'),
             ),
             PlatformMenuItem(
               label: 'Close Editor',
@@ -2525,60 +2658,55 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       PlatformMenu(
         label: 'Edit',
         menus: [
-          // Concept §11.3: Cmd+U = Undo, Cmd+Z = Redo.
+          // The accelerators are the binding table's (concept §11.3), so a
+          // rebound key shows here too.
           PlatformMenuItemGroup(members: [
-            PlatformMenuItem(
-              label: 'Undo',
-              shortcut: const SingleActivator(
-                LogicalKeyboardKey.keyU,
-                meta: true,
-              ),
-              onSelected: () => widget.shell.executeAction('edit.undo'),
+            _platformMenuItem(
+              'Undo',
+              'edit.undo',
+              bindingId: StandardEditingActions.undoActionId,
             ),
-            PlatformMenuItem(
-              label: 'Redo',
-              shortcut: const SingleActivator(
-                LogicalKeyboardKey.keyZ,
-                meta: true,
-              ),
-              onSelected: () => widget.shell.executeAction('edit.redo'),
+            _platformMenuItem(
+              'Redo',
+              'edit.redo',
+              bindingId: StandardEditingActions.redoActionId,
             ),
           ]),
           PlatformMenuItemGroup(members: [
-            PlatformMenuItem(
+            _guardedPlatformMenuItem(
               label: 'Cut',
               shortcut: const SingleActivator(
                 LogicalKeyboardKey.keyX,
                 meta: true,
               ),
-              onSelected: () => widget.shell.executeAction('edit.cut'),
+              run: () => widget.shell.executeAction('edit.cut'),
             ),
-            PlatformMenuItem(
+            _guardedPlatformMenuItem(
               label: 'Copy',
               shortcut: const SingleActivator(
                 LogicalKeyboardKey.keyC,
                 meta: true,
               ),
-              onSelected: () => widget.shell.executeAction('edit.copy'),
+              run: () => widget.shell.executeAction('edit.copy'),
             ),
-            PlatformMenuItem(
+            _guardedPlatformMenuItem(
               label: 'Paste',
               shortcut: const SingleActivator(
                 LogicalKeyboardKey.keyV,
                 meta: true,
               ),
-              onSelected: () => widget.shell.executeAction('edit.paste'),
+              run: () => widget.shell.executeAction('edit.paste'),
             ),
           ]),
           // Concept §11.3: Cmd+F = Find in focused component.
           PlatformMenuItemGroup(members: [
-            PlatformMenuItem(
+            _guardedPlatformMenuItem(
               label: 'Find',
               shortcut: const SingleActivator(
                 LogicalKeyboardKey.keyF,
                 meta: true,
               ),
-              onSelected: () => widget.shell.executeAction('editor.find'),
+              run: () => widget.shell.executeAction('editor.find'),
             ),
             PlatformMenuItem(
               label: 'Replace',
@@ -2591,33 +2719,33 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         label: 'View',
         menus: [
           PlatformMenuItemGroup(members: [
-            PlatformMenuItem(
+            _guardedPlatformMenuItem(
               label: 'Command Palette...',
               shortcut: const SingleActivator(
                 LogicalKeyboardKey.keyP,
                 meta: true,
                 shift: true,
               ),
-              onSelected: _toggleCommandPalette,
+              run: _toggleCommandPalette,
             ),
           ]),
           PlatformMenuItemGroup(members: [
-            PlatformMenuItem(
+            _guardedPlatformMenuItem(
               label: 'Toggle Left Panel',
               shortcut: const SingleActivator(
                 LogicalKeyboardKey.keyL,
                 meta: true,
               ),
-              onSelected: () =>
+              run: () =>
                   widget.shell.layout.togglePanel(ForgePanelLocation.left),
             ),
-            PlatformMenuItem(
+            _guardedPlatformMenuItem(
               label: 'Toggle Right Panel',
               shortcut: const SingleActivator(
                 LogicalKeyboardKey.keyR,
                 meta: true,
               ),
-              onSelected: () =>
+              run: () =>
                   widget.shell.layout.togglePanel(ForgePanelLocation.right),
             ),
           ]),
@@ -2631,14 +2759,14 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
             PlatformMenuItem(label: 'Forward', onSelected: () {}),
           ]),
           PlatformMenuItemGroup(members: [
-            PlatformMenuItem(
+            _guardedPlatformMenuItem(
               label: 'Go to File...',
               shortcut: const SingleActivator(
                 LogicalKeyboardKey.keyP,
                 meta: true,
                 shift: true,
               ),
-              onSelected: _toggleCommandPalette,
+              run: _toggleCommandPalette,
             ),
           ]),
         ],
@@ -2973,6 +3101,12 @@ Press "?" for this help document.
 | Shortcut | Action |
 |----------|--------|
 | Ctrl+S / Cmd+S | Save all |
+| Ctrl+Z / Cmd+Z | Undo in the active editor |
+| Shift+Ctrl+Z / Shift+Cmd+Z, Ctrl+Y | Redo in the active editor |
+| Shift+Ctrl+K / Shift+Cmd+K | Delete line |
+
+In a text field outside the editors (find, quick open) these keys act on
+the field, not the document.
 
 ---
 
@@ -4075,14 +4209,16 @@ Press "?" for this help document.
                     );
                   },
                   child: SizedBox.expand(
-                    child: KeyedSubtree(
-                      key: ValueKey(
-                        'editor-${currentEditor.uri}-$panelIndex-'
-                        '${useMainRender ? 'main' : 'copy'}',
+                    child: _ForgeEditorRegion(
+                      child: KeyedSubtree(
+                        key: ValueKey(
+                          'editor-${currentEditor.uri}-$panelIndex-'
+                          '${useMainRender ? 'main' : 'copy'}',
+                        ),
+                        child: useMainRender
+                            ? currentEditor.buildMain(context)
+                            : currentEditor.buildCopy(context),
                       ),
-                      child: useMainRender
-                          ? currentEditor.buildMain(context)
-                          : currentEditor.buildCopy(context),
                     ),
                   ),
                 ),
@@ -5093,4 +5229,14 @@ class _EditActionBarDialogState extends State<_EditActionBarDialog> {
       },
     );
   }
+}
+
+/// Marks the editor area: a text field inside it is an editor's, and the
+/// shell routes the text-editing keys to the editor; one outside it (find,
+/// quick open, chat, settings) keeps them.
+class _ForgeEditorRegion extends InheritedWidget {
+  const _ForgeEditorRegion({required super.child});
+
+  @override
+  bool updateShouldNotify(_ForgeEditorRegion oldWidget) => false;
 }

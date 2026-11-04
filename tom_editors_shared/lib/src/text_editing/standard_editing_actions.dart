@@ -59,29 +59,41 @@ class StandardEditingActions {
     usePrimaryModifier: true,
   );
 
-  // Concept §11.3: Cmd+U = Undo (non-conventional mapping).
+  // Undo: Cmd+Z / Ctrl+Z, the platform convention (concept §11.3).
   static final ForgeShortcutKey undoShortcut = ForgeShortcutKey(
-    key: LogicalKeyboardKey.keyU,
-    usePrimaryModifier: true,
-  );
-
-  // Concept §11.3: Cmd+Z = Redo (non-conventional mapping).
-  static final ForgeShortcutKey redoShortcut = ForgeShortcutKey(
     key: LogicalKeyboardKey.keyZ,
     usePrimaryModifier: true,
   );
 
-  // Alternative redo shortcut (Ctrl+Y on Windows/Linux)
-  static final ForgeShortcutKey redoAltShortcut = ForgeShortcutKey(
-    key: LogicalKeyboardKey.keyY,
+  // Redo: Shift+Cmd+Z / Shift+Ctrl+Z (concept §11.3).
+  static final ForgeShortcutKey redoShortcut = ForgeShortcutKey(
+    key: LogicalKeyboardKey.keyZ,
     usePrimaryModifier: true,
+    shift: true,
   );
 
-  // Delete line: Cmd+Y / Ctrl+Y (concept §11.1.3).
+  // Delete line: Shift+Cmd+K / Shift+Ctrl+K (concept §11.1.3), the key
+  // VS Code uses — Ctrl+Y is Redo on Windows and Linux.
   static final ForgeShortcutKey deleteLineShortcut = ForgeShortcutKey(
-    key: LogicalKeyboardKey.keyY,
+    key: LogicalKeyboardKey.keyK,
     usePrimaryModifier: true,
+    shift: true,
   );
+
+  /// Further keys for an action, beside its binding: the platform's second
+  /// convention, which every editor and the shell honour and the user does not
+  /// rebind. On Windows and Linux Ctrl+Y redoes; on macOS there is none.
+  static Map<String, List<ForgeShortcutKey>> get alternateShortcuts =>
+      ForgeShortcutKey.primaryIsMeta
+      ? const {}
+      : {
+          redoActionId: [
+            ForgeShortcutKey(
+              key: LogicalKeyboardKey.keyY,
+              usePrimaryModifier: true,
+            ),
+          ],
+        };
 
   // Duplicate line: Cmd+D / Ctrl+D.
   static final ForgeShortcutKey duplicateLineShortcut = ForgeShortcutKey(

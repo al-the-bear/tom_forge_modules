@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show Listenable;
 import 'package:flutter/services.dart';
 
 import '../actions/forge_action.dart';
@@ -11,7 +12,18 @@ abstract class ForgeShortcutManager {
   List<ForgeShortcutBinding> get allBindings;
   void rebind(ForgeAction action, ForgeShortcutKey key);
   void rebindChord(ForgeAction action, ForgeChordKey chord);
+  /// Removes [actionId]'s binding because the user deleted it: later
+  /// registrations of the action are suppressed.
   void removeBinding(String actionId);
+
+  /// Removes [actionId]'s binding without suppressing it — for a binding that
+  /// is only absent for now, such as an inactive application's (the shell
+  /// binds the active application's keys and unbinds the previous one's).
+  void unbind(String actionId);
+
+  /// Notifies when the bindings change — a rebind, a removal, a load. Changes
+  /// in one turn of the event loop notify once, after it.
+  Listenable get onBindingsChanged;
   void resetToDefault(ForgeAction action);
   ForgeShortcutBinding? conflictsWith(ForgeShortcutKey key);
   ForgeShortcutBinding? getBinding(String actionId);

@@ -1,10 +1,13 @@
-/// The plain-text editor's history runs on `tom_forge_core`'s
-/// `TomUndoStack`: a burst of typing is one change, undone and redone
-/// through the shell's undo manager.
+/// The plain-text editor's history runs on `TomUndoStack`: a burst of typing
+/// is one change, undone and redone through the editor's own standard editing
+/// actions. Nothing reaches the shell's undo manager, which holds shell
+/// actions only.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tom_editors_shared/tom_editors_shared.dart'
+    show StandardEditingActions;
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
 void main() {
@@ -27,15 +30,23 @@ void main() {
 
     await tester.enterText(find.byType(TextField), 'one two');
     await tester.pump(const Duration(milliseconds: 400));
-    expect(shell.undoManager.undoCount, 1, reason: 'one bridge entry');
+    expect(
+      editor.isActionEnabled(StandardEditingActions.undoActionId),
+      isTrue,
+    );
 
-    await shell.undoManager.undo();
+    expect(editor.executeAction(StandardEditingActions.undoActionId), isTrue);
     await tester.pump();
     expect(editor.controller.markdown, 'one');
     expect(find.text('one'), findsOneWidget);
 
-    await shell.undoManager.redo();
+    expect(editor.executeAction(StandardEditingActions.redoActionId), isTrue);
     await tester.pump();
     expect(editor.controller.markdown, 'one two');
+    expect(
+      shell.undoManager.undoCount + shell.undoManager.redoCount,
+      0,
+      reason: 'no shell entry for an editor edit',
+    );
   });
 }

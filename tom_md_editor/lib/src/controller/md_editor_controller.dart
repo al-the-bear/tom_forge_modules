@@ -59,11 +59,6 @@ class MdEditorController extends ChangeNotifier {
   /// Used by forge shell adapters to identify the file being edited.
   Uri? uri;
 
-  /// Optional callback invoked when a new undo entry is pushed.
-  ///
-  /// Set by the editor widget to bridge local undo to the shell undo manager.
-  void Function(String description)? onUndoPush;
-
   /// Cursor position as a [ValueNotifier] for forge shell observation.
   ///
   /// Updated whenever the cursor offset changes.
@@ -1181,8 +1176,6 @@ class MdEditorController extends ChangeNotifier {
         cursorOffset: _cursorOffset,
       ),
     );
-    // Notify bridge for shell undo manager integration.
-    onUndoPush?.call(description);
   }
 
   bool _removeSectionFromTree(MdSection section, List<MdSection> siblings) {

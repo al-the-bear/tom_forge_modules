@@ -49,6 +49,9 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    // The registry also holds the shell's standard editing actions.
+    await tester.enterText(find.byType(TextField), 'Registry');
+    await tester.pumpAndSettle();
 
     expect(find.text('Registry Save'), findsOneWidget);
 

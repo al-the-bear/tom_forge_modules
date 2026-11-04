@@ -1,5 +1,4 @@
-import 'dart:io' show Platform;
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
@@ -106,15 +105,12 @@ class ForgeShortcutKey {
     return key.debugName ?? '?';
   }
 
-  /// Platform detection for modifier resolution.
-  static bool get _isMacOS {
-    try {
-      return Platform.isMacOS;
-    } catch (_) {
-      // Web platform doesn't support Platform
-      return false;
-    }
-  }
+  /// Whether the primary modifier is Cmd (meta) here, as on macOS, rather
+  /// than Ctrl. The shell decides it the same way, from the target platform.
+  static bool get primaryIsMeta => _isMacOS;
+
+  static bool get _isMacOS =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
 
   @override
   bool operator ==(Object other) =>

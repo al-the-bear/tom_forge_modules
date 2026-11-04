@@ -155,7 +155,7 @@ void main() {
       });
     });
 
-    group('buildShortcutMap', () {
+    group('buildEditorShortcutMap', () {
       test('includes shortcuts from registered actions', () {
         final integration = DartStandaloneIntegration(
           controller: controller,
@@ -169,7 +169,10 @@ void main() {
           () {},
         );
 
-        final map = integration.buildShortcutMap();
+        final map = buildEditorShortcutMap(
+          integration,
+          alternates: DartEditorActions.alternativeShortcuts,
+        );
 
         // Should have standard actions + any we registered with shortcuts
         expect(map.isNotEmpty, true);
@@ -192,7 +195,10 @@ void main() {
           () {},
         );
 
-        final map = integration.buildShortcutMap();
+        final map = buildEditorShortcutMap(
+          integration,
+          alternates: DartEditorActions.alternativeShortcuts,
+        );
 
         // Alternative shortcuts for triggerCompletion should be present
         final triggerCompletionEntries = map.entries
@@ -205,6 +211,33 @@ void main() {
         // via ForgeAction with shortcut, but alternatives always are)
         expect(triggerCompletionEntries.length,
             greaterThanOrEqualTo(2)); // 2 alt shortcuts
+      });
+
+      test('takes a key once: an alternate on a bound key keeps the bound '
+          'action', () {
+        final integration = DartStandaloneIntegration(
+          controller: controller,
+          focusNode: focusNode,
+        );
+        addTeardownDispose(integration);
+
+        final map = buildEditorShortcutMap(
+          integration,
+          alternates: {
+            'some.other.action': [StandardEditingActions.undoShortcut],
+          },
+        );
+        final undo = StandardEditingActions.undoShortcut.toActivator();
+        final meanings = [
+          for (final entry in map.entries)
+            if (entry.key case final SingleActivator a
+                when a.trigger == undo.trigger &&
+                    a.meta == undo.meta &&
+                    a.control == undo.control &&
+                    a.shift == undo.shift)
+              entry.value,
+        ];
+        expect(meanings, [StandardEditingActions.undoActionId]);
       });
     });
 

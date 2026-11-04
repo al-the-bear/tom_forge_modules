@@ -111,8 +111,7 @@ class SpecDocumentEditor extends ForgeEditor {
   // enablement from this editor's [stateSnapshot]. Wiring those to the shared
   // controller's own [DefaultUndoManager] makes the shell's global undo button,
   // menu, and shortcut reflect and drive the document's snapshot stack — the
-  // single authority. We deliberately do *not* push `notifyTextEdit` bridge
-  // entries onto the shell's own undo manager, which would double-count.
+  // single authority; the shell's own undo manager holds no text edits.
 
   @override
   Set<String> get supportedActionIds => const {

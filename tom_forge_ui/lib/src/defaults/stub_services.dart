@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 
@@ -63,6 +64,24 @@ class DefaultShortcutManager implements ForgeShortcutManager {
   final StreamController<ForgeShortcutMenuEvent> _menuController =
       StreamController<ForgeShortcutMenuEvent>.broadcast();
 
+  final _bindingsChanged = _BindingsChanged();
+  bool _bindingsChangePending = false;
+
+  @override
+  Listenable get onBindingsChanged => _bindingsChanged;
+
+  /// Notifies [onBindingsChanged] once, after the current turn: modules
+  /// register their actions in bursts, and editors rebuild their key maps on
+  /// each notification.
+  void _bindingsDidChange() {
+    if (_bindingsChangePending) return;
+    _bindingsChangePending = true;
+    scheduleMicrotask(() {
+      _bindingsChangePending = false;
+      _bindingsChanged.fire();
+    });
+  }
+
   /// Set up initial bindings from modules.
   void loadBindings(List<ForgeShortcutBinding> bindings) {
     _bindings
@@ -71,6 +90,7 @@ class DefaultShortcutManager implements ForgeShortcutManager {
     for (final binding in bindings) {
       _defaults[binding.action.id] = binding.key;
     }
+    _bindingsDidChange();
   }
 
   @override
@@ -214,6 +234,7 @@ class DefaultShortcutManager implements ForgeShortcutManager {
       ));
       _defaults.putIfAbsent(action.id, () => key);
     }
+    _bindingsDidChange();
   }
 
   @override
@@ -238,6 +259,7 @@ class DefaultShortcutManager implements ForgeShortcutManager {
         context: _inferContext(action.id),
       ));
     }
+    _bindingsDidChange();
   }
 
   @override
@@ -245,6 +267,14 @@ class DefaultShortcutManager implements ForgeShortcutManager {
     _bindings.removeWhere((b) => b.action.id == actionId);
     _defaults.remove(actionId);
     _suppressedActions.add(actionId);
+    _bindingsDidChange();
+  }
+
+  @override
+  void unbind(String actionId) {
+    final before = _bindings.length;
+    _bindings.removeWhere((b) => b.action.id == actionId);
+    if (_bindings.length != before) _bindingsDidChange();
   }
 
   /// Actions that should not be re-registered (user-deleted).
@@ -618,4 +648,9 @@ class _SimpleDisposable implements ForgeDisposable {
 
   @override
   void dispose() => _onDispose();
+}
+
+/// The notifier behind [DefaultShortcutManager.onBindingsChanged].
+class _BindingsChanged extends ChangeNotifier {
+  void fire() => notifyListeners();
 }

@@ -71,8 +71,9 @@ as it was. What differs is the entry:
 | Standalone integrations | `TextUndoEntry` | base_standalone_integration.dart |
 | File tabs (`ForgeFileSession`) | `ForgeFileHistoryEntry` | file_session.dart |
 
-The shell's own history, `DefaultUndoManager`, runs on the same stack, and each
-editor bridges into it with `notifyTextEdit`.
+The shell's own history, `DefaultUndoManager`, runs on the same stack and holds
+shell actions only; no editor pushes into it. The undo keys reach an editor
+through the shell's binding table (`forge.edit.undo` / `forge.edit.redo`).
 
 ### 2.5 Font Configuration Approaches
 
@@ -454,9 +455,9 @@ Every text-based editor (including ForgeTextField) must support these actions. T
 | `forge.edit.copy` | ⌘C / Ctrl+C | Copy selection |
 | `forge.edit.paste` | ⌘V / Ctrl+V | Paste from clipboard |
 | `forge.edit.selectAll` | ⌘A / Ctrl+A | Select all text |
-| `forge.edit.undo` | ⌘U / Ctrl+U | Undo last change |
-| `forge.edit.redo` | ⌘Z / Ctrl+Z | Redo last undone change |
-| `forge.edit.deleteLine` | ⌘Y / Ctrl+Y | Delete current line |
+| `forge.edit.undo` | ⌘Z / Ctrl+Z | Undo last change |
+| `forge.edit.redo` | ⇧⌘Z / Shift+Ctrl+Z, also Ctrl+Y | Redo last undone change |
+| `forge.edit.deleteLine` | ⇧⌘K / Shift+Ctrl+K | Delete current line |
 | `forge.edit.duplicateLine` | ⌘D / Ctrl+D | Duplicate current line |
 | `forge.edit.moveLineUp` | ⌥↑ / Alt+Up | Move line up |
 | `forge.edit.moveLineDown` | ⌥↓ / Alt+Down | Move line down |
@@ -1412,7 +1413,7 @@ _focusNode = FocusNode(onKeyEvent: _handleKeyEvent);
 To:
 ```dart
 Shortcuts(
-  shortcuts: integration.buildShortcutMap(),
+  shortcuts: buildEditorShortcutMap(integration), // rebuilt on integration.shortcutBindings
   child: Actions(
     actions: integration.buildActionMap(),
     child: TextField(...),

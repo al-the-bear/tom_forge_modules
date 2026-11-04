@@ -230,12 +230,8 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
         _ownsIntegration = true;
       }
       _registerActions();
-
-      // Wire undo bridge: when the controller pushes an undo entry,
-      // notify the integration so the shell undo manager stays in sync.
-      widget.controller.onUndoPush = (description) {
-        _integration.notifyTextEdit(label: description);
-      };
+      // Rebuild the key map whenever the user rebinds a key.
+      _integration.shortcutBindings.addListener(_onBindingsChanged);
 
       trailEvent('setupIntegration: done (owned=$_ownsIntegration)');
     } catch (e) {
@@ -268,58 +264,54 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
     }
   }
 
+  /// Stops listening to the integration, and disposes it when this editor
+  /// made it.
+  void _releaseIntegration() {
+    _integration.shortcutBindings.removeListener(_onBindingsChanged);
+    if (_ownsIntegration) {
+      _integration.dispose();
+    }
+  }
+
+  void _onBindingsChanged() {
+    if (mounted) setState(_buildShortcutMap);
+  }
+
+  /// The local key map: the integration's bindings — the shell's binding
+  /// table when hosted — through [buildEditorShortcutMap].
   void _buildShortcutMap() {
     if (!widget.handleShortcuts) {
       _shortcuts = {};
       return;
     }
-    _shortcuts = <ShortcutActivator, Intent>{};
-    for (final action in _integration.supportedActions) {
-      final key = _integration.getShortcutForAction(action.id);
-      if (key != null) {
-        _shortcuts[key.toActivator()] = _YamlEditorActionIntent(action.id);
-      }
-    }
-    // Standard Ctrl+Z → undo, Ctrl+Shift+Z → redo so that the universal
-    // keyboard shortcuts work in addition to the non-conventional mapping.
-    _shortcuts[const SingleActivator(LogicalKeyboardKey.keyZ, control: true)] =
-        const _YamlEditorActionIntent(StandardEditingActions.undoActionId);
-    _shortcuts[const SingleActivator(
-            LogicalKeyboardKey.keyZ, control: true, shift: true)] =
-        const _YamlEditorActionIntent(StandardEditingActions.redoActionId);
+    _shortcuts = <ShortcutActivator, Intent>{
+      for (final entry in buildEditorShortcutMap(_integration).entries)
+        entry.key: _YamlEditorActionIntent(entry.value),
+    };
   }
 
-  /// Direct key-event handler for undo/redo that fires before the
-  /// Shortcuts/Actions chain.  When inline text fields in tree-node rows
-  /// hold the primary focus, the Flutter Shortcuts widget may not
-  /// propagate to our Actions widget reliably.  This handler guarantees
-  /// Ctrl+U (undo), Ctrl+Z (undo), and Ctrl+Shift+Z (redo) always reach
-  /// the controller.
-  /// Note: Ctrl+Y is intentionally NOT intercepted — it is handled by the
-  /// shell's shortcut binding system (mapped to Delete Line).
+  /// Direct key-event handler for undo and redo that fires before the
+  /// Shortcuts/Actions chain. When inline text fields in tree-node rows hold
+  /// the primary focus, their own text-editing shortcuts would take the keys
+  /// first; this handler answers the undo and redo keys of [_shortcuts] — the
+  /// same keys as everywhere else — with the document's history.
   KeyEventResult _handleUndoKeyEvent(FocusNode node, KeyEvent event) {
     if (!widget.handleShortcuts) return KeyEventResult.ignored;
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
     }
-    final isCtrl = HardwareKeyboard.instance.isControlPressed ||
-        HardwareKeyboard.instance.isMetaPressed;
-    if (!isCtrl || HardwareKeyboard.instance.isAltPressed) {
-      return KeyEventResult.ignored;
-    }
-    // Ctrl+U  → undo (non-conventional, Concept §11.3)
-    // Ctrl+Z  → undo (standard)
-    if (event.logicalKey == LogicalKeyboardKey.keyU ||
-        (event.logicalKey == LogicalKeyboardKey.keyZ &&
-            !HardwareKeyboard.instance.isShiftPressed)) {
-      widget.controller.undo();
-      return KeyEventResult.handled;
-    }
-    // Ctrl+Shift+Z → redo
-    if (event.logicalKey == LogicalKeyboardKey.keyZ &&
-        HardwareKeyboard.instance.isShiftPressed) {
-      widget.controller.redo();
-      return KeyEventResult.handled;
+    for (final entry in _shortcuts.entries) {
+      final intent = entry.value;
+      if (intent is! _YamlEditorActionIntent) continue;
+      if (!entry.key.accepts(event, HardwareKeyboard.instance)) continue;
+      switch (intent.actionId) {
+        case StandardEditingActions.undoActionId:
+          widget.controller.undo();
+          return KeyEventResult.handled;
+        case StandardEditingActions.redoActionId:
+          widget.controller.redo();
+          return KeyEventResult.handled;
+      }
     }
     return KeyEventResult.ignored;
   }
@@ -346,26 +338,20 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
       }
 
       // Re-setup integration for the new controller
-      if (_ownsIntegration) {
-        _integration.dispose();
-      }
+      _releaseIntegration();
       _setupIntegration();
 
       _rebuildTree();
     } else if (oldWidget.integration != widget.integration) {
       // Integration changed without controller change
-      if (_ownsIntegration) {
-        _integration.dispose();
-      }
+      _releaseIntegration();
       _setupIntegration();
     }
   }
 
   @override
   void dispose() {
-    if (_ownsIntegration) {
-      _integration.dispose();
-    }
+    _releaseIntegration();
     _heartbeat?.cancel();
     if (kYamlEditorDebug) {
       FlutterError.onError = _prevFlutterErrorHandler;

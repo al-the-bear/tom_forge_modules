@@ -50,30 +50,43 @@ void main() {
         expect(shortcut.usePrimaryModifier, true);
       });
 
-      test('undo shortcut uses Cmd/Ctrl+U (concept §11.3)', () {
+      test('undo shortcut uses Cmd/Ctrl+Z, the platform convention', () {
         final shortcut = StandardEditingActions.undoShortcut;
-        expect(shortcut.key, LogicalKeyboardKey.keyU);
-        expect(shortcut.usePrimaryModifier, true);
-        expect(shortcut.shift, false);
-      });
-
-      test('redo shortcut uses Cmd/Ctrl+Z (concept §11.3)', () {
-        final shortcut = StandardEditingActions.redoShortcut;
         expect(shortcut.key, LogicalKeyboardKey.keyZ);
         expect(shortcut.usePrimaryModifier, true);
         expect(shortcut.shift, false);
       });
 
-      test('redo alt shortcut uses Cmd/Ctrl+Y', () {
-        final shortcut = StandardEditingActions.redoAltShortcut;
-        expect(shortcut.key, LogicalKeyboardKey.keyY);
+      test('redo shortcut uses Shift+Cmd/Ctrl+Z', () {
+        final shortcut = StandardEditingActions.redoShortcut;
+        expect(shortcut.key, LogicalKeyboardKey.keyZ);
         expect(shortcut.usePrimaryModifier, true);
+        expect(shortcut.shift, true);
       });
 
-      test('deleteLine shortcut uses Cmd/Ctrl+Y (concept §11.1.3)', () {
+      test('Ctrl+Y redoes on Windows and Linux; macOS has no alternate', () {
+        final alternates = StandardEditingActions.alternateShortcuts;
+        if (ForgeShortcutKey.primaryIsMeta) {
+          expect(alternates, isEmpty);
+        } else {
+          final redo = alternates[StandardEditingActions.redoActionId]!;
+          expect(redo.single.key, LogicalKeyboardKey.keyY);
+          expect(redo.single.usePrimaryModifier, true);
+        }
+      });
+
+      test('deleteLine shortcut uses Shift+Cmd/Ctrl+K, clear of Ctrl+Y', () {
         final shortcut = StandardEditingActions.deleteLineShortcut;
-        expect(shortcut.key, LogicalKeyboardKey.keyY);
+        expect(shortcut.key, LogicalKeyboardKey.keyK);
         expect(shortcut.usePrimaryModifier, true);
+        expect(shortcut.shift, true);
+      });
+
+      test('no two standard actions share a key', () {
+        final keys = StandardEditingActions.defaultShortcuts.values
+            .map((k) => '${k.key.keyId}/${k.usePrimaryModifier}/${k.shift}/${k.alt}')
+            .toList();
+        expect(keys.toSet(), hasLength(keys.length));
       });
 
       test('duplicateLine shortcut uses Cmd/Ctrl+D', () {

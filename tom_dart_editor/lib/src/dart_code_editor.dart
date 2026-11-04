@@ -787,8 +787,10 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
       // Register editor actions with the integration
       _registerActions();
 
-      // Build the keyboard shortcut map
+      // Build the keyboard shortcut map, and again whenever the user
+      // rebinds a key.
       _buildShortcutMap();
+      _integration.shortcutBindings.addListener(_onBindingsChanged);
 
       trailEvent('_setupIntegration complete: '
           '${_integration.supportedActions.length} actions, '
@@ -880,38 +882,27 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
     );
   }
 
-  /// Build the keyboard shortcut map from registered actions.
+  void _onBindingsChanged() {
+    if (mounted) setState(_buildShortcutMap);
+  }
+
+  /// Build the keyboard shortcut map from the integration's bindings —
+  /// the shell's binding table when hosted — through
+  /// [buildEditorShortcutMap], with the Dart editor's alternate keys. Being
+  /// above EditableText, these take the undo and redo keys before its
+  /// built-in text-editing shortcuts would.
   void _buildShortcutMap() {
     if (!widget.handleShortcuts) {
       _shortcuts = {};
       return;
     }
-    _shortcuts = <ShortcutActivator, Intent>{};
-
-    // Primary shortcuts from all registered actions
-    for (final action in _integration.supportedActions) {
-      final key = _integration.getShortcutForAction(action.id);
-      if (key != null) {
-        _shortcuts[key.toActivator()] = _DartEditorActionIntent(action.id);
-      }
-    }
-
-    // Alternative shortcuts for trigger completion
-    for (final altKey in DartEditorActions.triggerCompletionAltShortcuts) {
-      _shortcuts[altKey.toActivator()] = const _DartEditorActionIntent(
-          DartEditorActions.triggerCompletionActionId);
-    }
-
-    // Explicit Ctrl+Z → undo, Ctrl+Shift+Z → redo overrides for the case
-    // when FocusNode.onKeyEvent doesn't fire before EditableText's built-in
-    // shortcuts consume the event.
-    _shortcuts[const SingleActivator(LogicalKeyboardKey.keyZ, control: true)] =
-        const _DartEditorActionIntent(StandardEditingActions.undoActionId);
-    _shortcuts[const SingleActivator(LogicalKeyboardKey.keyZ,
-            control: true, shift: true)] =
-        const _DartEditorActionIntent(StandardEditingActions.redoActionId);
-    // Note: Ctrl+Y is intentionally NOT mapped to redo here — it is
-    // handled by the shell's shortcut binding system (Delete Line).
+    _shortcuts = <ShortcutActivator, Intent>{
+      for (final entry in buildEditorShortcutMap(
+        _integration,
+        alternates: DartEditorActions.alternativeShortcuts,
+      ).entries)
+        entry.key: _DartEditorActionIntent(entry.value),
+    };
   }
 
   @override
@@ -924,6 +915,7 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
     _focusNode.removeListener(_onFocusChanged);
     widget.controller.revealLineNotifier.removeListener(_onRevealLine);
     _textContext.dispose();
+    _integration.shortcutBindings.removeListener(_onBindingsChanged);
     if (_ownsIntegration) {
       _integration.dispose();
     }
@@ -1193,8 +1185,6 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
         ),
       ),
     );
-    // Notify shell undo manager via bridge.
-    _integration.notifyTextEdit(label: 'Dart edit');
   }
 
   /// Flush the debounce timer and immediately save the pending undo state

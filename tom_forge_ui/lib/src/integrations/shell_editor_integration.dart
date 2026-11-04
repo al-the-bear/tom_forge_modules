@@ -5,7 +5,6 @@ import 'package:tom_editors_shared/tom_editors_shared.dart' as shared;
 
 import '../actions/forge_action.dart' as shell;
 import '../actions/forge_shortcut_binding.dart' as shell;
-import '../defaults/default_undo_manager.dart';
 import '../shell/forge_shell_api.dart';
 
 /// Debug toggle for shell integration tracing.
@@ -56,63 +55,10 @@ class ShellEditorIntegration extends shared.ForgeEditorIntegration
         _editorId = editorId,
         _editorTypeId = editorTypeId;
 
-  /// The editor's local undo handler, saved when the editor registers its
-  /// `forge.edit.undo` action. Used by bridge entries to delegate undo.
-  VoidCallback? _editorUndoHandler;
-
-  /// The editor's local redo handler, saved when the editor registers its
-  /// `forge.edit.redo` action. Used by bridge entries to delegate redo.
-  VoidCallback? _editorRedoHandler;
-
-  /// Notify the shell undo manager of a text edit in this editor.
-  ///
-  /// Creates a bridge [UndoEntry] that delegates undo/redo to the editor's
-  /// own undo/redo mechanism. Call this each time the editor pushes an entry
-  /// to its local undo stack.
+  /// The shell's binding table changes — the user rebound a key — so the
+  /// editor rebuilds its key map.
   @override
-  void notifyTextEdit({String? label}) {
-    final undoManager = _shellApi.undoManager;
-    if (undoManager is! DefaultUndoManager) return;
-
-    final undoFn = _editorUndoHandler;
-    final redoFn = _editorRedoHandler;
-    if (undoFn == null || redoFn == null) return;
-
-    final entryLabel = label ?? 'Text edit [$_editorId]';
-    undoManager.push(UndoEntry(
-      undo: () async => undoFn(),
-      redo: () async => redoFn(),
-      label: entryLabel,
-      data: {
-        'type': 'text-edit',
-        'editorId': _editorId,
-        'editorType': _editorTypeId,
-        'timestamp': DateTime.now().toIso8601String(),
-        'label': entryLabel,
-      },
-    ));
-
-    if (kShellEditorIntegrationDebug) {
-      // ignore: avoid_print
-      print('[ShellEditorIntegration] pushed bridge entry: $entryLabel');
-    }
-  }
-
-  @override
-  void beginUndoGroup({String? label}) {
-    final undoManager = _shellApi.undoManager;
-    if (undoManager is DefaultUndoManager) {
-      undoManager.beginUndoGroup(label: label);
-    }
-  }
-
-  @override
-  void endUndoGroup() {
-    final undoManager = _shellApi.undoManager;
-    if (undoManager is DefaultUndoManager) {
-      undoManager.endUndoGroup();
-    }
-  }
+  Listenable get shortcutBindings => _shellApi.shortcuts.onBindingsChanged;
 
   @override
   shared.ForgeTextContext get textContext => _context;
@@ -170,13 +116,6 @@ class ShellEditorIntegration extends shared.ForgeEditorIntegration
     VoidCallback handler, {
     bool Function()? isEnabled,
   }) {
-    // Capture editor undo/redo handlers for the bridge.
-    if (actionId == shared.StandardEditingActions.undoActionId) {
-      _editorUndoHandler = handler;
-    } else if (actionId == shared.StandardEditingActions.redoActionId) {
-      _editorRedoHandler = handler;
-    }
-
     super.registerAction(actionId, handler, isEnabled: isEnabled);
     if (isEnabled != null) {
       _enabledQueries[actionId] = isEnabled;
@@ -330,8 +269,10 @@ class ShellEditorIntegration extends shared.ForgeEditorIntegration
       undo: shellAction.undo,
     );
     _shellApi.actionRegistry.registerAction(wrappedAction);
+    // The default key only where the table has none: a key the user bound
+    // stays bound however many editors register the action afterwards.
     final shortcut = action.defaultShortcut;
-    if (shortcut != null) {
+    if (shortcut != null && _shellApi.shortcuts.getBinding(actionId) == null) {
       _shellApi.shortcuts.rebind(wrappedAction, _toShellShortcut(shortcut));
     }
   }

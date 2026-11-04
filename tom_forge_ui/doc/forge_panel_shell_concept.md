@@ -2474,9 +2474,9 @@ Every text-based editor must implement a common set of editing actions using the
 | `forge.edit.copy` | Copy | `Cmd+C` | When text is selected |
 | `forge.edit.paste` | Paste | `Cmd+V` | When text input is focused |
 | `forge.edit.selectAll` | Select All | `Cmd+A` | When editor is focused |
-| `forge.edit.undo` | Undo | `Cmd+U` | When editor is focused |
-| `forge.edit.redo` | Redo | `Cmd+Z` | When editor is focused |
-| `forge.edit.deleteLine` | Delete Line | `Cmd+Y` | When in text editor |
+| `forge.edit.undo` | Undo | `Cmd+Z` | When editor is focused |
+| `forge.edit.redo` | Redo | `Shift+Cmd+Z`; also `Ctrl+Y` on Windows and Linux | When editor is focused |
+| `forge.edit.deleteLine` | Delete Line | `Shift+Cmd+K` | When in text editor |
 | `forge.edit.duplicateLine` | Duplicate Line | `Cmd+D` | When in text editor |
 | `forge.edit.moveLineUp` | Move Line Up | `Alt+↑` | When in text editor |
 | `forge.edit.moveLineDown` | Move Line Down | `Alt+↓` | When in text editor |
@@ -2484,11 +2484,22 @@ Every text-based editor must implement a common set of editing actions using the
 
 Tree-based editors (like the YAML tree editor) implement the subset that applies to their editing model — at minimum `undo`, `redo`, and any operations that have a meaningful tree equivalent.
 
-These actions are defined as `EditorActionDescriptor` instances in `StandardEditingActions` (see [editor_action_externalization.md](editor_action_externalization.md) §2.7). Editors expose them via `actionDescriptors`; the shell binds the shortcuts.
+These actions are defined as `EditorActionDescriptor` instances in `StandardEditingActions` (see [editor_action_externalization.md](editor_action_externalization.md) §2.7). The shell registers all of them and binds their default keys when it starts, so the **binding table owns every editing key**, including the undo keys, before any editor opens. A key the user rebinds stays rebound; an editor registering the action later does not restore the default.
+
+**Routing.** The shell's key handler looks a key up in the table (and in `StandardEditingActions.alternateShortcuts`, which holds `Ctrl+Y` for redo on Windows and Linux) and runs the action through `executeAction`, which sends a `forge.edit.*` action to the active editor. Two rules keep a key from doing the wrong thing:
+
+- A `forge.edit.*` key typed into a **text field outside the editors** (find, quick open, chat, settings) is left to that field: the shell neither runs the action nor takes the key, so `Cmd+Z` there undoes the field's own typing and never touches the document.
+- A key whose action did nothing (`executeAction` returned false) is **not consumed**, so whatever is below the shell gets it.
+
+A bound key never opens a shortcut menu (§11.4): `Shift+Cmd+Z` redoes and `Shift+Cmd+K` deletes a line even if a menu were registered on Z or K.
+
+**Editors' own key maps.** An editor that puts a `Shortcuts` widget above its text field builds the map with `buildEditorShortcutMap(integration)` and nowhere else: each supported action's key from `getShortcutForAction` (the shell's table when hosted), the platform alternates, and the editor's own extra keys, a key taken once. It rebuilds the map when `ForgeEditorIntegration.shortcutBindings` notifies, so a key rebound in the Shortcut Editor reaches a focused editor at once.
+
+**History.** Each editor keeps its own history. The shell's `ForgeUndoManager` holds shell actions only; no editor pushes into it. `Edit > Undo` and `Edit > Redo` run `forge.edit.undo` / `forge.edit.redo`, so they reach the active editor and are disabled when no editor is active. On macOS the native menu's accelerators are read from the binding table, and a menu selection that echoes a keystroke the shell already routed (same key, within half a second) is not run a second time.
 
 ### 11.2 Design Rationale
 
-- Standard shortcuts intentionally avoid two-modifier combinations (no Cmd+Shift+X, no Ctrl+Alt+F, etc.) — keeping the set small and memorable
+- Standard shortcuts avoid two-modifier combinations (no Ctrl+Alt+F, etc.) — keeping the set small and memorable. The exceptions are the platform conventions `Shift+Cmd+Z` (redo) and `Shift+Cmd+K` (delete line)
 - Custom shortcut menus provide **discoverable, context-rich** access to module-specific commands without polluting the global shortcut space
 - Multiple shortcut menus can coexist (e.g., Shift+Cmd+E for Explorer commands, Shift+Cmd+G for Git commands)
 
@@ -2512,11 +2523,11 @@ These are **global shell shortcuts** using a single modifier key (CMD on macOS, 
 | `Cmd+]` | `forge.focusNextPanel` | Focus next panel | Global |
 | `Cmd+[` | `forge.focusPrevPanel` | Focus previous panel | Global |
 
-Text editing shortcuts (`Cmd+X`, `Cmd+C`, `Cmd+V`, `Cmd+A`, `Cmd+U`, `Cmd+Z`, `Cmd+Y`, `Cmd+D`, `Cmd+/`, `Alt+↑`, `Alt+↓`) are listed in §11.1.3 above. They are bound to `forge.edit.*` actions, not shell actions.
+Text editing shortcuts (`Cmd+X`, `Cmd+C`, `Cmd+V`, `Cmd+A`, `Cmd+Z`, `Shift+Cmd+Z`, `Shift+Cmd+K`, `Cmd+D`, `Cmd+/`, `Alt+↑`, `Alt+↓`) are listed in §11.1.3 above. They are bound to `forge.edit.*` actions, not shell actions.
 
 ### 11.4 Custom Shortcut Menus
 
-In addition to the standard shortcuts, there can be **multiple custom shortcut menus**. Each is opened via **Shift+Cmd+\<key\>** (macOS) or **Shift+Ctrl+\<key\>** (Windows/Linux). Pressing the modifier combination opens a popup menu that shows the available follow-up actions.
+In addition to the standard shortcuts, there can be **multiple custom shortcut menus**. Each is opened via **Shift+Cmd+\<key\>** (macOS) or **Shift+Ctrl+\<key\>** (Windows/Linux). Pressing the modifier combination opens a popup menu that shows the available follow-up actions. A key bound to an action (`Shift+Cmd+Z`, `Shift+Cmd+K`) runs that action and opens no menu.
 
 **Activation:** `Shift+Cmd+<trigger key>` (e.g., `Shift+Cmd+E` opens the Explorer shortcut menu)
 
@@ -2634,7 +2645,7 @@ The shell **routes all file access** through `TomFileSystem`, which transparentl
 
 Undo/redo operates at two levels:
 
-1. **Editor-level undo** — standard text/content undo within the editor (Cmd+U / Cmd+Z for redo). This is per-editor and uses the data state's undo stack.
+1. **Editor-level undo** — standard text/content undo within the editor (`Cmd+Z`, and `Shift+Cmd+Z` or on Windows and Linux `Ctrl+Y` to redo). This is per-editor and uses the data state's undo stack; the shell's undo manager holds shell actions only.
 2. **File-level undo** — reverts to a previous file revision. Access via the File History view or command palette.
 
 Both levels are stored in `.forge/` for persistence across sessions.

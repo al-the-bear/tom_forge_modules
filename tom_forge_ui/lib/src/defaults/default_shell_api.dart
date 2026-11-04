@@ -8,6 +8,7 @@ import 'package:tom_editors_shared/tom_editors_shared.dart'
 import '../model/forge_application.dart';
 import '../model/forge_config.dart';
 import '../actions/forge_action.dart';
+import '../actions/forge_shortcut_binding.dart';
 import '../services/forge_action_registry.dart';
 import '../services/forge_clipboard.dart';
 import '../services/forge_config_manager.dart';
@@ -183,8 +184,47 @@ class DefaultShellApi implements ForgeShellApi {
              actions: actionRegistry,
              applications: applications,
            ) {
+    _installStandardEditingActions();
     applications.listenable.addListener(_bindActiveContributions);
     _bindActiveContributions();
+  }
+
+  /// Registers the standard editing actions and binds their default keys, so
+  /// the binding table holds the undo keys (and every other editing key)
+  /// before any editor opens: one table, routed by [executeAction] to the
+  /// active editor. A key already bound is left as it is.
+  void _installStandardEditingActions() {
+    final keys = StandardEditingActions.defaultShortcuts;
+    for (final descriptor in StandardEditingActions.descriptors) {
+      final id = descriptor.id;
+      final key = keys[id];
+      final action = ForgeAction(
+        id: id,
+        label: descriptor.label,
+        icon: descriptor.icon,
+        execute: (_) async {
+          executeAction(id);
+          return null;
+        },
+        isEnabled: () => isActionEnabled(id),
+        isVisible: () => true,
+        defaultShortcut: key == null
+            ? null
+            : ForgeShortcutKey(
+                key: key.key,
+                primaryModifier: key.usePrimaryModifier,
+                shift: key.shift,
+                alt: key.alt,
+              ),
+      );
+      if (actionRegistry.getAction(id) == null) {
+        actionRegistry.registerAction(action);
+      }
+      final shortcut = action.defaultShortcut;
+      if (shortcut != null && shortcuts.getBinding(id) == null) {
+        shortcuts.rebind(action, shortcut);
+      }
+    }
   }
 
   /// The application whose contributions are bound now.
@@ -206,7 +246,9 @@ class DefaultShellApi implements ForgeShellApi {
     final active = applications.active;
     if (identical(active, _boundApplication)) return;
     for (final id in _boundActionIds) {
-      shortcuts.removeBinding(id);
+      // Unbind, not removeBinding: a removed binding is the user's deletion
+      // and would suppress every later application's key for the same id.
+      shortcuts.unbind(id);
       actionRegistry.unregisterAction(id);
     }
     _boundApplication = active;

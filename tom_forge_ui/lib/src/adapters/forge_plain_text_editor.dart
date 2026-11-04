@@ -117,6 +117,28 @@ class ForgePlainTextEditor extends ForgeTextEditor {
 
   ForgeModule get module => _module;
 
+  // ── EditorActionProvider ──
+  //
+  // Undo and redo are the editor's own history, registered on the
+  // integration by the widget; the shell's undo and redo keys reach it here.
+
+  @override
+  Set<String> get supportedActionIds => const {
+    StandardEditingActions.undoActionId,
+    StandardEditingActions.redoActionId,
+  };
+
+  @override
+  bool isActionEnabled(String actionId) =>
+      supportedActionIds.contains(actionId) &&
+      (_integration?.isActionEnabled(actionId) ?? false);
+
+  @override
+  bool executeAction(String actionId) {
+    if (!isActionEnabled(actionId)) return false;
+    return _integration!.executeAction(actionId);
+  }
+
   @override
   Widget buildMain(BuildContext context) {
     if (_module case final TomForgeShellModule shellModule) {
@@ -545,17 +567,31 @@ class _PlainTextEditorWidgetState extends State<_PlainTextEditorWidget> {
       isEnabled: () => _history.canRedo,
     );
 
-    _shortcuts = <ShortcutActivator, Intent>{};
-    for (final action in integration.supportedActions) {
-      final key = integration.getShortcutForAction(action.id);
-      if (key != null) {
-        _shortcuts[key.toActivator()] = _PlainTextActionIntent(action.id);
-      }
-    }
+    _buildShortcutMap();
+    integration.shortcutBindings.addListener(_onBindingsChanged);
+  }
+
+  /// The local key map from the integration's bindings — the shell's
+  /// binding table — through [buildEditorShortcutMap]; above EditableText,
+  /// so the undo and redo keys reach this editor's history, not the text
+  /// field's.
+  void _buildShortcutMap() {
+    final integration = widget.integration;
+    _shortcuts = integration == null
+        ? <ShortcutActivator, Intent>{}
+        : {
+            for (final entry in buildEditorShortcutMap(integration).entries)
+              entry.key: _PlainTextActionIntent(entry.value),
+          };
+  }
+
+  void _onBindingsChanged() {
+    if (mounted) setState(_buildShortcutMap);
   }
 
   @override
   void dispose() {
+    widget.integration?.shortcutBindings.removeListener(_onBindingsChanged);
     _undoDebounceTimer?.cancel();
     _textController.removeListener(_onTextChanged);
     _scrollController.removeListener(_syncScroll);
@@ -600,7 +636,6 @@ class _PlainTextEditorWidgetState extends State<_PlainTextEditorWidget> {
     );
     _lastSavedText = text;
     _lastSavedSelection = _textController.selection;
-    widget.integration?.notifyTextEdit(label: 'Text edit');
   }
 
   void _undo() {

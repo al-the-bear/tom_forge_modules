@@ -196,9 +196,6 @@ class BaseStandaloneIntegration extends ForgeEditorIntegration
   void _addUndoEntry(TextUndoEntry entry) {
     _history.push(entry);
 
-    // Notify bridge for shell undo manager integration.
-    notifyTextEdit(label: entry.description);
-
     _log('Undo stack size: ${_history.undoCount}');
   }
 

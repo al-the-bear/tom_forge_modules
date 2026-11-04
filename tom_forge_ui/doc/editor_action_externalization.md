@@ -16,7 +16,7 @@ The current architecture creates shortcut conflicts when multiple editors regist
 
 This dual registration causes:
 
-- **Shortcut collisions** — when two editors define the same key (e.g., `Ctrl+Y` is "deleteLine" in Dart but "Delete line" at shell level)
+- **Shortcut collisions** — when two editors define the same key differently
 - **Deferred override fragility** — user customizations (chords, rebound keys) are consumed and lost when modules re-register on editor switch
 - **Inconsistent handling** — standard editing actions (`cut/copy/paste/undo/redo`) are explicitly excluded from shell registration via `_editorInternalActions`, while editor-specific actions go through the shell. The boundary between "editor-internal" and "shell-managed" is implicit and hardcoded
 - **No disable switch** — when an editor runs inside the shell, its internal shortcut handling cannot be turned off; the shell cannot fully own the keyboard
@@ -305,9 +305,9 @@ The standard editing actions use the `forge.edit.` prefix and are **required for
 | `forge.edit.copy` | Copy | `Cmd+C` | hasSelection |
 | `forge.edit.paste` | Paste | `Cmd+V` | editable |
 | `forge.edit.selectAll` | Select All | `Cmd+A` | editorFocused |
-| `forge.edit.undo` | Undo | `Cmd+U` | editorFocused |
-| `forge.edit.redo` | Redo | `Cmd+Z` | editorFocused |
-| `forge.edit.deleteLine` | Delete Line | `Cmd+Y` | textEditorFocused |
+| `forge.edit.undo` | Undo | `Cmd+Z` | editorFocused |
+| `forge.edit.redo` | Redo | `Shift+Cmd+Z`; also `Ctrl+Y` on Windows and Linux | editorFocused |
+| `forge.edit.deleteLine` | Delete Line | `Shift+Cmd+K` | textEditorFocused |
 | `forge.edit.duplicateLine` | Duplicate Line | `Cmd+D` | textEditorFocused |
 | `forge.edit.moveLineUp` | Move Line Up | `Alt+↑` | textEditorFocused |
 | `forge.edit.moveLineDown` | Move Line Down | `Alt+↓` | textEditorFocused |
@@ -408,8 +408,8 @@ Tree-based editors (like the YAML tree editor) implement the subset that applies
 | `yaml.addKey` | Add Key | YAML Editor | `Ctrl+N` | editable |
 | `yaml.removeKey` | Remove Key | YAML Editor | `Ctrl+Delete` | editable |
 | `yaml.toggleTextMode` | Toggle Text Mode | YAML Editor | `Ctrl+T` | editorFocused |
-| `forge.edit.undo` | Undo | Standard | `Ctrl+U` | editorFocused |
-| `forge.edit.redo` | Redo | Standard | `Ctrl+Z` | editorFocused |
+| `forge.edit.undo` | Undo | Standard | `Ctrl+Z` | editorFocused |
+| `forge.edit.redo` | Redo | Standard | `Shift+Ctrl+Z`, `Ctrl+Y` | editorFocused |
 
 **Note:** The YAML editor is tree-based, not text-based. It registers only `undo/redo` from standard actions because cut/copy/paste, delete/duplicate line, and move line up/down operate on text selections, which don't apply to tree node editing. Tree navigation keys (arrows, Tab, Enter, Escape, Space) remain in the editor's `KeyboardListener` regardless of the `handleShortcuts` flag — they are navigation, not actions.
 

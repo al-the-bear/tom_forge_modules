@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart';
 
 import '../controller/md_editor_controller.dart';
@@ -234,6 +233,7 @@ class _MdEditorState extends State<MdEditor> {
   @override
   void dispose() {
     trailEvent('dispose start');
+    _integration.shortcutBindings.removeListener(_onBindingsChanged);
     _controller.removeListener(_onControllerChanged);
     _autoSaveTimer?.cancel();
     _textContext.dispose();
@@ -321,14 +321,10 @@ class _MdEditorState extends State<MdEditor> {
       // Register editor actions with the integration
       _registerActions();
 
-      // Wire undo bridge: when the controller pushes an undo entry,
-      // notify the integration so the shell undo manager stays in sync.
-      _controller.onUndoPush = (description) {
-        _integration.notifyTextEdit(label: 'Md: $description');
-      };
-
-      // Build the keyboard shortcut map
+      // Build the keyboard shortcut map, and again whenever the user
+      // rebinds a key.
       _buildShortcutMap();
+      _integration.shortcutBindings.addListener(_onBindingsChanged);
 
       trailEvent('_setupIntegration complete: '
           '${_integration.supportedActions.length} actions, '
@@ -375,39 +371,35 @@ class _MdEditorState extends State<MdEditor> {
     );
   }
 
-  /// Build the keyboard shortcut map from registered actions and
-  /// markdown-specific shortcuts.
+  void _onBindingsChanged() {
+    if (mounted) setState(_buildShortcutMap);
+  }
+
+  /// Build the keyboard shortcut map from the integration's bindings
+  /// ([buildEditorShortcutMap]) and the markdown-specific shortcuts.
   void _buildShortcutMap() {
     if (!widget.handleShortcuts) {
       _shortcuts = {};
       return;
     }
-    _shortcuts = <ShortcutActivator, Intent>{};
-
-    // Primary shortcuts from all registered actions
-    for (final action in _integration.supportedActions) {
-      final key = _integration.getShortcutForAction(action.id);
-      if (key != null) {
-        _shortcuts[key.toActivator()] = _MdEditorActionIntent(action.id);
-      }
-    }
+    _shortcuts = <ShortcutActivator, Intent>{
+      for (final entry in buildEditorShortcutMap(
+        _integration,
+        alternates: MdEditorActions.alternativeShortcuts,
+      ).entries)
+        entry.key: _MdEditorActionIntent(entry.value),
+    };
 
     // Markdown-specific shortcuts — skip actions whose handlers have not been
     // registered (e.g. save when documentProvider is null) so that the
     // shortcut can propagate to the scaffold's handler instead.
     for (final entry in MdEditorActions.primaryShortcuts.entries) {
       if (!_integration.isActionEnabled(entry.key)) continue;
-      _shortcuts[entry.value.toActivator()] =
-          _MdEditorActionIntent(entry.key);
+      _shortcuts.putIfAbsent(
+        entry.value.toActivator(),
+        () => _MdEditorActionIntent(entry.key),
+      );
     }
-
-    // Standard Ctrl+Z → undo, Ctrl+Shift+Z → redo so that the universal
-    // keyboard shortcuts work in addition to the non-conventional mapping.
-    _shortcuts[const SingleActivator(LogicalKeyboardKey.keyZ, control: true)] =
-        const _MdEditorActionIntent(StandardEditingActions.undoActionId);
-    _shortcuts[const SingleActivator(
-            LogicalKeyboardKey.keyZ, control: true, shift: true)] =
-        const _MdEditorActionIntent(StandardEditingActions.redoActionId);
   }
 
   @override

@@ -1,4 +1,3 @@
-import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../forge_bridge/editor_action_descriptor.dart';
@@ -112,21 +111,12 @@ abstract class ForgeEditorIntegration {
   /// Unregisters the action with the given [actionId].
   void unregisterAction(String actionId);
 
-  /// Notifies the integration that a text edit occurred in the editor.
+  /// Notifies when the key bindings [getShortcutForAction] answers change —
+  /// the user rebound a key. An editor that builds a local key map from
+  /// [getShortcutForAction] rebuilds it on every notification.
   ///
-  /// Implementations may use this to push undo bridge entries to an
-  /// external undo manager (e.g. the shell [ForgeUndoManager]).
-  /// The default implementation is a no-op.
-  void notifyTextEdit({String? label}) {}
-
-  /// Notifies the integration that a composite undo group is starting.
-  ///
-  /// All edits between [beginUndoGroup] and [endUndoGroup] should be
-  /// treated as a single atomic undo step.
-  void beginUndoGroup({String? label}) {}
-
-  /// Notifies the integration that the current composite undo group ended.
-  void endUndoGroup() {}
+  /// The default never notifies: a standalone editor's bindings are fixed.
+  Listenable get shortcutBindings => const _NeverChanges();
 
   /// Disposes resources held by this integration.
   void dispose();
@@ -186,4 +176,15 @@ mixin StandardActionsMixin on ForgeEditorIntegration {
     // Default: enabled if handler exists
     return _actionHandlers.containsKey(actionId);
   }
+}
+
+/// A [Listenable] that never notifies.
+class _NeverChanges implements Listenable {
+  const _NeverChanges();
+
+  @override
+  void addListener(VoidCallback listener) {}
+
+  @override
+  void removeListener(VoidCallback listener) {}
 }

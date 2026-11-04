@@ -219,9 +219,7 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
     // affordances (action bar, Edit menu, shortcut) carry their metadata and
     // dispatch into the shared controller's snapshot stack. The controller
     // stays the single undo authority; the active editor's EditorActionProvider
-    // (SpecDocumentEditor) drives enablement/execution. No `notifyTextEdit`
-    // bridge entries are pushed onto the shell's own undo manager — that would
-    // double-count the controller's stack.
+    // (SpecDocumentEditor) drives enablement/execution.
     _documentIntegration = ShellEditorIntegration(
       shellApi: _shell,
       editorId: 'specs-document-editor',

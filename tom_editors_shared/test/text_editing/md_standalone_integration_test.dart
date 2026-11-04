@@ -172,7 +172,7 @@ void main() {
       });
     });
 
-    group('buildShortcutMap', () {
+    group('buildEditorShortcutMap', () {
       test('builds map with standard action shortcuts', () {
         final integration = MdStandaloneIntegration(
           controller: controller,
@@ -180,7 +180,10 @@ void main() {
         );
         addTeardownDispose(integration);
 
-        final map = integration.buildShortcutMap();
+        final map = buildEditorShortcutMap(
+          integration,
+          alternates: MdEditorActions.alternativeShortcuts,
+        );
         expect(map.isNotEmpty, true);
 
         // Standard actions should be present
@@ -206,10 +209,12 @@ void main() {
         );
         addTeardownDispose(integration);
 
-        final map = integration.buildShortcutMap();
-        // The redo action ID should appear in values via the primary
-        // shortcut. Ctrl+Y is intentionally NOT mapped to redo —
-        // it is handled by the shell's shortcut binding system (Delete Line).
+        final map = buildEditorShortcutMap(
+          integration,
+          alternates: MdEditorActions.alternativeShortcuts,
+        );
+        // Redo is bound to Shift+Cmd/Ctrl+Z, and on Windows and Linux also to
+        // Ctrl+Y (StandardEditingActions.alternateShortcuts).
         final redoCount = map.values
             .where((id) => id == StandardEditingActions.redoActionId)
             .length;

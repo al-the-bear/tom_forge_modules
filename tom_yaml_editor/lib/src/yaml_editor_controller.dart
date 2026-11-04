@@ -64,11 +64,6 @@ class YamlEditorController extends ChangeNotifier {
   /// Optional URI associated with this editor's document.
   Uri? uri;
 
-  /// Optional callback invoked when a new undo entry is pushed.
-  ///
-  /// Set by the editor widget to bridge local undo to the shell undo manager.
-  void Function(String description)? onUndoPush;
-
   /// Whether the document has been modified since creation or last save.
   ///
   /// Backed by a [ValueNotifier] for forge shell observation.
@@ -129,8 +124,6 @@ class YamlEditorController extends ChangeNotifier {
       _document = operation.apply(_document);
       _lastOperation = operation; // Store for UI to adjust expansion state
       isDirtyNotifier.value = true;
-      // Notify bridge for shell undo manager integration.
-      onUndoPush?.call('YAML ${operation.kind.name} at ${operation.path}');
       trailEvent('controller: applyEdit applied, revalidating');
       _revalidate();
       trailEvent('controller: applyEdit revalidated, notifying');

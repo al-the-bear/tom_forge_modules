@@ -2,8 +2,8 @@
 // through the shell's standard editing-action seam (`EditorActionProvider`),
 // so the shell's global undo/redo button — which routes
 // `forge.edit.undo`/`forge.edit.redo` to the *active editor* — reflects and
-// drives the document's own `DefaultUndoManager`. No `notifyTextEdit` bridge
-// is used (that would double-count); the controller stays the single authority.
+// drives the document's own `DefaultUndoManager`; the controller stays the
+// single authority.
 
 import 'dart:io';
 
