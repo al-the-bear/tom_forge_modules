@@ -17,6 +17,10 @@ and the same history, never a second stack.
   document (the specs editor's `SpecDocumentController`, Webwork's
   per-document `WebworkUndoStack`).
 - A text editor without either keeps a `ForgeTextHistory`.
+- An editor embedded in a document that keeps the history (a Dart field
+  in a spec document, Webwork's script section) keeps none: it reports its
+  edits and gesture ends to the host and takes undo and redo from it — the
+  Dart editor's external history mode (`DartCodeHistoryHost`).
 - The shell's `ForgeUndoManager` holds **shell actions only** (file
   operations). No editor pushes into it; `Edit > Undo/Redo` run the active
   editor's `forge.edit.undo` / `forge.edit.redo` and are disabled with no
@@ -119,6 +123,6 @@ navigation, not undo) is likewise reserved.
 The editor's suite supplies a `ForgeUndoSubject`; the defaults drive an editor
 whose views edit through an `EditableText`. A check the editor does not meet
 yet is skipped with the todo that makes it pass. The YAML editor passes
-every check in both modes. The reference editor in
+every check in both modes, and the Dart editor every check. The reference editor in
 `test/undo/undo_conformance_test.dart` — the helpers and nothing else — meets
 all six.
