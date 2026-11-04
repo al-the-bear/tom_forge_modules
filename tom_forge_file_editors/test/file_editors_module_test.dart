@@ -170,4 +170,55 @@ void main() {
     expect(editor, same(built));
     expect(w.module.openUri(w.fs.uriOf('/x.skip')), isFalse);
   });
+
+  testWidgets('FE-6: a todo file opens in the todo-file editor; a checkbox '
+      'is undone and saved through the session; an All files row opens its '
+      'file with the todo selected', (tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final w = _Workspace();
+    addTearDown(w.shell.dispose);
+    const todos = 'quest: garden\ntodos:\n'
+        '  - id: gx1_ajka-plant\n    title: Plant\n    description: d\n'
+        '    status: not-started\n';
+    await w.write('/q/todos.garden.todo.yaml', utf8.encode(todos));
+    await w.write(
+      '/o/more.garden.todo.yaml',
+      utf8.encode('quest: garden\ntodos:\n'
+          '  - id: sx1_ajka-ask\n    title: Ask\n    description: d\n'
+          '    status: not-started\n'),
+    );
+    expect(forgeFileKindOf('todos.garden.todo.yaml'), ForgeFileKind.todoFile);
+    final editor =
+        await w.open(tester, '/q/todos.garden.todo.yaml') as ForgeTodoFileEditor;
+    expect(find.byKey(const Key('tom-todo-file-editor')), findsOneWidget);
+    expect(find.text('Board'), findsNothing, reason: 'Forge has no board');
+
+    await tester.tap(find.byKey(const Key('todo-done-gx1_ajka-plant')));
+    await tester.pumpAndSettle();
+    expect(editor.isDirty.value, isTrue);
+    expect(editor.executeAction(_undo), isTrue);
+    await tester.pumpAndSettle();
+    expect(editor.isDirty.value, isFalse);
+    expect(editor.executeAction(_redo), isTrue);
+    await tester.pumpAndSettle();
+    expect(saveOwnedEditor(editor), isTrue);
+    await tester.pumpAndSettle();
+    expect(
+      utf8.decode(await w.read('/q/todos.garden.todo.yaml')),
+      contains('status: completed'),
+    );
+    expect(editor.isDirty.value, isFalse);
+
+    await tester.tap(find.text('All files'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('tom-todo-aggregate-row-sx1_ajka-ask')));
+    await tester.pumpAndSettle();
+    final other = w.shell.systemState.openEditors
+        .whereType<ForgeTodoFileEditor>()
+        .firstWhere((e) => e.uri == w.fs.uriOf('/o/more.garden.todo.yaml'));
+    expect(other.selection, 'sx1_ajka-ask');
+    await tester.pump(const Duration(seconds: 2));
+  });
 }

@@ -31,14 +31,16 @@ dependencies:
   # The session each editor edits its file through.
   tom_file_session:
     path: ../../tom_ai/modules/tom_file_session
-  # The .env editor (BSD-3, movable: it names no Forge package).
+  # The .env and todo-file editors (BSD-3: they name no Forge package).
   tom_reusable_ui:
     path: ../../app_webwork/reusable/tom_reusable_ui
-
-dev_dependencies:
-  # The in-memory file system the tests open files from.
+  # The file system a todo file's siblings and schema are read through.
   tom_file_system:
     path: ../../tom_ai/basics/tom_file_system
+  # Decoding a schema the todo-file editor reads.
+  tom_basics: ">=3.3.0"
+
+dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0

@@ -12,6 +12,7 @@ offers *Keep mine* / *Take theirs*). Every editor saves its own file: it lists
 | --- | --- | --- |
 | Markdown (`.md`) | `ForgeMarkdownFileEditor` — Forge's Markdown editor (`tom_md_editor`), reviews included | the editor's controller |
 | YAML (`.yaml`, `.yml`) | `ForgeYamlFileEditor` — Forge's YAML editor (`tom_yaml_editor`), tree and source | the editor's controller |
+| todo file (`*.todo.yaml`) | `ForgeTodoFileEditor` — `tom_reusable_ui`'s todo-file editor: the todos as rows with the details editor, the schema the file names checked, archive and delete to the siblings, *All files* over the shell's file system, the YAML source | the file session |
 | `.env` | `ForgeEnvFileEditor` — `tom_reusable_ui`'s `.env` editor: a table, values hidden until shown | the file session |
 | any other text | `ForgePlainTextEditor` (`tom_forge_ui`) | the file session |
 
@@ -37,6 +38,14 @@ module.activate(shell);
 The `.env` editor copies a value through a `ForgeProtectedClipboard`; the
 default writes it to the system clipboard and clears it after 30 seconds
 unless something else was copied.
+
+The todo-file editor is checked before Markdown and YAML, so a
+`*.todo.yaml` is a todo file. Its *All files* view lists every todo file of
+the shell's file system; choosing a row opens that file — or shows it, when it
+is already open — with the todo selected. Forge keeps no identity, so a todo
+added or completed here records no author; the board and moving todos to
+other places are additions a host makes to the editor, and Forge makes
+neither.
 
 ## License
 

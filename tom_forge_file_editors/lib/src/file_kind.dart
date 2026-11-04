@@ -6,6 +6,9 @@ enum ForgeFileKind {
   /// Markdown: Forge's Markdown editor (tom_md_editor), reviews included.
   markdown,
 
+  /// A `*.todo.yaml` file: tom_reusable_ui's todo-file editor.
+  todoFile,
+
   /// YAML: Forge's YAML editor (tom_yaml_editor), tree and source.
   yaml,
 
@@ -22,6 +25,7 @@ ForgeFileKind forgeFileKindOf(String name) {
   if (lower == '.env' || lower.startsWith('.env.') || lower.endsWith('.env')) {
     return ForgeFileKind.env;
   }
+  if (lower.endsWith('.todo.yaml')) return ForgeFileKind.todoFile;
   if (lower.endsWith('.md') || lower.endsWith('.markdown')) {
     return ForgeFileKind.markdown;
   }

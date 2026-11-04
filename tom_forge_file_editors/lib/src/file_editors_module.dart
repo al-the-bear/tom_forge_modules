@@ -5,6 +5,7 @@ import 'env_file_editor.dart';
 import 'file_kind.dart';
 import 'markdown_file_editor.dart';
 import 'protected_clipboard.dart';
+import 'todo_file_editor.dart';
 import 'yaml_file_editor.dart';
 
 /// Builds the editor for one file: its session, the shell, and the shell
@@ -27,7 +28,13 @@ class ForgeFileEditorsModule extends ForgeModule {
     Map<ForgeFileKind, ForgeFileEditorBuilder> builders = const {},
     this.claims,
     ForgeProtectedClipboard? clipboard,
-  }) : _builders = {...defaultBuilders(clipboard), ...builders};
+  }) : _clipboard = clipboard,
+       _builders = {...defaultBuilders(clipboard), ...builders};
+
+  final ForgeProtectedClipboard? _clipboard;
+
+  /// The todo an aggregate row asked to select, by the path of its file.
+  final Map<String, String> _pendingTodos = {};
 
   /// Whether this module opens [uri] (default: every file of the shell's file
   /// system); a host leaves a file to another module by answering false.
@@ -37,7 +44,8 @@ class ForgeFileEditorsModule extends ForgeModule {
   ForgeShellApi? _shell;
   final _editors = <ForgeEditor>[];
 
-  /// The editors of the four kinds.
+  /// The editors of four kinds; a todo file's ([ForgeTodoFileEditor]) is
+  /// built by the module itself, which opens the todo an aggregate row names.
   static Map<ForgeFileKind, ForgeFileEditorBuilder> defaultBuilders([
     ForgeProtectedClipboard? clipboard,
   ]) => {
@@ -85,14 +93,36 @@ class ForgeFileEditorsModule extends ForgeModule {
     if (path == null) return null;
     final session = ForgeFileSession(fileSystem: fileSystem, path: path);
     final name = uri.pathSegments.isEmpty ? path : uri.pathSegments.last;
-    final editor = _builders[forgeFileKindOf(name)]!(
-      session,
-      shell,
-      shell.modules.get<TomForgeShellModule>(),
-    );
+    final kind = forgeFileKindOf(name);
+    final builder = _builders[kind];
+    final editor = builder != null
+        ? builder(session, shell, shell.modules.get<TomForgeShellModule>())
+        : ForgeTodoFileEditor(
+            session: session,
+            notifications: shell.notifications,
+            clipboard: _clipboard,
+            openTodo: _openTodo,
+            selection: _pendingTodos.remove(path),
+          );
     session.load();
     _editors.add(editor);
     return editor;
+  }
+
+  /// Opens the todo file at [path] with [id] selected.
+  void _openTodo(String path, String id) {
+    final shell = _shell;
+    if (shell == null) return;
+    final uri = shell.fileSystem.uriOf(path);
+    for (final open in shell.systemState.openEditors) {
+      if (open is ForgeTodoFileEditor && open.uri == uri) {
+        open.selection = id;
+        shell.layout.openEditor(open, uri);
+        return;
+      }
+    }
+    _pendingTodos[path] = id;
+    openUri(uri);
   }
 
   @override
