@@ -13,6 +13,35 @@ import '../integrations/shell_editor_integration.dart';
 import '../module/forge_module.dart';
 import 'tom_forge_shell_module.dart';
 
+/// Where the Dart editor's analysis summaries are in the asset bundle: the
+/// SDK summary and the summary of the packages it resolves.
+///
+/// An application that carries the summaries itself reads them under its own
+/// keys ([ForgeDartSummaryAssets.root]); an application built on a package
+/// that carries them reads them under that package's prefix
+/// ([ForgeDartSummaryAssets.ofPackage]), since Flutter keys a dependency's
+/// assets `packages/<package>/<path>`.
+class ForgeDartSummaryAssets {
+  const ForgeDartSummaryAssets({
+    required this.sdkSummary,
+    required this.packageSummary,
+  });
+
+  /// `assets/sdk_summary.sum` and `assets/packages.sum` of the running app.
+  static const root = ForgeDartSummaryAssets(
+    sdkSummary: 'assets/sdk_summary.sum',
+    packageSummary: 'assets/packages.sum',
+  );
+
+  /// The same two files, carried by the dependency [package].
+  ForgeDartSummaryAssets.ofPackage(String package)
+    : sdkSummary = 'packages/$package/assets/sdk_summary.sum',
+      packageSummary = 'packages/$package/assets/packages.sum';
+
+  final String sdkSummary;
+  final String packageSummary;
+}
+
 /// Adapter that wraps [DartCodeController] + [DartCodeEditor] as a
 /// [ForgeTextEditor].
 class ForgeDartEditor extends ForgeTextEditor {
@@ -48,13 +77,12 @@ class ForgeDartEditor extends ForgeTextEditor {
     required ForgeModule module,
     this.errorsProvider,
     ForgeTextEditorOptions options = const ForgeTextEditorOptions(),
-    String sdkSummaryAsset = 'assets/sdk_summary.sum',
-    String packageSummaryAsset = 'assets/packages.sum',
+    ForgeDartSummaryAssets summaries = ForgeDartSummaryAssets.root,
   })  : _module = module,
         _options = options,
         _analysisAdapter = SummaryBackedDartAnalysisAdapter(
-          sdkSummaryAsset: sdkSummaryAsset,
-          packageSummaryAsset: packageSummaryAsset,
+          sdkSummaryAsset: summaries.sdkSummary,
+          packageSummaryAsset: summaries.packageSummary,
         ) {
     _lastCode = controller.userCode;
     _positionConverter = PositionConverter(_lastCode);

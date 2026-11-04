@@ -51,6 +51,10 @@ class DefaultLayoutController implements ForgeLayoutController {
   /// Preferred default editor ids keyed by file extension (including dot).
   final Map<String, String> _fileTypeDefaultEditors = {};
 
+  /// Where the built-in Dart editor reads its analysis summaries; the running
+  /// app's own assets unless the app is built on a package that carries them.
+  ForgeDartSummaryAssets dartSummaryAssets = ForgeDartSummaryAssets.root;
+
   /// Late-bound diagnostic manager for emitting editor fallback diagnostics.
   ForgeDiagnosticManager? diagnosticManager;
 
@@ -869,7 +873,11 @@ class DefaultLayoutController implements ForgeLayoutController {
         return ForgeMdEditor(controller: controller, module: ownerModule);
       case 'dart':
         final controller = DartCodeController(initialCode: content, uri: uri);
-        return ForgeDartEditor(controller: controller, module: ownerModule);
+        return ForgeDartEditor(
+          controller: controller,
+          module: ownerModule,
+          summaries: dartSummaryAssets,
+        );
       case 'yaml':
         final controller = YamlEditorController(initialYaml: content, uri: uri);
         return ForgeYamlEditor(controller: controller, module: ownerModule);

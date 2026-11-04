@@ -2444,6 +2444,17 @@ const _tabIconChoices = <IconData>[
   Icons.language,
 ];
 
+/// The icon a user-created tab restored from persisted panel data is shown
+/// with: the picker's icon with [codePoint], else the picker's default.
+///
+/// Looked up rather than rebuilt from the stored code point, because an
+/// `IconData` made at run time defeats icon tree-shaking and a release build
+/// refuses it. A user-created tab only ever has one of the picker's icons.
+IconData forgeUserTabIcon(int codePoint) => _tabIconChoices.firstWhere(
+  (icon) => icon.codePoint == codePoint,
+  orElse: () => Icons.folder_outlined,
+);
+
 /// Dialog for adding a new panel tab with name and icon selection.
 class _AddTabDialog extends StatefulWidget {
   const _AddTabDialog();
