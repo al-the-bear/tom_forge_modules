@@ -1700,6 +1700,11 @@ abstract class ForgeLayoutController {
   /// Open a specific editor for the given URI (bypasses resolution).
   void openEditor(ForgeEditor editor, Uri uri, {int? middlePanelIndex});
 
+  /// Close an editor in every middle panel and drop it from the open set,
+  /// without asking about unsaved work — for a module whose own model has
+  /// already closed what the editor showed.
+  void closeEditor(ForgeEditor editor);
+
   /// Show the "Open with" dialog for the given URI. Lists all
   /// accepting editors (Phase 1) and additional options (Phase 2).
   Future<void> openFileWith(Uri uri, {int? middlePanelIndex});
