@@ -53,7 +53,15 @@ platform undo keys with it. An editor that keeps the document's history wraps
 its text fields in `ForgeEditorOwnsUndo`, which overrides `UndoTextIntent` and
 `RedoTextIntent` with actions that do nothing. Put it outside the editor's own
 `Shortcuts` (built with `buildEditorShortcutMap`), so the editor's keys reach
-its own history first.
+its own history first. A field shown outside the editor's key map (a popout
+route) passes `onUndo`/`onRedo`, so the platform's keys reach the document's
+history there. `TextEditorCore` and `ForgeTextField` (`undoOwnedByHost`) do
+this themselves for a host that keeps the history.
+
+A field that shows one value of the document (a tree field) keeps no history
+of its own: it writes each change through the document, drops the echo of a
+value set from outside (an undo), and puts the caret at the change
+(`forgeCaretAtChange`).
 
 ## 5. Typing is grouped, flushed at every boundary, and stores the caret
 
@@ -110,6 +118,7 @@ navigation, not undo) is likewise reserved.
 
 The editor's suite supplies a `ForgeUndoSubject`; the defaults drive an editor
 whose views edit through an `EditableText`. A check the editor does not meet
-yet is skipped with the todo that makes it pass. The reference editor in
+yet is skipped with the todo that makes it pass. The YAML editor passes
+every check in both modes. The reference editor in
 `test/undo/undo_conformance_test.dart` — the helpers and nothing else — meets
 all six.
