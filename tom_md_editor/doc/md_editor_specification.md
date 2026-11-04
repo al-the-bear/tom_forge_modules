@@ -1061,6 +1061,65 @@ class MdOverlayButton extends StatelessWidget {
 
 All built-in plugins use `MdOverlayButton` for their hover edit buttons, ensuring a consistent look and feel.
 
+### 11. Document Reviews
+
+A document is reviewed in place, the way the VS Code extension's Markdown
+Browser does it; a review round on a SOM Markdown spec gives the same file in
+both (`test/fixtures/review_round/`, written by the extension's own code).
+
+- **Guarded line edits** — `MdLineEdit` replaces lines `startLine..endLine`
+  (0-based, end exclusive) only while they still hold `expected`, the text
+  the reader was shown; a file changed since is refused (`MdLineEditRefused`
+  with a sentence), never overwritten. A CRLF file keeps its line endings.
+  `mdApplyLineEdit` is the text function, `MdEditorController.applyLineEdit`
+  the history entry.
+- **CriticMarkup marks** (SOM §11.9.3: `{++…++}`, `{--…--}`, `{~~…~>…~~}`,
+  `{==…==}{>>…<<}`, `{>>…<<}`) are decided by the TomSpecs Dart runtime
+  (`tom_som_dart_runtime`'s `SpecReviewAnnotations`) over the text held as one
+  scratch value: `accept` takes a change (and removes a highlight or a
+  comment, keeping its text), `reject` undoes a change, `remove` takes a
+  comment out. One mark (`mdDecideMark`, `mdReviewMarkEdit` on a block's lines,
+  `decideReviewMark`) or every change at once, highlights and comments staying
+  (`mdDecideAllChanges`, `decideAllReviewChanges`).
+- **Review comments** — `> ⬆️ **C-12** (Alexis): text`. The next id is the
+  runtime's `nextCommentId` for the text, the highest `C-<n>` after an arrow
+  plus one, or a number the caller read from the loaded SOM document,
+  whichever is highest (`mdNextCommentId`). `mdWriteComment` writes the arrow,
+  the id and the author (a named author is kept); a comment is added after a
+  block with a blank line before it (`addReviewComment`), rewritten or, when
+  emptied, removed with its blank lines (`editReviewComment`). The author is
+  the logged-in account's name (`mdLocalCommentAuthor`: `id -F` on macOS,
+  `/etc/passwd` on Linux, the login on Windows) in the form chosen
+  (`MdCommentAuthorForm`).
+
+Every review operation on the controller is one undo entry, and a refused one
+changes nothing.
+
+### 12. Browsing
+
+- **Links into the workspace** — `MdLinkResolver` resolves a link from the
+  document shown: `#anchor`; a Markdown document beside it, else from the
+  workspace root (with an anchor); any other file for an editor (`#L20` for a
+  line); an external URL; typed references `issue:`, `todo:`, `trail:`,
+  `test:` for the host and `quest:<id>` to the quest's overview; a host adds
+  its own (`MdLinkHandler`). A file that exists nowhere is an error.
+- **History** — `MdNavigationHistory` keeps the documents visited (100 by
+  default) with the reading position in each (`MdReadingPosition`: the line
+  at the top of the view, its offset, the scroll offset); a new document drops
+  the forward entries.
+- **The navigator** — `MdBrowserNavigator` shows documents in a controller as
+  content from outside (nothing to undo, clean), follows Markdown and anchor
+  links itself and returns every other link for the host, and goes back and
+  forward to where the reader was (`takeAnchor`, `takePosition`).
+- **Following a growing file** — with `MdEditorSettings.followTail` the
+  preview opens at the end and new content scrolls into view while the reader
+  is at the end (`MdFollowTail`); scrolling up stops it and shows a Follow
+  button that starts it again. `MdFileFollower` keeps a controller showing a
+  file that grows (a live trail), polling its size and modification time, so
+  a file behind a symlink is followed too.
+- **Mermaid** — a ` ```mermaid ` fence is drawn by mermaid.js in a web view
+  (§8).
+
 ---
 
 ## Component Architecture

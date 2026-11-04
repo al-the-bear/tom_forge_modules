@@ -12,6 +12,9 @@ import '../models/md_parser.dart';
 import '../models/md_search_result.dart';
 import '../models/md_section.dart';
 import '../providers/md_document_provider.dart';
+import '../review/md_line_edit.dart';
+import '../review/md_review_comments.dart';
+import '../review/md_review_marks.dart';
 import '../validation/md_schema_validator.dart';
 import '../validation/schema_section_helper.dart';
 import '../validation/schema_template_helper.dart';
@@ -285,6 +288,105 @@ class MdEditorController extends ChangeNotifier {
     );
     _saved.markSaved(value);
     notifyListeners();
+  }
+
+  // ── Reviews ──
+  //
+  // A review edits the document in place: a guarded line edit, a decided
+  // CriticMarkup mark, a comment added or edited. Each is guarded by the text
+  // the reader was shown and is one history entry; a refusal changes nothing.
+
+  /// Applies [edit] — lines `startLine..endLine` replaced while they still
+  /// hold what was shown — as one history entry.
+  MdLineEditResult applyLineEdit(MdLineEdit edit) {
+    flush();
+    final result = mdApplyLineEdit(_markdown, edit);
+    if (result case MdLineEditApplied(:final text)) applyEdit(text);
+    return result;
+  }
+
+  /// Decides the [occurrence]-th mark written [markup] in the block on lines
+  /// `startLine..endLine` (which must still hold [expected]), through the
+  /// TomSpecs runtime; one history entry.
+  MdLineEditResult decideReviewMark({
+    required int startLine,
+    required int endLine,
+    required String expected,
+    required String markup,
+    required int occurrence,
+    required MdMarkDecision decision,
+  }) {
+    flush();
+    final result = mdReviewMarkEdit(
+      _markdown,
+      startLine: startLine,
+      endLine: endLine,
+      expected: expected,
+      markup: markup,
+      occurrence: occurrence,
+      decision: decision,
+    );
+    if (result case MdLineEditApplied(:final text)) applyEdit(text);
+    return result;
+  }
+
+  /// Accepts or rejects every change mark of the document (highlights and
+  /// comments stay) as one history entry; answers how many were decided.
+  int decideAllReviewChanges(MdMarkDecision decision) {
+    flush();
+    final result = mdDecideAllChanges(_markdown, decision);
+    if (result.decided > 0) applyEdit(result.text);
+    return result.decided;
+  }
+
+  /// The id the next review comment gets ([mdNextCommentId]); [runtimeNext]
+  /// is the number a caller read from the loaded SOM document.
+  String nextReviewCommentId({int? runtimeNext}) =>
+      mdNextCommentId(_markdown, runtimeNext: runtimeNext);
+
+  /// Adds a review comment with [text] by [author] after the block on lines
+  /// `blockStart..blockEnd`, with the next free id; one history entry. Null
+  /// when [text] holds no comment.
+  MdLineEditResult? addReviewComment({
+    required int blockStart,
+    required int blockEnd,
+    required String text,
+    String? author,
+    int? runtimeNext,
+  }) {
+    flush();
+    final edit = mdAddCommentEdit(
+      _markdown.split('\n'),
+      blockStart: blockStart,
+      blockEnd: blockEnd,
+      text: text,
+      nextId: nextReviewCommentId(runtimeNext: runtimeNext),
+      author: author,
+    );
+    return edit == null ? null : applyLineEdit(edit);
+  }
+
+  /// Rewrites the comment block starting at [line] with [text]; an empty
+  /// [text] removes it. Null when there is no comment there or nothing
+  /// changes.
+  MdLineEditResult? editReviewComment({
+    required int line,
+    required String text,
+    String? author,
+    int? runtimeNext,
+  }) {
+    flush();
+    final lines = _markdown.split('\n');
+    final comment = mdCommentAt(lines, line);
+    if (comment == null) return null;
+    final edit = mdEditCommentEdit(
+      lines,
+      comment,
+      text: text,
+      nextId: nextReviewCommentId(runtimeNext: runtimeNext),
+      author: author,
+    );
+    return edit == null ? null : applyLineEdit(edit);
   }
 
   /// How many edits the history keeps (`ForgeTextSettings.maxUndoHistory`).

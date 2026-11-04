@@ -1,39 +1,45 @@
-<!--
-This README describes the package. If you publish this package to pub.dev,
-this README's contents appear on the landing page for your package.
+# Tom Markdown Editor
 
-For information about how to write a good package README, see the guide for
-[writing package pages](https://dart.dev/tools/pub/writing-package-pages).
-
-For general information about developing packages, see the Dart guide for
-[creating packages](https://dart.dev/guides/libraries/create-packages)
-and the Flutter guide for
-[developing packages and plugins](https://flutter.dev/to/develop-packages).
--->
-
-TODO: Put a short description of the package here that helps potential users
-know whether this package might be useful for them.
+A Flutter Markdown editor and reader: a rendered view with section navigation,
+a raw editor, search and replace, code blocks, tables, math and mermaid
+diagrams, DocSpecs schema validation — and in-place document reviews and
+workspace browsing.
 
 ## Features
 
-TODO: List what your package can do. Maybe include images, gifs, or videos.
-
-## Getting started
-
-TODO: List prerequisites and provide or point to information on how to
-start using the package.
+- **Editing** — a rendered view and a raw editor over one controller
+  (`MdEditorController`) with one history: typing is one undo entry per
+  gesture, every other operation one entry, dirty measured against the saved
+  text.
+- **Reviews** — guarded in-place line edits, CriticMarkup marks accepted or
+  rejected and review comments added with ids and author, through the
+  TomSpecs Dart runtime (`tom_som_dart_runtime`), giving the same file as the
+  VS Code extension's Markdown Browser.
+- **Browsing** — links resolved into the workspace (`MdLinkResolver`), back
+  and forward with the reading position (`MdBrowserNavigator`), and following
+  the end of a growing file such as a live trail (`followTail`,
+  `MdFileFollower`).
+- **Diagrams and math** — mermaid fences drawn by mermaid.js, LaTeX math.
 
 ## Usage
 
-TODO: Include short and useful examples for package users. Add longer examples
-to `/example` folder.
-
 ```dart
-const like = 'sample';
+final controller = MdEditorController(initialMarkdown: '# Notes\n');
+
+MdEditor(controller: controller);
+
+// A review comment after the paragraph on line 2, by this machine's user.
+controller.addReviewComment(
+  blockStart: 2,
+  blockEnd: 3,
+  text: 'Is this still true?',
+  author: mdLocalCommentAuthor(),
+);
 ```
 
-## Additional information
+`doc/md_editor_specification.md` describes every feature; §11 is reviews,
+§12 browsing.
 
-TODO: Tell users more about the package: where to find more information, how to
-contribute to the package, how to file issues, what response they can expect
-from the package authors, and more.
+## License
+
+BSD-3-Clause — see [LICENSE](LICENSE).

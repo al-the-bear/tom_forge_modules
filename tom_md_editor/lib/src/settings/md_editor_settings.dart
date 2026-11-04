@@ -81,6 +81,7 @@ class MdEditorSettings {
     this.prefixCaseStyle = PrefixCaseStyle.uppercase,
     // Behavior
     this.readOnly = false,
+    this.followTail = false,
     this.confirmDelete = true,
     this.autoSave = false,
     this.autoSaveDebounceMs = MdConstants.defaultAutoSaveDebounceMs,
@@ -172,6 +173,11 @@ class MdEditorSettings {
 
   // ── Behavior ──
   final bool readOnly;
+
+  /// The preview follows the end of a growing document (a live trail):
+  /// while the reader is at the end, new content scrolls into view; once
+  /// they scroll up it stops, and a Follow button starts it again.
+  final bool followTail;
   final bool confirmDelete;
   final bool autoSave;
   final int autoSaveDebounceMs;
@@ -240,6 +246,7 @@ class MdEditorSettings {
     PrefixCaseStyle? prefixCaseStyle,
     // Behavior
     bool? readOnly,
+    bool? followTail,
     bool? confirmDelete,
     bool? autoSave,
     int? autoSaveDebounceMs,
@@ -322,6 +329,7 @@ class MdEditorSettings {
       prefixCaseStyle: prefixCaseStyle ?? this.prefixCaseStyle,
       // Behavior
       readOnly: readOnly ?? this.readOnly,
+      followTail: followTail ?? this.followTail,
       confirmDelete: confirmDelete ?? this.confirmDelete,
       autoSave: autoSave ?? this.autoSave,
       autoSaveDebounceMs: autoSaveDebounceMs ?? this.autoSaveDebounceMs,

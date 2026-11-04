@@ -27,6 +27,10 @@ dependencies:
     path: ../../tom_ai/ai_build/tom_doc_scanner
   tom_doc_specs:
     path: ../../tom_ai/ai_build/tom_doc_specs
+  # The TomSpecs runtime that decides review marks and numbers comments.
+  tom_som_dart_runtime:
+    path: ../../tom_ai/ai_build/tom_som_dart_runtime
+  path: ^1.9.0
   tom_editors_shared:
     path: ../tom_editors_shared
   # The undo stack the controller keeps its edit operations on.

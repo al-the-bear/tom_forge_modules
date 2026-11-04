@@ -17,6 +17,7 @@ import 'svg_file_source.dart';
 import '../../controller/md_editor_controller.dart';
 import '../../debug/md_editor_debug.dart';
 import '../../models/md_section.dart';
+import '../../browser/md_follow_tail.dart';
 import '../../plugins/md_content_plugin.dart';
 import '../../plugins/md_default_plugins.dart';
 import '../../settings/md_editor_settings.dart';
@@ -63,6 +64,9 @@ class MdPreviewPanel extends StatefulWidget {
 class _MdPreviewPanelState extends State<MdPreviewPanel> {
   final ScrollController _scrollController = ScrollController();
 
+  /// Whether the view follows the end ([MdEditorSettings.followTail]).
+  final MdFollowTail _followTail = MdFollowTail();
+
   /// Track last selected section by value (level + headline) to avoid
   /// false-positive change detection after re-parsing.
   (int, String)? _lastSelectedKey;
@@ -82,6 +86,9 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
         widget.pluginRegistry ??
         createDefaultPluginRegistry(settings: widget.settings);
     widget.controller.addListener(_onChanged);
+    if (widget.settings.followTail) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _toEnd());
+    }
   }
 
   @override
@@ -103,6 +110,7 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
     _rebuildTimer?.cancel();
     widget.controller.removeListener(_onChanged);
     _scrollController.dispose();
+    _followTail.dispose();
     super.dispose();
   }
 
@@ -132,8 +140,30 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
     // on every keystroke.
     _rebuildTimer?.cancel();
     _rebuildTimer = Timer(const Duration(milliseconds: 150), () {
-      if (mounted) setState(() {});
+      if (!mounted) return;
+      setState(() {});
+      if (widget.settings.followTail && _followTail.following) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _toEnd());
+      }
     });
+  }
+
+  /// Scrolls to the end of the document (following its tail).
+  void _toEnd() {
+    if (!mounted || !_scrollController.hasClients) return;
+    _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+  }
+
+  /// The reader scrolled: following continues only at the end.
+  bool _onScrollEnd(ScrollEndNotification n) {
+    if (widget.settings.followTail && n.depth == 0) {
+      _followTail.scrolled(
+        pixels: n.metrics.pixels,
+        maxExtent: n.metrics.maxScrollExtent,
+      );
+      setState(() {});
+    }
+    return false;
   }
 
   /// Scroll the heading for [section] to the top of the preview viewport.
@@ -350,7 +380,7 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
         }
       }
 
-      return Scrollbar(
+      final view = Scrollbar(
         controller: _scrollController,
         child: SingleChildScrollView(
           controller: _scrollController,
@@ -417,6 +447,31 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
             ),
           ),
         ),
+      );
+      if (!widget.settings.followTail) return view;
+      return Stack(
+        children: [
+          NotificationListener<ScrollEndNotification>(
+            onNotification: _onScrollEnd,
+            child: view,
+          ),
+          if (!_followTail.following)
+            Positioned(
+              right: 16,
+              bottom: 16,
+              child: ActionChip(
+                key: const ValueKey('md-follow-tail'),
+                avatar: const Icon(Icons.vertical_align_bottom, size: 16),
+                label: const Text('Follow'),
+                tooltip: 'Follow the end of the document',
+                onPressed: () {
+                  _followTail.resume();
+                  setState(() {});
+                  WidgetsBinding.instance.addPostFrameCallback((_) => _toEnd());
+                },
+              ),
+            ),
+        ],
       );
     } catch (e, st) {
       MdEditorDebug.logger.error('Error building markdown view', e, st);

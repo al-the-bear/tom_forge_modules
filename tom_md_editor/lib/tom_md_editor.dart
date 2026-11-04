@@ -46,6 +46,18 @@ export 'src/theme/md_editor_theme.dart';
 // Controller
 export 'src/controller/md_editor_controller.dart';
 
+// Reviews: guarded line edits, CriticMarkup decisions and comments
+export 'src/review/md_line_edit.dart';
+export 'src/review/md_local_author.dart';
+export 'src/review/md_review_comments.dart';
+export 'src/review/md_review_marks.dart';
+
+// Browsing: links into the workspace, history, following a growing file
+export 'src/browser/md_browser_navigator.dart';
+export 'src/browser/md_follow_tail.dart';
+export 'src/browser/md_link_resolver.dart';
+export 'src/browser/md_navigation_history.dart';
+
 // Widgets
 export 'src/widgets/md_editor.dart';
 export 'src/widgets/preview/md_preview_panel.dart';
