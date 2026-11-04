@@ -594,7 +594,7 @@ class DefaultLayoutController implements ForgeLayoutController {
     );
   }
 
-  /// Close a specific editor.
+  @override
   void closeEditor(ForgeEditor editor) {
     _systemState.removeOpenEditor(editor);
     _editorLastFocused.remove(editor);

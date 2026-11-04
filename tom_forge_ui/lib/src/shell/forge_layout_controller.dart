@@ -11,6 +11,11 @@ abstract class ForgeLayoutController {
   void focusComponent(ForgeComponent component);
   void openFile(Uri uri, {int? middlePanelIndex, int? line, int? column});
   void openEditor(ForgeEditor editor, Uri uri, {int? middlePanelIndex});
+
+  /// Closes [editor] in every middle panel and drops it from the open set,
+  /// without asking about unsaved work — for a module whose own model has
+  /// already closed what the editor showed.
+  void closeEditor(ForgeEditor editor);
   Future<void> openFileWith(Uri uri, {int? middlePanelIndex});
   void splitMiddlePanel();
 
