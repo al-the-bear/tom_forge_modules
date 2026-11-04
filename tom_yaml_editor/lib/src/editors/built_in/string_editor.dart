@@ -67,7 +67,12 @@ class _StringEditorState extends State<StringEditor> {
     if (oldWidget.value != widget.value) {
       var newText = widget.value ?? '';
       if (_textController.text != newText) {
-        _textController.text = newText;
+        // The value changed outside the field (an undo or redo): show it with
+        // the caret at the change. The echo is dropped in [_onChanged].
+        _textController.value = TextEditingValue(
+          text: newText,
+          selection: forgeCaretAtChange(_textController.text, newText),
+        );
       }
       _validatePattern(newText);
     }
@@ -95,6 +100,8 @@ class _StringEditorState extends State<StringEditor> {
   void _onChanged(String text) {
     _validatePattern(text);
     setState(() {});
+    // The value set from outside reports back as a change: not an edit.
+    if (text == (widget.value ?? '')) return;
     widget.onChanged?.call(text);
   }
 
@@ -107,6 +114,8 @@ class _StringEditorState extends State<StringEditor> {
 
     return ForgeTextField(
       controller: _textController,
+      // The edits go into the document's history; the field keeps none.
+      undoOwnedByHost: true,
       onTextChanged: widget.readOnly ? null : _onChanged,
       readOnly: widget.readOnly,
       textColor: colors.valueColor,

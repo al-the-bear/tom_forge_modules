@@ -88,8 +88,12 @@ classDiagram
     class YamlEditorController {
         -YamlDocumentModel _document
         -YamlSchema? _schema
-        -UndoStack~YamlEditOperation~ _undoStack
+        -ForgeTextHistory _history
+        -ForgeSavedMarker _saved
         +String yamlText
+        +String sourceText
+        +bool textMode
+        +editSource(text, selection)
         +bool isValid
         +List~String~ errors
         +setValue(path, value)
@@ -256,31 +260,50 @@ classDiagram
 
 ### 3. The undo stack
 
-Undo/redo is not part of `tom_editors_shared`: every editor in the workspace
-keeps its history on `tom_undo`'s `TomUndoStack<E>`
-(`package:tom_forge_core/tom_forge_undo.dart`), a bounded stack that applies an
-entry first and moves it second, so a failed undo leaves the history as it was.
-The YAML controller keeps its `YamlEditOperation`s on it: undo applies
-`revert`, redo applies `apply`.
+The controller keeps the Forge history contract (tom_forge_ui's
+`editor_history_contract.md`) with the shared helpers of `tom_editors_shared`.
+The document is its source text, and its one history is a `ForgeTextHistory`
+over that text (on `tom_undo`'s `TomUndoStack`):
+
+- a tree edit (`YamlEditOperation`) is recorded once it applied and only when
+  it changed the text; edits of the same field with no pause between them
+  (`setValue` on one path) are one entry, every structural edit is its own;
+- typing in source mode (`editSource`) is one entry per gesture, and source
+  that does not parse is a draft the history keeps like any other text — the
+  tree shows the last text that parsed, and leaving source mode needs text
+  that parses;
+- undo and redo restore the text and the caret; the views follow;
+- dirty is a `ForgeSavedMarker` on the source text, so undoing back to the
+  saved text is clean;
+- the mode (`textMode`) is the document's, so split views share it; a mode
+  switch, a save and focus leaving a field end the typing in progress;
+- `replaceContent` (reload, revision restore) makes new text the saved state
+  and clears the history.
+
+The tree's inline fields keep no history of their own (`ForgeTextField`
+with `undoOwnedByHost`, `ForgeEditorOwnsUndo`), drop the echo of a value set
+by undo, put the caret at the change, and number fields write no null while
+typing. Host-registered embedded editors write through `setValue` into the same
+history; their popout reaches it through `ForgeEditorOwnsUndo(onUndo, onRedo)`.
 
 ```mermaid
 classDiagram
-    class TomUndoStack~E~ {
-        +int maxEntries
-        +bool canUndo
-        +bool canRedo
-        +push(entry)
-        +undo(apply) E?
-        +redo(apply) E?
-        +clear()
+    class YamlEditorController {
+        +applyEdit(operation)
+        +editSource(text, selection)
+        +undo()
+        +redo()
+        +flush()
     }
-
-    class YamlEditOperation {
-        +apply(document)
-        +revert(document)
+    class ForgeTextHistory {
+        +edited(state)
+        +selected(selection)
+        +flush()
+        +undo(apply) bool
+        +redo(apply) bool
+        +replace(state)
     }
-
-    TomUndoStack --> YamlEditOperation : holds
+    YamlEditorController --> ForgeTextHistory : one per document
 ```
 
 ### 4. TextEditorCore
@@ -493,8 +516,8 @@ sequenceDiagram
     Controller->>Model: withValueAt(path, "hello")
     Model-->>Controller: new YamlDocumentModel
 
-    Controller->>Controller: push YamlEditOperation to undo stack
-    Controller->>Controller: clear redo stack
+    Controller->>Controller: text changed? record it (merged with the field's typing)
+    Controller->>Controller: compare with the saved text (dirty)
 
     Controller->>Validator: validate(newDocument)
     Validator-->>Controller: List<ValidationError>

@@ -27,7 +27,8 @@ class ForgeYamlEditor extends ForgeSchemaEditor {
   ShellEditorIntegration? _integration;
   ForgeTextEditorOptions _options;
   ForgeDiagnosticCollection? _diagnosticCollection;
-  bool _isTextMode = false;
+  /// The mode is the document's, shared by every view.
+  bool get _isTextMode => controller.textMode;
 
   /// Tracks text-mode selection for action bar enablement.
   TextSelection _textModeSelection = const TextSelection.collapsed(offset: 0);
@@ -98,9 +99,9 @@ class ForgeYamlEditor extends ForgeSchemaEditor {
         TextEditingContextImpl.withValues(
           text: controller.yamlText,
           selections: const [TextSelection.collapsed(offset: 0)],
-          isDirty: controller.isDirtyNotifier.value,
-          canUndo: false,
-          canRedo: false,
+          isDirty: controller.isDirty.value,
+          canUndo: controller.canUndo,
+          canRedo: controller.canRedo,
         ),
       );
     }
@@ -115,7 +116,6 @@ class ForgeYamlEditor extends ForgeSchemaEditor {
   }
 
   void _onTextModeChanged(bool isTextMode) {
-    _isTextMode = isTextMode;
     _stateStreamController.add(null);
   }
 
@@ -128,7 +128,7 @@ class ForgeYamlEditor extends ForgeSchemaEditor {
         TextEditingContextImpl.withValues(
           text: controller.yamlText,
           selections: [selection],
-          isDirty: controller.isDirtyNotifier.value,
+          isDirty: controller.isDirty.value,
           canUndo: controller.canUndo,
           canRedo: controller.canRedo,
         ),
@@ -187,7 +187,7 @@ class ForgeYamlEditor extends ForgeSchemaEditor {
   Uri get uri => controller.uri ?? Uri.parse('untitled:yaml');
 
   @override
-  ValueListenable<bool> get isDirty => controller.isDirtyNotifier;
+  ValueListenable<bool> get isDirty => controller.isDirty;
 
   @override
   void markClean() {
@@ -201,7 +201,7 @@ class ForgeYamlEditor extends ForgeSchemaEditor {
   }
 
   @override
-  String? getContent() => controller.yamlText;
+  String? getContent() => controller.sourceText;
 
   @override
   Map<String, dynamic>? saveState() {
@@ -291,9 +291,9 @@ class ForgeYamlEditor extends ForgeSchemaEditor {
         TextEditingContextImpl.withValues(
           text: controller.yamlText,
           selections: const [TextSelection.collapsed(offset: 0)],
-          isDirty: controller.isDirtyNotifier.value,
-          canUndo: false,
-          canRedo: false,
+          isDirty: controller.isDirty.value,
+          canUndo: controller.canUndo,
+          canRedo: controller.canRedo,
         ),
       );
     }

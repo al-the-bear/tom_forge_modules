@@ -264,7 +264,7 @@ class _YamlTextContext implements ForgeTextContext {
   int get currentColumn => 1;
 
   @override
-  bool get isDirty => controller.isDirtyNotifier.value;
+  bool get isDirty => controller.isDirty.value;
 
   @override
   bool get canUndo => controller.canUndo;

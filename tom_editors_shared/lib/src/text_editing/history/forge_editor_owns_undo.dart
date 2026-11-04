@@ -13,17 +13,39 @@ import 'package:flutter/widgets.dart';
 ///
 /// Wrap the editor's text field (outside the editor's own `Shortcuts`, so
 /// its keys still reach its own history first).
+///
+/// [onUndo] and [onRedo] are for a field shown outside the editor's key map
+/// — a popout route over the document — where the platform's undo keys
+/// should still reach the document's history: the two intents then call them.
+/// Without them the intents do nothing.
 class ForgeEditorOwnsUndo extends StatelessWidget {
-  const ForgeEditorOwnsUndo({super.key, required this.child});
+  const ForgeEditorOwnsUndo({
+    super.key,
+    required this.child,
+    this.onUndo,
+    this.onRedo,
+  });
 
   final Widget child;
+  final VoidCallback? onUndo;
+  final VoidCallback? onRedo;
 
   @override
   Widget build(BuildContext context) => Actions(
     actions: <Type, Action<Intent>>{
       // Typed per intent: UndoHistory casts the override to its intent.
-      UndoTextIntent: CallbackAction<UndoTextIntent>(onInvoke: (_) => null),
-      RedoTextIntent: CallbackAction<RedoTextIntent>(onInvoke: (_) => null),
+      UndoTextIntent: CallbackAction<UndoTextIntent>(
+        onInvoke: (_) {
+          onUndo?.call();
+          return null;
+        },
+      ),
+      RedoTextIntent: CallbackAction<RedoTextIntent>(
+        onInvoke: (_) {
+          onRedo?.call();
+          return null;
+        },
+      ),
     },
     child: child,
   );

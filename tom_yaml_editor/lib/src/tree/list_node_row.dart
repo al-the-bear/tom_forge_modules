@@ -257,18 +257,16 @@ class _ListNodeRowState extends State<ListNodeRow> {
                 readOnly: widget.readOnly,
                 // (d) "Add Key" button when this list item IS a map.
                 onAdd: _data.isContainer && _data.yamlNode?.value is Map
-                    ? (key) => widget.controller.insertKey(
-                          _data.path, key, _defaultValueForKey(key))
+                    ? (key) => widget.controller
+                        .insertKey(_data.path, key, _defaultValueForKey(key))
                     : null,
-                onAddWithType:
-                    _data.isContainer && _data.yamlNode?.value is Map
-                        ? (key, value) =>
-                            widget.controller.insertKey(_data.path, key, value)
-                        : null,
-                suggestedKeys:
-                    _data.isContainer && _data.yamlNode?.value is Map
-                        ? widget.controller.suggestedKeys(_data.path)
-                        : [],
+                onAddWithType: _data.isContainer && _data.yamlNode?.value is Map
+                    ? (key, value) =>
+                        widget.controller.insertKey(_data.path, key, value)
+                    : null,
+                suggestedKeys: _data.isContainer && _data.yamlNode?.value is Map
+                    ? widget.controller.suggestedKeys(_data.path)
+                    : [],
                 parentSchemaNode:
                     _data.isContainer && _data.yamlNode?.value is Map
                         ? _data.schemaNode
@@ -286,11 +284,11 @@ class _ListNodeRowState extends State<ListNodeRow> {
                 canMoveDown: canMoveDown,
                 onMoveUp: canMoveUp
                     ? () => widget.controller.moveListItem(
-                          _parentListPath, _currentIndex, _currentIndex - 1)
+                        _parentListPath, _currentIndex, _currentIndex - 1)
                     : null,
                 onMoveDown: canMoveDown
                     ? () => widget.controller.moveListItem(
-                          _parentListPath, _currentIndex, _currentIndex + 2)
+                        _parentListPath, _currentIndex, _currentIndex + 2)
                     : null,
                 canRemove: true,
                 alwaysShowRemove: true,
@@ -365,8 +363,7 @@ class _ListNodeRowState extends State<ListNodeRow> {
     final parentPath = _parentListPath;
     final currentIndex = _currentIndex;
     final length = widget.controller.listLength(parentPath);
-    final isMapContainer =
-        _data.isContainer && _data.yamlNode?.value is Map;
+    final isMapContainer = _data.isContainer && _data.yamlNode?.value is Map;
 
     final action = await showListContextMenu(
       context: menuContext,
@@ -387,12 +384,12 @@ class _ListNodeRowState extends State<ListNodeRow> {
     try {
       switch (action) {
         case ListContextAction.moveUp:
-          widget.controller.moveListItem(
-              parentPath, currentIndex, currentIndex - 1);
+          widget.controller
+              .moveListItem(parentPath, currentIndex, currentIndex - 1);
           return;
         case ListContextAction.moveDown:
-          widget.controller.moveListItem(
-              parentPath, currentIndex, currentIndex + 1);
+          widget.controller
+              .moveListItem(parentPath, currentIndex, currentIndex + 1);
           return;
         case ListContextAction.moveToTop:
           trailEvent('listRow: moveToTop idx=$currentIndex -> 0');
@@ -403,9 +400,10 @@ class _ListNodeRowState extends State<ListNodeRow> {
           widget.controller.moveListItem(parentPath, currentIndex, length);
           return;
         case ListContextAction.duplicate:
-          trailEvent('listRow: duplicate idx=$currentIndex val=${trailTruncate(_data.value)}');
-          widget.controller.insertListItem(
-              parentPath, currentIndex + 1, _data.value);
+          trailEvent(
+              'listRow: duplicate idx=$currentIndex val=${trailTruncate(_data.value)}');
+          widget.controller
+              .insertListItem(parentPath, currentIndex + 1, _data.value);
           return;
         case ListContextAction.remove:
           widget.controller.removeKey(_data.path);
@@ -432,11 +430,13 @@ class _ListNodeRowState extends State<ListNodeRow> {
           final pathAbove = parentPath;
           final indexAbove = currentIndex;
           trailEvent('listRow: insertAbove picking value');
-          final pickedAbove = await _pickInsertValue(
-              navigator.context, globalPosition);
-          trailEvent('listRow: insertAbove result=${trailTruncate(pickedAbove?.value)}');
+          final pickedAbove =
+              await _pickInsertValue(navigator.context, globalPosition);
+          trailEvent(
+              'listRow: insertAbove result=${trailTruncate(pickedAbove?.value)}');
           if (pickedAbove == null) return;
-          controllerAbove.insertListItem(pathAbove, indexAbove, pickedAbove.value);
+          controllerAbove.insertListItem(
+              pathAbove, indexAbove, pickedAbove.value);
           return;
         case ListContextAction.insertBelow:
           trailEvent('listRow: insertBelow ENTERED');
@@ -445,18 +445,21 @@ class _ListNodeRowState extends State<ListNodeRow> {
           final pathBelow = parentPath;
           final indexBelow = currentIndex + 1;
           trailEvent('listRow: insertBelow picking value');
-          final pickedBelow = await _pickInsertValue(
-              navigator.context, globalPosition);
-          trailEvent('listRow: insertBelow result=${trailTruncate(pickedBelow?.value)}');
+          final pickedBelow =
+              await _pickInsertValue(navigator.context, globalPosition);
+          trailEvent(
+              'listRow: insertBelow result=${trailTruncate(pickedBelow?.value)}');
           if (pickedBelow == null) return;
-          controllerBelow.insertListItem(pathBelow, indexBelow, pickedBelow.value);
+          controllerBelow.insertListItem(
+              pathBelow, indexBelow, pickedBelow.value);
           return;
         case ListContextAction.addKey:
           // Capture references before any async operation - widget may unmount
           final addKeyController = widget.controller;
           final addKeyPath = _data.path;
           final addKeySchemaNode = _data.schemaNode;
-          trailEvent('listRow: addKey opening dialog allowed=${addKeyController.suggestedKeys(addKeyPath)}');
+          trailEvent(
+              'listRow: addKey opening dialog allowed=${addKeyController.suggestedKeys(addKeyPath)}');
           final addResult = await showAddKeyDialog(
             navigator.context,
             parentSchema: addKeySchemaNode,
@@ -464,7 +467,8 @@ class _ListNodeRowState extends State<ListNodeRow> {
           );
           trailEvent('listRow: addKey result=${addResult?.key}');
           if (addResult == null) return;
-          addKeyController.insertKey(addKeyPath, addResult.key, addResult.value);
+          addKeyController.insertKey(
+              addKeyPath, addResult.key, addResult.value);
           return;
       }
     } catch (e, st) {
@@ -591,6 +595,9 @@ class _ListNodeRowState extends State<ListNodeRow> {
         theme: widget.theme,
         readOnly: widget.readOnly,
       );
+      // A host-registered editor writes through setValue into the document's
+      // history; its own text fields keep none.
+      editor = ForgeEditorOwnsUndo(child: editor);
 
       if (resolved.supportsPopout) {
         return EditorPopoutShell(
@@ -599,14 +606,20 @@ class _ListNodeRowState extends State<ListNodeRow> {
           embeddedEditor: editor,
           popoutBuilder: (_) => Padding(
             padding: const EdgeInsets.all(8),
-            child: (resolved.popoutFactory ?? resolved.factory)(
-              key: parentKey,
-              value: _data.value,
-              onChanged: widget.readOnly
-                  ? (_) {}
-                  : (v) => widget.controller.setValue(_data.path, v),
-              theme: widget.theme,
-              readOnly: widget.readOnly,
+            // The popout route is outside the editor's key map: the
+            // platform's undo keys reach the document's history here.
+            child: ForgeEditorOwnsUndo(
+              onUndo: widget.controller.undo,
+              onRedo: widget.controller.redo,
+              child: (resolved.popoutFactory ?? resolved.factory)(
+                key: parentKey,
+                value: _data.value,
+                onChanged: widget.readOnly
+                    ? (_) {}
+                    : (v) => widget.controller.setValue(_data.path, v),
+                theme: widget.theme,
+                readOnly: widget.readOnly,
+              ),
             ),
           ),
         );

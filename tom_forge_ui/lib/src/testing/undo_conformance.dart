@@ -92,6 +92,11 @@ abstract class ForgeUndoSubject {
   String textOfView(WidgetTester tester, Finder view) =>
       controllerOf(tester, view).text;
 
+  /// The file content that makes [text] the document's text — for a
+  /// subject whose document holds its text inside a structure (a YAML
+  /// field). By default the text itself.
+  String contentFor(String text) => text;
+
   /// What Save does to the editor once the file is written.
   void saved() => editor.markClean();
 
@@ -263,7 +268,7 @@ void runForgeUndoConformance(
         final s = await mount(tester, 'old', withCopy: true);
         await s.type(tester, ' edit');
         await tester.pump(forgeTypingPause);
-        expect(s.editor.replaceContent('from disk'), isTrue);
+        expect(s.editor.replaceContent(s.contentFor('from disk')), isTrue);
         await tester.pumpAndSettle();
         expect(s.textOf(tester), 'from disk');
         expect(

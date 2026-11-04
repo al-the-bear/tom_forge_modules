@@ -61,6 +61,7 @@ export 'src/text_editing/forge_text_settings.dart';
 export 'src/text_editing/forge_text_context.dart';
 export 'src/text_editing/forge_editor_integration.dart';
 export 'src/text_editing/text_undo_entry.dart';
+export 'src/text_editing/history/forge_caret_at_change.dart';
 export 'src/text_editing/history/forge_editor_owns_undo.dart';
 export 'src/text_editing/history/forge_saved_marker.dart';
 export 'src/text_editing/history/forge_text_history.dart';

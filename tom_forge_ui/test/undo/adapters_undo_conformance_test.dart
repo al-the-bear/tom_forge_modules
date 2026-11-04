@@ -6,15 +6,19 @@
 /// refused while typing is pending, its copy keeps a second history, dirty is
 /// "anything changed"); the Dart editor meets typingUndoneWithinPause and
 /// replaceContentClearsHistory (its document text lags the view, dirty is
-/// "anything changed", the copy keeps a second history). The Markdown and
-/// YAML editors join this file in wonecmpc22 and wonecmpc20, which write
-/// their subjects (neither edits through one plain text field).
+/// "anything changed", the copy keeps a second history). The YAML editor
+/// meets every check in both modes (wonecmpc20): in source mode its document
+/// is the text; in tree mode the text is the value of one string field. The
+/// Markdown editor joins this file in wonecmpc22, which writes its subject.
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_dart_editor/tom_dart_editor.dart' show DartCodeController;
 import 'package:tom_forge_ui/testing.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_yaml_editor/tom_yaml_editor.dart'
+    show StringEditor, YamlEditorController, kYamlEditorDebug;
 
 DefaultShellApi _shell() => DefaultShellApi.withDefaults(
   fileSystemSeed: const {},
@@ -28,6 +32,22 @@ const _plainText = 'wonecmpc23 (the plain-text editor rebuilt on ForgeFileSessio
 const _dart = 'wonecmpc21 (the Dart editor on the contract)';
 
 void main() {
+  // The YAML editor's debug trail replaces FlutterError.onError, which a
+  // failing widget test cannot survive.
+  setUp(() => kYamlEditorDebug = false);
+
+  runForgeUndoConformance(
+    'YAML editor, source mode',
+    (saved) => _Subject(
+      ForgeYamlEditor(
+        controller: YamlEditorController(initialYaml: saved)..textMode = true,
+        module: _module(),
+      ),
+    ),
+  );
+
+  runForgeUndoConformance('YAML editor, tree mode', _YamlTreeSubject.new);
+
   runForgeUndoConformance(
     'plain-text editor',
     (saved) => _Subject(
@@ -68,4 +88,39 @@ class _Subject extends ForgeUndoSubject {
 
   @override
   final ForgeEditor editor;
+}
+
+/// The YAML editor in tree mode: the document is `v: <text>`, and the text
+/// is edited in that one string field.
+class _YamlTreeSubject extends ForgeUndoSubject {
+  _YamlTreeSubject(String saved)
+    : editor = ForgeYamlEditor(
+        controller: YamlEditorController(initialYaml: _yaml(saved)),
+        module: _module(),
+      );
+
+  static String _yaml(String text) => 'v: "$text"\n';
+
+  @override
+  final ForgeYamlEditor editor;
+
+  @override
+  String contentFor(String text) => _yaml(text);
+
+  @override
+  TextEditingController controllerOf(WidgetTester tester, Finder view) =>
+      tester
+          .widget<EditableText>(
+            find.descendant(
+              of: find.descendant(of: view, matching: find.byType(StringEditor)),
+              matching: find.byType(EditableText),
+            ),
+          )
+          .controller;
+
+  @override
+  String textOf(WidgetTester tester) {
+    final value = editor.controller.document.nodeAt(const ['v'])?.value;
+    return (value ?? '').toString();
+  }
 }

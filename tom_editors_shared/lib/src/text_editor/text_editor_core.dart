@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../text_editing/forge_editor_integration.dart';
+import '../text_editing/history/forge_editor_owns_undo.dart';
 import '../text_editing/standard_editing_actions.dart';
 import 'syntax_highlighter.dart';
 import 'text_editor_theme.dart';
@@ -60,6 +61,20 @@ class TextEditorCore extends StatefulWidget {
   /// Callback when the text selection changes.
   final ValueChanged<TextSelection>? onSelectionChanged;
 
+  /// Called on every change of the text or the selection, with both — for a
+  /// host that keeps the document's history and must tell typing from a
+  /// caret move.
+  final ValueChanged<TextEditingValue>? onValueChanged;
+
+  /// Whether the host keeps the document's history (the default): Flutter's
+  /// own text undo is then off ([ForgeEditorOwnsUndo]). A host editing a
+  /// scratch draft with no history of its own passes false and keeps it.
+  final bool hostOwnsUndo;
+
+  /// The selection to show with [text] when the text arrives from outside
+  /// (an undo restoring the caret); null keeps the caret where it was.
+  final TextSelection? selection;
+
   const TextEditorCore({
     super.key,
     required this.text,
@@ -67,6 +82,9 @@ class TextEditorCore extends StatefulWidget {
     this.markers = const [],
     this.onTextChanged,
     this.onSelectionChanged,
+    this.onValueChanged,
+    this.selection,
+    this.hostOwnsUndo = true,
     this.readOnly = false,
     this.theme = const TextEditorTheme(),
     this.initialCursorOffset,
@@ -275,8 +293,7 @@ class _TextEditorCoreState extends State<TextEditorCore> {
     String newLine;
     if (trimmed.startsWith(prefix)) {
       newLine = line.substring(0, indent) + trimmed.substring(prefix.length);
-    } else if (prefix.endsWith(' ') &&
-        trimmed.startsWith(prefix.trimRight())) {
+    } else if (prefix.endsWith(' ') && trimmed.startsWith(prefix.trimRight())) {
       newLine = line.substring(0, indent) +
           trimmed.substring(prefix.trimRight().length);
     } else {
@@ -302,10 +319,8 @@ class _TextEditorCoreState extends State<TextEditorCore> {
     final text = _textController.text;
     final selected = sel.textInside(text);
     Clipboard.setData(ClipboardData(text: selected));
-    _textController.text =
-        sel.textBefore(text) + sel.textAfter(text);
-    _textController.selection =
-        TextSelection.collapsed(offset: sel.start);
+    _textController.text = sel.textBefore(text) + sel.textAfter(text);
+    _textController.selection = TextSelection.collapsed(offset: sel.start);
   }
 
   void _doCopy() {
@@ -320,8 +335,7 @@ class _TextEditorCoreState extends State<TextEditorCore> {
     if (data?.text == null) return;
     final sel = _textController.selection;
     final text = _textController.text;
-    final newText =
-        sel.textBefore(text) + data!.text! + sel.textAfter(text);
+    final newText = sel.textBefore(text) + data!.text! + sel.textAfter(text);
     _textController.text = newText;
     _textController.selection = TextSelection.collapsed(
       offset: sel.start + data.text!.length,
@@ -343,12 +357,20 @@ class _TextEditorCoreState extends State<TextEditorCore> {
     _textController.markers = widget.markers;
 
     if (oldWidget.text != widget.text && widget.text != _textController.text) {
-      // Preserve cursor position when text changes externally
-      var offset = _textController.selection.baseOffset;
-      _textController.text = widget.text;
-      if (offset <= widget.text.length) {
-        _textController.selection = TextSelection.collapsed(offset: offset);
-      }
+      // The text arrived from outside: show it with the host's selection, or
+      // keep the caret where it was. The host hears nothing of it.
+      final selection = widget.selection;
+      final offset = _textController.selection.baseOffset;
+      _textController.removeListener(_onTextChanged);
+      _textController.value = TextEditingValue(
+        text: widget.text,
+        selection: selection != null && selection.end <= widget.text.length
+            ? selection
+            : TextSelection.collapsed(
+                offset: offset.clamp(0, widget.text.length),
+              ),
+      );
+      _textController.addListener(_onTextChanged);
     }
 
     if (oldWidget.highlighter != widget.highlighter ||
@@ -374,6 +396,7 @@ class _TextEditorCoreState extends State<TextEditorCore> {
     _currentLine = _lineAtOffset(text, offset);
 
     widget.onSelectionChanged?.call(selection);
+    widget.onValueChanged?.call(_textController.value);
 
     if (text != widget.text) {
       widget.onTextChanged?.call(text);
@@ -447,30 +470,32 @@ class _TextEditorCoreState extends State<TextEditorCore> {
   }
 
   Widget _buildTextArea() {
+    final field = TextField(
+      controller: _textController,
+      focusNode: _focusNode,
+      style: widget.theme.textStyle,
+      cursorColor: Colors.white,
+      maxLines: null,
+      readOnly: widget.readOnly,
+      decoration: const InputDecoration(
+        border: InputBorder.none,
+        contentPadding: EdgeInsets.zero,
+        isDense: true,
+      ),
+      strutStyle: StrutStyle.fromTextStyle(widget.theme.textStyle),
+      // TextField provides mouse selection, context menu, and Ctrl+C/V/A
+      // automatically — unlike EditableText which is lower-level.
+      enableInteractiveSelection: true,
+      contextMenuBuilder: (context, editableTextState) {
+        return AdaptiveTextSelectionToolbar.editableText(
+          editableTextState: editableTextState,
+        );
+      },
+    );
     return Padding(
       padding: widget.theme.contentPadding,
-      child: TextField(
-        controller: _textController,
-        focusNode: _focusNode,
-        style: widget.theme.textStyle,
-        cursorColor: Colors.white,
-        maxLines: null,
-        readOnly: widget.readOnly,
-        decoration: const InputDecoration(
-          border: InputBorder.none,
-          contentPadding: EdgeInsets.zero,
-          isDense: true,
-        ),
-        strutStyle: StrutStyle.fromTextStyle(widget.theme.textStyle),
-        // TextField provides mouse selection, context menu, and Ctrl+C/V/A
-        // automatically — unlike EditableText which is lower-level.
-        enableInteractiveSelection: true,
-        contextMenuBuilder: (context, editableTextState) {
-          return AdaptiveTextSelectionToolbar.editableText(
-            editableTextState: editableTextState,
-          );
-        },
-      ),
+      // A host that keeps the history turns Flutter's own text undo off.
+      child: widget.hostOwnsUndo ? ForgeEditorOwnsUndo(child: field) : field,
     );
   }
 

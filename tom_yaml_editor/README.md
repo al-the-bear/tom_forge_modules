@@ -25,7 +25,11 @@ features.
   highlighting
 - **Full theming** — colours, fonts, structure indicators, and embedded-editor
   chrome are all customisable via `YamlEditorTheme`
-- **Undo/redo** — the edit operations kept on `tom_undo`'s `TomUndoStack`
+- **Undo/redo** — one history per document (`ForgeTextHistory` over the
+  source text), shared by tree and source mode and every view: typing in the
+  source or in one field is one entry per gesture, a source draft that does
+  not parse survives undo and redo, dirty is measured against the saved text
+  (the Forge history contract)
 - **Tree view** — collapsible, keyboard-navigable YAML structure tree
 
 ## Quick Start

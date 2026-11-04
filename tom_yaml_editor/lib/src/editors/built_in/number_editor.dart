@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'package:tom_editors_shared/tom_editors_shared.dart'
+    show ForgeEditorOwnsUndo, forgeCaretAtChange;
+
 import '../../schema/yaml_schema.dart';
 import '../../yaml_editor_theme.dart';
 
@@ -56,6 +59,7 @@ class NumberEditor extends StatefulWidget {
 
 class _NumberEditorState extends State<NumberEditor> {
   late TextEditingController _textController;
+  final FocusNode _focusNode = FocusNode();
   bool _isInRange = true;
 
   num? get _currentNum => num.tryParse(_textController.text);
@@ -65,6 +69,7 @@ class _NumberEditorState extends State<NumberEditor> {
     super.initState();
     _textController = TextEditingController(text: _formatValue(widget.value));
     _validateRange(_currentNum);
+    _focusNode.addListener(_onFocusChanged);
   }
 
   @override
@@ -73,7 +78,12 @@ class _NumberEditorState extends State<NumberEditor> {
     if (oldWidget.value != widget.value) {
       var formatted = _formatValue(widget.value);
       if (_textController.text != formatted) {
-        _textController.text = formatted;
+        // The value changed outside the field (an undo or redo): show it
+        // with the caret at the change.
+        _textController.value = TextEditingValue(
+          text: formatted,
+          selection: forgeCaretAtChange(_textController.text, formatted),
+        );
       }
       _validateRange(_currentNum);
     }
@@ -81,6 +91,8 @@ class _NumberEditorState extends State<NumberEditor> {
 
   @override
   void dispose() {
+    _focusNode.removeListener(_onFocusChanged);
+    _focusNode.dispose();
     _textController.dispose();
     super.dispose();
   }
@@ -103,11 +115,30 @@ class _NumberEditorState extends State<NumberEditor> {
     if (max != null && value > max) _isInRange = false;
   }
 
+  /// Writes each number the field holds while typing — never the empty or
+  /// half-typed text between two numbers (`''`, `-`, `1.`), which would put
+  /// an intermediate null into the document. Leaving the field settles it.
   void _onChanged(String text) {
     var parsed = num.tryParse(text);
     _validateRange(parsed);
     setState(() {});
-    widget.onChanged?.call(parsed);
+    if (parsed != null && parsed != widget.value) {
+      widget.onChanged?.call(parsed);
+    }
+  }
+
+  /// Focus left the field: an emptied field is the value removed; text that
+  /// is no number shows the value again.
+  void _onFocusChanged() {
+    if (_focusNode.hasFocus || widget.readOnly) return;
+    final text = _textController.text;
+    if (text.isEmpty) {
+      if (widget.value != null) widget.onChanged?.call(null);
+    } else if (num.tryParse(text) == null) {
+      _textController.text = _formatValue(widget.value);
+      _validateRange(_currentNum);
+      setState(() {});
+    }
   }
 
   void _step(double delta) {
@@ -135,49 +166,53 @@ class _NumberEditorState extends State<NumberEditor> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Flexible(
-          child: TextField(
-            controller: _textController,
-            onChanged: widget.readOnly ? null : _onChanged,
-            readOnly: widget.readOnly,
-            keyboardType: const TextInputType.numberWithOptions(
-              signed: true,
-              decimal: true,
-            ),
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'^-?\d*\.?\d*$')),
-            ],
-            style: TextStyle(
-              fontFamily: fonts.valueFontFamily,
-              fontSize: fonts.valueFontSize,
-              fontWeight: fonts.valueFontWeight,
-              color: colors.numberColor,
-              height: fonts.lineHeight,
-            ),
-            decoration: InputDecoration(
-              isDense: true,
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              hintText: _hintText,
-              hintStyle: TextStyle(
+          // The edits go into the document's history; the field keeps none.
+          child: ForgeEditorOwnsUndo(
+            child: TextField(
+              controller: _textController,
+              focusNode: _focusNode,
+              onChanged: widget.readOnly ? null : _onChanged,
+              readOnly: widget.readOnly,
+              keyboardType: const TextInputType.numberWithOptions(
+                signed: true,
+                decimal: true,
+              ),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'^-?\d*\.?\d*$')),
+              ],
+              style: TextStyle(
                 fontFamily: fonts.valueFontFamily,
                 fontSize: fonts.valueFontSize,
-                color: colors.hintColor,
+                fontWeight: fonts.valueFontWeight,
+                color: colors.numberColor,
+                height: fonts.lineHeight,
               ),
-              filled: true,
-              fillColor: colors.surface,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(4),
-                borderSide: BorderSide(color: borderColor, width: 1),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(4),
-                borderSide: BorderSide(color: borderColor, width: 1),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(4),
-                borderSide: BorderSide(
-                  color: _isInRange ? colors.keyColor : colors.errorColor,
-                  width: 1.5,
+              decoration: InputDecoration(
+                isDense: true,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                hintText: _hintText,
+                hintStyle: TextStyle(
+                  fontFamily: fonts.valueFontFamily,
+                  fontSize: fonts.valueFontSize,
+                  color: colors.hintColor,
+                ),
+                filled: true,
+                fillColor: colors.surface,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: BorderSide(color: borderColor, width: 1),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: BorderSide(color: borderColor, width: 1),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: BorderSide(
+                    color: _isInRange ? colors.keyColor : colors.errorColor,
+                    width: 1.5,
+                  ),
                 ),
               ),
             ),

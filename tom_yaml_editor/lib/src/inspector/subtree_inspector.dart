@@ -426,6 +426,7 @@ class SubtreeInspectorState extends State<SubtreeInspector> {
       highlighter: _highlighter,
       markers: _markers,
       onTextChanged: widget.readOnly ? null : _onTextChanged,
+      hostOwnsUndo: false,
       readOnly: widget.readOnly,
       theme: textEditorTheme,
     );

@@ -66,6 +66,7 @@ library;
 // Core editor widget and controller
 export 'src/yaml_schema_editor.dart' show YamlSchemaEditor;
 export 'src/yaml_editor_controller.dart' show YamlEditorController;
+export 'src/tree/editor_trail.dart' show kYamlEditorDebug;
 export 'src/simple_yaml_schema_editor.dart' show SimpleYamlSchemaEditor;
 
 // Theme system

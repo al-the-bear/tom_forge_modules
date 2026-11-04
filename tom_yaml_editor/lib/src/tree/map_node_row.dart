@@ -151,8 +151,10 @@ class _MapNodeRowState extends State<MapNodeRow> {
     var useFlexibleKeyLabel = widget.isRoot || widget.isTopLevel;
 
     // Map key reorder support (skip for root / top-level).
-    final canReorder = !widget.readOnly && !widget.isRoot && _parentPath.isNotEmpty;
-    final keyIndex = canReorder ? widget.controller.mapKeyIndex(_data.path) : -1;
+    final canReorder =
+        !widget.readOnly && !widget.isRoot && _parentPath.isNotEmpty;
+    final keyIndex =
+        canReorder ? widget.controller.mapKeyIndex(_data.path) : -1;
     final keyCount = canReorder ? widget.controller.mapKeyCount(_data.path) : 0;
     final canMoveUp = canReorder && keyIndex > 0;
     final canMoveDown = canReorder && keyIndex >= 0 && keyIndex < keyCount - 1;
@@ -289,15 +291,13 @@ class _MapNodeRowState extends State<MapNodeRow> {
                     : [],
                 // Pass the container's own schema so the + button dialog
                 // can show schema-based key suggestions.
-                parentSchemaNode:
-                    _data.isContainer ? _data.schemaNode : null,
-                onAddItem:
-                    _data.isContainer && (_data.yamlNode?.value is List)
-                        ? () => widget.controller.appendListItem(
-                              _data.path,
-                              _defaultListItemValue(),
-                            )
-                        : null,
+                parentSchemaNode: _data.isContainer ? _data.schemaNode : null,
+                onAddItem: _data.isContainer && (_data.yamlNode?.value is List)
+                    ? () => widget.controller.appendListItem(
+                          _data.path,
+                          _defaultListItemValue(),
+                        )
+                    : null,
                 addItemTooltip: 'Add list item',
                 canRemove: !_data.isRequired,
                 alwaysShowRemove: true,
@@ -469,7 +469,8 @@ class _MapNodeRowState extends State<MapNodeRow> {
           );
           trailEvent('mapRow: addKey result=${addResult?.key}');
           if (addResult == null) return;
-          addKeyController.insertKey(addKeyPath, addResult.key, addResult.value);
+          addKeyController.insertKey(
+              addKeyPath, addResult.key, addResult.value);
           return;
       }
     } catch (e, st) {
@@ -502,6 +503,9 @@ class _MapNodeRowState extends State<MapNodeRow> {
         theme: widget.theme,
         readOnly: widget.readOnly,
       );
+      // A host-registered editor writes through setValue into the document's
+      // history; its own text fields keep none.
+      editor = ForgeEditorOwnsUndo(child: editor);
 
       if (resolved.supportsPopout) {
         return EditorPopoutShell(
@@ -510,14 +514,20 @@ class _MapNodeRowState extends State<MapNodeRow> {
           embeddedEditor: editor,
           popoutBuilder: (_) => Padding(
             padding: const EdgeInsets.all(8),
-            child: (resolved.popoutFactory ?? resolved.factory)(
-              key: _data.key,
-              value: _data.value,
-              onChanged: widget.readOnly
-                  ? (_) {}
-                  : (v) => widget.controller.setValue(_data.path, v),
-              theme: widget.theme,
-              readOnly: widget.readOnly,
+            // The popout route is outside the editor's key map: the
+            // platform's undo keys reach the document's history here.
+            child: ForgeEditorOwnsUndo(
+              onUndo: widget.controller.undo,
+              onRedo: widget.controller.redo,
+              child: (resolved.popoutFactory ?? resolved.factory)(
+                key: _data.key,
+                value: _data.value,
+                onChanged: widget.readOnly
+                    ? (_) {}
+                    : (v) => widget.controller.setValue(_data.path, v),
+                theme: widget.theme,
+                readOnly: widget.readOnly,
+              ),
             ),
           ),
         );

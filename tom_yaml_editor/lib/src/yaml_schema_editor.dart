@@ -158,15 +158,11 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
   Map<String, double> _computedKeyWidths = {};
 
   bool _textInputFocused = false;
-  bool _textMode = false;
-  String _textDraft = '';
-  String? _textParseError;
-
-  /// True while [_onTextDraftChanged] is pushing text into the controller.
-  /// Prevents [_onControllerChanged] from overwriting [_textDraft] with the
-  /// YAML-normalized round-trip, which would cause text/selection oscillation.
-  bool _isSyncingFromTextEditor = false;
+  /// Diagnostics of the source text, recomputed when it changes.
   List<TextMarker> _textMarkers = const [];
+  String? _markersFor;
+
+  bool get _textMode => widget.controller.textMode;
 
   /// Heartbeat timer: fires every second to show the main isolate is still
   /// alive. If [YE] heartbeats stop appearing after a trail event, that event's
@@ -206,7 +202,6 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
     _schemaWalker = widget.controller.schema != null
         ? SchemaWalker(widget.controller.schema!)
         : null;
-    _textDraft = widget.controller.yamlText;
     _treeController = TreeController<YamlTreeData>(roots: []);
     _setupIntegration();
     _rebuildTree();
@@ -299,32 +294,6 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
     };
   }
 
-  /// Direct key-event handler for undo and redo that fires before the
-  /// Shortcuts/Actions chain. When inline text fields in tree-node rows hold
-  /// the primary focus, their own text-editing shortcuts would take the keys
-  /// first; this handler answers the undo and redo keys of [_shortcuts] — the
-  /// same keys as everywhere else — with the document's history.
-  KeyEventResult _handleUndoKeyEvent(FocusNode node, KeyEvent event) {
-    if (!widget.handleShortcuts) return KeyEventResult.ignored;
-    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
-      return KeyEventResult.ignored;
-    }
-    for (final entry in _shortcuts.entries) {
-      final intent = entry.value;
-      if (intent is! _YamlEditorActionIntent) continue;
-      if (!entry.key.accepts(event, HardwareKeyboard.instance)) continue;
-      switch (intent.actionId) {
-        case StandardEditingActions.undoActionId:
-          widget.controller.undo();
-          return KeyEventResult.handled;
-        case StandardEditingActions.redoActionId:
-          widget.controller.redo();
-          return KeyEventResult.handled;
-      }
-    }
-    return KeyEventResult.ignored;
-  }
-
   @override
   void didUpdateWidget(YamlSchemaEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -341,10 +310,6 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
       _initialExpansionApplied = false;
       _treeController.dispose();
       _treeController = TreeController<YamlTreeData>(roots: []);
-
-      if (!_textMode) {
-        _textDraft = widget.controller.yamlText;
-      }
 
       // Re-setup integration for the new controller
       _releaseIntegration();
@@ -372,8 +337,17 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
     super.dispose();
   }
 
+  FocusNode? _lastPrimaryFocus;
+
   void _onPrimaryFocusChanged() {
-    var focusContext = FocusManager.instance.primaryFocus?.context;
+    final primary = FocusManager.instance.primaryFocus;
+    if (!identical(primary, _lastPrimaryFocus)) {
+      _lastPrimaryFocus = primary;
+      // Focus moved (a field left, the source view blurred): a history
+      // boundary, so the typing in progress becomes its own entry.
+      widget.controller.flush();
+    }
+    var focusContext = primary?.context;
     var isTextFocused = focusContext?.widget is EditableText;
     if (isTextFocused != _textInputFocused && mounted) {
       trailEvent('focusChange: textFocused $isTextFocused (was $_textInputFocused)');
@@ -397,26 +371,6 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
         library: 'yaml_schema_editor',
         context: ErrorDescription('_rebuildTree in _onControllerChanged'),
       ));
-    }
-    // Sync _textDraft when the change was NOT originated from the text
-    // editor (e.g. undo/redo, tree edits, external load).  When the text
-    // editor pushed the change we keep its raw draft to avoid the
-    // YAML-round-trip overwriting the user's text and collapsing the
-    // selection.
-    if (!_isSyncingFromTextEditor) {
-      _textDraft = widget.controller.yamlText;
-      try {
-        final preview = _computeTextDiagnostics(_textDraft);
-        _textParseError = preview.parseError;
-        _textMarkers = preview.markers;
-      } catch (e, st) {
-        trailEvent('onControllerChanged: _computeTextDiagnostics THREW $e');
-        FlutterError.reportError(FlutterErrorDetails(
-          exception: e, stack: st,
-          library: 'yaml_schema_editor',
-          context: ErrorDescription('_computeTextDiagnostics in _onControllerChanged'),
-        ));
-      }
     }
     if (mounted) {
       // Guard against being called while the framework tree is locked
@@ -452,47 +406,34 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
     trailEvent('onControllerChanged: done');
   }
 
+  /// Switches between tree and source for every view of the document; the
+  /// controller refuses to leave source mode while the source does not parse.
   void _toggleTextMode() {
-    if (_textMode) {
-      if (_textParseError != null) return;
-      if (_textParseError == null && _textDraft != widget.controller.yamlText) {
-        widget.controller.setYaml(_textDraft);
-      }
-      setState(() {
-        _textMode = false;
-      });
-      widget.onTextModeChanged?.call(false);
-      // Notify that selection is collapsed when leaving text mode.
+    final controller = widget.controller;
+    controller.textMode = !controller.textMode;
+    if (!controller.textMode) {
+      // Selection is collapsed when leaving text mode.
       widget.onTextModeSelectionChanged
           ?.call(const TextSelection.collapsed(offset: 0));
-      return;
-    }
-
-    final draft = widget.controller.yamlText;
-    final diagnostics = _computeTextDiagnostics(draft);
-    setState(() {
+    } else {
       _inspectedPath = null;
-      _textMode = true;
-      _textDraft = draft;
-      _textParseError = diagnostics.parseError;
-      _textMarkers = diagnostics.markers;
-    });
-    widget.onTextModeChanged?.call(true);
+    }
+    widget.onTextModeChanged?.call(controller.textMode);
   }
 
-  void _onTextDraftChanged(String text) {
-    final diagnostics = _computeTextDiagnostics(text);
-    setState(() {
-      _textDraft = text;
-      _textParseError = diagnostics.parseError;
-      _textMarkers = diagnostics.markers;
-    });
+  /// The source view's selection, reported to the host (the action bar).
+  void _onSourceSelectionChanged(TextSelection selection) {
+    widget.onTextModeSelectionChanged?.call(selection);
+  }
 
-    if (_textParseError == null && text != widget.controller.yamlText) {
-      _isSyncingFromTextEditor = true;
-      widget.controller.setYaml(text);
-      _isSyncingFromTextEditor = false;
+  /// The markers for the source text, recomputed when it changed.
+  List<TextMarker> get _sourceMarkers {
+    final text = widget.controller.sourceText;
+    if (_markersFor != text) {
+      _markersFor = text;
+      _textMarkers = _computeTextDiagnostics(text).markers;
     }
+    return _textMarkers;
   }
 
   ({String? parseError, List<TextMarker> markers}) _computeTextDiagnostics(
@@ -969,12 +910,13 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
       }
     }
 
-    // Outer Focus interceptor removed — handler is now on the inner Focus
-    // (autofocus: true) which fires BEFORE the Shortcuts/Actions chain.
     Widget mainContent;
+    // A Focus inside the Actions scope: when a tree field loses focus,
+    // Flutter falls back to this node, which stays inside the scope. The undo
+    // and redo keys reach the document's history through the Shortcuts above
+    // (built from the binding table) — the shell's routing, no handler here.
     final innerContent = Focus(
       autofocus: true,
-      onKeyEvent: _handleUndoKeyEvent,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -996,11 +938,6 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
               },
             ),
           },
-          // A Focus wrapper inside Actions ensures that when a tree-node
-          // text field loses focus, Flutter falls back to this node which
-          // stays inside the Actions scope.  The onKeyEvent handler
-          // intercepts undo/redo before the Shortcuts chain so that they
-          // work even when inline text fields hold primaryFocus.
           child: innerContent,
         ),
       );
@@ -1128,7 +1065,8 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
       children: [
         Expanded(
           child: TextEditorCore(
-            text: _textDraft,
+            text: widget.controller.sourceText,
+            selection: widget.controller.sourceSelection,
             highlighter: YamlSyntaxHighlighter(
               colors: YamlHighlightColors(
                 key: theme.colors.keyColor,
@@ -1143,16 +1081,19 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
                 bracket: theme.colors.numberColor,
               ),
             ),
-            markers: _textMarkers,
-            onTextChanged: widget.readOnly ? null : _onTextDraftChanged,
-            onSelectionChanged: widget.onTextModeSelectionChanged,
+            markers: _sourceMarkers,
+            onValueChanged: widget.readOnly
+                ? null
+                : (value) => widget.controller
+                    .editSource(value.text, value.selection),
+            onSelectionChanged: _onSourceSelectionChanged,
             readOnly: widget.readOnly,
             theme: textEditorTheme,
             integration: _integration,
             commentPrefix: '# ',
           ),
         ),
-        if (_textParseError != null)
+        if (widget.controller.parseError != null)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'forge_editor_integration.dart';
 import 'forge_text_settings.dart';
+import 'history/forge_editor_owns_undo.dart';
 import 'integrations/base_standalone_integration.dart';
 
 /// Debug flag for ForgeTextField.
@@ -100,6 +101,13 @@ class ForgeTextField extends StatefulWidget {
   /// Text editing controller (if not provided, one will be created).
   final TextEditingController? controller;
 
+  /// Whether the host keeps the history of what this field edits — a field
+  /// inside a document editor, whose edits go into the document's history.
+  /// The field then keeps none: its integration records no undo entries and
+  /// Flutter's own text undo is off ([ForgeEditorOwnsUndo]), so the field has
+  /// one history, the document's, instead of three.
+  final bool undoOwnedByHost;
+
   const ForgeTextField({
     super.key,
     this.initialText,
@@ -125,6 +133,7 @@ class ForgeTextField extends StatefulWidget {
     this.textColor,
     this.focusNode,
     this.controller,
+    this.undoOwnedByHost = false,
   });
 
   @override
@@ -170,6 +179,7 @@ class ForgeTextFieldState extends State<ForgeTextField> {
       controller: _controller,
       focusNode: _focusNode,
       textSettings: _textSettings,
+      enableAutoUndoTracking: !widget.undoOwnedByHost,
     );
 
     // Register callbacks
@@ -240,7 +250,7 @@ class ForgeTextFieldState extends State<ForgeTextField> {
           contentPadding: EdgeInsets.zero,
         );
 
-    return TextField(
+    final field = TextField(
       controller: _controller,
       focusNode: _focusNode,
       style: _textSettings.toTextStyle(color: widget.textColor),
@@ -260,6 +270,7 @@ class ForgeTextFieldState extends State<ForgeTextField> {
       scrollController: widget.scrollController,
       textAlign: widget.textAlign,
     );
+    return widget.undoOwnedByHost ? ForgeEditorOwnsUndo(child: field) : field;
   }
 
   /// Gets the integration for external access.

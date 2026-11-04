@@ -1,19 +1,27 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show TextSelection;
 import 'package:tom_editors_shared/tom_editors_shared.dart';
-import 'package:tom_undo/tom_undo.dart';
+import 'package:yaml/yaml.dart' show loadYamlNode;
 
 import 'model/yaml_document_model.dart';
 import 'model/yaml_edit_operation.dart';
 import 'schema/yaml_schema.dart';
 import 'tree/editor_trail.dart';
 
-/// Controller for the YAML schema editor.
+/// Controller for the YAML schema editor: the document, its one history, its
+/// saved state, its mode, and validation.
 ///
-/// Manages the YAML document state, undo/redo history, validation,
-/// and notifies listeners of changes.
-///
-/// Uses `tom_undo`'s `TomUndoStack` for undo/redo management
-/// and [ValidationError] for structured error reporting.
+/// It keeps the Forge history contract (tom_forge_ui's
+/// `editor_history_contract.md`). The document is its source text
+/// ([sourceText]); every change — a tree edit, typing in source mode, an
+/// undo — changes that text, and [ForgeTextHistory] records it: typing in
+/// source mode and typing into one tree field are one entry per gesture, a
+/// structural tree edit is one entry, and a change that changes nothing is
+/// none. Source text that does not parse is a draft the history keeps like
+/// any other text, so undo and redo never lose it; the tree shows the last
+/// text that parsed ([document]). Dirty is measured against the saved text
+/// ([ForgeSavedMarker]). Every view — tree or source, main or split copy —
+/// reads the one controller, so they share one history and one [textMode].
 ///
 /// ```dart
 /// final controller = YamlEditorController(
@@ -37,8 +45,24 @@ class YamlEditorController extends ChangeNotifier {
   /// The JSON Schema used for validation and construction help.
   final YamlSchema? _schema;
 
-  /// The undo/redo history of edit operations, on the shared undo stack.
-  late final TomUndoStack<YamlEditOperation> _history;
+  /// The document's text as the source view shows it and a save writes it:
+  /// the last parsed [document]'s text, or a draft that does not parse.
+  String _source;
+
+  /// Why [_source] does not parse, or null.
+  String? _parseError;
+
+  /// The document's one history, over [_source].
+  late final ForgeTextHistory _history;
+
+  /// Dirty against the saved text.
+  late final ForgeSavedMarker<String> _saved;
+
+  /// The tree field whose typing the pending history entry holds, so a
+  /// different field starts a new entry.
+  List<String>? _pendingFieldPath;
+
+  bool _textMode = false;
 
   /// Cached validation errors, recomputed on every document change.
   List<ValidationError> _cachedErrors = [];
@@ -56,24 +80,53 @@ class YamlEditorController extends ChangeNotifier {
     this.uri,
     int maxUndoHistory = ForgeTextDefaults.defaultMaxUndoHistory,
   })  : _document = YamlDocumentModel.parse(initialYaml),
+        _source = initialYaml,
         _schema = schema {
-    _history = TomUndoStack<YamlEditOperation>(maxEntries: maxUndoHistory);
+    _history = ForgeTextHistory(
+      ForgeTextState(initialYaml, const TextSelection.collapsed(offset: 0)),
+      maxEntries: maxUndoHistory,
+    );
+    _saved = ForgeSavedMarker(initialYaml);
     _revalidate();
   }
 
   /// Optional URI associated with this editor's document.
   Uri? uri;
 
-  /// Whether the document has been modified since creation or last save.
-  ///
-  /// Backed by a [ValueNotifier] for forge shell observation.
-  final ValueNotifier<bool> isDirtyNotifier = ValueNotifier(false);
+  /// Whether the document differs from the saved text.
+  ValueListenable<bool> get isDirty => _saved.isDirty;
 
-  /// Mark the document as saved (not dirty).
-  void markClean() => isDirtyNotifier.value = false;
+  /// The document as it is now is saved: the typing in progress ends and
+  /// the saved marker moves. The history stays.
+  void markClean() {
+    flush();
+    _saved.markSaved(_source);
+  }
 
-  /// The current YAML text (serialized from the non-destructive model).
+  /// The YAML text of the last [document] that parsed.
   String get yamlText => _document.toYamlString();
+
+  /// The document's text: what the source view shows and a save writes —
+  /// [yamlText], or a draft that does not parse ([parseError]).
+  String get sourceText => _source;
+
+  /// The selection in the source text as the history last heard it.
+  TextSelection get sourceSelection => _history.current.selection;
+
+  /// Why [sourceText] does not parse, or null when it does.
+  String? get parseError => _parseError;
+
+  /// Whether the editor shows the source text (true) or the tree. One mode
+  /// for every view of the document. Switching ends the typing in progress;
+  /// leaving source mode needs source that parses.
+  bool get textMode => _textMode;
+  set textMode(bool value) {
+    if (value == _textMode) return;
+    if (!value && _parseError != null) return;
+    flush();
+    _textMode = value;
+    notifyListeners();
+  }
 
   /// The current document model.
   YamlDocumentModel get document => _document;
@@ -107,6 +160,13 @@ class YamlEditorController extends ChangeNotifier {
   /// Whether redo is available.
   bool get canRedo => _history.canRedo;
 
+  /// Ends the typing in progress (source or tree field): a history boundary
+  /// — save, mode switch, focus leaving a field.
+  void flush() {
+    _history.flush();
+    _pendingFieldPath = null;
+  }
+
   /// The most recent edit operation (cleared after rebuild).
   ///
   /// Used by the UI to adjust expansion state for index shifts.
@@ -120,10 +180,11 @@ class YamlEditorController extends ChangeNotifier {
   /// taken, a revision restore: the document becomes [yaml], it is the saved
   /// state, and the history is cleared.
   void replaceContent(String yaml) {
-    _document = YamlDocumentModel.parse(yaml);
-    _history.clear();
+    _setSource(yaml);
+    _history.replace(ForgeTextState.atEnd(yaml));
+    _pendingFieldPath = null;
     _lastOperation = null;
-    isDirtyNotifier.value = false;
+    _saved.markSaved(yaml);
     _revalidate();
     notifyListeners();
   }
@@ -133,18 +194,30 @@ class YamlEditorController extends ChangeNotifier {
   set maxUndoHistory(int value) => _history.maxEntries = value;
 
   /// Apply an edit operation to the document.
+  ///
+  /// The edit is recorded only once it applied and only when it changed the
+  /// text. A [YamlEditKind.setValue] edit is typing into one tree field: edits
+  /// of the same field with no pause between them are one history entry
+  /// (the gesture); every other kind is an entry of its own.
   void applyEdit(YamlEditOperation operation) {
     trailEvent('controller: applyEdit ${operation.kind.name} path=${operation.path}');
     try {
-      _history.push(operation);
+      final text = operation.newDocument.toYamlString();
+      if (text == _source) return;
+      final field =
+          operation.kind == YamlEditKind.setValue ? operation.path : null;
+      if (field == null || !_samePath(field, _pendingFieldPath)) flush();
       _document = operation.apply(_document);
+      _source = text;
+      _parseError = null;
       _lastOperation = operation; // Store for UI to adjust expansion state
-      isDirtyNotifier.value = true;
-      trailEvent('controller: applyEdit applied, revalidating');
-      _revalidate();
-      trailEvent('controller: applyEdit revalidated, notifying');
-      notifyListeners();
-      trailEvent('controller: applyEdit notifyListeners done');
+      _history.edited(ForgeTextState(text, _caretWithin(text)));
+      if (field == null) {
+        _history.flush();
+      } else {
+        _pendingFieldPath = field;
+      }
+      _changed();
     } catch (e, st) {
       trailEvent('controller: applyEdit THREW $e');
       FlutterError.reportError(FlutterErrorDetails(
@@ -155,47 +228,70 @@ class YamlEditorController extends ChangeNotifier {
     }
   }
 
+  /// The source view's text changed to [text] by typing (the edit applied):
+  /// one history entry per gesture. Text that does not parse is kept as the
+  /// document's draft; the tree keeps the last text that parsed.
+  void editSource(String text, TextSelection selection) {
+    if (text == _source) {
+      selectSource(selection);
+      return;
+    }
+    if (_pendingFieldPath != null) flush();
+    _setSource(text);
+    _lastOperation = null;
+    _history.edited(ForgeTextState(text, selection));
+    _changed();
+  }
+
+  /// The caret moved in the source view without the text changing: the
+  /// typing gesture in progress ends.
+  void selectSource(TextSelection selection) => _history.selected(selection);
+
   /// Undo the last edit.
   void undo() {
-    if (!canUndo) return;
     trailEvent('controller: undo');
-    try {
-      final entry = _history.undo(
-        (operation) => _document = operation.revert(_document),
-      );
-      if (entry == null) return;
-      _revalidate();
-      notifyListeners();
-    } catch (e, st) {
-      trailEvent('controller: undo THREW $e');
-      FlutterError.reportError(FlutterErrorDetails(
-        exception: e, stack: st,
-        library: 'yaml_editor_controller',
-        context: ErrorDescription('undo'),
-      ));
-    }
+    _pendingFieldPath = null;
+    if (_history.undo(_restore)) _changed();
   }
 
   /// Redo the last undone edit.
   void redo() {
-    if (!canRedo) return;
     trailEvent('controller: redo');
+    _pendingFieldPath = null;
+    if (_history.redo(_restore)) _changed();
+  }
+
+  void _restore(ForgeTextState state) {
+    _setSource(state.text);
+    _lastOperation = null;
+  }
+
+  /// [text] becomes the source; the document follows when it parses.
+  void _setSource(String text) {
+    _source = text;
     try {
-      final entry = _history.redo(
-        (operation) => _document = operation.apply(_document),
-      );
-      if (entry == null) return;
-      _revalidate();
-      notifyListeners();
-    } catch (e, st) {
-      trailEvent('controller: redo THREW $e');
-      FlutterError.reportError(FlutterErrorDetails(
-        exception: e, stack: st,
-        library: 'yaml_editor_controller',
-        context: ErrorDescription('redo'),
-      ));
+      if (text.isNotEmpty) loadYamlNode(text);
+      _document = YamlDocumentModel.parse(text);
+      _parseError = null;
+    } catch (error) {
+      _parseError = error.toString();
     }
   }
+
+  /// After every change: dirty against the saved text, validation, views.
+  void _changed() {
+    _saved.compare(_source);
+    if (_parseError == null) _revalidate();
+    notifyListeners();
+  }
+
+  TextSelection _caretWithin(String text) {
+    final at = _history.current.selection.baseOffset;
+    return TextSelection.collapsed(offset: at.clamp(0, text.length));
+  }
+
+  static bool _samePath(List<String> a, List<String>? b) =>
+      b != null && listEquals(a, b);
 
   /// Replace the entire YAML content.
   void setYaml(String yaml) {
@@ -497,7 +593,8 @@ class YamlEditorController extends ChangeNotifier {
 
   @override
   void dispose() {
-    _history.clear();
+    _history.dispose();
+    _saved.dispose();
     super.dispose();
   }
 
