@@ -97,8 +97,9 @@ abstract class ForgeUndoSubject {
   /// field). By default the text itself.
   String contentFor(String text) => text;
 
-  /// What Save does to the editor once the file is written.
-  void saved() => editor.markClean();
+  /// Saves: by default what the shell does once it wrote the file
+  /// ([ForgeEditor.markClean]); an editor that saves its own file saves.
+  Future<void> saved() async => editor.markClean();
 
   /// Releases the editor.
   void dispose() {}
@@ -194,7 +195,8 @@ void runForgeUndoConformance(
         expect(s.editor.isDirty.value, isFalse, reason: 'back to saved');
         await run(tester, s, redo);
         expect(s.editor.isDirty.value, isTrue);
-        s.saved();
+        await s.saved();
+        await tester.pump();
         expect(s.editor.isDirty.value, isFalse);
         await run(tester, s, undo);
         expect(s.editor.isDirty.value, isTrue, reason: 'undone past the save');

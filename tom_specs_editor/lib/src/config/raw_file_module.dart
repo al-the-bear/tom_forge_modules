@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:tom_file_system/io.dart' show TomLocalFileSystem;
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
 /// Opens the backing YAML/markdown file for a config editor
@@ -17,8 +18,9 @@ typedef RawFileOpener = void Function(Uri uri);
 ///
 /// The config editors edit the object model; their **backing** YAML/markdown is
 /// opened here in a plain-text editor. Files are opened on demand: the module
-/// reads the file's current bytes and hands a [ForgePlainTextEditor] to the
-/// shell layout, which surfaces it in the active middle panel.
+/// hands a [ForgePlainTextEditor] over the file to the shell layout, which
+/// surfaces it in the active middle panel; the editor reads and saves the file
+/// itself.
 class RawFileModule extends ForgeModule {
   RawFileModule();
 
@@ -47,10 +49,12 @@ class RawFileModule extends ForgeModule {
     final shell = _shell;
     if (shell == null) return;
     final file = File.fromUri(uri);
-    final content = file.existsSync() ? file.readAsStringSync() : '';
-    final editor = ForgePlainTextEditor.fromContent(
-      content: content,
-      uri: uri,
+    if (!file.existsSync()) file.createSync(recursive: true);
+    // The editor reads and saves the file itself, through a session over
+    // the file's folder: revision-checked, its encoding kept.
+    final editor = ForgePlainTextEditor.forFile(
+      fileSystem: TomLocalFileSystem(file.parent.path),
+      uri: file.uri,
       module: this,
     );
     _editors.add(editor);

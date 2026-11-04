@@ -18,6 +18,9 @@ dependencies:
   # Tom Forge shell: multi-app launcher, panels/layout, modules, editors.
   tom_forge_ui:
     path: ../tom_forge_ui
+  # The local file system the raw-file editor saves through.
+  tom_file_system:
+    path: ../../tom_ai/basics/tom_file_system
   tom_forge_core:
     path: ../tom_forge_core
 

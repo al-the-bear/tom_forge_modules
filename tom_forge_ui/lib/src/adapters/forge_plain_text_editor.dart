@@ -3,10 +3,10 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart';
-import 'package:tom_md_editor/tom_md_editor.dart';
-import 'package:tom_undo/tom_undo.dart';
+import 'package:tom_file_session/tom_file_session.dart';
+import 'package:tom_file_system/tom_file_system.dart';
+import 'package:tom_forge_core/tom_forge_core.dart';
 
 import '../components/forge_text_editor.dart';
 import '../components/forge_component.dart';
@@ -16,11 +16,16 @@ import 'tom_forge_shell_module.dart';
 
 /// Adapter that provides a plain text editor for unknown file types.
 ///
-/// Uses [MdEditorController] under the hood but configured for raw-only mode
-/// with monospace font, suitable for editing plain text, config files, or
-/// any file type that lacks a specialized editor.
+/// The file is a [ForgeFileSession]: its text, its one history (typing
+/// merged per burst, a caret move or a blur ending the burst), dirty as the
+/// text against the saved text, the encoding it was read in, and a save that
+/// checks the disk first and never writes over a file changed elsewhere. The
+/// editor saves its own file (Forge's owned-save path), so the shell writes
+/// nothing for it. Every view — the main view and a split copy — edits the
+/// one session.
 class ForgePlainTextEditor extends ForgeTextEditor {
-  final MdEditorController controller;
+  /// The file this editor edits.
+  final ForgeFileSession session;
   final ForgeModule _module;
   final _title = ValueNotifier<String>('Text');
   final _titleExtension = ValueNotifier<String?>(null);
@@ -30,64 +35,67 @@ class ForgePlainTextEditor extends ForgeTextEditor {
   final _selections = ValueNotifier<List<ForgeTextRange>>([]);
   final _visibleRange =
       ValueNotifier<ForgeTextRange>(const ForgeTextRange.empty());
+  final _stateChanged = StreamController<void>.broadcast();
+
+  /// A selection the editor's API asks the views to show (an offset range).
+  final _requestedSelection = ValueNotifier<TextSelection?>(null);
 
   late PositionConverter _positionConverter;
   late final _PlainTextForgeDocument _document;
   ForgeTextEditorOptions _options;
   ShellEditorIntegration? _integration;
+  VoidCallback? _stopFollowingDepth;
+  Timer? _typingPause;
+  String _lastText;
 
   /// Decoration state.
   final Map<String, List<ForgeDecorationRange>> _decorationMap = {};
 
-  /// Create a plain text editor with a pre-existing controller.
+  /// Creates an editor over [session] (loading or loaded).
   ForgePlainTextEditor({
-    required this.controller,
+    required this.session,
     required ForgeModule module,
     ForgeTextEditorOptions options = const ForgeTextEditorOptions(
       fontFamily: 'monospace',
     ),
   })  : _module = module,
-        _options = options {
-    _positionConverter = PositionConverter(controller.markdown);
-    _document = _PlainTextForgeDocument(
-      controller.uri ?? Uri.parse('untitled:text'),
-      controller,
-      _positionConverter,
-    );
-
-    // Observe cursor.
-    controller.cursorPositionNotifier.addListener(_onCursorChanged);
-    // Observe selection.
-    controller.selectionNotifier.addListener(_onSelectionChanged);
-    // Observe visible range.
-    controller.visibleRangeNotifier.addListener(_onVisibleRangeChanged);
-    // Observe content.
-    controller.addListener(_onContentChanged);
-
-    // Set initial title from URI.
-    if (controller.uri != null) {
-      _title.value = controller.uri!.pathSegments.last;
-    }
+        _options = options,
+        _lastText = session.text {
+    _positionConverter = PositionConverter(session.text);
+    _document = _PlainTextForgeDocument(session.uri, this, _positionConverter);
+    session.addListener(_onSessionChanged);
+    final segments = session.uri.pathSegments;
+    if (segments.isNotEmpty) _title.value = segments.last;
   }
 
-  /// Create a plain text editor from content and URI.
+  /// An editor for the file at [uri] in [fileSystem]; the file is read now.
+  factory ForgePlainTextEditor.forFile({
+    required TomFileSystem fileSystem,
+    required Uri uri,
+    required ForgeModule module,
+  }) {
+    final path = fileSystem.pathOf(uri);
+    if (path == null) {
+      throw ArgumentError.value(uri, 'uri', 'is outside the file system');
+    }
+    final session = ForgeFileSession(fileSystem: fileSystem, path: path);
+    unawaited(session.load());
+    return ForgePlainTextEditor(session: session, module: module);
+  }
+
+  /// An editor for [content] that lives in memory under [uri]'s name — an
+  /// untitled buffer, a file outside the workspace, a test.
   factory ForgePlainTextEditor.fromContent({
     required String content,
     required Uri uri,
     required ForgeModule module,
-    ForgeTextEditorOptions options = const ForgeTextEditorOptions(
-      fontFamily: 'monospace',
-    ),
   }) {
-    final controller = MdEditorController(
-      initialMarkdown: content,
-      uri: uri,
-    );
-    return ForgePlainTextEditor(
-      controller: controller,
-      module: module,
-      options: options,
-    );
+    final name =
+        uri.pathSegments.isEmpty ? 'untitled.txt' : uri.pathSegments.last;
+    final fileSystem = TomMemoryFileSystem(seed: {name: content});
+    final session = ForgeFileSession(fileSystem: fileSystem, path: name)
+      ..adoptText(content);
+    return ForgePlainTextEditor(session: session, module: module);
   }
 
   /// Known plain text file extensions.
@@ -118,26 +126,66 @@ class ForgePlainTextEditor extends ForgeTextEditor {
   ForgeModule get module => _module;
 
   // ── EditorActionProvider ──
-  //
-  // Undo and redo are the editor's own history, registered on the
-  // integration by the widget; the shell's undo and redo keys reach it here.
 
   @override
   Set<String> get supportedActionIds => const {
     StandardEditingActions.undoActionId,
     StandardEditingActions.redoActionId,
+    StandardEditingActions.saveActionId,
   };
 
   @override
-  bool isActionEnabled(String actionId) =>
-      supportedActionIds.contains(actionId) &&
-      (_integration?.isActionEnabled(actionId) ?? false);
+  EditorCapabilities get capabilities => const EditorCapabilities(
+    hasTextBuffer: true,
+    supportsUndoRedo: true,
+    supportsClipboard: false,
+    supportsLineEditing: false,
+    supportsSelection: true,
+  );
+
+  @override
+  EditorStateSnapshot get stateSnapshot => EditorStateSnapshot(
+    hasSelection: hasSelection,
+    hasContent: session.text.isNotEmpty,
+    isEditable: session.readOnlyReason == null,
+    canUndo: session.canUndo,
+    canRedo: session.canRedo,
+    isTextMode: true,
+  );
+
+  @override
+  bool isActionEnabled(String actionId) => switch (actionId) {
+    StandardEditingActions.undoActionId => session.canUndo,
+    StandardEditingActions.redoActionId => session.canRedo,
+    StandardEditingActions.saveActionId =>
+      session.state == ForgeFileSessionState.ready &&
+          session.readOnlyReason == null,
+    _ => false,
+  };
 
   @override
   bool executeAction(String actionId) {
     if (!isActionEnabled(actionId)) return false;
-    return _integration!.executeAction(actionId);
+    switch (actionId) {
+      case StandardEditingActions.undoActionId:
+        unawaited(session.undo());
+      case StandardEditingActions.redoActionId:
+        unawaited(session.redo());
+      case StandardEditingActions.saveActionId:
+        unawaited(_save());
+    }
+    return true;
   }
+
+  /// Saves through the session; a file changed on disk is not written over —
+  /// the view then asks the user to keep their text or take the disk's.
+  Future<void> _save() async {
+    final outcome = await session.save();
+    if (outcome == ForgeFileSaveOutcome.conflict) _stateChanged.add(null);
+  }
+
+  @override
+  Stream<void> get onStateChanged => _stateChanged.stream;
 
   @override
   Widget buildMain(BuildContext context) {
@@ -147,41 +195,38 @@ class ForgePlainTextEditor extends ForgeTextEditor {
         editorId: 'plaintext-editor-${uri.hashCode}',
         editorTypeId: 'plaintext',
       )..descriptors = StandardEditingActions.descriptors;
+      // The one undo depth setting bounds the session's history.
+      _stopFollowingDepth ??= forgeFollowUndoDepth(
+        _integration!,
+        (depth) => session.historyDepth = depth,
+      );
     }
     final ext = uri.pathSegments.isNotEmpty
         ? uri.pathSegments.last.split('.').last.toLowerCase()
         : '';
     return _PlainTextEditorWidget(
-      initialText: controller.markdown,
+      editor: this,
       fileExtension: ext,
       integration: _integration,
-      contentReplaced: _contentReplaced,
-      readContent: () => controller.markdown,
-      onChanged: (text) {
-        controller.edit(text);
-      },
     );
   }
 
+  /// A split copy edits the same session: one text, one history.
   @override
   Widget buildCopy(BuildContext context) => buildMain(context);
 
-  /// Fires on every [replaceContent]; every view of the document takes the
-  /// new text and drops its history.
-  final ValueNotifier<int> _contentReplaced = ValueNotifier(0);
-
+  /// Content from outside (a revision restore): the session adopts it as the
+  /// saved text and clears the history; every view shows it.
   @override
   bool replaceContent(String content) {
-    controller.replaceContent(content);
-    _contentReplaced.value++;
-    _isDirty.value = false;
+    session.adoptText(content);
     return true;
   }
 
   // ── ForgeEditor ──
 
   @override
-  Uri get uri => controller.uri ?? Uri.parse('untitled:text');
+  Uri get uri => session.uri;
 
   @override
   FileHandlingResult canHandle(Uri uri) {
@@ -190,16 +235,21 @@ class ForgePlainTextEditor extends ForgeTextEditor {
     return FileHandlingResult.reject;
   }
 
+  /// The session's text against its saved text: clicking, scrolling or
+  /// selecting never makes it dirty, and undoing back to the saved text makes
+  /// it clean.
   @override
   ValueListenable<bool> get isDirty => _isDirty;
 
+  /// The editor saves its own file ([StandardEditingActions.saveActionId]);
+  /// the shell never marks it clean, so there is nothing to do here.
   @override
-  void markClean() {
-    _isDirty.value = false;
-  }
+  void markClean() {}
 
+  /// Null: the editor saves its own file through the session, keeping its
+  /// encoding and checking the disk first.
   @override
-  String? getContent() => controller.markdown;
+  String? getContent() => null;
 
   @override
   Map<String, dynamic>? saveState() {
@@ -240,10 +290,6 @@ class ForgePlainTextEditor extends ForgeTextEditor {
         ),
       ));
     }
-    final visStartLine = state['visibleStartLine'] as int?;
-    if (visStartLine != null) {
-      revealPosition(ForgeTextPosition(line: visStartLine, column: 0));
-    }
   }
 
   // ── ForgeTextEditor ──
@@ -264,8 +310,7 @@ class ForgePlainTextEditor extends ForgeTextEditor {
   void setSelections(List<ForgeTextRange> ranges) {
     _selections.value = List.unmodifiable(ranges);
     if (ranges.isNotEmpty) {
-      _selection.value = ranges.first;
-      setCursorPosition(ranges.first.start);
+      setSelection(ranges.first);
     } else {
       _selection.value = null;
     }
@@ -275,7 +320,7 @@ class ForgePlainTextEditor extends ForgeTextEditor {
   String get selectedText {
     final sel = _selection.value;
     if (sel == null || sel.isEmpty) return '';
-    final text = controller.markdown;
+    final text = session.text;
     final startOffset = _positionConverter.positionToOffset(sel.start);
     final endOffset = _positionConverter.positionToOffset(sel.end);
     if (startOffset < 0 || endOffset > text.length) return '';
@@ -291,13 +336,23 @@ class ForgePlainTextEditor extends ForgeTextEditor {
   @override
   ValueListenable<ForgeTextRange> get visibleRange => _visibleRange;
 
+  /// A programmatic edit: its own history entry.
+  void _applyEdit(String text, {int? caret}) {
+    session.endGesture();
+    session.edit(text, 'Edit');
+    session.endGesture();
+    if (caret != null) {
+      _requestedSelection.value = TextSelection.collapsed(offset: caret);
+    }
+  }
+
   @override
   void insertText(String text) {
-    final code = controller.markdown;
+    final code = session.text;
     final offset = _positionConverter.positionToOffset(_cursorPos.value);
-    controller.applyEdit(
+    _applyEdit(
       code.substring(0, offset) + text + code.substring(offset),
-      cursor: offset + text.length,
+      caret: offset + text.length,
     );
   }
 
@@ -305,11 +360,13 @@ class ForgePlainTextEditor extends ForgeTextEditor {
   void replaceRange(ForgeTextRange range, String replacement) {
     final startOffset = _positionConverter.positionToOffset(range.start);
     final endOffset = _positionConverter.positionToOffset(range.end);
-    final current = controller.markdown;
-    final newText = current.substring(0, startOffset) +
-        replacement +
-        current.substring(endOffset);
-    controller.applyEdit(newText);
+    final current = session.text;
+    _applyEdit(
+      current.substring(0, startOffset) +
+          replacement +
+          current.substring(endOffset),
+      caret: startOffset + replacement.length,
+    );
   }
 
   @override
@@ -318,43 +375,35 @@ class ForgePlainTextEditor extends ForgeTextEditor {
   @override
   void setCursorPosition(ForgeTextPosition position) {
     final offset = _positionConverter.positionToOffset(position);
-    controller.setCursorOffset(offset);
+    _requestedSelection.value = TextSelection.collapsed(offset: offset);
   }
 
   @override
   void setSelection(ForgeTextRange range) {
-    setCursorPosition(range.start);
-    _selection.value = range;
-    _selections.value = [range];
-  }
-
-  @override
-  void selectAll() {
-    final text = controller.markdown;
-    controller.setCursorOffset(0);
-    _selection.value = ForgeTextRange(
-      start: const ForgeTextPosition.zero(),
-      end: _positionConverter.offsetToPosition(text.length),
+    _requestedSelection.value = TextSelection(
+      baseOffset: _positionConverter.positionToOffset(range.start),
+      extentOffset: _positionConverter.positionToOffset(range.end),
     );
   }
 
   @override
-  void revealPosition(ForgeTextPosition position) {
-    setCursorPosition(position);
-    controller.revealLine(position.line);
+  void selectAll() {
+    _requestedSelection.value = TextSelection(
+      baseOffset: 0,
+      extentOffset: session.text.length,
+    );
   }
 
   @override
-  void revealRange(ForgeTextRange range) {
-    setCursorPosition(range.start);
-    controller.revealLine(range.start.line);
-  }
+  void revealPosition(ForgeTextPosition position) => setCursorPosition(position);
+
+  @override
+  void revealRange(ForgeTextRange range) => setSelection(range);
 
   @override
   List<ForgeTextRange> findAll(Pattern pattern) {
-    final text = controller.markdown;
-    final matches = pattern.allMatches(text);
-    return matches.map((m) {
+    final text = session.text;
+    return pattern.allMatches(text).map((m) {
       return ForgeTextRange(
         start: _positionConverter.offsetToPosition(m.start),
         end: _positionConverter.offsetToPosition(m.end),
@@ -364,7 +413,7 @@ class ForgePlainTextEditor extends ForgeTextEditor {
 
   @override
   int replaceAll(Pattern pattern, String replacement) {
-    final text = controller.markdown;
+    final text = session.text;
     final matches = pattern.allMatches(text).toList();
     if (matches.isEmpty) return 0;
     // Apply replacements in reverse order.
@@ -373,7 +422,7 @@ class ForgePlainTextEditor extends ForgeTextEditor {
       result =
           result.substring(0, m.start) + replacement + result.substring(m.end);
     }
-    controller.applyEdit(result);
+    _applyEdit(result);
     return matches.length;
   }
 
@@ -387,77 +436,66 @@ class ForgePlainTextEditor extends ForgeTextEditor {
   void setDecorations(
       ForgeDecorationType type, List<ForgeDecorationRange> ranges) {
     _decorationMap[type.key] = List.unmodifiable(ranges);
-    controller.setDecorations(
-      type.key,
-      ranges
-          .map((r) => (
-                start: _positionConverter.positionToOffset(r.range.start),
-                end: _positionConverter.positionToOffset(r.range.end),
-              ))
-          .toList(),
-    );
   }
 
   @override
   void clearDecorations(ForgeDecorationType type) {
     _decorationMap.remove(type.key);
-    controller.clearDecorations(type.key);
   }
 
-  // ── Internal listeners ──
+  // ── The views report ──
 
-  void _onCursorChanged() {
-    final offset = controller.cursorPositionNotifier.value;
-    _positionConverter = PositionConverter(controller.markdown);
-    _cursorPos.value = _positionConverter.offsetToPosition(offset);
+  /// A view typed: one burst until the typing pause ends it (or a caret
+  /// move, a blur, an undo).
+  void _typed(String text) {
+    session.edit(text, 'Typing', group: 'typing');
+    _typingPause?.cancel();
+    _typingPause = Timer(forgeTypingPause, session.endGesture);
   }
 
-  void _onSelectionChanged() {
-    final range = controller.selectionNotifier.value;
-    _positionConverter = PositionConverter(controller.markdown);
-    if (range == null) {
+  /// A view's selection changed (its text is the session's).
+  void _viewSelected(TextSelection selection) {
+    _positionConverter = PositionConverter(session.text);
+    _cursorPos.value = _positionConverter.offsetToPosition(
+      selection.extentOffset.clamp(0, session.text.length),
+    );
+    if (selection.isCollapsed) {
       _selection.value = null;
       _selections.value = [];
     } else {
-      final forgeRange = ForgeTextRange(
-        start: _positionConverter.offsetToPosition(range.start),
-        end: _positionConverter.offsetToPosition(range.end),
+      final range = ForgeTextRange(
+        start: _positionConverter.offsetToPosition(selection.start),
+        end: _positionConverter.offsetToPosition(selection.end),
       );
-      _selection.value = forgeRange;
-      _selections.value = [forgeRange];
+      _selection.value = range;
+      _selections.value = [range];
     }
+    _stateChanged.add(null);
   }
 
-  void _onVisibleRangeChanged() {
-    final raw = controller.visibleRangeNotifier.value;
-    _positionConverter = PositionConverter(controller.markdown);
-    _visibleRange.value = ForgeTextRange(
-      start: ForgeTextPosition(line: raw.firstLine, column: 0),
-      end: ForgeTextPosition(line: raw.lastLine, column: 0),
-    );
-  }
-
-  void _onContentChanged() {
-    _positionConverter = PositionConverter(controller.markdown);
-    _document.updateConverter(_positionConverter);
-    _isDirty.value = true;
-    _document.notifyContentChanged();
-    if (controller.uri != null) {
-      _title.value = controller.uri!.pathSegments.last;
+  void _onSessionChanged() {
+    _isDirty.value = session.dirty;
+    if (session.text != _lastText) {
+      _lastText = session.text;
+      _positionConverter = PositionConverter(session.text);
+      _document.updateConverter(_positionConverter);
+      _document.notifyContentChanged();
     }
+    _stateChanged.add(null);
   }
 
   /// Release listeners.
   void dispose() {
+    _stopFollowingDepth?.call();
+    _typingPause?.cancel();
+    session.removeListener(_onSessionChanged);
+    session.dispose();
     _integration?.dispose();
     _document.dispose();
-    controller.cursorPositionNotifier.removeListener(_onCursorChanged);
-    controller.selectionNotifier.removeListener(_onSelectionChanged);
-    controller.visibleRangeNotifier.removeListener(_onVisibleRangeChanged);
-    controller.removeListener(_onContentChanged);
+    _stateChanged.close();
+    _requestedSelection.dispose();
     _title.dispose();
     _titleExtension.dispose();
-    _contentReplaced.dispose();
     _isDirty.dispose();
     _cursorPos.dispose();
     _selection.dispose();
@@ -466,12 +504,12 @@ class ForgePlainTextEditor extends ForgeTextEditor {
   }
 }
 
-/// [ForgeDocument] backed by [MdEditorController] for plain text.
+/// [ForgeDocument] backed by the editor's session.
 class _PlainTextForgeDocument extends ForgeDocumentAdapter {
-  final MdEditorController _controller;
+  final ForgePlainTextEditor _editor;
   PositionConverter _converter;
 
-  _PlainTextForgeDocument(super.uri, this._controller, this._converter);
+  _PlainTextForgeDocument(super.uri, this._editor, this._converter);
 
   /// Update the position converter after content changes.
   void updateConverter(PositionConverter converter) {
@@ -485,7 +523,7 @@ class _PlainTextForgeDocument extends ForgeDocumentAdapter {
   }
 
   @override
-  String get text => _controller.markdown;
+  String get text => _editor.session.text;
 
   @override
   int get lineCount => _converter.lineCount;
@@ -503,7 +541,7 @@ class _PlainTextForgeDocument extends ForgeDocumentAdapter {
   Encoding get encoding => utf8;
 
   @override
-  bool get isUntitled => _controller.uri == null;
+  bool get isUntitled => _editor.session.fileSystem is TomMemoryFileSystem;
 }
 
 // ──────────────────────────────────────────────────────────────────
@@ -516,27 +554,17 @@ class _PlainTextActionIntent extends Intent {
   const _PlainTextActionIntent(this.actionId);
 }
 
-/// A lightweight text editor widget with line numbers and optional syntax
+/// A view of the editor's session: line numbers and optional syntax
 /// highlighting for common file formats (JSON, XML, etc.).
 class _PlainTextEditorWidget extends StatefulWidget {
-  final String initialText;
+  final ForgePlainTextEditor editor;
   final String fileExtension;
   final ForgeEditorIntegration? integration;
-  final ValueChanged<String> onChanged;
-
-  /// Fires when the document's content was replaced from outside.
-  final ValueListenable<int> contentReplaced;
-
-  /// The document's content now.
-  final String Function() readContent;
 
   const _PlainTextEditorWidget({
-    required this.initialText,
+    required this.editor,
     required this.fileExtension,
     this.integration,
-    required this.onChanged,
-    required this.contentReplaced,
-    required this.readContent,
   });
 
   @override
@@ -549,78 +577,51 @@ class _PlainTextEditorWidgetState extends State<_PlainTextEditorWidget> {
   late ScrollController _gutterScrollController;
   final FocusNode _focusNode = FocusNode();
 
-  // Undo/redo state
-  final TomUndoStack<_TextChange> _history =
-      TomUndoStack(maxEntries: ForgeTextDefaults.defaultMaxUndoHistory);
-  String _lastSavedText = '';
-  TextSelection _lastSavedSelection = const TextSelection.collapsed(offset: 0);
-  Timer? _undoDebounceTimer;
-  static const _undoDebounceDuration = Duration(milliseconds: 300);
+  /// True while this view shows text the session already has.
+  bool _syncing = false;
 
   // Shortcuts map
   Map<ShortcutActivator, Intent> _shortcuts = {};
+
+  ForgeFileSession get _session => widget.editor.session;
 
   @override
   void initState() {
     super.initState();
     _textController = _HighlightTextController(
-      text: widget.initialText,
+      text: _session.text,
       language: widget.fileExtension,
     );
     _scrollController = ScrollController();
     _gutterScrollController = ScrollController();
     _scrollController.addListener(_syncScroll);
-    _textController.addListener(_onTextChanged);
-    _lastSavedText = widget.initialText;
-    widget.contentReplaced.addListener(_onContentReplaced);
-
+    _textController.addListener(_onFieldChanged);
+    _session.addListener(_onSessionChanged);
+    widget.editor._requestedSelection.addListener(_onSelectionRequested);
+    _focusNode.addListener(_onFocusChanged);
     _registerActions();
-  }
-
-  /// The document's content was replaced from outside: take it, and drop
-  /// the history made against the old text.
-  void _onContentReplaced() {
-    _undoDebounceTimer?.cancel();
-    _history.clear();
-    final text = widget.readContent();
-    _textController.removeListener(_onTextChanged);
-    _textController.text = text;
-    _textController.selection = TextSelection.collapsed(offset: text.length);
-    _textController.addListener(_onTextChanged);
-    _lastSavedText = text;
-    _lastSavedSelection = _textController.selection;
   }
 
   void _registerActions() {
     final integration = widget.integration;
     if (integration == null) return;
-
     integration.registerAction(
       StandardEditingActions.undoActionId,
-      _undo,
-      isEnabled: () => _history.canUndo,
+      () => widget.editor.executeAction(StandardEditingActions.undoActionId),
+      isEnabled: () => _session.canUndo,
     );
     integration.registerAction(
       StandardEditingActions.redoActionId,
-      _redo,
-      isEnabled: () => _history.canRedo,
+      () => widget.editor.executeAction(StandardEditingActions.redoActionId),
+      isEnabled: () => _session.canRedo,
     );
-
     _buildShortcutMap();
     integration.shortcutBindings.addListener(_onBindingsChanged);
-    _stopFollowingDepth = forgeFollowUndoDepth(
-      integration,
-      (depth) => _history.maxEntries = depth,
-    );
   }
-
-  /// Stops following the host's undo depth setting.
-  VoidCallback? _stopFollowingDepth;
 
   /// The local key map from the integration's bindings — the shell's
   /// binding table — through [buildEditorShortcutMap]; above EditableText,
-  /// so the undo and redo keys reach this editor's history, not the text
-  /// field's.
+  /// so the undo and redo keys reach the session's history.
   void _buildShortcutMap() {
     final integration = widget.integration;
     _shortcuts = integration == null
@@ -638,10 +639,10 @@ class _PlainTextEditorWidgetState extends State<_PlainTextEditorWidget> {
   @override
   void dispose() {
     widget.integration?.shortcutBindings.removeListener(_onBindingsChanged);
-    widget.contentReplaced.removeListener(_onContentReplaced);
-    _stopFollowingDepth?.call();
-    _undoDebounceTimer?.cancel();
-    _textController.removeListener(_onTextChanged);
+    _session.removeListener(_onSessionChanged);
+    widget.editor._requestedSelection.removeListener(_onSelectionRequested);
+    _focusNode.removeListener(_onFocusChanged);
+    _textController.removeListener(_onFieldChanged);
     _scrollController.removeListener(_syncScroll);
     _textController.dispose();
     _scrollController.dispose();
@@ -656,51 +657,56 @@ class _PlainTextEditorWidgetState extends State<_PlainTextEditorWidget> {
     }
   }
 
-  void _onTextChanged() {
-    final newText = _textController.text;
-    widget.onChanged(newText);
-    _scheduleUndoSave(newText);
-  }
-
-  // ── Undo/Redo ──
-
-  void _scheduleUndoSave(String newText) {
-    _undoDebounceTimer?.cancel();
-    _undoDebounceTimer = Timer(_undoDebounceDuration, _flushPendingUndoSave);
-  }
-
-  /// Records the typing since the last entry as one change, at once — before
-  /// an undo, so the undo takes back what is on screen rather than the entry
-  /// before it.
-  void _flushPendingUndoSave() {
-    _undoDebounceTimer?.cancel();
+  /// The field changed: typing goes into the session as one burst; a caret
+  /// move ends the burst and is reported to the editor — and never makes
+  /// the file dirty.
+  void _onFieldChanged() {
+    if (_syncing) return;
     final text = _textController.text;
-    if (_lastSavedText == text) return;
-    _history.push(
-      _TextChange(
-        before: _UndoState(text: _lastSavedText, selection: _lastSavedSelection),
-        after: _UndoState(text: text, selection: _textController.selection),
-      ),
+    if (text != _session.text) {
+      if (_session.readOnlyReason != null ||
+          _session.state != ForgeFileSessionState.ready) {
+        _show(_session.text, _textController.selection);
+        return;
+      }
+      widget.editor._typed(text);
+    } else {
+      _session.endGesture();
+    }
+    widget.editor._viewSelected(_textController.selection);
+  }
+
+  /// The session changed — loaded, undone, redone, edited in another view,
+  /// adopted: show its text, the caret at the change.
+  void _onSessionChanged() {
+    final text = _session.text;
+    if (text != _textController.text) {
+      _show(text, forgeCaretAtChange(_textController.text, text));
+    }
+    if (mounted) setState(() {});
+  }
+
+  void _onSelectionRequested() {
+    final selection = widget.editor._requestedSelection.value;
+    if (selection == null) return;
+    final length = _textController.text.length;
+    if (selection.end > length) return;
+    _textController.selection = selection;
+  }
+
+  void _onFocusChanged() {
+    if (!_focusNode.hasFocus) _session.endGesture();
+  }
+
+  void _show(String text, TextSelection selection) {
+    _syncing = true;
+    _textController.value = TextEditingValue(
+      text: text,
+      selection: selection.end <= text.length
+          ? selection
+          : TextSelection.collapsed(offset: text.length),
     );
-    _lastSavedText = text;
-    _lastSavedSelection = _textController.selection;
-  }
-
-  void _undo() {
-    _flushPendingUndoSave();
-    _history.undo((change) => _applyState(change.before));
-  }
-
-  void _redo() => _history.redo((change) => _applyState(change.after));
-
-  void _applyState(_UndoState state) {
-    _textController.removeListener(_onTextChanged);
-    _textController.text = state.text;
-    _textController.selection = state.selection;
-    _lastSavedText = state.text;
-    _lastSavedSelection = state.selection;
-    widget.onChanged(state.text);
-    _textController.addListener(_onTextChanged);
+    _syncing = false;
   }
 
   @override
@@ -711,6 +717,17 @@ class _PlainTextEditorWidgetState extends State<_PlainTextEditorWidget> {
       fontSize: 13,
       height: 1.5,
     );
+
+    switch (_session.state) {
+      case ForgeFileSessionState.loading:
+        return const Center(child: CircularProgressIndicator());
+      case ForgeFileSessionState.missing:
+        return const Center(child: Text('This file does not exist.'));
+      case ForgeFileSessionState.refused:
+        return Center(child: Text(_session.refusal ?? 'Not opened.'));
+      case ForgeFileSessionState.ready:
+        break;
+    }
 
     final lineCount = '\n'.allMatches(_textController.text).length + 1;
 
@@ -748,24 +765,28 @@ class _PlainTextEditorWidgetState extends State<_PlainTextEditorWidget> {
           width: 1,
           color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
         ),
-        // Text editor
+        // Text editor: the session keeps the history; Flutter's own text
+        // undo is off.
         Expanded(
-          child: TextField(
-            controller: _textController,
-            focusNode: _focusNode,
-            scrollController: _scrollController,
-            maxLines: null,
-            expands: true,
-            style: monoStyle.copyWith(
-              color: theme.colorScheme.onSurface,
-            ),
-            decoration: const InputDecoration(
-              border: InputBorder.none,
-              contentPadding: EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 4,
+          child: ForgeEditorOwnsUndo(
+            child: TextField(
+              controller: _textController,
+              focusNode: _focusNode,
+              scrollController: _scrollController,
+              readOnly: _session.readOnlyReason != null,
+              maxLines: null,
+              expands: true,
+              style: monoStyle.copyWith(
+                color: theme.colorScheme.onSurface,
               ),
-              isDense: true,
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
+                isDense: true,
+              ),
             ),
           ),
         ),
@@ -790,25 +811,52 @@ class _PlainTextEditorWidgetState extends State<_PlainTextEditorWidget> {
       );
     }
 
+    final external = _session.external;
+    final notice = _session.readOnlyReason;
     return Container(
       color: theme.colorScheme.surface,
-      child: editor,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (notice != null)
+            Padding(
+              padding: const EdgeInsets.all(6),
+              child: Text(notice, style: theme.textTheme.bodySmall),
+            ),
+          if (external != null)
+            // The file changed on disk while there are unsaved edits: the
+            // user chooses; nothing is written over the other change.
+            Material(
+              color: theme.colorScheme.errorContainer,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        external.deleted
+                            ? 'This file was deleted on disk.'
+                            : 'This file changed on disk.',
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: _session.keepMine,
+                      child: const Text('Keep mine'),
+                    ),
+                    if (!external.deleted)
+                      TextButton(
+                        onPressed: _session.takeTheirs,
+                        child: const Text('Take theirs'),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          Expanded(child: editor),
+        ],
+      ),
     );
   }
-}
-
-/// Undo state snapshot.
-class _UndoState {
-  final String text;
-  final TextSelection selection;
-  const _UndoState({required this.text, required this.selection});
-}
-
-/// One undoable change: the text and selection before and after it.
-class _TextChange {
-  final _UndoState before;
-  final _UndoState after;
-  const _TextChange({required this.before, required this.after});
 }
 
 /// A [TextEditingController] that applies syntax highlighting via

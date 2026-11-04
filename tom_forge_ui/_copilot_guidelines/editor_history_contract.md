@@ -13,14 +13,17 @@ and the split copy (`ForgeEditor.buildCopy`), which shows the same document
 and the same history, never a second stack.
 
 - A file-backed editor's history is its `ForgeFileSession`
-  (`tom_file_session`), unless the editor owns a richer model that is the
+  (`tom_file_session`) — the plain-text editor's is — unless the editor owns a richer model that is the
   document (the specs editor's `SpecDocumentController`, Webwork's
   per-document `WebworkUndoStack`).
 - A text editor without either keeps a `ForgeTextHistory`.
 - An editor embedded in a document that keeps the history (a Dart field
   in a spec document, Webwork's script section) keeps none: it reports its
   edits and gesture ends to the host and takes undo and redo from it — the
-  Dart editor's external history mode (`DartCodeHistoryHost`).
+  Dart editor's external history mode (`DartCodeHistoryHost`). A spec
+  document's Dart field writes its typing to the document at once and the
+  document makes it one entry per gesture
+  (`SpecDocumentController.typeContent` / `endTyping`).
 - The shell's `ForgeUndoManager` holds **shell actions only** (file
   operations). No editor pushes into it; `Edit > Undo/Redo` run the active
   editor's `forge.edit.undo` / `forge.edit.redo` and are disabled with no
@@ -32,7 +35,13 @@ and the same history, never a second stack.
 text, a fingerprint or a revision id (`ForgeSavedMarker`). It is never
 "can undo" and never "anything changed": undoing back to the saved state
 shows clean, undoing past a save shows dirty. `markClean` moves the marker
-and leaves the history alone.
+and leaves the history alone. A caret move, a click or a selection never makes
+a document dirty.
+
+An editor that saves its own file (a `ForgeFileSession`: its encoding kept,
+the disk checked first) lists `forge.file.save` in its actions and returns
+null from `getContent`; the shell then hands every explicit save to it and
+never marks it clean itself.
 
 ## 3. Content from outside replaces, saves and clears
 
@@ -124,7 +133,9 @@ navigation, not undo) is likewise reserved.
 
 The editor's suite supplies a `ForgeUndoSubject`; the defaults drive an editor
 whose views edit through an `EditableText`. A check the editor does not meet
-yet is skipped with the todo that makes it pass. The YAML editor passes
-every check in both modes, the Dart and the Markdown editor every check. The reference editor in
+yet is skipped with the todo that makes it pass. Every Forge text editor
+passes every check: the YAML editor in both modes, the Dart, the Markdown and
+the plain-text editor. An editor that saves its own file overrides the
+subject's `saved()` to save (the plain-text editor saves through its session). The reference editor in
 `test/undo/undo_conformance_test.dart` — the helpers and nothing else — meets
 all six.

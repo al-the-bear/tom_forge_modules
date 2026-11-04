@@ -1,4 +1,6 @@
 import 'package:flutter/widgets.dart';
+import 'package:tom_editors_shared/tom_editors_shared.dart'
+    show forgeCaretAtChange;
 
 import 'dart_code_editor.dart';
 import 'summary_backed_dart_editor.dart';
@@ -6,7 +8,11 @@ import 'summary_backed_dart_editor.dart';
 /// Easy-to-embed Dart editor with built-in summary-backed analysis.
 ///
 /// This widget manages its own [DartCodeController], so host code can stay
-/// minimal when controller-level access is not required.
+/// minimal when controller-level access is not required. With a
+/// [historyHost] the code is a field of a larger document whose history the
+/// host keeps (the external history mode): the field's edits, undo and redo
+/// go to the host, and a new [initialCode] — the document undone or changed
+/// elsewhere — is shown, not taken as a fresh load.
 class SimpleSummaryBackedDartCodeEditor extends StatefulWidget {
   final String initialCode;
   final List<String> implicitImports;
@@ -34,6 +40,9 @@ class SimpleSummaryBackedDartCodeEditor extends StatefulWidget {
   final Duration analysisDebounce;
   final ValueChanged<List<CodeError>>? onErrorsChanged;
 
+  /// The document's history, when the code is a field of a larger document.
+  final DartCodeHistoryHost? historyHost;
+
   const SimpleSummaryBackedDartCodeEditor({
     super.key,
     this.initialCode = '',
@@ -56,6 +65,7 @@ class SimpleSummaryBackedDartCodeEditor extends StatefulWidget {
     this.onSettingsChanged,
     this.analysisDebounce = const Duration(milliseconds: 500),
     this.onErrorsChanged,
+    this.historyHost,
   });
 
   @override
@@ -73,6 +83,7 @@ class _SimpleSummaryBackedDartCodeEditorState
     _controller = DartCodeController(
       initialCode: widget.initialCode,
       implicitImports: widget.implicitImports,
+      historyHost: widget.historyHost,
     );
   }
 
@@ -82,7 +93,14 @@ class _SimpleSummaryBackedDartCodeEditorState
 
     if (oldWidget.initialCode != widget.initialCode &&
         widget.initialCode != _controller.userCode) {
-      _controller.replaceCode(widget.initialCode);
+      if (_controller.historyHost != null) {
+        _controller.showCode(
+          widget.initialCode,
+          selection: forgeCaretAtChange(_controller.userCode, widget.initialCode),
+        );
+      } else {
+        _controller.replaceCode(widget.initialCode);
+      }
     }
 
     final importsChanged =

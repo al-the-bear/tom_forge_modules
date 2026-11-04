@@ -67,7 +67,7 @@ as it was. What differs is the entry:
 | MD Editor | `MdEditOperation` | md_editor_controller.dart |
 | Dart Editor | a before/after text change | dart_code_editor.dart |
 | YAML Editor | `YamlEditOperation` | yaml_editor_controller.dart |
-| Plain-text editor | a before/after text change | forge_plain_text_editor.dart |
+| Plain-text editor | its file's `ForgeFileSession`: `ForgeFileHistoryEntry` | file_session.dart |
 | Standalone integrations | `TextUndoEntry` | base_standalone_integration.dart |
 | File tabs (`ForgeFileSession`) | `ForgeFileHistoryEntry` | file_session.dart |
 

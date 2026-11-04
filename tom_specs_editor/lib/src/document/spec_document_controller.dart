@@ -1,8 +1,9 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart'
-    show StandardEditingActions;
+    show StandardEditingActions, forgeTypingPause;
 import 'package:tom_forge_agentic/tom_forge_agentic.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart'
     show DefaultUndoManager, ShellEditorIntegration, UndoEntry;
@@ -710,7 +711,7 @@ class SpecDocumentController extends ChangeNotifier {
     if (document.headline(path) == (effective.isEmpty ? null : effective)) {
       return;
     }
-    final before = document.captureState();
+    final before = _beforeEdit();
     document.setHeadline(path, effective);
     _commitDocMutation(before);
   }
@@ -725,7 +726,7 @@ class SpecDocumentController extends ChangeNotifier {
   /// editor re-seeds its field to the stored value on a rejected edit.
   bool setItemSectionId(String itemPath, String id) {
     if (id.isEmpty || document.itemSectionId(itemPath) == id) return false;
-    final before = document.captureState();
+    final before = _beforeEdit();
     try {
       document.setItemSectionId(itemPath, id);
     } on SpecSectionIdCollision {
@@ -746,7 +747,7 @@ class SpecDocumentController extends ChangeNotifier {
   /// lookup hits the raw snapshot map with the right key.
   void setContent(String path, String value) {
     final key = storagePathFor(path);
-    final before = document.captureState();
+    final before = _beforeEdit();
     final beforeVal = document.content(path);
     document.setContent(path, value);
     _commit(
@@ -768,7 +769,7 @@ class SpecDocumentController extends ChangeNotifier {
   /// is a no-op.
   void setFormField(String path, String field, String value) {
     final key = storagePathFor(path);
-    final before = document.captureState();
+    final before = _beforeEdit();
     final beforeVal = document.formField(path, field);
     document.setFormField(path, field, value);
     _commit(
@@ -795,7 +796,7 @@ class SpecDocumentController extends ChangeNotifier {
   /// but editable per the editor mode; generation is skipped for lists without
   /// a pattern (they keep their positional id).
   String addListItem(String listPath) {
-    final before = document.captureState();
+    final before = _beforeEdit();
     final generatedId = _generatedItemSectionId(listPath);
     final itemPath = document.addListItem(listPath, sectionId: generatedId);
     _commit(
@@ -814,7 +815,7 @@ class SpecDocumentController extends ChangeNotifier {
 
   /// Removes the list item at [itemPath]; returns whether one was removed.
   bool removeListItem(String itemPath) {
-    final before = document.captureState();
+    final before = _beforeEdit();
     final removed = document.removeListItem(itemPath);
     if (removed) {
       _commit(
@@ -844,7 +845,7 @@ class SpecDocumentController extends ChangeNotifier {
   /// rule of [_commit]. This is the mutation the engine's `spec` scope binds to
   /// (plan step 18), so a script add and a tool add land in the one change log.
   String addChild(String parentPath, String childSegment, {String? itemId}) {
-    final before = document.captureState();
+    final before = _beforeEdit();
     final childPath = SpecNodeCreator(
       model,
       document,
@@ -914,6 +915,7 @@ class SpecDocumentController extends ChangeNotifier {
   /// grouping, `tom_specs_editor_specification.md` §9) and collapse into a
   /// single undo step (`tom_specs_editor_specification.md` §10).
   void beginTurn(String turnId) {
+    endTyping();
     _currentTurnId = turnId;
     _undo.beginUndoGroup(label: 'Agent turn $turnId');
   }
@@ -925,27 +927,107 @@ class SpecDocumentController extends ChangeNotifier {
     activeToolCallId = null;
   }
 
-  /// Whether there is an edit to undo.
-  bool get canUndo => _undo.undoCount > 0;
+  /// Whether there is an edit to undo — typing still in progress included.
+  bool get canUndo => _undo.undoCount > 0 || isTyping;
 
-  /// Whether there is an undone edit to redo.
-  bool get canRedo => _undo.redoCount > 0;
+  /// Whether there is an undone edit to redo (none while typing: typing ends
+  /// the redo future).
+  bool get canRedo => _undo.redoCount > 0 && !isTyping;
 
   /// Whether the document differs from its last-saved state
   /// (`tom_specs_editor_specification.md` §10).
   bool get isDirty => document.captureState().fingerprint != _savedFingerprint;
 
-  /// Undoes the most recent edit (or agent turn).
-  Future<void> undo() => _undo.undo();
+  /// Undoes the most recent edit (or agent turn); typing in progress is
+  /// ended first, so it is what is undone.
+  Future<void> undo() {
+    endTyping();
+    return _undo.undo();
+  }
 
   /// Redoes the most recently undone edit (or agent turn).
-  Future<void> redo() => _undo.redo();
+  Future<void> redo() {
+    endTyping();
+    return _undo.redo();
+  }
+
+  // --- typing: one undo entry per gesture ------------------------------------
+
+  String? _typingPath;
+  SpecDocumentState? _typingBefore;
+  String? _typingStartValue;
+  Timer? _typingPause;
+
+  /// Whether typing in a field has not yet made its undo entry.
+  bool get isTyping => _typingPath != null;
+
+  /// Typing in the content field at [path] (an embedded code editor): the
+  /// value is written at once, and the typing is one undo entry and one
+  /// change-log entry per gesture — ended by [endTyping] (a caret move, a
+  /// blur, a word), by the typing pause, by typing in another field, or by
+  /// any other edit, undo, redo or save.
+  void typeContent(String path, String value) {
+    if (_typingPath != null && _typingPath != path) endTyping();
+    if (_typingPath == null) {
+      if (document.content(path) == value) return;
+      _typingPath = path;
+      _typingBefore = document.captureState();
+      _typingStartValue = document.content(path);
+    }
+    document.setContent(path, value);
+    _typingPause?.cancel();
+    _typingPause = Timer(forgeTypingPause, endTyping);
+    notifyListeners();
+  }
+
+  /// Ends the typing in progress, making it one undo entry — none when the
+  /// value came back to where it started.
+  void endTyping() {
+    _typingPause?.cancel();
+    _typingPause = null;
+    final path = _typingPath;
+    final before = _typingBefore;
+    if (path == null || before == null) return;
+    _typingPath = null;
+    _typingBefore = null;
+    final key = storagePathFor(path);
+    final value = document.content(path) ?? '';
+    final start = _typingStartValue;
+    _commit(
+      before,
+      () => ChangeEntry(
+        id: _nextEntryId(),
+        sectionId: key,
+        kind: ChangeKind.content,
+        turnId: _turnIdForEdit(),
+        beforeThisEdit: start,
+        afterThisEdit: value.isEmpty ? null : value,
+        baseAtLastSave: _savedState.contentAt(key),
+        toolCallId: activeToolCallId,
+      ),
+    );
+  }
+
+  /// Drops typing in progress without an entry (a load replaces the document).
+  void _discardTyping() {
+    _typingPause?.cancel();
+    _typingPause = null;
+    _typingPath = null;
+    _typingBefore = null;
+  }
+
+  /// The state before an edit: typing in progress becomes its own entry first.
+  SpecDocumentState _beforeEdit() {
+    endTyping();
+    return document.captureState();
+  }
 
   /// Save-point bookkeeping (`tom_specs_editor_specification.md` §9, §10): the
   /// saved state becomes the new base, the change log resets, and dirty clears.
   /// The undo stack is deliberately **kept** so post-save undo still works
   /// (`tom_specs_editor_specification.md` §9, N6).
   void save() {
+    endTyping();
     _savedState = document.captureState();
     _savedFingerprint = _savedState.fingerprint;
     changeLog.reset();
@@ -988,6 +1070,7 @@ class SpecDocumentController extends ChangeNotifier {
       await file.readAsString(),
       _masterTree(),
     );
+    _discardTyping();
     document.restoreState(parsed.document.captureState());
     review.replaceEntries(parsed.review);
     _undo.clear();
@@ -1048,7 +1131,7 @@ class SpecDocumentController extends ChangeNotifier {
   /// instead of refusing the whole document.
   void _applyMarkdownImport(MarkdownImportResult result) {
     if (result.rootPrefixes.isEmpty) return;
-    final before = document.captureState();
+    final before = _beforeEdit();
 
     document.applyMarkdownResult(result, allowRejections: true);
 
@@ -1151,6 +1234,7 @@ class SpecDocumentController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _discardTyping();
     strictHeadlineEditing.dispose();
     strictValidation.dispose();
     _undo.dispose();

@@ -72,13 +72,14 @@ void main() {
       await tester.pump();
 
       expect(shell.systemState.openEditors, contains(editor));
-      expect(editor.getContent(), 'restored');
+      expect(editor.session.text, 'restored');
       expect(find.text('restored'), findsOneWidget);
       expect(editor.isDirty.value, isFalse);
       expect(
         editor.isActionEnabled(StandardEditingActions.undoActionId),
         isFalse,
       );
+      await tester.pump(const Duration(seconds: 2)); // the typing pause
     });
 
     test('HC-2: an editor that cannot take the text in place is closed and '
@@ -124,7 +125,7 @@ void main() {
         undos++;
       }
       expect(undos, 1, reason: 'the history keeps one entry now');
-      expect(editor.getContent(), 'ab');
+      expect(editor.session.text, 'ab');
       await tester.pump(const Duration(seconds: 2)); // the typing pause
     });
 

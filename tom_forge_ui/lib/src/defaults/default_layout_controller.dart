@@ -874,6 +874,16 @@ class DefaultLayoutController implements ForgeLayoutController {
         final controller = YamlEditorController(initialYaml: content, uri: uri);
         return ForgeYamlEditor(controller: controller, module: ownerModule);
       case 'plaintext':
+        // The editor edits the file through its own session (reading,
+        // revision-checked save); a file outside the shell's file system is
+        // edited in memory.
+        if (_fileSystem.pathOf(uri) != null) {
+          return ForgePlainTextEditor.forFile(
+            fileSystem: _fileSystem,
+            uri: uri,
+            module: ownerModule,
+          );
+        }
         return ForgePlainTextEditor.fromContent(
           content: content,
           uri: uri,

@@ -537,6 +537,7 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
           scope: codeScope,
           value: _controller.content(path) ?? '',
           onChanged: (v) => _controller.setContent(path, v),
+          history: SpecDocumentFieldHistory(_controller, path),
         ),
       );
     }
@@ -1117,12 +1118,19 @@ class _CodeField extends StatelessWidget {
     required this.scope,
     required this.value,
     required this.onChanged,
+    required this.history,
   });
 
   /// Summary scope (bundle) name this code field analyses against.
   final String scope;
   final String value;
+
+  /// The plain fallback field's write.
   final ValueChanged<String> onChanged;
+
+  /// The document's history, which the code editor's edits, undo and redo
+  /// go to.
+  final SpecDocumentFieldHistory history;
 
   @override
   Widget build(BuildContext context) {
@@ -1137,7 +1145,7 @@ class _CodeField extends StatelessWidget {
         child: SimpleSummaryBackedDartCodeEditor(
           initialCode: value,
           scope: scope,
-          onChanged: onChanged,
+          historyHost: history,
         ),
       );
     }
@@ -1148,6 +1156,42 @@ class _CodeField extends StatelessWidget {
       onChanged: onChanged,
     );
   }
+}
+
+/// The document's history as one code field's history (the Dart editor's
+/// external history mode): the field's typing is written to the document at
+/// once and is one document undo entry per gesture; undo and redo are the
+/// document's, so a field edit and a headline edit undo in the order they
+/// were made.
+class SpecDocumentFieldHistory implements DartCodeHistoryHost {
+  SpecDocumentFieldHistory(this.controller, this.path);
+
+  final SpecDocumentController controller;
+
+  /// The content path the field edits.
+  final String path;
+
+  @override
+  void edited(String code, TextSelection selection) =>
+      controller.typeContent(path, code);
+
+  @override
+  void flush() => controller.endTyping();
+
+  @override
+  bool get canUndo => controller.canUndo;
+
+  @override
+  bool get canRedo => controller.canRedo;
+
+  @override
+  void undo() => unawaited(controller.undo());
+
+  @override
+  void redo() => unawaited(controller.redo());
+
+  @override
+  Listenable get changed => controller;
 }
 
 /// A Flutter-layout content field (`tom_specs_editor_specification.md` §13 k).

@@ -1,19 +1,17 @@
 /// Forge's text editors under the undo conformance harness (wonecmpc19).
 ///
-/// Every check an editor does not meet yet is skipped with the todo that
-/// makes it pass; that todo removes the skip. Measured 2026-11-04: the
-/// plain-text editor meets only replaceContentClearsHistory (its undo is
-/// refused while typing is pending, its copy keeps a second history, dirty is
-/// "anything changed"); the Dart editor meets every check (wonecmpc21); the
-/// YAML editor meets every check in both modes (wonecmpc20): in source mode
-/// its document is the text, in tree mode the text is the value of one string
-/// field; the Markdown editor meets every check, typed in its raw editor
-/// (wonecmpc22).
+/// Every editor meets every check, none skipped. The plain-text editor edits
+/// a file session and saves its own file; the Dart editor is a plain text
+/// subject; the YAML editor is run in both modes — in source mode its document
+/// is the text, in tree mode the text is the value of one string field; the
+/// Markdown editor is typed in its raw editor.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_dart_editor/tom_dart_editor.dart' show DartCodeController;
+import 'package:tom_file_session/tom_file_session.dart'
+    show ForgeFileSaveOutcome;
 import 'package:tom_forge_ui/testing.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 import 'package:tom_md_editor/tom_md_editor.dart'
@@ -28,8 +26,6 @@ DefaultShellApi _shell() => DefaultShellApi.withDefaults(
 );
 
 ForgeModule _module() => TomForgeShellModule()..activate(_shell());
-
-const _plainText = 'wonecmpc23 (the plain-text editor rebuilt on ForgeFileSession)';
 
 void main() {
   // The YAML editor's debug trail replaces FlutterError.onError, which a
@@ -50,23 +46,7 @@ void main() {
 
   runForgeUndoConformance('Markdown editor', _MarkdownSubject.new);
 
-  runForgeUndoConformance(
-    'plain-text editor',
-    (saved) => _Subject(
-      ForgePlainTextEditor.fromContent(
-        content: saved,
-        uri: Uri.parse('file:///notes.txt'),
-        module: _module(),
-      ),
-    ),
-    skip: const {
-      ForgeUndoCheck.dirtyFollowsSavedState: _plainText,
-      ForgeUndoCheck.caretAfterUndoAndRedo: _plainText,
-      ForgeUndoCheck.typingUndoneWithinPause: _plainText,
-      ForgeUndoCheck.noRedoAfterTyping: _plainText,
-      ForgeUndoCheck.splitCopiesShareHistory: _plainText,
-    },
-  );
+  runForgeUndoConformance('plain-text editor', _PlainTextSubject.new);
 
   runForgeUndoConformance(
     'Dart editor',
@@ -84,6 +64,28 @@ class _Subject extends ForgeUndoSubject {
 
   @override
   final ForgeEditor editor;
+}
+
+/// The plain-text editor: its document is its file session, and Save saves
+/// the file through it.
+class _PlainTextSubject extends ForgeUndoSubject {
+  _PlainTextSubject(String saved)
+    : editor = ForgePlainTextEditor.fromContent(
+        content: saved,
+        uri: Uri.parse('file:///notes.txt'),
+        module: _module(),
+      );
+
+  @override
+  final ForgePlainTextEditor editor;
+
+  @override
+  String textOf(WidgetTester tester) => editor.session.text;
+
+  @override
+  Future<void> saved() async {
+    expect(await editor.session.save(), ForgeFileSaveOutcome.saved);
+  }
 }
 
 /// The YAML editor in tree mode: the document is `v: <text>`, and the text

@@ -13,6 +13,9 @@ dependencies:
     path: ../../tom_ai/basics/tom_undo
   tom_file_system:
     path: ../../tom_ai/basics/tom_file_system
+  # The per-file session the plain-text editor edits through.
+  tom_file_session:
+    path: ../../tom_ai/modules/tom_file_session
   flutter:
     sdk: flutter
   # lib/testing.dart (the undo conformance harness) is built on it.
