@@ -194,7 +194,7 @@ class _RichMarkdownState extends State<_RichMarkdown> {
   void didUpdateWidget(_RichMarkdown oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.source != widget.source) {
-      _controller.markdown = widget.source;
+      _controller.replaceContent(widget.source);
     }
   }
 

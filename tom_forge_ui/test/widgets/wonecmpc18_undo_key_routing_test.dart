@@ -198,6 +198,7 @@ void main() {
       expect(editor.controller.markdown, 'one two', reason: 'old key unbound');
       await _press(tester, LogicalKeyboardKey.f7);
       expect(editor.controller.markdown, 'one');
+      await tester.pump(const Duration(seconds: 2)); // the typing pause
     });
   });
 

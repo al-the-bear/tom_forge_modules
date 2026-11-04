@@ -250,7 +250,7 @@ User can **interactively switch** position via a toggle button or drag.
 | Plain text editing | Standard text input with markdown source |
 | Live preview | Main panel updates as user types |
 | Multiple cursors | Support for selection and multiple edit points |
-| Undo/redo | Full edit history |
+| Undo/redo | One history per document (Forge history contract): typing one entry per gesture, other operations one entry each, the cursor restored, dirty against the saved markdown |
 | Search/replace | Find and replace in current section |
 | Syntax highlighting | Markdown syntax highlighting in raw view |
 
@@ -569,7 +569,7 @@ Once a schema is loaded, the user can generate a skeleton document containing al
 ```dart
 // Generate skeleton from schema using tom_doc_specs
 final skeleton = DocSpecsSkeletonGenerator.generate(schema);
-controller.markdown = skeleton;
+controller.applyEdit(skeleton);
 ```
 
 The skeleton includes:
@@ -3433,7 +3433,7 @@ class HttpDocumentProvider implements MdDocumentProvider {
 
 Add keyboard shortcuts:
 - `F3` / `Shift+F3` — next/previous search result
-- `Ctrl+Z` / `Ctrl+Shift+Z` — undo/redo
+- `Ctrl+Z` / `Ctrl+Shift+Z` (also `Ctrl+Y` on Windows and Linux) — undo/redo; in the search field they undo the field
 - `Ctrl+S` — save
 - `Ctrl+F` — focus search box
 

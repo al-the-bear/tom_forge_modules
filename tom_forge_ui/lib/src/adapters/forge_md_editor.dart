@@ -20,7 +20,6 @@ class ForgeMdEditor extends ForgeTextEditor {
   final _stateStreamController = StreamController<void>.broadcast();
   final _title = ValueNotifier<String>('Markdown');
   final _titleExtension = ValueNotifier<String?>(null);
-  final _isDirty = ValueNotifier<bool>(false);
   final _cursorPos = ValueNotifier<ForgeTextPosition>(const ForgeTextPosition.zero());
   final _selection = ValueNotifier<ForgeTextRange?>(null);
   final _selections = ValueNotifier<List<ForgeTextRange>>([]);
@@ -198,22 +197,23 @@ class ForgeMdEditor extends ForgeTextEditor {
   }
 
   @override
-  ValueListenable<bool> get isDirty => _isDirty;
+  ValueListenable<bool> get isDirty => controller.isDirty;
 
   @override
-  void markClean() {
-    _isDirty.value = false;
-  }
+  void markClean() => controller.markSaved();
 
   @override
   bool replaceContent(String content) {
     controller.replaceContent(content);
-    _isDirty.value = false;
     return true;
   }
 
   @override
-  String? getContent() => controller.markdown;
+  String? getContent() {
+    // A save writes what is typed: typing not handed over yet goes first.
+    controller.flush();
+    return controller.markdown;
+  }
 
   @override
   Map<String, dynamic>? saveState() {
@@ -345,8 +345,10 @@ class ForgeMdEditor extends ForgeTextEditor {
   void insertText(String text) {
     final code = controller.markdown;
     final offset = _positionConverter.positionToOffset(_cursorPos.value);
-    controller.markdown =
-        code.substring(0, offset) + text + code.substring(offset);
+    controller.applyEdit(
+      code.substring(0, offset) + text + code.substring(offset),
+      cursor: offset + text.length,
+    );
   }
 
   @override
@@ -357,7 +359,7 @@ class ForgeMdEditor extends ForgeTextEditor {
     final newText = current.substring(0, startOffset) +
         replacement +
         current.substring(endOffset);
-    controller.markdown = newText;
+    controller.applyEdit(newText, cursor: startOffset + replacement.length);
   }
 
   @override
@@ -424,7 +426,7 @@ class ForgeMdEditor extends ForgeTextEditor {
       result =
           result.substring(0, m.start) + replacement + result.substring(m.end);
     }
-    controller.markdown = result;
+    controller.applyEdit(result);
     return matches.length;
   }
 
@@ -491,7 +493,6 @@ class ForgeMdEditor extends ForgeTextEditor {
 
   void _onContentChanged() {
     _positionConverter = PositionConverter(controller.markdown);
-    _isDirty.value = controller.canUndo;
     _document.updateConverter(_positionConverter);
     _document.notifyContentChanged();
     _stateStreamController.add(null);
@@ -613,7 +614,6 @@ class ForgeMdEditor extends ForgeTextEditor {
     controller.removeListener(_onContentChanged);
     _title.dispose();
     _titleExtension.dispose();
-    _isDirty.dispose();
     _cursorPos.dispose();
     _selection.dispose();
     _selections.dispose();

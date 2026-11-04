@@ -62,20 +62,24 @@ class MdPreviewPanel extends StatefulWidget {
 
 class _MdPreviewPanelState extends State<MdPreviewPanel> {
   final ScrollController _scrollController = ScrollController();
+
   /// Track last selected section by value (level + headline) to avoid
   /// false-positive change detection after re-parsing.
   (int, String)? _lastSelectedKey;
   bool _suppressScroll = false;
   late MdPluginRegistry _registry;
+
   /// Debounce timer for preview rebuilds.
   Timer? _rebuildTimer;
+
   /// Cached markdown to skip rebuilds when content is unchanged.
   String _lastMarkdown = '';
 
   @override
   void initState() {
     super.initState();
-    _registry = widget.pluginRegistry ??
+    _registry =
+        widget.pluginRegistry ??
         createDefaultPluginRegistry(settings: widget.settings);
     widget.controller.addListener(_onChanged);
   }
@@ -88,7 +92,8 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
       widget.controller.addListener(_onChanged);
     }
     if (widget.pluginRegistry != oldWidget.pluginRegistry) {
-      _registry = widget.pluginRegistry ??
+      _registry =
+          widget.pluginRegistry ??
           createDefaultPluginRegistry(settings: widget.settings);
     }
   }
@@ -103,9 +108,7 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
 
   void _onChanged() {
     final selected = widget.controller.selectedSection;
-    final key = selected != null
-        ? (selected.level, selected.headline)
-        : null;
+    final key = selected != null ? (selected.level, selected.headline) : null;
     final selectionChanged = key != null && key != _lastSelectedKey;
     if (selectionChanged) {
       _lastSelectedKey = key;
@@ -144,13 +147,15 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
         if (s.level == section.level) {
           if (identical(s, section) ||
               (s.headline.trim() == section.headline.trim() &&
-               s.sourceLineStart == section.sourceLineStart)) {
+                  s.sourceLineStart == section.sourceLineStart)) {
             break;
           }
           ordinal++;
         }
       }
-      final targetKey = ValueKey('${section.level}:$ordinal:${section.headline.trim()}');
+      final targetKey = ValueKey(
+        '${section.level}:$ordinal:${section.headline.trim()}',
+      );
       BuildContext? headingCtx;
       void search(Element element) {
         if (headingCtx != null) return;
@@ -160,6 +165,7 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
         }
         element.visitChildren(search);
       }
+
       (context as Element).visitChildren(search);
       if (headingCtx == null) return;
       Scrollable.ensureVisible(
@@ -264,18 +270,20 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
         parentSectionId: parentId,
       );
       if (prompt != null) {
-        widgets.add(MdValidationPromptBanner(
-          prompt: prompt,
-          sectionId: section.id,
-          sectionText: section.text,
-          sectionLineNumber: section.sourceLineStart,
-          sectionTags: section.commentMetadata['tags'],
-          sectionFields: section.commentMetadata.isEmpty
-              ? null
-              : section.commentMetadata,
-          parentId: parentId,
-          theme: editorTheme,
-        ));
+        widgets.add(
+          MdValidationPromptBanner(
+            prompt: prompt,
+            sectionId: section.id,
+            sectionText: section.text,
+            sectionLineNumber: section.sourceLineStart,
+            sectionTags: section.commentMetadata['tags'],
+            sectionFields: section.commentMetadata.isEmpty
+                ? null
+                : section.commentMetadata,
+            parentId: parentId,
+            theme: editorTheme,
+          ),
+        );
       }
     }
 
@@ -289,9 +297,7 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
     return Container(
       decoration: BoxDecoration(
         color: basic.surfaceVariant,
-        border: Border(
-          bottom: BorderSide(color: basic.border, width: 0.5),
-        ),
+        border: Border(bottom: BorderSide(color: basic.border, width: 0.5)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -345,27 +351,22 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
       }
 
       return Scrollbar(
+        controller: _scrollController,
+        child: SingleChildScrollView(
           controller: _scrollController,
-          child: SingleChildScrollView(
-            controller: _scrollController,
-            padding: EdgeInsets.all(basic.blockPadding * 2),
-            child: SelectionArea(
-              contextMenuBuilder: (ctx, selectableRegionState) {
-                return _buildBodyContextMenu(
-                  ctx,
-                  selectableRegionState,
-                );
-              },
-              child: MarkdownBody(
+          padding: EdgeInsets.all(basic.blockPadding * 2),
+          child: SelectionArea(
+            contextMenuBuilder: (ctx, selectableRegionState) {
+              return _buildBodyContextMenu(ctx, selectableRegionState);
+            },
+            child: MarkdownBody(
               data: processed,
               selectable: false,
-              extensionSet: md.ExtensionSet(
-                md.ExtensionSet.gitHubWeb.blockSyntaxes,
-                [
-                  if (widget.settings.enableMath) _InlineMathSyntax(),
-                  ...md.ExtensionSet.gitHubWeb.inlineSyntaxes,
-                ],
-              ),
+              extensionSet:
+                  md.ExtensionSet(md.ExtensionSet.gitHubWeb.blockSyntaxes, [
+                    if (widget.settings.enableMath) _InlineMathSyntax(),
+                    ...md.ExtensionSet.gitHubWeb.inlineSyntaxes,
+                  ]),
               styleSheet: _buildStyleSheet(basic),
               onTapLink: (text, href, title) {
                 _handleLinkTap(href);
@@ -380,9 +381,7 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
                 return GestureDetector(
                   onTap: enabled ? () => _toggleTaskItem(index) : null,
                   child: Icon(
-                    checked
-                        ? Icons.check_box
-                        : Icons.check_box_outline_blank,
+                    checked ? Icons.check_box : Icons.check_box_outline_blank,
                     size: 18,
                     color: checked ? basic.success : basic.textMuted,
                   ),
@@ -417,7 +416,7 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
               },
             ),
           ),
-          ),
+        ),
       );
     } catch (e, st) {
       MdEditorDebug.logger.error('Error building markdown view', e, st);
@@ -450,8 +449,9 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
       // Try exact replacement first, then fall back to pattern-based.
       final idx = source.indexOf(rawOriginal);
       if (idx >= 0) {
-        widget.controller.markdown =
-            source.replaceFirst(rawOriginal, newMarkdown);
+        widget.controller.applyEdit(
+          source.replaceFirst(rawOriginal, newMarkdown),
+        );
       } else {
         // For fenced blocks, use robust replacement that handles whitespace
         // variations and special characters in the content.
@@ -464,11 +464,9 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
             newMarkdown,
           );
           if (updated != null) {
-            widget.controller.markdown = updated;
+            widget.controller.applyEdit(updated);
           } else {
-            MdEditorDebug.logger.warn(
-              'Could not find $lang block to replace',
-            );
+            MdEditorDebug.logger.warn('Could not find $lang block to replace');
           }
         }
       }
@@ -506,19 +504,10 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
 
   /// Normalize content for comparison: trim and normalize line endings.
   String _normalizeContent(String content) {
-    return content
-        .replaceAll('\r\n', '\n')
-        .replaceAll('\r', '\n')
-        .trim();
+    return content.replaceAll('\r\n', '\n').replaceAll('\r', '\n').trim();
   }
 
-
-  Widget _buildImage(
-    MdBasicTheme basic,
-    Uri uri,
-    String? title,
-    String? alt,
-  ) {
+  Widget _buildImage(MdBasicTheme basic, Uri uri, String? title, String? alt) {
     final uriString = uri.toString();
     final lower = uriString.toLowerCase();
     final isSvg = lower.endsWith('.svg');
@@ -558,17 +547,30 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
       } else if (uri.hasScheme && uri.scheme == 'file' && !kIsWeb) {
         imageWidget = svgFromFileUri(uri);
       } else {
-        final assetPath = uriString.startsWith('/') ? uriString.substring(1) : uriString;
+        final assetPath = uriString.startsWith('/')
+            ? uriString.substring(1)
+            : uriString;
         imageWidget = SvgPicture.asset(assetPath);
       }
     } else {
       if (uri.hasScheme && (uri.scheme == 'http' || uri.scheme == 'https')) {
-        imageWidget = Image.network(uriString, errorBuilder: (context, error, stack) => brokenImage());
+        imageWidget = Image.network(
+          uriString,
+          errorBuilder: (context, error, stack) => brokenImage(),
+        );
       } else if (uri.hasScheme && uri.scheme == 'file' && !kIsWeb) {
-        imageWidget = Image.file(File.fromUri(uri), errorBuilder: (context, error, stack) => brokenImage());
+        imageWidget = Image.file(
+          File.fromUri(uri),
+          errorBuilder: (context, error, stack) => brokenImage(),
+        );
       } else {
-        final assetPath = uriString.startsWith('/') ? uriString.substring(1) : uriString;
-        imageWidget = Image.asset(assetPath, errorBuilder: (context, error, stack) => brokenImage());
+        final assetPath = uriString.startsWith('/')
+            ? uriString.substring(1)
+            : uriString;
+        imageWidget = Image.asset(
+          assetPath,
+          errorBuilder: (context, error, stack) => brokenImage(),
+        );
       }
     }
 
@@ -614,16 +616,11 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
       codeblockDecoration: basic.codeBlockDecoration,
       blockquoteDecoration: basic.blockquoteDecoration,
       blockquote: basic.paragraphStyle,
-      a: TextStyle(
-        color: basic.linkColor,
-        decoration: basic.linkDecoration,
-      ),
+      a: TextStyle(color: basic.linkColor, decoration: basic.linkDecoration),
       tableBorder: TableBorder.all(color: basic.tableBorder),
       blockSpacing: basic.paragraphSpacing,
       horizontalRuleDecoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(color: basic.border, width: 1),
-        ),
+        border: Border(top: BorderSide(color: basic.border, width: 1)),
       ),
     );
   }
@@ -682,7 +679,7 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
 
         final idx = source.indexOf(oldFence);
         if (idx >= 0) {
-          widget.controller.markdown = source.replaceFirst(oldFence, newFence);
+          widget.controller.applyEdit(source.replaceFirst(oldFence, newFence));
           return;
         }
 
@@ -691,7 +688,7 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
         if (lang.isNotEmpty) {
           final updated = _replaceFencedBlock(source, lang, code, newFence);
           if (updated != null) {
-            widget.controller.markdown = updated;
+            widget.controller.applyEdit(updated);
             return;
           }
         }
@@ -700,7 +697,7 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
         if (lang.isEmpty) {
           final updated = _replaceUnlabeledFencedBlock(source, code, newFence);
           if (updated != null) {
-            widget.controller.markdown = updated;
+            widget.controller.applyEdit(updated);
           }
         }
       } catch (e, st) {
@@ -716,10 +713,7 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
     String replacement,
   ) {
     // Pattern for unlabeled fenced blocks (``` with no language).
-    final pattern = RegExp(
-      r'(```[ \t]*\n)([\s\S]*?)(\n```)',
-      multiLine: true,
-    );
+    final pattern = RegExp(r'(```[ \t]*\n)([\s\S]*?)(\n```)', multiLine: true);
 
     final normalizedOriginal = _normalizeContent(originalContent);
 
@@ -783,15 +777,17 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
 
         // Find parent section to get allowed child types.
         final parent = _findParentSection(section);
-        
+
         // Check if parent has a known schema type.
         // If parent is the document title (no schema type), treat children
         // as effectively top-level sections for schema purposes.
-        final parentHasSchemaType = parent != null &&
+        final parentHasSchemaType =
+            parent != null &&
             schemaHelper?.getSectionTypeName(
-              parent,
-              document: widget.controller.document,
-            ) != null;
+                  parent,
+                  document: widget.controller.document,
+                ) !=
+                null;
 
         String applyPrefixCase(String value) {
           switch (widget.settings.prefixCaseStyle) {
@@ -813,7 +809,9 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
           );
           if (allowed != null && allowed.isNotEmpty) {
             allowedSectionTypes = allowed.map((sub) {
-              final prefix = applyPrefixCase(sub.typeDef?.prefix ?? sub.typeName);
+              final prefix = applyPrefixCase(
+                sub.typeDef?.prefix ?? sub.typeName,
+              );
               final patternInfo = tmpl.getIdPatternInfo(sub.typeName);
               return (
                 typeName: sub.typeName,
@@ -828,7 +826,9 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
           // - get allowed top-level types from document structure.
           final topLevel = schemaHelper?.getAllowedTopLevelSections() ?? [];
           allowedSectionTypes = topLevel.map((top) {
-            final prefix = applyPrefixCase(top.typeDef?.prefix ?? top.sectionType);
+            final prefix = applyPrefixCase(
+              top.typeDef?.prefix ?? top.sectionType,
+            );
             final patternInfo = tmpl.getIdPatternInfo(top.sectionType);
             return (
               typeName: top.sectionType,
@@ -856,15 +856,20 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
       final existingMeta = Map<String, String>.from(section.commentMetadata);
       final tagsStr = existingMeta.remove('tags') ?? '';
       final initialTags = tagsStr.isNotEmpty
-          ? tagsStr.split(',').map((t) => t.trim()).where((t) => t.isNotEmpty).toList()
+          ? tagsStr
+                .split(',')
+                .map((t) => t.trim())
+                .where((t) => t.isNotEmpty)
+                .toList()
           : <String>[];
 
       final allKeys = <String>{...existingMeta.keys, ...schemaFields};
       allKeys.remove('tags'); // Ensure tags not in metadata controllers.
       final metaControllers = <String, TextEditingController>{};
       for (final key in allKeys) {
-        metaControllers[key] =
-            TextEditingController(text: existingMeta[key] ?? '');
+        metaControllers[key] = TextEditingController(
+          text: existingMeta[key] ?? '',
+        );
       }
 
       // Get allowed tags from schema.
@@ -976,13 +981,15 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
                 .toList()
           : <String>[];
       if (allowedTags.isNotEmpty || existingTags.isNotEmpty) {
-        tagItems.add(ContextMenuButtonItem(
-          label: existingTags.isNotEmpty ? 'Edit Tags' : 'Insert Tags',
-          onPressed: () {
-            ContextMenuController.removeAny();
-            _onHeadingEdit(section.level, section.headline);
-          },
-        ));
+        tagItems.add(
+          ContextMenuButtonItem(
+            label: existingTags.isNotEmpty ? 'Edit Tags' : 'Insert Tags',
+            onPressed: () {
+              ContextMenuController.removeAny();
+              _onHeadingEdit(section.level, section.headline);
+            },
+          ),
+        );
       }
     }
 
@@ -1023,10 +1030,7 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
           ),
           ...subsectionItems,
           const PopupMenuDivider(),
-          const PopupMenuItem(
-            value: 'edit',
-            child: Text('Edit Headline & ID'),
-          ),
+          const PopupMenuItem(value: 'edit', child: Text('Edit Headline & ID')),
         ],
       ).then((value) {
         if (value == null) return;
@@ -1038,14 +1042,9 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
   }
 
   /// Build schema-aware subsection menu items for the preview context menu.
-  List<PopupMenuEntry<String>> _buildSchemaSubsectionItems(
-    MdSection section,
-  ) {
+  List<PopupMenuEntry<String>> _buildSchemaSubsectionItems(MdSection section) {
     final items = <PopupMenuEntry<String>>[
-      const PopupMenuItem(
-        value: 'add_child',
-        child: Text('Add Subsection'),
-      ),
+      const PopupMenuItem(value: 'add_child', child: Text('Add Subsection')),
     ];
 
     final schema = widget.controller.schema;
@@ -1242,7 +1241,7 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
             md.substring(0, match.start) +
             replacement +
             md.substring(match.end);
-        widget.controller.markdown = newMd;
+        widget.controller.applyEdit(newMd);
       }
     } catch (e, st) {
       MdEditorDebug.logger.error('Error toggling task item', e, st);
@@ -1268,21 +1267,20 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
 
     // Collect form sections in document order.
     void collect(MdSection section) {
-      final typeName = helper.getSectionTypeName(
-        section,
-        document: doc,
-      );
+      final typeName = helper.getSectionTypeName(section, document: doc);
       if (typeName != null && section.text.isNotEmpty) {
         final formType = tmpl.getFormType(typeName);
         if (formType != null) {
-          formSections.add(_FormSectionData(
-            formType: formType,
-            section: section,
-            typeName: typeName,
-            customTags: schema.customTags,
-            requiredFields: tmpl.getRequiredFields(typeName),
-            textPatternCheck: schema.sectionTypes[typeName]?.patternCheckText,
-          ));
+          formSections.add(
+            _FormSectionData(
+              formType: formType,
+              section: section,
+              typeName: typeName,
+              customTags: schema.customTags,
+              requiredFields: tmpl.getRequiredFields(typeName),
+              textPatternCheck: schema.sectionTypes[typeName]?.patternCheckText,
+            ),
+          );
         }
       }
       for (final sub in section.subsections) {
@@ -1334,8 +1332,10 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
 
   // ── List block preprocessing ──
 
-  static final _listItemLinePattern =
-      RegExp(r'^[ \t]*(?:[-*+]|\d+\.)[ \t]', multiLine: true);
+  static final _listItemLinePattern = RegExp(
+    r'^[ \t]*(?:[-*+]|\d+\.)[ \t]',
+    multiLine: true,
+  );
 
   /// Scan [processed] for contiguous list blocks and replace each with a
   /// synthetic fenced code block `listblock-N` so the code block builder can
@@ -1432,10 +1432,11 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
       final idx = pos >= 0 ? pos : source.indexOf(block);
       if (idx < 0) return;
       if (i == blockIndex) {
-        widget.controller.markdown =
-            source.substring(0, idx) +
-            newBlock +
-            source.substring(idx + block.length);
+        widget.controller.applyEdit(
+          source.substring(0, idx) +
+              newBlock +
+              source.substring(idx + block.length),
+        );
         return;
       }
       searchFrom = idx + block.length;
@@ -1493,7 +1494,8 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
     MdContentPlugin plugin,
     String rawOriginal,
     String editableContent,
-  ) onPluginEdit;
+  )
+  onPluginEdit;
   final void Function(int blockIndex, String newBlock) onListReorder;
   final List<_FormSectionData> formSections;
   final MdEditorTheme editorTheme;
@@ -1556,8 +1558,9 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
       final indexStr = blockLanguage.substring('listblock-'.length);
       final blockIdx = int.tryParse(indexStr) ?? 0;
       final list = contentMap['listblock'];
-      final rawBlock =
-          (list != null && blockIdx < list.length) ? list[blockIdx] : code;
+      final rawBlock = (list != null && blockIdx < list.length)
+          ? list[blockIdx]
+          : code;
       return _DraggableListBlock(
         rawContent: rawBlock,
         theme: theme,
@@ -1571,9 +1574,11 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
           final oldMarker = checked ? '- [ ]' : '- [x]';
           final newMarker = checked ? '- [x]' : '- [ ]';
           final newLine = item.rawLine.replaceFirst(oldMarker, newMarker);
-          final newLines = items.map((it) {
-            return it == item ? newLine : it.rawLine;
-          }).join('\n');
+          final newLines = items
+              .map((it) {
+                return it == item ? newLine : it.rawLine;
+              })
+              .join('\n');
           onListReorder(blockIdx, newLines);
         },
       );
@@ -1593,15 +1598,14 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
             if (preprocessor != null) {
               final prefix = preprocessor.tagPrefix;
               final expectedStart = '$prefix-';
-                final indexStr = blockLanguage.startsWith(expectedStart)
+              final indexStr = blockLanguage.startsWith(expectedStart)
                   ? blockLanguage.substring(expectedStart.length)
                   : null;
               final idx = indexStr != null ? int.tryParse(indexStr) : null;
               final list = contentMap[prefix];
-              rawOriginal =
-                  (idx != null && list != null && idx < list.length)
-                      ? list[idx]
-                      : code;
+              rawOriginal = (idx != null && list != null && idx < list.length)
+                  ? list[idx]
+                  : code;
             } else {
               // Native fenced block — construct the search string.
               rawOriginal = '```$blockLanguage\n$code\n```';
@@ -1663,10 +1667,7 @@ class _CodeBlockWidgetState extends State<_CodeBlockWidget> {
       widget.language,
     );
     if (!widget.enableSyntaxHighlighting || normalizedLanguage == null) {
-      return SelectableText(
-        widget.code,
-        style: widget.theme.codeStyle,
-      );
+      return SelectableText(widget.code, style: widget.theme.codeStyle);
     }
 
     final syntaxTheme = MdCodeHighlighting.buildTheme(widget.theme);
@@ -1681,10 +1682,7 @@ class _CodeBlockWidgetState extends State<_CodeBlockWidget> {
       );
     } catch (_) {
       // Graceful fallback when a language key is unknown.
-      return SelectableText(
-        widget.code,
-        style: widget.theme.codeStyle,
-      );
+      return SelectableText(widget.code, style: widget.theme.codeStyle);
     }
   }
 
@@ -1756,7 +1754,6 @@ class _CodeBlockWidgetState extends State<_CodeBlockWidget> {
 
 /// Renders task list checkboxes as interactive widgets.
 
-
 // ── Inline math syntax ──
 
 /// Matches `$...$` but not `$$`.
@@ -1790,10 +1787,7 @@ class _InlineMathBuilder extends MarkdownElementBuilder {
     return Math.tex(
       expression,
       mathStyle: MathStyle.text,
-      textStyle: TextStyle(
-        fontSize: theme.baseFontSize,
-        color: theme.text,
-      ),
+      textStyle: TextStyle(fontSize: theme.baseFontSize, color: theme.text),
       onErrorFallback: (err) => Text(
         '\$$expression\$',
         style: TextStyle(
@@ -1866,17 +1860,20 @@ class _HeadingBuilder extends MarkdownElementBuilder {
       section = exactMatch.first;
     } else if (strippedText.isNotEmpty) {
       // Fallback: section headline is contained in the stripped text or vice versa.
-      final fallback = sections.where((s) =>
-          s.level == level &&
-          (strippedText.contains(s.headline.trim()) ||
-              s.headline.trim().contains(strippedText)));
+      final fallback = sections.where(
+        (s) =>
+            s.level == level &&
+            (strippedText.contains(s.headline.trim()) ||
+                s.headline.trim().contains(strippedText)),
+      );
       section = fallback.isNotEmpty ? fallback.first : null;
     }
 
     // Use section data for all display, keys, and callbacks.
     final headline = section?.headline ?? strippedText;
-    final number =
-        section != null ? controller.computeSectionNumber(section) : '';
+    final number = section != null
+        ? controller.computeSectionNumber(section)
+        : '';
     final sectionId = section?.id;
 
     final headingStyle = preferredStyle ?? theme.headingStyle(level);
@@ -1893,11 +1890,8 @@ class _HeadingBuilder extends MarkdownElementBuilder {
           onTap: () => onTap(level, headline),
           onSecondaryTapDown: readOnly
               ? null
-              : (details) => onContextMenu(
-                    details.globalPosition,
-                    level,
-                    headline,
-                  ),
+              : (details) =>
+                    onContextMenu(details.globalPosition, level, headline),
           child: MouseRegion(
             cursor: SystemMouseCursors.click,
             child: Column(
@@ -1913,14 +1907,8 @@ class _HeadingBuilder extends MarkdownElementBuilder {
                         TextSpan(
                           children: [
                             if (number.isNotEmpty)
-                              TextSpan(
-                                text: '$number ',
-                                style: headingStyle,
-                              ),
-                            TextSpan(
-                              text: headline,
-                              style: headingStyle,
-                            ),
+                              TextSpan(text: '$number ', style: headingStyle),
+                            TextSpan(text: headline, style: headingStyle),
                             // Section ID shown in square brackets after headline
                             if (sectionId != null && sectionId.isNotEmpty)
                               TextSpan(
@@ -1936,8 +1924,7 @@ class _HeadingBuilder extends MarkdownElementBuilder {
                       ),
                     ),
                     // Validation error indicator
-                    if (section != null)
-                      ..._buildValidationIndicator(section),
+                    if (section != null) ..._buildValidationIndicator(section),
                     if (!readOnly)
                       Padding(
                         padding: const EdgeInsets.only(left: 4),
@@ -1972,7 +1959,11 @@ class _HeadingBuilder extends MarkdownElementBuilder {
     // Separate tags from other metadata.
     final tagsStr = commentMeta['tags'] ?? '';
     final tags = tagsStr.isNotEmpty
-        ? tagsStr.split(',').map((t) => t.trim()).where((t) => t.isNotEmpty).toList()
+        ? tagsStr
+              .split(',')
+              .map((t) => t.trim())
+              .where((t) => t.isNotEmpty)
+              .toList()
         : <String>[];
     final otherMeta = Map<String, String>.from(commentMeta)..remove('tags');
 
@@ -1986,7 +1977,9 @@ class _HeadingBuilder extends MarkdownElementBuilder {
             GestureDetector(
               onTap: readOnly ? null : () => onEdit(level, headline),
               child: MouseRegion(
-                cursor: readOnly ? SystemMouseCursors.basic : SystemMouseCursors.click,
+                cursor: readOnly
+                    ? SystemMouseCursors.basic
+                    : SystemMouseCursors.click,
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -1998,11 +1991,17 @@ class _HeadingBuilder extends MarkdownElementBuilder {
                       children: tags.map((tag) {
                         final color = _tagColor(tag);
                         return Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 1,
+                          ),
                           decoration: BoxDecoration(
                             color: color.withAlpha(30),
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: color.withAlpha(100), width: 1.0),
+                            border: Border.all(
+                              color: color.withAlpha(100),
+                              width: 1.0,
+                            ),
                           ),
                           child: Text(
                             tag,
@@ -2026,21 +2025,33 @@ class _HeadingBuilder extends MarkdownElementBuilder {
               child: GestureDetector(
                 onTap: readOnly ? null : () => onEdit(level, headline),
                 child: MouseRegion(
-                  cursor: readOnly ? SystemMouseCursors.basic : SystemMouseCursors.click,
+                  cursor: readOnly
+                      ? SystemMouseCursors.basic
+                      : SystemMouseCursors.click,
                   child: Wrap(
                     spacing: 6,
                     runSpacing: 4,
                     children: otherMeta.entries.map((e) {
                       return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 1,
+                        ),
                         decoration: BoxDecoration(
                           color: theme.accent.withAlpha(25),
                           borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: theme.accent.withAlpha(60), width: 0.5),
+                          border: Border.all(
+                            color: theme.accent.withAlpha(60),
+                            width: 0.5,
+                          ),
                         ),
                         child: Text(
                           '${e.key}: ${e.value}',
-                          style: TextStyle(fontSize: 10, color: theme.textSecondary, fontFamily: 'monospace'),
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: theme.textSecondary,
+                            fontFamily: 'monospace',
+                          ),
                         ),
                       );
                     }).toList(),
@@ -2185,6 +2196,7 @@ class _DraggableListBlock extends StatefulWidget {
   final String rawContent;
   final MdBasicTheme theme;
   final ValueChanged<String> onReorder;
+
   /// Called when a task checkbox is tapped: (itemIndex, newChecked).
   final void Function(int itemIndex, bool newChecked)? onToggleTask;
 
@@ -2254,10 +2266,8 @@ class _DraggableListBlockState extends State<_DraggableListBlock> {
         children: List.generate(_items.length, (i) {
           final item = _items[i];
           final isDragged = _draggingIndex == i;
-          final isTargetAbove =
-              _dropTargetIndex == i && _draggingIndex > i;
-          final isTargetBelow =
-              _dropTargetIndex == i && _draggingIndex < i;
+          final isTargetAbove = _dropTargetIndex == i && _draggingIndex > i;
+          final isTargetBelow = _dropTargetIndex == i && _draggingIndex < i;
 
           return DragTarget<int>(
             onWillAcceptWithDetails: (details) {
@@ -2295,9 +2305,7 @@ class _DraggableListBlockState extends State<_DraggableListBlock> {
                 child: Opacity(
                   opacity: isDragged ? 0.35 : 1.0,
                   child: Padding(
-                    padding: EdgeInsets.only(
-                      left: item.indent.toDouble() * 8,
-                    ),
+                    padding: EdgeInsets.only(left: item.indent.toDouble() * 8),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -2313,60 +2321,53 @@ class _DraggableListBlockState extends State<_DraggableListBlock> {
                             children: [
                               LongPressDraggable<int>(
                                 data: i,
-                                delay:
-                                    const Duration(milliseconds: 150),
+                                delay: const Duration(milliseconds: 150),
                                 onDragStarted: () =>
                                     setState(() => _draggingIndex = i),
                                 onDragEnd: (_) => setState(() {
                                   _draggingIndex = -1;
                                   _dropTargetIndex = -1;
                                 }),
-                                onDraggableCanceled:
-                                    (velocity, offset) =>
-                                        setState(() {
-                                  _draggingIndex = -1;
-                                  _dropTargetIndex = -1;
-                                }),
+                                onDraggableCanceled: (velocity, offset) =>
+                                    setState(() {
+                                      _draggingIndex = -1;
+                                      _dropTargetIndex = -1;
+                                    }),
                                 feedback: Material(
                                   elevation: 4,
-                                  borderRadius:
-                                      BorderRadius.circular(4),
+                                  borderRadius: BorderRadius.circular(4),
                                   color: theme.surface,
                                   child: Padding(
-                                    padding:
-                                        const EdgeInsets.symmetric(
+                                    padding: const EdgeInsets.symmetric(
                                       horizontal: 12,
                                       vertical: 6,
                                     ),
                                     child: ConstrainedBox(
-                                      constraints:
-                                          const BoxConstraints(
+                                      constraints: const BoxConstraints(
                                         maxWidth: 300,
                                       ),
                                       child: Text(
                                         '${_bulletDisplay(item)} ${item.text}',
                                         style: TextStyle(
                                           color: theme.text,
-                                          fontSize:
-                                              theme.baseFontSize,
+                                          fontSize: theme.baseFontSize,
                                         ),
                                         maxLines: 1,
-                                        overflow:
-                                            TextOverflow.ellipsis,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
                                   ),
                                 ),
                                 child: GestureDetector(
                                   onTap: () => setState(() {
-                                    _expandedIndex =
-                                        _expandedIndex == i ? -1 : i;
+                                    _expandedIndex = _expandedIndex == i
+                                        ? -1
+                                        : i;
                                   }),
                                   child: MouseRegion(
                                     cursor: SystemMouseCursors.grab,
                                     child: Padding(
-                                      padding:
-                                          const EdgeInsets.only(
+                                      padding: const EdgeInsets.only(
                                         right: 2,
                                         top: 2,
                                       ),
@@ -2384,14 +2385,12 @@ class _DraggableListBlockState extends State<_DraggableListBlock> {
                                   _indentButton(
                                     icon: Icons.chevron_left,
                                     theme: theme,
-                                    onTap: () =>
-                                        _changeIndent(i, -1),
+                                    onTap: () => _changeIndent(i, -1),
                                   ),
                                 _indentButton(
                                   icon: Icons.chevron_right,
                                   theme: theme,
-                                  onTap: () =>
-                                      _changeIndent(i, 1),
+                                  onTap: () => _changeIndent(i, 1),
                                 ),
                               ],
                             ],
@@ -2407,9 +2406,7 @@ class _DraggableListBlockState extends State<_DraggableListBlock> {
                         // is properly displayed.
                         Expanded(
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 2,
-                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 2),
                             child: MarkdownBody(
                               data: item.text,
                               shrinkWrap: true,

@@ -125,6 +125,7 @@ void main() {
       }
       expect(undos, 1, reason: 'the history keeps one entry now');
       expect(editor.getContent(), 'ab');
+      await tester.pump(const Duration(seconds: 2)); // the typing pause
     });
 
     test('HC-4: setTextSettings notifies once per real change', () {

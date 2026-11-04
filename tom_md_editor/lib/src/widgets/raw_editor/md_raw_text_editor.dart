@@ -99,6 +99,7 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
   void didUpdateWidget(MdRawTextEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.controller != widget.controller) {
+      _releasePending(oldWidget.controller);
       oldWidget.controller.removeListener(_onControllerChanged);
       widget.controller.addListener(_onControllerChanged);
       _syncText();
@@ -130,8 +131,7 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
       lineHeight: basic.lineHeight,
     );
     // Restore cursor position.
-    if (oldSelection.isValid &&
-        oldSelection.end <= oldText.length) {
+    if (oldSelection.isValid && oldSelection.end <= oldText.length) {
       _textController.selection = oldSelection;
     }
     _textController.addListener(_onCursorChanged);
@@ -139,6 +139,7 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
 
   @override
   void dispose() {
+    _releasePending(widget.controller);
     widget.controller.removeListener(_onControllerChanged);
     _textController.removeListener(_onCursorChanged);
     _textController.dispose();
@@ -180,15 +181,13 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
           text.substring(0, offset) + _indent + text.substring(offset);
       _textController.value = TextEditingValue(
         text: newText,
-        selection:
-            TextSelection.collapsed(offset: offset + _indent.length),
+        selection: TextSelection.collapsed(offset: offset + _indent.length),
       );
     } else {
       // Selection — indent every selected line.
       final start = selection.start;
       final end = selection.end;
-      final lineStart =
-          start > 0 ? text.lastIndexOf('\n', start - 1) : -1;
+      final lineStart = start > 0 ? text.lastIndexOf('\n', start - 1) : -1;
       final effectiveStart = lineStart == -1 ? 0 : lineStart + 1;
 
       final before = text.substring(0, effectiveStart);
@@ -217,14 +216,15 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
     if (selection.isCollapsed) {
       // No selection — remove leading spaces from current line.
       final offset = selection.baseOffset;
-      final lineStart =
-          offset > 0 ? text.lastIndexOf('\n', offset - 1) : -1;
+      final lineStart = offset > 0 ? text.lastIndexOf('\n', offset - 1) : -1;
       final effectiveStart = lineStart == -1 ? 0 : lineStart + 1;
 
       int remove = 0;
-      for (var i = 0;
-          i < _indent.length && effectiveStart + i < text.length;
-          i++) {
+      for (
+        var i = 0;
+        i < _indent.length && effectiveStart + i < text.length;
+        i++
+      ) {
         if (text[effectiveStart + i] == ' ') {
           remove++;
         } else {
@@ -232,7 +232,8 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
         }
       }
       if (remove > 0) {
-        final newText = text.substring(0, effectiveStart) +
+        final newText =
+            text.substring(0, effectiveStart) +
             text.substring(effectiveStart + remove);
         _textController.value = TextEditingValue(
           text: newText,
@@ -246,8 +247,7 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
       // Selection — unindent every selected line.
       final start = selection.start;
       final end = selection.end;
-      final lineStart =
-          start > 0 ? text.lastIndexOf('\n', start - 1) : -1;
+      final lineStart = start > 0 ? text.lastIndexOf('\n', start - 1) : -1;
       final effectiveStart = lineStart == -1 ? 0 : lineStart + 1;
 
       final before = text.substring(0, effectiveStart);
@@ -277,8 +277,10 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
       _textController.value = TextEditingValue(
         text: newText,
         selection: TextSelection(
-          baseOffset:
-              (start - firstRemoved).clamp(effectiveStart, newText.length),
+          baseOffset: (start - firstRemoved).clamp(
+            effectiveStart,
+            newText.length,
+          ),
           extentOffset: (end - totalRemoved).clamp(0, newText.length),
         ),
       );
@@ -289,6 +291,15 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
   /// Called when the text controller's cursor position changes.
   void _onCursorChanged() {
     if (_isSyncingCursor || _isUpdating) return;
+    // Typing (whatever delivered it — a key, an input method, a platform
+    // paste) changes the field's text away from the controller's: it is
+    // handed over after the debounce, and the caret that moved with it goes
+    // along with the text.
+    if (_textController.text != _getEditableText()) {
+      _onTextChanged(_textController.text);
+      return;
+    }
+    if (_hasPendingTyping) return;
     final selection = _textController.selection;
     if (!selection.isValid) return;
 
@@ -328,6 +339,8 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
   }
 
   void _onControllerChanged() {
+    // Typing not handed over yet goes first, so syncing never overwrites it.
+    if (!_isUpdating && _hasPendingTyping) _flushPendingTyping();
     if (!_isUpdating) {
       // Reset headline editing mode when a truly different section is
       // selected.  After _rebuildMarkdown() the controller creates new
@@ -428,8 +441,7 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
       if (resetCursor) {
         // On section change, place cursor at the start so Flutter's
         // internal _showCaretOnScreen scrolls to the top, not the end.
-        _textController.selection =
-            const TextSelection.collapsed(offset: 0);
+        _textController.selection = const TextSelection.collapsed(offset: 0);
       } else {
         // Text changed externally (undo, redo, etc.) — position cursor
         // from the controller's offset rather than restoring the stale
@@ -444,8 +456,9 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
           localOffset = globalOffset;
         }
         localOffset = localOffset.clamp(0, newText.length);
-        _textController.selection =
-            TextSelection.collapsed(offset: localOffset);
+        _textController.selection = TextSelection.collapsed(
+          offset: localOffset,
+        );
       }
       _isUpdating = false;
     }
@@ -678,8 +691,10 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
         '${text.substring(0, currentRange.start)}$nextLine\n$currentLine${text.substring(nextRange.end)}';
     _textController.text = newText;
     _textController.selection = TextSelection.collapsed(
-      offset: (currentRange.start + nextLine.length + 1 + columnOffset)
-          .clamp(0, newText.length),
+      offset: (currentRange.start + nextLine.length + 1 + columnOffset).clamp(
+        0,
+        newText.length,
+      ),
     );
     _onTextChanged(newText);
   }
@@ -700,14 +715,16 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
     String newLine;
     if (trimmed.startsWith(prefix) && trimmed.endsWith(suffix)) {
       // Remove comment
-      newLine = line.substring(0, indent) +
+      newLine =
+          line.substring(0, indent) +
           trimmed.substring(prefix.length, trimmed.length - suffix.length);
     } else {
       // Add comment
       newLine = '${line.substring(0, indent)}$prefix$trimmed$suffix';
     }
 
-    final newText = text.substring(0, lineRange.start) +
+    final newText =
+        text.substring(0, lineRange.start) +
         newLine +
         text.substring(lineRange.end);
     final cursorDelta = newLine.length - line.length;
@@ -719,16 +736,48 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
     _onTextChanged(newText);
   }
 
+  /// Typing is handed to the controller after a pause of
+  /// `livePreviewDebounceMs` (the preview re-renders once per pause, not per
+  /// key). Meanwhile the controller can ask for it ([flushPendingTyping]):
+  /// before an undo, a redo, a save, a section switch.
   void _onTextChanged(String value) {
     try {
       _debounce?.cancel();
       final ms = widget.settings.livePreviewDebounceMs;
-      _debounce = Timer(Duration(milliseconds: ms), () {
-        _applyChanges(value);
-      });
+      _debounce = Timer(Duration(milliseconds: ms), _flushPendingTyping);
+      widget.controller
+        ..pendingEditFlusher = _flushPendingTyping
+        ..hasPendingEdit = () => _hasPendingTyping;
     } catch (e, st) {
       MdEditorDebug.logger.error('Error in text change handler', e, st);
     }
+  }
+
+  bool get _hasPendingTyping => _debounce?.isActive ?? false;
+
+  /// Hands the typing not handed over yet to the controller, now.
+  void _flushPendingTyping() {
+    _debounce?.cancel();
+    _debounce = null;
+    _releasePending(widget.controller);
+    if (!mounted) return;
+    _applyChanges(_textController.text);
+  }
+
+  /// Stops offering this editor's pending typing to [controller].
+  void _releasePending(MdEditorController controller) {
+    if (controller.pendingEditFlusher == _flushPendingTyping) {
+      controller
+        ..pendingEditFlusher = null
+        ..hasPendingEdit = null;
+    }
+  }
+
+  /// The view's cursor, in the whole markdown.
+  int _globalCursor(MdSection? section) {
+    final local = _textController.selection.baseOffset;
+    if (local < 0) return widget.controller.cursorOffset;
+    return section == null ? local : _findSectionTextStart(section) + local;
   }
 
   void _applyChanges(String value) {
@@ -739,10 +788,20 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
         if (_editingHeadline) {
           _applyHeadlineChanges(selected, value);
         } else {
-          widget.controller.updateSectionText(selected, value);
+          // An event handler may make this asynchronous: the guard holds
+          // until it completes, so its notification does not reset the
+          // field the user is still typing in.
+          final done = widget.controller.updateSectionText(
+            selected,
+            value,
+            cursor: _globalCursor(selected),
+            typing: true,
+          );
+          done.whenComplete(() => _isUpdating = false);
+          return;
         }
       } else {
-        widget.controller.markdown = value;
+        widget.controller.edit(value, cursor: _globalCursor(null));
       }
       _isUpdating = false;
     } catch (e, st) {
@@ -759,7 +818,7 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
     final lines = md.split('\n');
     if (lineStart >= lines.length) return;
     lines[lineStart] = editedLine;
-    widget.controller.markdown = lines.join('\n');
+    widget.controller.edit(lines.join('\n'));
   }
 
   @override
@@ -827,9 +886,7 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: basic.surfaceVariant,
-        border: Border(
-          bottom: BorderSide(color: basic.border, width: 0.5),
-        ),
+        border: Border(bottom: BorderSide(color: basic.border, width: 0.5)),
       ),
       child: Row(
         children: [
@@ -959,23 +1016,26 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
             Expanded(
               child: SingleChildScrollView(
                 controller: _scrollController,
-                child: TextField(
-                  controller: _textController,
-                  focusNode: _focusNode,
-                  readOnly: widget.settings.readOnly,
-                  maxLines: null,
-                  minLines: 10,
-                  onChanged: _onTextChanged,
-                  contextMenuBuilder: _contextMenuBuilder,
-                  decoration: InputDecoration(
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.all(basic.blockPadding),
-                  ),
-                  style: TextStyle(
-                    fontFamily: basic.monoFontFamily,
-                    fontSize: basic.baseFontSize,
-                    color: basic.text,
-                    height: basic.lineHeight,
+                // The controller keeps the history; Flutter's own text
+                // undo is off.
+                child: ForgeEditorOwnsUndo(
+                  child: TextField(
+                    controller: _textController,
+                    focusNode: _focusNode,
+                    readOnly: widget.settings.readOnly,
+                    maxLines: null,
+                    minLines: 10,
+                    contextMenuBuilder: _contextMenuBuilder,
+                    decoration: InputDecoration(
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.all(basic.blockPadding),
+                    ),
+                    style: TextStyle(
+                      fontFamily: basic.monoFontFamily,
+                      fontSize: basic.baseFontSize,
+                      color: basic.text,
+                      height: basic.lineHeight,
+                    ),
                   ),
                 ),
               ),
@@ -1014,17 +1074,19 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
     // Plugin insert items.
     if (registry != null) {
       for (final plugin in registry.insertable) {
-        extraItems.add(ContextMenuButtonItem(
-          label: 'Insert ${plugin.displayName}',
-          onPressed: () {
-            ContextMenuController.removeAny();
-            if (plugin.id == 'code') {
-              _showLanguagePicker(Offset.zero, basic);
-            } else {
-              _insertContent(plugin.insertTemplate);
-            }
-          },
-        ));
+        extraItems.add(
+          ContextMenuButtonItem(
+            label: 'Insert ${plugin.displayName}',
+            onPressed: () {
+              ContextMenuController.removeAny();
+              if (plugin.id == 'code') {
+                _showLanguagePicker(Offset.zero, basic);
+              } else {
+                _insertContent(plugin.insertTemplate);
+              }
+            },
+          ),
+        );
       }
     }
 
@@ -1036,15 +1098,17 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
           .toList();
       if (contextActions.isNotEmpty) {
         for (final action in contextActions) {
-          extraItems.add(ContextMenuButtonItem(
-            label: action.label,
-            onPressed: action.isEnabled()
-                ? () {
-                    ContextMenuController.removeAny();
-                    integration.executeAction(action.id);
-                  }
-                : null,
-          ));
+          extraItems.add(
+            ContextMenuButtonItem(
+              label: action.label,
+              onPressed: action.isEnabled()
+                  ? () {
+                      ContextMenuController.removeAny();
+                      integration.executeAction(action.id);
+                    }
+                  : null,
+            ),
+          );
         }
       }
     }
@@ -1162,10 +1226,9 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
                       hintText: 'e.g. my-section-id',
                       suffixIcon: Icon(
                         Icons.arrow_drop_down,
-                        color: Theme.of(ctx)
-                            .colorScheme
-                            .onSurface
-                            .withValues(alpha: 0.5),
+                        color: Theme.of(
+                          ctx,
+                        ).colorScheme.onSurface.withValues(alpha: 0.5),
                       ),
                     ),
                   );
@@ -1204,8 +1267,9 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
     if (confirmed != true || headline.isEmpty) return;
 
     final effectiveId = id.isEmpty ? null : id;
-    final level =
-        isSubsection ? (section.level + 1).clamp(1, 6) : section.level;
+    final level = isSubsection
+        ? (section.level + 1).clamp(1, 6)
+        : section.level;
 
     switch (mode) {
       case _SectionInsertMode.sameHere:
@@ -1383,8 +1447,7 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
                             ),
                           for (final lang in primaryLanguages)
                             _buildLanguageTile(ctx, basic, lang),
-                          if (hasSchemaFilter &&
-                              otherLanguages.isNotEmpty) ...[
+                          if (hasSchemaFilter && otherLanguages.isNotEmpty) ...[
                             Padding(
                               padding: const EdgeInsets.only(
                                 top: 8,
@@ -1557,8 +1620,7 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
       final selected = widget.controller.selectedSection;
       if (selected == null) return;
 
-      final match = MdConstants.headlineMarkerPattern
-          .firstMatch(selected.text);
+      final match = MdConstants.headlineMarkerPattern.firstMatch(selected.text);
       if (match == null) return;
 
       // Extract the headline text after the marker
@@ -1571,13 +1633,8 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
 
       // Remove the marker line from original section text
       final beforeMarker = selected.text.substring(0, match.start);
-      final afterLine = lineEnd > 0
-          ? selected.text.substring(lineEnd + 1)
-          : '';
-      widget.controller.updateSectionText(
-        selected,
-        beforeMarker.trimRight(),
-      );
+      final afterLine = lineEnd > 0 ? selected.text.substring(lineEnd + 1) : '';
+      widget.controller.updateSectionText(selected, beforeMarker.trimRight());
 
       // Add new section after current
       widget.controller.addSectionAfter(
@@ -1615,10 +1672,7 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
     return Container(
       width: 48,
       color: basic.surfaceVariant,
-      padding: EdgeInsets.only(
-        top: basic.blockPadding,
-        right: 8,
-      ),
+      padding: EdgeInsets.only(top: basic.blockPadding, right: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: List.generate(

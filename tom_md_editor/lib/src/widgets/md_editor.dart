@@ -177,7 +177,6 @@ class _MdEditorState extends State<MdEditor> {
   late final MdTextContext _textContext;
   late final bool _ownsIntegration;
   Map<ShortcutActivator, Intent> _shortcuts = {};
-  String _lastSavedMarkdown = '';
 
   MdEditorController get _controller =>
       widget.controller ?? _internalController!;
@@ -193,7 +192,6 @@ class _MdEditorState extends State<MdEditor> {
         createDefaultPluginRegistry(settings: _settings);
     _initController();
     _controller.addListener(_onControllerChanged);
-    _lastSavedMarkdown = _controller.markdown;
     _setupIntegration();
     _loadDocument();
     trailEvent('initState complete');
@@ -229,7 +227,8 @@ class _MdEditorState extends State<MdEditor> {
     if (widget.markdown != oldWidget.markdown &&
         widget.markdown != null &&
         widget.controller == null) {
-      _controller.markdown = widget.markdown!;
+      // New content from the host: saved, with nothing to undo.
+      _controller.replaceContent(widget.markdown!);
     }
   }
 
@@ -319,7 +318,7 @@ class _MdEditorState extends State<MdEditor> {
       // Create text context for state discovery
       _textContext = MdTextContext(
         controller: _controller,
-        isDirtyFn: () => _controller.markdown != _lastSavedMarkdown,
+        isDirtyFn: () => _controller.isDirty.value,
       );
 
       // Register editor actions with the integration
@@ -390,24 +389,22 @@ class _MdEditorState extends State<MdEditor> {
       _shortcuts = {};
       return;
     }
+    // The Markdown-specific keys join the map through the same helper, so a
+    // key is taken once and keeps one meaning. Actions without a handler
+    // (save without a documentProvider) are left out, so their key reaches
+    // the shell's handler instead.
     _shortcuts = <ShortcutActivator, Intent>{
       for (final entry in buildEditorShortcutMap(
         _integration,
-        alternates: MdEditorActions.alternativeShortcuts,
+        alternates: {
+          ...MdEditorActions.alternativeShortcuts,
+          for (final entry in MdEditorActions.primaryShortcuts.entries)
+            if (_integration.isActionEnabled(entry.key))
+              entry.key: [entry.value],
+        },
       ).entries)
         entry.key: _MdEditorActionIntent(entry.value),
     };
-
-    // Markdown-specific shortcuts — skip actions whose handlers have not been
-    // registered (e.g. save when documentProvider is null) so that the
-    // shortcut can propagate to the scaffold's handler instead.
-    for (final entry in MdEditorActions.primaryShortcuts.entries) {
-      if (!_integration.isActionEnabled(entry.key)) continue;
-      _shortcuts.putIfAbsent(
-        entry.value.toActivator(),
-        () => _MdEditorActionIntent(entry.key),
-      );
-    }
   }
 
   @override
@@ -588,13 +585,27 @@ class _MdEditorState extends State<MdEditor> {
     );
   }
 
+  /// The search panel's fields are not the document: the undo and redo
+  /// keys there undo the field's own typing ([UndoTextIntent] reaches the
+  /// field's own history), not the document's — this map sits between the
+  /// field and the editor's.
   Widget _buildSearchBar() {
     return SizedBox(
       height: 180,
-      child: MdSearchPanel(
-        controller: _controller,
-        theme: _theme,
-        showReplace: !_settings.readOnly,
+      child: Shortcuts(
+        shortcuts: <ShortcutActivator, Intent>{
+          for (final entry in _shortcuts.entries)
+            if (entry.value case _MdEditorActionIntent(:final actionId))
+              if (actionId == StandardEditingActions.undoActionId)
+                entry.key: const UndoTextIntent(SelectionChangedCause.keyboard)
+              else if (actionId == StandardEditingActions.redoActionId)
+                entry.key: const RedoTextIntent(SelectionChangedCause.keyboard),
+        },
+        child: MdSearchPanel(
+          controller: _controller,
+          theme: _theme,
+          showReplace: !_settings.readOnly,
+        ),
       ),
     );
   }
@@ -604,7 +615,6 @@ class _MdEditorState extends State<MdEditor> {
       if (widget.documentProvider != null) {
         await _controller.saveToProvider(widget.documentProvider!);
       }
-      _lastSavedMarkdown = _controller.markdown;
       _textContext.notifyExternalChange();
       widget.onSave?.call();
     } catch (e, st) {

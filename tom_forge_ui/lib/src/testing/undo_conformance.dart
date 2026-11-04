@@ -126,7 +126,9 @@ void runForgeUndoConformance(
         'UNDO-CONF ${which.name}: $description',
         (tester) async {
           await body(tester);
-          // Let a typing pause still running end before the tree goes.
+          // Let a typing pause still running end before the tree goes — and
+          // the debounce an editor may hold typing in before the pause starts.
+          await tester.pump(forgeTypingPause);
           await tester.pump(forgeTypingPause);
         },
         skip: skip.containsKey(which),

@@ -116,15 +116,18 @@ class _MdTreeViewState extends State<MdTreeView> {
               children: [
                 Icon(Icons.account_tree, size: 16, color: basic.textSecondary),
                 const SizedBox(width: 8),
-                Text(
-                  'Document Outline',
-                  style: TextStyle(
-                    color: basic.textSecondary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
+                // A narrow outline shortens the title rather than overflow.
+                Expanded(
+                  child: Text(
+                    'Document Outline',
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: basic.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
-                const Spacer(),
                 _buildCollapseAllButton(basic),
                 const SizedBox(width: 4),
                 _buildExpandAllButton(basic),

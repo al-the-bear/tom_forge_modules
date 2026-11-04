@@ -74,7 +74,9 @@ value set from outside (an undo), and puts the caret at the change
   them.
 - Each entry stores the text and the selection before and after; undo puts
   the caret back where it was before the edit, redo where it was after.
-- Pending typing is flushed at every boundary: undo and redo flush first (a
+- Pending typing is flushed at every boundary — an editor that holds typing
+  back for a while (the Markdown raw editor's preview debounce) hands it to
+  the history first, through `MdEditorController.pendingEditFlusher`: undo and redo flush first (a
   word undone inside the pause is undone, not lost or applied late), and the
   editor flushes on save, mode switch and blur (`ForgeTextHistory.flush`).
 - Typing after an undo ends the redo future.
@@ -123,6 +125,6 @@ navigation, not undo) is likewise reserved.
 The editor's suite supplies a `ForgeUndoSubject`; the defaults drive an editor
 whose views edit through an `EditableText`. A check the editor does not meet
 yet is skipped with the todo that makes it pass. The YAML editor passes
-every check in both modes, and the Dart editor every check. The reference editor in
+every check in both modes, the Dart and the Markdown editor every check. The reference editor in
 `test/undo/undo_conformance_test.dart` — the helpers and nothing else — meets
 all six.

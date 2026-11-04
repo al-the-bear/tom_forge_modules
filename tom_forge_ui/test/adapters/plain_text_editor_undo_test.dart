@@ -48,5 +48,6 @@ void main() {
       0,
       reason: 'no shell entry for an editor edit',
     );
+    await tester.pump(const Duration(seconds: 2)); // the typing pause
   });
 }

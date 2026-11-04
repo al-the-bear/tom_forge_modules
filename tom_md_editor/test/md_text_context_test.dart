@@ -32,7 +32,7 @@ void main() {
         );
         addTearDown(ctx.dispose);
 
-        controller.markdown = '# Updated';
+        controller.applyEdit('# Updated');
         expect(ctx.text, '# Updated');
       });
     });
@@ -136,7 +136,7 @@ void main() {
         addTearDown(ctx.dispose);
 
         expect(ctx.canUndo, false);
-        controller.markdown = 'changed';
+        controller.applyEdit('changed');
         expect(ctx.canUndo, true);
       });
 
@@ -148,7 +148,7 @@ void main() {
         addTearDown(ctx.dispose);
 
         expect(ctx.canRedo, false);
-        controller.markdown = 'changed';
+        controller.applyEdit('changed');
         controller.undo();
         expect(ctx.canRedo, true);
       });
@@ -166,7 +166,7 @@ void main() {
         final sub = ctx.onContextChanged.listen((_) => changeCount++);
         addTearDown(sub.cancel);
 
-        controller.markdown = 'new text';
+        controller.applyEdit('new text');
         await Future.delayed(Duration.zero);
         expect(changeCount, greaterThan(0));
       });
@@ -199,7 +199,7 @@ void main() {
         final sub = ctx.onContextChanged.listen((_) => changeCount++);
 
         ctx.dispose();
-        controller.markdown = 'after dispose';
+        controller.applyEdit('after dispose');
         await Future.delayed(Duration.zero);
         // Stream is closed, no more events
         await sub.cancel();

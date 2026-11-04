@@ -1,9 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show TextSelection;
 import 'package:tom_doc_specs/tom_doc_specs.dart' as specs;
 import 'package:tom_editors_shared/tom_editors_shared.dart';
-import 'package:tom_undo/tom_undo.dart';
 
 import '../debug/md_editor_debug.dart';
 import '../events/md_events.dart';
@@ -16,40 +16,35 @@ import '../validation/md_schema_validator.dart';
 import '../validation/schema_section_helper.dart';
 import '../validation/schema_template_helper.dart';
 
-/// Edit operation stored in the undo history.
-class MdEditOperation {
-  const MdEditOperation({
-    required this.oldMarkdown,
-    required this.newMarkdown,
-    required this.description,
-    this.cursorOffset,
-  });
-
-  final String oldMarkdown;
-  final String newMarkdown;
-  final String description;
-
-  /// Cursor offset at the time the operation was created.
-  /// Used to restore cursor position on undo/redo.
-  final int? cursorOffset;
-}
-
 /// Controller for the markdown editor.
 ///
 /// Manages document state, undo/redo, section operations, and search.
 /// Fires [notifyListeners] on every state change so widgets can rebuild.
+///
+/// The document's one history keeps the Forge history contract (tom_forge_ui's
+/// `editor_history_contract.md`): a [ForgeTextHistory] over the markdown and
+/// the cursor. Typing ([edit], and a section's text through
+/// [updateSectionText]) is one entry per gesture; every other operation — a
+/// rename, an insert, a move, a replace, [applyEdit] — is its own entry; an
+/// operation that changes nothing is none; undo and redo put the cursor back
+/// where it was before, or after, the edit. Typing a view has not handed over
+/// yet is flushed first ([pendingEditFlusher]). Dirty is measured against the
+/// saved markdown ([isDirty]).
 class MdEditorController extends ChangeNotifier {
   MdEditorController({
     String? initialMarkdown,
     this.eventHandlers,
     this.uri,
     int maxUndoHistory = ForgeTextDefaults.defaultMaxUndoHistory,
-  }) : _undoHistory = TomUndoStack<MdEditOperation>(
+  }) : _history = ForgeTextHistory(
+         ForgeTextState.atEnd(initialMarkdown ?? ''),
          maxEntries: maxUndoHistory,
-       ) {
+       ),
+       _saved = ForgeSavedMarker(initialMarkdown ?? '') {
     if (initialMarkdown != null) {
       _setMarkdownInternal(initialMarkdown);
     }
+    _cursorOffset = _markdown.length;
   }
 
   // ── Forge integration ──
@@ -103,6 +98,8 @@ class MdEditorController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _history.dispose();
+    _saved.dispose();
     cursorPositionNotifier.dispose();
     selectionNotifier.dispose();
     visibleRangeNotifier.dispose();
@@ -140,9 +137,13 @@ class MdEditorController extends ChangeNotifier {
   ///
   /// Set [notify] to `false` when the caller is about to notify anyway
   /// (e.g., during a batch update).
+  ///
+  /// A cursor move is a history boundary: the typing gesture in progress
+  /// ends.
   void setCursorOffset(int offset, {bool notify = true}) {
     _cursorOffset = offset.clamp(0, _markdown.length);
     cursorPositionNotifier.value = _cursorOffset;
+    _history.selected(TextSelection.collapsed(offset: _cursorOffset));
     if (notify) notifyListeners();
   }
 
@@ -190,10 +191,10 @@ class MdEditorController extends ChangeNotifier {
   }
 
   /// Whether undo is available.
-  bool get canUndo => _undoHistory.canUndo;
+  bool get canUndo => _history.canUndo || _hasPendingEdit;
 
   /// Whether redo is available.
-  bool get canRedo => _undoHistory.canRedo;
+  bool get canRedo => _history.canRedo && !_hasPendingEdit;
 
   /// Current search results.
   List<MdSearchResult> get searchResults =>
@@ -206,18 +207,65 @@ class MdEditorController extends ChangeNotifier {
 
   // ── Private state ──
 
-  final TomUndoStack<MdEditOperation> _undoHistory;
+  /// The document's one history, over the markdown and the cursor.
+  final ForgeTextHistory _history;
+
+  /// Dirty against the saved markdown.
+  final ForgeSavedMarker<String> _saved;
+
+  /// Whether the markdown differs from the saved markdown.
+  ValueListenable<bool> get isDirty => _saved.isDirty;
+
+  /// The markdown as it is now is saved: the gesture in progress ends and
+  /// the saved marker moves. The history stays.
+  void markSaved() {
+    flush();
+    _saved.markSaved(_markdown);
+  }
+
+  /// A view's typing it has not handed over yet (a debounced raw editor)
+  /// — called before every history boundary, so typing undone within the
+  /// debounce is undone, never lost or applied late. The view registers it
+  /// while it has pending typing to hand over, and clears it.
+  VoidCallback? pendingEditFlusher;
+
+  /// Whether a view says it holds typing not handed over yet.
+  bool Function()? hasPendingEdit;
+
+  bool get _hasPendingEdit => hasPendingEdit?.call() ?? false;
+
+  /// Ends the typing gesture in progress, the view's pending typing first.
+  void flush() {
+    pendingEditFlusher?.call();
+    _history.flush();
+  }
 
   // ── Content manipulation ──
 
-  /// Set markdown content, re-parsing the document.
-  set markdown(String value) {
+  /// Typing in a view changed the whole markdown to [value] (the edit
+  /// applied); [cursor] is where the view's cursor is now. One history entry
+  /// per gesture.
+  void edit(String value, {int? cursor}) {
     try {
-      MdEditorDebug.logger.info('Setting markdown (${value.length} chars)');
       final oldMd = _markdown;
       _setMarkdownInternal(value);
       _refreshSelectedSection();
-      _pushUndoWithStates(oldMd, _markdown, 'Set markdown');
+      _recordTyping(oldMd, cursor);
+      notifyListeners();
+    } catch (e, st) {
+      MdEditorDebug.logger.error('Error setting markdown', e, st);
+    }
+  }
+
+  /// A programmatic change of the whole markdown (a format, a preview
+  /// action, a table or code-block edit): its own history entry.
+  void applyEdit(String value, {int? cursor}) {
+    try {
+      final oldMd = _markdown;
+      _setMarkdownInternal(value);
+      _refreshSelectedSection();
+      if (cursor != null) _cursorOffset = cursor.clamp(0, _markdown.length);
+      _pushUndoWithStates(oldMd, _markdown, 'Edit');
       notifyListeners();
     } catch (e, st) {
       MdEditorDebug.logger.error('Error setting markdown', e, st);
@@ -231,20 +279,30 @@ class MdEditorController extends ChangeNotifier {
   void replaceContent(String value) {
     _setMarkdownInternal(value);
     _refreshSelectedSection();
-    _undoHistory.clear();
+    _cursorOffset = _cursorOffset.clamp(0, _markdown.length);
+    _history.replace(
+      ForgeTextState(value, TextSelection.collapsed(offset: _cursorOffset)),
+    );
+    _saved.markSaved(value);
     notifyListeners();
   }
 
   /// How many edits the history keeps (`ForgeTextSettings.maxUndoHistory`).
-  int get maxUndoHistory => _undoHistory.maxEntries;
-  set maxUndoHistory(int value) => _undoHistory.maxEntries = value;
+  int get maxUndoHistory => _history.maxEntries;
+  set maxUndoHistory(int value) => _history.maxEntries = value;
 
   /// Load content from a provider.
   Future<void> loadFromProvider(MdDocumentProvider provider) async {
     try {
       MdEditorDebug.logger.info('Loading from provider');
       final content = await provider.load();
+      // A load is content from outside: saved, and nothing to undo.
       _setMarkdownInternal(content);
+      _cursorOffset = 0;
+      _history.replace(
+        ForgeTextState(content, const TextSelection.collapsed(offset: 0)),
+      );
+      _saved.markSaved(content);
       final meta = provider.metadata;
       if (meta != null) {
         _document.path = meta.path;
@@ -265,6 +323,7 @@ class MdEditorController extends ChangeNotifier {
       if (!provider.canSave) return;
       MdEditorDebug.logger.info('Saving to provider');
 
+      flush();
       var mdToSave = _markdown;
 
       if (eventHandlers?.onBeforeSave != null) {
@@ -275,6 +334,7 @@ class MdEditorController extends ChangeNotifier {
       }
 
       await provider.save(mdToSave);
+      _saved.markSaved(mdToSave);
 
       eventHandlers?.onSaved?.call(const DocumentSavedEvent());
     } catch (e, st) {
@@ -301,7 +361,16 @@ class MdEditorController extends ChangeNotifier {
   }
 
   /// Update the text of a section.
-  Future<void> updateSectionText(MdSection section, String newText) async {
+  ///
+  /// [typing] is a view's typing: one history entry per gesture. Otherwise
+  /// (a toolbar action, an insert) the change is its own entry. [cursor] is
+  /// where the view's cursor is now, in the whole markdown.
+  Future<void> updateSectionText(
+    MdSection section,
+    String newText, {
+    int? cursor,
+    bool typing = false,
+  }) async {
     try {
       MdEditorDebug.logger.info(
         'Updating text for "${section.headline}"',
@@ -319,7 +388,12 @@ class MdEditorController extends ChangeNotifier {
       final oldMd = _markdown;
       section.text = event.newText;
       _rebuildMarkdown();
-      _pushUndoWithStates(oldMd, _markdown, 'Update text: ${section.headline}');
+      if (typing) {
+        _recordTyping(oldMd, cursor);
+      } else {
+        if (cursor != null) _cursorOffset = cursor.clamp(0, _markdown.length);
+        _pushUndoWithStates(oldMd, _markdown, 'Update text');
+      }
 
       eventHandlers?.onTextChanged?.call(
         TextChangedEvent(section: section),
@@ -706,42 +780,43 @@ class MdEditorController extends ChangeNotifier {
 
   // ── Undo / Redo ──
 
+  /// Takes back the newest entry — typing a view still holds first — and
+  /// puts the cursor where it was before the edit.
   void undo() {
     try {
-      final entry = _undoHistory.undo(
-        (op) => _restore(op.oldMarkdown, op.cursorOffset),
-      );
-      if (entry != null) {
-        MdEditorDebug.logger.info('Undo: ${entry.description}');
-        notifyListeners();
-      }
+      flush();
+      if (_history.undo(_restore)) notifyListeners();
     } catch (e, st) {
       MdEditorDebug.logger.error('Error during undo', e, st);
     }
   }
 
-  /// Puts [markdown] back and the cursor where the entry recorded it.
-  void _restore(String markdown, int? cursor) {
-    _setMarkdownInternal(markdown);
-    _refreshSelectedSection();
-    if (cursor != null) {
-      _cursorOffset = cursor.clamp(0, _markdown.length);
-      cursorPositionNotifier.value = _cursorOffset;
-    }
-  }
-
+  /// Puts the newest undone entry back, the cursor where it was after it.
   void redo() {
     try {
-      final entry = _undoHistory.redo(
-        (op) => _restore(op.newMarkdown, op.cursorOffset),
-      );
-      if (entry != null) {
-        MdEditorDebug.logger.info('Redo: ${entry.description}');
-        notifyListeners();
-      }
+      flush();
+      if (_history.redo(_restore)) notifyListeners();
     } catch (e, st) {
       MdEditorDebug.logger.error('Error during redo', e, st);
     }
+  }
+
+  /// Puts [state] back. The selected section stays selected: matched by
+  /// headline and level, else — a rename undone — by its place.
+  void _restore(ForgeTextState state) {
+    final selected = _selectedSection;
+    final index = selected == null
+        ? -1
+        : _document.allSections.indexWhere((s) => identical(s, selected));
+    _setMarkdownInternal(state.text);
+    _refreshSelectedSection();
+    if (selected != null && _selectedSection == null && index >= 0) {
+      final all = _document.allSections;
+      if (index < all.length) _selectedSection = all[index];
+    }
+    _cursorOffset = state.selection.baseOffset.clamp(0, _markdown.length);
+    cursorPositionNotifier.value = _cursorOffset;
+    _saved.compare(_markdown);
   }
 
   // ── Search ──
@@ -1182,13 +1257,34 @@ class MdEditorController extends ChangeNotifier {
     _selectedSection = match.isNotEmpty ? match.first : null;
   }
 
+  /// Records an operation that changed the markdown from [oldMd] to [newMd]
+  /// as its own history entry — none when it changed nothing.
   void _pushUndoWithStates(String oldMd, String newMd, String description) {
-    _undoHistory.push(
-      MdEditOperation(
-        oldMarkdown: oldMd,
-        newMarkdown: newMd,
-        description: description,
-        cursorOffset: _cursorOffset,
+    _saved.compare(newMd);
+    if (oldMd == newMd) return;
+    _history.flush();
+    _history.edited(
+      ForgeTextState(
+        newMd,
+        TextSelection.collapsed(offset: _cursorOffset.clamp(0, newMd.length)),
+      ),
+    );
+    _history.flush();
+  }
+
+  /// Records typing that changed the markdown from [oldMd] to what it is now,
+  /// with the view's cursor at [cursor]: merged into the gesture in progress.
+  void _recordTyping(String oldMd, int? cursor) {
+    _saved.compare(_markdown);
+    if (oldMd == _markdown) return;
+    if (cursor != null) {
+      _cursorOffset = cursor.clamp(0, _markdown.length);
+      cursorPositionNotifier.value = _cursorOffset;
+    }
+    _history.edited(
+      ForgeTextState(
+        _markdown,
+        TextSelection.collapsed(offset: _cursorOffset.clamp(0, _markdown.length)),
       ),
     );
   }

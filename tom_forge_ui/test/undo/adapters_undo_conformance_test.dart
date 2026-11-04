@@ -7,8 +7,8 @@
 /// "anything changed"); the Dart editor meets every check (wonecmpc21); the
 /// YAML editor meets every check in both modes (wonecmpc20): in source mode
 /// its document is the text, in tree mode the text is the value of one string
-/// field. The Markdown editor joins this file in wonecmpc22, which writes its
-/// subject.
+/// field; the Markdown editor meets every check, typed in its raw editor
+/// (wonecmpc22).
 library;
 
 import 'package:flutter/material.dart';
@@ -16,6 +16,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_dart_editor/tom_dart_editor.dart' show DartCodeController;
 import 'package:tom_forge_ui/testing.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_md_editor/tom_md_editor.dart'
+    show MdEditorController, MdRawTextEditor;
 import 'package:tom_yaml_editor/tom_yaml_editor.dart'
     show StringEditor, YamlEditorController, kYamlEditorDebug;
 
@@ -45,6 +47,8 @@ void main() {
   );
 
   runForgeUndoConformance('YAML editor, tree mode', _YamlTreeSubject.new);
+
+  runForgeUndoConformance('Markdown editor', _MarkdownSubject.new);
 
   runForgeUndoConformance(
     'plain-text editor',
@@ -115,4 +119,36 @@ class _YamlTreeSubject extends ForgeUndoSubject {
     final value = editor.controller.document.nodeAt(const ['v'])?.value;
     return (value ?? '').toString();
   }
+}
+
+/// The Markdown editor, typed in its raw editor (the source view under the
+/// preview).
+class _MarkdownSubject extends ForgeUndoSubject {
+  _MarkdownSubject(String saved)
+    : editor = ForgeMdEditor(
+        controller: MdEditorController(initialMarkdown: saved),
+        module: _module(),
+      );
+
+  @override
+  final ForgeMdEditor editor;
+
+  @override
+  TextEditingController controllerOf(WidgetTester tester, Finder view) =>
+      tester
+          .widget<EditableText>(
+            find
+                .descendant(
+                  of: find.descendant(
+                    of: view,
+                    matching: find.byType(MdRawTextEditor),
+                  ),
+                  matching: find.byType(EditableText),
+                )
+                .first,
+          )
+          .controller;
+
+  @override
+  String textOf(WidgetTester tester) => editor.controller.markdown;
 }

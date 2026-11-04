@@ -527,10 +527,10 @@ class _MdEditorDemoPageState extends State<MdEditorDemoPage> {
     if (docspecPattern.hasMatch(markdown)) {
       // Replace existing comment
       final updated = markdown.replaceFirst(docspecPattern, schemaComment);
-      _controller.markdown = updated;
+      _controller.applyEdit(updated);
     } else {
       // Insert at the beginning
-      _controller.markdown = schemaComment + markdown;
+      _controller.applyEdit(schemaComment + markdown);
     }
   }
 
@@ -563,7 +563,7 @@ class _MdEditorDemoPageState extends State<MdEditorDemoPage> {
     if (confirm != true) return;
 
     final skeleton = DocSpecsSkeletonGenerator.generate(_schema!);
-    _controller.markdown = skeleton;
+    _controller.applyEdit(skeleton);
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

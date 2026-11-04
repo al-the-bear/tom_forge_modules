@@ -158,7 +158,7 @@ class ForgePlainTextEditor extends ForgeTextEditor {
       contentReplaced: _contentReplaced,
       readContent: () => controller.markdown,
       onChanged: (text) {
-        controller.markdown = text;
+        controller.edit(text);
       },
     );
   }
@@ -295,8 +295,10 @@ class ForgePlainTextEditor extends ForgeTextEditor {
   void insertText(String text) {
     final code = controller.markdown;
     final offset = _positionConverter.positionToOffset(_cursorPos.value);
-    controller.markdown =
-        code.substring(0, offset) + text + code.substring(offset);
+    controller.applyEdit(
+      code.substring(0, offset) + text + code.substring(offset),
+      cursor: offset + text.length,
+    );
   }
 
   @override
@@ -307,7 +309,7 @@ class ForgePlainTextEditor extends ForgeTextEditor {
     final newText = current.substring(0, startOffset) +
         replacement +
         current.substring(endOffset);
-    controller.markdown = newText;
+    controller.applyEdit(newText);
   }
 
   @override
@@ -371,7 +373,7 @@ class ForgePlainTextEditor extends ForgeTextEditor {
       result =
           result.substring(0, m.start) + replacement + result.substring(m.end);
     }
-    controller.markdown = result;
+    controller.applyEdit(result);
     return matches.length;
   }
 

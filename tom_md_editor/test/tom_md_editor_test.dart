@@ -112,7 +112,7 @@ Body 3
 
     test('setting markdown re-parses document', () {
       final ctrl = MdEditorController(initialMarkdown: '# A');
-      ctrl.markdown = '# B\n\n## C';
+      ctrl.applyEdit('# B\n\n## C');
       expect(ctrl.document.sections.first.headline, 'B');
       expect(ctrl.document.sections.first.subsections.length, 1);
       ctrl.dispose();
@@ -128,7 +128,7 @@ Body 3
 
     test('undo/redo works for text changes', () {
       final ctrl = MdEditorController(initialMarkdown: '# Original');
-      ctrl.markdown = '# Changed';
+      ctrl.applyEdit('# Changed');
       expect(ctrl.canUndo, isTrue);
       ctrl.undo();
       expect(ctrl.markdown, '# Original');
@@ -1053,7 +1053,7 @@ Body 3
       ctrl.setSchema(schema);
       final eventsBefore = events.length;
 
-      ctrl.markdown = '# Updated\n\nNew body.';
+      ctrl.applyEdit('# Updated\n\nNew body.');
       expect(events.length, greaterThan(eventsBefore));
       ctrl.dispose();
     });
