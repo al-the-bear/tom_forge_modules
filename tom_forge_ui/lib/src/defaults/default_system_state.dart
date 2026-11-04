@@ -449,7 +449,15 @@ class DefaultSystemState
     String title,
     Map<String, Object?> payload,
   ) {
-    final application = factory.create(id: id, title: title, payload: payload);
+    final application = factory.create(
+      ForgeApplicationContext(
+        id: id,
+        kind: factory.kind,
+        payload: payload,
+        registry: this,
+      ),
+      title,
+    );
     if (application.id != id || application.kind != factory.kind) {
       throw StateError(
         'the "${factory.kind}" factory made "${application.id}" of kind '

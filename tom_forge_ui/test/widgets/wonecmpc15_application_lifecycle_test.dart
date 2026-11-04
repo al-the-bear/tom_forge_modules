@@ -179,7 +179,9 @@ void main() {
       expect(
         tester
             .widget<Tooltip>(
-              find.ancestor(of: elsewhere, matching: find.byType(Tooltip)).first,
+              find
+                  .ancestor(of: elsewhere, matching: find.byType(Tooltip))
+                  .first,
             )
             .message,
         'quest: Queue running',
@@ -329,18 +331,15 @@ class _QuestFactory implements ForgeApplicationFactory {
   String get kind => 'quest';
 
   @override
-  ForgeApplication create({
-    required String id,
-    required String title,
-    required Map<String, Object?> payload,
-  }) => ForgeApplication(
-    id: id,
-    title: title,
-    kind: kind,
-    payload: payload,
-    lifecycle: _Recorder(title, events),
-    layout: const PanelLayout(middlePanels: [MiddlePanelConfig()]),
-  );
+  ForgeApplication create(ForgeApplicationContext context, String title) =>
+      ForgeApplication(
+        id: context.id,
+        title: title,
+        kind: kind,
+        payload: context.payload,
+        lifecycle: _Recorder(title, events),
+        layout: const PanelLayout(middlePanels: [MiddlePanelConfig()]),
+      );
 }
 
 ForgeApplication _app(String id, ForgeApplicationLifecycle? lifecycle) =>

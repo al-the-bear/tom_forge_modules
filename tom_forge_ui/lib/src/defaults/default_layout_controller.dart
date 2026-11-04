@@ -16,6 +16,7 @@ import '../adapters/tom_forge_shell_module.dart';
 import '../components/forge_component.dart';
 import '../components/forge_editor.dart';
 import '../components/forge_text_editor.dart';
+import '../model/forge_application.dart';
 import '../module/forge_module.dart';
 import '../shell/forge_layout_controller.dart';
 import '../shell/forge_module_registry.dart';
@@ -93,7 +94,90 @@ class DefaultLayoutController implements ForgeLayoutController {
          LayoutPanelConfig(size: bottomSize, isVisible: true),
        ),
        _middlePanels = ValueNotifier([[]]),
-       _activeMiddlePanelIndex = ValueNotifier(0);
+       _activeMiddlePanelIndex = ValueNotifier(0) {
+    systemState.listenable.addListener(_followActiveApplication);
+  }
+
+  // ── Per-application layout ──
+
+  /// The panel application the panels and middle editor groups belong to now.
+  ForgeApplication? _layoutOwner;
+
+  /// The layout each other panel application left when it was switched away
+  /// from, by id.
+  final Map<String, _ApplicationLayout> _applicationLayouts = {};
+
+  /// Keeps a layout per panel application: on a switch to another panel
+  /// application, the panels' sizes and visibility, the middle editor groups
+  /// with their editors and the active group are kept for the one switched
+  /// away from and put back for the one switched to — or, for one never shown,
+  /// made from its [PanelLayout]: its panel sizes and its declared middle
+  /// groups with their editors open. The first application adopts the layout
+  /// the shell has and opens its declared editors into it. A full-screen
+  /// application leaves the layout alone; it belongs to the panel application
+  /// shown last.
+  void _followActiveApplication() {
+    _applicationLayouts.removeWhere((id, _) => _systemState.byId(id) == null);
+    final active = _systemState.active;
+    if (active == null || active.isFullScreen) return;
+    if (identical(active, _layoutOwner)) return;
+    final owner = _layoutOwner;
+    if (owner != null && _systemState.byId(owner.id) != null) {
+      _applicationLayouts[owner.id] = _ApplicationLayout(
+        left: _leftPanel.value,
+        right: _rightPanel.value,
+        bottom: _bottomPanel.value,
+        middle: [for (final group in _middlePanels.value) [...group]],
+        activeMiddle: _activeMiddlePanelIndex.value,
+      );
+    }
+    _layoutOwner = active;
+    final saved = _applicationLayouts.remove(active.id);
+    if (saved != null) {
+      _leftPanel.value = saved.left;
+      _rightPanel.value = saved.right;
+      _bottomPanel.value = saved.bottom;
+      _middlePanels.value = saved.middle;
+      _activeMiddlePanelIndex.value = saved.activeMiddle;
+      return;
+    }
+    _openDeclaredLayout(active.panelLayout, fresh: owner != null);
+  }
+
+  /// Lays [layout] out: with [fresh], the declared panel sizes and as many
+  /// empty middle groups as it declares (at least one); otherwise the current
+  /// layout with groups added up to the declared count. Then every declared
+  /// middle tab's editor is opened in its group.
+  void _openDeclaredLayout(PanelLayout layout, {required bool fresh}) {
+    final declared = layout.middlePanels;
+    if (fresh) {
+      LayoutPanelConfig sized(LayoutPanelConfig current, PanelConfig config) =>
+          config.initialSize > 0
+          ? LayoutPanelConfig(
+              size: config.initialSize,
+              isVisible: current.isVisible,
+            )
+          : current;
+      _leftPanel.value = sized(_leftPanel.value, layout.leftPanel);
+      _rightPanel.value = sized(_rightPanel.value, layout.rightPanel);
+      _bottomPanel.value = sized(_bottomPanel.value, layout.bottomPanel);
+      _middlePanels.value = [
+        for (var i = 0; i < (declared.isEmpty ? 1 : declared.length); i++) [],
+      ];
+      _activeMiddlePanelIndex.value = 0;
+    } else if (_middlePanels.value.length < declared.length) {
+      _middlePanels.value = [
+        ..._middlePanels.value,
+        for (var i = _middlePanels.value.length; i < declared.length; i++) [],
+      ];
+    }
+    for (var i = 0; i < declared.length; i++) {
+      for (final tab in declared[i].tabs) {
+        openEditor(tab.editor, tab.uri ?? tab.editor.uri, middlePanelIndex: i);
+      }
+    }
+    if (declared.isNotEmpty) _activeMiddlePanelIndex.value = 0;
+  }
 
   @override
   void openPanel(ForgePanelLocation location) {
@@ -944,6 +1028,7 @@ class DefaultLayoutController implements ForgeLayoutController {
 
   /// Dispose notifiers.
   void dispose() {
+    _systemState.listenable.removeListener(_followActiveApplication);
     _leftPanel.dispose();
     _rightPanel.dispose();
     _bottomPanel.dispose();
@@ -951,4 +1036,21 @@ class DefaultLayoutController implements ForgeLayoutController {
     _activeMiddlePanelIndex.dispose();
     pendingEditorChoice.dispose();
   }
+}
+
+/// One panel application's layout while another is shown.
+class _ApplicationLayout {
+  _ApplicationLayout({
+    required this.left,
+    required this.right,
+    required this.bottom,
+    required this.middle,
+    required this.activeMiddle,
+  });
+
+  final LayoutPanelConfig left;
+  final LayoutPanelConfig right;
+  final LayoutPanelConfig bottom;
+  final List<List<ForgeEditor>> middle;
+  final int activeMiddle;
 }

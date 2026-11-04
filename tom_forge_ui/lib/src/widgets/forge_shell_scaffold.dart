@@ -344,10 +344,46 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         application,
         () => FocusScopeNode(debugLabel: 'forge.app.${application.id}'),
       );
-    } else {
+    } else if (!identical(application, _panelApplication)) {
+      final previous = _panelApplication;
+      if (previous != null) {
+        _sidePanelStates[previous.id] = (
+          leftTab: _leftPanelActiveTab,
+          leftShowsConfig: _leftPanelShowConfig,
+          rightTab: _rightPanelActiveTab,
+          bottomTab: _bottomPanelActiveTab,
+          accordions: {
+            for (final entry in _accordionStates.entries)
+              entry.key: {...entry.value},
+          },
+        );
+      }
+      final saved = _sidePanelStates.remove(application.id);
+      _leftPanelActiveTab = saved?.leftTab ?? 0;
+      _leftPanelShowConfig = saved?.leftShowsConfig ?? false;
+      _rightPanelActiveTab = saved?.rightTab ?? 0;
+      _bottomPanelActiveTab = saved?.bottomTab ?? 0;
+      for (final area in _accordionStates.keys) {
+        _accordionStates[area] = {...?saved?.accordions[area]};
+      }
       _panelApplication = application;
     }
   }
+
+  /// The side panels' state — active tabs and accordion sections — of each
+  /// panel application not shown, by id: the panel area is rebuilt for the
+  /// application on show and starts from what it left.
+  final Map<
+    String,
+    ({
+      int leftTab,
+      bool leftShowsConfig,
+      int rightTab,
+      int bottomTab,
+      Map<String, Map<int, AccordionSectionState>> accordions,
+    })
+  >
+  _sidePanelStates = {};
 
   /// The busy badges listened to, one per open application.
   final Map<ForgeApplication, ValueListenable<String?>> _busyBadges = {};
@@ -452,6 +488,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     final applications = widget.shell.applications;
     final open = applications.all.toSet();
     _followBusyBadges(open);
+    _sidePanelStates.removeWhere((id, _) => applications.byId(id) == null);
     for (final app in _fullScreenScopes.keys.toList()) {
       if (!open.contains(app)) _fullScreenScopes.remove(app)!.dispose();
     }
@@ -3314,7 +3351,15 @@ Press "?" for this help document.
           _contentSlot(
             key: const ValueKey('forge.content.panels'),
             shown: active != null && !active.isFullScreen,
-            child: FocusScope(node: _panelScope, child: _buildMainArea(context)),
+            child: FocusScope(
+              node: _panelScope,
+              // One panel area per panel application: its side panels start
+              // from the tabs and sections that application left.
+              child: KeyedSubtree(
+                key: ObjectKey(_panelApplication),
+                child: _buildMainArea(context),
+              ),
+            ),
           ),
         for (final entry in _fullScreenScopes.entries)
           _contentSlot(

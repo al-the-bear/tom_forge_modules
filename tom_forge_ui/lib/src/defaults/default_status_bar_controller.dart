@@ -1,16 +1,21 @@
 import '../actions/status_bar_item.dart';
+import '../model/forge_application.dart';
 import '../shell/forge_status_bar_controller.dart';
 import 'default_module_registry.dart';
 
 /// Default implementation of [ForgeStatusBarController].
 ///
-/// Aggregates [StatusBarItem]s from all registered modules,
-/// sorted by priority (highest first).
+/// Aggregates [StatusBarItem]s from all registered modules and from the
+/// active application, sorted by priority (highest first).
 class DefaultStatusBarController implements ForgeStatusBarController {
   final DefaultModuleRegistry _registry;
+  final ForgeApplicationRegistry _applications;
 
-  DefaultStatusBarController({required DefaultModuleRegistry registry})
-      : _registry = registry;
+  DefaultStatusBarController({
+    required DefaultModuleRegistry registry,
+    required ForgeApplicationRegistry applications,
+  })  : _registry = registry,
+        _applications = applications;
 
   @override
   List<StatusBarItem> get items {
@@ -18,6 +23,9 @@ class DefaultStatusBarController implements ForgeStatusBarController {
     for (final module in _registry.allModules) {
       allItems.addAll(module.statusBarItems);
     }
+    allItems.addAll(
+      _applications.active?.contributions.statusBarItems ?? const [],
+    );
     allItems.sort((a, b) => b.priority.compareTo(a.priority));
     return allItems;
   }

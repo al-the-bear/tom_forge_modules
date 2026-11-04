@@ -181,20 +181,30 @@ class _MarkdownIoBar extends StatelessWidget {
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Row(
+        // Wraps rather than overflowing: the document editor is one of three
+        // middle groups in DocSpecs, a third of the window wide, and the
+        // toggle moves under the buttons when they do not all fit.
+        child: Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
           children: [
-            TextButton.icon(
-              onPressed: () => _export(context),
-              icon: const Icon(Icons.upload_file_outlined, size: 16),
-              label: const Text('Export md'),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextButton.icon(
+                  onPressed: () => _export(context),
+                  icon: const Icon(Icons.upload_file_outlined, size: 16),
+                  label: const Text('Export md'),
+                ),
+                const SizedBox(width: 4),
+                TextButton.icon(
+                  onPressed: () => _import(context),
+                  icon: const Icon(Icons.download_outlined, size: 16),
+                  label: const Text('Import md'),
+                ),
+              ],
             ),
-            const SizedBox(width: 4),
-            TextButton.icon(
-              onPressed: () => _import(context),
-              icon: const Icon(Icons.download_outlined, size: 16),
-              label: const Text('Import md'),
-            ),
-            const Spacer(),
             _StrictValidationToggle(controller: controller),
           ],
         ),

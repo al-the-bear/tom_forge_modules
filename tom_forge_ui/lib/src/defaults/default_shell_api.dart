@@ -181,7 +181,68 @@ class DefaultShellApi implements ForgeShellApi {
            ForgeContextMenuController(
              modules: modules,
              actions: actionRegistry,
-           );
+             applications: applications,
+           ) {
+    applications.listenable.addListener(_bindActiveContributions);
+    _bindActiveContributions();
+  }
+
+  /// The application whose contributions are bound now.
+  ForgeApplication? _boundApplication;
+
+  /// The action ids bound for [_boundApplication] — what an unbind removes.
+  List<String> _boundActionIds = const [];
+
+  /// Binds the active application's actions and shortcuts, unbinding the
+  /// previous one's: an application action id resolves to the application on
+  /// show. Runs on every change of the registry, so a switch, a close of the
+  /// active application and the first add all rebind at once.
+  ///
+  /// An application action whose id is already registered (a module's) is not
+  /// bound, nor is its shortcut: the module keeps the id, and the collision is
+  /// reported as a Flutter error naming both, since it is a programming error
+  /// a running shell cannot repair.
+  void _bindActiveContributions() {
+    final active = applications.active;
+    if (identical(active, _boundApplication)) return;
+    for (final id in _boundActionIds) {
+      shortcuts.removeBinding(id);
+      actionRegistry.unregisterAction(id);
+    }
+    _boundApplication = active;
+    final current = active?.contributions;
+    final bound = <String>[];
+    _boundActionIds = bound;
+    if (current == null) return;
+    for (final action in current.actions) {
+      if (actionRegistry.getAction(action.id) != null) {
+        FlutterError.reportError(
+          FlutterErrorDetails(
+            exception: StateError(
+              'application "${active!.id}" contributes action "${action.id}", '
+              'which is already registered by a module; the application\'s '
+              'action is not bound',
+            ),
+            library: 'tom_forge_ui',
+            context: ErrorDescription(
+              "while binding the active application's contributions",
+            ),
+          ),
+        );
+        continue;
+      }
+      actionRegistry.registerAction(action);
+      bound.add(action.id);
+    }
+    for (final binding in current.shortcuts) {
+      if (!bound.contains(binding.action.id)) continue;
+      if (binding.isChord) {
+        shortcuts.rebindChord(binding.action, binding.chord!);
+      } else {
+        shortcuts.rebind(binding.action, binding.key);
+      }
+    }
+  }
 
   /// Creates a [DefaultShellApi] with all default implementations wired.
   ///
@@ -237,6 +298,7 @@ class DefaultShellApi implements ForgeShellApi {
     );
     final statusBarController = DefaultStatusBarController(
       registry: moduleRegistry,
+      applications: systemState,
     );
     final diagnosticManager = DefaultDiagnosticManager(
       refreshDebounce: initialConfig.performance.diagnosticDebounceWindow,
@@ -647,6 +709,7 @@ class DefaultShellApi implements ForgeShellApi {
   /// Sequence: deactivate modules (reverse order), then dispose layout
   /// and system state. Called from the scaffold's shutdown flow.
   void dispose() {
+    applications.listenable.removeListener(_bindActiveContributions);
     if (_savesApplications) {
       applications.listenable.removeListener(_saveApplications);
     }

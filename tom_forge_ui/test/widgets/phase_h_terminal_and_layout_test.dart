@@ -239,8 +239,8 @@ void main() {
       await tester.pumpAndSettle();
 
       final layout = harness.shell.layout as DefaultLayoutController;
-      layout.splitMiddlePanel();
-      await tester.pumpAndSettle();
+      // The harness application declares two middle groups, which the shell
+      // opens when it first shows the application.
       expect(layout.middlePanels.value.length, equals(2));
 
       layout.setActiveMiddlePanelIndex(1);

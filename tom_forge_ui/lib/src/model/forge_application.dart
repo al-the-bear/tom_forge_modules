@@ -1,6 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:tom_forge_core/tom_forge_core.dart'
+    show ForgeContextMenuContribution;
 
+import '../actions/forge_action.dart';
+import '../actions/forge_shortcut_binding.dart';
+import '../actions/status_bar_item.dart';
 import '../components/forge_editor.dart';
 import '../components/forge_view.dart';
 
@@ -117,6 +122,10 @@ class ForgeApplication {
   /// JSON-encodable map (for a quest application, the quest id).
   final Map<String, Object?> payload;
 
+  /// What this application adds to the shell while it is the active one:
+  /// actions, shortcuts, status-bar items and context-menu entries.
+  final ForgeApplicationContributions contributions;
+
   /// Its lifecycle: the hooks the registry calls as the application is
   /// created, activated, deactivated, closed, and what it reports while it
   /// runs. [ForgeApplicationLifecycle.none] when it has nothing to say.
@@ -136,6 +145,7 @@ class ForgeApplication {
     this.kind,
     Map<String, Object?> payload = const {},
     this.lifecycle = ForgeApplicationLifecycle.none,
+    this.contributions = const ForgeApplicationContributions(),
     this.isActive = false,
   }) : _title = title,
        payload = Map.unmodifiable(payload);
@@ -234,6 +244,77 @@ class _Fixed<T> implements ValueListenable<T> {
 typedef ForgeCloseConfirmer =
     Future<bool> Function(ForgeApplication application, String reason);
 
+/// What an application adds to the shell while it is the active one.
+///
+/// Module contributions (`ForgeModule.actions` and the rest) are there for
+/// every application; these follow the active one. Two applications of one
+/// kind — two quest applications — contribute the same action ids, each
+/// bound to its own [ForgeApplicationContext], and the shell resolves an id
+/// to the active application's: switching rebinds them, so a keystroke, a
+/// menu entry or the command palette runs the action of the application on
+/// show. An application action id must not also be a module action's: such
+/// an action is not bound (the module keeps the id) and the collision is
+/// reported as a Flutter error.
+class ForgeApplicationContributions {
+  /// Actions registered while the application is active.
+  final List<ForgeAction> actions;
+
+  /// Key bindings for [actions], bound while the application is active.
+  final List<ForgeShortcutBinding> shortcuts;
+
+  /// Status-bar items shown while the application is active.
+  final List<StatusBarItem> statusBarItems;
+
+  /// Context-menu entries offered while the application is active; each
+  /// names one of [actions] or a module action.
+  final List<ForgeContextMenuContribution> contextMenus;
+
+  const ForgeApplicationContributions({
+    this.actions = const [],
+    this.shortcuts = const [],
+    this.statusBarItems = const [],
+    this.contextMenus = const [],
+  });
+}
+
+/// The application a factory is making, as its views, editors and
+/// contributions see it: what to bind to so that two applications of one kind
+/// show the same views with different content.
+///
+/// Handed to [ForgeApplicationFactory.create]; the factory passes it to the
+/// view, editor and action instances it makes for that application.
+class ForgeApplicationContext {
+  /// The application's id ([ForgeApplication.id]).
+  final String id;
+
+  /// The factory kind that made it.
+  final String kind;
+
+  /// What it was opened with (e.g. the quest id).
+  final Map<String, Object?> payload;
+
+  final ForgeApplicationRegistry _registry;
+
+  ForgeApplicationContext({
+    required this.id,
+    required this.kind,
+    required Map<String, Object?> payload,
+    required ForgeApplicationRegistry registry,
+  }) : payload = Map.unmodifiable(payload),
+       _registry = registry;
+
+  /// The application, once the registry holds it; null while the factory is
+  /// still making it and after it closed.
+  ForgeApplication? get application => _registry.byId(id);
+
+  /// Whether the application is the active one — what a view bound to it
+  /// checks before reacting to shell-wide events.
+  bool get isActive => _registry.active?.id == id;
+
+  /// The registry, notifying on every add, rename, activation and close.
+  ValueListenable<List<ForgeApplication>> get registry => _registry.listenable;
+}
+
 /// Makes the applications of one [kind]: when one is opened at run time
 /// ([ForgeApplicationRegistry.open]) and when the shell recreates the ones
 /// that were open at the last exit. A module registers its factories with
@@ -243,14 +324,10 @@ abstract class ForgeApplicationFactory {
   /// (e.g. `quest`).
   String get kind;
 
-  /// The application with [id], [title] and [payload]; its [ForgeApplication.kind]
-  /// must be [kind] and its [ForgeApplication.payload] what it needs to be
-  /// recreated.
-  ForgeApplication create({
-    required String id,
-    required String title,
-    required Map<String, Object?> payload,
-  });
+  /// The application for [context], titled [title]: its id and payload are
+  /// the context's, its [ForgeApplication.kind] is [kind], and the views,
+  /// editors and contributions it lays out are made for [context].
+  ForgeApplication create(ForgeApplicationContext context, String title);
 }
 
 /// The shell's applications (`ForgeShellApi.applications`): the open ones,

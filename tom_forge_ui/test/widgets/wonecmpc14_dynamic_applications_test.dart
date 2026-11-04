@@ -240,17 +240,14 @@ class _QuestFactory implements ForgeApplicationFactory {
   String get kind => 'quest';
 
   @override
-  ForgeApplication create({
-    required String id,
-    required String title,
-    required Map<String, Object?> payload,
-  }) => ForgeApplication(
-    id: id,
-    title: title,
-    kind: kind,
-    payload: payload,
-    layout: FullScreenLayout(view: _LabelView('Quest $title')),
-  );
+  ForgeApplication create(ForgeApplicationContext context, String title) =>
+      ForgeApplication(
+        id: context.id,
+        title: title,
+        kind: kind,
+        payload: context.payload,
+        layout: FullScreenLayout(view: _LabelView('Quest $title')),
+      );
 }
 
 DefaultShellApi _shell({ForgeWorkspaceStateManager? workspaceState}) =>

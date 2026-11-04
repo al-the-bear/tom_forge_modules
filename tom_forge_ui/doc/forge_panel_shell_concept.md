@@ -720,6 +720,10 @@ class ForgeApplication {
   /// Hooks as it comes and goes, and what it reports while it runs.
   final ForgeApplicationLifecycle lifecycle;
 
+  /// Actions, shortcuts, status-bar items and context-menu entries bound
+  /// while it is the active application.
+  final ForgeApplicationContributions contributions;
+
   /// Whether this application is currently active (visible).
   bool get isActive;
 }
@@ -739,11 +743,22 @@ class ForgeApplicationLifecycle {
   ValueListenable<String?> get busy;
 }
 
+/// The application a factory is making: id, kind, payload, the application
+/// once registered and whether it is active. Views, editors and actions made
+/// for an application are bound to it.
+class ForgeApplicationContext {
+  final String id;
+  final String kind;
+  final Map<String, Object?> payload;
+  ForgeApplication? get application;
+  bool get isActive;
+  ValueListenable<List<ForgeApplication>> get registry;
+}
+
 /// Makes the applications of one kind, at run time and at restore.
 abstract class ForgeApplicationFactory {
   String get kind;
-  ForgeApplication create({required String id, required String title,
-      required Map<String, Object?> payload});
+  ForgeApplication create(ForgeApplicationContext context, String title);
 }
 
 /// `ForgeShellApi.applications`: the open applications and the active one.
@@ -824,6 +839,9 @@ class MiddleTabConfig {
 
 - The shell owns the applications: the scaffold shows whichever application `shell.applications` has active and follows the registry as applications are added, renamed, removed and activated — from the switcher or from code. A host builds the scaffold with the shell only.
 - Applications come and go at run time. A module registers a `ForgeApplicationFactory` per kind and opens applications of it with `shell.applications.open(kind, title:, payload:)`; several of one kind may be open, told apart by their ids. Closing the active application activates the one active before it; the last application cannot be closed.
+- Two applications of one kind show the same views bound to different contexts: the factory gets a `ForgeApplicationContext` per application and makes that application's view, editor and action instances for it (a PROCESS view per quest application, each showing its quest).
+- An application's `contributions` (`ForgeApplicationContributions`: actions, shortcuts, status-bar items, context-menu entries) follow the active application: the shell binds the active one's actions and shortcuts and unbinds the previous one's, the status bar shows its items and the context menu its entries. Two applications of one kind contribute the same action ids, so a keystroke or `executeAction` runs the action of the application on show. An application action id a module already registers is not bound, and the collision is reported as a Flutter error.
+- Each panel application has its own layout: the middle editor groups with their editors, the active group, the panels' sizes and visibility, and the side panels' active tabs and accordion sections are kept for it while another application is shown and put back when it is shown again. An application shown for the first time gets its `PanelLayout`'s declared middle groups with their editors opened and its declared panel sizes; the first application adopts the layout the shell has and opens its declared editors into it. A full-screen application leaves the panel layout to the panel application shown last.
 - An application's `ForgeApplicationLifecycle` hears created, activated, deactivated, closing and closed, in that order. `closing` may veto with a reason; the shell then asks "Close <title>?" with the reason (Keep open / Close anyway), and without an answer the application stays. File > Close Application closes the active one. An application with background work (`hasBackgroundWork`, e.g. a quest's running queue) is never evicted from memory by the application-state limit, and its `busy` label is a badge in the switcher's list and, while another application is shown, beside the switcher. Disposing the shell tells every open application `closed`, so it releases what it holds, without removing it from the file the next start restores.
 - At exit the restorable applications (those with a kind) and the active id are in `.forge/state/applications.json`, rewritten on every change and written atomically. At the next start the host adds its static applications, the modules register their factories, and `DefaultShellApi.restoreApplications()` has the factories recreate the rest and re-activates the one that was active. An entry whose kind has no factory this time is kept in the file, not lost. Per-application state (`.forge/state/apps/{hash of id}.json`) is keyed by id and deleted with the application.
 

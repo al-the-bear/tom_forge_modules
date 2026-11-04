@@ -1,3 +1,4 @@
+import '../model/forge_application.dart';
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
@@ -47,11 +48,14 @@ class ForgeContextMenuController {
   ForgeContextMenuController({
     required ForgeModuleRegistry modules,
     required ForgeActionRegistry actions,
+    required ForgeApplicationRegistry applications,
   })  : _modules = modules,
-        _actions = actions;
+        _actions = actions,
+        _applications = applications;
 
   final ForgeModuleRegistry _modules;
   final ForgeActionRegistry _actions;
+  final ForgeApplicationRegistry _applications;
 
   /// Draws the entries of a target at a global position. Bound by the shell
   /// scaffold while it is mounted; null means nothing can draw a menu, and
@@ -61,33 +65,35 @@ class ForgeContextMenuController {
 
   /// The entries drawn at [target]: every registered module's contributions
   /// keyed by the target's kind that apply there, in module and declaration
-  /// order, then the target's own items that no contribution already stands
-  /// for. Empty when nothing applies.
+  /// order, then the active application's, then the target's own items that
+  /// no contribution already stands for. Empty when nothing applies.
   List<ForgeContextMenuEntry> entriesFor(ForgeContextTarget target) {
     final entries = <ForgeContextMenuEntry>[];
     final drawn = <String>{};
-    for (final module in _modules.allModules) {
-      for (final contribution in module.contextMenus) {
-        if (contribution.targetKind != target.kind) continue;
-        if (!(contribution.isApplicable?.call(target) ?? true)) continue;
-        final action = _actions.getAction(contribution.actionId);
-        if (action == null || !action.isVisible()) continue;
-        if (!drawn.add(action.id)) continue;
-        final reason = contribution.unavailableReason?.call(target);
-        final enabled = contribution.unavailableReason != null
-            ? reason == null
-            : action.isEnabled();
-        entries.add(ForgeContextMenuEntry(
-          id: action.id,
-          label: contribution.label?.call(target) ?? action.label,
-          enabled: enabled,
-          unavailableReason: enabled ? null : reason,
-          group: contribution.group,
-          run: () async {
-            await action.execute({ForgeContextTarget.parameterKey: target});
-          },
-        ));
-      }
+    final contributions = [
+      for (final module in _modules.allModules) ...module.contextMenus,
+      ...?_applications.active?.contributions.contextMenus,
+    ];
+    for (final contribution in contributions) {
+      if (contribution.targetKind != target.kind) continue;
+      if (!(contribution.isApplicable?.call(target) ?? true)) continue;
+      final action = _actions.getAction(contribution.actionId);
+      if (action == null || !action.isVisible()) continue;
+      if (!drawn.add(action.id)) continue;
+      final reason = contribution.unavailableReason?.call(target);
+      final enabled = contribution.unavailableReason != null
+          ? reason == null
+          : action.isEnabled();
+      entries.add(ForgeContextMenuEntry(
+        id: action.id,
+        label: contribution.label?.call(target) ?? action.label,
+        enabled: enabled,
+        unavailableReason: enabled ? null : reason,
+        group: contribution.group,
+        run: () async {
+          await action.execute({ForgeContextTarget.parameterKey: target});
+        },
+      ));
     }
     for (final item in target.items) {
       if (drawn.contains(item.id)) continue;
