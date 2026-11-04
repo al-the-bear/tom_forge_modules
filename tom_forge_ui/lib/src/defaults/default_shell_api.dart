@@ -9,6 +9,7 @@ import '../model/forge_application.dart';
 import '../model/forge_config.dart';
 import '../actions/forge_action.dart';
 import '../actions/forge_shortcut_binding.dart';
+import '../components/forge_editor.dart';
 import '../services/forge_action_registry.dart';
 import '../services/forge_clipboard.dart';
 import '../services/forge_config_manager.dart';
@@ -580,8 +581,15 @@ class DefaultShellApi implements ForgeShellApi {
 
   @override
   void setTextSettings(String editorTypeId, ForgeTextSettings settings) {
+    if (_editorTextSettings[editorTypeId] == settings) return;
     _editorTextSettings[editorTypeId] = settings;
+    _textSettingsChanged.fire();
   }
+
+  final _TextSettingsChanged _textSettingsChanged = _TextSettingsChanged();
+
+  @override
+  Listenable get textSettingsChanged => _textSettingsChanged;
 
   final Map<String, Map<String, dynamic>> _editorSpecificConfig =
       <String, Map<String, dynamic>>{};
@@ -664,12 +672,25 @@ class DefaultShellApi implements ForgeShellApi {
     final existing = (systemState as DefaultSystemState).openEditors
         .where((e) => e.uri == fileUri)
         .firstOrNull;
-    if (existing != null) {
-      existing.setContent(content);
-      existing.markClean();
+    if (existing != null && !existing.replaceContent(content)) {
+      _reopen(existing);
     }
 
     return true;
+  }
+
+  /// Closes [editor] and opens its file again in the panel it was in — for an
+  /// editor that cannot take replaced content in place
+  /// ([ForgeEditor.replaceContent] returned false), so it never stays on the
+  /// old text with a history made against it.
+  void _reopen(ForgeEditor editor) {
+    final layout = this.layout;
+    if (layout is! DefaultLayoutController) return;
+    final panel = layout.middlePanels.value.indexWhere(
+      (editors) => editors.contains(editor),
+    );
+    layout.closeEditor(editor);
+    layout.openFile(editor.uri, middlePanelIndex: panel < 0 ? null : panel);
   }
 
   bool _savesApplications = false;
@@ -778,4 +799,8 @@ class DefaultShellApi implements ForgeShellApi {
       notif.dispose();
     }
   }
+}
+
+class _TextSettingsChanged extends ChangeNotifier {
+  void fire() => notifyListeners();
 }

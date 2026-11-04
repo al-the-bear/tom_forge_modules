@@ -61,6 +61,9 @@ class ShellEditorIntegration extends shared.ForgeEditorIntegration
   Listenable get shortcutBindings => _shellApi.shortcuts.onBindingsChanged;
 
   @override
+  Listenable get textSettingsChanged => _shellApi.textSettingsChanged;
+
+  @override
   shared.ForgeTextContext get textContext => _context;
 
   @override

@@ -43,7 +43,7 @@ class MdEditorController extends ChangeNotifier {
     String? initialMarkdown,
     this.eventHandlers,
     this.uri,
-    int maxUndoHistory = 100,
+    int maxUndoHistory = ForgeTextDefaults.defaultMaxUndoHistory,
   }) : _undoHistory = TomUndoStack<MdEditOperation>(
          maxEntries: maxUndoHistory,
        ) {
@@ -223,6 +223,21 @@ class MdEditorController extends ChangeNotifier {
       MdEditorDebug.logger.error('Error setting markdown', e, st);
     }
   }
+
+  /// Content arrived from outside the history — a reload, an external change
+  /// taken, a revision restore: the document becomes [value] and the history
+  /// is cleared (an entry made against the old text would apply to text it
+  /// was not made on).
+  void replaceContent(String value) {
+    _setMarkdownInternal(value);
+    _refreshSelectedSection();
+    _undoHistory.clear();
+    notifyListeners();
+  }
+
+  /// How many edits the history keeps (`ForgeTextSettings.maxUndoHistory`).
+  int get maxUndoHistory => _undoHistory.maxEntries;
+  set maxUndoHistory(int value) => _undoHistory.maxEntries = value;
 
   /// Load content from a provider.
   Future<void> loadFromProvider(MdDocumentProvider provider) async {

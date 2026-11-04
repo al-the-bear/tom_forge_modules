@@ -195,6 +195,12 @@ class ForgeYamlEditor extends ForgeSchemaEditor {
   }
 
   @override
+  bool replaceContent(String content) {
+    controller.replaceContent(content);
+    return true;
+  }
+
+  @override
   String? getContent() => controller.yamlText;
 
   @override

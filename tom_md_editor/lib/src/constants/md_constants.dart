@@ -13,7 +13,6 @@ class MdConstants {
 
   static const int defaultLivePreviewDebounceMs = 300;
   static const int defaultAutoSaveDebounceMs = 2000;
-  static const int defaultMaxUndoHistory = 100;
 
   // ── Supported code-block languages ──
 

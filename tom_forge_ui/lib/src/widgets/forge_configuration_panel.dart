@@ -1705,8 +1705,6 @@ class _EditorSettingsSectionState extends State<_EditorSettingsSection> {
               'Read only',
               _configBool('readOnly', defaultValue: false),
               (v) => _updateConfig('readOnly', v)),
-          _toggle('Undo', _configBool('enableUndo'),
-              (v) => _updateConfig('enableUndo', v)),
           _toggle('Confirm delete', _configBool('confirmDelete'),
               (v) => _updateConfig('confirmDelete', v)),
           _toggle(

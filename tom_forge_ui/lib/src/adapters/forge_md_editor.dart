@@ -177,7 +177,6 @@ class ForgeMdEditor extends ForgeTextEditor {
       showTableEditButton: c['showTableEditButton'] as bool?,
       enableTableEditing: c['enableTableEditing'] as bool?,
       readOnly: c['readOnly'] as bool?,
-      enableUndo: c['enableUndo'] as bool?,
       confirmDelete: c['confirmDelete'] as bool?,
       autoSave: c['autoSave'] as bool?,
     );
@@ -204,6 +203,13 @@ class ForgeMdEditor extends ForgeTextEditor {
   @override
   void markClean() {
     _isDirty.value = false;
+  }
+
+  @override
+  bool replaceContent(String content) {
+    controller.replaceContent(content);
+    _isDirty.value = false;
+    return true;
   }
 
   @override

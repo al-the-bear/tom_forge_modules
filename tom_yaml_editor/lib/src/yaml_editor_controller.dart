@@ -54,7 +54,7 @@ class YamlEditorController extends ChangeNotifier {
     String initialYaml = '',
     YamlSchema? schema,
     this.uri,
-    int maxUndoHistory = 100,
+    int maxUndoHistory = ForgeTextDefaults.defaultMaxUndoHistory,
   })  : _document = YamlDocumentModel.parse(initialYaml),
         _schema = schema {
     _history = TomUndoStack<YamlEditOperation>(maxEntries: maxUndoHistory);
@@ -115,6 +115,22 @@ class YamlEditorController extends ChangeNotifier {
 
   /// Clear the last operation marker.
   void clearLastOperation() => _lastOperation = null;
+
+  /// Content arrived from outside the history — a reload, an external change
+  /// taken, a revision restore: the document becomes [yaml], it is the saved
+  /// state, and the history is cleared.
+  void replaceContent(String yaml) {
+    _document = YamlDocumentModel.parse(yaml);
+    _history.clear();
+    _lastOperation = null;
+    isDirtyNotifier.value = false;
+    _revalidate();
+    notifyListeners();
+  }
+
+  /// How many edits the history keeps (`ForgeTextSettings.maxUndoHistory`).
+  int get maxUndoHistory => _history.maxEntries;
+  set maxUndoHistory(int value) => _history.maxEntries = value;
 
   /// Apply an edit operation to the document.
   void applyEdit(YamlEditOperation operation) {

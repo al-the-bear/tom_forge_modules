@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show Listenable;
 import '../services/forge_clipboard.dart';
 import '../services/forge_action_registry.dart';
 import '../services/forge_config_manager.dart';
@@ -132,6 +133,11 @@ abstract class ForgeShellApi {
 
   /// Updates text settings for an editor type.
   void setTextSettings(String editorTypeId, ForgeTextSettings settings);
+
+  /// Notifies after [setTextSettings] changed any editor type's settings, so
+  /// an open editor can follow them (its history depth,
+  /// [ForgeTextSettings.maxUndoHistory]).
+  Listenable get textSettingsChanged;
 
   /// Reads editor-specific configuration for an editor type.
   Map<String, dynamic> getEditorSpecificConfig(String editorTypeId);

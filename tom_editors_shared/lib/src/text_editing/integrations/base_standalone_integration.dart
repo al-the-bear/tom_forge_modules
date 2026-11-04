@@ -1,6 +1,5 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
-import 'package:tom_undo/tom_undo.dart';
 
 import '../../forge_bridge/editor_action_descriptor.dart';
 import '../../forge_bridge/forge_action.dart';
@@ -9,7 +8,7 @@ import '../forge_editor_integration.dart';
 import '../forge_text_context.dart';
 import '../forge_text_settings.dart';
 import '../standard_editing_actions.dart';
-import '../text_undo_entry.dart';
+import '../history/forge_text_history.dart';
 
 /// Debug flag for BaseStandaloneIntegration.
 bool kBaseStandaloneIntegrationDebug = false;
@@ -43,9 +42,6 @@ class BaseStandaloneIntegration extends ForgeEditorIntegration
   /// The focus node for this editor.
   final FocusNode focusNode;
 
-  /// Maximum undo history size.
-  final int maxUndoStackSize;
-
   /// Whether to automatically track text changes for undo/redo.
   ///
   /// When `true` (default), every text change detected from the controller
@@ -59,8 +55,8 @@ class BaseStandaloneIntegration extends ForgeEditorIntegration
 
   // State
   ForgeTextSettings _textSettings;
-  late final TomUndoStack<TextUndoEntry> _history =
-      TomUndoStack(maxEntries: maxUndoStackSize);
+  late final ForgeTextHistory _history;
+  final _TextSettingsChanged _textSettingsChanged = _TextSettingsChanged();
 
   // Listeners
   final List<TextChangeCallback> _textChangeListeners = [];
@@ -75,11 +71,14 @@ class BaseStandaloneIntegration extends ForgeEditorIntegration
     required this.controller,
     required this.focusNode,
     ForgeTextSettings? textSettings,
-    this.maxUndoStackSize = 100,
     this.enableAutoUndoTracking = true,
   }) : _textSettings = textSettings ?? const ForgeTextSettings() {
     _previousText = controller.text;
     _previousSelection = controller.selection;
+    _history = ForgeTextHistory(
+      ForgeTextState(controller.text, controller.selection),
+      maxEntries: _textSettings.maxUndoHistory,
+    );
 
     // Listen to controller changes
     controller.addListener(_onControllerChanged);
@@ -160,18 +159,14 @@ class BaseStandaloneIntegration extends ForgeEditorIntegration
   void _onControllerChanged() {
     final newText = controller.text;
     final newSelection = controller.selection;
+    final textChanged = newText != _previousText;
 
-    if (newText != _previousText) {
+    if (textChanged) {
       _log('Text changed: ${_previousText.length} -> ${newText.length} chars');
 
-      // Add to undo stack (only if auto-tracking is enabled)
+      // Typing is grouped into entries by the history (one per gesture).
       if (enableAutoUndoTracking) {
-        _addUndoEntry(TextUndoEntry(
-          oldText: _previousText,
-          newText: newText,
-          oldSelection: _previousSelection,
-          newSelection: newSelection,
-        ));
+        _history.edited(ForgeTextState(newText, newSelection));
       }
 
       _previousText = newText;
@@ -184,6 +179,9 @@ class BaseStandaloneIntegration extends ForgeEditorIntegration
 
     if (newSelection != _previousSelection) {
       _log('Selection changed: $newSelection');
+      if (enableAutoUndoTracking && !textChanged) {
+        _history.selected(newSelection);
+      }
       _previousSelection = newSelection;
 
       // Notify listeners
@@ -191,12 +189,6 @@ class BaseStandaloneIntegration extends ForgeEditorIntegration
         listener(newSelection);
       }
     }
-  }
-
-  void _addUndoEntry(TextUndoEntry entry) {
-    _history.push(entry);
-
-    _log('Undo stack size: ${_history.undoCount}');
   }
 
   // Standard action implementations
@@ -237,15 +229,31 @@ class BaseStandaloneIntegration extends ForgeEditorIntegration
   }
 
   // Applied without triggering a new undo entry.
-  void _doUndo() => _history.undo((entry) {
-        _log('Undo: ${entry.description ?? "change"}');
-        _applyTextWithoutUndo(entry.oldText, entry.oldSelection);
+  void _doUndo() => _history.undo((state) {
+        _log('Undo');
+        _applyTextWithoutUndo(state.text, state.selection);
       });
 
-  void _doRedo() => _history.redo((entry) {
+  void _doRedo() => _history.redo((state) {
         _log('Redo');
-        _applyTextWithoutUndo(entry.newText, entry.newSelection);
+        _applyTextWithoutUndo(state.text, state.selection);
       });
+
+  /// The document's history: one per document, kept the way every Forge
+  /// editor keeps it ([ForgeTextHistory]).
+  ForgeTextHistory get history => _history;
+
+  /// Ends the typing in progress — called by the editor at a history
+  /// boundary (save, mode switch, blur).
+  void flushTyping() => _history.flush();
+
+  /// Content arrived from outside the history (load, reload, external
+  /// change, revision restore): the text is replaced and the history cleared.
+  void replaceContent(String text) {
+    final state = ForgeTextState.atEnd(text);
+    _applyTextWithoutUndo(state.text, state.selection);
+    _history.replace(state);
+  }
 
   // Line editing action implementations
 
@@ -435,7 +443,12 @@ class BaseStandaloneIntegration extends ForgeEditorIntegration
   set textSettings(ForgeTextSettings settings) {
     _log('Text settings updated');
     _textSettings = settings;
+    _history.maxEntries = settings.maxUndoHistory;
+    _textSettingsChanged.fire();
   }
+
+  @override
+  Listenable get textSettingsChanged => _textSettingsChanged;
 
   @override
   void addTextChangeListener(TextChangeCallback callback) {
@@ -569,6 +582,11 @@ class BaseStandaloneIntegration extends ForgeEditorIntegration
     controller.removeListener(_onControllerChanged);
     _textChangeListeners.clear();
     _selectionChangeListeners.clear();
-    _history.clear();
+    _history.dispose();
+    _textSettingsChanged.dispose();
   }
+}
+
+class _TextSettingsChanged extends ChangeNotifier {
+  void fire() => notifyListeners();
 }

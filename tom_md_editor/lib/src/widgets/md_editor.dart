@@ -171,6 +171,9 @@ class _MdEditorState extends State<MdEditor> {
 
   // Forge integration
   late final ForgeEditorIntegration _integration;
+
+  /// Stops following the host's undo depth setting.
+  VoidCallback? _stopFollowingDepth;
   late final MdTextContext _textContext;
   late final bool _ownsIntegration;
   Map<ShortcutActivator, Intent> _shortcuts = {};
@@ -234,6 +237,7 @@ class _MdEditorState extends State<MdEditor> {
   void dispose() {
     trailEvent('dispose start');
     _integration.shortcutBindings.removeListener(_onBindingsChanged);
+    _stopFollowingDepth?.call();
     _controller.removeListener(_onControllerChanged);
     _autoSaveTimer?.cancel();
     _textContext.dispose();
@@ -325,6 +329,10 @@ class _MdEditorState extends State<MdEditor> {
       // rebinds a key.
       _buildShortcutMap();
       _integration.shortcutBindings.addListener(_onBindingsChanged);
+      _stopFollowingDepth = forgeFollowUndoDepth(
+        _integration,
+        (depth) => _controller.maxUndoHistory = depth,
+      );
 
       trailEvent('_setupIntegration complete: '
           '${_integration.supportedActions.length} actions, '

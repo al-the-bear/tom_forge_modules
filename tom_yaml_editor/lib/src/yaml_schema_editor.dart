@@ -129,6 +129,9 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
   /// The active Forge editor integration.
   late ForgeEditorIntegration _integration;
 
+  /// Stops following the host's undo depth setting.
+  VoidCallback? _stopFollowingDepth;
+
   /// Whether we own (created) the integration and must dispose it.
   bool _ownsIntegration = false;
 
@@ -232,6 +235,10 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
       _registerActions();
       // Rebuild the key map whenever the user rebinds a key.
       _integration.shortcutBindings.addListener(_onBindingsChanged);
+      _stopFollowingDepth = forgeFollowUndoDepth(
+        _integration,
+        (depth) => widget.controller.maxUndoHistory = depth,
+      );
 
       trailEvent('setupIntegration: done (owned=$_ownsIntegration)');
     } catch (e) {
@@ -268,6 +275,8 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
   /// made it.
   void _releaseIntegration() {
     _integration.shortcutBindings.removeListener(_onBindingsChanged);
+    _stopFollowingDepth?.call();
+    _stopFollowingDepth = null;
     if (_ownsIntegration) {
       _integration.dispose();
     }

@@ -1584,8 +1584,7 @@ class MdEditorSettings {
   
   // === Behavior ===
   final bool readOnly;
-  final bool enableUndo;
-  final int maxUndoHistory;
+  // The undo depth is the host's ForgeTextSettings.maxUndoHistory.
   final bool confirmDelete;
   final bool autoSave;
   final int autoSaveDebounceMs;

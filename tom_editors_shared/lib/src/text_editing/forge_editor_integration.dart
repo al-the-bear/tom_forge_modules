@@ -118,6 +118,11 @@ abstract class ForgeEditorIntegration {
   /// The default never notifies: a standalone editor's bindings are fixed.
   Listenable get shortcutBindings => const _NeverChanges();
 
+  /// Notifies when [textSettings] change — a host's settings were edited.
+  /// An editor sets its history's depth from
+  /// [ForgeTextSettings.maxUndoHistory] and follows this.
+  Listenable get textSettingsChanged => const _NeverChanges();
+
   /// Disposes resources held by this integration.
   void dispose();
 }

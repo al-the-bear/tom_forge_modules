@@ -28,12 +28,15 @@ abstract class ForgeEditor extends ForgeComponent
   FileHandlingResult canHandleContent(Uri uri, List<int> bytes) =>
       FileHandlingResult.accept;
 
-  /// Whether this editor has unsaved changes.
+  /// Whether this editor has unsaved changes: the document differs from the
+  /// saved state. Measured against a saved marker ([ForgeSavedMarker]),
+  /// never as "can undo" or "anything changed", so undoing back to the saved
+  /// state shows clean (the history contract, tom_forge_ui's
+  /// `_copilot_guidelines/editor_history_contract.md`).
   ValueListenable<bool> get isDirty;
 
-  /// Reset the dirty state to clean (e.g., after save).
-  ///
-  /// Called by the save lifecycle to mark the editor as saved.
+  /// The document as it is now is the saved state (after a save): moves the
+  /// saved marker. It does not touch the history.
   void markClean();
 
   /// Get the current content of the editor for saving.
@@ -54,22 +57,31 @@ abstract class ForgeEditor extends ForgeComponent
   /// `.forge/state/editors/`.
   void restoreState(Map<String, dynamic> state) {}
 
-  /// Set the content of this editor programmatically.
+  /// Content arrived from outside the editor's history — a reload, an
+  /// external change taken, a revision restore: replace the document with
+  /// [content] in place, make it the saved state and clear the history (an
+  /// entry made against the old text would apply to text it was not made
+  /// on). Every view of the document shows it.
   ///
-  /// Used for non-destructive file restore from revisions.
-  void setContent(String content) {}
+  /// Returns false when this editor cannot replace its content in place; the
+  /// shell then closes it and opens the file again, so no editor stays on the
+  /// old text.
+  bool replaceContent(String content) => false;
 
-  /// Returns serializable undo history metadata for persistence
-  /// to `.forge/undo/{uri-hash}.json`.
-  ///
-  /// Each entry is a JSON-encodable map with at least a `label` key.
-  /// Returns null if this editor doesn't support undo persistence.
+  /// Undo-history persistence: reserved, not used. The shell writes what
+  /// this returns to `.forge/undo/{uri-hash}.json` on close and hands it back
+  /// to [restoreUndoHistoryMetadata] on the next open; every editor returns
+  /// null, so no history outlives its session. A persisted history is a
+  /// second record of the document's past that diverges from the file the
+  /// first time the file changes elsewhere; the hook stays so an editor can
+  /// implement it later, against the file's saved revision.
   List<Map<String, dynamic>>? getUndoHistoryMetadata() => null;
 
-  /// Restores undo history metadata loaded from `.forge/undo/`.
+  /// Restores what [getUndoHistoryMetadata] wrote. Reserved, like it.
   void restoreUndoHistoryMetadata(List<Map<String, dynamic>> entries) {}
 
-  /// History manager for back/forward navigation. Null if unsupported.
+  /// Back/forward navigation within the editor (not undo). Reserved: no
+  /// editor supplies one yet and the shell shows none.
   ComponentHistoryManager? get historyManager => null;
 
   // -- EditorActionProvider defaults --

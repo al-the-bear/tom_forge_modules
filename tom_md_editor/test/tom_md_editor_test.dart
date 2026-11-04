@@ -430,8 +430,6 @@ Body 3
         showSchemaErrors: false,
         enableAutoScaffold: true,
         readOnly: true,
-        enableUndo: false,
-        maxUndoHistory: 50,
         confirmDelete: false,
         autoSave: true,
         autoSaveDebounceMs: 5000,
@@ -481,8 +479,6 @@ Body 3
       expect(copy.showSchemaErrors, original.showSchemaErrors);
       expect(copy.enableAutoScaffold, original.enableAutoScaffold);
       expect(copy.readOnly, original.readOnly);
-      expect(copy.enableUndo, original.enableUndo);
-      expect(copy.maxUndoHistory, original.maxUndoHistory);
       expect(copy.confirmDelete, original.confirmDelete);
       expect(copy.autoSave, original.autoSave);
       expect(copy.autoSaveDebounceMs, original.autoSaveDebounceMs);

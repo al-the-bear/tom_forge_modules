@@ -342,7 +342,6 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
       _settingItem('Dart: Line Numbers', 'forge.editor.dart.lineNumbers', Icons.format_list_numbered, 2),
       _settingItem('Dart: Highlight Line', 'forge.editor.dart.highlightLine', Icons.highlight, 2),
       _settingItem('Dart: Whitespace', 'forge.editor.dart.showWhitespace', Icons.space_bar, 2),
-      _settingItem('Dart: Max Undo', 'forge.editor.dart.maxUndo', Icons.undo, 2),
       // YAML Editor (section 3)
       _settingItem('YAML: Font Family', 'forge.editor.yaml.fontFamily', Icons.font_download, 3),
       _settingItem('YAML: Font Size', 'forge.editor.yaml.fontSize', Icons.format_size, 3),

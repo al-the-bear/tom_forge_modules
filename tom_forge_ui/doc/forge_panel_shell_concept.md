@@ -2645,10 +2645,8 @@ The shell **routes all file access** through `TomFileSystem`, which transparentl
 
 Undo/redo operates at two levels:
 
-1. **Editor-level undo** — standard text/content undo within the editor (`Cmd+Z`, and `Shift+Cmd+Z` or on Windows and Linux `Ctrl+Y` to redo). This is per-editor and uses the data state's undo stack; the shell's undo manager holds shell actions only.
-2. **File-level undo** — reverts to a previous file revision. Access via the File History view or command palette.
-
-Both levels are stored in `.forge/` for persistence across sessions.
+1. **Editor-level undo** — standard text/content undo within the editor (`Cmd+Z`, and `Shift+Cmd+Z` or on Windows and Linux `Ctrl+Y` to redo). One history per document, shared by all its views; the shell's undo manager holds shell actions only. It lives for the session: the `.forge/undo/` persistence hooks exist and no editor fills them. The rules every editor keeps are in `tom_forge_ui/_copilot_guidelines/editor_history_contract.md`.
+2. **File-level undo** — reverts to a previous file revision. Access via the File History view or command palette. Revisions are stored in `.forge/revisions/`; a restore replaces an open editor's content in place (`ForgeEditor.replaceContent`), clean and with its history cleared, or reopens the editor when it cannot.
 
 ### 12.5 .forge Folder Location
 

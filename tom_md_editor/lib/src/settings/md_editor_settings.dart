@@ -81,8 +81,6 @@ class MdEditorSettings {
     this.prefixCaseStyle = PrefixCaseStyle.uppercase,
     // Behavior
     this.readOnly = false,
-    this.enableUndo = true,
-    this.maxUndoHistory = MdConstants.defaultMaxUndoHistory,
     this.confirmDelete = true,
     this.autoSave = false,
     this.autoSaveDebounceMs = MdConstants.defaultAutoSaveDebounceMs,
@@ -174,8 +172,6 @@ class MdEditorSettings {
 
   // ── Behavior ──
   final bool readOnly;
-  final bool enableUndo;
-  final int maxUndoHistory;
   final bool confirmDelete;
   final bool autoSave;
   final int autoSaveDebounceMs;
@@ -244,8 +240,6 @@ class MdEditorSettings {
     PrefixCaseStyle? prefixCaseStyle,
     // Behavior
     bool? readOnly,
-    bool? enableUndo,
-    int? maxUndoHistory,
     bool? confirmDelete,
     bool? autoSave,
     int? autoSaveDebounceMs,
@@ -328,8 +322,6 @@ class MdEditorSettings {
       prefixCaseStyle: prefixCaseStyle ?? this.prefixCaseStyle,
       // Behavior
       readOnly: readOnly ?? this.readOnly,
-      enableUndo: enableUndo ?? this.enableUndo,
-      maxUndoHistory: maxUndoHistory ?? this.maxUndoHistory,
       confirmDelete: confirmDelete ?? this.confirmDelete,
       autoSave: autoSave ?? this.autoSave,
       autoSaveDebounceMs: autoSaveDebounceMs ?? this.autoSaveDebounceMs,

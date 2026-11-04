@@ -155,6 +155,8 @@ class ForgePlainTextEditor extends ForgeTextEditor {
       initialText: controller.markdown,
       fileExtension: ext,
       integration: _integration,
+      contentReplaced: _contentReplaced,
+      readContent: () => controller.markdown,
       onChanged: (text) {
         controller.markdown = text;
       },
@@ -163,6 +165,18 @@ class ForgePlainTextEditor extends ForgeTextEditor {
 
   @override
   Widget buildCopy(BuildContext context) => buildMain(context);
+
+  /// Fires on every [replaceContent]; every view of the document takes the
+  /// new text and drops its history.
+  final ValueNotifier<int> _contentReplaced = ValueNotifier(0);
+
+  @override
+  bool replaceContent(String content) {
+    controller.replaceContent(content);
+    _contentReplaced.value++;
+    _isDirty.value = false;
+    return true;
+  }
 
   // ── ForgeEditor ──
 
@@ -441,6 +455,7 @@ class ForgePlainTextEditor extends ForgeTextEditor {
     controller.removeListener(_onContentChanged);
     _title.dispose();
     _titleExtension.dispose();
+    _contentReplaced.dispose();
     _isDirty.dispose();
     _cursorPos.dispose();
     _selection.dispose();
@@ -507,11 +522,19 @@ class _PlainTextEditorWidget extends StatefulWidget {
   final ForgeEditorIntegration? integration;
   final ValueChanged<String> onChanged;
 
+  /// Fires when the document's content was replaced from outside.
+  final ValueListenable<int> contentReplaced;
+
+  /// The document's content now.
+  final String Function() readContent;
+
   const _PlainTextEditorWidget({
     required this.initialText,
     required this.fileExtension,
     this.integration,
     required this.onChanged,
+    required this.contentReplaced,
+    required this.readContent,
   });
 
   @override
@@ -526,12 +549,11 @@ class _PlainTextEditorWidgetState extends State<_PlainTextEditorWidget> {
 
   // Undo/redo state
   final TomUndoStack<_TextChange> _history =
-      TomUndoStack(maxEntries: _maxUndoStackSize);
+      TomUndoStack(maxEntries: ForgeTextDefaults.defaultMaxUndoHistory);
   String _lastSavedText = '';
   TextSelection _lastSavedSelection = const TextSelection.collapsed(offset: 0);
   Timer? _undoDebounceTimer;
   static const _undoDebounceDuration = Duration(milliseconds: 300);
-  static const int _maxUndoStackSize = 100;
 
   // Shortcuts map
   Map<ShortcutActivator, Intent> _shortcuts = {};
@@ -548,8 +570,23 @@ class _PlainTextEditorWidgetState extends State<_PlainTextEditorWidget> {
     _scrollController.addListener(_syncScroll);
     _textController.addListener(_onTextChanged);
     _lastSavedText = widget.initialText;
+    widget.contentReplaced.addListener(_onContentReplaced);
 
     _registerActions();
+  }
+
+  /// The document's content was replaced from outside: take it, and drop
+  /// the history made against the old text.
+  void _onContentReplaced() {
+    _undoDebounceTimer?.cancel();
+    _history.clear();
+    final text = widget.readContent();
+    _textController.removeListener(_onTextChanged);
+    _textController.text = text;
+    _textController.selection = TextSelection.collapsed(offset: text.length);
+    _textController.addListener(_onTextChanged);
+    _lastSavedText = text;
+    _lastSavedSelection = _textController.selection;
   }
 
   void _registerActions() {
@@ -569,7 +606,14 @@ class _PlainTextEditorWidgetState extends State<_PlainTextEditorWidget> {
 
     _buildShortcutMap();
     integration.shortcutBindings.addListener(_onBindingsChanged);
+    _stopFollowingDepth = forgeFollowUndoDepth(
+      integration,
+      (depth) => _history.maxEntries = depth,
+    );
   }
+
+  /// Stops following the host's undo depth setting.
+  VoidCallback? _stopFollowingDepth;
 
   /// The local key map from the integration's bindings — the shell's
   /// binding table — through [buildEditorShortcutMap]; above EditableText,
@@ -592,6 +636,8 @@ class _PlainTextEditorWidgetState extends State<_PlainTextEditorWidget> {
   @override
   void dispose() {
     widget.integration?.shortcutBindings.removeListener(_onBindingsChanged);
+    widget.contentReplaced.removeListener(_onContentReplaced);
+    _stopFollowingDepth?.call();
     _undoDebounceTimer?.cancel();
     _textController.removeListener(_onTextChanged);
     _scrollController.removeListener(_syncScroll);

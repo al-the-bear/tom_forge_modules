@@ -79,7 +79,6 @@ class DartStandaloneIntegration extends BaseStandaloneIntegration {
     required super.controller,
     required super.focusNode,
     ForgeTextSettings? textSettings,
-    super.maxUndoStackSize,
   }) : super(
           textSettings: textSettings ?? DartEditorDefaults.defaultSettings,
           enableAutoUndoTracking: false,

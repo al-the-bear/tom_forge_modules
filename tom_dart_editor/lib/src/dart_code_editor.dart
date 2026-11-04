@@ -9,6 +9,7 @@ library;
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart';
@@ -52,6 +53,21 @@ class DartCodeController extends ChangeNotifier {
     }
   }
 
+  /// Content arrived from outside the editor's history — a reload, an
+  /// external change taken, a revision restore: the code becomes [code], and
+  /// every open view of it takes the code and clears its history
+  /// ([contentReplaced]).
+  void replaceCode(String code) {
+    _userCode = code;
+    _contentReplaced.value++;
+    notifyListeners();
+  }
+
+  final ValueNotifier<int> _contentReplaced = ValueNotifier(0);
+
+  /// Fires on every [replaceCode].
+  ValueListenable<int> get contentReplaced => _contentReplaced;
+
   /// Implicit imports that are prepended to the code for analysis.
   List<String> get implicitImports => List.unmodifiable(_implicitImports);
 
@@ -93,6 +109,7 @@ class DartCodeController extends ChangeNotifier {
   @override
   void dispose() {
     revealLineNotifier.dispose();
+    _contentReplaced.dispose();
     super.dispose();
   }
 }
@@ -667,6 +684,9 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
 
   // Forge integration
   late final ForgeEditorIntegration _integration;
+
+  /// Stops following the host's undo depth setting.
+  VoidCallback? _stopFollowingDepth;
   late final DartTextContext _textContext;
   late final bool _ownsIntegration;
   Map<ShortcutActivator, Intent> _shortcuts = {};
@@ -679,9 +699,8 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
   String _completionPrefix = '';
 
   // Undo/Redo state
-  static const int _maxUndoStackSize = 100;
   final TomUndoStack<_TextChange> _history =
-      TomUndoStack(maxEntries: _maxUndoStackSize);
+      TomUndoStack(maxEntries: ForgeTextDefaults.defaultMaxUndoHistory);
   String _lastSavedText = '';
   TextSelection _lastSavedSelection = const TextSelection.collapsed(offset: 0);
   Timer? _undoDebounceTimer;
@@ -728,6 +747,7 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
     // Dismiss popups when the editor loses focus (e.g. click outside)
     _focusNode.addListener(_onFocusChanged);
     widget.controller.revealLineNotifier.addListener(_onRevealLine);
+    widget.controller.contentReplaced.addListener(_onContentReplaced);
 
     // Initialize undo state
     _lastSavedText = widget.controller.userCode;
@@ -791,6 +811,10 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
       // rebinds a key.
       _buildShortcutMap();
       _integration.shortcutBindings.addListener(_onBindingsChanged);
+      _stopFollowingDepth = forgeFollowUndoDepth(
+        _integration,
+        (depth) => _history.maxEntries = depth,
+      );
 
       trailEvent('_setupIntegration complete: '
           '${_integration.supportedActions.length} actions, '
@@ -914,8 +938,10 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
     _textController.removeListener(_onSelectionChanged);
     _focusNode.removeListener(_onFocusChanged);
     widget.controller.revealLineNotifier.removeListener(_onRevealLine);
+    widget.controller.contentReplaced.removeListener(_onContentReplaced);
     _textContext.dispose();
     _integration.shortcutBindings.removeListener(_onBindingsChanged);
+    _stopFollowingDepth?.call();
     if (_ownsIntegration) {
       _integration.dispose();
     }
@@ -1207,6 +1233,23 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
   }
 
   void _redo() => _history.redo((change) => _applyUndoState(change.after));
+
+  /// The controller's code was replaced from outside: take it, and drop the
+  /// history made against the old code.
+  void _onContentReplaced() {
+    _undoDebounceTimer?.cancel();
+    _history.clear();
+    final code = widget.controller.userCode;
+    _applyingUndoState = true;
+    _textController.text = code;
+    _textController.selection = TextSelection.collapsed(offset: code.length);
+    _lastSavedText = code;
+    _lastSavedSelection = _textController.selection;
+    _previousText = code;
+    _textController.invalidate();
+    _applyingUndoState = false;
+    if (mounted) setState(() {});
+  }
 
   void _applyUndoState(_UndoState state) {
     _applyingUndoState = true;

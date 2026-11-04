@@ -11,6 +11,7 @@ Read these before modifying any component in `tom_forge/`.
 |----------|---------|
 | [debug_mode.md](debug_mode.md) | **MANDATORY** — Debug mode pattern: static switch, event trail, heartbeat, error intercept |
 | [context_menu_contributions.md](context_menu_contributions.md) | How a module's actions reach the shell's context menus: the `tom_forge_core` model, the controller, `ForgeContextTargetProvider`, the rendering rules |
+| [../tom_forge_ui/_copilot_guidelines/editor_history_contract.md](../tom_forge_ui/_copilot_guidelines/editor_history_contract.md) | **Every editor** — the undo/history contract: one history per document, dirty against the saved state, `replaceContent`, Flutter's text undo off, grouped typing, one depth setting, the conformance harness |
 
 ---
 

@@ -75,7 +75,6 @@ class MdStandaloneIntegration extends BaseStandaloneIntegration {
     required super.controller,
     required super.focusNode,
     ForgeTextSettings? textSettings,
-    super.maxUndoStackSize,
   }) : super(
           textSettings: textSettings ?? MdEditorDefaults.defaultSettings,
           enableAutoUndoTracking: false,

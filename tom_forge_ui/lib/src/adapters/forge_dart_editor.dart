@@ -195,6 +195,13 @@ class ForgeDartEditor extends ForgeTextEditor {
   }
 
   @override
+  bool replaceContent(String content) {
+    controller.replaceCode(content);
+    _isDirty.value = false;
+    return true;
+  }
+
+  @override
   String? getContent() => controller.userCode;
 
   @override
