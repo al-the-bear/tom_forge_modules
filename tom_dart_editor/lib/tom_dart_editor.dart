@@ -34,7 +34,12 @@ library tom_dart_editor; // comment tom_dart_editor _editor
 
 // Core editor widget and controller
 export 'src/dart_code_editor.dart'
-    show DartCodeEditor, DartCodeController, DartEditorSettings, CodeError;
+    show
+        DartCodeEditor,
+        DartCodeController,
+        DartCodeHistoryHost,
+        DartEditorSettings,
+        CodeError;
 
 // Forge editor integration
 export 'src/dart_text_context.dart' show DartTextContext;

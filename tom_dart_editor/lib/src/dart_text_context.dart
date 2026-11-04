@@ -51,6 +51,9 @@ class DartTextContext implements ForgeTextContext {
     required this.canRedoFn,
   }) {
     textController.addListener(_onChanged);
+    // The history lives on the code controller: an entry recorded or undone
+    // changes canUndo/canRedo without the text field noticing.
+    codeController.addListener(_onChanged);
     trailEvent('DartTextContext created');
   }
 
@@ -117,6 +120,7 @@ class DartTextContext implements ForgeTextContext {
   void dispose() {
     trailEvent('DartTextContext disposing');
     textController.removeListener(_onChanged);
+    codeController.removeListener(_onChanged);
     _contextController.close();
   }
 }

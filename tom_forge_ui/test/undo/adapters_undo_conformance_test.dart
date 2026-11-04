@@ -4,12 +4,11 @@
 /// makes it pass; that todo removes the skip. Measured 2026-11-04: the
 /// plain-text editor meets only replaceContentClearsHistory (its undo is
 /// refused while typing is pending, its copy keeps a second history, dirty is
-/// "anything changed"); the Dart editor meets typingUndoneWithinPause and
-/// replaceContentClearsHistory (its document text lags the view, dirty is
-/// "anything changed", the copy keeps a second history). The YAML editor
-/// meets every check in both modes (wonecmpc20): in source mode its document
-/// is the text; in tree mode the text is the value of one string field. The
-/// Markdown editor joins this file in wonecmpc22, which writes its subject.
+/// "anything changed"); the Dart editor meets every check (wonecmpc21); the
+/// YAML editor meets every check in both modes (wonecmpc20): in source mode
+/// its document is the text, in tree mode the text is the value of one string
+/// field. The Markdown editor joins this file in wonecmpc22, which writes its
+/// subject.
 library;
 
 import 'package:flutter/material.dart';
@@ -29,7 +28,6 @@ DefaultShellApi _shell() => DefaultShellApi.withDefaults(
 ForgeModule _module() => TomForgeShellModule()..activate(_shell());
 
 const _plainText = 'wonecmpc23 (the plain-text editor rebuilt on ForgeFileSession)';
-const _dart = 'wonecmpc21 (the Dart editor on the contract)';
 
 void main() {
   // The YAML editor's debug trail replaces FlutterError.onError, which a
@@ -74,12 +72,6 @@ void main() {
         module: _module(),
       ),
     ),
-    skip: const {
-      ForgeUndoCheck.dirtyFollowsSavedState: _dart,
-      ForgeUndoCheck.caretAfterUndoAndRedo: _dart,
-      ForgeUndoCheck.noRedoAfterTyping: _dart,
-      ForgeUndoCheck.splitCopiesShareHistory: _dart,
-    },
   );
 }
 

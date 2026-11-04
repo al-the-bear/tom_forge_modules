@@ -82,7 +82,7 @@ class _SimpleSummaryBackedDartCodeEditorState
 
     if (oldWidget.initialCode != widget.initialCode &&
         widget.initialCode != _controller.userCode) {
-      _controller.userCode = widget.initialCode;
+      _controller.replaceCode(widget.initialCode);
     }
 
     final importsChanged =

@@ -9,7 +9,9 @@ A Flutter widget for editing and analyzing Dart code with syntax highlighting, c
 - **Rainbow Brackets** — Color-coded bracket pairs for visual depth tracking
 - **Code Completion** — Context-aware completions with customizable providers
 - **Error Display** — Real-time error/warning markers and tooltips
-- **Undo/Redo** — Full edit history with Cmd/Ctrl+Z and Cmd/Ctrl+Shift+Z
+- **Undo/Redo** — one history per document, word by word, with the caret
+  restored, shared by split views; or the host's history in the external
+  history mode (`DartCodeHistoryHost`)
 - **Auto-indentation** — Smart indent on Enter, auto-close brackets
 - **Theming** — Dark and light themes with full customization
 

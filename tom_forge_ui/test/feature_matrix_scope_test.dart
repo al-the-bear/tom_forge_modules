@@ -376,7 +376,7 @@ Future<int> computeValue() async {
       (shell.systemState as DefaultSystemState).addOpenEditor(editor);
 
       // Simulate dirty state.
-      ctrl.userCode = 'void main() { print("changed"); }';
+      ctrl.applyEdit('void main() { print("changed"); }');
 
       final provider = ModifiedFileDecorationProvider(
         systemState: shell.systemState,

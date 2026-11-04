@@ -60,21 +60,23 @@ void main() {
       expect(controller.userCode, isNotNull);
     });
 
-    test('02: undo stack records separate entries per operation', () {
-      // This tests the underlying undo logic at controller level
-      // The controller doesn't expose undo internals directly,
-      // but we can verify via userCode changes
-
-      controller.userCode = 'first change';
-      controller.userCode = 'second change';
-
-      // The controller tracks changes, but undo is managed by the widget state
+    test('02: each programmatic edit is its own history entry', () {
+      controller.applyEdit('first change');
+      controller.applyEdit('second change');
       expect(controller.userCode, equals('second change'));
+      controller.undo();
+      expect(controller.userCode, equals('first change'));
+      controller.undo();
+      expect(controller.userCode, equals('void main() {}'));
+      expect(controller.canUndo, isFalse);
     });
 
-    test('03: userCode setter updates text', () {
-      controller.userCode = 'new code';
+    test('03: replaceCode replaces the text, saved and with no history', () {
+      controller.applyEdit('edited');
+      controller.replaceCode('new code');
       expect(controller.userCode, equals('new code'));
+      expect(controller.canUndo, isFalse);
+      expect(controller.isDirty.value, isFalse);
     });
 
     test('04: revealLine notifier can be triggered', () {
@@ -103,6 +105,8 @@ void main() {
 
       // The controller should have the new text
       expect(controller.userCode, equals('void main() {}'));
+      // Let the typing pause end before the tree goes.
+      await tester.pump(const Duration(seconds: 2));
     });
 
     testWidgets('06: cursor position is tracked', (tester) async {

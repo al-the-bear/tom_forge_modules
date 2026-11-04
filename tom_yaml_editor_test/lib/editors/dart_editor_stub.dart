@@ -73,7 +73,7 @@ class _DartEditorStubState extends State<DartEditorStub> {
     }
 
     if (!_hasEditorFocus && widget.code != _controller.userCode) {
-      _controller.userCode = widget.code;
+      _controller.replaceCode(widget.code);
     }
   }
 

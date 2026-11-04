@@ -62,7 +62,7 @@ class _MyState extends State<MyWidget> {
   void initState() {
     super.initState();
     _controller = DartCodeController(
-      userCode: 'void main() {}',
+      initialCode: 'void main() {}',
       implicitImports: ['dart:async', 'package:path/path.dart'],
     );
   }
@@ -159,8 +159,11 @@ Manages code state with support for implicit imports (code prepended but hidden 
 
 ```dart
 DartCodeController({
-  String userCode = '',
-  List<String> implicitImports = const [],
+  String initialCode = '',
+  Uri? uri,
+  List<String> implicitImports = const ['dart:async', 'dart:collection', 'dart:math'],
+  int maxUndoHistory = ForgeTextDefaults.defaultMaxUndoHistory,
+  DartCodeHistoryHost? historyHost,   // the external history mode
 })
 ```
 
@@ -169,6 +172,9 @@ DartCodeController({
 | Property | Type | Description |
 |----------|------|-------------|
 | `userCode` | `String` | The visible user code |
+| `selection` | `TextSelection` | The selection as the views last reported it, or as undo restored it |
+| `isDirty` | `ValueListenable<bool>` | The code differs from the saved code |
+| `canUndo` / `canRedo` | `bool` | The history's (or the host's) state |
 | `implicitImports` | `List<String>` | Import statements prepended to code |
 | `fullCode` | `String` | Complete code including implicit imports |
 | `lineOffset` | `int` | Number of lines added by implicit imports |
@@ -177,10 +183,34 @@ DartCodeController({
 
 | Method | Description |
 |--------|-------------|
-| `updateUserCode(String code)` | Update visible code |
+| `edit(code, selection)` | A view's typing (the edit applied); one entry per gesture |
+| `applyEdit(code, {selection})` | A programmatic edit (paste, completion, format): its own entry |
+| `select(selection)` | A caret move: ends the typing gesture |
+| `undo()` / `redo()` | The history's newest entry, caret included |
+| `flush()` | End the gesture in progress (save, blur) |
+| `markSaved()` | The code as it is now is saved |
+| `replaceCode(code)` | Content from outside (load, reload, revision restore): saved, history cleared |
+| `showCode(code, {selection})` | External history mode: the host shows its undo's code |
 | `adjustLineNumber(int line)` | Convert analysis line to editor line |
 | `addListener(VoidCallback)` | Listen for code changes |
 | `dispose()` | Clean up resources |
+
+### History
+
+The controller keeps the code's one history (the Forge history contract,
+tom_forge_ui's `editor_history_contract.md`), shared by every view of it:
+typing is one entry per gesture — a pause, a caret move or a typed word
+separator (space, newline, `.`, `;`, `,`, brackets) ends it — every
+programmatic edit is its own entry, undo and redo restore the caret, and
+dirty is measured against the saved code. Flutter's own text undo is off. The
+undo depth follows the host's `ForgeTextSettings.maxUndoHistory`.
+
+**External history mode.** A document editor that embeds the Dart editor and
+keeps one history for the whole document passes a `DartCodeHistoryHost`. The
+controller then keeps no history: it reports every edit (`edited`) and the end
+of every gesture (`flush`), its undo and redo keys and actions call the host's
+`undo`/`redo`, and the host shows the code its undo produced with
+`controller.showCode(...)`, which is not reported back as an edit.
 
 ### Implicit Imports
 
@@ -188,7 +218,7 @@ Implicit imports let you provide context without cluttering the editor:
 
 ```dart
 final controller = DartCodeController(
-  userCode: 'final p = join("a", "b");',  // User sees only this
+  initialCode: 'final p = join("a", "b");',  // User sees only this
   implicitImports: [
     'dart:async',
     'package:path/path.dart',  // 'join' available without visible import
@@ -284,8 +314,6 @@ SimpleSummaryBackedDartCodeEditor(
     tabSize: 2,
     insertSpacesForTab: true,
     wrapLines: false,
-    enableUndo: true,
-    maxUndoHistory: 100,
     analysisDebounceMs: 300,
   ),
 )
@@ -308,8 +336,6 @@ SimpleSummaryBackedDartCodeEditor(
 | `tabSize` | `int` | `2` | Spaces per tab |
 | `insertSpacesForTab` | `bool` | `true` | Insert spaces instead of tabs |
 | `wrapLines` | `bool` | `false` | Soft wrap long lines |
-| `enableUndo` | `bool` | `true` | Enable undo/redo |
-| `maxUndoHistory` | `int` | `100` | Max undo steps |
 | `analysisDebounceMs` | `int` | `300` | Debounce analysis after typing |
 
 ---

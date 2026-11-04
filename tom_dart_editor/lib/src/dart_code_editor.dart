@@ -13,7 +13,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart';
-import 'package:tom_undo/tom_undo.dart';
 
 import 'dart_text_context.dart';
 import 'editor_theme.dart';
@@ -24,10 +23,53 @@ import 'editor_diagnostics_utils.dart';
 
 export 'editor_theme.dart';
 
-/// Controller for managing Dart code state.
+/// A host that keeps the history of a Dart editor's code — the external
+/// history mode.
+///
+/// A document editor that embeds the Dart editor (Webwork's script section,
+/// a spec document's Dart field) keeps one history for the whole document;
+/// the editor then keeps none. It reports each edit after it applied
+/// ([edited]) and the end of each gesture ([flush]); its undo and redo keys
+/// and actions call [undo] and [redo]; and the host shows the text its undo
+/// produced with [DartCodeController.showCode].
+abstract interface class DartCodeHistoryHost {
+  /// The code changed to [code] by an edit that already applied.
+  void edited(String code, TextSelection selection);
+
+  /// The gesture in progress ended (a word, a paste, a save, a blur).
+  void flush();
+
+  bool get canUndo;
+  bool get canRedo;
+  void undo();
+  void redo();
+
+  /// Notifies when [canUndo] or [canRedo] may have changed.
+  Listenable get changed;
+}
+
+/// The Dart code of one document: its text, its one history and its saved
+/// state, shared by every view of it.
+///
+/// It keeps the Forge history contract (tom_forge_ui's
+/// `editor_history_contract.md`): typing is one entry per gesture — a pause,
+/// a caret move or the word separator that ends a word closes it — every
+/// programmatic edit ([applyEdit]) is its own entry, undo and redo restore the
+/// caret, and dirty is measured against the saved code. With a
+/// [historyHost] (the external history mode) the host keeps the history and
+/// this controller only reports to it.
 class DartCodeController extends ChangeNotifier {
-  String _userCode = '';
+  String _userCode;
   List<String> _implicitImports; // comment
+  TextSelection _selection;
+
+  /// The history, or null when [historyHost] keeps it.
+  final ForgeTextHistory? _history;
+
+  /// The host keeping the history in the external history mode, or null.
+  final DartCodeHistoryHost? historyHost;
+
+  final ForgeSavedMarker<String> _saved;
 
   DartCodeController({
     String initialCode = '',
@@ -37,8 +79,24 @@ class DartCodeController extends ChangeNotifier {
       'dart:collection',
       'dart:math',
     ],
+    int maxUndoHistory = ForgeTextDefaults.defaultMaxUndoHistory,
+    this.historyHost,
   })  : _userCode = initialCode,
-        _implicitImports = implicitImports;
+        _implicitImports = implicitImports,
+        _selection = TextSelection.collapsed(offset: initialCode.length),
+        _history = historyHost == null
+            ? ForgeTextHistory(
+                ForgeTextState(
+                  initialCode,
+                  TextSelection.collapsed(offset: initialCode.length),
+                ),
+                maxEntries: maxUndoHistory,
+              )
+            : null,
+        _saved = ForgeSavedMarker(initialCode) {
+    _history?.addListener(notifyListeners);
+    historyHost?.changed.addListener(notifyListeners);
+  }
 
   /// Optional URI associated with this editor's document.
   Uri? uri;
@@ -46,27 +104,161 @@ class DartCodeController extends ChangeNotifier {
   /// The code as entered by the user (without implicit imports).
   String get userCode => _userCode;
 
-  set userCode(String value) {
-    if (_userCode != value) {
-      _userCode = value;
-      notifyListeners();
-    }
-  }
+  /// The selection as the views last reported it, or as undo restored it.
+  TextSelection get selection => _selection;
 
-  /// Content arrived from outside the editor's history — a reload, an
-  /// external change taken, a revision restore: the code becomes [code], and
-  /// every open view of it takes the code and clears its history
-  /// ([contentReplaced]).
-  void replaceCode(String code) {
-    _userCode = code;
-    _contentReplaced.value++;
+  /// Whether the code differs from the saved code.
+  ValueListenable<bool> get isDirty => _saved.isDirty;
+
+  bool get canUndo => historyHost?.canUndo ?? _history!.canUndo;
+  bool get canRedo => historyHost?.canRedo ?? _history!.canRedo;
+
+  /// How many entries the history keeps (`ForgeTextSettings.maxUndoHistory`);
+  /// in the external history mode the host's own setting applies.
+  set maxUndoHistory(int value) => _history?.maxEntries = value;
+
+  /// A view's text changed by typing (the edit applied): one gesture of
+  /// typing, ended by a pause, a caret move or a word separator just typed.
+  void edit(String code, TextSelection selection) {
+    if (code == _userCode) {
+      select(selection);
+      return;
+    }
+    final endsWord = _typedSeparator(_userCode, code, selection);
+    _set(code, selection);
+    _record(code, selection);
+    if (endsWord) flush();
     notifyListeners();
   }
 
-  final ValueNotifier<int> _contentReplaced = ValueNotifier(0);
+  /// A programmatic edit (a paste, a cut, a completion, a toggled comment, a
+  /// format): its own history entry.
+  void applyEdit(String code, {TextSelection? selection}) {
+    if (code == _userCode) return;
+    final sel = selection ?? TextSelection.collapsed(offset: code.length);
+    flush();
+    _set(code, sel);
+    _record(code, sel);
+    flush();
+    notifyListeners();
+  }
 
-  /// Fires on every [replaceCode].
-  ValueListenable<int> get contentReplaced => _contentReplaced;
+  /// The caret moved without the text changing: the gesture in progress ends.
+  void select(TextSelection selection) {
+    if (selection == _selection) return;
+    _selection = selection;
+    if (historyHost != null) {
+      historyHost!.flush();
+    } else {
+      _history!.selected(selection);
+    }
+  }
+
+  /// Ends the gesture in progress — a save, a blur, a mode switch.
+  void flush() {
+    if (historyHost != null) {
+      historyHost!.flush();
+    } else {
+      _history!.flush();
+    }
+  }
+
+  /// Takes back the newest entry (the host's, in the external history mode).
+  void undo() {
+    final host = historyHost;
+    if (host != null) {
+      host.undo();
+    } else {
+      _history!.undo(_restore);
+    }
+  }
+
+  /// Puts the newest undone entry back.
+  void redo() {
+    final host = historyHost;
+    if (host != null) {
+      host.redo();
+    } else {
+      _history!.redo(_restore);
+    }
+  }
+
+  void _restore(ForgeTextState state) {
+    _set(state.text, state.selection);
+    notifyListeners();
+  }
+
+  /// The external history mode: the host shows the code its own undo or redo
+  /// produced. The views follow; nothing is reported back as an edit.
+  void showCode(String code, {TextSelection? selection}) {
+    assert(historyHost != null, 'showCode is the external history mode');
+    _set(code, selection ?? TextSelection.collapsed(offset: code.length));
+    notifyListeners();
+  }
+
+  /// Content arrived from outside the editor's history — a load, a reload,
+  /// an external change taken, a revision restore: the code becomes [code],
+  /// it is the saved state, and the history is cleared (the host's, in the
+  /// external history mode, is the host's to clear).
+  void replaceCode(String code) {
+    final state = ForgeTextState.atEnd(code);
+    _set(code, state.selection);
+    _history?.replace(state);
+    _saved.markSaved(code);
+    notifyListeners();
+  }
+
+  /// The code as it is now is saved: the gesture in progress ends and the
+  /// saved marker moves. The history stays.
+  void markSaved() {
+    flush();
+    _saved.markSaved(_userCode);
+  }
+
+  void _set(String code, TextSelection selection) {
+    _userCode = code;
+    _selection = selection;
+    _saved.compare(code);
+  }
+
+  void _record(String code, TextSelection selection) {
+    final host = historyHost;
+    if (host != null) {
+      host.edited(code, selection);
+    } else {
+      _history!.edited(ForgeTextState(code, selection));
+    }
+  }
+
+  /// Whether [after] is [before] with one word separator typed at the caret
+  /// — the end of a word, which ends the typing gesture after it.
+  static bool _typedSeparator(
+    String before,
+    String after,
+    TextSelection selection,
+  ) {
+    if (after.length != before.length + 1 || !selection.isCollapsed) {
+      return false;
+    }
+    final at = selection.baseOffset;
+    if (at <= 0 || at > after.length) return false;
+    return _wordSeparators.contains(after[at - 1]);
+  }
+
+  static const _wordSeparators = {
+    ' ',
+    '\n',
+    '\t',
+    '.',
+    ';',
+    ',',
+    '(',
+    ')',
+    '{',
+    '}',
+    '[',
+    ']',
+  };
 
   /// Implicit imports that are prepended to the code for analysis.
   List<String> get implicitImports => List.unmodifiable(_implicitImports);
@@ -108,8 +300,10 @@ class DartCodeController extends ChangeNotifier {
 
   @override
   void dispose() {
+    historyHost?.changed.removeListener(notifyListeners);
+    _history?.dispose();
+    _saved.dispose();
     revealLineNotifier.dispose();
-    _contentReplaced.dispose();
     super.dispose();
   }
 }
@@ -698,18 +892,13 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
   Offset _completionPosition = Offset.zero;
   String _completionPrefix = '';
 
-  // Undo/Redo state
-  final TomUndoStack<_TextChange> _history =
-      TomUndoStack(maxEntries: ForgeTextDefaults.defaultMaxUndoHistory);
-  String _lastSavedText = '';
-  TextSelection _lastSavedSelection = const TextSelection.collapsed(offset: 0);
-  Timer? _undoDebounceTimer;
-  static const _undoDebounceDuration = Duration(milliseconds: 300);
-
   // Auto-close brackets state
   String _previousText = '';
   bool _skipAutoClose = false;
-  bool _applyingUndoState = false;
+
+  /// True while this view shows text the controller already has (an undo,
+  /// another view's edit), so the change is not reported back as an edit.
+  bool _syncing = false;
 
   // Auto-completion debounce
   Timer? _completionDebounceTimer;
@@ -747,19 +936,10 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
     // Dismiss popups when the editor loses focus (e.g. click outside)
     _focusNode.addListener(_onFocusChanged);
     widget.controller.revealLineNotifier.addListener(_onRevealLine);
-    widget.controller.contentReplaced.addListener(_onContentReplaced);
-
-    // Initialize undo state
-    _lastSavedText = widget.controller.userCode;
+    // The controller holds the document and its history; every view follows
+    // it (an undo, another view's edit, replaced content).
+    widget.controller.addListener(_onCodeChanged);
     _previousText = widget.controller.userCode;
-
-    // Initialize _lastSavedSelection after the first frame when the
-    // text controller is attached and has a valid selection.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _textController.selection.isValid) {
-        _lastSavedSelection = _textController.selection;
-      }
-    });
 
     // Set up Forge integration
     _setupIntegration();
@@ -799,9 +979,9 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
       _textContext = DartTextContext(
         codeController: widget.controller,
         textController: _textController,
-        isDirtyFn: () => _textController.text != _lastSavedText,
-        canUndoFn: () => _history.canUndo,
-        canRedoFn: () => _history.canRedo,
+        isDirtyFn: () => widget.controller.isDirty.value,
+        canUndoFn: () => widget.controller.canUndo,
+        canRedoFn: () => widget.controller.canRedo,
       );
 
       // Register editor actions with the integration
@@ -813,7 +993,7 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
       _integration.shortcutBindings.addListener(_onBindingsChanged);
       _stopFollowingDepth = forgeFollowUndoDepth(
         _integration,
-        (depth) => _history.maxEntries = depth,
+        (depth) => widget.controller.maxUndoHistory = depth,
       );
 
       trailEvent('_setupIntegration complete: '
@@ -830,13 +1010,13 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
     // Override standard undo/redo to use the editor's debounced mechanism
     _integration.registerAction(
       StandardEditingActions.undoActionId,
-      _undo,
-      isEnabled: () => _history.canUndo,
+      widget.controller.undo,
+      isEnabled: () => widget.controller.canUndo,
     );
     _integration.registerAction(
       StandardEditingActions.redoActionId,
-      _redo,
-      isEnabled: () => _history.canRedo,
+      widget.controller.redo,
+      isEnabled: () => widget.controller.canRedo,
     );
 
     // Dart-specific actions
@@ -932,13 +1112,12 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
   @override
   void dispose() {
     trailEvent('dispose start');
-    _undoDebounceTimer?.cancel();
     _heartbeatTimer?.cancel();
     _scrollController.removeListener(_syncScroll);
     _textController.removeListener(_onSelectionChanged);
     _focusNode.removeListener(_onFocusChanged);
     widget.controller.revealLineNotifier.removeListener(_onRevealLine);
-    widget.controller.contentReplaced.removeListener(_onContentReplaced);
+    widget.controller.removeListener(_onCodeChanged);
     _textContext.dispose();
     _integration.shortcutBindings.removeListener(_onBindingsChanged);
     _stopFollowingDepth?.call();
@@ -1012,7 +1191,19 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
     _notifyVisibleRangeChanged();
   }
 
+  /// Every change of the field's value: typing (whatever delivered it — a
+  /// key, an input method, a platform paste) or a caret move. Text this view
+  /// set itself ([_syncing]) is neither.
   void _onSelectionChanged() {
+    if (!_syncing) {
+      final text = _textController.text;
+      if (text != _previousText) {
+        _handleTextChange(text);
+      } else if (text == widget.controller.userCode) {
+        // A caret move ends the typing gesture.
+        widget.controller.select(_textController.selection);
+      }
+    }
     final pos = _textController.selection.baseOffset;
     _textController.updateCursorPosition(pos);
     setState(() {});
@@ -1021,6 +1212,8 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
 
   void _onFocusChanged() {
     if (!_focusNode.hasFocus) {
+      // Leaving the editor ends the typing gesture.
+      widget.controller.flush();
       _hideCompletion();
       _hideParameterHelp();
     }
@@ -1094,12 +1287,14 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
               closingBracket +
               newText.substring(cursorPos);
 
-          // Temporarily skip auto-close to prevent recursive call
+          // Shown by this view as part of the same edit, not a new one.
           _skipAutoClose = true;
-          _textController.text = textWithClosing;
-          _textController.selection = TextSelection.collapsed(
-            offset: cursorPos,
+          _syncing = true;
+          _textController.value = TextEditingValue(
+            text: textWithClosing,
+            selection: TextSelection.collapsed(offset: cursorPos),
           );
+          _syncing = false;
           _skipAutoClose = false;
 
           newText = textWithClosing;
@@ -1108,10 +1303,8 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
     }
     _previousText = newText;
 
-    // Record undo state with debouncing
-    _scheduleUndoSave(newText);
-
-    widget.controller.userCode = newText;
+    // Typing: the controller groups it into entries by gesture.
+    widget.controller.edit(newText, _textController.selection);
     widget.onChanged?.call(newText);
 
     // Auto-trigger completion based on what was typed (insertion only)
@@ -1160,108 +1353,39 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
     }
   }
 
-  void _scheduleUndoSave(String newText) {
-    // Skip scheduling during undo/redo application to avoid corrupting stacks.
-    if (_applyingUndoState) return;
-    _undoDebounceTimer?.cancel();
-
-    // Detect word boundary: if the edit inserts a word separator (space,
-    // newline, punctuation) after an identifier character, flush the
-    // pending undo state immediately so undo works per-word.
-    final lenDiff = newText.length - _lastSavedText.length;
-    final pos = _textController.selection.baseOffset;
-    if (lenDiff == 1 && pos > 0 && pos <= newText.length) {
-      final inserted = newText[pos - 1];
-      final isWordSep = inserted == ' ' ||
-          inserted == '\n' ||
-          inserted == '\t' ||
-          inserted == '.' ||
-          inserted == ';' ||
-          inserted == ',' ||
-          inserted == '(' ||
-          inserted == ')' ||
-          inserted == '{' ||
-          inserted == '}';
-      if (isWordSep && _lastSavedText != newText) {
-        _pushUndoState(_lastSavedText, _lastSavedSelection);
-        _lastSavedText = newText;
-        _lastSavedSelection = _textController.selection;
-        return;
-      }
-    }
-
-    _undoDebounceTimer = Timer(_undoDebounceDuration, () {
-      if (_lastSavedText != newText) {
-        _pushUndoState(_lastSavedText, _lastSavedSelection);
-        _lastSavedText = newText;
-        _lastSavedSelection = _textController.selection;
-      }
-    });
-  }
-
-  /// Records the change from [text] and [selection] to what the field shows
-  /// now as one undoable entry; the push clears the redo stack.
-  void _pushUndoState(String text, TextSelection selection) {
-    _history.push(
-      _TextChange(
-        before: _UndoState(text: text, selection: selection),
-        after: _UndoState(
-          text: _textController.text,
-          selection: _textController.selection,
-        ),
-      ),
-    );
-  }
-
-  /// Flush the debounce timer and immediately save the pending undo state
-  /// if the text has changed since the last save.
-  void _flushPendingUndoSave() {
-    _undoDebounceTimer?.cancel();
-    final currentText = _textController.text;
-    if (_lastSavedText != currentText) {
-      _pushUndoState(_lastSavedText, _lastSavedSelection);
-      _lastSavedText = currentText;
-      _lastSavedSelection = _textController.selection;
-    }
-  }
-
-  void _undo() {
-    // Flush any pending debounce save so the pre-edit state is on the
-    // stack even when the user presses Ctrl+Z within the 300ms window.
-    _flushPendingUndoSave();
-    _history.undo((change) => _applyUndoState(change.before));
-  }
-
-  void _redo() => _history.redo((change) => _applyUndoState(change.after));
-
-  /// The controller's code was replaced from outside: take it, and drop the
-  /// history made against the old code.
-  void _onContentReplaced() {
-    _undoDebounceTimer?.cancel();
-    _history.clear();
+  /// The controller's code changed — an undo or redo, another view's edit,
+  /// replaced content: show it with the controller's selection. Typing in
+  /// this view reaches here too, with the text already shown.
+  void _onCodeChanged() {
     final code = widget.controller.userCode;
-    _applyingUndoState = true;
-    _textController.text = code;
-    _textController.selection = TextSelection.collapsed(offset: code.length);
-    _lastSavedText = code;
-    _lastSavedSelection = _textController.selection;
+    if (code == _textController.text) return;
+    _syncing = true;
+    _textController.value = TextEditingValue(
+      text: code,
+      selection: _clampSelection(widget.controller.selection, code),
+    );
+    _syncing = false;
     _previousText = code;
     _textController.invalidate();
-    _applyingUndoState = false;
+    widget.onChanged?.call(code);
     if (mounted) setState(() {});
   }
 
-  void _applyUndoState(_UndoState state) {
-    _applyingUndoState = true;
-    _textController.text = state.text;
-    _textController.selection = state.selection;
-    _lastSavedText = state.text;
-    _lastSavedSelection = state.selection;
-    _previousText = state.text;
-    widget.controller.userCode = state.text;
-    widget.onChanged?.call(state.text);
+  static TextSelection _clampSelection(TextSelection selection, String text) {
+    if (selection.isValid && selection.end <= text.length) return selection;
+    return TextSelection.collapsed(offset: text.length);
+  }
+
+  /// A programmatic edit made by this view (a paste, a cut, a completion, a
+  /// line action): shown at once and recorded as its own history entry.
+  void _commit(String code, TextSelection selection) {
+    _syncing = true;
+    _textController.value = TextEditingValue(text: code, selection: selection);
+    _syncing = false;
+    _previousText = code;
     _textController.invalidate();
-    _applyingUndoState = false;
+    widget.controller.applyEdit(code, selection: selection);
+    widget.onChanged?.call(code);
   }
 
   void _onHover(PointerHoverEvent event) {
@@ -1681,10 +1805,7 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
     Clipboard.setData(ClipboardData(text: selected));
     final text = _textController.text;
     final newText = text.replaceRange(sel.start, sel.end, '');
-    _textController.value = TextEditingValue(
-      text: newText,
-      selection: TextSelection.collapsed(offset: sel.start),
-    );
+    _commit(newText, TextSelection.collapsed(offset: sel.start));
   }
 
   void _copySelection() {
@@ -1695,8 +1816,7 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
   }
 
   void _pasteClipboard() {
-    // Flush pending undo state so each paste becomes a separate undo entry.
-    _flushPendingUndoSave();
+    // A paste is its own history entry.
     Clipboard.getData(Clipboard.kTextPlain).then((data) {
       if (data?.text == null || !mounted) return;
       final sel = _textController.selection;
@@ -1707,18 +1827,7 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
       final newSelection = TextSelection.collapsed(
         offset: sel.start + pasteText.length,
       );
-      _textController.value = TextEditingValue(
-        text: newText,
-        selection: newSelection,
-      );
-      // Programmatic value change doesn't trigger onChanged, so update
-      // state manually: sync controller, record undo state, notify listeners.
-      _previousText = newText;
-      widget.controller.userCode = newText;
-      _pushUndoState(text, sel);
-      _lastSavedText = newText;
-      _lastSavedSelection = newSelection;
-      widget.onChanged?.call(newText);
+      _commit(newText, newSelection);
     });
   }
 
@@ -1761,13 +1870,11 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
           code.substring(lineRange.end);
       final cursorDelta = newLine.length - line.length;
 
-      _textController.text = newCode;
-      _textController.selection = TextSelection.collapsed(
-        offset: (cursor + cursorDelta).clamp(0, newCode.length),
-      );
-      widget.controller.userCode = newCode;
-      widget.onChanged?.call(newCode);
-      _scheduleUndoSave(newCode);
+      _commit(
+          newCode,
+          TextSelection.collapsed(
+            offset: (cursor + cursorDelta).clamp(0, newCode.length),
+          ));
     } catch (e) {
       trailEvent('toggleComment error: $e');
     }
@@ -1795,11 +1902,7 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
           code.substring(0, deleteStart) + code.substring(deleteEnd);
       final newCursor = deleteStart.clamp(0, newCode.length);
 
-      _textController.text = newCode;
-      _textController.selection = TextSelection.collapsed(offset: newCursor);
-      widget.controller.userCode = newCode;
-      widget.onChanged?.call(newCode);
-      _scheduleUndoSave(newCode);
+      _commit(newCode, TextSelection.collapsed(offset: newCursor));
     } catch (e) {
       trailEvent('deleteLine error: $e');
     }
@@ -1823,11 +1926,7 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
       final newCursor =
           (lineRange.end + 1 + columnOffset).clamp(0, newCode.length);
 
-      _textController.text = newCode;
-      _textController.selection = TextSelection.collapsed(offset: newCursor);
-      widget.controller.userCode = newCode;
-      widget.onChanged?.call(newCode);
-      _scheduleUndoSave(newCode);
+      _commit(newCode, TextSelection.collapsed(offset: newCursor));
     } catch (e) {
       trailEvent('duplicateLine error: $e');
     }
@@ -1854,11 +1953,7 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
       final newCursor =
           (prevRange.start + columnOffset).clamp(0, newCode.length);
 
-      _textController.text = newCode;
-      _textController.selection = TextSelection.collapsed(offset: newCursor);
-      widget.controller.userCode = newCode;
-      widget.onChanged?.call(newCode);
-      _scheduleUndoSave(newCode);
+      _commit(newCode, TextSelection.collapsed(offset: newCursor));
     } catch (e) {
       trailEvent('moveLineUp error: $e');
     }
@@ -1886,11 +1981,7 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
           (currentRange.start + nextLine.length + 1 + columnOffset)
               .clamp(0, newCode.length);
 
-      _textController.text = newCode;
-      _textController.selection = TextSelection.collapsed(offset: newCursor);
-      widget.controller.userCode = newCode;
-      widget.onChanged?.call(newCode);
-      _scheduleUndoSave(newCode);
+      _commit(newCode, TextSelection.collapsed(offset: newCursor));
     } catch (e) {
       trailEvent('moveLineDown error: $e');
     }
@@ -2015,13 +2106,7 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
     // Calculate new cursor position
     final newCursorOffset = start + insertText.length;
 
-    _textController.text = newText;
-    _textController.selection = TextSelection.collapsed(
-      offset: newCursorOffset,
-    );
-
-    widget.controller.userCode = newText;
-    widget.onChanged?.call(newText);
+    _commit(newText, TextSelection.collapsed(offset: newCursorOffset));
 
     _hideCompletion();
     _hideParameterHelp();
@@ -2031,24 +2116,6 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
-    }
-
-    // Intercept standard undo/redo shortcuts so that our custom word-level
-    // undo runs instead of Flutter's built-in per-character undo on
-    // EditableText.  Ctrl+Z = undo, Ctrl+Shift+Z = redo.
-    // Note: Ctrl+Y is intentionally NOT intercepted here — it is handled
-    // by the shell's shortcut binding system (mapped to Delete Line).
-    final isCtrl = HardwareKeyboard.instance.isControlPressed ||
-        HardwareKeyboard.instance.isMetaPressed;
-    if (isCtrl && !HardwareKeyboard.instance.isAltPressed) {
-      if (event.logicalKey == LogicalKeyboardKey.keyZ) {
-        if (HardwareKeyboard.instance.isShiftPressed) {
-          _redo();
-        } else {
-          _undo();
-        }
-        return KeyEventResult.handled;
-      }
     }
 
     // Handle completion navigation when popup is open
@@ -2511,31 +2578,33 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
         child: Stack(
           children: [
             // Main text field
-            TextField(
-              controller: _textController,
-              focusNode: _focusNode,
-              scrollController: _scrollController,
-              maxLines: null,
-              expands: true,
-              readOnly: widget.readOnly,
-              style: TextStyle(
-                fontFamily: theme.font.fontFamily,
-                fontSize: fontSize,
-                color: theme.editor.text,
-                height: theme.font.lineHeight,
+            // The controller keeps the history; Flutter's own text undo is off.
+            ForgeEditorOwnsUndo(
+              child: TextField(
+                controller: _textController,
+                focusNode: _focusNode,
+                scrollController: _scrollController,
+                maxLines: null,
+                expands: true,
+                readOnly: widget.readOnly,
+                style: TextStyle(
+                  fontFamily: theme.font.fontFamily,
+                  fontSize: fontSize,
+                  color: theme.editor.text,
+                  height: theme.font.lineHeight,
+                ),
+                cursorColor: theme.editor.cursor,
+                decoration: InputDecoration(
+                  hintText: widget.placeholder ?? 'Enter Dart code...',
+                  hintStyle: TextStyle(color: theme.editor.placeholder),
+                  contentPadding: EdgeInsets.all(theme.editor.contentPadding),
+                  border: InputBorder.none,
+                  isDense: true,
+                ),
+                contextMenuBuilder: (context, editableTextState) =>
+                    const SizedBox.shrink(),
+                  inputFormatters: [_SmartIndentFormatter()],
               ),
-              cursorColor: theme.editor.cursor,
-              decoration: InputDecoration(
-                hintText: widget.placeholder ?? 'Enter Dart code...',
-                hintStyle: TextStyle(color: theme.editor.placeholder),
-                contentPadding: EdgeInsets.all(theme.editor.contentPadding),
-                border: InputBorder.none,
-                isDense: true,
-              ),
-              contextMenuBuilder: (context, editableTextState) =>
-                  const SizedBox.shrink(),
-              onChanged: _handleTextChange,
-              inputFormatters: [_SmartIndentFormatter()],
             ),
 
             // Error underlines overlay
@@ -3072,19 +3141,6 @@ class _ErrorUnderlinePainter extends CustomPainter {
 }
 
 /// Represents a state in the undo/redo history.
-class _UndoState {
-  final String text;
-  final TextSelection selection;
-
-  const _UndoState({required this.text, required this.selection});
-}
-
-/// One undoable change: the text and selection before and after it.
-class _TextChange {
-  final _UndoState before;
-  final _UndoState after;
-  const _TextChange({required this.before, required this.after});
-}
 
 /// API Reference popup widget that covers 90% of the editor.
 class _ApiReferencePopup extends StatefulWidget {

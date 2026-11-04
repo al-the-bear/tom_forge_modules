@@ -23,7 +23,6 @@ class ForgeDartEditor extends ForgeTextEditor {
 
   final _title = ValueNotifier<String>('Dart');
   final _titleExtension = ValueNotifier<String?>(null);
-  final _isDirty = ValueNotifier<bool>(false);
   final _cursorPos = ValueNotifier<ForgeTextPosition>(const ForgeTextPosition.zero());
   final _selection = ValueNotifier<ForgeTextRange?>(null);
   final _selections = ValueNotifier<List<ForgeTextRange>>([]);
@@ -187,17 +186,16 @@ class ForgeDartEditor extends ForgeTextEditor {
   }
 
   @override
-  ValueListenable<bool> get isDirty => _isDirty;
+  /// Dirty is the document's: its code against the saved code.
+  @override
+  ValueListenable<bool> get isDirty => controller.isDirty;
 
   @override
-  void markClean() {
-    _isDirty.value = false;
-  }
+  void markClean() => controller.markSaved();
 
   @override
   bool replaceContent(String content) {
     controller.replaceCode(content);
-    _isDirty.value = false;
     return true;
   }
 
@@ -311,13 +309,12 @@ class ForgeDartEditor extends ForgeTextEditor {
 
   @override
   EditorStateSnapshot get stateSnapshot {
-    final integration = _integration;
     return EditorStateSnapshot(
       hasSelection: hasSelection,
       hasContent: controller.userCode.isNotEmpty,
       isEditable: true,
-      canUndo: integration?.isActionEnabled(StandardEditingActions.undoActionId) ?? false,
-      canRedo: integration?.isActionEnabled(StandardEditingActions.redoActionId) ?? false,
+      canUndo: controller.canUndo,
+      canRedo: controller.canRedo,
       isTextMode: true,
     );
   }
@@ -339,8 +336,10 @@ class ForgeDartEditor extends ForgeTextEditor {
   void insertText(String text) {
     final code = controller.userCode;
     final offset = _positionConverter.positionToOffset(_cursorPos.value);
-    controller.userCode =
-        code.substring(0, offset) + text + code.substring(offset);
+    controller.applyEdit(
+      code.substring(0, offset) + text + code.substring(offset),
+      selection: TextSelection.collapsed(offset: offset + text.length),
+    );
   }
 
   @override
@@ -348,8 +347,10 @@ class ForgeDartEditor extends ForgeTextEditor {
     final code = controller.userCode;
     final start = _positionConverter.positionToOffset(range.start);
     final end = _positionConverter.positionToOffset(range.end);
-    controller.userCode =
-        code.substring(0, start) + replacement + code.substring(end);
+    controller.applyEdit(
+      code.substring(0, start) + replacement + code.substring(end),
+      selection: TextSelection.collapsed(offset: start + replacement.length),
+    );
   }
 
   @override
@@ -408,7 +409,7 @@ class ForgeDartEditor extends ForgeTextEditor {
       result =
           result.substring(0, m.start) + replacement + result.substring(m.end);
     }
-    controller.userCode = result;
+    controller.applyEdit(result);
     return matches.length;
   }
 
@@ -459,7 +460,6 @@ class ForgeDartEditor extends ForgeTextEditor {
     if (code != _lastCode) {
       _lastCode = code;
       _positionConverter = PositionConverter(code);
-      _isDirty.value = true;
       _document.updateConverter(_positionConverter);
       _document.notifyContentChanged();
       _scheduleAnalysis();
@@ -542,7 +542,6 @@ class ForgeDartEditor extends ForgeTextEditor {
     controller.removeListener(_onControllerChanged);
     _title.dispose();
     _titleExtension.dispose();
-    _isDirty.dispose();
     _cursorPos.dispose();
     _selection.dispose();
     _selections.dispose();
