@@ -271,8 +271,11 @@ Promotion approach:
 
 Primary files:
 
-1. `tom_forge_app/lib/main.dart`
-2. New `tom_forge_app/lib/src/` runtime files derived from staging app/module
+1. `tom_forge_app/lib/forge_suite.dart` — the composition as a library
+   (`composeForgeSuite`, `ForgeSuiteLauncher`, `ForgeSuiteExtension`), which
+   `tom_forge_app/lib/main.dart` starts with no extensions and an app built on
+   Forge (Webforge) starts with its own modules and applications
+2. `tom_forge_app/lib/src/` runtime files derived from staging app/module
 
 Promotion gate checklist:
 
@@ -284,9 +287,9 @@ Promotion gate checklist:
 
 Implementation evidence:
 
-1. Ported bootstrap launcher from `tom_forge_ui_test/lib/main.dart` to
-   `tom_forge_app/lib/main.dart` with updated class naming (`ForgeLauncher`
-   vs `ForgeTestLauncher`) and app title (`Tom Forge` vs `Forge Test IDE`).
+1. Ported bootstrap launcher from `tom_forge_ui_test/lib/main.dart`; it is
+   `ForgeSuiteLauncher` in `tom_forge_app/lib/src/forge_suite.dart` (the app
+   title `Tom Forge` by default, set by the host).
 2. Ported app widget from `tom_forge_ui_test/lib/src/app.dart` to
    `tom_forge_app/lib/src/app.dart` with updated class naming (`ForgeApp`
    vs `ForgeTestApp`).
