@@ -104,7 +104,11 @@ void main() {
     for (final i in [1, 2]) {
       final app = module.applications[i];
       // Three middle splits: phase overview + queue/trail surface placeholders.
-      expect(app.panelLayout.middlePanels.length, 3, reason: '${app.title} middle');
+      expect(
+        app.panelLayout.middlePanels.length,
+        3,
+        reason: '${app.title} middle',
+      );
       expect(
         app.panelLayout.middlePanels[0].tabs.single.editor,
         isA<PhaseOverviewEditor>(),

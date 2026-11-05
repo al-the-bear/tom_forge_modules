@@ -59,28 +59,31 @@ void main() {
     dir.deleteSync(recursive: true);
   });
 
-  test('CF-1: typing is written at once and is one entry per gesture', () async {
-    field.edit('a', _at(1));
-    field.edit('ab', _at(2));
-    expect(doc.content(_code), 'ab', reason: 'written at once');
-    expect(doc.isDirty, isTrue);
-    expect(doc.canUndo, isTrue, reason: 'the typing in progress');
-    expect(field.canUndo, isTrue, reason: 'the field reads the document');
-    field.select(_at(0)); // a caret move ends the gesture
-    expect(doc.changeLog.length, 1);
-    field.edit('xab', _at(1));
-    field.select(_at(3));
-    expect(doc.changeLog.length, 2);
+  test(
+    'CF-1: typing is written at once and is one entry per gesture',
+    () async {
+      field.edit('a', _at(1));
+      field.edit('ab', _at(2));
+      expect(doc.content(_code), 'ab', reason: 'written at once');
+      expect(doc.isDirty, isTrue);
+      expect(doc.canUndo, isTrue, reason: 'the typing in progress');
+      expect(field.canUndo, isTrue, reason: 'the field reads the document');
+      field.select(_at(0)); // a caret move ends the gesture
+      expect(doc.changeLog.length, 1);
+      field.edit('xab', _at(1));
+      field.select(_at(3));
+      expect(doc.changeLog.length, 2);
 
-    field.undo(); // the field's undo is the document's
-    await pumpEventQueue();
-    expect(doc.content(_code), 'ab');
-    await doc.undo();
-    expect(doc.content(_code), isNull);
-    expect(doc.isDirty, isFalse);
-    await doc.redo();
-    expect(doc.content(_code), 'ab');
-  });
+      field.undo(); // the field's undo is the document's
+      await pumpEventQueue();
+      expect(doc.content(_code), 'ab');
+      await doc.undo();
+      expect(doc.content(_code), isNull);
+      expect(doc.isDirty, isFalse);
+      await doc.redo();
+      expect(doc.content(_code), 'ab');
+    },
+  );
 
   test('CF-2: another edit ends the typing first, and the two undo in the '
       'order they were made', () async {
