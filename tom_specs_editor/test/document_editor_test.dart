@@ -11,6 +11,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tom_editors_shared/tom_editors_shared.dart'
+    show forgeTypingPause;
 
 import 'package:tom_specs_editor/src/document/spec_document.dart';
 import 'package:tom_specs_editor/src/document/spec_document_controller.dart';
@@ -191,6 +193,9 @@ void main() {
       expect(find.byType(TextField), findsOneWidget);
       await tester.enterText(find.byType(TextField), 'the overview body');
       expect(controller.content('D00/D00-OVR'), 'the overview body');
+      // The typing is one gesture, ended by the typing pause (qim_none-6).
+      await tester.pump(forgeTypingPause);
+      expect(controller.isTyping, isFalse);
     });
 
     testWidgets('a non-empty node renders expanded, not as a chip', (

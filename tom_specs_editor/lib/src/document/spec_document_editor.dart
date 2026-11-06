@@ -4,7 +4,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:tom_dart_editor/tom_dart_editor.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart'
-    show EditorCapabilities, EditorStateSnapshot, StandardEditingActions;
+    show
+        EditorCapabilities,
+        EditorStateSnapshot,
+        ForgeEditorOwnsUndo,
+        StandardEditingActions;
 import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
@@ -430,7 +434,8 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
                 _rootSeg(root),
               ),
               onHeadlineChanged: (v) =>
-                  _controller.setHeadline(_rootSeg(root), v),
+                  _controller.typeHeadline(_rootSeg(root), v),
+              document: _controller,
             ),
             if (cls != null)
               _classBody(cls, _rootSeg(root), {root.type})
@@ -517,7 +522,8 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
     headlineEditable: !_strict,
     headlineValue: _controller.headline(path),
     headlineDefault: _controller.effectiveDefaultHeadline(path),
-    onHeadlineChanged: (v) => _controller.setHeadline(path, v),
+    onHeadlineChanged: (v) => _controller.typeHeadline(path, v),
+    document: _controller,
   );
 
   Widget _contentField(SpecField field, String path) {
@@ -536,7 +542,6 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
           key: ValueKey('code:$path'),
           scope: codeScope,
           value: _controller.content(path) ?? '',
-          onChanged: (v) => _controller.setContent(path, v),
           history: SpecDocumentFieldHistory(_controller, path),
         ),
       );
@@ -561,7 +566,8 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
         value: _controller.content(path) ?? '',
         minLines: multiline ? 3 : 1,
         maxLines: multiline ? 8 : 1,
-        onChanged: (v) => _controller.setContent(path, v),
+        document: _controller,
+        onTyped: (v) => _controller.typeContent(path, v),
       ),
     );
   }
@@ -608,8 +614,9 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
                     key: ValueKey('form:$path/${ff.name}'),
                     value: _controller.formField(path, ff.name) ?? '',
                     hint: ff.hint,
-                    onChanged: (v) =>
-                        _controller.setFormField(path, ff.name, v),
+                    document: _controller,
+                    onTyped: (v) =>
+                        _controller.typeFormField(path, ff.name, v),
                   ),
                 ],
               ),
@@ -645,8 +652,9 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
               // (item 4); the id from the @SectionIdPattern generator on add.
               headline: _titleFor(itemPath),
               idValue: _controller.itemSectionId(itemPath),
-              onHeadlineChanged: (v) => _controller.setHeadline(itemPath, v),
+              onHeadlineChanged: (v) => _controller.typeHeadline(itemPath, v),
               onIdChanged: (v) => _controller.setItemSectionId(itemPath, v),
+              document: _controller,
               child: (elem == null || recursive)
                   ? _recursiveNote(field.elementType)
                   : _classBody(elem, itemPath, nextSeen),
@@ -736,12 +744,16 @@ class _NodeHeader extends StatelessWidget {
     this.headlineValue,
     this.headlineDefault = '',
     this.onHeadlineChanged,
+    this.document,
     this.diagnostics = const [],
   });
 
   final String label;
   final String path;
   final ReviewStore store;
+
+  /// The document an editable headline types into (its history).
+  final SpecDocumentController? document;
   final String? sectionId;
   final String? help;
   final bool isHeading;
@@ -770,12 +782,17 @@ class _NodeHeader extends StatelessWidget {
         Row(
           children: [
             Flexible(
-              child: (headlineEditable && onHeadlineChanged != null)
+              child:
+                  (headlineEditable &&
+                      onHeadlineChanged != null &&
+                      document != null)
                   ? _HeaderEditField(
                       key: ValueKey('headline:$path'),
                       value: headlineValue ?? headlineDefault,
                       hint: headlineDefault,
                       bold: true,
+                      document: document!,
+                      typing: true,
                       onCommitted: onHeadlineChanged!,
                     )
                   : SpecMarkdown(isHeading ? '## $label' : '**$label**'),
@@ -860,23 +877,38 @@ class _DiagnosticsBadge extends StatelessWidget {
   }
 }
 
-/// A compact commit-on-blur text field for editing a section's headline or a
-/// list item's section id (YRD9). Unlike the value fields it does *not* commit
-/// per keystroke — it commits on Enter or focus loss, so a headline edit is one
-/// undo step and an in-progress id never trips a mid-typing uniqueness check.
-/// It re-seeds its text when an external change makes the incoming [value]
-/// diverge from what the user typed (e.g. a rejected id edit reverting).
+/// A compact field on a section's header: a section's headline or a list
+/// item's section id (YRD9), on the document's history — its undo and redo
+/// keys undo the document, never the field alone.
+///
+/// A headline ([typing] true) is typed like a value field: each keystroke is
+/// written through [onCommitted] (the controller's `typeHeadline`), and the
+/// typing is one undo entry per gesture, ended by a caret move, a blur or
+/// Enter. A section id ([typing] false) commits on Enter or focus loss only,
+/// so an in-progress id never trips a mid-typing uniqueness check; undo in
+/// the field drops the uncommitted id and undoes the document. Either
+/// re-seeds its text when an external change makes the incoming [value]
+/// diverge from what it shows (an undo, a rejected id reverting).
 class _HeaderEditField extends StatefulWidget {
   const _HeaderEditField({
     super.key,
     required this.value,
     required this.onCommitted,
+    required this.document,
+    required this.typing,
     this.hint,
     this.bold = false,
   });
 
   final String value;
   final ValueChanged<String> onCommitted;
+
+  /// The document whose history the field's undo and redo are.
+  final SpecDocumentController document;
+
+  /// Whether each keystroke is written (a headline) rather than the text on
+  /// commit (a section id).
+  final bool typing;
   final String? hint;
   final bool bold;
 
@@ -887,56 +919,92 @@ class _HeaderEditField extends StatefulWidget {
 class _HeaderEditFieldState extends State<_HeaderEditField> {
   late final TextEditingController _ctrl = TextEditingController(
     text: widget.value,
-  );
+  )..addListener(_onControllerChanged);
   late final FocusNode _focus = FocusNode()..addListener(_onFocusChange);
+  late String _text = widget.value;
+
+  void _onControllerChanged() {
+    if (_ctrl.text != _text) {
+      _text = _ctrl.text;
+      if (widget.typing) widget.onCommitted(_text);
+      return;
+    }
+    // A caret move ends a headline's typing gesture.
+    if (widget.typing) widget.document.endTyping();
+  }
 
   void _onFocusChange() {
     if (!_focus.hasFocus) _commit();
   }
 
   void _commit() {
+    if (widget.typing) {
+      widget.document.endTyping();
+      return;
+    }
     if (_ctrl.text == widget.value) return;
     widget.onCommitted(_ctrl.text);
+  }
+
+  void _reseed() {
+    _text = widget.value;
+    _ctrl.value = TextEditingValue(
+      text: widget.value,
+      selection: TextSelection.collapsed(offset: widget.value.length),
+    );
+  }
+
+  void _undo() {
+    // An id not yet committed is not in the document: it is dropped.
+    if (!widget.typing && _ctrl.text != widget.value) _reseed();
+    unawaited(widget.document.undo());
   }
 
   @override
   void didUpdateWidget(_HeaderEditField oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Re-seed only when not being edited, so an external revert (e.g. a rejected
-    // id) shows through without clobbering an in-progress edit.
-    if (!_focus.hasFocus && widget.value != _ctrl.text) {
-      _ctrl.value = TextEditingValue(
-        text: widget.value,
-        selection: TextSelection.collapsed(offset: widget.value.length),
-      );
-    }
+    if (widget.value == _ctrl.text) return;
+    // A headline being typed is the document's value, so a difference is an
+    // external change; an id being edited is re-seeded only once it is left,
+    // so a rejected id shows through without clobbering an in-progress edit.
+    if (widget.typing || !_focus.hasFocus) _reseed();
   }
 
   @override
   void dispose() {
-    _focus.removeListener(_onFocusChange);
-    _focus.dispose();
-    _ctrl.dispose();
+    _focus
+      ..removeListener(_onFocusChange)
+      ..dispose();
+    _ctrl
+      ..removeListener(_onControllerChanged)
+      ..dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
-      controller: _ctrl,
-      focusNode: _focus,
-      style: TextStyle(
-        fontSize: 13,
-        fontWeight: widget.bold ? FontWeight.w600 : FontWeight.normal,
+    return ForgeEditorOwnsUndo(
+      onUndo: _undo,
+      onRedo: () => unawaited(widget.document.redo()),
+      child: TextField(
+        controller: _ctrl,
+        focusNode: _focus,
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: widget.bold ? FontWeight.w600 : FontWeight.normal,
+        ),
+        decoration: InputDecoration(
+          isDense: true,
+          hintText: widget.hint,
+          border: const OutlineInputBorder(),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 8,
+            vertical: 6,
+          ),
+        ),
+        onSubmitted: (_) => _commit(),
+        onEditingComplete: _commit,
       ),
-      decoration: InputDecoration(
-        isDense: true,
-        hintText: widget.hint,
-        border: const OutlineInputBorder(),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      ),
-      onSubmitted: (_) => _commit(),
-      onEditingComplete: _commit,
     );
   }
 }
@@ -971,6 +1039,7 @@ class _ListItem extends StatelessWidget {
     required this.idValue,
     required this.onHeadlineChanged,
     required this.onIdChanged,
+    required this.document,
     required this.child,
     this.diagnostics = const [],
   });
@@ -992,6 +1061,9 @@ class _ListItem extends StatelessWidget {
 
   final ValueChanged<String> onHeadlineChanged;
   final ValueChanged<String> onIdChanged;
+
+  /// The document the headline types into and the id commits to.
+  final SpecDocumentController document;
   final Widget child;
 
   /// Strict-mode validation errors anchored on this list-item section (csmc9) —
@@ -1019,6 +1091,8 @@ class _ListItem extends StatelessWidget {
                   value: headline,
                   hint: label,
                   bold: true,
+                  document: document,
+                  typing: true,
                   onCommitted: onHeadlineChanged,
                 ),
               ),
@@ -1029,6 +1103,8 @@ class _ListItem extends StatelessWidget {
                   key: ValueKey('item-id:$itemPath'),
                   value: idValue ?? '',
                   hint: 'id',
+                  document: document,
+                  typing: false,
                   onCommitted: onIdChanged,
                 ),
               ),
@@ -1117,16 +1193,12 @@ class _CodeField extends StatelessWidget {
     super.key,
     required this.scope,
     required this.value,
-    required this.onChanged,
     required this.history,
   });
 
   /// Summary scope (bundle) name this code field analyses against.
   final String scope;
   final String value;
-
-  /// The plain fallback field's write.
-  final ValueChanged<String> onChanged;
 
   /// The document's history, which the code editor's edits, undo and redo
   /// go to.
@@ -1153,7 +1225,8 @@ class _CodeField extends StatelessWidget {
       value: value,
       minLines: 3,
       maxLines: 12,
-      onChanged: onChanged,
+      document: history.controller,
+      onTyped: (code) => history.controller.typeContent(history.path, code),
     );
   }
 }
@@ -1273,23 +1346,36 @@ class _LayoutField extends StatelessWidget {
   }
 }
 
-/// A debounce-free text editor whose [TextEditingController] survives tree
-/// rebuilds (the whole tree re-renders on every keystroke via the shared
-/// controller's `notifyListeners`). It only re-seeds its text when an *external*
-/// change (e.g. an agent edit) makes the incoming [value] diverge from what the
-/// user is currently typing, so the caret is never clobbered mid-edit.
+/// A plain value field — content without a code scope, a form field — on the
+/// document's history (`editor_history_contract.md` §1, §4): what is typed
+/// is written to the document at once through [onTyped] (the controller's
+/// `typeContent` / `typeFormField`), and the typing is one undo entry and one
+/// change-log entry per gesture, ended by a caret move or a blur (and by the
+/// typing pause, another field, any other edit, undo, redo or save — the
+/// controller's rules). Undo and redo keys in the field undo the document,
+/// never the field alone.
+///
+/// Its [TextEditingController] survives tree rebuilds (the whole tree
+/// re-renders on every keystroke through the controller's
+/// `notifyListeners`); it re-seeds its text only when an external change (an
+/// undo, an agent edit) makes the incoming [value] diverge from what it
+/// shows.
 class _ValueField extends StatefulWidget {
   const _ValueField({
     super.key,
     required this.value,
-    required this.onChanged,
+    required this.onTyped,
+    required this.document,
     this.minLines = 1,
     this.maxLines = 1,
     this.hint,
   });
 
   final String value;
-  final ValueChanged<String> onChanged;
+  final ValueChanged<String> onTyped;
+
+  /// The document whose history the field's typing, undo and redo are.
+  final SpecDocumentController document;
   final int minLines;
   final int maxLines;
   final String? hint;
@@ -1301,12 +1387,28 @@ class _ValueField extends StatefulWidget {
 class _ValueFieldState extends State<_ValueField> {
   late final TextEditingController _ctrl = TextEditingController(
     text: widget.value,
-  );
+  )..addListener(_onControllerChanged);
+  late final FocusNode _focus = FocusNode()..addListener(_onFocusChanged);
+  late String _text = widget.value;
+
+  /// A caret move without a text change ends the typing gesture.
+  void _onControllerChanged() {
+    if (_ctrl.text == _text) {
+      widget.document.endTyping();
+      return;
+    }
+    _text = _ctrl.text;
+  }
+
+  void _onFocusChanged() {
+    if (!_focus.hasFocus) widget.document.endTyping();
+  }
 
   @override
   void didUpdateWidget(_ValueField oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.value != _ctrl.text) {
+      _text = widget.value;
       _ctrl.value = TextEditingValue(
         text: widget.value,
         selection: TextSelection.collapsed(offset: widget.value.length),
@@ -1316,24 +1418,37 @@ class _ValueFieldState extends State<_ValueField> {
 
   @override
   void dispose() {
-    _ctrl.dispose();
+    _focus
+      ..removeListener(_onFocusChanged)
+      ..dispose();
+    _ctrl
+      ..removeListener(_onControllerChanged)
+      ..dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
-      controller: _ctrl,
-      minLines: widget.minLines,
-      maxLines: widget.maxLines,
-      style: const TextStyle(fontSize: 13),
-      decoration: InputDecoration(
-        isDense: true,
-        hintText: widget.hint,
-        border: const OutlineInputBorder(),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+    return ForgeEditorOwnsUndo(
+      onUndo: () => unawaited(widget.document.undo()),
+      onRedo: () => unawaited(widget.document.redo()),
+      child: TextField(
+        controller: _ctrl,
+        focusNode: _focus,
+        minLines: widget.minLines,
+        maxLines: widget.maxLines,
+        style: const TextStyle(fontSize: 13),
+        decoration: InputDecoration(
+          isDense: true,
+          hintText: widget.hint,
+          border: const OutlineInputBorder(),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 8,
+            vertical: 6,
+          ),
+        ),
+        onChanged: widget.onTyped,
       ),
-      onChanged: widget.onChanged,
     );
   }
 }

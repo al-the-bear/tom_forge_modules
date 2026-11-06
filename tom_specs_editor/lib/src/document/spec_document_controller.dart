@@ -953,31 +953,64 @@ class SpecDocumentController extends ChangeNotifier {
 
   // --- typing: one undo entry per gesture ------------------------------------
 
-  String? _typingPath;
+  _TypingTarget? _typing;
   SpecDocumentState? _typingBefore;
   String? _typingStartValue;
   Timer? _typingPause;
 
   /// Whether typing in a field has not yet made its undo entry.
-  bool get isTyping => _typingPath != null;
+  bool get isTyping => _typing != null;
 
-  /// Typing in the content field at [path] (an embedded code editor): the
-  /// value is written at once, and the typing is one undo entry and one
-  /// change-log entry per gesture — ended by [endTyping] (a caret move, a
-  /// blur, a word), by the typing pause, by typing in another field, or by
-  /// any other edit, undo, redo or save.
-  void typeContent(String path, String value) {
-    if (_typingPath != null && _typingPath != path) endTyping();
-    if (_typingPath == null) {
-      if (document.content(path) == value) return;
-      _typingPath = path;
+  /// Typing in the content field at [path]: the value is written at once,
+  /// and the typing is one undo entry and one change-log entry per gesture —
+  /// ended by [endTyping] (a caret move, a blur), by the typing pause, by
+  /// typing in another field, or by any other edit, undo, redo or save.
+  void typeContent(String path, String value) =>
+      _type(_TypingTarget(_TypingKind.content, path), value);
+
+  /// Typing in the form [field] at [path], as [typeContent] does for content:
+  /// one undo entry and one change-log entry per gesture.
+  void typeFormField(String path, String field, String value) =>
+      _type(_TypingTarget(_TypingKind.formField, path, field), value);
+
+  /// Typing in the headline at [path]: one undo entry per gesture, and — like
+  /// [setHeadline] — no change-log entry (headlines are not part of the agent
+  /// change log). At the gesture's end a headline equal to the
+  /// [effectiveDefaultHeadline] is cleared, as [setHeadline] clears it.
+  void typeHeadline(String path, String value) =>
+      _type(_TypingTarget(_TypingKind.headline, path), value);
+
+  void _type(_TypingTarget target, String value) {
+    if (_typing != null && _typing != target) endTyping();
+    if (_typing == null) {
+      if (_valueAt(target) == value) return;
+      _typing = target;
       _typingBefore = document.captureState();
-      _typingStartValue = document.content(path);
+      _typingStartValue = _valueAt(target);
     }
-    document.setContent(path, value);
+    _write(target, value);
     _typingPause?.cancel();
     _typingPause = Timer(forgeTypingPause, endTyping);
     notifyListeners();
+  }
+
+  /// The value [target] holds now, as the field shows it.
+  String _valueAt(_TypingTarget target) => switch (target.kind) {
+    _TypingKind.content => document.content(target.path) ?? '',
+    _TypingKind.formField =>
+      document.formField(target.path, target.field!) ?? '',
+    _TypingKind.headline => document.headline(target.path) ?? '',
+  };
+
+  void _write(_TypingTarget target, String value) {
+    switch (target.kind) {
+      case _TypingKind.content:
+        document.setContent(target.path, value);
+      case _TypingKind.formField:
+        document.setFormField(target.path, target.field!, value);
+      case _TypingKind.headline:
+        document.setHeadline(target.path, value);
+    }
   }
 
   /// Ends the typing in progress, making it one undo entry — none when the
@@ -985,34 +1018,61 @@ class SpecDocumentController extends ChangeNotifier {
   void endTyping() {
     _typingPause?.cancel();
     _typingPause = null;
-    final path = _typingPath;
+    final target = _typing;
     final before = _typingBefore;
-    if (path == null || before == null) return;
-    _typingPath = null;
+    if (target == null || before == null) return;
+    _typing = null;
     _typingBefore = null;
-    final key = storagePathFor(path);
-    final value = document.content(path) ?? '';
     final start = _typingStartValue;
-    _commit(
-      before,
-      () => ChangeEntry(
-        id: _nextEntryId(),
-        sectionId: key,
-        kind: ChangeKind.content,
-        turnId: _turnIdForEdit(),
-        beforeThisEdit: start,
-        afterThisEdit: value.isEmpty ? null : value,
-        baseAtLastSave: _savedState.contentAt(key),
-        toolCallId: activeToolCallId,
-      ),
-    );
+    final key = storagePathFor(target.path);
+    switch (target.kind) {
+      case _TypingKind.headline:
+        final value = document.headline(target.path) ?? '';
+        if (value.trim() ==
+            effectiveDefaultHeadline(target.path).trim()) {
+          document.setHeadline(target.path, '');
+        }
+        _commitDocMutation(before);
+      case _TypingKind.content:
+        final value = _valueAt(target);
+        _commit(
+          before,
+          () => ChangeEntry(
+            id: _nextEntryId(),
+            sectionId: key,
+            kind: ChangeKind.content,
+            turnId: _turnIdForEdit(),
+            beforeThisEdit: (start?.isEmpty ?? true) ? null : start,
+            afterThisEdit: value.isEmpty ? null : value,
+            baseAtLastSave: _savedState.contentAt(key),
+            toolCallId: activeToolCallId,
+          ),
+        );
+      case _TypingKind.formField:
+        final field = target.field!;
+        final value = _valueAt(target);
+        _commit(
+          before,
+          () => ChangeEntry(
+            id: _nextEntryId(),
+            sectionId: key,
+            kind: ChangeKind.formField,
+            field: field,
+            turnId: _turnIdForEdit(),
+            beforeThisEdit: (start?.isEmpty ?? true) ? null : start,
+            afterThisEdit: value.isEmpty ? null : value,
+            baseAtLastSave: _savedState.formFieldAt(key, field),
+            toolCallId: activeToolCallId,
+          ),
+        );
+    }
   }
 
   /// Drops typing in progress without an entry (a load replaces the document).
   void _discardTyping() {
     _typingPause?.cancel();
     _typingPause = null;
-    _typingPath = null;
+    _typing = null;
     _typingBefore = null;
   }
 
@@ -1241,4 +1301,28 @@ class SpecDocumentController extends ChangeNotifier {
     changeLog.dispose();
     super.dispose();
   }
+}
+
+enum _TypingKind { content, formField, headline }
+
+/// The value typing writes to: a content, form-field or headline value.
+@immutable
+class _TypingTarget {
+  const _TypingTarget(this.kind, this.path, [this.field]);
+
+  final _TypingKind kind;
+  final String path;
+
+  /// The form field, for [_TypingKind.formField].
+  final String? field;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _TypingTarget &&
+      other.kind == kind &&
+      other.path == path &&
+      other.field == field;
+
+  @override
+  int get hashCode => Object.hash(kind, path, field);
 }

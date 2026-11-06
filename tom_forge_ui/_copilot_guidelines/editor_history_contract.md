@@ -20,10 +20,15 @@ and the same history, never a second stack.
 - An editor embedded in a document that keeps the history (a Dart field
   in a spec document, Webwork's script section) keeps none: it reports its
   edits and gesture ends to the host and takes undo and redo from it — the
-  Dart editor's external history mode (`DartCodeHistoryHost`). A spec
-  document's Dart field writes its typing to the document at once and the
+  Dart editor's external history mode (`DartCodeHistoryHost`). Every field
+  of a spec document — its Dart fields, its plain content and form fields,
+  its headlines — writes its typing to the document at once and the
   document makes it one entry per gesture
-  (`SpecDocumentController.typeContent` / `endTyping`).
+  (`SpecDocumentController.typeContent` / `typeFormField` /
+  `typeHeadline`, ended by `endTyping`); the plain fields are wrapped in
+  `ForgeEditorOwnsUndo`, so their undo keys undo the document. A list
+  item's section id commits on Enter or blur, its undo keys too go to the
+  document.
 - The shell's `ForgeUndoManager` holds **shell actions only** (file
   operations). No editor pushes into it; `Edit > Undo/Redo` run the active
   editor's `forge.edit.undo` / `forge.edit.redo` and are disabled with no
