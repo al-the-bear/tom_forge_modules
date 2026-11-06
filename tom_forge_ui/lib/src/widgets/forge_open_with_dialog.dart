@@ -1,36 +1,37 @@
 import 'package:flutter/material.dart';
 
-import '../components/forge_editor.dart';
+import '../components/forge_editor_choice.dart';
 
-/// A dialog that allows users to choose which editor to use for opening a file.
-///
-/// This dialog is shown when multiple editors can handle the same file type,
-/// allowing the user to select their preferred editor.
+/// The **Open With** choice: the editors offered for a file
+/// (`DefaultLayoutController.openFileWith`), each with its name and what it
+/// is for; picking one opens the file in it.
 class ForgeOpenWithDialog extends StatelessWidget {
   /// The URI of the file being opened.
   final Uri uri;
 
-  /// The list of editors that can handle this file.
-  final List<ForgeEditor> editors;
+  /// The editors offered for the file.
+  final List<ForgeEditorChoice> choices;
 
-  /// Callback invoked when an editor is selected.
-  final void Function(ForgeEditor editor) onEditorSelected;
+  /// Called with the editor picked.
+  final void Function(ForgeEditorChoice choice) onChoiceSelected;
 
-  /// Callback invoked when the dialog is dismissed without selection.
+  /// Called when the dialog is dismissed without a pick.
   final VoidCallback onCancel;
 
   const ForgeOpenWithDialog({
     super.key,
     required this.uri,
-    required this.editors,
-    required this.onEditorSelected,
+    required this.choices,
+    required this.onChoiceSelected,
     required this.onCancel,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final fileName = uri.pathSegments.isNotEmpty ? uri.pathSegments.last : uri.toString();
+    final fileName = uri.pathSegments.isNotEmpty
+        ? uri.pathSegments.last
+        : uri.toString();
 
     return Dialog(
       child: ConstrainedBox(
@@ -39,12 +40,13 @@ class ForgeOpenWithDialog extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Header
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: theme.colorScheme.surfaceContainerHighest,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(12),
+                ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -66,32 +68,28 @@ class ForgeOpenWithDialog extends StatelessWidget {
               ),
             ),
             const Divider(height: 1),
-            // Editor list
             Flexible(
               child: ListView.builder(
                 shrinkWrap: true,
                 padding: const EdgeInsets.symmetric(vertical: 8),
-                itemCount: editors.length,
+                itemCount: choices.length,
                 itemBuilder: (context, index) {
-                  final editor = editors[index];
-                  return _EditorTile(
-                    editor: editor,
-                    onTap: () => onEditorSelected(editor),
+                  final choice = choices[index];
+                  return _ChoiceTile(
+                    key: ValueKey('forge-open-with-${choice.id}'),
+                    choice: choice,
+                    onTap: () => onChoiceSelected(choice),
                   );
                 },
               ),
             ),
             const Divider(height: 1),
-            // Actions
             Padding(
               padding: const EdgeInsets.all(12),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextButton(
-                    onPressed: onCancel,
-                    child: const Text('Cancel'),
-                  ),
+                  TextButton(onPressed: onCancel, child: const Text('Cancel')),
                 ],
               ),
             ),
@@ -101,38 +99,34 @@ class ForgeOpenWithDialog extends StatelessWidget {
     );
   }
 
-  /// Shows the dialog and returns the selected editor, or null if cancelled.
-  static Future<ForgeEditor?> show({
+  /// Shows the dialog and answers the editor picked, or null if cancelled.
+  static Future<ForgeEditorChoice?> show({
     required BuildContext context,
     required Uri uri,
-    required List<ForgeEditor> editors,
+    required List<ForgeEditorChoice> choices,
   }) {
-    return showDialog<ForgeEditor>(
+    return showDialog<ForgeEditorChoice>(
       context: context,
       builder: (ctx) => ForgeOpenWithDialog(
         uri: uri,
-        editors: editors,
-        onEditorSelected: (editor) => Navigator.of(ctx).pop(editor),
+        choices: choices,
+        onChoiceSelected: (choice) => Navigator.of(ctx).pop(choice),
         onCancel: () => Navigator.of(ctx).pop(),
       ),
     );
   }
 }
 
-/// A tile representing a single editor option.
-class _EditorTile extends StatelessWidget {
-  final ForgeEditor editor;
+/// One editor offered.
+class _ChoiceTile extends StatelessWidget {
+  final ForgeEditorChoice choice;
   final VoidCallback onTap;
 
-  const _EditorTile({
-    required this.editor,
-    required this.onTap,
-  });
+  const _ChoiceTile({super.key, required this.choice, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return InkWell(
       onTap: onTap,
       child: Padding(
@@ -147,7 +141,7 @@ class _EditorTile extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
-                editor.icon,
+                choice.icon,
                 color: theme.colorScheme.onPrimaryContainer,
               ),
             ),
@@ -156,21 +150,19 @@ class _EditorTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ValueListenableBuilder<String>(
-                    valueListenable: editor.title,
-                    builder: (context, title, _) => Text(
-                      _getEditorDisplayName(editor),
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w500,
+                  Text(
+                    choice.label,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  if (choice.description case final description?)
+                    Text(
+                      description,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
-                  ),
-                  Text(
-                    _getEditorDescription(editor),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -182,24 +174,5 @@ class _EditorTile extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  String _getEditorDisplayName(ForgeEditor editor) {
-    final type = editor.runtimeType.toString();
-    // Convert class name to display name.
-    if (type.contains('Md')) return 'Markdown Editor';
-    if (type.contains('Dart')) return 'Dart Code Editor';
-    if (type.contains('Yaml')) return 'YAML Editor';
-    if (type.contains('PlainText')) return 'Plain Text Editor';
-    return type.replaceAll('Forge', '').replaceAll('Editor', ' Editor');
-  }
-
-  String _getEditorDescription(ForgeEditor editor) {
-    final type = editor.runtimeType.toString();
-    if (type.contains('Md')) return 'Edit with rich markdown preview';
-    if (type.contains('Dart')) return 'Edit with Dart syntax highlighting';
-    if (type.contains('Yaml')) return 'Edit with YAML structure view';
-    if (type.contains('PlainText')) return 'Basic text editing';
-    return 'Open with this editor';
   }
 }

@@ -151,10 +151,17 @@ class ReviewEntry {
 /// reviewed node) and the guarantee that nothing is lost on crash is worth more
 /// than micro-optimising writes.
 class ReviewStore extends ChangeNotifier {
-  final File file;
+  /// The file the entries persist to; null for a store whose entries travel
+  /// with the document they review ([ReviewStore.inDocument]).
+  final File? file;
   final Map<String, ReviewEntry> _entries = {};
 
-  ReviewStore(this.file);
+  ReviewStore(File this.file);
+
+  /// A store with no file of its own: its entries are the `review:` pass of
+  /// the `*.docspecs.yaml` document being edited, saved when the document is
+  /// (the per-file spec editor, `SpecFileEditor`).
+  ReviewStore.inDocument() : file = null;
 
   /// The host's storage-key mapper, or `null` for identity (see
   /// [installKeyMapper]).
@@ -233,7 +240,8 @@ class ReviewStore extends ChangeNotifier {
 
   /// Loads entries from disk if the file exists. Safe to call once at startup.
   void load() {
-    if (!file.existsSync()) return;
+    final file = this.file;
+    if (file == null || !file.existsSync()) return;
     final content = file.readAsStringSync();
     if (content.trim().isEmpty) return;
     final doc = loadYaml(content);
@@ -274,6 +282,8 @@ class ReviewStore extends ChangeNotifier {
   }
 
   void _save() {
+    final file = this.file;
+    if (file == null) return;
     final buffer = StringBuffer()
       ..writeln('# TomSpecs structure review.')
       ..writeln(

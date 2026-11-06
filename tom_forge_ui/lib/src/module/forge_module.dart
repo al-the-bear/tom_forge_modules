@@ -6,6 +6,7 @@ import '../actions/forge_shortcut_binding.dart';
 import '../actions/forge_shortcut_menu.dart';
 import '../actions/status_bar_item.dart';
 import '../components/forge_editor.dart';
+import '../components/forge_editor_choice.dart';
 import '../components/forge_view.dart';
 import '../shell/forge_shell_api.dart';
 import 'forge_config_panel.dart';
@@ -78,4 +79,11 @@ abstract class ForgeModule {
   /// its own editor per document and hands it to `layout.openEditor`. The
   /// default claims nothing, so every other file takes the usual path.
   bool openUri(Uri uri, {int? middlePanelIndex}) => false;
+
+  /// The editors this module has for [uri], as **Open With** offers them
+  /// (`ForgeLayoutController.openFileWith`): the shell gathers every
+  /// module's and lets the user pick when there is more than one. A module
+  /// that opens files of a kind names its editor for them, and any other it
+  /// offers for this file; the default offers none.
+  List<ForgeEditorChoice> editorChoicesFor(Uri uri) => const [];
 }

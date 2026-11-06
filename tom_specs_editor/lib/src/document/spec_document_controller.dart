@@ -1106,30 +1106,40 @@ class SpecDocumentController extends ChangeNotifier {
   /// works, N6), matching [save]'s contract.
   Future<void> saveDocSpecs(File file, {String? sessionId}) async {
     await ensureLoaded();
-    final yaml = DocSpecsFile.encode(
-      document: document,
-      tree: _masterTree(),
-      review: review.entries,
-    );
+    final yaml = encodeDocSpecs();
     await file.parent.create(recursive: true);
     await file.writeAsString(yaml);
     await DocSpecsFile.writeSessionId(file, sessionId);
     save();
   }
 
+  /// The document + review state as `*.docspecs.yaml` text
+  /// (`tom_specs_editor_specification.md` §15.1) — what [saveDocSpecs]
+  /// writes, for a host that writes it itself (the per-file editor saves
+  /// through the shell's file system). The model must be loaded
+  /// ([ensureLoaded]).
+  String encodeDocSpecs() => DocSpecsFile.encode(
+    document: document,
+    tree: _masterTree(),
+    review: review.entries,
+  );
+
   /// Loads document + review state from a two-pass `*.docspecs.yaml` [file]
   /// (`tom_specs_editor_specification.md` §15.1), restoring the full UI state.
   /// Returns the SDK session id from the sidecar, or `null` when absent.
+  Future<String?> loadDocSpecs(File file) async {
+    await loadDocSpecsText(await file.readAsString());
+    return await DocSpecsFile.readSessionId(file);
+  }
+
+  /// Loads document + review state from `*.docspecs.yaml` [text].
   ///
   /// A load is a fresh save point: the change log resets, the undo stack is
   /// cleared (there is nothing before the loaded document to undo to), and the
   /// loaded state becomes the dirty reference.
-  Future<String?> loadDocSpecs(File file) async {
+  Future<void> loadDocSpecsText(String text) async {
     await ensureLoaded();
-    final parsed = DocSpecsFile.decode(
-      await file.readAsString(),
-      _masterTree(),
-    );
+    final parsed = DocSpecsFile.decode(text, _masterTree());
     _discardTyping();
     document.restoreState(parsed.document.captureState());
     review.replaceEntries(parsed.review);
@@ -1138,7 +1148,6 @@ class SpecDocumentController extends ChangeNotifier {
     _savedState = document.captureState();
     _savedFingerprint = _savedState.fingerprint;
     notifyListeners();
-    return await DocSpecsFile.readSessionId(file);
   }
 
   /// The metadata tree of the Solution Blueprint master root — the

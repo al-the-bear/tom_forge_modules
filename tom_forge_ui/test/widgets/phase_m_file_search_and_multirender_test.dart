@@ -399,8 +399,10 @@ class _PhaseMModule extends ForgeModule {
   @override
   String get displayName => 'Phase M Module';
 
+  ForgeShellApi? _shell;
+
   @override
-  void activate(ForgeShellApi shell) {}
+  void activate(ForgeShellApi shell) => _shell = shell;
 
   @override
   void deactivate() {}
@@ -408,10 +410,7 @@ class _PhaseMModule extends ForgeModule {
   @override
   List<ForgeEditor> get editors => [
         mainEditor,
-        notesEditor,
-        multiDartEditor,
-        multiYamlEditor,
-      ];
+        notesEditor];
 
   @override
   List<ForgeView> get views => [explorerView, outlineView, problemsView];
@@ -421,6 +420,27 @@ class _PhaseMModule extends ForgeModule {
 
   @override
   List<ForgeShortcutBinding> get shortcuts => const [];
+
+  /// The two editors offered for a `.multi` file (Open With).
+  @override
+  List<ForgeEditorChoice> editorChoicesFor(Uri uri) {
+    if (!uri.path.endsWith('.multi')) return const [];
+    ForgeEditorChoice choice(String id, String label, ForgeEditor editor) =>
+        ForgeEditorChoice(
+          id: id,
+          label: label,
+          icon: editor.icon,
+          open: (uri, {middlePanelIndex}) => _shell!.layout.openEditor(
+            editor,
+            uri,
+            middlePanelIndex: middlePanelIndex,
+          ),
+        );
+    return [
+      choice('multi-dart', 'Dart Code Editor', multiDartEditor),
+      choice('multi-yaml', 'YAML Editor', multiYamlEditor),
+    ];
+  }
 }
 
 class _PhaseMMainEditor extends ForgeTestTextEditor {

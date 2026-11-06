@@ -15,6 +15,7 @@ import '../adapters/forge_yaml_editor.dart';
 import '../adapters/tom_forge_shell_module.dart';
 import '../components/forge_component.dart';
 import '../components/forge_editor.dart';
+import '../components/forge_editor_choice.dart';
 import '../components/forge_text_editor.dart';
 import '../model/forge_application.dart';
 import '../module/forge_module.dart';
@@ -69,10 +70,9 @@ class DefaultLayoutController implements ForgeLayoutController {
   final ValueNotifier<List<List<ForgeEditor>>> _middlePanels;
   final ValueNotifier<int> _activeMiddlePanelIndex;
 
-  /// Pending "Open With" editor candidates. The shell can observe this to show
-  /// a chooser dialog. The first element is the URI, followed by the candidate
-  /// editors.
-  final ValueNotifier<(Uri, List<ForgeEditor>)?> pendingEditorChoice =
+  /// A pending **Open With** choice: the file and the editors offered for
+  /// it. The shell shows the choice while it is set.
+  final ValueNotifier<(Uri, List<ForgeEditorChoice>)?> pendingEditorChoice =
       ValueNotifier(null);
 
   DefaultLayoutController({
@@ -482,63 +482,92 @@ class DefaultLayoutController implements ForgeLayoutController {
     _middlePanels.value = updated;
   }
 
+  /// Opens [uri] in an editor the user picks: the editors every module offers
+  /// for it ([ForgeModule.editorChoicesFor]) and the open editors that accept
+  /// it ([ForgeEditor.canHandle]). A file-type default naming one of them
+  /// opens it without asking; one choice or none opens the file as
+  /// [openFile] does; more set [pendingEditorChoice] for the shell to show.
   @override
   Future<void> openFileWith(Uri uri, {int? middlePanelIndex}) async {
-    if (_openedByModule(uri, middlePanelIndex)) return;
-    // Collect all editors that can handle this URI.
-    final candidates = <ForgeEditor>[];
-    for (final module in _moduleRegistry.allModules) {
-      for (final editor in module.editors) {
-        final result = editor.canHandle(uri);
-        if (result == FileHandlingResult.accept) {
-          candidates.add(editor);
-        } else if (result == FileHandlingResult.inspect) {
-          // Phase 2: check content.
-          try {
-            final bytes = (await _fileSystem.read(uri)).bytes;
-            if (editor.canHandleContent(uri, bytes) ==
-                FileHandlingResult.accept) {
-              candidates.add(editor);
-            }
-          } catch (_) {
-            // Skip editors that fail content inspection.
-          }
-        }
-      }
-    }
+    final choices = <ForgeEditorChoice>[
+      for (final module in _moduleRegistry.allModules)
+        ...module.editorChoicesFor(uri),
+      ...await _openEditorChoices(uri),
+    ];
 
     final preferredTypeId =
         _fileTypeDefaultEditors[_normalizeExtension(_extensionForUri(uri))];
-    if (preferredTypeId != null) {
-      final preferred = candidates
-          .where(
-            (editor) => _editorTypeIdForCandidate(editor) == preferredTypeId,
-          )
-          .firstOrNull;
-      if (preferred != null) {
-        resolveEditorChoice(preferred, uri, middlePanelIndex: middlePanelIndex);
-        return;
-      }
-    }
-
-    if (candidates.length <= 1) {
-      // Zero or one: just open normally.
-      openFile(uri, middlePanelIndex: middlePanelIndex);
+    final preferred = preferredTypeId == null
+        ? null
+        : choices.where((c) => c.id == preferredTypeId).firstOrNull;
+    if (preferred != null) {
+      resolveEditorChoice(preferred, uri, middlePanelIndex: middlePanelIndex);
       return;
     }
 
-    // Multiple candidates — surface the choice for the shell UI.
-    pendingEditorChoice.value = (uri, candidates);
+    if (choices.length <= 1) {
+      openFile(uri, middlePanelIndex: middlePanelIndex);
+      return;
+    }
+    pendingEditorChoice.value = (uri, choices);
   }
 
-  /// Resolve a pending "Open With" choice by opening the selected editor.
+  /// The editors of every module already on [uri] that accept it — by name,
+  /// or on a look at its content — as choices that show that editor. An
+  /// editor open on another file is not offered: it would show that file.
+  Future<List<ForgeEditorChoice>> _openEditorChoices(Uri uri) async {
+    final choices = <ForgeEditorChoice>[];
+    for (final module in _moduleRegistry.allModules) {
+      for (final editor in module.editors) {
+        if (editor.uri != uri) continue;
+        var accepts = false;
+        final result = editor.canHandle(uri);
+        if (result == FileHandlingResult.accept) {
+          accepts = true;
+        } else if (result == FileHandlingResult.inspect) {
+          try {
+            final bytes = (await _fileSystem.read(uri)).bytes;
+            accepts =
+                editor.canHandleContent(uri, bytes) ==
+                FileHandlingResult.accept;
+          } catch (_) {
+            // An editor that cannot inspect the content is not offered.
+          }
+        }
+        if (!accepts) continue;
+        final (label, description) = _describeEditor(editor);
+        choices.add(
+          ForgeEditorChoice(
+            id: _editorTypeIdForCandidate(editor) ?? '$label#${choices.length}',
+            label: label,
+            description: description,
+            icon: editor.icon,
+            open: (uri, {middlePanelIndex}) =>
+                openEditor(editor, uri, middlePanelIndex: middlePanelIndex),
+          ),
+        );
+      }
+    }
+    return choices;
+  }
+
+  /// The name and purpose of one of the shell's own editor types.
+  (String, String) _describeEditor(ForgeEditor editor) => switch (editor) {
+    ForgeMdEditor() => ('Markdown Editor', 'Edit with rich markdown preview'),
+    ForgeDartEditor() => ('Dart Code Editor', 'Edit with Dart syntax highlighting'),
+    ForgeYamlEditor() => ('YAML Editor', 'Edit with YAML structure view'),
+    ForgePlainTextEditor() => ('Plain Text Editor', 'Basic text editing'),
+    _ => (editor.title.value, 'Open with this editor'),
+  };
+
+  /// Opens the file of a pending **Open With** choice in [choice].
   void resolveEditorChoice(
-    ForgeEditor editor,
+    ForgeEditorChoice choice,
     Uri uri, {
     int? middlePanelIndex,
   }) {
     pendingEditorChoice.value = null;
-    openEditor(editor, uri, middlePanelIndex: middlePanelIndex);
+    choice.open(uri, middlePanelIndex: middlePanelIndex);
   }
 
   /// Sets the preferred default editor id for a file extension.

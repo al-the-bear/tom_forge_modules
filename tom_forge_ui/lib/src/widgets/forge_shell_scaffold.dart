@@ -19,6 +19,7 @@ import '../adapters/forge_plain_text_editor.dart';
 import '../adapters/forge_yaml_editor.dart';
 import '../components/forge_component.dart';
 import '../components/forge_editor.dart';
+import '../components/forge_editor_choice.dart';
 import '../components/forge_text_editor.dart';
 import '../components/forge_view.dart';
 import '../defaults/default_layout_controller.dart';
@@ -2596,18 +2597,18 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
                   // in chord mode (_openQuickOpenChord). The standalone
                   // ForgeChordOverlay was removed to avoid duplicate display.
                   // Open With dialog when multiple editors can handle a file.
-                  ValueListenableBuilder<(Uri, List<ForgeEditor>)?>(
+                  ValueListenableBuilder<(Uri, List<ForgeEditorChoice>)?>(
                     valueListenable: _layout.pendingEditorChoice,
-                    builder: (context, choice, _) {
-                      if (choice == null) return const SizedBox.shrink();
-                      final (uri, editors) = choice;
+                    builder: (context, pending, _) {
+                      if (pending == null) return const SizedBox.shrink();
+                      final (uri, choices) = pending;
                       return FocusScope(
                         autofocus: true,
                         child: ForgeOpenWithDialog(
                           uri: uri,
-                          editors: editors,
-                          onEditorSelected: (editor) {
-                            _layout.resolveEditorChoice(editor, uri);
+                          choices: choices,
+                          onChoiceSelected: (choice) {
+                            _layout.resolveEditorChoice(choice, uri);
                           },
                           onCancel: () {
                             _layout.pendingEditorChoice.value = null;

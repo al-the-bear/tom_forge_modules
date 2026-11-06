@@ -15,8 +15,20 @@ import 'spec_tree.dart';
 /// Exposed as a free function so the [SpecStructureModule] can hand the future
 /// to its view at construction, while tests can inject a synthetic model
 /// instead of touching the asset bundle.
-Future<SpecModel> loadSpecModelFromAsset() async {
-  final raw = await rootBundle.loadString('assets/spec_model.json');
+/// The spec model's asset key in the TomSpecs editor app itself.
+const specModelAssetKey = 'assets/spec_model.json';
+
+/// The spec model's asset key in an app that depends on this package (Flutter
+/// gives a dependency's assets its package prefix) — Webforge.
+const specModelPackageAssetKey =
+    'packages/tom_specs_editor/assets/spec_model.json';
+
+/// Loads the spec model from the asset at [key]: [specModelAssetKey] in the
+/// TomSpecs editor, [specModelPackageAssetKey] in an app built on it.
+Future<SpecModel> loadSpecModelFromAsset({
+  String key = specModelAssetKey,
+}) async {
+  final raw = await rootBundle.loadString(key);
   return SpecModel.fromJson(json.decode(raw) as Map<String, dynamic>);
 }
 

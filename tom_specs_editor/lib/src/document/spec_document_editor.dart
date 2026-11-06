@@ -41,10 +41,11 @@ class SpecDocumentEditor extends ForgeEditor {
     required this.controller,
     this.rootType,
     String title = 'Document',
+    Uri? uri,
   }) : _title = ValueNotifier<String>(title),
        _titleExtension = ValueNotifier<String?>(null),
        _isDirty = ValueNotifier<bool>(controller.isDirty),
-       uri = Uri(scheme: 'specs', host: 'docspecs', path: '/document') {
+       uri = uri ?? Uri(scheme: 'specs', host: 'docspecs', path: '/document') {
     controller.addListener(_onControllerChanged);
   }
 

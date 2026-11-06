@@ -3,7 +3,8 @@
 /// editor's history and make it dirty; the editor saves its own file — the
 /// shell writes nothing — keeping its encoding, byte-order mark and line
 /// endings; a file changed on disk is not written over; a host replaces an
-/// editor or keeps a file for another module.
+/// editor, keeps a file for another module, or offers another editor for
+/// some files beside the editor of their kind (Open With).
 library;
 
 import 'dart:convert';
@@ -24,6 +25,7 @@ const _redo = StandardEditingActions.redoActionId;
 class _Workspace {
   _Workspace({
     Map<ForgeFileKind, ForgeFileEditorBuilder> builders = const {},
+    List<ForgeFileEditorAlternative> alternatives = const [],
     bool Function(Uri uri)? claims,
   }) {
     shell = DefaultShellApi.withDefaultsAndFileSystem(
@@ -33,8 +35,11 @@ class _Workspace {
     );
     final registry = shell.modules as DefaultModuleRegistry;
     registry.register(TomForgeShellModule()..activate(shell));
-    module = ForgeFileEditorsModule(builders: builders, claims: claims)
-      ..activate(shell);
+    module = ForgeFileEditorsModule(
+      builders: builders,
+      alternatives: alternatives,
+      claims: claims,
+    )..activate(shell);
     registry.register(module);
   }
 
@@ -169,6 +174,77 @@ void main() {
     final editor = await w.open(tester, '/a.md');
     expect(editor, same(built));
     expect(w.module.openUri(w.fs.uriOf('/x.skip')), isFalse);
+  });
+
+  testWidgets('FE-7: Open With offers the editor of the kind and the '
+      'alternatives that match; each opens its own editor, once', (
+    tester,
+  ) async {
+    final built = <ForgeEditor>[];
+    final w = _Workspace(
+      alternatives: [
+        ForgeFileEditorAlternative(
+          id: 'spec',
+          label: 'Spec Editor',
+          icon: Icons.article_outlined,
+          matches: (uri) => uri.path.endsWith('.spec.yaml'),
+          build: (uri, shell) {
+            final editor = ForgePlainTextEditor.fromContent(
+              content: 'spec',
+              uri: uri,
+              module: shell.modules.get<TomForgeShellModule>(),
+            );
+            built.add(editor);
+            return editor;
+          },
+        ),
+      ],
+    );
+    addTearDown(w.shell.dispose);
+    await w.write('/a.spec.yaml', utf8.encode('a: 1\n'));
+    await w.write('/b.yaml', utf8.encode('b: 1\n'));
+    final spec = w.fs.uriOf('/a.spec.yaml');
+
+    expect(w.module.editorChoicesFor(w.fs.uriOf('/b.yaml')).map((c) => c.id),
+        ['yaml'],
+        reason: 'no alternative matches it');
+    final choices = w.module.editorChoicesFor(spec);
+    expect(choices.map((c) => (c.id, c.label)), [
+      ('yaml', 'YAML Editor'),
+      ('spec', 'Spec Editor'),
+    ]);
+
+    // The shell's Open With shows the choice.
+    final layout = w.shell.layout as DefaultLayoutController;
+    await layout.openFileWith(spec);
+    expect(layout.pendingEditorChoice.value?.$2.map((c) => c.id),
+        ['yaml', 'spec']);
+
+    layout.resolveEditorChoice(choices[1], spec);
+    await tester.pumpAndSettle();
+    expect(built, hasLength(1));
+    expect(w.shell.systemState.activeEditor, same(built.single));
+
+    // Again: the alternative open on the file is shown, not made twice.
+    choices[1].open(spec);
+    await tester.pumpAndSettle();
+    expect(built, hasLength(1));
+
+    // The editor of its kind is its own editor beside it.
+    choices[0].open(spec);
+    await tester.pumpAndSettle();
+    expect(w.shell.systemState.activeEditor, isA<ForgeYamlFileEditor>());
+    expect(
+      w.shell.systemState.openEditors.where((e) => e.uri == spec),
+      hasLength(2),
+    );
+    // An ordinary open shows an editor of the module already on the file.
+    w.shell.layout.openFile(spec);
+    await tester.pumpAndSettle();
+    expect(
+      w.shell.systemState.openEditors.where((e) => e.uri == spec),
+      hasLength(2),
+    );
   });
 
   testWidgets('FE-6: a todo file opens in the todo-file editor; a checkbox '

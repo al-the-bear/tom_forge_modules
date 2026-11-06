@@ -35,6 +35,27 @@ module.activate(shell);
 (shell.modules as DefaultModuleRegistry).register(module);
 ```
 
+**Open With.** The module offers, for a file it opens, the editor of its kind
+and every `ForgeFileEditorAlternative` a host gave it whose `matches` accepts
+the file (`editorChoicesFor`). Choosing an alternative builds its editor
+(`build(uri, shell)`) or shows the one already open on the file; choosing the
+kind's editor never shows an alternative. An ordinary open shows whichever
+editor of the module is already on the file.
+
+```dart
+ForgeFileEditorsModule(
+  alternatives: [
+    ForgeFileEditorAlternative(
+      id: 'tomspecs',
+      label: 'TomSpecs Editor',
+      icon: Icons.article_outlined,
+      matches: isTomSpecsFile,
+      build: (uri, shell) => SpecFileEditor(…),
+    ),
+  ],
+);
+```
+
 The `.env` editor copies a value through a `ForgeProtectedClipboard`; the
 default writes it to the system clipboard and clears it after 30 seconds
 unless something else was copied.

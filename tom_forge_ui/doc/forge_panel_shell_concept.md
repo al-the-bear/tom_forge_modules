@@ -1708,8 +1708,9 @@ abstract class ForgeLayoutController {
   /// already closed what the editor showed.
   void closeEditor(ForgeEditor editor);
 
-  /// Show the "Open with" dialog for the given URI. Lists all
-  /// accepting editors (Phase 1) and additional options (Phase 2).
+  /// Open [uri] in an editor the user picks: every module's
+  /// `editorChoicesFor(uri)` and the editors already on the file that
+  /// accept it; a file-type default naming a choice opens it unasked.
   Future<void> openFileWith(Uri uri, {int? middlePanelIndex});
 
   /// Split the active middle panel (add a new middle panel column).
@@ -1963,46 +1964,12 @@ Future<ForgeEditor?> findEditorForFile(Uri uri) async {
 
 **"Open with" Dialog:**
 
-When the user explicitly requests "Open with" (via context menu or command palette), the shell presents a dialog with all editors that can handle the file:
+When the user explicitly requests "Open with" (via context menu or command palette), `openFileWith` gathers the editors offered for the file and lets the user pick:
 
-```dart
-Future<ForgeEditor?> showOpenWithDialog(Uri uri) async {
-  final phase1 = resolveEditorForFile(uri);
+- **Every module's choices** — `ForgeModule.editorChoicesFor(uri)` returns `ForgeEditorChoice`s (`id`, `label`, `description`, `icon`, `open`). A module that opens files of a kind names its editor for them; the file editors module (`tom_forge_file_editors`) names the editor of the file's kind and every `ForgeFileEditorAlternative` a host registered that matches the file (Webforge's TomSpecs editor for a `*.docspecs.yaml` / `*.tomspecs.yaml`, beside the YAML editor).
+- **The editors already on the file** — an open editor of a module whose `uri` is this file and whose `canHandle` accepts it (by name, or on a look at its content). An editor open on another file is never offered.
 
-  // Phase 2 for content-inspecting editors
-  final additionalOptions = <ForgeEditor>[];
-  if (phase1.needsInspection.isNotEmpty) {
-    final bytes = (await fileSystem.read(uri)).bytes;
-    for (final editor in phase1.needsInspection) {
-      final result = editor.canHandleContent(uri, bytes);
-      if (result == FileHandlingResult.accept) {
-        additionalOptions.add(editor);
-      }
-    }
-  }
-
-  // Show dialog with two sections:
-  // 1. "Editors" — editors that accepted based on URI (phase 1)
-  // 2. "Additional Options" — schema editors and others that
-  //    accepted after content inspection (phase 2)
-  return shell.dialogs.showOpenWithPicker(
-    uri: uri,
-    editors: phase1.accepted,
-    additionalOptions: additionalOptions,
-  );
-}
-```
-
-The "Open with" dialog displays:
-
-| Section | Source | Example |
-|---------|--------|---------|
-| **Editors** | Phase 1 accepts (URI-based) | YAML Editor, Text Editor |
-| **Additional Options** | Phase 2 accepts (content-based) | Form Schema Editor, Flow Schema Editor |
-
-Schema editors (see §4.3 `ForgeSchemaEditor`) always return `inspect` from `canHandle()`, so they always appear in the Additional Options section. This makes them discoverable without polluting the primary editor list.
-
-Module declaration order determines priority within each section. Users can override this in the Configuration tab (File Types section, see §9.2) to set a preferred default editor per file extension and to pin schema editors as default for specific content patterns.
+A file-type default (`setFileTypeDefault(extension, id)`) naming one of the choices opens it without asking; one choice or none opens the file as `openFile` does; more show `ForgeOpenWithDialog`, which lists each choice by its label and description.
 
 #### ForgeModuleRegistry
 
