@@ -43,7 +43,9 @@ String _document(String text) =>
 
 class _SpecFileSubject extends ForgeUndoSubject {
   _SpecFileSubject(String saved) {
-    final fs = TomMemoryFileSystem(seed: {'/ws/demo.docspecs.yaml': _document(saved)});
+    final fs = TomMemoryFileSystem(
+      seed: {'/ws/demo.docspecs.yaml': _document(saved)},
+    );
     editor = SpecFileEditor(
       uri: fs.uriOf('/ws/demo.docspecs.yaml'),
       fileSystem: fs,
