@@ -426,10 +426,11 @@ class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
         child: SizedBox(
           width: ForgeDimensions.sideTabBarCollapsed,
           height: ForgeDimensions.sideTabBarCollapsed,
+          // An enabled control: the theme's muted colour, at 3:1 or more.
           child: Icon(
             Icons.add,
             size: ForgeDimensions.iconTab,
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+            color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
       ),
@@ -500,15 +501,22 @@ class _ForgeSidePanelWidgetState extends State<ForgeSidePanelWidget> {
 
   Widget _buildContent(BuildContext context, PanelTabConfig? tab) {
     if (tab == null) {
-      return Center(
-        child: Text(
-          'No tabs available',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context)
-                    .colorScheme
-                    .onSurface
-                    .withValues(alpha: 0.4),
-              ),
+      // Readable (onSurfaceVariant is the theme's muted text colour, at
+      // 4.5:1 on its surfaces), and at the start of the content: the scaffold
+      // lays a side panel's content out at least `panelContentMinWidth` wide
+      // and clips it to the panel, so centred text would sit past a narrow
+      // panel's edge. It wraps where the content is narrower than the text.
+      return Align(
+        alignment: AlignmentDirectional.topStart,
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Text(
+            'No tabs available',
+            softWrap: true,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+          ),
         ),
       );
     }

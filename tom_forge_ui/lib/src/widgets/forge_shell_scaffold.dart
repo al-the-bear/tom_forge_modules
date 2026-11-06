@@ -3294,10 +3294,11 @@ the field, not the document.
                                         : _quickOpenMode == QuickOpenMode.chord
                                             ? 'Search shortcuts or press key...'
                                             : 'Search files, actions, and settings',
+                                    // The theme's muted text colour: a
+                                    // hint is text, held to 4.5:1.
                                     hintStyle:
                                         theme.textTheme.bodyMedium?.copyWith(
-                                      color: theme.colorScheme.onSurface
-                                          .withValues(alpha: 0.5),
+                                      color: theme.colorScheme.onSurfaceVariant,
                                     ),
                                     border: InputBorder.none,
                                     contentPadding:
