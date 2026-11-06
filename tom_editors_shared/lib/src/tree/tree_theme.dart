@@ -5,6 +5,11 @@ class TreeTheme {
   /// Color of the tree-line guides.
   final Color treeLineColor;
 
+  /// Color of the expand/collapse toggle icons. Kept apart from
+  /// [treeLineColor] because a guide line is decoration and may be faint,
+  /// while a toggle is a control and has to be readable on the background.
+  final Color toggleIconColor;
+
   /// Icon for the collapse toggle when expanded.
   final IconData expandedIcon;
 
@@ -37,6 +42,7 @@ class TreeTheme {
 
   const TreeTheme({
     this.treeLineColor = const Color(0xFF404040),
+    this.toggleIconColor = const Color(0xFFA0A0A0),
     this.expandedIcon = Icons.expand_more,
     this.collapsedIcon = Icons.chevron_right,
     this.hoverColor = const Color(0x1AFFFFFF),
@@ -52,6 +58,7 @@ class TreeTheme {
   /// Returns a copy of this theme with the given fields replaced.
   TreeTheme copyWith({
     Color? treeLineColor,
+    Color? toggleIconColor,
     IconData? expandedIcon,
     IconData? collapsedIcon,
     Color? hoverColor,
@@ -65,6 +72,7 @@ class TreeTheme {
   }) {
     return TreeTheme(
       treeLineColor: treeLineColor ?? this.treeLineColor,
+      toggleIconColor: toggleIconColor ?? this.toggleIconColor,
       expandedIcon: expandedIcon ?? this.expandedIcon,
       collapsedIcon: collapsedIcon ?? this.collapsedIcon,
       hoverColor: hoverColor ?? this.hoverColor,

@@ -4,15 +4,16 @@ import 'package:flutter/foundation.dart';
 // DEBUG MODE SWITCH — YAML Editor component
 // ============================================================
 // Set to true to enable the event trail, heartbeat timer, and
-// FlutterError intercept used for freeze/hang diagnosis.
-// Set to false for production builds to remove all overhead.
+// FlutterError intercept used for freeze/hang diagnosis. Off by
+// default: the intercept replaces FlutterError.onError for every
+// host the editor is embedded in, a test harness included.
 //
 // Non-const so it can be toggled at runtime (e.g. from tests
 // or debug UI).
 //
 // See: tom_forge/_copilot_guidelines/debug_mode.md
 // ============================================================
-bool kYamlEditorDebug = true;
+bool kYamlEditorDebug = false;
 
 /// Set to false to disable heartbeat output while keeping other debug logs.
 bool kYamlEditorHeartbeat = false;

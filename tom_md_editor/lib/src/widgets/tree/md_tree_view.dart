@@ -1259,6 +1259,7 @@ class _MdTreeViewState extends State<MdTreeView> {
   TreeTheme _buildTreeTheme(MdBasicTheme basic) {
     return TreeTheme(
       treeLineColor: basic.border,
+      toggleIconColor: basic.textSecondary,
       collapsedIcon: Icons.chevron_right,
       expandedIcon: Icons.expand_more,
       hoverColor: basic.selection,

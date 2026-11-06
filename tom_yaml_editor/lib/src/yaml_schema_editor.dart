@@ -849,6 +849,7 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
     var theme = widget.theme;
     var treeTheme = TreeTheme(
       treeLineColor: theme.structureColors.treeLine,
+      toggleIconColor: theme.structureColors.collapseIcon,
       hoverColor: theme.colors.hoverColor,
       selectionColor: theme.colors.selectionColor,
       indentWidth: theme.indentWidth,

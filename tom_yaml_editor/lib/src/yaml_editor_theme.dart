@@ -130,7 +130,7 @@ class YamlEditorTheme {
           separatorColor: Color(0xFF000000),
           errorColor: Color(0xFFE51400),
           warningColor: Color(0xFFBF8803),
-          hintColor: Color(0xFFA0A0A0),
+          hintColor: Color(0xFF6B6B6B),
           selectionColor: Color(0x40ADD6FF),
           hoverColor: Color(0x0A000000),
         ),

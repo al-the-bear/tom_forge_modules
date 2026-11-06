@@ -317,7 +317,7 @@ class _TreeRowState<T> extends State<_TreeRow<T>> {
                           ? theme.expandedIcon
                           : theme.collapsedIcon,
                       size: theme.toggleIconSize,
-                      color: theme.treeLineColor,
+                      color: theme.toggleIconColor,
                     ),
                   )
                 else

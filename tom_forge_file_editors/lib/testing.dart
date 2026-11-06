@@ -13,7 +13,7 @@ import 'package:tom_file_session/tom_file_session.dart';
 import 'package:tom_forge_ui/testing.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 import 'package:tom_md_editor/tom_md_editor.dart' show MdRawTextEditor;
-import 'package:tom_reusable_ui/tom_reusable_ui.dart' show TomYamlFileEditor;
+import 'package:tom_reusable_ui/tom_reusable_ui.dart' show TomTodoFileSource;
 
 import 'tom_forge_file_editors.dart';
 
@@ -149,7 +149,7 @@ class ForgeTodoFileSubject extends ForgeUndoSubject {
       final source = find.descendant(of: view, matching: find.text('Source'));
       if (source.evaluate().isEmpty) continue;
       if (find
-          .descendant(of: view, matching: find.byType(TomYamlFileEditor))
+          .descendant(of: view, matching: find.byType(TomTodoFileSource))
           .evaluate()
           .isNotEmpty) {
         continue;
