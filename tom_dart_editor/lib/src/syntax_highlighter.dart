@@ -509,8 +509,10 @@ class _SemanticHighlightVisitor extends RecursiveAstVisitor<void> {
     super.visitFunctionExpressionInvocation(node);
   }
 
+  // analyzer 14 folds the simple, function-typed and default-value parameter
+  // nodes into RegularFormalParameter.
   @override
-  void visitSimpleFormalParameter(SimpleFormalParameter node) {
+  void visitRegularFormalParameter(RegularFormalParameter node) {
     final name = node.name;
     if (name != null) {
       tokens.add(
@@ -521,7 +523,7 @@ class _SemanticHighlightVisitor extends RecursiveAstVisitor<void> {
         ),
       );
     }
-    super.visitSimpleFormalParameter(node);
+    super.visitRegularFormalParameter(node);
   }
 
   @override

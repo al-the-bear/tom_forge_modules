@@ -49,8 +49,9 @@ dart-editor-bundler:
     # call sites, so the separation holds on its own merits.
     #
     # It therefore says nothing about whether `tom_d4rt_flutter` is *takeable*
-    # as a dependency — it is (OE-3a; `tom_d4rt` and `tom_dart_editor` are both
-    # on `analyzer ^10`). If the live layout render is implemented, the package
+    # as a dependency — it is (OE-3a; `tom_d4rt_flutter`, `tom_d4rt` and
+    # `tom_dart_editor` are all on the analyzer-14 line). If the live layout
+    # render is implemented, the package
     # becomes a real dependency *and* stays a scope package here. The two roles
     # are independent.
     - name: d4rt-flutter

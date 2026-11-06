@@ -33,13 +33,13 @@ dependencies:
   # `.sum` reader (RCK26); and bundles are invalidated when a transitive
   # dependency changes version, so a stale closure can't silently drop classes
   # (RCJ6). Both are correctness fixes for any summary-cache consumer.
-  tom_analyzer_shared: ">=0.7.2"
+  tom_analyzer_shared: ^0.8.0
   # Public SDK-summary entry-point only (`buildSdkSummary` /
   # `PhysicalResourceProvider`). The grouped packages.sum build stays delegated
   # to tom_analyzer_shared; per the plan item-3 decision the one-shot SDK summary
   # is produced at this generator layer via analyzer's public API — exactly as
   # tom_specs_clitool/bin/summaries.dart does. No analyzer `src/` internals.
-  analyzer: ^10.0.0
+  analyzer: ^14.5.0
   path: ^1.9.0
   yaml: ^3.1.2
 

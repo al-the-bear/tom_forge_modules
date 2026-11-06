@@ -6,3 +6,8 @@ analyzer:
     implementation_imports: ignore
     # isSynthetic is deprecated but has no direct replacement for our use case
     deprecated_member_use: ignore
+  exclude:
+    - build/**
+    - web/**
+    - macos/**
+    - linux/**

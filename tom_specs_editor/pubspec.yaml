@@ -53,10 +53,8 @@ dependencies:
   # wants `tom_d4rt_flutter` (`SourceFlutterD4rt().build<Widget>(source,
   # context)`). The layout seam (`_LayoutField`) still renders a read-only
   # source preview, but only because the render is unwritten — **not** because
-  # the dependency is un-takeable: the `tom_d4rt` this package resolves (1.229)
-  # and `tom_dart_editor` both declare `analyzer: ^10.0.0`. From 1.230 on,
-  # `tom_d4rt` needs analyzer ^14.5, so this package takes it together with
-  # Forge's Dart editor stack (tom_forge later10_akft-forge-onto-analyzer-14).
+  # the dependency is un-takeable: `tom_d4rt_flutter` (tom_d4rt ^1.230),
+  # `tom_d4rt` and `tom_dart_editor` are all on the analyzer-14 line.
   #
   # What remains, if you are here to do it: add `tom_d4rt_flutter`, fill the
   # single marked drop-in point in `_LayoutField`

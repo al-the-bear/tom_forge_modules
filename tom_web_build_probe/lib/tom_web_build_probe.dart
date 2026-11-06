@@ -29,7 +29,8 @@ library;
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
-import 'package:test/test.dart';
+import 'package:matcher/expect.dart';
+import 'package:test_api/scaffolding.dart';
 
 /// Registers the web-build test for the companion app at [appDirectory],
 /// relative to the package under test.

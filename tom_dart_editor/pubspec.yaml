@@ -24,7 +24,7 @@ dependencies:
   # Dart analyzer for code analysis and syntax highlighting
   # Note: Uses some internal APIs for summary-based analysis (mobile/web support).
   # For desktop-only usage, consider using AnalysisContextCollection (public API).
-  analyzer: ^10.0.0
+  analyzer: ^14.5.0
 
 dev_dependencies:
   tom_web_build_probe:

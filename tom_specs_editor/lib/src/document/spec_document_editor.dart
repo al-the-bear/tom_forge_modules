@@ -1274,9 +1274,9 @@ class SpecDocumentFieldHistory implements DartCodeHistoryHost {
 /// `SourceFlutterD4rt().build<Widget>(source, context)` from
 /// `tom_d4rt_flutter`. This seam renders the layout source read-only beneath a
 /// note instead, because the live render is **unwritten** — not because it is
-/// blocked. `tom_d4rt_flutter` is takeable today: `tom_d4rt` and
-/// `tom_dart_editor` both declare `analyzer ^10`, so the version split that
-/// once ruled the dependency out no longer exists.
+/// blocked. `tom_d4rt_flutter` is takeable today: it, `tom_d4rt` and
+/// `tom_dart_editor` are all on the analyzer-14 line, so no version split
+/// rules the dependency out.
 ///
 /// What the live render needs: the dependency added, the single drop-in point
 /// marked below filled, and a check that the render is sandboxed to the same

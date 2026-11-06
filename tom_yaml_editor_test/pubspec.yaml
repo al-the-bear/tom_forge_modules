@@ -19,7 +19,7 @@ dependencies:
   tom_dart_editor:
     path: ../tom_dart_editor
 
-  analyzer: ^10.0.0
+  analyzer: ^14.5.0
   path: ^1.9.0
 
 dev_dependencies:

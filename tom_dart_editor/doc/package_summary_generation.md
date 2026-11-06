@@ -21,11 +21,13 @@ Two summary files are required:
 
 ### 1. SDK Summary
 
-The SDK summary is generated from your installed Dart SDK:
+The SDK summary is generated from the Dart SDK the build runs on (the plain
+SDK, without Flutter's `dart:ui`: the types Flutter re-exports from it do not
+resolve yet, tom_forge `later14_akga-dart-ui-in-editor-summaries`):
 
 ```bash
-cd tom_ai/ai_build/tom_specs_clitool
-dart run bin/summaries.dart --sdk-only --out-dir assets
+cd tom_forge/tom_dart_editor_test
+dart run tool/build_sdk_summary.dart assets/sdk_summary.sum
 ```
 
 Or use the analyzer's built-in function in your own tool:
@@ -78,6 +80,17 @@ for (final entity in libDir.listSync(recursive: true)) {  // NOT recursive: fals
 ```
 
 Resolution bytes reference all imported/exported URIs, including internal `src/` files.
+
+### When to rebuild, and where the copies go
+
+A summary is written in the analyzer's own binary format, so both files are
+rebuilt whenever the analyzer the editor runs on changes major version (the
+current pair is built with analyzer 14 on Dart 3.13.7), and the package
+summary also when an app's dependencies change. Build both in
+`tom_dart_editor_test` and copy the pair to every app that ships them:
+`tom_forge_app/assets/` and `tom_yaml_editor_test/assets/`.
+`tom_dart_editor_test/test/shipped_summaries_test.dart` checks that the pair
+analyses real code with the editor's analyzer and that the copies match.
 
 ---
 
