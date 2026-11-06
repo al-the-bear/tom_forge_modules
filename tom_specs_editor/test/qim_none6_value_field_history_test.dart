@@ -141,8 +141,11 @@ void main() {
 
       final field = _fieldOf(find.byKey(const ValueKey('content:$_overview')));
       await _typeWord(tester, field, 'roses');
-      expect(controller.content(_overview), 'roses',
-          reason: 'written to the document at once');
+      expect(
+        controller.content(_overview),
+        'roses',
+        reason: 'written to the document at once',
+      );
       expect(controller.isTyping, isTrue);
       await _pause(tester);
 
@@ -155,8 +158,11 @@ void main() {
 
       await controller.undo();
       await tester.pump();
-      expect(controller.content(_overview) ?? '', isEmpty,
-          reason: 'one undo takes the whole word');
+      expect(
+        controller.content(_overview) ?? '',
+        isEmpty,
+        reason: 'one undo takes the whole word',
+      );
       expect(controller.canUndo, isFalse, reason: 'and it was the only entry');
     });
 
@@ -196,28 +202,33 @@ void main() {
     });
 
     testWidgets('QIMN6-3: a word typed in a headline field is one undo entry, '
-        'kept out of the change log; the default clears the stored headline',
-        (tester) async {
+        'kept out of the change log; the default clears the stored headline', (
+      tester,
+    ) async {
       final controller = await _controller();
       controller.setContent(_overview, 'body');
       controller.save();
       await _pump(tester, controller);
 
-      final field = _fieldOf(
-        find.byKey(const ValueKey('headline:$_overview')),
-      );
+      final field = _fieldOf(find.byKey(const ValueKey('headline:$_overview')));
       await _typeWord(tester, field, 'Beds');
       await tester.testTextInput.receiveAction(TextInputAction.done);
       await tester.pump();
 
       expect(controller.headline(_overview), 'Beds');
-      expect(controller.changeLog.entries, isEmpty,
-          reason: 'headlines are not part of the agent change log');
+      expect(
+        controller.changeLog.entries,
+        isEmpty,
+        reason: 'headlines are not part of the agent change log',
+      );
       await controller.undo();
       await tester.pump();
       expect(controller.headline(_overview), isNull);
-      expect(controller.canUndo, isTrue,
-          reason: 'the content edit before the save is still undoable');
+      expect(
+        controller.canUndo,
+        isTrue,
+        reason: 'the content edit before the save is still undoable',
+      );
 
       // Typing the default back in clears the stored headline at the end.
       await _typeWord(tester, field, 'Overview Heading');
@@ -280,12 +291,18 @@ void main() {
 
       final id = _fieldOf(find.byKey(ValueKey('item-id:$item')));
       await _typeWord(tester, id, 'D01.7');
-      expect(controller.itemSectionId(item), generated,
-          reason: 'an id commits on Enter or blur only');
+      expect(
+        controller.itemSectionId(item),
+        generated,
+        reason: 'an id commits on Enter or blur only',
+      );
 
       await _key(tester);
-      expect(controller.listItems('D00/D00-ITM'), isEmpty,
-          reason: 'the document\'s last edit — the add — is undone');
+      expect(
+        controller.listItems('D00/D00-ITM'),
+        isEmpty,
+        reason: 'the document\'s last edit — the add — is undone',
+      );
       await _pause(tester);
     });
   });

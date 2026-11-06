@@ -616,8 +616,7 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
                     value: _controller.formField(path, ff.name) ?? '',
                     hint: ff.hint,
                     document: _controller,
-                    onTyped: (v) =>
-                        _controller.typeFormField(path, ff.name, v),
+                    onTyped: (v) => _controller.typeFormField(path, ff.name, v),
                   ),
                 ],
               ),

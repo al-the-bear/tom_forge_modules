@@ -1028,8 +1028,7 @@ class SpecDocumentController extends ChangeNotifier {
     switch (target.kind) {
       case _TypingKind.headline:
         final value = document.headline(target.path) ?? '';
-        if (value.trim() ==
-            effectiveDefaultHeadline(target.path).trim()) {
+        if (value.trim() == effectiveDefaultHeadline(target.path).trim()) {
           document.setHeadline(target.path, '');
         }
         _commitDocMutation(before);

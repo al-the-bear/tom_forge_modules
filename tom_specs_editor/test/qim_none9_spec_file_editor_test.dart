@@ -86,17 +86,19 @@ void main() {
     editor.markClean();
     expect(editor.isDirty.value, isFalse);
     expect(editor.controller.isDirty, isFalse);
-    expect(editor.controller.canUndo, isTrue,
-        reason: 'the save keeps the history');
+    expect(
+      editor.controller.canUndo,
+      isTrue,
+      reason: 'the save keeps the history',
+    );
   });
 
   testWidgets('QIMN9-3: the editor shows the document once it is loaded, and '
       'says so when the file is not a spec document', (tester) async {
     final fs = TomMemoryFileSystem(
       seed: {
-        '/ws/demo.docspecs.yaml': await tester.runAsync(
-          () => _document('Roses'),
-        ) as String,
+        '/ws/demo.docspecs.yaml':
+            await tester.runAsync(() => _document('Roses')) as String,
         '/ws/broken.docspecs.yaml': '- not: [a spec',
       },
     );
@@ -107,7 +109,9 @@ void main() {
         model: Future.value(SpecModel.fromJson(_json())),
       );
       await tester.pumpWidget(
-        MaterialApp(home: Scaffold(body: Builder(builder: editor.buildMain))),
+        MaterialApp(
+          home: Scaffold(body: Builder(builder: editor.buildMain)),
+        ),
       );
       await tester.runAsync(() => editor.loaded.catchError((_) {}));
       await tester.pumpAndSettle();
