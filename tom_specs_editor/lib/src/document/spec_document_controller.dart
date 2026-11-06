@@ -1138,6 +1138,19 @@ class SpecDocumentController extends ChangeNotifier {
   /// loaded state becomes the dirty reference.
   Future<void> loadDocSpecsText(String text) async {
     await ensureLoaded();
+    replaceDocSpecsText(text);
+  }
+
+  /// [loadDocSpecsText] once the model is loaded, synchronously: the document
+  /// and review state become [text], a fresh save point with nothing to undo
+  /// — content that arrived from outside the history (a reload, an external
+  /// change, a revision restore). [text] is decoded before anything changes,
+  /// so text that is no spec document throws and leaves the document as it
+  /// was.
+  void replaceDocSpecsText(String text) {
+    if (!isModelLoaded) {
+      throw StateError('replaceDocSpecsText before the model is loaded');
+    }
     final parsed = DocSpecsFile.decode(text, _masterTree());
     _discardTyping();
     document.restoreState(parsed.document.captureState());

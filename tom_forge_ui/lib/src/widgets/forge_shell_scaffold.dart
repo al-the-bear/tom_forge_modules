@@ -20,6 +20,7 @@ import '../adapters/forge_yaml_editor.dart';
 import '../components/forge_component.dart';
 import '../components/forge_editor.dart';
 import '../components/forge_editor_choice.dart';
+import '../components/forge_surface_editor.dart';
 import '../components/forge_text_editor.dart';
 import '../components/forge_view.dart';
 import '../defaults/default_layout_controller.dart';
@@ -4917,12 +4918,10 @@ class _EditorViewAdapter extends ForgeView {
   List<shell_action.ForgeAction> get headerActions => editor.headerActions;
 }
 
-/// Wraps a [ForgeView] as a [ForgeEditor] so it can appear as a tab
-/// in the middle (editor) panel. Editor-specific methods return safe
-/// defaults (not dirty, no URI handling).
-class _ViewEditorAdapter extends ForgeEditor {
+/// Wraps a [ForgeView] as a surface so it can appear as a tab in the middle
+/// (editor) panel: it holds no document.
+class _ViewEditorAdapter extends ForgeSurfaceEditor {
   final ForgeView view;
-  final _isDirtyNotifier = ValueNotifier<bool>(false);
   final Uri _syntheticUri;
 
   _ViewEditorAdapter(this.view)
@@ -4947,12 +4946,6 @@ class _ViewEditorAdapter extends ForgeEditor {
   List<shell_action.ForgeAction> get headerActions => view.headerActions;
   @override
   Uri get uri => _syntheticUri;
-  @override
-  FileHandlingResult canHandle(Uri uri) => FileHandlingResult.reject;
-  @override
-  ValueListenable<bool> get isDirty => _isDirtyNotifier;
-  @override
-  void markClean() {}
 }
 
 class _CommandPaletteIntent extends Intent {

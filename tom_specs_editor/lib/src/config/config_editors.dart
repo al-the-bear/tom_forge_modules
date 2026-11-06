@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
 import 'config_field.dart';
@@ -97,7 +96,7 @@ class RawFileButton extends StatelessWidget {
 /// Generic list+detail config editor (`tom_specs_editor_specification.md` §12).
 /// Handles selection, add/remove, per-field validation, persistence on edit,
 /// and the raw-file button.
-class ConfigListEditor<T> extends ForgeEditor {
+class ConfigListEditor<T> extends ForgeSurfaceEditor {
   ConfigListEditor({required this.spec, required this.onOpenRawFile})
     : _title = ValueNotifier<String>(spec.title),
       _items = spec.load();
@@ -107,7 +106,6 @@ class ConfigListEditor<T> extends ForgeEditor {
 
   final ValueNotifier<String> _title;
   final ValueNotifier<String?> _titleExtension = ValueNotifier<String?>(null);
-  final ValueNotifier<bool> _isDirty = ValueNotifier<bool>(false);
 
   List<T> _items;
 
@@ -123,19 +121,6 @@ class ConfigListEditor<T> extends ForgeEditor {
   @override
   ValueListenable<String?> get titleExtension => _titleExtension;
 
-  @override
-  ValueListenable<bool> get isDirty => _isDirty;
-
-  @override
-  ForgeComponentSizeHints get sizeHints => const ForgeComponentSizeHints();
-
-  @override
-  void markClean() => _isDirty.value = false;
-
-  // These editors are opened by the config rail, not by file resolution.
-  @override
-  FileHandlingResult canHandle(Uri uri) => FileHandlingResult.reject;
-
   /// Ensures the backing file exists (persisting current state) then opens it.
   void _openRaw() {
     spec.save(_items);
@@ -149,7 +134,6 @@ class ConfigListEditor<T> extends ForgeEditor {
     onItemsChanged: (items) {
       _items = items;
       spec.save(items);
-      _isDirty.value = false;
     },
     onOpenRaw: _openRaw,
   );
@@ -357,7 +341,7 @@ class _ConfigListBodyState<T> extends State<_ConfigListBody<T>> {
 
 /// Generic singleton config editor (`tom_specs_editor_specification.md` §12) —
 /// one object, validation, raw-file button. Used by the Agent Settings editor.
-class ConfigObjectEditor<T> extends ForgeEditor {
+class ConfigObjectEditor<T> extends ForgeSurfaceEditor {
   ConfigObjectEditor({required this.spec, required this.onOpenRawFile})
     : _title = ValueNotifier<String>(spec.title),
       _value = spec.load();
@@ -367,7 +351,6 @@ class ConfigObjectEditor<T> extends ForgeEditor {
 
   final ValueNotifier<String> _title;
   final ValueNotifier<String?> _titleExtension = ValueNotifier<String?>(null);
-  final ValueNotifier<bool> _isDirty = ValueNotifier<bool>(false);
 
   T _value;
 
@@ -382,18 +365,6 @@ class ConfigObjectEditor<T> extends ForgeEditor {
 
   @override
   ValueListenable<String?> get titleExtension => _titleExtension;
-
-  @override
-  ValueListenable<bool> get isDirty => _isDirty;
-
-  @override
-  ForgeComponentSizeHints get sizeHints => const ForgeComponentSizeHints();
-
-  @override
-  void markClean() => _isDirty.value = false;
-
-  @override
-  FileHandlingResult canHandle(Uri uri) => FileHandlingResult.reject;
 
   void _openRaw() {
     spec.save(_value);

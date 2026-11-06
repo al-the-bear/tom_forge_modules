@@ -61,7 +61,11 @@ panel. A `ForgeEditor` is bound to a document URI and
 - implements `EditorActionProvider`, so the shell routes cut, copy, paste,
   undo and redo to the active editor.
 
-Every editor keeps one history per document under the history contract
+The full contract an editor meets, and the register of document editors and
+surfaces, is [editor_component_contract.md](editor_component_contract.md). A
+component in a middle split that holds no document is a surface
+(`ForgeSurfaceEditor`). Every document editor keeps one history per document
+under the history contract
 (`tom_forge_ui/_copilot_guidelines/editor_history_contract.md`); the
 conformance harness in `package:tom_forge_ui/testing.dart` checks it.
 

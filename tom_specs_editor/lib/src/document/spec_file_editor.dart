@@ -66,11 +66,20 @@ class SpecFileEditor extends SpecDocumentEditor {
   @override
   String? getContent() => _isLoaded ? controller.encodeDocSpecs() : null;
 
-  /// The shell wrote the file: the document is the save point.
+  /// Content from outside the history (a reload, an external change taken, a
+  /// revision restore): the document becomes it in place, saved and with
+  /// nothing to undo. Text that is not a spec document is not taken: the
+  /// shell then closes the editor and opens the file again, which reports
+  /// what is wrong with it.
   @override
-  void markClean() {
-    controller.save();
-    super.markClean();
+  bool replaceContent(String content) {
+    if (!_isLoaded) return false;
+    try {
+      controller.replaceDocSpecsText(content);
+    } on Exception {
+      return false;
+    }
+    return true;
   }
 
   @override

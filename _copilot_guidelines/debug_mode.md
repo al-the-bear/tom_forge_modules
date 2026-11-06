@@ -10,8 +10,13 @@
 ## What Is It
 
 Each editor component (YAML editor, Dart editor, etc.) has a permanent
-in-code debug mode that is enabled or disabled with a **single `const bool`
-flag** at the top of a dedicated `*_trail.dart` file in `lib/src/`.
+in-code debug mode that is enabled or disabled with a **single top-level
+`bool` flag**, `false` by default, at the top of a dedicated `*_trail.dart`
+file in `lib/src/`. The flag is `const` unless the component lets a host or a
+test switch it at run time, which its file then says (the YAML and Markdown
+editors do). Off by default because the trail's `FlutterError.onError`
+intercept replaces the handler of every host the component is embedded in, a
+test harness included.
 
 When enabled (`true`), the debug mode:
 - Emits timestamped trail events to `debugPrint` for every meaningful action,
@@ -29,9 +34,13 @@ flag lets the compiler eliminate all dead code.
 
 | Component | File | Flag |
 |-----------|------|------|
-| YAML Editor (`tom_yaml_editor`) | `lib/src/tree/editor_trail.dart` | `kYamlEditorDebug` |
-| Dart Editor (`tom_dart_editor`) | `lib/src/editor_trail.dart` *(to be added)* | `kDartEditorDebug` |
+| YAML Editor (`tom_yaml_editor`) | `lib/src/tree/editor_trail.dart` | `kYamlEditorDebug` (switchable at run time) |
+| Markdown Editor (`tom_md_editor`) | `lib/src/integration/editor_trail.dart` | `kMdEditorIntegrationDebug` (switchable at run time) |
+| Dart Editor (`tom_dart_editor`) | `lib/src/editor_trail.dart` | `kDartEditorDebug` |
 | Quest applications (`tom_forge_quests`) | `lib/src/quests_trail.dart` | `kForgeQuestsDebug` |
+
+`tom_forge_app/test/editor_component_contract_test.dart` (EC-4) checks that
+every editor component has such a trail with its switch off.
 
 Each component owns its own flag. Flags are **independent** — you can enable
 just the YAML editor trail without activating the Dart editor trail.
@@ -55,7 +64,7 @@ import 'package:flutter/foundation.dart';
 // Flip to true whenever investigating freezes, unexpected rebuilds,
 // lost actions, or any other hard-to-reproduce runtime behaviour.
 // ============================================================
-const bool kXxxEditorDebug = true; // replace Xxx with component name
+const bool kXxxEditorDebug = false; // replace Xxx with component name
 
 /// Log a timestamped event to the console (no-op when [kXxxEditorDebug] is false).
 ///

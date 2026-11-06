@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
 import '../document/spec_markdown.dart';
@@ -17,7 +16,7 @@ import 'spec_phase.dart';
 /// 1. The full model-driven CodeSpecs / Implementation document editors (their
 /// own object models) are phase-2 follow-ups tracked in the quest's
 /// `deferred.tom_specs.md`.
-class PhaseOverviewEditor extends ForgeEditor {
+class PhaseOverviewEditor extends ForgeSurfaceEditor {
   PhaseOverviewEditor({required this.phase})
     : _title = ValueNotifier<String>(phase.title),
       _titleExtension = ValueNotifier<String?>('Phase ${phase.number}'),
@@ -32,7 +31,6 @@ class PhaseOverviewEditor extends ForgeEditor {
 
   final ValueNotifier<String> _title;
   final ValueNotifier<String?> _titleExtension;
-  final ValueNotifier<bool> _isDirty = ValueNotifier<bool>(false);
 
   @override
   IconData get icon => Icons.article_outlined;
@@ -45,19 +43,6 @@ class PhaseOverviewEditor extends ForgeEditor {
 
   @override
   ValueListenable<String?> get titleExtension => _titleExtension;
-
-  @override
-  ValueListenable<bool> get isDirty => _isDirty;
-
-  @override
-  ForgeComponentSizeHints get sizeHints => const ForgeComponentSizeHints();
-
-  @override
-  void markClean() => _isDirty.value = false;
-
-  // The overview is a fixed, read-only region — it never claims a file.
-  @override
-  FileHandlingResult canHandle(Uri uri) => FileHandlingResult.reject;
 
   @override
   Widget buildMain(BuildContext context) => PhaseOverviewBody(phase: phase);

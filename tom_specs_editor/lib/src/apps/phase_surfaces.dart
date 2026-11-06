@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
 import 'spec_phase.dart';
@@ -124,7 +123,7 @@ class PhaseSurfaceView extends ForgeView {
 /// Declines every real file ([canHandle] → reject) so the shell never routes an
 /// opened document into a phase-2 placeholder split; it exists only so the
 /// phase-2 middle area carries the same three columns as DocSpecs.
-class PhaseSurfaceEditor extends ForgeEditor {
+class PhaseSurfaceEditor extends ForgeSurfaceEditor {
   PhaseSurfaceEditor({required this.phase, required this.surface})
     : _title = ValueNotifier<String>(surface.label),
       _titleExtension = ValueNotifier<String?>(null),
@@ -139,7 +138,6 @@ class PhaseSurfaceEditor extends ForgeEditor {
 
   final ValueNotifier<String> _title;
   final ValueNotifier<String?> _titleExtension;
-  final ValueNotifier<bool> _isDirty = ValueNotifier<bool>(false);
 
   @override
   IconData get icon => surface.icon;
@@ -152,18 +150,6 @@ class PhaseSurfaceEditor extends ForgeEditor {
 
   @override
   ValueListenable<String?> get titleExtension => _titleExtension;
-
-  @override
-  ValueListenable<bool> get isDirty => _isDirty;
-
-  @override
-  ForgeComponentSizeHints get sizeHints => const ForgeComponentSizeHints();
-
-  @override
-  void markClean() => _isDirty.value = false;
-
-  @override
-  FileHandlingResult canHandle(Uri uri) => FileHandlingResult.reject;
 
   @override
   Widget buildMain(BuildContext context) =>

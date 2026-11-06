@@ -87,8 +87,10 @@ class SpecDocumentEditor extends ForgeEditor {
   @override
   ForgeComponentSizeHints get sizeHints => const ForgeComponentSizeHints();
 
+  /// The document as it is now is the saved state: moves the controller's
+  /// save point, which [isDirty] follows.
   @override
-  void markClean() => _isDirty.value = false;
+  void markClean() => controller.save();
 
   // The document editor is a fixed split, not a file-routing target.
   @override
@@ -1391,8 +1393,13 @@ class _ValueFieldState extends State<_ValueField> {
   late final FocusNode _focus = FocusNode()..addListener(_onFocusChanged);
   late String _text = widget.value;
 
+  /// Set while the field adopts a value from the document: that is no
+  /// gesture of the user's (and it runs during a build).
+  bool _reseeding = false;
+
   /// A caret move without a text change ends the typing gesture.
   void _onControllerChanged() {
+    if (_reseeding) return;
     if (_ctrl.text == _text) {
       widget.document.endTyping();
       return;
@@ -1409,10 +1416,15 @@ class _ValueFieldState extends State<_ValueField> {
     super.didUpdateWidget(oldWidget);
     if (widget.value != _ctrl.text) {
       _text = widget.value;
-      _ctrl.value = TextEditingValue(
-        text: widget.value,
-        selection: TextSelection.collapsed(offset: widget.value.length),
-      );
+      _reseeding = true;
+      try {
+        _ctrl.value = TextEditingValue(
+          text: widget.value,
+          selection: TextSelection.collapsed(offset: widget.value.length),
+        );
+      } finally {
+        _reseeding = false;
+      }
     }
   }
 

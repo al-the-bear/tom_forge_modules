@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
 /// A lightweight panel placeholder rendered for shell regions whose real
@@ -79,7 +78,7 @@ class PlaceholderView extends ForgeView {
 /// Queue, Trail). It declines every real file (`canHandle` → `reject`) so the
 /// shell never routes opened documents into a placeholder; it exists purely so
 /// the DocSpecs middle area shows the three labelled splits.
-class PlaceholderEditor extends ForgeEditor {
+class PlaceholderEditor extends ForgeSurfaceEditor {
   PlaceholderEditor({
     required String title,
     required this.icon,
@@ -89,7 +88,6 @@ class PlaceholderEditor extends ForgeEditor {
 
   final ValueNotifier<String> _title;
   final ValueNotifier<String?> _titleExtension;
-  final ValueNotifier<bool> _isDirty = ValueNotifier<bool>(false);
 
   @override
   final IconData icon;
@@ -102,20 +100,6 @@ class PlaceholderEditor extends ForgeEditor {
 
   @override
   ValueListenable<String?> get titleExtension => _titleExtension;
-
-  @override
-  ValueListenable<bool> get isDirty => _isDirty;
-
-  @override
-  ForgeComponentSizeHints get sizeHints => const ForgeComponentSizeHints();
-
-  @override
-  void markClean() => _isDirty.value = false;
-
-  // A placeholder never claims a real document; the shell keeps routing files
-  // to the editors that will arrive in later steps.
-  @override
-  FileHandlingResult canHandle(Uri uri) => FileHandlingResult.reject;
 
   @override
   Widget buildMain(BuildContext context) =>

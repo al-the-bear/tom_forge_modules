@@ -237,6 +237,59 @@ void main() {
     });
   });
 
+  testWidgets('QIMN6-6: with a split copy open, a word typed in the main '
+      'view is still one undo entry and one change-log entry', (tester) async {
+    final controller = await _controller();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Row(
+            children: [
+              for (final key in const ['main', 'copy'])
+                Expanded(
+                  child: KeyedSubtree(
+                    key: ValueKey(key),
+                    child: SpecDocumentTree(
+                      controller: controller,
+                      model: controller.model,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    final main = find.byKey(const ValueKey('main'));
+    await tester.tap(
+      find.descendant(
+        of: main,
+        matching: find.widgetWithText(ActionChip, 'overview'),
+      ),
+    );
+    await tester.pump();
+
+    final field = _fieldOf(
+      find.descendant(
+        of: main,
+        matching: find.byKey(const ValueKey('content:$_overview')),
+      ),
+    );
+    await _typeWord(tester, field, 'roses');
+    expect(
+      controller.isTyping,
+      isTrue,
+      reason: 'the copy adopting the value is no gesture of the user',
+    );
+    await _pause(tester);
+
+    expect(controller.changeLog.entries, hasLength(1));
+    await controller.undo();
+    await tester.pump();
+    expect(controller.content(_overview) ?? '', isEmpty);
+    expect(controller.canUndo, isFalse, reason: 'one entry for the word');
+  });
+
   group('QIMN6 undo keys reach the document', () {
     testWidgets('QIMN6-4: Ctrl+Z in a value field undoes the document, '
         'Ctrl+Shift+Z redoes it; the field follows', (tester) async {

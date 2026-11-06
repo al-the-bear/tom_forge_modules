@@ -20,6 +20,7 @@ export 'src/components/forge_component.dart';
 export 'src/components/forge_editor.dart';
 export 'src/components/forge_editor_choice.dart';
 export 'src/components/forge_schema_editor.dart';
+export 'src/components/forge_surface_editor.dart';
 export 'src/components/forge_text_editor.dart';
 export 'src/components/forge_view.dart';
 export 'src/components/forge_visual_editor.dart';
