@@ -742,11 +742,8 @@ class DefaultShellApi implements ForgeShellApi {
         _removedApplicationIds.clear();
         try {
           await workspaceState.saveOpenApplications(applications.snapshot());
-          final state = workspaceState;
-          if (state is DefaultWorkspaceStateManager) {
-            for (final id in removed) {
-              await state.deleteApplicationState(id);
-            }
+          for (final id in removed) {
+            await workspaceState.deleteApplicationState(id);
           }
         } on FileSystemException catch (e) {
           notifications.showWarning(
@@ -754,7 +751,10 @@ class DefaultShellApi implements ForgeShellApi {
             '${e.message} (${e.path})',
           );
         }
-      } while (_applicationsChangedDuringWrite);
+        // Disposing the shell disposes the workspace state: a change that
+        // came in during the last write has nowhere to go any more.
+      } while (_applicationsChangedDuringWrite &&
+          workspaceState.isInitialized);
       _applicationsWrite = null;
     }();
   }

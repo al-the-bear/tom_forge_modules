@@ -11,8 +11,9 @@ import '../services/forge_workspace_state_manager.dart';
 /// ```
 /// .forge/
 ///   state/
-///     layout.json
-///     open-editors.json
+///     applications.json
+///     apps/
+///       {app-id-hash}.json
 ///     editors/
 ///       {uri-hash}.json
 ///   revisions/
@@ -106,54 +107,6 @@ class DefaultWorkspaceStateManager implements ForgeWorkspaceStateManager {
       _log('load open applications failed: $e');
       return null;
     }
-  }
-
-  // ── Layout state ──
-
-  @override
-  Future<void> saveLayoutState(Map<String, dynamic> layoutData) async {
-    _ensureInitialized();
-    final file = File('$_forgeDir/state/layout.json');
-    await file.writeAsString(_encodeJson(layoutData));
-    _log('saved layout state');
-  }
-
-  @override
-  Future<Map<String, dynamic>?> loadLayoutState() async {
-    _ensureInitialized();
-    final file = File('$_forgeDir/state/layout.json');
-    if (!await file.exists()) return null;
-    try {
-      final data = jsonDecode(await file.readAsString());
-      return data is Map<String, dynamic> ? data : null;
-    } catch (e) {
-      _log('load layout state failed: $e');
-      return null;
-    }
-  }
-
-  // ── Open editors ──
-
-  @override
-  Future<void> saveOpenEditors(List<String> editorUris) async {
-    _ensureInitialized();
-    final file = File('$_forgeDir/state/open-editors.json');
-    await file.writeAsString(_encodeJson(editorUris));
-    _log('saved ${editorUris.length} open editors');
-  }
-
-  @override
-  Future<List<String>> loadOpenEditors() async {
-    _ensureInitialized();
-    final file = File('$_forgeDir/state/open-editors.json');
-    if (!await file.exists()) return [];
-    try {
-      final data = jsonDecode(await file.readAsString());
-      if (data is List) return data.cast<String>();
-    } catch (e) {
-      _log('load open editors failed: $e');
-    }
-    return [];
   }
 
   // ── Per-editor state ──
@@ -360,21 +313,23 @@ class DefaultWorkspaceStateManager implements ForgeWorkspaceStateManager {
 
   // ── Per-application state ──
 
-  /// Saves the state of the application [appId] (open editors, active
-  /// editor, layout) to `.forge/state/apps/{hash of appId}.json`.
+  @override
   Future<void> saveApplicationState(
     String appId,
     Map<String, dynamic> state,
   ) async {
     _ensureInitialized();
-    await Directory('$_forgeDir/state/apps').create(recursive: true);
-    final file = File('$_forgeDir/state/apps/${_stringHash(appId)}.json');
+    // Resolved before the first await: the shell writes every application's
+    // state at exit and disposes this manager in the same frame.
+    final apps = Directory('$_forgeDir/state/apps');
+    final file = File('${apps.path}/${_stringHash(appId)}.json');
+    await apps.create(recursive: true);
     state['_appId'] = appId;
     await file.writeAsString(_encodeJson(state));
     _log('saved application state for "$appId"');
   }
 
-  /// Loads the saved state of the application [appId].
+  @override
   Future<Map<String, dynamic>?> loadApplicationState(String appId) async {
     _ensureInitialized();
     final file = File('$_forgeDir/state/apps/${_stringHash(appId)}.json');
@@ -388,8 +343,7 @@ class DefaultWorkspaceStateManager implements ForgeWorkspaceStateManager {
     }
   }
 
-  /// Deletes the saved state of the application [appId], when an application
-  /// is removed for good.
+  @override
   Future<void> deleteApplicationState(String appId) async {
     _ensureInitialized();
     final file = File('$_forgeDir/state/apps/${_stringHash(appId)}.json');

@@ -845,7 +845,7 @@ class MiddleTabConfig {
 - An application's `contributions` (`ForgeApplicationContributions`: actions, shortcuts, status-bar items, context-menu entries) follow the active application: the shell binds the active one's actions and shortcuts and unbinds the previous one's, the status bar shows its items and the context menu its entries. Two applications of one kind contribute the same action ids, so a keystroke or `executeAction` runs the action of the application on show. An application action id a module already registers is not bound, and the collision is reported as a Flutter error.
 - Each panel application has its own layout: the middle editor groups with their editors, the active group, the panels' sizes and visibility, and the side panels' active tabs and accordion sections are kept for it while another application is shown and put back when it is shown again. An application shown for the first time gets its `PanelLayout`'s declared middle groups with their editors opened and its declared panel sizes; the first application adopts the layout the shell has and opens its declared editors into it. A full-screen application leaves the panel layout to the panel application shown last.
 - An application's `ForgeApplicationLifecycle` hears created, activated, deactivated, closing and closed, in that order. `closing` may veto with a reason; the shell then asks "Close <title>?" with the reason (Keep open / Close anyway), and without an answer the application stays. File > Close Application closes the active one. An application with background work (`hasBackgroundWork`, e.g. a quest's running queue) is never evicted from memory by the application-state limit, and its `busy` label is a badge in the switcher's list and, while another application is shown, beside the switcher. Disposing the shell tells every open application `closed`, so it releases what it holds, without removing it from the file the next start restores. Quitting asks first: the platform's exit request (a window close — on macOS the window's close goes through `NSApp.terminate` so it can be refused — the macOS Quit item, File > Quit elsewhere on the desktop) is answered by `ForgeApplicationRegistry.quit`, which asks `closing` of every open application and collects each one's editors with unsaved changes. When nothing objects the app quits without a question; otherwise one dialog lists each objecting application with its reason and its unsaved editors (Cancel / Quit anyway), and Cancel keeps the window. Quitting closes no application: they are told `closed` by the shell's disposal and restored at the next start. An application whose content guards the exit on its own elsewhere (the Webwork shell) leaves that to this one question inside Forge and answers through `closing`.
-- At exit the restorable applications (those with a kind) and the active id are in `.forge/state/applications.json`, rewritten on every change and written atomically. At the next start the host adds its static applications, the modules register their factories, and `DefaultShellApi.restoreApplications()` has the factories recreate the rest and re-activates the one that was active. An entry whose kind has no factory this time is kept in the file, not lost. Per-application state (`.forge/state/apps/{hash of id}.json`) is keyed by id and deleted with the application.
+- At exit the restorable applications (those with a kind) and the active id are in `.forge/state/applications.json`, rewritten on every change and written atomically. At the next start the host adds its static applications, the modules register their factories, and `DefaultShellApi.restoreApplications()` has the factories recreate the rest and re-activates the one that was active. An entry whose kind has no factory this time is kept in the file, not lost. Per-application state (`.forge/state/apps/{hash of id}.json`) is keyed by id and deleted with the application. It holds the application's layout: at exit the shell writes it for every open panel application shown in the session — the one on show and the ones kept while another was shown — and at the next start every open application's is read; the one on show is laid out with it, every other on its first show instead of its declared layout: its middle groups with their files reopened by URI, the active group, the panels' sizes and visibility, its side-panel editor tabs and user-made tabs, its active side-panel tabs and accordion sections. An application never saved gets its declared layout; one not shown since its file was read keeps the file as it is.
 
 - Switching applications does **not** close the previous application. All applications remain alive in memory with their full layout state preserved.
 - A full-screen application's view stays in the widget tree offstage while another application is shown, with its tickers off and out of focus traversal; the panel area does the same while a full-screen application is shown. Switching back finds both as they were, and the focus returns to where it was in each.
@@ -1279,8 +1279,9 @@ class AutoSaveConfig {
 3. Persisted config overlay
    ├─ Load .forge/config.json (or ~/.forge/config.json in split mode)
    ├─ Overlay on top of code config (user changes win)
-   ├─ Load .forge/state/layout.json → override code-based PanelLayout
-   └─ Load .forge/state/open-editors.json → restore editor tabs
+   ├─ Restore the applications from .forge/state/applications.json
+   └─ Load each panel application's .forge/state/apps/<hash>.json → its
+      saved layout replaces its code-based PanelLayout on its first show
 
 4. Module activation
    ├─ activate() called on each module in declaration order
@@ -2614,8 +2615,9 @@ The `.forge/` folder in the **workspace root directory** stores workspace state 
 <workspace>/.forge/
   config.json           # Runtime configuration overrides (only if project-local config mode)
   state/
-    layout.json         # Current panel layout per application
-    open-editors.json   # Open editor URIs per application
+    applications.json   # The open restorable applications and the active one
+    apps/
+      <id-hash>.json    # One panel application's layout and open editors
     recent.json         # Recently opened files
   revisions/
     <hash>/             # File revisions keyed by content hash
@@ -3000,8 +3002,8 @@ void main() {
 
 ### 16.2 Layout Persistence
 
-- Layout changes (panel sizes, component positions, tab order) are persisted per application in `.forge/state/layout.json`
-- On startup: load persisted layout; fall back to code-configured defaults
+- Layout changes (panel sizes, middle groups and their editors, side-panel tabs) are persisted per application in `.forge/state/apps/<id-hash>.json`
+- On startup: load each application's persisted layout for its first show; an application with none gets its code-configured defaults
 - Reset option: restore to code-configured defaults
 - Applications that were open when the shell was last closed are restored on next launch
 

@@ -485,8 +485,7 @@ class _PhaseAAHarness {
 class _InMemoryWorkspaceStateManager implements ForgeWorkspaceStateManager {
   bool _initialized = false;
   String _workspaceRoot = '';
-  Map<String, dynamic>? _layoutState;
-  List<String> _openEditors = const [];
+  final Map<String, Map<String, dynamic>> _applicationStates = {};
   final Map<String, Map<String, dynamic>> _editorState = {};
   final Map<String, List<_RevisionSnapshot>> _revisions = {};
   final Map<String, List<Map<String, dynamic>>> _undoHistory = {};
@@ -527,24 +526,22 @@ class _InMemoryWorkspaceStateManager implements ForgeWorkspaceStateManager {
   }
 
   @override
-  Future<void> saveLayoutState(Map<String, dynamic> layoutData) async {
-    _layoutState = Map<String, dynamic>.from(layoutData);
+  Future<void> saveApplicationState(
+    String appId,
+    Map<String, dynamic> state,
+  ) async {
+    _applicationStates[appId] = Map<String, dynamic>.from(state);
   }
 
   @override
-  Future<Map<String, dynamic>?> loadLayoutState() async {
-    if (_layoutState == null) return null;
-    return Map<String, dynamic>.from(_layoutState!);
+  Future<Map<String, dynamic>?> loadApplicationState(String appId) async {
+    final state = _applicationStates[appId];
+    return state == null ? null : Map<String, dynamic>.from(state);
   }
 
   @override
-  Future<void> saveOpenEditors(List<String> editorUris) async {
-    _openEditors = List<String>.from(editorUris);
-  }
-
-  @override
-  Future<List<String>> loadOpenEditors() async {
-    return List<String>.from(_openEditors);
+  Future<void> deleteApplicationState(String appId) async {
+    _applicationStates.remove(appId);
   }
 
   @override

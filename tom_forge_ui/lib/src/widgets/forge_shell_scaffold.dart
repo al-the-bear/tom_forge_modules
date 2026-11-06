@@ -28,7 +28,6 @@ import '../defaults/stub_services.dart';
 import '../services/forge_accessibility.dart';
 import '../defaults/default_system_state.dart';
 import '../defaults/editor_save.dart';
-import '../defaults/default_workspace_state_manager.dart';
 import '../model/forge_application.dart';
 import '../services/forge_preferences_service.dart';
 import '../services/forge_dialog_manager.dart';
@@ -368,6 +367,17 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         _accordionStates[area] = {...?saved?.accordions[area]};
       }
       _panelApplication = application;
+      // Its first show in this session, with a layout a previous one saved:
+      // the layout controller has laid out its middle groups already; the
+      // side panels follow.
+      final persisted = _unshownPanelSnapshots.remove(application.id);
+      if (persisted != null) {
+        unawaited(
+          _applyPanelSnapshot(persisted, application).then((_) {
+            if (mounted) setState(() {});
+          }),
+        );
+      }
     }
   }
 
@@ -581,6 +591,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     final open = applications.all.toSet();
     _followBusyBadges(open);
     _sidePanelStates.removeWhere((id, _) => applications.byId(id) == null);
+    _unshownPanelSnapshots.removeWhere(
+      (id, _) => applications.byId(id) == null,
+    );
     for (final app in _fullScreenScopes.keys.toList()) {
       if (!open.contains(app)) _fullScreenScopes.remove(app)!.dispose();
     }
@@ -1138,14 +1151,17 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     }
   }
 
-  /// Restores panel sizes, visibility, and previously-open editors.
-  ///
-  /// Tries SharedPreferences first, then falls back to `.forge/state/`
-  /// files for workspace-scoped recovery.
+  /// Restores the layout: with a workspace open, each panel application's
+  /// from its `.forge/state/apps/` file ([_restoreApplicationLayouts]);
+  /// without one, the device-wide layout the preferences keep.
   Future<void> _restoreLayoutState() async {
     // If the user checked "Reset UI", skip all restoration.
     if (_preferences.layoutResetRequested) {
       _preferences.clearLayoutResetRequest();
+      return;
+    }
+    if (widget.shell.workspaceState.isInitialized) {
+      await _restoreApplicationLayouts();
       return;
     }
 
@@ -1155,55 +1171,13 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       return;
     }
 
-    var sizes = _preferences.layoutPanelSizes;
-    var visibility = _preferences.layoutPanelVisibility;
-    var editorUris = _preferences.layoutOpenEditors;
-
-    // Fall back to .forge/state/ if preferences are empty.
-    final wsState = widget.shell.workspaceState;
-    if (sizes.isEmpty && visibility.isEmpty && wsState.isInitialized) {
-      try {
-        final layoutData = await wsState.loadLayoutState();
-        if (layoutData != null) {
-          if (_isLayoutSnapshot(layoutData)) {
-            await _applyLayoutSnapshot(layoutData);
-            return;
-          }
-
-          for (final entry in layoutData.entries) {
-            if (entry.value is Map<String, dynamic>) {
-              final panel = entry.value as Map<String, dynamic>;
-              final size = panel['size'];
-              final isVisible = panel['isVisible'];
-              if (size is num) sizes[entry.key] = size.toDouble();
-              if (isVisible is bool) visibility[entry.key] = isVisible;
-            }
-          }
-        }
-      } catch (e) {
-        if (debugEnabled) {
-          debugPrint('[ForgeShellScaffold] load .forge/ layout failed: $e');
-        }
-      }
-    }
-
-    if (editorUris.isEmpty && wsState.isInitialized) {
-      try {
-        editorUris = await wsState.loadOpenEditors();
-      } catch (e) {
-        if (debugEnabled) {
-          debugPrint('[ForgeShellScaffold] load .forge/ editors failed: $e');
-        }
-      }
-    }
-
-    for (final entry in sizes.entries) {
+    for (final entry in _preferences.layoutPanelSizes.entries) {
       final location = _panelLocationFromName(entry.key);
       if (location != null) {
         _layout.setPanelSize(location, entry.value);
       }
     }
-    for (final entry in visibility.entries) {
+    for (final entry in _preferences.layoutPanelVisibility.entries) {
       final location = _panelLocationFromName(entry.key);
       if (location != null) {
         if (entry.value) {
@@ -1213,8 +1187,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         }
       }
     }
-
-    for (final uriStr in editorUris) {
+    for (final uriStr in _preferences.layoutOpenEditors) {
       try {
         _layout.openFile(Uri.parse(uriStr));
       } catch (e) {
@@ -1225,20 +1198,48 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         }
       }
     }
+  }
 
-    if (debugEnabled) {
-      debugPrint(
-        '[ForgeShellScaffold] restored layout: '
-        '${sizes.length} sizes, ${visibility.length} visibility, '
-        '${editorUris.length} editors',
-      );
+  /// The side-panel part of the saved layouts of panel applications not yet
+  /// shown in this session, by id: applied on the application's first show,
+  /// after the layout controller has laid out the saved middle groups.
+  final Map<String, Map<String, dynamic>> _unshownPanelSnapshots = {};
+
+  /// Reads the saved layout of every open panel application and hands it to
+  /// the layout controller: the one on show is laid out now, every other on
+  /// its first show, instead of its declared layout. An application never
+  /// saved keeps its declared layout.
+  Future<void> _restoreApplicationLayouts() async {
+    final wsState = widget.shell.workspaceState;
+    final layouts = <String, Map<String, dynamic>>{};
+    for (final application in widget.shell.applications.all) {
+      if (application.isFullScreen) continue;
+      try {
+        final layout =
+            (await wsState.loadApplicationState(application.id))?['layout'];
+        if (layout is Map<String, dynamic> && _isLayoutSnapshot(layout)) {
+          layouts[application.id] = layout;
+        }
+      } catch (e) {
+        debugPrint(
+          '[ForgeShellScaffold] load layout of "${application.id}" failed: $e',
+        );
+      }
+    }
+    if (!mounted) return;
+    _layout.adoptSavedLayouts(layouts);
+    final shown = _panelApplication;
+    for (final MapEntry(key: id, value: layout) in layouts.entries) {
+      if (id == shown?.id) {
+        await _applyPanelSnapshot(layout, shown!);
+      } else if (_layout.hasUnshownSavedLayout(id)) {
+        _unshownPanelSnapshots[id] = layout;
+      }
     }
   }
 
-  /// Restores workspace state from `.forge/state/` files on startup.
-  ///
-  /// Loads per-application state (layout, open editors, active editor)
-  /// when the workspace state manager is initialized.
+  /// Restores the workspace configuration from `.forge/config.json` on
+  /// startup.
   Future<void> _restoreWorkspaceState() async {
     final wsState = widget.shell.workspaceState;
     if (!wsState.isInitialized) return;
@@ -1262,76 +1263,19 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       );
     }
 
-    final application = _application;
-    if (wsState is! DefaultWorkspaceStateManager || application == null) return;
-
-    try {
-      final appState = await wsState.loadApplicationState(application.id);
-      if (appState == null) return;
-
-      // Restore per-app layout if we didn't already restore from preferences.
-      final layout = appState['layout'];
-      if (layout is Map<String, dynamic> &&
-          _preferences.layoutSnapshot.isEmpty &&
-          _preferences.layoutPanelSizes.isEmpty) {
-        if (_isLayoutSnapshot(layout)) {
-          await _applyLayoutSnapshot(layout);
-        } else {
-          for (final entry in layout.entries) {
-            if (entry.value is Map<String, dynamic>) {
-              final panel = entry.value as Map<String, dynamic>;
-              final size = panel['size'];
-              final isVisible = panel['isVisible'];
-              final location = _panelLocationFromName(entry.key);
-              if (location != null) {
-                if (size is num) {
-                  _layout.setPanelSize(location, size.toDouble());
-                }
-                if (isVisible is bool) {
-                  if (isVisible) {
-                    _layout.openPanel(location);
-                  } else {
-                    _layout.closePanel(location);
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-
-      // Restore active editor if we have one saved.
-      final activeEditorStr = appState['activeEditor'];
-      if (activeEditorStr is String && activeEditorStr.isNotEmpty) {
-        try {
-          final activeUri = Uri.parse(activeEditorStr);
-          // If the editor is already open, just activate it.
-          final existing = widget.systemState.openEditors
-              .where((e) => e.uri == activeUri)
-              .firstOrNull;
-          if (existing != null) {
-            widget.systemState.setActiveEditor(existing);
-          }
-        } catch (_) {}
-      }
-
-      if (debugEnabled) {
-        debugPrint(
-          '[ForgeShellScaffold] restored workspace state for '
-          '"${application.id}"',
-        );
-      }
-    } catch (e) {
-      if (debugEnabled) {
-        debugPrint('[ForgeShellScaffold] restore workspace state failed: $e');
-      }
-    }
   }
 
-  /// Persists current panel sizes, visibility, and open editor URIs.
+  /// Persists the device-wide layout to the preferences: panel sizes,
+  /// visibility and open editor URIs, for a shell without a workspace. With
+  /// one, each application's layout is its own ([_saveWorkspaceState]).
   void _saveLayoutState() {
+    if (widget.shell.workspaceState.isInitialized) return;
+    final shown = _panelApplication;
     try {
-      _preferences.setLayoutSnapshot(_captureLayoutSnapshot());
+      if (shown != null) {
+        final snapshot = _captureApplicationSnapshot(shown);
+        if (snapshot != null) _preferences.setLayoutSnapshot(snapshot);
+      }
 
       for (final location in ForgePanelLocation.values) {
         if (location == ForgePanelLocation.middle) continue;
@@ -1593,34 +1537,32 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     }
   }
 
-  /// Saves workspace state (layout + open editors) to `.forge/` on shutdown.
+  /// Saves the layout of every open panel application shown in this session
+  /// to `.forge/state/apps/` on shutdown: the one on show, and the ones kept
+  /// while another was shown. An application not shown since its layout was
+  /// read keeps its file as it is; one never shown and never saved has none.
   void _saveWorkspaceState() {
     final wsState = widget.shell.workspaceState;
     if (!wsState.isInitialized) return;
-    try {
-      // Save open editor URIs to .forge/state/open-editors.json
-      final openUris = widget.systemState.openEditors
-          .map((e) => e.uri.toString())
-          .toList();
-      wsState.saveOpenEditors(openUris);
-
-      // Save full layout snapshot to .forge/state/layout.json
-      final layoutData = _captureLayoutSnapshot();
-      wsState.saveLayoutState(layoutData);
-
-      // Save per-application state to .forge/state/apps/
-      final application = _application;
-      if (wsState is DefaultWorkspaceStateManager && application != null) {
-        final activeUri = widget.systemState.activeEditor?.uri;
-        final appState = <String, dynamic>{
-          'openEditors': openUris,
-          'activeEditor': activeUri?.toString(),
-          'layout': layoutData,
-        };
-        wsState.saveApplicationState(application.id, appState);
+    for (final application in widget.shell.applications.all) {
+      if (application.isFullScreen ||
+          _layout.hasUnshownSavedLayout(application.id)) {
+        continue;
       }
-    } catch (e) {
-      debugPrint('[ForgeShellScaffold] save workspace state failed: $e');
+      final layout = _captureApplicationSnapshot(application);
+      if (layout == null) continue;
+      unawaited(
+        wsState
+            .saveApplicationState(application.id, <String, dynamic>{
+              'layout': layout,
+            })
+            .catchError((Object e) {
+              debugPrint(
+                '[ForgeShellScaffold] save layout of "${application.id}" '
+                'failed: $e',
+              );
+            }),
+      );
     }
   }
 
@@ -3821,9 +3763,22 @@ the field, not the document.
     return data.containsKey('panels') && data.containsKey('middlePanels');
   }
 
+  /// Lays out [snapshot] in full for the panel application on show: the
+  /// layout controller's part, then the side panels'.
   Future<void> _applyLayoutSnapshot(Map<String, dynamic> snapshot) async {
     _layout.loadLayoutSnapshot(snapshot);
+    final shown = _panelApplication;
+    if (shown != null) await _applyPanelSnapshot(snapshot, shown);
+  }
 
+  /// Applies the side-panel part of [snapshot] to [application], the panel
+  /// application on show: the middle groups' widths, its user-made and
+  /// editor tabs, the active tabs and the accordion sections.
+  Future<void> _applyPanelSnapshot(
+    Map<String, dynamic> snapshot,
+    ForgeApplication application,
+  ) async {
+    final panels = application.panelLayout;
     final middleFlex = snapshot['middlePanelFlex'];
     if (middleFlex is List) {
       final parsed = middleFlex
@@ -3841,15 +3796,15 @@ the field, not the document.
     if (panelTabs is Map<String, dynamic>) {
       _restoreCustomTabs(
         panelTabs['left'],
-        _panels.leftPanel.tabs,
+        panels.leftPanel.tabs,
       );
       _restoreCustomTabs(
         panelTabs['right'],
-        _panels.rightPanel.tabs,
+        panels.rightPanel.tabs,
       );
       _restoreCustomTabs(
         panelTabs['bottom'],
-        _panels.bottomPanel.tabs,
+        panels.bottomPanel.tabs,
       );
     }
 
@@ -3858,15 +3813,15 @@ the field, not the document.
     if (sidePanelEditors is Map<String, dynamic>) {
       await _restorePanelEditors(
         sidePanelEditors['left'],
-        _panels.leftPanel.tabs,
+        panels.leftPanel.tabs,
       );
       await _restorePanelEditors(
         sidePanelEditors['right'],
-        _panels.rightPanel.tabs,
+        panels.rightPanel.tabs,
       );
       await _restorePanelEditors(
         sidePanelEditors['bottom'],
-        _panels.bottomPanel.tabs,
+        panels.bottomPanel.tabs,
       );
     }
 
@@ -3985,9 +3940,21 @@ the field, not the document.
     }
   }
 
-  Map<String, dynamic> _captureLayoutSnapshot() {
-    final snapshot = _layout.toLayoutSnapshot();
-    snapshot['middlePanelFlex'] = List<double>.from(_middlePanelFlex);
+  /// The layout of the panel application [application] as its file keeps
+  /// it: the layout controller's part (panels, middle groups and their
+  /// editors, the active group) and the side panels' (their editor tabs and
+  /// user-made tabs, the active tabs, the accordion sections), from the
+  /// panel area for the application on show and from what it left for one
+  /// kept while another is shown. Null for an application not shown in this
+  /// session.
+  Map<String, dynamic>? _captureApplicationSnapshot(
+    ForgeApplication application,
+  ) {
+    final snapshot = _layout.layoutSnapshotOf(application.id);
+    if (snapshot == null) return null;
+    final shown = identical(application, _panelApplication);
+    final kept = _sidePanelStates[application.id];
+    if (shown) snapshot['middlePanelFlex'] = List<double>.from(_middlePanelFlex);
 
     // Serialize side/bottom panel editor tabs.
     List<List<String>> extractEditorUris(List<PanelTabConfig> tabs) {
@@ -4010,7 +3977,7 @@ the field, not the document.
       }).toList();
     }
 
-    final layout = _panels;
+    final layout = application.panelLayout;
     snapshot['sidePanelEditors'] = {
       'left': extractEditorUris(layout.leftPanel.tabs),
       'right': extractEditorUris(layout.rightPanel.tabs),
@@ -4022,13 +3989,16 @@ the field, not the document.
       'bottom': serializeTabs(layout.bottomPanel.tabs),
     };
     snapshot['panelActiveTabs'] = {
-      'left': _leftPanelActiveTab,
-      'leftShowConfig': _leftPanelShowConfig,
-      'right': _rightPanelActiveTab,
-      'bottom': _bottomPanelActiveTab,
+      'left': shown ? _leftPanelActiveTab : kept?.leftTab ?? 0,
+      'leftShowConfig': shown
+          ? _leftPanelShowConfig
+          : kept?.leftShowsConfig ?? false,
+      'right': shown ? _rightPanelActiveTab : kept?.rightTab ?? 0,
+      'bottom': shown ? _bottomPanelActiveTab : kept?.bottomTab ?? 0,
     };
     // Serialize accordion section state per panel area.
-    snapshot['panelAccordionState'] = _accordionStates.map(
+    final accordions = shown ? _accordionStates : kept?.accordions ?? const {};
+    snapshot['panelAccordionState'] = accordions.map(
       (area, tabs) => MapEntry(
         area,
         tabs.map((k, v) => MapEntry(k.toString(), v.toJson())),

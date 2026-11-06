@@ -853,7 +853,7 @@ Duration getAnimationDuration(BuildContext context, Duration normal) {
 
 ### 6.1 Layout State Schema
 
-**File:** `.forge/state/layout.json`
+**File:** `.forge/state/apps/<id-hash>.json`, under `layout` — one per panel application
 
 ```json
 {
@@ -1244,7 +1244,7 @@ void main() {
       await persistence.save(state);
       
       verify(fileSystem.write(
-        Uri.file('.forge/state/layout.json'),
+        Uri.file('.forge/state/apps/<id-hash>.json'),
         any,
       )).called(1);
     });

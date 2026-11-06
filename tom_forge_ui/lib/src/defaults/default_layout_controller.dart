@@ -111,6 +111,50 @@ class DefaultLayoutController implements ForgeLayoutController {
   /// from, by id.
   final Map<String, _ApplicationLayout> _applicationLayouts = {};
 
+  /// The layouts a previous session saved ([layoutSnapshotOf], written to the
+  /// workspace by the shell) for panel applications not yet shown in this
+  /// one, by id; an application's is taken on its first show instead of its
+  /// declared layout.
+  final Map<String, Map<String, dynamic>> _savedLayouts = {};
+
+  /// Adopts the [layouts] a previous session saved, by application id: the
+  /// one of the panel application whose layout is on show now replaces it
+  /// (its editors are closed and the saved ones reopened by URI); every other
+  /// is kept for that application's first show. An application already shown
+  /// in this session keeps the layout it has.
+  void adoptSavedLayouts(Map<String, Map<String, dynamic>> layouts) {
+    for (final MapEntry(key: id, value: layout) in layouts.entries) {
+      if (id == _layoutOwner?.id) {
+        closeAllEditors();
+        _middlePanels.value = [[]];
+        loadLayoutSnapshot(layout);
+      } else if (!_applicationLayouts.containsKey(id)) {
+        _savedLayouts[id] = layout;
+      }
+    }
+  }
+
+  /// Whether the application [id] has a saved layout it has not been shown
+  /// with yet in this session — its saved layout is then still the current
+  /// one, and nothing new is there to write.
+  bool hasUnshownSavedLayout(String id) => _savedLayouts.containsKey(id);
+
+  /// The layout of the panel application [id] as [toLayoutSnapshot] writes
+  /// it: the one on show, or the one it left when switched away from; null
+  /// for an application not shown in this session.
+  Map<String, dynamic>? layoutSnapshotOf(String id) {
+    if (id == _layoutOwner?.id) return toLayoutSnapshot();
+    final held = _applicationLayouts[id];
+    if (held == null) return null;
+    return _snapshot(
+      left: held.left,
+      right: held.right,
+      bottom: held.bottom,
+      middle: held.middle,
+      activeMiddle: held.activeMiddle,
+    );
+  }
+
   /// Keeps a layout per panel application: on a switch to another panel
   /// application, the panels' sizes and visibility, the middle editor groups
   /// with their editors and the active group are kept for the one switched
@@ -122,6 +166,7 @@ class DefaultLayoutController implements ForgeLayoutController {
   /// shown last.
   void _followActiveApplication() {
     _applicationLayouts.removeWhere((id, _) => _systemState.byId(id) == null);
+    _savedLayouts.removeWhere((id, _) => _systemState.byId(id) == null);
     final active = _systemState.active;
     if (active == null || active.isFullScreen) return;
     if (identical(active, _layoutOwner)) return;
@@ -143,6 +188,12 @@ class DefaultLayoutController implements ForgeLayoutController {
       _bottomPanel.value = saved.bottom;
       _middlePanels.value = saved.middle;
       _activeMiddlePanelIndex.value = saved.activeMiddle;
+      return;
+    }
+    final persisted = _savedLayouts.remove(active.id);
+    if (persisted != null) {
+      _middlePanels.value = [[]];
+      loadLayoutSnapshot(persisted);
       return;
     }
     _openDeclaredLayout(active.panelLayout, fresh: owner != null);
@@ -964,26 +1015,35 @@ class DefaultLayoutController implements ForgeLayoutController {
   ///
   /// Captures panel sizes, visibility, active middle panel index,
   /// and open editor URIs per panel.
-  Map<String, dynamic> toLayoutSnapshot() {
+  Map<String, dynamic> toLayoutSnapshot() => _snapshot(
+    left: _leftPanel.value,
+    right: _rightPanel.value,
+    bottom: _bottomPanel.value,
+    middle: _middlePanels.value,
+    activeMiddle: _activeMiddlePanelIndex.value,
+  );
+
+  static Map<String, dynamic> _snapshot({
+    required LayoutPanelConfig left,
+    required LayoutPanelConfig right,
+    required LayoutPanelConfig bottom,
+    required List<List<ForgeEditor>> middle,
+    required int activeMiddle,
+  }) {
+    Map<String, dynamic> panel(LayoutPanelConfig config) => {
+      'size': config.size,
+      'isVisible': config.isVisible,
+    };
     return {
       'panels': {
-        'left': {
-          'size': _leftPanel.value.size,
-          'isVisible': _leftPanel.value.isVisible,
-        },
-        'right': {
-          'size': _rightPanel.value.size,
-          'isVisible': _rightPanel.value.isVisible,
-        },
-        'bottom': {
-          'size': _bottomPanel.value.size,
-          'isVisible': _bottomPanel.value.isVisible,
-        },
+        'left': panel(left),
+        'right': panel(right),
+        'bottom': panel(bottom),
       },
-      'activeMiddlePanelIndex': _activeMiddlePanelIndex.value,
-      'middlePanels': _middlePanels.value
-          .map((panel) => panel.map((e) => e.uri.toString()).toList())
-          .toList(),
+      'activeMiddlePanelIndex': activeMiddle,
+      'middlePanels': [
+        for (final group in middle) [for (final e in group) e.uri.toString()],
+      ],
     };
   }
 

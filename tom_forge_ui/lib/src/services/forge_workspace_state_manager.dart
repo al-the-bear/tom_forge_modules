@@ -2,8 +2,8 @@
 ///
 /// Responsibilities:
 /// - Initialize and ensure `.forge/` directory structure
-/// - Persist and restore layout state (`state/layout.json`)
-/// - Persist and restore open editor list (`state/open-editors.json`)
+/// - Persist and restore the open applications (`state/applications.json`)
+///   and each panel application's layout (`state/apps/{id-hash}.json`)
 /// - Persist and restore per-editor state (`state/editors/{uri-hash}.json`)
 /// - Create revision snapshots on save (`revisions/{uri-hash}/`)
 /// - Persist undo history per file (`undo/{uri-hash}.json`)
@@ -26,22 +26,6 @@ abstract class ForgeWorkspaceStateManager {
   ///
   /// Returns the workspace root path if found, or `null`.
   Future<String?> detectWorkspaceRoot(String startPath);
-
-  // ── Layout state ──
-
-  /// Save the current layout state (panel sizes, visibility).
-  Future<void> saveLayoutState(Map<String, dynamic> layoutData);
-
-  /// Load persisted layout state. Returns `null` if none saved.
-  Future<Map<String, dynamic>?> loadLayoutState();
-
-  // ── Open editors ──
-
-  /// Save the list of currently open editor URIs.
-  Future<void> saveOpenEditors(List<String> editorUris);
-
-  /// Load the list of previously open editor URIs.
-  Future<List<String>> loadOpenEditors();
 
   // ── Per-editor state ──
 
@@ -88,6 +72,17 @@ abstract class ForgeWorkspaceStateManager {
 
   /// Load what [saveOpenApplications] wrote, or null when nothing was.
   Future<Map<String, Object?>?> loadOpenApplications();
+
+  /// Save the state of the application [appId] — `{'layout': ...}`, its panel
+  /// layout as the shell captures it — to `.forge/state/apps/{hash}.json`.
+  Future<void> saveApplicationState(String appId, Map<String, dynamic> state);
+
+  /// Load what [saveApplicationState] wrote for [appId], or null.
+  Future<Map<String, dynamic>?> loadApplicationState(String appId);
+
+  /// Delete the saved state of [appId], when the application is removed for
+  /// good.
+  Future<void> deleteApplicationState(String appId);
 
   // ── Configuration ──
 
