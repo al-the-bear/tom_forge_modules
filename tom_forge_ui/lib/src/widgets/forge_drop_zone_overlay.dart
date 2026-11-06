@@ -380,17 +380,19 @@ class _EmptyPanelDropTargetState extends State<EmptyPanelDropTarget> {
                 Icon(
                   _isDragOver ? Icons.add_circle : Icons.add_circle_outline,
                   size: 36,
+                  // The empty-state colour: 3:1 for an icon on the shell's
+                  // surfaces (integrated_ux_patterns.md P12).
                   color: _isDragOver
                       ? borderColor
-                      : theme.colorScheme.onSurface.withValues(alpha: 0.25),
+                      : theme.colorScheme.onSurfaceVariant,
                 ),
                 const SizedBox(height: 8),
                 Text(
                   _isDragOver ? 'Drop here' : 'Drop a tab here',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: _isDragOver
-                        ? theme.colorScheme.onSurface.withValues(alpha: 0.7)
-                        : theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                        ? theme.colorScheme.onSurface
+                        : theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
               ],

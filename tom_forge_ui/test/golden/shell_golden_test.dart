@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_reusable_ui/testing.dart' show expectTomReadable;
 
 /// Golden test configuration for zero-debounce synchronous behavior.
 const _goldenConfig = ForgeConfig(
@@ -12,6 +13,22 @@ const _goldenConfig = ForgeConfig(
 void main() {
   setUpAll(() async {
     SharedPreferences.setMockInitialValues({});
+  });
+
+  group('Shell chrome is readable (integrated_ux_patterns.md P12)', () {
+    for (final (name, mode, theme) in [
+      ('light', ThemeMode.light, null),
+      ('dark', ThemeMode.dark, null),
+      ('high contrast', ThemeMode.system, ForgeShellTheme.highContrast()),
+    ]) {
+      testWidgets('SHELL-C: every visible text run meets WCAG AA in the '
+          '$name theme', (WidgetTester tester) async {
+        final harness = _GoldenHarness.create(themeMode: mode);
+        await tester.pumpWidget(harness.buildApp(shellTheme: theme));
+        await tester.pumpAndSettle();
+        expectTomReadable(tester, find.byType(ForgeShellScaffold), shot: name);
+      });
+    }
   });
 
   group('Golden: Shell layout', () {

@@ -3214,14 +3214,10 @@ the field, not the document.
                 builder: (context, constraints) {
                   final availableWidth = constraints.maxWidth;
                   final switcherMaxWidth = availableWidth < 520 ? 120.0 : 180.0;
-                  // Fixed-width siblings the search box shares the row with:
-                  // the two 48px back/forward IconButtons plus the inter-child
-                  // spacing (8 before the search box, 12 after it). These must
-                  // be reserved so the min-sized row never overflows.
-                  const navButtonsWidth = 96.0;
-                  const rowSpacing = 8.0 + 12.0;
+                  // The spacing the search box shares the row with (12 after
+                  // it) is reserved so the min-sized row never overflows.
+                  const rowSpacing = 12.0;
                   final searchWidth = (availableWidth -
-                          navButtonsWidth -
                           switcherMaxWidth -
                           rowSpacing)
                       .clamp(180.0, 400.0)
@@ -3230,25 +3226,10 @@ the field, not the document.
                   return Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Back/Forward navigation (per concept §2.1)
-                      IconButton(
-                        icon: Icon(
-                          Icons.arrow_back,
-                          size: ForgeDimensions.iconToolbar,
-                        ),
-                        onPressed:
-                            null, // Disabled until component history is implemented
-                        tooltip: 'Back',
-                      ),
-                      IconButton(
-                        icon: Icon(
-                          Icons.arrow_forward,
-                          size: ForgeDimensions.iconToolbar,
-                        ),
-                        onPressed: null,
-                        tooltip: 'Forward',
-                      ),
-                      const SizedBox(width: 8),
+                      // No Back / Forward buttons: nothing provides
+                      // navigation history yet, and a control that cannot act
+                      // is not shown (tom_forge
+                      // later13_akfu-navigation-history-back-forward).
                       SizedBox(
                         key: _searchBoxKey,
                         width: searchWidth,

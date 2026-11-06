@@ -170,6 +170,8 @@ client then sits in layer 4 or 5, never in the shell.
 
 | Topic | Document |
 | ----- | -------- |
+| How combined components behave as one tool | [integrated_ux_patterns.md](integrated_ux_patterns.md) |
+| What an editor provides | [editor_component_contract.md](editor_component_contract.md) |
 | Panel shell concept and specification | `tom_forge_ui/doc/forge_panel_shell_concept.md`, `forge_panel_shell_spec.md` |
 | Editor base and component API | `tom_forge_ui/doc/forge_editor_base.md` |
 | Editing actions through the active editor | `tom_forge_ui/doc/editor_action_externalization.md`, the workspace's `global_actions_coordination.md` |

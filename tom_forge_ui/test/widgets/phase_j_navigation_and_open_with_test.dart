@@ -38,7 +38,8 @@ void main() {
       expect(find.byType(ForgeQuickOpen), findsNothing);
     });
 
-    testWidgets('02: back and forward buttons are disabled by default', (
+    testWidgets('02: the title bar shows no back or forward button: no '
+        'control is shown that cannot act (integrated_ux_patterns.md P11)', (
       WidgetTester tester,
     ) async {
       suppressOverflowErrorsForTest();
@@ -48,21 +49,8 @@ void main() {
       await tester.pumpWidget(harness.buildShellApp());
       await tester.pumpAndSettle();
 
-      final back = tester.widget<IconButton>(
-        find.ancestor(
-          of: find.byIcon(Icons.arrow_back),
-          matching: find.byType(IconButton),
-        ),
-      );
-      final forward = tester.widget<IconButton>(
-        find.ancestor(
-          of: find.byIcon(Icons.arrow_forward),
-          matching: find.byType(IconButton),
-        ),
-      );
-
-      expect(back.onPressed, isNull);
-      expect(forward.onPressed, isNull);
+      expect(find.byTooltip('Back'), findsNothing);
+      expect(find.byTooltip('Forward'), findsNothing);
     });
 
     testWidgets('03: application switcher activates the selected application', (
