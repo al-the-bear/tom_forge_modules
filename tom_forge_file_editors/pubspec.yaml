@@ -39,8 +39,9 @@ dependencies:
     path: ../../tom_ai/basics/tom_file_system
   # Decoding a schema the todo-file editor reads.
   tom_basics: ">=3.3.0"
-
-dev_dependencies:
+  # lib/testing.dart (the editors' undo conformance subjects) is built on it.
   flutter_test:
     sdk: flutter
+
+dev_dependencies:
   flutter_lints: ^6.0.0

@@ -2,18 +2,18 @@
 /// check skipped: the Markdown and YAML editors (their controllers keep the
 /// history), the plain-text, `.env` and todo-file editors (the file session
 /// keeps it).
-/// Save saves through the session.
+/// Save saves through the session. The subjects are the package's
+/// (`testing.dart`), so an app composing the editors runs the same checks.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_file_session/tom_file_session.dart';
 import 'package:tom_file_system/tom_file_system.dart';
+import 'package:tom_forge_file_editors/testing.dart';
 import 'package:tom_forge_file_editors/tom_forge_file_editors.dart';
 import 'package:tom_forge_ui/testing.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
-import 'package:tom_md_editor/tom_md_editor.dart' show MdRawTextEditor;
-import 'package:tom_reusable_ui/tom_reusable_ui.dart' show TomYamlFileEditor;
 import 'package:tom_yaml_editor/tom_yaml_editor.dart' show kYamlEditorDebug;
 
 TomForgeShellModule _module() => TomForgeShellModule()
@@ -31,191 +31,50 @@ ForgeFileSession _session(String name, String text) {
   return ForgeFileSession(fileSystem: fs, path: name)..adoptText(text);
 }
 
-Future<void> _save(ForgeFileSession session) async {
-  expect(await session.save(), isNot(ForgeFileSaveOutcome.conflict));
-}
-
 void main() {
   setUp(() => kYamlEditorDebug = false);
 
-  runForgeUndoConformance('Markdown file editor', _MarkdownSubject.new);
-  runForgeUndoConformance('YAML file editor', _YamlSubject.new);
-  runForgeUndoConformance('text file editor', _TextSubject.new);
-  runForgeUndoConformance('.env file editor', _EnvSubject.new);
-  runForgeUndoConformance('todo-file editor', _TodoSubject.new);
-}
-
-class _MarkdownSubject extends ForgeUndoSubject {
-  _MarkdownSubject(String saved)
-    : editor = ForgeMarkdownFileEditor(
+  runForgeUndoConformance(
+    'Markdown file editor',
+    (saved) => ForgeMarkdownFileSubject(
+      ForgeMarkdownFileEditor(
         session: _session('notes.md', saved),
         module: _module(),
-      );
-
-  @override
-  final ForgeMarkdownFileEditor editor;
-
-  @override
-  TextEditingController controllerOf(WidgetTester tester, Finder view) =>
-      tester
-          .widget<EditableText>(
-            find
-                .descendant(
-                  of: find.descendant(
-                    of: view,
-                    matching: find.byType(MdRawTextEditor),
-                  ),
-                  matching: find.byType(EditableText),
-                )
-                .first,
-          )
-          .controller;
-
-  @override
-  String textOf(WidgetTester tester) => editor.controller.markdown;
-
-  @override
-  Future<void> saved() async {
-    expect(await editor.file.save(), isNot(ForgeFileSaveOutcome.conflict));
-  }
-}
-
-class _YamlSubject extends ForgeUndoSubject {
-  _YamlSubject(String saved)
-    : editor = ForgeYamlFileEditor(
+      ),
+    ),
+  );
+  runForgeUndoConformance(
+    'YAML file editor',
+    (saved) => ForgeYamlFileSubject(
+      ForgeYamlFileEditor(
         session: _session('config.yaml', saved),
         module: _module(),
-      ) {
-    editor.controller.textMode = true;
-  }
-
-  @override
-  final ForgeYamlFileEditor editor;
-
-  @override
-  String textOf(WidgetTester tester) => editor.controller.sourceText;
-
-  @override
-  Future<void> saved() async {
-    expect(await editor.file.save(), isNot(ForgeFileSaveOutcome.conflict));
-  }
-}
-
-class _TextSubject extends ForgeUndoSubject {
-  _TextSubject(String saved)
-    : editor = ForgePlainTextEditor(
+      ),
+    ),
+  );
+  runForgeUndoConformance(
+    'text file editor',
+    (saved) => ForgeTextFileSubject(
+      ForgePlainTextEditor(
         session: _session('notes.txt', saved),
         module: _module(),
-      );
-
-  @override
-  final ForgePlainTextEditor editor;
-
-  @override
-  String textOf(WidgetTester tester) => editor.session.text;
-
-  @override
-  Future<void> saved() => _save(editor.session);
-}
-
-/// The `.env` editor, edited in its raw view with the values shown (the
-/// table edits entry by entry through dialogs).
-class _EnvSubject extends ForgeUndoSubject {
-  _EnvSubject(String saved)
-    : editor = ForgeEnvFileEditor(
-        session: _session('.env', saved),
-        notifications: null,
-      );
-
-  @override
-  final ForgeEnvFileEditor editor;
-
-  Future<void> _raw(WidgetTester tester) async {
-    for (final key in [forgeUndoMainView, forgeUndoCopyView]) {
-      final view = find.byKey(key);
-      if (view.evaluate().isEmpty) continue;
-      if (find
-          .descendant(of: view, matching: find.byKey(const ValueKey('raw')))
-          .evaluate()
-          .isNotEmpty) {
-        continue;
-      }
-      await tester.tap(find.descendant(of: view, matching: find.text('Raw')));
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.descendant(
-          of: view,
-          matching: find.byKey(const Key('tom-env-show-values')),
-        ),
-      );
-      await tester.pumpAndSettle();
-    }
-  }
-
-  @override
-  Future<void> type(WidgetTester tester, String text) async {
-    await _raw(tester);
-    await super.type(tester, text);
-  }
-
-  @override
-  Future<void> moveCaret(WidgetTester tester, int offset) async {
-    await _raw(tester);
-    await super.moveCaret(tester, offset);
-  }
-
-  @override
-  String textOf(WidgetTester tester) => editor.session.text;
-
-  @override
-  Future<void> saved() => _save(editor.session);
-}
-
-/// The todo-file editor, edited in its YAML source view (the list edits todo
-/// by todo through rows and dialogs).
-class _TodoSubject extends ForgeUndoSubject {
-  _TodoSubject(String saved)
-    : editor = ForgeTodoFileEditor(
+      ),
+    ),
+  );
+  runForgeUndoConformance(
+    '.env file editor',
+    (saved) => ForgeEnvFileSubject(
+      ForgeEnvFileEditor(session: _session('.env', saved), notifications: null),
+    ),
+  );
+  runForgeUndoConformance(
+    'todo-file editor',
+    (saved) => ForgeTodoFileSubject(
+      ForgeTodoFileEditor(
         session: _session('todos.garden.todo.yaml', saved),
         notifications: null,
         openTodo: (_, _) {},
-      );
-
-  @override
-  final ForgeTodoFileEditor editor;
-
-  Future<void> _source(WidgetTester tester) async {
-    for (final key in [forgeUndoMainView, forgeUndoCopyView]) {
-      final view = find.byKey(key);
-      if (view.evaluate().isEmpty) continue;
-      final source = find.descendant(of: view, matching: find.text('Source'));
-      if (source.evaluate().isEmpty) continue;
-      if (find
-          .descendant(of: view, matching: find.byType(TomYamlFileEditor))
-          .evaluate()
-          .isNotEmpty) {
-        continue;
-      }
-      await tester.tap(source);
-      await tester.pumpAndSettle();
-    }
-  }
-
-  @override
-  Future<void> type(WidgetTester tester, String text) async {
-    await _source(tester);
-    await super.type(tester, text);
-  }
-
-  @override
-  Future<void> moveCaret(WidgetTester tester, int offset) async {
-    await _source(tester);
-    await super.moveCaret(tester, offset);
-  }
-
-  @override
-  String textOf(WidgetTester tester) => editor.session.text;
-
-  @override
-  Future<void> saved() => _save(editor.session);
+      ),
+    ),
+  );
 }
