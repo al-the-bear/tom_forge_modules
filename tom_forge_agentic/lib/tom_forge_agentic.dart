@@ -10,14 +10,13 @@
 /// this package depends on. Widgets here render over those models; they never
 /// own transport specifics.
 ///
-/// The concrete views (composer, queue, trail, settings) are added in Stage C
-/// and Stage D of the editor implementation plan; this scaffold establishes
-/// the package and its wiring to `tom_core_agentic`.
+/// The entry point is [AgentChatModule]: a Forge module that owns the
+/// connection, send, prompt-queue and prompt-trail controllers and offers the
+/// chat view and the queue and trail editors for an application's layout.
 library;
 
 export 'src/agent_chat_module.dart';
 export 'src/agent_chat_view.dart';
-export 'src/agent_panel_placeholder.dart';
 export 'src/changes/change_entry.dart';
 export 'src/changes/change_log.dart';
 export 'src/changes/change_log_panel.dart';

@@ -21,7 +21,19 @@ specifics (the Agent-SDK transport stays in `tom_vscode_scripting_api`).
 
 ## Status
 
-Scaffold (Stage B, step 8 of the editor implementation plan). The only export
-today is `AgentPanelPlaceholder`, a stand-in panel that also exercises the
-`tom_core_agentic` wiring. The concrete views (composer, queue, trail,
-settings) are added in Stage C and Stage D.
+In use by the TomSpecs editor (`tom_specs_editor`). What it exports:
+
+- `AgentChatModule` — the module an agent-enabled tool registers: it owns the
+  connection, send, prompt-queue and prompt-trail controllers and offers the
+  chat view (connection picker and composer) and the queue and trail editors
+  for the application's layout.
+- Connection — `AgentConnectionController`, `AgentConnectionPicker`.
+- Sending — `AgentSendController`, `AgentSendPanel`, `AgentReconnectBanner`,
+  `ChatComposerPanel`, `ChatSendCoordinator`, the placeholder preview.
+- Prompt queue and trail — their controllers, editors and views.
+- Change log and review — `ChangeEntry`, `ChangeLog`, `ChangeLogPanel`,
+  `ChangeReviewPanel`.
+
+It is layer 4 (shell services) of the platform architecture
+(`../_copilot_guidelines/platform_architecture.md`): it builds on the shell,
+and modules build on it.

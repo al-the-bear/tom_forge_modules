@@ -1,7 +1,9 @@
 name: tom_flow_editor
-description: "A new Flutter package project."
+description: >-
+  Placeholder for Tom Forge's flow editor component (layer 2 of the platform
+  architecture). Not built yet; not published.
 version: 0.0.1
-homepage:
+publish_to: none
 
 environment:
   sdk: ^3.11.1

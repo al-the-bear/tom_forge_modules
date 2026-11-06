@@ -1,3 +1,3 @@
 ## 0.0.1
 
-* TODO: Describe initial release.
+* The package template, as the placeholder for the flow editor. Not published.
