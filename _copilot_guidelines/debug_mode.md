@@ -31,6 +31,7 @@ flag lets the compiler eliminate all dead code.
 |-----------|------|------|
 | YAML Editor (`tom_yaml_editor`) | `lib/src/tree/editor_trail.dart` | `kYamlEditorDebug` |
 | Dart Editor (`tom_dart_editor`) | `lib/src/editor_trail.dart` *(to be added)* | `kDartEditorDebug` |
+| Quest applications (`tom_forge_quests`) | `lib/src/quests_trail.dart` | `kForgeQuestsDebug` |
 
 Each component owns its own flag. Flags are **independent** — you can enable
 just the YAML editor trail without activating the Dart editor trail.

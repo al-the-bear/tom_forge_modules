@@ -371,6 +371,10 @@ abstract class ForgeApplicationRegistry {
   /// refused.
   void registerFactory(ForgeApplicationFactory factory);
 
+  /// Whether a factory for [kind] is registered — so a module activated a
+  /// second time on one shell registers its factory once.
+  bool hasFactory(String kind);
+
   /// Adds [application]; the first one added becomes active, as does any
   /// added with [activate]. An id already open is refused.
   void add(ForgeApplication application, {bool activate = false});

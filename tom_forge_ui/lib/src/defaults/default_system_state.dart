@@ -398,6 +398,9 @@ class DefaultSystemState implements ForgeSystemState, ForgeApplicationRegistry {
       byId(id) ?? (throw StateError('no open application "$id"'));
 
   @override
+  bool hasFactory(String kind) => _factories.containsKey(kind);
+
+  @override
   void registerFactory(ForgeApplicationFactory factory) {
     if (_factories.containsKey(factory.kind)) {
       throw StateError(
