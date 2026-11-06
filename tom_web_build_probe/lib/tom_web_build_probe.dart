@@ -49,41 +49,11 @@ void registerWebBuildTest({
   String? because,
 }) {
   final appDir = Directory(appDirectory);
-  final flutterRoot = Platform.environment['FLUTTER_ROOT'];
-  final flutter = flutterRoot == null
-      ? null
-      : p.join(
-          flutterRoot, 'bin', Platform.isWindows ? 'flutter.bat' : 'flutter');
-
-  // Every skip names what would make it run. A skip reason that says only
-  // "unavailable" is a test nobody ever turns back on.
-  String? skipReason() {
-    if (Platform.environment['TOM_SKIP_WEB_BUILD'] == '1') {
-      return 'TOM_SKIP_WEB_BUILD=1 is set; unset it to measure the web build';
-    }
-    if (!appDir.existsSync()) {
-      return 'the companion app is missing at ${appDir.path} — this test '
-          'builds it, so it cannot run without it';
-    }
-    if (!Directory(p.join(appDir.path, 'web')).existsSync()) {
-      return 'the companion app has no web/ scaffold — run '
-          '`flutter create --platforms=web .` in ${appDir.path}';
-    }
-    if (!File(p.join(appDir.path, '.dart_tool', 'package_config.json'))
-        .existsSync()) {
-      return 'the companion app has no resolved packages — run '
-          '`flutter pub get` in ${appDir.path} (this test does not resolve '
-          'dependencies, so that an offline run fails loudly rather than '
-          'hanging on the network)';
-    }
-    if (flutter == null || !File(flutter).existsSync()) {
-      return 'FLUTTER_ROOT does not point at a flutter executable '
-          '(${flutterRoot ?? 'unset'})';
-    }
-    return null;
-  }
-
-  final skip = skipReason();
+  final flutter = _flutterExecutable(Platform.environment);
+  final skip = webBuildSkipReason(
+    appDirectory: appDirectory,
+    environment: Platform.environment,
+  );
 
   test('$id: the companion app compiles for the web with dart2js', () async {
     final result = await Process.run(
@@ -116,4 +86,49 @@ void registerWebBuildTest({
           'main.dart.js — the build did not actually compile anything',
     );
   }, skip: skip, timeout: const Timeout(Duration(minutes: 10)));
+}
+
+/// The flutter executable under `FLUTTER_ROOT` in [environment], or null when
+/// it is unset.
+String? _flutterExecutable(Map<String, String> environment) {
+  final flutterRoot = environment['FLUTTER_ROOT'];
+  return flutterRoot == null
+      ? null
+      : p.join(
+          flutterRoot, 'bin', Platform.isWindows ? 'flutter.bat' : 'flutter');
+}
+
+/// Why the web-build test for the companion app at [appDirectory] cannot run
+/// in [environment], or null when it runs. Every reason names what would
+/// make it run: a skip reason that says only "unavailable" is a test nobody
+/// ever turns back on.
+String? webBuildSkipReason({
+  required String appDirectory,
+  required Map<String, String> environment,
+}) {
+  final appDir = Directory(appDirectory);
+  final flutter = _flutterExecutable(environment);
+  if (environment['TOM_SKIP_WEB_BUILD'] == '1') {
+    return 'TOM_SKIP_WEB_BUILD=1 is set; unset it to measure the web build';
+  }
+  if (!appDir.existsSync()) {
+    return 'the companion app is missing at ${appDir.path} — this test '
+        'builds it, so it cannot run without it';
+  }
+  if (!Directory(p.join(appDir.path, 'web')).existsSync()) {
+    return 'the companion app has no web/ scaffold — run '
+        '`flutter create --platforms=web .` in ${appDir.path}';
+  }
+  if (!File(p.join(appDir.path, '.dart_tool', 'package_config.json'))
+      .existsSync()) {
+    return 'the companion app has no resolved packages — run '
+        '`flutter pub get` in ${appDir.path} (this test does not resolve '
+        'dependencies, so that an offline run fails loudly rather than '
+        'hanging on the network)';
+  }
+  if (flutter == null || !File(flutter).existsSync()) {
+    return 'FLUTTER_ROOT does not point at a flutter executable '
+        '(${environment['FLUTTER_ROOT'] ?? 'unset'})';
+  }
+  return null;
 }
