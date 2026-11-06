@@ -170,6 +170,7 @@ client then sits in layer 4 or 5, never in the shell.
 
 | Topic | Document |
 | ----- | -------- |
+| Workspace files and their formats | [configuration_compatibility.md](configuration_compatibility.md) |
 | How combined components behave as one tool | [integrated_ux_patterns.md](integrated_ux_patterns.md) |
 | What an editor provides | [editor_component_contract.md](editor_component_contract.md) |
 | Panel shell concept and specification | `tom_forge_ui/doc/forge_panel_shell_concept.md`, `forge_panel_shell_spec.md` |

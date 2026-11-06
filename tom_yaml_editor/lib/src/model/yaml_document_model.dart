@@ -30,7 +30,7 @@ Object? _toPlainDart(Object? value) {
 }
 
 /// Wrap a value as a YamlNode with block collection style for maps/lists.
-/// Used by [_normalizeYamlStyles] when converting flow-style to block-style.
+/// Used by [YamlDocumentModel._styled] for a new collection in block context.
 YamlNode _wrapWithBlockStyle(Object? value) {
   if (value is Map) {
     // Recursively wrap map values
@@ -71,94 +71,65 @@ class YamlDocumentModel {
     return YamlDocumentModel._(YamlEditor(yaml));
   }
 
-  /// Serialize back to YAML string, preserving original formatting.
-  ///
-  /// Normalize YAML output: multiline strings use literal block style (`|`),
-  /// maps and lists use block style (key-per-line, item-per-line).
-  String toYamlString() => _normalizeYamlStyles(_editor.toString());
+  /// The document's text: what was loaded, with the edits applied and
+  /// nothing else changed — comments, blank lines, key order, quoting and
+  /// flow collections stay as the file had them.
+  String toYamlString() => _editor.toString();
 
-  /// Normalize YAML styles for human readability:
-  /// - Multiline strings → literal block scalar (`|`)
-  /// - Flow-style maps `{key: value}` → block style
-  /// - Flow-style lists `[a, b]` → block style
-  ///
-  /// Walks the parsed YAML tree to find nodes that need converting.
-  String _normalizeYamlStyles(String yaml) {
-    YamlNode root;
+  /// [value] as it is written at [path]: a new map or list in the style of
+  /// the collection it goes into (block in block, flow in flow); a string
+  /// that replaces a quoted scalar keeps its quotes, so it stays a string; a
+  /// multiline string in block context is a literal block (`|`). Only the
+  /// value being written is styled; the rest of the document is not touched.
+  Object? _styled(List<Object> path, Object? value) {
+    final old = path.isEmpty ? null : _nodeOrNull(path);
+    final parent =
+        path.isEmpty ? null : _nodeOrNull(path.sublist(0, path.length - 1));
+    final inFlow = _isFlow(parent);
+    if (value is Map || value is List) {
+      return inFlow ? _toPlainDart(value) : _wrapWithBlockStyle(_toPlainDart(value));
+    }
+    if (value is String) {
+      if (old is YamlScalar &&
+          (old.style == ScalarStyle.DOUBLE_QUOTED ||
+              old.style == ScalarStyle.SINGLE_QUOTED) &&
+          !value.contains('\n')) {
+        return wrapAsYamlNode(value, scalarStyle: old.style);
+      }
+      if (value.contains('\n') && !inFlow) {
+        return wrapAsYamlNode(value, scalarStyle: ScalarStyle.LITERAL);
+      }
+    }
+    return value;
+  }
+
+  /// Where [node]'s own content ends: for a non-empty block collection, its
+  /// last item's content end; otherwise the end of its span.
+  static int _contentEnd(YamlNode node) {
+    if (node is YamlMap &&
+        node.style == CollectionStyle.BLOCK &&
+        node.nodes.isNotEmpty) {
+      return _contentEnd(node.nodes.values.last);
+    }
+    if (node is YamlList &&
+        node.style == CollectionStyle.BLOCK &&
+        node.nodes.isNotEmpty) {
+      return _contentEnd(node.nodes.last);
+    }
+    return node.span.end.offset;
+  }
+
+  YamlNode? _nodeOrNull(List<Object> path) {
     try {
-      root = loadYamlNode(yaml);
+      return _editor.parseAt(_normalizePath(path));
     } catch (_) {
-      return yaml;
-    }
-
-    // Collect paths and wrapped values for nodes that need converting.
-    var paths = <List<Object>>[];
-    var wrappedValues = <YamlNode>[];
-    _findNodesToNormalize(root, [], paths, wrappedValues);
-
-    if (paths.isEmpty) return yaml;
-
-    // Apply conversions using yaml_edit — each update properly adjusts
-    // internal offsets so subsequent edits remain valid.
-    var editor = YamlEditor(yaml);
-    for (var i = 0; i < paths.length; i++) {
-      editor.update(paths[i], wrappedValues[i]);
-    }
-    return editor.toString();
-  }
-
-  /// Recursively walk the YAML tree collecting paths and wrapped values
-  /// for nodes that need style normalization.
-  void _findNodesToNormalize(
-    YamlNode node,
-    List<Object> currentPath,
-    List<List<Object>> paths,
-    List<YamlNode> wrappedValues,
-  ) {
-    if (node is YamlMap) {
-      // Check if this map is flow style and needs converting
-      if (node.style == CollectionStyle.FLOW) {
-        paths.add(currentPath);
-        wrappedValues.add(_wrapWithBlockStyle(node.value));
-        return; // Children are included in the wrapped value
-      }
-      // Recurse into children
-      for (var entry in node.nodes.entries) {
-        var key = (entry.key as YamlScalar).value;
-        _findNodesToNormalize(
-          entry.value,
-          [...currentPath, key],
-          paths,
-          wrappedValues,
-        );
-      }
-    } else if (node is YamlList) {
-      // Check if this list is flow style and needs converting
-      if (node.style == CollectionStyle.FLOW) {
-        paths.add(currentPath);
-        wrappedValues.add(_wrapWithBlockStyle(node.value));
-        return; // Children are included in the wrapped value
-      }
-      // Recurse into children
-      for (var i = 0; i < node.nodes.length; i++) {
-        _findNodesToNormalize(
-          node.nodes[i],
-          [...currentPath, i],
-          paths,
-          wrappedValues,
-        );
-      }
-    } else if (node is YamlScalar) {
-      var value = node.value;
-      if (value is String &&
-          value.contains('\n') &&
-          node.style != ScalarStyle.LITERAL &&
-          node.style != ScalarStyle.FOLDED) {
-        paths.add(currentPath);
-        wrappedValues.add(wrapAsYamlNode(value, scalarStyle: ScalarStyle.LITERAL));
-      }
+      return null;
     }
   }
+
+  static bool _isFlow(YamlNode? node) =>
+      (node is YamlMap && node.style == CollectionStyle.FLOW) ||
+      (node is YamlList && node.style == CollectionStyle.FLOW);
 
   /// The parsed YAML root node (from `package:yaml`).
   ///
@@ -220,7 +191,7 @@ class YamlDocumentModel {
   /// The surrounding YAML is preserved; only the target value is replaced.
   YamlDocumentModel withValueAt(List<Object> path, Object? value) {
     var copy = YamlEditor(_editor.toString());
-    copy.update(_normalizePath(path), value);
+    copy.update(_normalizePath(path), _styled(path, value));
     return YamlDocumentModel._(copy);
   }
 
@@ -233,7 +204,10 @@ class YamlDocumentModel {
     Object? defaultValue,
   ) {
     var copy = YamlEditor(_editor.toString());
-    copy.update([..._normalizePath(parentPath), key], defaultValue);
+    copy.update(
+      [..._normalizePath(parentPath), key],
+      _styled([...parentPath, key], defaultValue),
+    );
     return YamlDocumentModel._(copy);
   }
 
@@ -288,9 +262,49 @@ class YamlDocumentModel {
   ///
   /// The last element in [path] is the key to remove.
   YamlDocumentModel withRemovedKey(List<Object> path) {
+    final lines = _removedEntryLines(path);
+    if (lines != null) return YamlDocumentModel.parse(lines);
     var copy = YamlEditor(_editor.toString());
     copy.remove(_normalizePath(path));
     return YamlDocumentModel._(copy);
+  }
+
+  /// The document without the entry at [path] of a block map, removed as
+  /// exactly its own lines — from the key's line to the value's last line —
+  /// so the blank lines and comments around it stay (`yaml_edit` also takes
+  /// the blank line after it). Null when the entry is not a block-map entry
+  /// whose key starts its line; the caller then uses `yaml_edit`.
+  String? _removedEntryLines(List<Object> path) {
+    if (path.isEmpty) return null;
+    final parent = _nodeOrNull(path.sublist(0, path.length - 1));
+    if (parent is! YamlMap || parent.style != CollectionStyle.BLOCK) {
+      return null;
+    }
+    final key = path.last;
+    final entry = parent.nodes.entries
+        .where((e) => (e.key as YamlNode).value?.toString() == '$key')
+        .firstOrNull;
+    if (entry == null || parent.nodes.length < 2) return null;
+    final keyNode = entry.key as YamlNode;
+    final text = _editor.toString();
+    final lineStart = text.lastIndexOf('\n', keyNode.span.start.offset - 1) + 1;
+    if (text.substring(lineStart, keyNode.span.start.offset).trim().isNotEmpty) {
+      return null;
+    }
+    // The value's last character: a block collection's span can reach past
+    // its content (over blank and comment lines), so the end is that of its
+    // last item, at any depth.
+    var end = _contentEnd(entry.value);
+    while (end > keyNode.span.end.offset &&
+        (text[end - 1] == '\n' || text[end - 1] == ' ')) {
+      end--;
+    }
+    final lineEnd = text.indexOf('\n', end);
+    return text.replaceRange(
+      lineStart,
+      lineEnd < 0 ? text.length : lineEnd + 1,
+      '',
+    );
   }
 
   /// Create a new document with the map key at [fromIndex] moved to [toIndex]
@@ -326,7 +340,10 @@ class YamlDocumentModel {
     trailEvent('model: withAppendedToList path=$listPath');
     try {
       var copy = YamlEditor(_editor.toString());
-      copy.appendToList(_normalizePath(listPath), value);
+      copy.appendToList(
+        _normalizePath(listPath),
+        _styled([...listPath, -1], value),
+      );
       return YamlDocumentModel._(copy);
     } catch (e, st) {
       trailEvent('model: withAppendedToList EXCEPTION: $e');
@@ -356,28 +373,11 @@ class YamlDocumentModel {
       var safeIndex = index.clamp(0, currentLength);
       trailEvent('model: withInsertedIntoList safeIndex=$safeIndex');
       
-      // Work around yaml_edit bug: appendToList/insertIntoList at end fails.
-      // Rebuild entire list with new item at correct position.
-      if (safeIndex == currentLength && currentLength > 0) {
-        trailEvent('model: using list-rebuild workaround for end insert');
-        // Extract all existing items as plain Dart values
-        var items = <Object?>[];
-        for (var i = 0; i < currentLength; i++) {
-          var itemNode = copy.parseAt([...normalizedPath, i]);
-          items.add(_toPlainDart(itemNode.value));
-        }
-        // Append the new value
-        items.add(_toPlainDart(value));
-        // Replace entire list
-        copy.update(normalizedPath, items);
-        trailEvent('model: withInsertedIntoList rebuild done');
-      } else if (currentLength == 0) {
-        // Empty list - appendToList should work for empty lists
-        trailEvent('model: using appendToList for empty list');
-        copy.appendToList(normalizedPath, value);
+      final styled = _styled([...listPath, -1], value);
+      if (safeIndex == currentLength) {
+        copy.appendToList(normalizedPath, styled);
       } else {
-        trailEvent('model: using insertIntoList at $safeIndex');
-        copy.insertIntoList(normalizedPath, safeIndex, value);
+        copy.insertIntoList(normalizedPath, safeIndex, styled);
       }
       return YamlDocumentModel._(copy);
     } catch (e, st) {
@@ -501,9 +501,9 @@ class YamlDocumentModel {
         extracted += '\n';
       }
 
-      // Normalize YAML styles (multiline strings → literal block, flow → block)
-      // then dedent to remove leading whitespace.
-      return _dedent(_normalizeYamlStyles(extracted));
+      // The subtree as the file has it, dedented: written back unchanged
+      // (replaceSubtreeRaw), it leaves the document as it was.
+      return _dedent(extracted);
     }
 
     // Fallback: re-serialize for scalar values or if span extraction failed.
@@ -513,7 +513,7 @@ class YamlDocumentModel {
     }
     var tempEditor = YamlEditor('');
     tempEditor.update([], value);
-    return _normalizeYamlStyles(tempEditor.toString());
+    return tempEditor.toString();
   }
 
   /// Remove common leading indentation from a multiline YAML fragment.

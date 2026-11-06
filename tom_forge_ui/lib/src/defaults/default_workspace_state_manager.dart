@@ -280,35 +280,48 @@ class DefaultWorkspaceStateManager implements ForgeWorkspaceStateManager {
     }
   }
 
-  // ── Gitignore ──
+  // ── Keeping the state out of git ──
 
   @override
-  Future<bool> isForgeInGitignore(String workspaceRootPath) async {
-    final file = File('$workspaceRootPath/.gitignore');
-    if (!await file.exists()) return false;
-    final content = await file.readAsString();
-    return content.split('\n').any((line) {
-      final trimmed = line.trim();
-      return trimmed == '.forge' || trimmed == '.forge/';
-    });
-  }
-
-  @override
-  Future<bool> suggestGitignore(String workspaceRootPath) async {
-    if (await isForgeInGitignore(workspaceRootPath)) return false;
-
-    final file = File('$workspaceRootPath/.gitignore');
-    String content;
-    if (await file.exists()) {
-      content = await file.readAsString();
-      if (!content.endsWith('\n')) content += '\n';
-      content += '.forge/\n';
-    } else {
-      content = '# Forge workspace state\n.forge/\n';
+  Future<ForgeStateIgnore> keepForgeStateOutOfGit(
+    String workspaceRootPath,
+  ) async {
+    Future<ProcessResult?> git(List<String> args) async {
+      try {
+        return await Process.run('git', ['-C', workspaceRootPath, ...args]);
+      } on ProcessException {
+        return null; // git is not installed
+      }
     }
-    await file.writeAsString(content);
-    _log('added .forge/ to .gitignore');
-    return true;
+
+    final inside = await git(['rev-parse', '--is-inside-work-tree']);
+    if (inside == null ||
+        inside.exitCode != 0 ||
+        '${inside.stdout}'.trim() != 'true') {
+      return ForgeStateIgnore.notInGit;
+    }
+    final ignored = await git(['check-ignore', '-q', '.forge/']);
+    if (ignored?.exitCode == 0) return ForgeStateIgnore.alreadyIgnored;
+
+    // The workspace's place in the repository, for an anchored pattern, and
+    // the clone's exclude file (also for a worktree or a submodule).
+    final prefix = await git(['rev-parse', '--show-prefix']);
+    final excludePath = await git(['rev-parse', '--git-path', 'info/exclude']);
+    if (prefix == null || excludePath == null) return ForgeStateIgnore.notInGit;
+    final relative = '${excludePath.stdout}'.trim();
+    final asGiven = File(relative);
+    final exclude = asGiven.isAbsolute
+        ? asGiven
+        : File('$workspaceRootPath${Platform.pathSeparator}$relative');
+    await exclude.parent.create(recursive: true);
+    var content = await exclude.exists() ? await exclude.readAsString() : '';
+    if (content.isNotEmpty && !content.endsWith('\n')) content += '\n';
+    content +=
+        '# Tom Forge workspace state (per machine)\n'
+        '/${'${prefix.stdout}'.trim()}.forge/\n';
+    await exclude.writeAsString(content);
+    _log('added .forge/ to ${exclude.path}');
+    return ForgeStateIgnore.addedToLocalExclude;
   }
 
   // ── Per-application state ──

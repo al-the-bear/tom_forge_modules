@@ -629,10 +629,9 @@ class _InMemoryWorkspaceStateManager implements ForgeWorkspaceStateManager {
   }
 
   @override
-  Future<bool> isForgeInGitignore(String workspaceRootPath) async => false;
-
-  @override
-  Future<bool> suggestGitignore(String workspaceRootPath) async => false;
+  Future<ForgeStateIgnore> keepForgeStateOutOfGit(
+    String workspaceRootPath,
+  ) async => ForgeStateIgnore.notInGit;
 
   @override
   void dispose() {}

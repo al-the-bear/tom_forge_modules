@@ -7,7 +7,7 @@
 /// - Persist and restore per-editor state (`state/editors/{uri-hash}.json`)
 /// - Create revision snapshots on save (`revisions/{uri-hash}/`)
 /// - Persist undo history per file (`undo/{uri-hash}.json`)
-/// - Suggest `.forge` for `.gitignore`
+/// - Keep `.forge/` out of git ([keepForgeStateOutOfGit])
 abstract class ForgeWorkspaceStateManager {
   /// Whether the `.forge/` directory has been initialized for the current
   /// workspace.
@@ -92,14 +92,30 @@ abstract class ForgeWorkspaceStateManager {
   /// Load configuration data from `.forge/config.json`.
   Future<Map<String, dynamic>?> loadConfig();
 
-  // ── Gitignore ──
+  // ── Keeping the state out of git ──
 
-  /// Check whether `.forge` is listed in the workspace `.gitignore`.
-  Future<bool> isForgeInGitignore(String workspaceRootPath);
-
-  /// Suggest adding `.forge` to `.gitignore`. Returns `true` if added.
-  Future<bool> suggestGitignore(String workspaceRootPath);
+  /// Keeps the workspace's `.forge/` out of git without editing a file the
+  /// workspace tracks: when [workspaceRootPath] lies in a git work tree whose
+  /// rules do not ignore `.forge/` yet — git itself answers, so every
+  /// `.gitignore` up to the repository root, `.git/info/exclude` and the
+  /// global excludes count — `.forge/` is added to that clone's
+  /// `.git/info/exclude` (the state is per machine). Answers what it found
+  /// or did.
+  Future<ForgeStateIgnore> keepForgeStateOutOfGit(String workspaceRootPath);
 
   /// Dispose resources.
   void dispose();
+}
+
+/// What [ForgeWorkspaceStateManager.keepForgeStateOutOfGit] found or did.
+enum ForgeStateIgnore {
+  /// The workspace is not in a git work tree (or git is not installed):
+  /// nothing to keep out.
+  notInGit,
+
+  /// git already ignores `.forge/`: nothing written.
+  alreadyIgnored,
+
+  /// `.forge/` was added to the clone's `.git/info/exclude`.
+  addedToLocalExclude,
 }
