@@ -1,4 +1,4 @@
-import 'package:tom_build_base/tom_build_base.dart' show yamlToMap;
+import 'package:tom_basics/utilities.dart' show tomYamlToPlain;
 import 'package:yaml/yaml.dart';
 
 import '../config/config_issue.dart';
@@ -147,7 +147,7 @@ SiteConfigResult loadSiteConfig(
   final Object? decoded;
   try {
     final doc = loadYaml(raw);
-    decoded = doc is YamlMap ? yamlToMap(doc) : doc;
+    decoded = tomYamlToPlain(doc);
   } on YamlException catch (error) {
     return SiteConfigResult(
       config: null,

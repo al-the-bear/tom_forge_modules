@@ -1,4 +1,4 @@
-import 'package:tom_build_base/tom_build_base.dart' show yamlToMap, toStringList;
+import 'package:tom_basics/utilities.dart' show tomYamlToPlain;
 import 'package:yaml/yaml.dart';
 
 import '../model/website_editor_config.dart';
@@ -33,7 +33,7 @@ ConfigLoadResult loadWebsiteEditorConfig(
   final Object? decoded;
   try {
     final doc = loadYaml(yamlSource, sourceUrl: Uri.tryParse(source));
-    decoded = doc is YamlMap ? yamlToMap(doc) : doc;
+    decoded = tomYamlToPlain(doc);
   } on YamlException catch (error) {
     return ConfigLoadResult(
       config: null,
@@ -63,7 +63,7 @@ WebsiteEditorConfig _buildConfig(Map<dynamic, dynamic> root) {
 ConfigDefaults _buildDefaults(Object? raw) {
   if (raw is! Map) return const ConfigDefaults();
   final shell = raw.containsKey('shell')
-      ? toStringList(raw['shell'])
+      ? _stringList(raw['shell'])
       : kDefaultShell;
   return ConfigDefaults(
     shell: shell,
@@ -94,7 +94,7 @@ WebsiteContentConfig? _buildContent(Object? raw) {
     site: raw['site'] as String? ?? kDefaultContentSite,
     pages: raw['pages'] as String? ?? kDefaultContentPages,
     editableFields: raw.containsKey('editableFields')
-        ? toStringList(raw['editableFields'])
+        ? _stringList(raw['editableFields'])
         : kDefaultEditableFields,
     manualPin: raw['manualPin'] as String? ?? kDefaultManualPin,
   );
@@ -107,3 +107,11 @@ Map<String, String> _stringMap(Object? raw) {
       entry.key.toString(): entry.value.toString(),
   };
 }
+
+/// A field that is one string or a list of them, as a list. The validator has
+/// already checked the shape; a scalar of another type is taken by its text.
+List<String> _stringList(Object? raw) => switch (raw) {
+      null => const [],
+      final List<Object?> list => [for (final item in list) item.toString()],
+      _ => [raw.toString()],
+    };

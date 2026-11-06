@@ -10,8 +10,10 @@ environment:
 
 dependencies:
   yaml: ^3.1.2
-  tom_build_base:
-    path: ../../tom_ai/basics/tom_build_base
+  # Reading YAML back as plain values (tomYamlToPlain). Not tom_build_base:
+  # it is CLI tooling, and its dcli would bring the LGPL `ini` into every app
+  # built on Forge.
+  tom_basics: ^3.3.0
 
 dev_dependencies:
   lints: ^6.0.0
