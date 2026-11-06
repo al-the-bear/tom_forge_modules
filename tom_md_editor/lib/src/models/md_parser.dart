@@ -1,6 +1,7 @@
 import '../constants/md_constants.dart';
 import '../debug/md_editor_debug.dart';
 import 'md_document.dart';
+import 'md_front_matter.dart';
 import 'md_section.dart';
 
 /// Parses raw markdown into an [MdDocument] model.
@@ -15,7 +16,13 @@ class MdParser {
       final sections = <MdSection>[];
       String? schemaId;
 
-      var i = 0;
+      // A leading YAML front matter block is not part of the document's
+      // structure: its lines are skipped, so a schema comment after it is
+      // still found and source line numbers stay those of the file.
+      final frontMatter = MdFrontMatter.of(markdown);
+      var i = frontMatter == null
+          ? 0
+          : '\n'.allMatches(markdown.substring(0, frontMatter.end)).length;
       // Scan leading non-heading lines for schema annotation.
       while (i < lines.length) {
         final line = lines[i].trim();
@@ -46,7 +53,9 @@ class MdParser {
 
           // Detect schema on first heading.
           if (sections.isEmpty && schemaId == null) {
-            final schemaMatch = MdConstants.schemaPattern.firstMatch(headlineRaw);
+            final schemaMatch = MdConstants.schemaPattern.firstMatch(
+              headlineRaw,
+            );
             if (schemaMatch != null) {
               schemaId = schemaMatch.group(1);
               headlineRaw = headlineRaw
@@ -65,8 +74,7 @@ class MdParser {
             if (metaRaw != null && metaRaw.trim().isNotEmpty) {
               commentMetadata = _parseCommentMetadata(metaRaw.trim());
             }
-            headlineRaw =
-                headlineRaw.replaceFirst(_sectionIdRegex, '').trim();
+            headlineRaw = headlineRaw.replaceFirst(_sectionIdRegex, '').trim();
           }
 
           final sectionStart = i;
@@ -83,15 +91,17 @@ class MdParser {
 
           final bodyText = _trimBody(bodyLines);
 
-          sections.add(MdSection(
-            headline: headlineRaw,
-            level: level,
-            id: sectionId,
-            commentMetadata: commentMetadata,
-            text: bodyText,
-            sourceLineStart: sectionStart,
-            sourceLineEnd: i,
-          ));
+          sections.add(
+            MdSection(
+              headline: headlineRaw,
+              level: level,
+              id: sectionId,
+              commentMetadata: commentMetadata,
+              text: bodyText,
+              sourceLineStart: sectionStart,
+              sourceLineEnd: i,
+            ),
+          );
         } else {
           i++;
         }
@@ -99,8 +109,16 @@ class MdParser {
 
       // Build hierarchy from flat list.
       final root = _buildHierarchy(sections);
-      final title =
-          root.isNotEmpty ? root.first.headline : null;
+      // Sections built above always carry their start line.
+      final int firstHeading = sections.isEmpty
+          ? lines.length
+          : sections.first.sourceLineStart!;
+      final preamble = firstHeading == 0
+          ? ''
+          : firstHeading >= lines.length
+          ? markdown
+          : '${lines.sublist(0, firstHeading).join('\n')}\n';
+      final title = root.isNotEmpty ? root.first.headline : null;
 
       MdEditorDebug.logger.info(
         'Parsed ${root.length} top-level sections, '
@@ -111,6 +129,7 @@ class MdParser {
         sections: root,
         title: title,
         schemaId: schemaId,
+        preamble: preamble,
       );
     } catch (e, st) {
       MdEditorDebug.logger.error('Failed to parse markdown', e, st);
@@ -121,7 +140,7 @@ class MdParser {
   /// Rebuild markdown string from an [MdDocument].
   static String toMarkdown(MdDocument document) {
     try {
-      final buffer = StringBuffer();
+      final buffer = StringBuffer(document.preamble);
       for (var i = 0; i < document.sections.length; i++) {
         if (i > 0) buffer.write('\n\n');
         buffer.write(document.sections[i].toMarkdown());

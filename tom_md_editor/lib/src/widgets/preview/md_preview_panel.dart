@@ -16,6 +16,7 @@ import 'svg_file_source.dart';
 
 import '../../controller/md_editor_controller.dart';
 import '../../debug/md_editor_debug.dart';
+import '../../models/md_front_matter.dart';
 import '../../models/md_section.dart';
 import '../../browser/md_follow_tail.dart';
 import '../../plugins/md_content_plugin.dart';
@@ -339,7 +340,13 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
 
   Widget _buildMarkdownView(MdBasicTheme basic, String markdown) {
     try {
-      var processed = markdown;
+      // A leading YAML front matter block is shown verbatim, before any other
+      // preprocessor sees it: read as Markdown it is a rule and a setext
+      // heading (`title: …` above the closing `---`).
+      var processed = MdFrontMatter.fence(
+        markdown,
+        infoString: _frontMatterTag,
+      );
       final contentMap = <String, List<String>>{};
       var taskIndex = 0;
 
@@ -1579,6 +1586,11 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
     final code = text.text;
     final blockLanguage = _language;
 
+    // The file's front matter, verbatim and not editable here.
+    if (blockLanguage == _frontMatterTag) {
+      return _FrontMatterBlock(text: code, theme: theme);
+    }
+
     // Inline form fields for schema form-type sections.
     if (blockLanguage != null && blockLanguage.startsWith('formfield-')) {
       final formIdx =
@@ -2555,6 +2567,55 @@ class _DraggableListBlockState extends State<_DraggableListBlock> {
         color: theme.textMuted,
         fontSize: theme.baseFontSize,
         fontWeight: isOrdered ? FontWeight.w500 : FontWeight.bold,
+      ),
+    );
+  }
+}
+
+/// The info string of the fenced block a file's front matter is shown in.
+const _frontMatterTag = 'tom-md-front-matter';
+
+/// A file's YAML front matter, shown as it is written, under a label saying
+/// what it is.
+class _FrontMatterBlock extends StatelessWidget {
+  const _FrontMatterBlock({required this.text, required this.theme});
+
+  final String text;
+  final MdBasicTheme theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey('md-front-matter'),
+      width: double.infinity,
+      padding: EdgeInsets.all(theme.blockPadding),
+      decoration: BoxDecoration(
+        color: theme.codeBackground,
+        border: Border.all(color: theme.codeBorder, width: 0.5),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Front matter',
+            style: TextStyle(
+              color: theme.textSecondary,
+              fontSize: theme.baseFontSize * 0.8,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 4),
+          SelectableText(
+            text,
+            style: TextStyle(
+              color: theme.text,
+              fontFamily: theme.monoFontFamily,
+              fontSize: theme.baseFontSize * 0.9,
+              height: theme.lineHeight,
+            ),
+          ),
+        ],
       ),
     );
   }

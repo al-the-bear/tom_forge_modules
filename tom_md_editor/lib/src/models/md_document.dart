@@ -8,7 +8,13 @@ class MdDocument {
     this.schemaId,
     this.path,
     this.lastModified,
+    this.preamble = '',
   });
+
+  /// Everything before the first heading, exactly as written: front matter,
+  /// a schema comment, introductory text. It belongs to no section and is
+  /// written back in front of them, so editing a section never drops it.
+  final String preamble;
 
   /// Top-level sections.
   final List<MdSection> sections;
@@ -48,6 +54,7 @@ class MdDocument {
       if (s.subsections.isEmpty) return 1;
       return 1 + s.subsections.map(depth).reduce((a, b) => a > b ? a : b);
     }
+
     if (sections.isEmpty) return 0;
     return sections.map(depth).reduce((a, b) => a > b ? a : b);
   }
