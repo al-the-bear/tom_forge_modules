@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' show AppExitResponse, AppExitType;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
@@ -450,9 +451,78 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     return close ?? false;
   }
 
+  /// Asks whether to quit although [objections] stand — the registry's
+  /// [ForgeApplicationRegistry.confirmQuit]: one dialog listing each
+  /// objecting application with its reason and its unsaved editors.
+  Future<bool> _confirmQuit(List<ForgeQuitObjection> objections) async {
+    if (!mounted) return false;
+    final quit = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        final theme = Theme.of(context);
+        return AlertDialog(
+          key: const Key('forge-quit-dialog'),
+          scrollable: true,
+          title: const Text('Quit while work is still open?'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final objection in objections)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        objection.application.title,
+                        style: theme.textTheme.titleSmall,
+                      ),
+                      if (objection.reason case final reason?) Text(reason),
+                      if (objection.unsavedEditors.isNotEmpty)
+                        Text(
+                          'Unsaved: ${objection.unsavedEditors.map((e) => e.title.value).join(', ')}',
+                        ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              key: const Key('forge-quit-cancel'),
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              key: const Key('forge-quit-anyway'),
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Quit anyway'),
+            ),
+          ],
+        );
+      },
+    );
+    return quit ?? false;
+  }
+
+  /// The platform's request to quit (a window close, the macOS Quit item,
+  /// the File menu's Quit): answered by the registry's [quit], so an
+  /// application with background work or unsaved editors is asked about
+  /// first. Registered for the scaffold's whole life.
+  late final AppLifecycleListener _exitListener = AppLifecycleListener(
+    onExitRequested: () async {
+      if (!mounted) return AppExitResponse.exit;
+      return await widget.shell.applications.quit()
+          ? AppExitResponse.exit
+          : AppExitResponse.cancel;
+    },
+  );
+
   void _attachApplications(DefaultShellApi shell) {
     shell.applications
       ..confirmClose = _confirmClose
+      ..confirmQuit = _confirmQuit
       ..listenable.addListener(_onApplicationsChanged);
   }
 
@@ -461,6 +531,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     applications.listenable.removeListener(_onApplicationsChanged);
     if (identical(applications.confirmClose, _confirmClose)) {
       applications.confirmClose = null;
+    }
+    if (identical(applications.confirmQuit, _confirmQuit)) {
+      applications.confirmQuit = null;
     }
     _unfollowBusyBadges();
   }
@@ -478,6 +551,25 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         },
         isEnabled: () => widget.shell.applications.all.length > 1,
         isVisible: () => true,
+      ),
+    );
+    // Quitting is the platform's exit request, so it is asked the one way a
+    // window close is (the exit listener above). macOS has the app menu's
+    // Quit item for it; the web has no exit.
+    widget.shell.actionRegistry.registerAction(
+      shell_action.ForgeAction(
+        id: 'forge.application.quit',
+        label: 'Quit',
+        menu: shell_action.ForgeMenuLocation.file,
+        execute: (_) async {
+          await ServicesBinding.instance.exitApplication(
+            AppExitType.cancelable,
+          );
+          return null;
+        },
+        isEnabled: () => true,
+        isVisible: () =>
+            !kIsWeb && defaultTargetPlatform != TargetPlatform.macOS,
       ),
     );
   }
@@ -521,6 +613,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   void initState() {
     super.initState();
     HardwareKeyboard.instance.addHandler(_recordKeyDown);
+    _exitListener;
     _application = widget.shell.applications.active;
     if (_application != null) _noteApplication(_application!);
     _attachApplications(widget.shell);
@@ -628,6 +721,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   @override
   void dispose() {
     HardwareKeyboard.instance.removeHandler(_recordKeyDown);
+    _exitListener.dispose();
     _detachApplications(widget.shell);
     for (final scope in _fullScreenScopes.values) {
       scope.dispose();

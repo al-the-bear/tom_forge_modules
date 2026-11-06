@@ -14,10 +14,7 @@ class PanelConfig {
   final double initialSize;
   final List<PanelTabConfig> tabs;
 
-  const PanelConfig({
-    this.initialSize = 250,
-    this.tabs = const [],
-  });
+  const PanelConfig({this.initialSize = 250, this.tabs = const []});
 }
 
 /// A tab within a panel.
@@ -38,10 +35,7 @@ class MiddlePanelConfig {
   final double flex;
   final List<MiddleTabConfig> tabs;
 
-  const MiddlePanelConfig({
-    this.flex = 1.0,
-    this.tabs = const [],
-  });
+  const MiddlePanelConfig({this.flex = 1.0, this.tabs = const []});
 }
 
 /// A tab in a middle panel pointing to an editor.
@@ -244,6 +238,33 @@ class _Fixed<T> implements ValueListenable<T> {
 typedef ForgeCloseConfirmer =
     Future<bool> Function(ForgeApplication application, String reason);
 
+/// What one open application has against quitting now: its lifecycle's
+/// [ForgeApplicationLifecycle.closing] veto, its editors with unsaved
+/// changes, or both.
+@immutable
+class ForgeQuitObjection {
+  const ForgeQuitObjection({
+    required this.application,
+    this.reason,
+    this.unsavedEditors = const [],
+  });
+
+  /// The application that objects.
+  final ForgeApplication application;
+
+  /// Its lifecycle's veto (e.g. "The queue is still sending three prompts"),
+  /// or null when only its editors object.
+  final String? reason;
+
+  /// Its open editors with unsaved changes, in tab order.
+  final List<ForgeEditor> unsavedEditors;
+}
+
+/// Asks the user whether to quit although [objections] (never empty) stand;
+/// true quits.
+typedef ForgeQuitConfirmer =
+    Future<bool> Function(List<ForgeQuitObjection> objections);
+
 /// What an application adds to the shell while it is the active one.
 ///
 /// Module contributions (`ForgeModule.actions` and the rest) are there for
@@ -376,6 +397,19 @@ abstract class ForgeApplicationRegistry {
   /// and tells its lifecycle [closed]. Answers whether it closed. The last
   /// application cannot be closed.
   Future<bool> close(String id);
+
+  /// Asks the shell before quitting while an application objects: set by
+  /// the shell that shows the applications. Without one an objection stands.
+  ForgeQuitConfirmer? confirmQuit;
+
+  /// Whether the shell may quit: asks every open application's lifecycle
+  /// ([ForgeApplicationLifecycle.closing]) and collects its editors with
+  /// unsaved changes, and when any objects asks [confirmQuit] with every
+  /// objection at once. True when nothing objects or the user quits anyway.
+  /// Closes nothing: the shell's disposal tells each application
+  /// [ForgeApplicationLifecycle.closed]. A second call while one is asking
+  /// answers with the first.
+  Future<bool> quit();
 
   /// Makes the open application [id] active.
   void activate(String id);

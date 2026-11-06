@@ -16,8 +16,7 @@ import '../shell/forge_system_state.dart';
 /// Uses [ValueNotifier] for mutable state and
 /// [StreamController.broadcast] for all event streams.
 /// Exposes setter methods for internal shell use.
-class DefaultSystemState
-    implements ForgeSystemState, ForgeApplicationRegistry {
+class DefaultSystemState implements ForgeSystemState, ForgeApplicationRegistry {
   static bool debugEnabled = false;
 
   final _focusedComponent = ValueNotifier<ForgeComponent?>(null);
@@ -527,6 +526,47 @@ class DefaultSystemState
     ];
     application.lifecycle.closed(application);
     return true;
+  }
+
+  @override
+  ForgeQuitConfirmer? confirmQuit;
+
+  /// The quit being asked, so a second request answers with it.
+  Future<bool>? _quitting;
+
+  @override
+  Future<bool> quit() =>
+      _quitting ??= _quit().whenComplete(() => _quitting = null);
+
+  Future<bool> _quit() async {
+    final objections = <ForgeQuitObjection>[];
+    for (final application in [..._applications.value]) {
+      final reason = await application.lifecycle.closing(application);
+      final unsaved = _unsavedEditorsOf(application);
+      if (reason == null && unsaved.isEmpty) continue;
+      objections.add(
+        ForgeQuitObjection(
+          application: application,
+          reason: reason,
+          unsavedEditors: unsaved,
+        ),
+      );
+    }
+    if (objections.isEmpty) return true;
+    final confirm = confirmQuit;
+    return confirm != null && await confirm(objections);
+  }
+
+  /// [application]'s open editors with unsaved changes: the shown ones for
+  /// the active application, the kept instances for any other.
+  List<ForgeEditor> _unsavedEditorsOf(ForgeApplication application) {
+    final editors = identical(application, _activeApplication)
+        ? _openEditors.value
+        : _liveEditorStates[application.id]?.editors ?? const <ForgeEditor>[];
+    return [
+      for (final editor in editors)
+        if (editor.isDirty.value) editor,
+    ];
   }
 
   @override

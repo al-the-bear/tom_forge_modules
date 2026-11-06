@@ -5,10 +5,16 @@
 /// closed. An application with background work keeps its state however many
 /// others are switched through, is closed only once its veto is answered, and
 /// shows what it is busy with in the application switcher.
+///
+/// Quitting (qim_none-2) asks every open application the same `closing`
+/// question and collects its unsaved editors: one dialog lists every
+/// objection, Cancel keeps the window, and nothing objecting quits without a
+/// question.
 library;
 
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' show AppExitResponse;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -248,6 +254,119 @@ void main() {
         reason: 'the last application cannot be closed',
       );
     });
+  });
+
+  group('quit', () {
+    test('QT-1: nothing objecting quits unasked; a veto or an unsaved editor '
+        'of any open application is one objection each, all asked at once, '
+        'and nothing is closed', () async {
+      final events = <String>[];
+      final registry = DefaultSystemState();
+      final forge = _app('forge', _Recorder('forge', events));
+      final quest = _app(
+        'quest',
+        _Recorder('quest', events, veto: 'The queue is still sending.'),
+      );
+      registry
+        ..add(forge)
+        ..add(quest);
+      var asked = <ForgeQuitObjection>[];
+      registry.confirmQuit = (objections) async {
+        asked = objections;
+        return false;
+      };
+
+      final plain = DefaultSystemState()
+        ..add(_app('forge', _Recorder('forge', events)));
+      plain.confirmQuit = (_) async => fail('nothing objects');
+      expect(await plain.quit(), isTrue);
+
+      // forge's editor is dirty and forge is then switched away from, so the
+      // editor is one of the instances kept for an inactive application.
+      final editor = _StubEditor('notes.md');
+      registry.addOpenEditor(editor);
+      editor._dirty.value = true;
+      registry.activate(quest.id);
+
+      expect(await registry.quit(), isFalse, reason: 'declined');
+      expect(asked.map((o) => o.application.id), ['forge', 'quest']);
+      expect(asked[0].reason, isNull);
+      expect(asked[0].unsavedEditors, [editor]);
+      expect(asked[1].reason, 'The queue is still sending.');
+      expect(asked[1].unsavedEditors, isEmpty);
+
+      registry.confirmQuit = (_) async => true;
+      expect(await registry.quit(), isTrue, reason: 'quit anyway');
+      registry.confirmQuit = null;
+      expect(await registry.quit(), isFalse, reason: 'no one to ask');
+      expect(events.where((e) => e.endsWith('closed')), isEmpty);
+      expect(registry.all, [forge, quest]);
+    });
+
+    testWidgets('QT-2: an exit request with a vetoing application shows its '
+        'reason and its unsaved editors; Cancel keeps the app, Quit anyway '
+        'quits', (tester) async {
+      final shell = _shell();
+      shell.applications
+        ..add(_app('forge', null))
+        ..add(
+          _app('quest', _Recorder('quest', [], veto: 'Three prompts left.')),
+          activate: true,
+        );
+      final editor = _StubEditor('plan.md');
+      (shell.systemState as DefaultSystemState).addOpenEditor(editor);
+      editor._dirty.value = true;
+      await tester.pumpWidget(_scaffold(shell));
+      await tester.pumpAndSettle();
+
+      var response = tester.binding.handleRequestAppExit();
+      await tester.pumpAndSettle();
+      final dialog = find.byKey(const Key('forge-quit-dialog'));
+      expect(dialog, findsOneWidget);
+      expect(
+        find.descendant(of: dialog, matching: find.text('quest')),
+        findsOneWidget,
+      );
+      expect(find.text('Three prompts left.'), findsOneWidget);
+      expect(find.text('Unsaved: plan.md'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('forge-quit-cancel')));
+      await tester.pumpAndSettle();
+      expect(await response, AppExitResponse.cancel);
+      expect(dialog, findsNothing);
+
+      response = tester.binding.handleRequestAppExit();
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('forge-quit-anyway')));
+      await tester.pumpAndSettle();
+      expect(await response, AppExitResponse.exit);
+    });
+
+    testWidgets('QT-3: an exit request with nothing objecting quits without a '
+        'question', (tester) async {
+      final shell = _shell();
+      shell.applications
+        ..add(_app('forge', null))
+        ..add(_app('quest', _Recorder('quest', [])));
+      await tester.pumpWidget(_scaffold(shell));
+      await tester.pumpAndSettle();
+
+      final response = tester.binding.handleRequestAppExit();
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('forge-quit-dialog')), findsNothing);
+      expect(await response, AppExitResponse.exit);
+    });
+
+    testWidgets('QT-4: Quit is a File action on desktop other than macOS, '
+        'where the app menu has it', (tester) async {
+      final shell = _shell();
+      shell.applications.add(_app('forge', null));
+      await tester.pumpWidget(_scaffold(shell));
+      await tester.pumpAndSettle();
+      final quit = shell.actionRegistry.getAction('forge.application.quit');
+      expect(quit, isNotNull);
+      expect(quit!.menu.name, 'file');
+      expect(quit.isVisible(), defaultTargetPlatform != TargetPlatform.macOS);
+    }, variant: TargetPlatformVariant.desktop());
   });
 
   group('shutdown', () {
