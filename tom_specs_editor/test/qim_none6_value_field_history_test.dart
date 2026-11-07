@@ -290,6 +290,100 @@ void main() {
     expect(controller.canUndo, isFalse, reason: 'one entry for the word');
   });
 
+  group('QIMN6 the caret after undo and redo', () {
+    /// Sets [field]'s text and caret, the way an input method does.
+    Future<void> input(
+      WidgetTester tester,
+      Finder field,
+      String text,
+      int caret,
+    ) async {
+      tester.testTextInput.updateEditingValue(
+        TextEditingValue(
+          text: text,
+          selection: TextSelection.collapsed(offset: caret),
+        ),
+      );
+      await tester.pump();
+    }
+
+    int caretOf(WidgetTester tester, Finder field) =>
+        tester.widget<TextField>(field).controller!.selection.extentOffset;
+
+    testWidgets('QIMN6-7: a form field: undo puts the caret before the typed '
+        'text, redo after it', (tester) async {
+      final controller = await _controller();
+      controller.setFormField(_header, 'author', 'Ada King');
+      // A form with a value is shown open: no chip to tap.
+      await _pump(tester, controller);
+      final field = _fieldOf(
+        find.byKey(const ValueKey('form:$_header/author')),
+      );
+      await tester.showKeyboard(field);
+      await input(tester, field, 'Ada King', 3);
+      await input(tester, field, 'Ada, King', 4);
+      await _pause(tester);
+      await input(tester, field, 'Ada, King', 0);
+
+      await controller.undo();
+      await tester.pump();
+      expect(controller.formField(_header, 'author'), 'Ada King');
+      expect(caretOf(tester, field), 3);
+
+      await controller.redo();
+      await tester.pump();
+      expect(controller.formField(_header, 'author'), 'Ada, King');
+      expect(caretOf(tester, field), 4);
+    });
+
+    testWidgets('QIMN6-8: a headline: undo puts the caret before the typed '
+        'text, redo after it', (tester) async {
+      final controller = await _controller();
+      controller.setContent(_overview, 'body');
+      controller.setHeadline(_overview, 'Garden Plan');
+      controller.save();
+      await _pump(tester, controller);
+      final field = _fieldOf(find.byKey(const ValueKey('headline:$_overview')));
+      await tester.showKeyboard(field);
+      await input(tester, field, 'Garden Plan', 6);
+      await input(tester, field, 'Garden: Plan', 7);
+      await _pause(tester);
+      await input(tester, field, 'Garden: Plan', 0);
+
+      await controller.undo();
+      await tester.pump();
+      expect(controller.headline(_overview), 'Garden Plan');
+      expect(caretOf(tester, field), 6);
+
+      await controller.redo();
+      await tester.pump();
+      expect(controller.headline(_overview), 'Garden: Plan');
+      expect(caretOf(tester, field), 7);
+    });
+
+    test('QIMN6-9: the restored caret names its field only, and an edit that '
+        'is not typing restores none', () async {
+      final controller = await _controller();
+      controller.typeContent(_overview, 'roses', caretBefore: 0, caret: 5);
+      controller.endTyping();
+      await controller.undo();
+      expect(controller.restoredCaretFor(_overview), 0);
+      expect(controller.restoredCaretFor(_header, field: 'author'), isNull);
+      expect(controller.restoredCaretFor(_overview, headline: true), isNull);
+      await controller.redo();
+      expect(controller.restoredCaretFor(_overview), 5);
+
+      controller.setContent(_overview, 'tulips');
+      await controller.undo();
+      expect(
+        controller.restoredCaretFor(_overview),
+        isNull,
+        reason: 'setContent is no typing gesture: the field puts the caret '
+            'at the end',
+      );
+    });
+  });
+
   group('QIMN6 undo keys reach the document', () {
     testWidgets('QIMN6-4: Ctrl+Z in a value field undoes the document, '
         'Ctrl+Shift+Z redoes it; the field follows', (tester) async {

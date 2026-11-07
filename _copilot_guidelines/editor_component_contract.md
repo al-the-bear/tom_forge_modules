@@ -72,7 +72,7 @@ their runs is in the contract test (EC-1, EC-2):
 | `ForgeMdEditor`, `ForgeDartEditor`, `ForgeYamlEditor`, `ForgePlainTextEditor` | `tom_forge_ui` | `tom_forge_ui/test/undo/adapters_undo_conformance_test.dart` |
 | `ForgeMarkdownFileEditor`, `ForgeYamlFileEditor`, `ForgeEnvFileEditor`, `ForgeTodoFileEditor` | `tom_forge_file_editors` | `tom_forge_file_editors/test/undo_conformance_test.dart` |
 | `WebsiteConfigEditor` | `tom_website_editor` | `tom_website_editor/test/website_config_editor_undo_conformance_test.dart` |
-| `SpecFileEditor` | `tom_specs_editor` | `tom_specs_editor/test/spec_file_editor_undo_conformance_test.dart` (the caret check skipped: `later12_akft-specs-editor-caret-on-undo`) |
+| `SpecFileEditor` | `tom_specs_editor` | `tom_specs_editor/test/spec_file_editor_undo_conformance_test.dart` |
 | `SpecDocumentEditor` | `tom_specs_editor` | covered by `SpecFileEditor`'s run, which adds only the file load, `getContent` and `replaceContent` to it |
 
 Test doubles in `tom_forge_ui/lib/src/testing/` (`ForgeTestTextEditor`) are

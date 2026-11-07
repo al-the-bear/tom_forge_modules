@@ -133,10 +133,5 @@ void main() {
   runForgeUndoConformance(
     'TomSpecs file editor',
     _SpecFileSubject.new,
-    skip: const {
-      ForgeUndoCheck.caretAfterUndoAndRedo:
-          'the document history records values, not the caret: '
-          'tom_forge later12_akft-specs-editor-caret-on-undo',
-    },
   );
 }

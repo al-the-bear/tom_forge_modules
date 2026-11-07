@@ -942,12 +942,14 @@ class SpecDocumentController extends ChangeNotifier {
   /// ended first, so it is what is undone.
   Future<void> undo() {
     endTyping();
+    _restoredCaret = null;
     return _undo.undo();
   }
 
   /// Redoes the most recently undone edit (or agent turn).
   Future<void> redo() {
     endTyping();
+    _restoredCaret = null;
     return _undo.redo();
   }
 
@@ -956,7 +958,33 @@ class SpecDocumentController extends ChangeNotifier {
   _TypingTarget? _typing;
   SpecDocumentState? _typingBefore;
   String? _typingStartValue;
+  int? _typingCaretBefore;
+  int? _typingCaretAfter;
   Timer? _typingPause;
+
+  /// Where the last undo or redo of a typing gesture left the caret.
+  _RestoredCaret? _restoredCaret;
+
+  /// The caret offset an undo or redo of a typing gesture left in the field
+  /// that shows [path] (its form [field], or its headline) — the caret before
+  /// the gesture after an undo, after it after a redo — or null when the last
+  /// undo or redo was not of that field's typing (the field then keeps the
+  /// caret at the end of the value it adopts). It stands until the next
+  /// typing or the next undo or redo, so every view of the field reads it.
+  int? restoredCaretFor(String path, {String? field, bool headline = false}) {
+    final restored = _restoredCaret;
+    if (restored == null) return null;
+    final target = _TypingTarget(
+      headline
+          ? _TypingKind.headline
+          : field != null
+          ? _TypingKind.formField
+          : _TypingKind.content,
+      path,
+      field,
+    );
+    return restored.target == target ? restored.offset : null;
+  }
 
   /// Whether typing in a field has not yet made its undo entry.
   bool get isTyping => _typing != null;
@@ -965,29 +993,69 @@ class SpecDocumentController extends ChangeNotifier {
   /// and the typing is one undo entry and one change-log entry per gesture —
   /// ended by [endTyping] (a caret move, a blur), by the typing pause, by
   /// typing in another field, or by any other edit, undo, redo or save.
-  void typeContent(String path, String value) =>
-      _type(_TypingTarget(_TypingKind.content, path), value);
+  ///
+  /// [caretBefore] and [caret] are the field's caret before and after this
+  /// keystroke: the gesture keeps the first and the last, and its undo puts
+  /// the caret back before the edit, its redo after it ([restoredCaretFor]).
+  void typeContent(
+    String path,
+    String value, {
+    int? caretBefore,
+    int? caret,
+  }) => _type(
+    _TypingTarget(_TypingKind.content, path),
+    value,
+    caretBefore: caretBefore,
+    caret: caret,
+  );
 
   /// Typing in the form [field] at [path], as [typeContent] does for content:
   /// one undo entry and one change-log entry per gesture.
-  void typeFormField(String path, String field, String value) =>
-      _type(_TypingTarget(_TypingKind.formField, path, field), value);
+  void typeFormField(
+    String path,
+    String field,
+    String value, {
+    int? caretBefore,
+    int? caret,
+  }) => _type(
+    _TypingTarget(_TypingKind.formField, path, field),
+    value,
+    caretBefore: caretBefore,
+    caret: caret,
+  );
 
   /// Typing in the headline at [path]: one undo entry per gesture, and — like
   /// [setHeadline] — no change-log entry (headlines are not part of the agent
   /// change log). At the gesture's end a headline equal to the
   /// [effectiveDefaultHeadline] is cleared, as [setHeadline] clears it.
-  void typeHeadline(String path, String value) =>
-      _type(_TypingTarget(_TypingKind.headline, path), value);
+  void typeHeadline(
+    String path,
+    String value, {
+    int? caretBefore,
+    int? caret,
+  }) => _type(
+    _TypingTarget(_TypingKind.headline, path),
+    value,
+    caretBefore: caretBefore,
+    caret: caret,
+  );
 
-  void _type(_TypingTarget target, String value) {
+  void _type(
+    _TypingTarget target,
+    String value, {
+    int? caretBefore,
+    int? caret,
+  }) {
     if (_typing != null && _typing != target) endTyping();
     if (_typing == null) {
       if (_valueAt(target) == value) return;
       _typing = target;
       _typingBefore = document.captureState();
       _typingStartValue = _valueAt(target);
+      _typingCaretBefore = caretBefore;
     }
+    _typingCaretAfter = caret;
+    _restoredCaret = null;
     _write(target, value);
     _typingPause?.cancel();
     _typingPause = Timer(forgeTypingPause, endTyping);
@@ -1024,6 +1092,13 @@ class SpecDocumentController extends ChangeNotifier {
     _typing = null;
     _typingBefore = null;
     final start = _typingStartValue;
+    final carets = (
+      target: target,
+      before: _typingCaretBefore,
+      after: _typingCaretAfter,
+    );
+    _typingCaretBefore = null;
+    _typingCaretAfter = null;
     final key = storagePathFor(target.path);
     switch (target.kind) {
       case _TypingKind.headline:
@@ -1031,11 +1106,12 @@ class SpecDocumentController extends ChangeNotifier {
         if (value.trim() == effectiveDefaultHeadline(target.path).trim()) {
           document.setHeadline(target.path, '');
         }
-        _commitDocMutation(before);
+        _commitDocMutation(before, carets: carets);
       case _TypingKind.content:
         final value = _valueAt(target);
         _commit(
           before,
+          carets: carets,
           () => ChangeEntry(
             id: _nextEntryId(),
             sectionId: key,
@@ -1052,6 +1128,7 @@ class SpecDocumentController extends ChangeNotifier {
         final value = _valueAt(target);
         _commit(
           before,
+          carets: carets,
           () => ChangeEntry(
             id: _nextEntryId(),
             sectionId: key,
@@ -1073,6 +1150,8 @@ class SpecDocumentController extends ChangeNotifier {
     _typingPause = null;
     _typing = null;
     _typingBefore = null;
+    _typingCaretBefore = null;
+    _typingCaretAfter = null;
   }
 
   /// The state before an edit: typing in progress becomes its own entry first.
@@ -1273,42 +1352,43 @@ class SpecDocumentController extends ChangeNotifier {
   /// part of the agent change log (headline / list-item id edits, YRD9). Undo,
   /// redo, and dirty tracking work exactly as for content edits; only the
   /// change-log/turn machinery is skipped. A no-op edit snapshots nothing.
-  void _commitDocMutation(SpecDocumentState before) {
+  void _commitDocMutation(SpecDocumentState before, {_GestureCarets? carets}) {
     final after = document.captureState();
     if (before.fingerprint == after.fingerprint) return;
-    _undo.push(
-      UndoEntry(
-        undo: () async {
-          document.restoreState(before);
-          notifyListeners();
-        },
-        redo: () async {
-          document.restoreState(after);
-          notifyListeners();
-        },
-      ),
-    );
+    _undo.push(_snapshotEntry(before, after, carets));
     notifyListeners();
   }
+
+  /// The undo entry that restores [before] or [after]; for a typing gesture
+  /// ([carets]) it also records where the caret goes in its field.
+  UndoEntry _snapshotEntry(
+    SpecDocumentState before,
+    SpecDocumentState after,
+    _GestureCarets? carets,
+  ) => UndoEntry(
+    undo: () async {
+      document.restoreState(before);
+      _restoredCaret = _RestoredCaret.of(carets?.target, carets?.before);
+      notifyListeners();
+    },
+    redo: () async {
+      document.restoreState(after);
+      _restoredCaret = _RestoredCaret.of(carets?.target, carets?.after);
+      notifyListeners();
+    },
+  );
 
   /// Pushes the before→after snapshot pair and records [makeEntry] — unless the
   /// edit changed nothing (no-op edits don't snapshot or record,
   /// `tom_specs_editor_specification.md` §10).
-  void _commit(SpecDocumentState before, ChangeEntry Function() makeEntry) {
+  void _commit(
+    SpecDocumentState before,
+    ChangeEntry Function() makeEntry, {
+    _GestureCarets? carets,
+  }) {
     final after = document.captureState();
     if (before.fingerprint == after.fingerprint) return;
-    _undo.push(
-      UndoEntry(
-        undo: () async {
-          document.restoreState(before);
-          notifyListeners();
-        },
-        redo: () async {
-          document.restoreState(after);
-          notifyListeners();
-        },
-      ),
-    );
+    _undo.push(_snapshotEntry(before, after, carets));
     changeLog.record(makeEntry());
     notifyListeners();
   }
@@ -1325,6 +1405,20 @@ class SpecDocumentController extends ChangeNotifier {
 }
 
 enum _TypingKind { content, formField, headline }
+
+/// A typing gesture's field and its caret before and after.
+typedef _GestureCarets = ({_TypingTarget target, int? before, int? after});
+
+/// Where an undo or redo of a typing gesture left the caret.
+class _RestoredCaret {
+  const _RestoredCaret(this.target, this.offset);
+
+  final _TypingTarget target;
+  final int offset;
+
+  static _RestoredCaret? of(_TypingTarget? target, int? offset) =>
+      target == null || offset == null ? null : _RestoredCaret(target, offset);
+}
 
 /// The value typing writes to: a content, form-field or headline value.
 @immutable

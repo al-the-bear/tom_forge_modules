@@ -436,8 +436,17 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
               headlineDefault: _controller.effectiveDefaultHeadline(
                 _rootSeg(root),
               ),
-              onHeadlineChanged: (v) =>
-                  _controller.typeHeadline(_rootSeg(root), v),
+              onHeadlineChanged: (v, before, caret) =>
+                  _controller.typeHeadline(
+                    _rootSeg(root),
+                    v,
+                    caretBefore: before,
+                    caret: caret,
+                  ),
+              headlineCaret: () => _controller.restoredCaretFor(
+                _rootSeg(root),
+                headline: true,
+              ),
               document: _controller,
             ),
             if (cls != null)
@@ -525,7 +534,13 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
     headlineEditable: !_strict,
     headlineValue: _controller.headline(path),
     headlineDefault: _controller.effectiveDefaultHeadline(path),
-    onHeadlineChanged: (v) => _controller.typeHeadline(path, v),
+    onHeadlineChanged: (v, before, caret) => _controller.typeHeadline(
+      path,
+      v,
+      caretBefore: before,
+      caret: caret,
+    ),
+    headlineCaret: () => _controller.restoredCaretFor(path, headline: true),
     document: _controller,
   );
 
@@ -570,7 +585,13 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
         minLines: multiline ? 3 : 1,
         maxLines: multiline ? 8 : 1,
         document: _controller,
-        onTyped: (v) => _controller.typeContent(path, v),
+        onTyped: (v, before, caret) => _controller.typeContent(
+          path,
+          v,
+          caretBefore: before,
+          caret: caret,
+        ),
+        restoredCaret: () => _controller.restoredCaretFor(path),
       ),
     );
   }
@@ -618,7 +639,15 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
                     value: _controller.formField(path, ff.name) ?? '',
                     hint: ff.hint,
                     document: _controller,
-                    onTyped: (v) => _controller.typeFormField(path, ff.name, v),
+                    onTyped: (v, before, caret) => _controller.typeFormField(
+                      path,
+                      ff.name,
+                      v,
+                      caretBefore: before,
+                      caret: caret,
+                    ),
+                    restoredCaret: () =>
+                        _controller.restoredCaretFor(path, field: ff.name),
                   ),
                 ],
               ),
@@ -654,7 +683,15 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
               // (item 4); the id from the @SectionIdPattern generator on add.
               headline: _titleFor(itemPath),
               idValue: _controller.itemSectionId(itemPath),
-              onHeadlineChanged: (v) => _controller.typeHeadline(itemPath, v),
+              onHeadlineChanged: (v, before, caret) =>
+                  _controller.typeHeadline(
+                    itemPath,
+                    v,
+                    caretBefore: before,
+                    caret: caret,
+                  ),
+              headlineCaret: () =>
+                  _controller.restoredCaretFor(itemPath, headline: true),
               onIdChanged: (v) => _controller.setItemSectionId(itemPath, v),
               document: _controller,
               child: (elem == null || recursive)
@@ -746,6 +783,7 @@ class _NodeHeader extends StatelessWidget {
     this.headlineValue,
     this.headlineDefault = '',
     this.onHeadlineChanged,
+    this.headlineCaret,
     this.document,
     this.diagnostics = const [],
   });
@@ -773,7 +811,13 @@ class _NodeHeader extends StatelessWidget {
 
   /// The effective default headline (YRD4), used as the field's prefill/hint.
   final String headlineDefault;
-  final ValueChanged<String>? onHeadlineChanged;
+
+  /// A keystroke in the headline: the new value, the caret before and after.
+  final _TypedValue? onHeadlineChanged;
+
+  /// The caret an undo or redo of the headline's typing left (see
+  /// `SpecDocumentController.restoredCaretFor`).
+  final int? Function()? headlineCaret;
 
   @override
   Widget build(BuildContext context) {
@@ -795,7 +839,8 @@ class _NodeHeader extends StatelessWidget {
                       bold: true,
                       document: document!,
                       typing: true,
-                      onCommitted: onHeadlineChanged!,
+                      onTyped: onHeadlineChanged,
+                      restoredCaret: headlineCaret,
                     )
                   : SpecMarkdown(isHeading ? '## $label' : '**$label**'),
             ),
@@ -895,15 +940,27 @@ class _HeaderEditField extends StatefulWidget {
   const _HeaderEditField({
     super.key,
     required this.value,
-    required this.onCommitted,
     required this.document,
     required this.typing,
+    this.onCommitted,
+    this.onTyped,
+    this.restoredCaret,
     this.hint,
     this.bold = false,
-  });
+  }) : assert(typing ? onTyped != null : onCommitted != null);
 
   final String value;
-  final ValueChanged<String> onCommitted;
+
+  /// A section id ([typing] false): the text, on Enter or focus loss.
+  final ValueChanged<String>? onCommitted;
+
+  /// A headline ([typing] true): each keystroke, with the caret before and
+  /// after it.
+  final _TypedValue? onTyped;
+
+  /// The caret an undo or redo of the headline's typing left, read when the
+  /// field adopts a value.
+  final int? Function()? restoredCaret;
 
   /// The document whose history the field's undo and redo are.
   final SpecDocumentController document;
@@ -924,13 +981,25 @@ class _HeaderEditFieldState extends State<_HeaderEditField> {
   )..addListener(_onControllerChanged);
   late final FocusNode _focus = FocusNode()..addListener(_onFocusChange);
   late String _text = widget.value;
+  late int _caret = widget.value.length;
+
+  /// Set while the field adopts a value from the document: that is no
+  /// gesture of the user's (and it runs during a build).
+  bool _reseeding = false;
 
   void _onControllerChanged() {
+    if (_reseeding) return;
+    final caret = _ctrl.selection.isValid
+        ? _ctrl.selection.extentOffset
+        : _ctrl.text.length;
     if (_ctrl.text != _text) {
       _text = _ctrl.text;
-      if (widget.typing) widget.onCommitted(_text);
+      final before = _caret;
+      _caret = caret;
+      if (widget.typing) widget.onTyped!(_text, before, caret);
       return;
     }
+    _caret = caret;
     // A caret move ends a headline's typing gesture.
     if (widget.typing) widget.document.endTyping();
   }
@@ -945,15 +1014,26 @@ class _HeaderEditFieldState extends State<_HeaderEditField> {
       return;
     }
     if (_ctrl.text == widget.value) return;
-    widget.onCommitted(_ctrl.text);
+    widget.onCommitted!(_ctrl.text);
   }
 
   void _reseed() {
     _text = widget.value;
-    _ctrl.value = TextEditingValue(
-      text: widget.value,
-      selection: TextSelection.collapsed(offset: widget.value.length),
-    );
+    // Where an undo or redo of this headline's typing left the caret; any
+    // other adopted value puts it at the end.
+    final restored = widget.restoredCaret?.call();
+    _caret = restored != null && restored <= widget.value.length
+        ? restored
+        : widget.value.length;
+    _reseeding = true;
+    try {
+      _ctrl.value = TextEditingValue(
+        text: widget.value,
+        selection: TextSelection.collapsed(offset: _caret),
+      );
+    } finally {
+      _reseeding = false;
+    }
   }
 
   void _undo() {
@@ -1040,6 +1120,7 @@ class _ListItem extends StatelessWidget {
     required this.headline,
     required this.idValue,
     required this.onHeadlineChanged,
+    required this.headlineCaret,
     required this.onIdChanged,
     required this.document,
     required this.child,
@@ -1061,7 +1142,8 @@ class _ListItem extends StatelessWidget {
   /// The item's stored section id (YRD3), or `null` while none is stored.
   final String? idValue;
 
-  final ValueChanged<String> onHeadlineChanged;
+  final _TypedValue onHeadlineChanged;
+  final int? Function() headlineCaret;
   final ValueChanged<String> onIdChanged;
 
   /// The document the headline types into and the id commits to.
@@ -1095,7 +1177,8 @@ class _ListItem extends StatelessWidget {
                   bold: true,
                   document: document,
                   typing: true,
-                  onCommitted: onHeadlineChanged,
+                  onTyped: onHeadlineChanged,
+                  restoredCaret: headlineCaret,
                 ),
               ),
               const SizedBox(width: 6),
@@ -1228,7 +1311,13 @@ class _CodeField extends StatelessWidget {
       minLines: 3,
       maxLines: 12,
       document: history.controller,
-      onTyped: (code) => history.controller.typeContent(history.path, code),
+      onTyped: (code, before, caret) => history.controller.typeContent(
+        history.path,
+        code,
+        caretBefore: before,
+        caret: caret,
+      ),
+      restoredCaret: () => history.controller.restoredCaretFor(history.path),
     );
   }
 }
@@ -1362,19 +1451,30 @@ class _LayoutField extends StatelessWidget {
 /// `notifyListeners`); it re-seeds its text only when an external change (an
 /// undo, an agent edit) makes the incoming [value] diverge from what it
 /// shows.
+/// A keystroke in a value field: the new [value], and the caret before and
+/// after it.
+typedef _TypedValue = void Function(String value, int caretBefore, int caret);
+
 class _ValueField extends StatefulWidget {
   const _ValueField({
     super.key,
     required this.value,
     required this.onTyped,
     required this.document,
+    required this.restoredCaret,
     this.minLines = 1,
     this.maxLines = 1,
     this.hint,
   });
 
   final String value;
-  final ValueChanged<String> onTyped;
+
+  /// A keystroke: the new value, and the caret before and after it.
+  final _TypedValue onTyped;
+
+  /// The caret the document's last undo or redo left in this field (the
+  /// controller's `restoredCaretFor`), read when the field adopts a value.
+  final int? Function() restoredCaret;
 
   /// The document whose history the field's typing, undo and redo are.
   final SpecDocumentController document;
@@ -1393,6 +1493,10 @@ class _ValueFieldState extends State<_ValueField> {
   late final FocusNode _focus = FocusNode()..addListener(_onFocusChanged);
   late String _text = widget.value;
 
+  /// The caret as last seen, and the caret before the latest text change.
+  late int _caret = widget.value.length;
+  late int _caretBeforeChange = _caret;
+
   /// Set while the field adopts a value from the document: that is no
   /// gesture of the user's (and it runs during a build).
   bool _reseeding = false;
@@ -1400,11 +1504,17 @@ class _ValueFieldState extends State<_ValueField> {
   /// A caret move without a text change ends the typing gesture.
   void _onControllerChanged() {
     if (_reseeding) return;
+    final caret = _ctrl.selection.isValid
+        ? _ctrl.selection.extentOffset
+        : _ctrl.text.length;
     if (_ctrl.text == _text) {
+      _caret = caret;
       widget.document.endTyping();
       return;
     }
     _text = _ctrl.text;
+    _caretBeforeChange = _caret;
+    _caret = caret;
   }
 
   void _onFocusChanged() {
@@ -1416,11 +1526,17 @@ class _ValueFieldState extends State<_ValueField> {
     super.didUpdateWidget(oldWidget);
     if (widget.value != _ctrl.text) {
       _text = widget.value;
+      // Where an undo or redo of this field's typing left the caret; any
+      // other adopted value puts it at the end.
+      final restored = widget.restoredCaret();
+      _caret = restored != null && restored <= widget.value.length
+          ? restored
+          : widget.value.length;
       _reseeding = true;
       try {
         _ctrl.value = TextEditingValue(
           text: widget.value,
-          selection: TextSelection.collapsed(offset: widget.value.length),
+          selection: TextSelection.collapsed(offset: _caret),
         );
       } finally {
         _reseeding = false;
@@ -1459,7 +1575,7 @@ class _ValueFieldState extends State<_ValueField> {
             vertical: 6,
           ),
         ),
-        onChanged: widget.onTyped,
+        onChanged: (value) => widget.onTyped(value, _caretBeforeChange, _caret),
       ),
     );
   }
