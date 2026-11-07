@@ -4,12 +4,11 @@
 /// mermaid fences rendered as diagrams in the preview.
 library;
 
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:tom_editors_shared/tom_editors_shared.dart' show MermaidWebView;
+import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_md_editor/tom_md_editor.dart';
 
 const _root = '/ws';
@@ -121,27 +120,31 @@ void main() {
       expect(f.following, isTrue);
     });
 
-    test('BR-6: a growing file is shown as it grows', () async {
-      final dir = Directory.systemTemp.createTempSync('wonecmpc24_');
-      addTearDown(() => dir.deleteSync(recursive: true));
-      final file = File(p.join(dir.path, 'live-trail.md'))..writeAsStringSync('# Trail\n');
+    test('BR-6: a growing file is shown as it grows, read through the '
+        'file system', () async {
+      final fs = TomMemoryFileSystem(
+        root: Uri.directory('/ws'),
+        seed: {'/ws/live-trail.md': '# Trail\n'},
+      );
+      final file = fs.uriOf('live-trail.md');
       final c = MdEditorController();
       addTearDown(c.dispose);
       final follower = MdFileFollower(
         controller: c,
-        path: file.path,
+        fileSystem: fs,
+        uri: file,
         interval: const Duration(milliseconds: 20),
       );
       addTearDown(follower.stop);
       await follower.start();
       expect(c.markdown, '# Trail\n');
-      file.writeAsStringSync('\nentry 1\n', mode: FileMode.append);
+      await fs.writeText(file, '# Trail\n\nentry 1\n');
       for (var i = 0; i < 100 && !c.markdown.contains('entry 1'); i++) {
         await Future<void>.delayed(const Duration(milliseconds: 20));
       }
       expect(c.markdown, '# Trail\n\nentry 1\n');
       expect(c.isDirty.value, isFalse);
-      file.deleteSync();
+      await fs.delete(file);
       await follower.check();
       expect(c.markdown, contains('entry 1'), reason: 'the last content stays');
     });

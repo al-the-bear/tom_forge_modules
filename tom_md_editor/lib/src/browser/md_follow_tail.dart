@@ -5,9 +5,9 @@
 library;
 
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:tom_file_system/tom_file_system.dart';
 
 import '../controller/md_editor_controller.dart';
 
@@ -39,19 +39,26 @@ class MdFollowTail extends ChangeNotifier {
   }
 }
 
-/// Keeps a controller showing a file that grows: the file is read whenever
-/// its size or modification time changes (polled, which also works where a
-/// native watch does not — a file behind a symlink), and shown as content
-/// from outside. A file that goes away leaves the last content shown.
+/// Keeps a controller showing a file that grows: the file is read through
+/// [fileSystem] whenever its size or modification time changes (polled,
+/// which also works where a native watch does not — a file behind a
+/// symlink), and shown as content from outside. A file that goes away leaves
+/// the last content shown.
 class MdFileFollower {
   MdFileFollower({
     required this.controller,
-    required this.path,
+    required this.fileSystem,
+    required this.uri,
     this.interval = const Duration(seconds: 1),
   });
 
   final MdEditorController controller;
-  final String path;
+
+  /// The file system [uri] is read through.
+  final TomFileSystem fileSystem;
+
+  /// The file followed.
+  final Uri uri;
   final Duration interval;
 
   Timer? _timer;
@@ -73,21 +80,20 @@ class MdFileFollower {
 
   /// Reads the file if it changed since the last read.
   Future<void> check() async {
-    final file = File(path);
-    final FileStat stat;
+    final TomFileEntry? entry;
     try {
-      stat = await file.stat();
-    } on FileSystemException {
+      entry = await fileSystem.stat(uri);
+    } on Exception {
       return;
     }
-    if (stat.type == FileSystemEntityType.notFound) return;
-    if (stat.size == _length && stat.modified == _modified) return;
-    _length = stat.size;
-    _modified = stat.modified;
+    if (entry == null) return;
+    if (entry.size == _length && entry.modified == _modified) return;
+    _length = entry.size;
+    _modified = entry.modified;
     final String text;
     try {
-      text = await file.readAsString();
-    } on FileSystemException {
+      text = await fileSystem.readText(uri);
+    } on Exception {
       return;
     }
     if (text != controller.markdown) controller.replaceContent(text);

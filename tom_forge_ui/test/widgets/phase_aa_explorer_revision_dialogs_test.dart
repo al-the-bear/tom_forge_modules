@@ -214,7 +214,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.runAsync(() async {
-        await workspaceState.initialize(harness.workspaceRoot);
+        await workspaceState.initialize(harness.fileSystem);
         harness.shell.layout.openFile(fileUri);
         await Future<void>.delayed(Duration.zero);
       });
@@ -248,7 +248,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.runAsync(() async {
-        await workspaceState.initialize(harness.workspaceRoot);
+        await workspaceState.initialize(harness.fileSystem);
         revisionId =
             (await workspaceState.createRevision(fileUri, 'snap-1'))!;
         harness.shell.layout.openFile(fileUri);
@@ -277,7 +277,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.runAsync(() async {
-        await workspaceState.initialize(harness.workspaceRoot);
+        await workspaceState.initialize(harness.fileSystem);
         await workspaceState.createRevision(fileUri, 'restorable-content');
         await harness.fileSystem.writeText(fileUri, 'new-content');
         harness.shell.layout.openFile(fileUri);
@@ -404,7 +404,8 @@ class _PhaseAAHarness {
         '$workspaceRoot/src/nested/deep.txt': 'deep content\n',
       },
     );
-    final workspaceState = _InMemoryWorkspaceStateManager();
+    // The shell's own state manager, over the harness's in-memory files.
+    final workspaceState = DefaultWorkspaceStateManager();
     final shell = DefaultShellApi.withDefaultsAndFileSystem(
       fileSystem: fileSystem,
       workspaceState: workspaceState,
@@ -480,172 +481,6 @@ class _PhaseAAHarness {
       ),
     );
   }
-}
-
-class _InMemoryWorkspaceStateManager implements ForgeWorkspaceStateManager {
-  bool _initialized = false;
-  String _workspaceRoot = '';
-  final Map<String, Map<String, dynamic>> _applicationStates = {};
-  final Map<String, Map<String, dynamic>> _editorState = {};
-  final Map<String, List<_RevisionSnapshot>> _revisions = {};
-  final Map<String, List<Map<String, dynamic>>> _undoHistory = {};
-  Map<String, dynamic>? _config;
-  Map<String, Object?>? _openApplications;
-  int _revisionCounter = 0;
-
-  @override
-  Future<void> saveOpenApplications(Map<String, Object?> snapshot) async {
-    _openApplications = snapshot;
-  }
-
-  @override
-  Future<Map<String, Object?>?> loadOpenApplications() async =>
-      _openApplications;
-
-  @override
-  bool get isInitialized => _initialized;
-
-  @override
-  String get forgeDirectoryPath =>
-      _workspaceRoot.isEmpty ? '' : '$_workspaceRoot/.forge';
-
-  @override
-  Future<bool> initialize(String workspaceRootPath) async {
-    final isNew = !_initialized;
-    _workspaceRoot = workspaceRootPath;
-    _initialized = true;
-    return isNew;
-  }
-
-  @override
-  Future<String?> detectWorkspaceRoot(String startPath) async {
-    if (_workspaceRoot.isNotEmpty && startPath.startsWith(_workspaceRoot)) {
-      return _workspaceRoot;
-    }
-    return null;
-  }
-
-  @override
-  Future<void> saveApplicationState(
-    String appId,
-    Map<String, dynamic> state,
-  ) async {
-    _applicationStates[appId] = Map<String, dynamic>.from(state);
-  }
-
-  @override
-  Future<Map<String, dynamic>?> loadApplicationState(String appId) async {
-    final state = _applicationStates[appId];
-    return state == null ? null : Map<String, dynamic>.from(state);
-  }
-
-  @override
-  Future<void> deleteApplicationState(String appId) async {
-    _applicationStates.remove(appId);
-  }
-
-  @override
-  Future<void> saveEditorState(Uri editorUri, Map<String, dynamic> state) async {
-    _editorState[editorUri.toString()] = Map<String, dynamic>.from(state);
-  }
-
-  @override
-  Future<Map<String, dynamic>?> loadEditorState(Uri editorUri) async {
-    final state = _editorState[editorUri.toString()];
-    if (state == null) return null;
-    return Map<String, dynamic>.from(state);
-  }
-
-  @override
-  Future<String?> createRevision(Uri fileUri, String content) async {
-    final key = _fileKey(fileUri);
-    final list = _revisions.putIfAbsent(key, () => <_RevisionSnapshot>[]);
-    if (list.isNotEmpty && list.last.content == content) {
-      return null;
-    }
-    _revisionCounter += 1;
-    final id = '${DateTime.now().millisecondsSinceEpoch}_$_revisionCounter';
-    list.add(_RevisionSnapshot(id: id, content: content));
-    return id;
-  }
-
-  @override
-  Future<List<String>> listRevisions(Uri fileUri) async {
-    final list = _revisions[_fileKey(fileUri)] ?? const <_RevisionSnapshot>[];
-    return list.reversed.map((r) => r.id).toList(growable: false);
-  }
-
-  @override
-  Future<String?> readRevision(Uri fileUri, String revisionId) async {
-    final list = _revisions[_fileKey(fileUri)] ?? const <_RevisionSnapshot>[];
-    for (final revision in list) {
-      if (revision.id == revisionId) return revision.content;
-    }
-    return null;
-  }
-
-  @override
-  Future<void> deleteRevision(Uri fileUri, String revisionId) async {
-    final list = _revisions[_fileKey(fileUri)];
-    list?.removeWhere((revision) => revision.id == revisionId);
-  }
-
-  @override
-  Future<int> pruneRevisions(Uri fileUri, {int maxRevisions = 50}) async {
-    final list = _revisions[_fileKey(fileUri)];
-    if (list == null || list.length <= maxRevisions) return 0;
-    final removed = list.length - maxRevisions;
-    list.removeRange(0, removed);
-    return removed;
-  }
-
-  @override
-  Future<void> saveUndoHistory(
-    Uri fileUri,
-    List<Map<String, dynamic>> entries,
-  ) async {
-    _undoHistory[_fileKey(fileUri)] = entries
-        .map((entry) => Map<String, dynamic>.from(entry))
-        .toList(growable: false);
-  }
-
-  @override
-  Future<List<Map<String, dynamic>>> loadUndoHistory(Uri fileUri) async {
-    final entries = _undoHistory[_fileKey(fileUri)] ?? const [];
-    return entries
-        .map((entry) => Map<String, dynamic>.from(entry))
-        .toList(growable: false);
-  }
-
-  @override
-  Future<void> saveConfig(Map<String, dynamic> configData) async {
-    _config = Map<String, dynamic>.from(configData);
-  }
-
-  @override
-  Future<Map<String, dynamic>?> loadConfig() async {
-    if (_config == null) return null;
-    return Map<String, dynamic>.from(_config!);
-  }
-
-  @override
-  Future<ForgeStateIgnore> keepForgeStateOutOfGit(
-    String workspaceRootPath,
-  ) async => ForgeStateIgnore.notInGit;
-
-  @override
-  void dispose() {}
-
-  String _fileKey(Uri uri) {
-    return uri.replace(queryParameters: const {}, fragment: '').toString();
-  }
-}
-
-class _RevisionSnapshot {
-  const _RevisionSnapshot({required this.id, required this.content});
-
-  final String id;
-  final String content;
 }
 
 class _StaticDecorationProvider implements ForgeFileDecorationProvider {

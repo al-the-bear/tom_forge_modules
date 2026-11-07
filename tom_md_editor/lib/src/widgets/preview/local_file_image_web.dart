@@ -9,3 +9,10 @@ Widget svgFromFileUri(Uri uri) => throw UnsupportedError(
       'file: URIs cannot be read in a browser; the caller must check kIsWeb '
       'before asking for $uri',
     );
+
+/// See [svgFromFileUri]: not called on the web.
+Widget imageFromFileUri(Uri uri, {ImageErrorWidgetBuilder? errorBuilder}) =>
+    throw UnsupportedError(
+      'file: URIs cannot be read in a browser; the caller must check kIsWeb '
+      'before asking for $uri',
+    );

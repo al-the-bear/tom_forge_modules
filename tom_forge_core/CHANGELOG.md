@@ -1,3 +1,14 @@
+## Unreleased
+
+- `forgeLoadGitignores(fileSystem, {root})` walks a `TomFileSystem` instead
+  of a host path (it was `forgeLoadGitignores(String rootPath)`), so the
+  rules come from the same files the shell shows, on disk, in memory or on
+  the web; links are not entered. Breaking: the next release is 3.0.0.
+- `DefaultSearchManager` searches text files only: it skips build output,
+  tool and version-control folders (`skippedFolderNames`), files over
+  `maxFileSizeBytes` (2 MB) and files whose start does not look like text,
+  and a file or folder it cannot read no longer ends the search.
+
 ## 2.0.0
 
 - The file-system contract and its implementations moved to `tom_file_system`

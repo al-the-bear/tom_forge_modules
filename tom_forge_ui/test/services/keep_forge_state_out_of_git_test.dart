@@ -26,7 +26,6 @@ Future<bool> _ignored(Directory dir) async =>
 
 void main() {
   late Directory scratch;
-  final manager = DefaultWorkspaceStateManager();
 
   setUp(() {
     scratch = Directory.systemTemp.createTempSync('forge_state_git');
@@ -45,7 +44,7 @@ void main() {
   test('GI-1: a folder outside git is left alone', () async {
     final dir = Directory('${scratch.path}/plain')..createSync();
     expect(
-      await manager.keepForgeStateOutOfGit(dir.path),
+      await keepForgeStateOutOfGit(dir.path),
       ForgeStateIgnore.notInGit,
     );
     expect(dir.listSync(), isEmpty);
@@ -56,7 +55,7 @@ void main() {
     for (final pattern in ['/.forge/', '**/.forge', '.forge']) {
       final dir = await repo(gitignore: 'build/\n$pattern\n');
       expect(
-        await manager.keepForgeStateOutOfGit(dir.path),
+        await keepForgeStateOutOfGit(dir.path),
         ForgeStateIgnore.alreadyIgnored,
         reason: pattern,
       );
@@ -73,7 +72,7 @@ void main() {
       'call writes nothing', () async {
     final dir = await repo(gitignore: 'build/\n');
     expect(
-      await manager.keepForgeStateOutOfGit(dir.path),
+      await keepForgeStateOutOfGit(dir.path),
       ForgeStateIgnore.addedToLocalExclude,
     );
     expect(File('${dir.path}/.gitignore').readAsStringSync(), 'build/\n');
@@ -83,7 +82,7 @@ void main() {
     final before = exclude.readAsStringSync();
     expect(before, contains('/.forge/'));
     expect(
-      await manager.keepForgeStateOutOfGit(dir.path),
+      await keepForgeStateOutOfGit(dir.path),
       ForgeStateIgnore.alreadyIgnored,
     );
     expect(exclude.readAsStringSync(), before);
@@ -95,13 +94,13 @@ void main() {
     final dir = await repo(gitignore: '**/.forge/\n');
     final sub = Directory('${dir.path}/apps/one')..createSync(recursive: true);
     expect(
-      await manager.keepForgeStateOutOfGit(sub.path),
+      await keepForgeStateOutOfGit(sub.path),
       ForgeStateIgnore.alreadyIgnored,
     );
 
     File('${dir.path}/.gitignore').writeAsStringSync('');
     expect(
-      await manager.keepForgeStateOutOfGit(sub.path),
+      await keepForgeStateOutOfGit(sub.path),
       ForgeStateIgnore.addedToLocalExclude,
     );
     expect(

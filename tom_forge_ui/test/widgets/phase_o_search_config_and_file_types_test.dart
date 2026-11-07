@@ -368,10 +368,6 @@ class _PhaseOHarness {
     }
     workspaceDir.createSync(recursive: true);
 
-    final gitignore = File('$workspaceRoot/.gitignore');
-    gitignore.parent.createSync(recursive: true);
-    gitignore.writeAsStringSync('*.note\n');
-
     addTearDown(() {
       if (workspaceDir.existsSync()) {
         workspaceDir.deleteSync(recursive: true);
@@ -381,6 +377,8 @@ class _PhaseOHarness {
     final navigatorKey = GlobalKey<NavigatorState>();
     final shell = DefaultShellApi.withDefaults(
       fileSystemSeed: {
+        // Quick open reads the rules through the shell's file system.
+        '$workspaceRoot/.gitignore': '*.note\n',
         '$workspaceRoot/test-fixtures/main.test': 'main\n',
         '$workspaceRoot/test-fixtures/alpha.note': 'alpha\n',
         '$workspaceRoot/test-fixtures/nested/zz-nested.note': 'nested\n',

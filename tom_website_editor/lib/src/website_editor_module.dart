@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
@@ -210,7 +209,7 @@ class WebsiteEditorModule extends ForgeModule {
 
   Uri _resolveConfigUri(ForgeShellApi shell) {
     final root = shell.systemState.workspaceRootPath;
-    return Directory(root).uri.resolve(configFileName);
+    return Uri.directory(root).resolve(configFileName);
   }
 
   @override

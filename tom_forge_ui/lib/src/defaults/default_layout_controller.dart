@@ -271,7 +271,7 @@ class DefaultLayoutController implements ForgeLayoutController {
     try {
       final content = await _resolveContent(uri);
       if (content == null) return null;
-      return _createEditor(uri, content);
+      return await _createEditor(uri, content);
     } catch (_) {
       return null;
     }

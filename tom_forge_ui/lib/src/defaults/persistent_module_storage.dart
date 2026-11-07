@@ -1,33 +1,70 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:tom_file_system/tom_file_system.dart';
 
 import '../module/forge_module.dart';
 import '../services/forge_module_storage.dart';
 
-/// Persistent implementation of [ForgeModuleStorage] backed by
-/// `.forge/state/modules/` directory.
+/// Persistent implementation of [ForgeModuleStorage]: one JSON file per
+/// module under `.forge/state/modules/`, read and written through the
+/// workspace's [TomFileSystem].
 ///
-/// Each module gets a JSON file keyed by a hash of its display name.
-/// Data is loaded lazily on first access and flushed on every write.
+/// [open] reads every module's file once, so [ForgeKeyValueStore.get] stays
+/// synchronous; every write is flushed to the module's file. A file that
+/// cannot be read or is not a JSON object counts as empty.
 class PersistentModuleStorage implements ForgeModuleStorage {
   static bool debugEnabled = false;
 
-  final String _forgeDir;
+  PersistentModuleStorage._(this._fileSystem, this._loaded);
+
+  final TomFileSystem _fileSystem;
+
+  /// The stored data by file name, as read at [open].
+  final Map<String, Map<String, Object?>> _loaded;
   final Map<String, _PersistentKeyValueStore> _stores = {};
 
-  PersistentModuleStorage({required String forgeDir}) : _forgeDir = forgeDir;
+  /// The module storage of the workspace [fileSystem] (whose root is the
+  /// workspace folder), with what is stored read.
+  static Future<PersistentModuleStorage> open(TomFileSystem fileSystem) async {
+    final loaded = <String, Map<String, Object?>>{};
+    final folder = fileSystem.uriOf('$_modulesPath/');
+    try {
+      if (await fileSystem.exists(folder)) {
+        for (final entry in await fileSystem.list(folder)) {
+          if (entry.isDirectory || !entry.name.endsWith('.json')) continue;
+          try {
+            final json = jsonDecode(await fileSystem.readText(entry.uri));
+            if (json is Map<String, dynamic>) {
+              loaded[entry.name] = Map<String, Object?>.from(json);
+            }
+          } on Exception catch (e) {
+            _log('load failed for ${entry.path}: $e');
+          }
+        }
+      }
+    } on Exception catch (e) {
+      _log('listing $_modulesPath failed: $e');
+    }
+    return PersistentModuleStorage._(fileSystem, loaded);
+  }
 
-  /// The directory where module storage files are kept.
-  String get _modulesDir => '$_forgeDir/state/modules';
+  static const _modulesPath = '.forge/state/modules';
+
+  static void _log(String message) {
+    if (debugEnabled) debugPrint('[PersistentModuleStorage] $message');
+  }
 
   @override
   ForgeKeyValueStore forModule(ForgeModule module) {
+    final name = '${_moduleHash(module.displayName)}.json';
     return _stores.putIfAbsent(
       module.displayName,
       () => _PersistentKeyValueStore(
-        filePath: '$_modulesDir/${_moduleHash(module.displayName)}.json',
+        fileSystem: _fileSystem,
+        folder: _fileSystem.uriOf('$_modulesPath/'),
+        file: _fileSystem.uriOf('$_modulesPath/$name'),
+        data: {...?_loaded[name]},
       ),
     );
   }
@@ -48,70 +85,53 @@ class PersistentModuleStorage implements ForgeModuleStorage {
 
 /// A key-value store backed by a single JSON file.
 class _PersistentKeyValueStore implements ForgeKeyValueStore {
-  final String _filePath;
-  Map<String, Object?>? _data;
-  bool _loaded = false;
+  _PersistentKeyValueStore({
+    required TomFileSystem fileSystem,
+    required Uri folder,
+    required Uri file,
+    required Map<String, Object?> data,
+  }) : _fileSystem = fileSystem,
+       _folder = folder,
+       _file = file,
+       _data = data;
 
-  _PersistentKeyValueStore({required String filePath}) : _filePath = filePath;
-
-  void _ensureLoaded() {
-    if (_loaded) return;
-    _loaded = true;
-    try {
-      final file = File(_filePath);
-      if (file.existsSync()) {
-        final json = jsonDecode(file.readAsStringSync());
-        if (json is Map<String, dynamic>) {
-          _data = Map<String, Object?>.from(json);
-          return;
-        }
-      }
-    } catch (e) {
-      if (PersistentModuleStorage.debugEnabled) {
-        debugPrint('[PersistentModuleStorage] load failed for $_filePath: $e');
-      }
-    }
-    _data = {};
-  }
+  final TomFileSystem _fileSystem;
+  final Uri _folder;
+  final Uri _file;
+  final Map<String, Object?> _data;
 
   Future<void> _flush() async {
     try {
-      final file = File(_filePath);
-      await file.parent.create(recursive: true);
-      await file.writeAsString(
+      if (!await _fileSystem.exists(_folder)) {
+        await _fileSystem.create(_folder, directory: true);
+      }
+      await _fileSystem.writeText(
+        _file,
         const JsonEncoder.withIndent('  ').convert(_data),
       );
-    } catch (e) {
-      if (PersistentModuleStorage.debugEnabled) {
-        debugPrint('[PersistentModuleStorage] flush failed for $_filePath: $e');
-      }
+    } on Exception catch (e) {
+      PersistentModuleStorage._log('flush failed for $_file: $e');
     }
   }
 
   @override
   T? get<T>(String key) {
-    _ensureLoaded();
-    final value = _data![key];
+    final value = _data[key];
     return value is T ? value : null;
   }
 
   @override
   Future<void> set(String key, Object? value) async {
-    _ensureLoaded();
-    _data![key] = value;
+    _data[key] = value;
     await _flush();
   }
 
   @override
   Future<void> remove(String key) async {
-    _ensureLoaded();
-    _data!.remove(key);
+    _data.remove(key);
     await _flush();
   }
 
   @override
-  List<String> get keys {
-    _ensureLoaded();
-    return List.unmodifiable(_data!.keys);
-  }
+  List<String> get keys => List.unmodifiable(_data.keys);
 }

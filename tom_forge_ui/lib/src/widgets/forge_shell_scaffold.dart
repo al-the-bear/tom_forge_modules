@@ -3092,16 +3092,17 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     _quickOpenFocusNode.unfocus();
   }
 
-  void _openHelpDocument() {
-    // Write the help markdown to the workspace and open it.
-    final root = widget.systemState.workspaceRootPath;
-    final helpPath = '$root/.forge/help/keyboard_shortcuts.md';
-    final helpFile = File(helpPath);
-    if (!helpFile.existsSync()) {
-      helpFile.parent.createSync(recursive: true);
-      helpFile.writeAsStringSync(_keyboardShortcutsHelpContent);
+  Future<void> _openHelpDocument() async {
+    // The help markdown, written to the workspace's .forge/ through its file
+    // system once, then opened.
+    final fs = widget.shell.fileSystem;
+    final help = fs.uriOf('.forge/help/keyboard_shortcuts.md');
+    if (!await fs.exists(help)) {
+      final folder = fs.uriOf('.forge/help/');
+      if (!await fs.exists(folder)) await fs.create(folder, directory: true);
+      await fs.writeText(help, _keyboardShortcutsHelpContent);
     }
-    _layout.openFile(Uri.file(helpPath));
+    if (mounted) _layout.openFile(help);
   }
 
   static const _keyboardShortcutsHelpContent = '''

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -12,7 +11,7 @@ import 'package:markdown/markdown.dart' as md;
 import 'package:tom_doc_specs/tom_doc_specs.dart' as specs;
 import 'package:tom_editors_shared/tom_editors_shared.dart';
 
-import 'svg_file_source.dart';
+import 'local_file_image.dart';
 
 import '../../controller/md_editor_controller.dart';
 import '../../debug/md_editor_debug.dart';
@@ -621,8 +620,8 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
           errorBuilder: (context, error, stack) => brokenImage(),
         );
       } else if (uri.hasScheme && uri.scheme == 'file' && !kIsWeb) {
-        imageWidget = Image.file(
-          File.fromUri(uri),
+        imageWidget = imageFromFileUri(
+          uri,
           errorBuilder: (context, error, stack) => brokenImage(),
         );
       } else {

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io' show Directory, FileSystemException;
 
 import 'package:flutter/widgets.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart'
@@ -57,7 +56,6 @@ import 'default_undo_manager.dart';
 import 'default_workspace_state_manager.dart';
 import 'platform_secret_storage.dart';
 import 'pty_terminal.dart';
-import 'real_search_manager.dart';
 import 'stub_services.dart';
 
 /// Default implementation of [ForgeShellApi].
@@ -368,11 +366,11 @@ class DefaultShellApi implements ForgeShellApi {
     final undoManager = DefaultUndoManager();
     final clipboardService = DefaultClipboard();
 
-    // A folder on disk is searched on disk, with its exclusions and cache;
-    // any other file system is walked through the contract.
-    final ForgeSearchManager searchManager = fileSystem is TomLocalFileSystem
-        ? RealSearchManager(rootDirectory: Directory(fileSystem.rootPath))
-        : DefaultSearchManager(fileSystem: fileSystem);
+    // Every file system — a folder on disk, memory, the web — is searched
+    // through the contract.
+    final ForgeSearchManager searchManager = DefaultSearchManager(
+      fileSystem: fileSystem,
+    );
 
     final outlineManager = DefaultOutlineManager();
     // Use PTY-backed terminals on desktop (a local folder), fallback for tests.
@@ -745,10 +743,9 @@ class DefaultShellApi implements ForgeShellApi {
           for (final id in removed) {
             await workspaceState.deleteApplicationState(id);
           }
-        } on FileSystemException catch (e) {
+        } on Exception catch (e) {
           notifications.showWarning(
-            'The open applications could not be saved for the next start: '
-            '${e.message} (${e.path})',
+            'The open applications could not be saved for the next start: $e',
           );
         }
         // Disposing the shell disposes the workspace state: a change that

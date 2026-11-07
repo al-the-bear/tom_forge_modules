@@ -6,12 +6,12 @@ library;
 
 import 'dart:io';
 
+import 'package:tom_file_system/io.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart'
     show ForgeTextSettings, StandardEditingActions;
-import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_forge_core/tom_forge_core.dart' show FileHandlingResult;
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
@@ -24,7 +24,7 @@ void main() {
   setUp(() async {
     workspace = Directory.systemTemp.createTempSync('wonecmpc19_');
     final state = DefaultWorkspaceStateManager();
-    await state.initialize(workspace.path);
+    await state.initialize(TomLocalFileSystem(workspace.path));
     final fileSystem = TomMemoryFileSystem();
     shell = DefaultShellApi.withDefaultsAndFileSystem(
       fileSystem: fileSystem,

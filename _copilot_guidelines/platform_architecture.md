@@ -124,20 +124,32 @@ Open With. Webforge (`app_webwork/tom_webwork_webforge`) is such a host.
 ### 2.6 Storage: `TomFileSystem`
 
 The shell's file access is `tom_file_system`'s `TomFileSystem`
-(`ForgeShellApi.fileSystem`): the explorer, the file editors and their
-`ForgeFileSession`s (`tom_file_session`, with the saved state and conflict
-detection a file editor saves through) and the editors opened by the layout
-controller read and write through it, so they run on the local disk, in
-memory in a test and on the web.
+(`ForgeShellApi.fileSystem`): the explorer, the layout controller's open and
+the scaffold's save, the file editors and their `ForgeFileSession`s
+(`tom_file_session`), the workspace search (`DefaultSearchManager`), quick
+open and its `.gitignore` rules (`forgeLoadGitignores`), the `.forge/` state
+(`DefaultWorkspaceStateManager`) and module storage
+(`PersistentModuleStorage`), and the Markdown editor's file provider and
+file follower all read and write through it, so they run on the local disk,
+in memory in a test and on the web. An app gives one `TomLocalFileSystem`
+of the workspace to the shell and to its state.
 
-`dart:io` stays where a platform service needs it: the terminals and
-processes, the website editor's preview and dev-server runner, and the
-Mermaid web view's platform checks. Some components still read or write
-documents and settings with `dart:io` directly instead (the Markdown editor's
-file document provider and preview, the shell's search, quick open,
-workspace state and module storage, the TomSpecs editor's document file,
-review store, configuration and agent files); moving them onto the file
-system is todo `later11_akft-components-through-tom-file-system`.
+`dart:io` stays where a platform service needs it, each in its own place:
+
+| Platform service | Where | Why |
+| ---------------- | ----- | --- |
+| Terminals | `tom_forge_ui` `pty_terminal.dart`, `default_terminal_manager.dart` | processes and pseudo-terminals |
+| Finding the workspace folder above a picked folder; keeping `.forge/` out of git | `tom_forge_ui` `forge_host_workspace.dart` | host folders before a file system exists; runs git |
+| Native folder pickers | `tom_forge_ui` `workspace_folder_selector.dart`, the scaffold's Open Folder | a local folder is chosen by nature |
+| Shell detection and the central configuration folder | `tom_forge_ui` `forge_configuration_dialog.dart` | installed shells; a host folder outside the workspace, picked natively |
+| Local images in the Markdown preview | `tom_md_editor` `local_file_image_io.dart` (conditional import) | Flutter's own file image providers |
+| The comment author | `tom_md_editor` `md_local_author.dart` | the OS user |
+| The website's dev server and preview | `tom_website_editor` `website_process_runner.dart`, `website_preview_*` | processes, the platform's browser |
+| Test workspaces | `tom_forge_ui` `testing/test_workspace.dart` | test support on a real disk |
+
+The TomSpecs editor still reads and writes its stores, document files and
+configuration with `dart:io` beside a shell on an empty in-memory file
+system; moving it is `later15_akgb-specs-editor-through-tom-file-system`.
 
 ### 2.7 The quest workbench
 

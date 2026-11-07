@@ -54,15 +54,17 @@ none of them. The file system itself does not know what a workspace edit is.
 
 ## `.gitignore` rules
 
-`forgeLoadGitignores(root)` reads every `.gitignore` under a folder into one
-`TomGitignoreSet` from `tom_basics` (`package:tom_basics/utilities.dart`),
-which parses and applies the rules; Forge's part is only the walk. The root's
-file comes first and deeper ones later, so a nested file decides inside its
-folder. The walk never enters `.git` or a folder the rules already ignore, and
-passes over a file it cannot read.
+`forgeLoadGitignores(fileSystem, root: folder)` reads every `.gitignore`
+under a folder (default: the file system's root) of a `TomFileSystem` — on
+disk, in memory or on the web — into one `TomGitignoreSet` from `tom_basics`
+(`package:tom_basics/utilities.dart`), which parses and applies the rules;
+Forge's part is only the walk. Paths in the set are relative to that folder.
+The root's file comes first and deeper ones later, so a nested file decides
+inside its folder. The walk never enters `.git`, a link or a folder the rules
+already ignore, and passes over a file it cannot read.
 
 ```dart
-final rules = await forgeLoadGitignores('/path/to/workspace');
+final rules = await forgeLoadGitignores(TomLocalFileSystem('/path/to/ws'));
 if (rules.isIgnored('build/output.js', isDirectory: false)) {
   // skip it
 }

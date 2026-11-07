@@ -36,6 +36,10 @@ dependencies:
   # The undo stack the controller keeps its edit operations on.
   tom_forge_core:
     path: ../tom_forge_core
+  # Files are read and written through the host's file system: on disk, in
+  # memory, on the web.
+  tom_file_system:
+    path: ../../tom_ai/basics/tom_file_system
 
 dev_dependencies:
   tom_web_build_probe:

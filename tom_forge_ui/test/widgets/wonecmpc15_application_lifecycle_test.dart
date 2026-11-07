@@ -16,10 +16,10 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' show AppExitResponse;
 
+import 'package:tom_file_system/io.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
@@ -376,7 +376,7 @@ void main() {
       addTearDown(() => workspace.deleteSync(recursive: true));
       final events = <String>[];
       final state = DefaultWorkspaceStateManager();
-      await state.initialize(workspace.path);
+      await state.initialize(TomLocalFileSystem(workspace.path));
       final shell = _shell(workspaceState: state);
       shell.applications
         ..add(_app('forge', _Recorder('forge', events)))

@@ -1,4 +1,9 @@
-/// Rendering a `file:` SVG, on the platforms that have files.
+/// Rendering a `file:` image (raster or SVG) referenced from a document, on
+/// the platforms that have files: Flutter's own file image providers read
+/// the local file, so this is the one place the preview reaches `dart:io` —
+/// a platform service, behind a conditional import
+/// (`tom_forge/_copilot_guidelines/platform_architecture.md` §2.6).
+///
 ///
 /// `flutter_svg` picks its own `File` type with
 /// `export '_file_io.dart' if (dart.library.js_interop) '_file_none.dart'`, so
@@ -13,5 +18,5 @@
 /// mechanism that operates at the right time.
 library;
 
-export 'svg_file_source_io.dart'
-    if (dart.library.js_interop) 'svg_file_source_web.dart';
+export 'local_file_image_io.dart'
+    if (dart.library.js_interop) 'local_file_image_web.dart';

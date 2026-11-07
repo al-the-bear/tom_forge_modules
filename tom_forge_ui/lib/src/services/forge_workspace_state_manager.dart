@@ -1,4 +1,8 @@
-/// Manages workspace-scoped persistent state under the `.forge/` directory.
+import 'package:tom_file_system/tom_file_system.dart';
+
+/// Manages workspace-scoped persistent state under the `.forge/` directory,
+/// through the workspace's [TomFileSystem] — on disk, in memory or on the
+/// web alike.
 ///
 /// Responsibilities:
 /// - Initialize and ensure `.forge/` directory structure
@@ -7,25 +11,26 @@
 /// - Persist and restore per-editor state (`state/editors/{uri-hash}.json`)
 /// - Create revision snapshots on save (`revisions/{uri-hash}/`)
 /// - Persist undo history per file (`undo/{uri-hash}.json`)
-/// - Keep `.forge/` out of git ([keepForgeStateOutOfGit])
+///
+/// Finding the workspace folder on the host and keeping `.forge/` out of
+/// git are host matters, outside the file system: `forge_host_workspace.dart`.
 abstract class ForgeWorkspaceStateManager {
   /// Whether the `.forge/` directory has been initialized for the current
   /// workspace.
   bool get isInitialized;
 
-  /// The resolved `.forge/` directory path for the current workspace.
-  String get forgeDirectoryPath;
+  /// The `.forge/` directory of the current workspace, in its file system.
+  Uri get forgeDirectory;
 
-  /// Initialize the `.forge/` directory structure.
+  /// The workspace's file system the state is kept in.
+  TomFileSystem get fileSystem;
+
+  /// Initialize the `.forge/` directory structure in [workspace], whose root
+  /// is the workspace folder.
   ///
   /// Creates the directory and standard sub-folders if they don't exist.
   /// Returns `true` if the directory was created freshly.
-  Future<bool> initialize(String workspaceRootPath);
-
-  /// Check if a `.forge/` directory exists at [path] or any parent.
-  ///
-  /// Returns the workspace root path if found, or `null`.
-  Future<String?> detectWorkspaceRoot(String startPath);
+  Future<bool> initialize(TomFileSystem workspace);
 
   // ── Per-editor state ──
 
@@ -92,30 +97,6 @@ abstract class ForgeWorkspaceStateManager {
   /// Load configuration data from `.forge/config.json`.
   Future<Map<String, dynamic>?> loadConfig();
 
-  // ── Keeping the state out of git ──
-
-  /// Keeps the workspace's `.forge/` out of git without editing a file the
-  /// workspace tracks: when [workspaceRootPath] lies in a git work tree whose
-  /// rules do not ignore `.forge/` yet — git itself answers, so every
-  /// `.gitignore` up to the repository root, `.git/info/exclude` and the
-  /// global excludes count — `.forge/` is added to that clone's
-  /// `.git/info/exclude` (the state is per machine). Answers what it found
-  /// or did.
-  Future<ForgeStateIgnore> keepForgeStateOutOfGit(String workspaceRootPath);
-
   /// Dispose resources.
   void dispose();
-}
-
-/// What [ForgeWorkspaceStateManager.keepForgeStateOutOfGit] found or did.
-enum ForgeStateIgnore {
-  /// The workspace is not in a git work tree (or git is not installed):
-  /// nothing to keep out.
-  notInGit,
-
-  /// git already ignores `.forge/`: nothing written.
-  alreadyIgnored,
-
-  /// `.forge/` was added to the clone's `.git/info/exclude`.
-  addedToLocalExclude,
 }

@@ -1,15 +1,18 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:tom_file_system/tom_file_system.dart';
 
 import '../services/forge_workspace_state_manager.dart';
 
-/// Default implementation of [ForgeWorkspaceStateManager].
+/// Default implementation of [ForgeWorkspaceStateManager], over the
+/// workspace's [TomFileSystem].
 ///
-/// Manages a `.forge/` directory on disk with the following structure:
+/// Keeps a `.forge/` directory in the workspace with the following
+/// structure:
 /// ```
 /// .forge/
+///   config.json
 ///   state/
 ///     applications.json
 ///     apps/
@@ -23,17 +26,31 @@ import '../services/forge_workspace_state_manager.dart';
 ///   undo/
 ///     {uri-hash}.json
 /// ```
+///
+/// A state file that cannot be read or is of another shape counts as absent
+/// (no migrations: the state is per machine).
+///
+/// Every operation takes the file system once, before its first await, and
+/// works with it to the end: the shell writes state at exit and disposes
+/// this manager in the same frame, so a write in flight must not look the
+/// file system up again.
 class DefaultWorkspaceStateManager implements ForgeWorkspaceStateManager {
   static bool debugEnabled = false;
 
-  String? _forgeDir;
+  TomFileSystem? _fs;
   bool _initialized = false;
 
   @override
   bool get isInitialized => _initialized;
 
   @override
-  String get forgeDirectoryPath => _forgeDir ?? '';
+  TomFileSystem get fileSystem {
+    _ensureInitialized();
+    return _fs!;
+  }
+
+  @override
+  Uri get forgeDirectory => fileSystem.uriOf('.forge/');
 
   static void _log(String message) {
     if (debugEnabled) {
@@ -44,130 +61,72 @@ class DefaultWorkspaceStateManager implements ForgeWorkspaceStateManager {
   // ── Initialize ──
 
   @override
-  Future<bool> initialize(String workspaceRootPath) async {
-    _forgeDir = '$workspaceRootPath/.forge';
-    final dir = Directory(_forgeDir!);
-    final existed = await dir.exists();
-
-    if (!existed) {
-      await dir.create(recursive: true);
-    }
-
-    // Ensure sub-directories exist.
-    await Directory('$_forgeDir/state/editors').create(recursive: true);
-    await Directory('$_forgeDir/revisions').create(recursive: true);
-    await Directory('$_forgeDir/undo').create(recursive: true);
-
+  Future<bool> initialize(TomFileSystem workspace) async {
+    final existed = await workspace.exists(workspace.uriOf('.forge/'));
+    await _folder(workspace, 'state/editors');
+    await _folder(workspace, 'revisions');
+    await _folder(workspace, 'undo');
+    _fs = workspace;
     _initialized = true;
-    _log('initialized at $_forgeDir (created=${!existed})');
+    _log('initialized at ${workspace.uriOf('.forge/')} (created=${!existed})');
     return !existed;
-  }
-
-  // ── Walk-up detection ──
-
-  @override
-  Future<String?> detectWorkspaceRoot(String startPath) async {
-    var current = Directory(startPath);
-    // Walk up at most 20 levels to avoid infinite loops.
-    for (var i = 0; i < 20; i++) {
-      final forgeDir = Directory('${current.path}/.forge');
-      if (await forgeDir.exists()) {
-        return current.path;
-      }
-      final parent = current.parent;
-      if (parent.path == current.path) break; // reached filesystem root
-      current = parent;
-    }
-    return null;
   }
 
   // ── Open applications ──
 
   @override
   Future<void> saveOpenApplications(Map<String, Object?> snapshot) async {
-    _ensureInitialized();
-    await Directory('$_forgeDir/state').create(recursive: true);
-    // Written beside and renamed over, so a reader never sees half a file.
-    final file = File('$_forgeDir/state/applications.json');
-    final temp = File('${file.path}.tmp');
-    await temp.writeAsString(_encodeJson(snapshot), flush: true);
-    await temp.rename(file.path);
+    final fs = fileSystem;
+    // The file system writes atomically: a reader never sees half a file.
+    await _write(fs, 'state/applications.json', _encodeJson(snapshot));
     _log('saved open applications');
   }
 
   @override
-  Future<Map<String, Object?>?> loadOpenApplications() async {
-    _ensureInitialized();
-    final file = File('$_forgeDir/state/applications.json');
-    if (!await file.exists()) return null;
-    try {
-      final data = jsonDecode(await file.readAsString());
-      return data is Map<String, dynamic> ? data : null;
-    } catch (e) {
-      _log('load open applications failed: $e');
-      return null;
-    }
-  }
+  Future<Map<String, Object?>?> loadOpenApplications() =>
+      _readObject(fileSystem, 'state/applications.json');
 
   // ── Per-editor state ──
 
   @override
   Future<void> saveEditorState(
-      Uri editorUri, Map<String, dynamic> state) async {
-    _ensureInitialized();
-    final hash = _uriHash(editorUri);
-    final file = File('$_forgeDir/state/editors/$hash.json');
+    Uri editorUri,
+    Map<String, dynamic> state,
+  ) async {
+    final fs = fileSystem;
     // Include the original URI for reference.
     state['_uri'] = editorUri.toString();
-    await file.writeAsString(_encodeJson(state));
+    await _write(
+      fs,
+      'state/editors/${_uriHash(editorUri)}.json',
+      _encodeJson(state),
+    );
   }
 
   @override
-  Future<Map<String, dynamic>?> loadEditorState(Uri editorUri) async {
-    _ensureInitialized();
-    final hash = _uriHash(editorUri);
-    final file = File('$_forgeDir/state/editors/$hash.json');
-    if (!await file.exists()) return null;
-    try {
-      final data = jsonDecode(await file.readAsString());
-      return data is Map<String, dynamic> ? data : null;
-    } catch (e) {
-      _log('load editor state failed for $editorUri: $e');
-      return null;
-    }
-  }
+  Future<Map<String, dynamic>?> loadEditorState(Uri editorUri) =>
+      _readObject(fileSystem, 'state/editors/${_uriHash(editorUri)}.json');
 
   // ── Revisions ──
 
   @override
   Future<String?> createRevision(Uri fileUri, String content) async {
-    _ensureInitialized();
+    final fs = fileSystem;
     final hash = _uriHash(fileUri);
-    final revDir = Directory('$_forgeDir/revisions/$hash');
-    if (!await revDir.exists()) {
-      await revDir.create(recursive: true);
-    }
 
     // De-duplicate: check last revision content.
-    final manifest = await _loadManifest(hash);
-    if (manifest.isNotEmpty) {
-      final lastId = manifest.last;
-      final lastFile = File('${revDir.path}/$lastId.snapshot');
-      if (await lastFile.exists()) {
-        final lastContent = await lastFile.readAsString();
-        if (lastContent == content) {
-          _log('revision skipped (identical) for $fileUri');
-          return null;
-        }
-      }
+    final manifest = await _loadManifest(fs, hash);
+    if (manifest.isNotEmpty &&
+        await _read(fs, 'revisions/$hash/${manifest.last}.snapshot') ==
+            content) {
+      _log('revision skipped (identical) for $fileUri');
+      return null;
     }
 
     final revisionId = DateTime.now().millisecondsSinceEpoch.toString();
-    final snapshotFile = File('${revDir.path}/$revisionId.snapshot');
-    await snapshotFile.writeAsString(content);
-
+    await _write(fs, 'revisions/$hash/$revisionId.snapshot', content);
     manifest.add(revisionId);
-    await _saveManifest(hash, manifest);
+    await _saveManifest(fs, hash, manifest);
 
     _log('created revision $revisionId for $fileUri');
     return revisionId;
@@ -175,51 +134,43 @@ class DefaultWorkspaceStateManager implements ForgeWorkspaceStateManager {
 
   @override
   Future<List<String>> listRevisions(Uri fileUri) async {
-    _ensureInitialized();
-    final hash = _uriHash(fileUri);
-    final manifest = await _loadManifest(hash);
+    final manifest = await _loadManifest(fileSystem, _uriHash(fileUri));
     return manifest.reversed.toList();
   }
 
   @override
-  Future<String?> readRevision(Uri fileUri, String revisionId) async {
-    _ensureInitialized();
-    final hash = _uriHash(fileUri);
-    final file = File('$_forgeDir/revisions/$hash/$revisionId.snapshot');
-    if (!await file.exists()) return null;
-    return file.readAsString();
-  }
+  Future<String?> readRevision(Uri fileUri, String revisionId) => _read(
+    fileSystem,
+    'revisions/${_uriHash(fileUri)}/$revisionId.snapshot',
+  );
 
   @override
   Future<void> deleteRevision(Uri fileUri, String revisionId) async {
-    _ensureInitialized();
+    final fs = fileSystem;
     final hash = _uriHash(fileUri);
-    final file = File('$_forgeDir/revisions/$hash/$revisionId.snapshot');
-    if (await file.exists()) {
-      await file.delete();
-    }
-    final manifest = await _loadManifest(hash);
+    await _delete(fs, 'revisions/$hash/$revisionId.snapshot');
+    final manifest = await _loadManifest(fs, hash);
     manifest.remove(revisionId);
-    await _saveManifest(hash, manifest);
+    await _saveManifest(fs, hash, manifest);
     _log('deleted revision $revisionId for $fileUri');
   }
 
   @override
   Future<int> pruneRevisions(Uri fileUri, {int maxRevisions = 50}) async {
-    _ensureInitialized();
+    final fs = fileSystem;
     final hash = _uriHash(fileUri);
-    final manifest = await _loadManifest(hash);
+    final manifest = await _loadManifest(fs, hash);
     if (manifest.length <= maxRevisions) return 0;
 
     final toRemove = manifest.sublist(0, manifest.length - maxRevisions);
     for (final id in toRemove) {
-      final file = File('$_forgeDir/revisions/$hash/$id.snapshot');
-      if (await file.exists()) {
-        await file.delete();
-      }
+      await _delete(fs, 'revisions/$hash/$id.snapshot');
     }
-    final kept = manifest.sublist(manifest.length - maxRevisions);
-    await _saveManifest(hash, kept);
+    await _saveManifest(
+      fs,
+      hash,
+      manifest.sublist(manifest.length - maxRevisions),
+    );
 
     _log('pruned ${toRemove.length} revisions for $fileUri');
     return toRemove.length;
@@ -229,100 +180,39 @@ class DefaultWorkspaceStateManager implements ForgeWorkspaceStateManager {
 
   @override
   Future<void> saveUndoHistory(
-      Uri fileUri, List<Map<String, dynamic>> entries) async {
-    _ensureInitialized();
-    final hash = _uriHash(fileUri);
-    final file = File('$_forgeDir/undo/$hash.json');
-    await file.writeAsString(_encodeJson({
-      'uri': fileUri.toString(),
-      'entries': entries,
-    }));
+    Uri fileUri,
+    List<Map<String, dynamic>> entries,
+  ) async {
+    final fs = fileSystem;
+    await _write(
+      fs,
+      'undo/${_uriHash(fileUri)}.json',
+      _encodeJson({'uri': fileUri.toString(), 'entries': entries}),
+    );
   }
 
   @override
   Future<List<Map<String, dynamic>>> loadUndoHistory(Uri fileUri) async {
-    _ensureInitialized();
-    final hash = _uriHash(fileUri);
-    final file = File('$_forgeDir/undo/$hash.json');
-    if (!await file.exists()) return [];
-    try {
-      final data = jsonDecode(await file.readAsString());
-      if (data is Map<String, dynamic> && data['entries'] is List) {
-        return (data['entries'] as List).cast<Map<String, dynamic>>();
-      }
-    } catch (e) {
-      _log('load undo history failed for $fileUri: $e');
-    }
-    return [];
+    final data = await _readObject(
+      fileSystem,
+      'undo/${_uriHash(fileUri)}.json',
+    );
+    final entries = data?['entries'];
+    return entries is List ? entries.cast<Map<String, dynamic>>() : [];
   }
 
   // ── Configuration ──
 
   @override
   Future<void> saveConfig(Map<String, dynamic> configData) async {
-    _ensureInitialized();
-    final file = File('$_forgeDir/config.json');
-    await file.writeAsString(_encodeJson(configData));
+    final fs = fileSystem;
+    await _write(fs, 'config.json', _encodeJson(configData));
     _log('saved config');
   }
 
   @override
-  Future<Map<String, dynamic>?> loadConfig() async {
-    _ensureInitialized();
-    final file = File('$_forgeDir/config.json');
-    if (!await file.exists()) return null;
-    try {
-      final data = jsonDecode(await file.readAsString());
-      return data is Map<String, dynamic> ? data : null;
-    } catch (e) {
-      _log('load config failed: $e');
-      return null;
-    }
-  }
-
-  // ── Keeping the state out of git ──
-
-  @override
-  Future<ForgeStateIgnore> keepForgeStateOutOfGit(
-    String workspaceRootPath,
-  ) async {
-    Future<ProcessResult?> git(List<String> args) async {
-      try {
-        return await Process.run('git', ['-C', workspaceRootPath, ...args]);
-      } on ProcessException {
-        return null; // git is not installed
-      }
-    }
-
-    final inside = await git(['rev-parse', '--is-inside-work-tree']);
-    if (inside == null ||
-        inside.exitCode != 0 ||
-        '${inside.stdout}'.trim() != 'true') {
-      return ForgeStateIgnore.notInGit;
-    }
-    final ignored = await git(['check-ignore', '-q', '.forge/']);
-    if (ignored?.exitCode == 0) return ForgeStateIgnore.alreadyIgnored;
-
-    // The workspace's place in the repository, for an anchored pattern, and
-    // the clone's exclude file (also for a worktree or a submodule).
-    final prefix = await git(['rev-parse', '--show-prefix']);
-    final excludePath = await git(['rev-parse', '--git-path', 'info/exclude']);
-    if (prefix == null || excludePath == null) return ForgeStateIgnore.notInGit;
-    final relative = '${excludePath.stdout}'.trim();
-    final asGiven = File(relative);
-    final exclude = asGiven.isAbsolute
-        ? asGiven
-        : File('$workspaceRootPath${Platform.pathSeparator}$relative');
-    await exclude.parent.create(recursive: true);
-    var content = await exclude.exists() ? await exclude.readAsString() : '';
-    if (content.isNotEmpty && !content.endsWith('\n')) content += '\n';
-    content +=
-        '# Tom Forge workspace state (per machine)\n'
-        '/${'${prefix.stdout}'.trim()}.forge/\n';
-    await exclude.writeAsString(content);
-    _log('added .forge/ to ${exclude.path}');
-    return ForgeStateIgnore.addedToLocalExclude;
-  }
+  Future<Map<String, dynamic>?> loadConfig() =>
+      _readObject(fileSystem, 'config.json');
 
   // ── Per-application state ──
 
@@ -331,41 +221,27 @@ class DefaultWorkspaceStateManager implements ForgeWorkspaceStateManager {
     String appId,
     Map<String, dynamic> state,
   ) async {
-    _ensureInitialized();
-    // Resolved before the first await: the shell writes every application's
-    // state at exit and disposes this manager in the same frame.
-    final apps = Directory('$_forgeDir/state/apps');
-    final file = File('${apps.path}/${_stringHash(appId)}.json');
-    await apps.create(recursive: true);
+    final fs = fileSystem;
     state['_appId'] = appId;
-    await file.writeAsString(_encodeJson(state));
+    await _write(
+      fs,
+      'state/apps/${_stringHash(appId)}.json',
+      _encodeJson(state),
+    );
     _log('saved application state for "$appId"');
   }
 
   @override
-  Future<Map<String, dynamic>?> loadApplicationState(String appId) async {
-    _ensureInitialized();
-    final file = File('$_forgeDir/state/apps/${_stringHash(appId)}.json');
-    if (!await file.exists()) return null;
-    try {
-      final data = jsonDecode(await file.readAsString());
-      return data is Map<String, dynamic> ? data : null;
-    } catch (e) {
-      _log('load application state failed for "$appId": $e');
-      return null;
-    }
-  }
+  Future<Map<String, dynamic>?> loadApplicationState(String appId) =>
+      _readObject(fileSystem, 'state/apps/${_stringHash(appId)}.json');
 
   @override
-  Future<void> deleteApplicationState(String appId) async {
-    _ensureInitialized();
-    final file = File('$_forgeDir/state/apps/${_stringHash(appId)}.json');
-    if (await file.exists()) await file.delete();
-  }
+  Future<void> deleteApplicationState(String appId) =>
+      _delete(fileSystem, 'state/apps/${_stringHash(appId)}.json');
 
   @override
   void dispose() {
-    _forgeDir = null;
+    _fs = null;
     _initialized = false;
   }
 
@@ -379,40 +255,99 @@ class DefaultWorkspaceStateManager implements ForgeWorkspaceStateManager {
     }
   }
 
-  String _uriHash(Uri uri) {
-    // Simple stable hash: SHA-like hex via hashCode pairs to avoid
-    // external crypto dependency. Uses the full URI string hashed in
-    // two overlapping windows for collision resistance.
-    final s = uri.toString();
-    final h1 = s.hashCode.toUnsigned(32).toRadixString(16).padLeft(8, '0');
-    final h2 =
-        s.split('').reversed.join().hashCode.toUnsigned(32).toRadixString(16).padLeft(8, '0');
-    return '$h1$h2';
+  /// The URI of [relative] under `.forge/`.
+  static Uri _at(TomFileSystem fs, String relative) =>
+      fs.uriOf('.forge/$relative');
+
+  /// Makes the folder [relative] under `.forge/` (and its parents).
+  static Future<void> _folder(TomFileSystem fs, String relative) async {
+    final uri = _at(fs, relative.endsWith('/') ? relative : '$relative/');
+    if (!await fs.exists(uri)) await fs.create(uri, directory: true);
   }
 
-  String _stringHash(String s) {
-    final h1 = s.hashCode.toUnsigned(32).toRadixString(16).padLeft(8, '0');
-    final h2 =
-        s.split('').reversed.join().hashCode.toUnsigned(32).toRadixString(16).padLeft(8, '0');
-    return '$h1$h2';
+  static Future<void> _write(
+    TomFileSystem fs,
+    String relative,
+    String text,
+  ) async {
+    final slash = relative.lastIndexOf('/');
+    if (slash > 0) await _folder(fs, relative.substring(0, slash));
+    await fs.writeText(_at(fs, relative), text);
   }
 
-  Future<List<String>> _loadManifest(String uriHash) async {
-    final file = File('$_forgeDir/revisions/$uriHash/manifest.json');
-    if (!await file.exists()) return [];
+  /// The text of [relative], or null when it does not exist or cannot be
+  /// read.
+  static Future<String?> _read(TomFileSystem fs, String relative) async {
+    final uri = _at(fs, relative);
     try {
-      final data = jsonDecode(await file.readAsString());
+      if (!await fs.exists(uri)) return null;
+      return await fs.readText(uri);
+    } on Exception catch (e) {
+      _log('read $relative failed: $e');
+      return null;
+    }
+  }
+
+  /// The JSON object in [relative], or null when it is absent, unreadable or
+  /// not an object.
+  static Future<Map<String, dynamic>?> _readObject(
+    TomFileSystem fs,
+    String relative,
+  ) async {
+    final text = await _read(fs, relative);
+    if (text == null) return null;
+    try {
+      final data = jsonDecode(text);
+      return data is Map<String, dynamic> ? data : null;
+    } on FormatException catch (e) {
+      _log('decode $relative failed: $e');
+      return null;
+    }
+  }
+
+  static Future<void> _delete(TomFileSystem fs, String relative) async {
+    final uri = _at(fs, relative);
+    if (await fs.exists(uri)) await fs.delete(uri);
+  }
+
+  static String _uriHash(Uri uri) => _stringHash(uri.toString());
+
+  /// A stable hash of [s] without a crypto dependency: the string's and its
+  /// reverse's hash codes, for collision resistance.
+  static String _stringHash(String s) {
+    final h1 = s.hashCode.toUnsigned(32).toRadixString(16).padLeft(8, '0');
+    final h2 = s
+        .split('')
+        .reversed
+        .join()
+        .hashCode
+        .toUnsigned(32)
+        .toRadixString(16)
+        .padLeft(8, '0');
+    return '$h1$h2';
+  }
+
+  static Future<List<String>> _loadManifest(
+    TomFileSystem fs,
+    String uriHash,
+  ) async {
+    final text = await _read(fs, 'revisions/$uriHash/manifest.json');
+    if (text == null) return [];
+    try {
+      final data = jsonDecode(text);
       if (data is List) return data.cast<String>();
-    } catch (_) {}
+    } on FormatException {
+      // A damaged manifest counts as empty.
+    }
     return [];
   }
 
-  Future<void> _saveManifest(String uriHash, List<String> ids) async {
-    final file = File('$_forgeDir/revisions/$uriHash/manifest.json');
-    await file.writeAsString(_encodeJson(ids));
-  }
+  static Future<void> _saveManifest(
+    TomFileSystem fs,
+    String uriHash,
+    List<String> ids,
+  ) => _write(fs, 'revisions/$uriHash/manifest.json', _encodeJson(ids));
 
-  String _encodeJson(Object data) {
-    return const JsonEncoder.withIndent('  ').convert(data);
-  }
+  static String _encodeJson(Object data) =>
+      const JsonEncoder.withIndent('  ').convert(data);
 }

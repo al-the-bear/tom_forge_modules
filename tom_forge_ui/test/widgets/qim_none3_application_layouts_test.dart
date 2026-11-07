@@ -11,11 +11,11 @@ library;
 import 'dart:async';
 import 'dart:io';
 
+import 'package:tom_file_system/io.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 import 'package:tom_test_support/roots.dart';
@@ -166,13 +166,17 @@ void main() {
   );
 }
 
-/// The ids whose state files `.forge/state/apps/` holds.
+/// The state files `.forge/state/apps/` holds — `<hash>.json`, not the
+/// temporary file an atomic write is still writing beside it.
 List<String> _savedApplications(Directory workspace) {
   final apps = Directory('${workspace.path}/.forge/state/apps');
   if (!apps.existsSync()) return const [];
   return [
     for (final file in apps.listSync().whereType<File>())
-      if (file.readAsStringSync().contains('"layout"')) file.path,
+      if (file.path.endsWith('.json') &&
+          !file.uri.pathSegments.last.startsWith('.') &&
+          file.readAsStringSync().contains('"layout"'))
+        file.path,
   ];
 }
 
@@ -221,7 +225,7 @@ class _Session {
 
   static Future<_Session> start(Directory workspace) async {
     final state = DefaultWorkspaceStateManager();
-    await state.initialize(workspace.path);
+    await state.initialize(TomLocalFileSystem(workspace.path));
     final shell = DefaultShellApi.withDefaultsAndFileSystem(
       fileSystem: TomMemoryFileSystem(seed: _files),
       appName: 'qim_none-3',

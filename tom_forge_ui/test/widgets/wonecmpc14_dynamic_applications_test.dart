@@ -11,10 +11,10 @@ library;
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:tom_file_system/io.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
@@ -262,7 +262,7 @@ DefaultShellApi _shell({ForgeWorkspaceStateManager? workspaceState}) =>
 /// static application and the factory registered, then the restore.
 Future<DefaultShellApi> _startedShell(Directory workspace) async {
   final state = DefaultWorkspaceStateManager();
-  await state.initialize(workspace.path);
+  await state.initialize(TomLocalFileSystem(workspace.path));
   final shell = _shell(workspaceState: state);
   shell.applications
     ..add(_static('forge'))

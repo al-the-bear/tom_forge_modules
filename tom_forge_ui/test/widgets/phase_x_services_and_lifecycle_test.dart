@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:tom_file_system/io.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -289,7 +290,7 @@ void main() {
       String? content;
       await tester.runAsync(() async {
         // Initialize workspace state
-        await workspaceState.initialize(harness.workspaceRoot);
+        await workspaceState.initialize(TomLocalFileSystem(harness.workspaceRoot));
 
         // Create a revision
         final fileUri = Uri.file('${harness.workspaceRoot}/test.dart');

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -448,13 +447,12 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
           ? workspaceRoot
           : '$workspaceRoot/');
 
-      // Load .gitignore rules when enabled and the root exists on disk.
-      // In-memory test/workspace file systems do not necessarily map to
-      // real host paths, so attempting to scan host .gitignore files can
-      // become non-deterministic.
-      final gitIgnore =
-          config.excludeGitIgnored && Directory(workspaceRoot).existsSync()
-          ? await forgeLoadGitignores(workspaceRoot)
+      // The .gitignore rules of the workspace, read through its file system.
+      final gitIgnore = config.excludeGitIgnored
+          ? await forgeLoadGitignores(
+              widget.shellApi.fileSystem,
+              root: rootUri,
+            )
           : null;
 
       // Capture current search options — they may change during async iteration.

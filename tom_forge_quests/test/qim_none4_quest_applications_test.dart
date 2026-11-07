@@ -12,10 +12,10 @@ library;
 import 'dart:async';
 import 'dart:io';
 
+import 'package:tom_file_system/io.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_forge_quests/tom_forge_quests.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 import 'package:tom_test_support/roots.dart';
@@ -280,7 +280,7 @@ class _Session {
 
   static Future<_Session> start(Directory forgeDir) async {
     final state = DefaultWorkspaceStateManager();
-    await state.initialize(forgeDir.path);
+    await state.initialize(TomLocalFileSystem(forgeDir.path));
     final shell = DefaultShellApi.withDefaultsAndFileSystem(
       fileSystem: TomMemoryFileSystem(seed: _files),
       appName: 'qim_none-4',
