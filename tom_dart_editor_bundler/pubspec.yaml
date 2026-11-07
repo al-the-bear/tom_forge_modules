@@ -33,7 +33,9 @@ dependencies:
   # `.sum` reader (RCK26); and bundles are invalidated when a transitive
   # dependency changes version, so a stale closure can't silently drop classes
   # (RCJ6). Both are correctness fixes for any summary-cache consumer.
-  tom_analyzer_shared: ^0.8.0
+  # Floor 0.9.1: grouped bundles are linked against the SDK with Flutter's
+  # embedder (dart:ui) and summaryLibraryUris tells a stale SDK summary.
+  tom_analyzer_shared: ^0.9.1
   # Public SDK-summary entry-point only (`buildSdkSummary` /
   # `PhysicalResourceProvider`). The grouped packages.sum build stays delegated
   # to tom_analyzer_shared; per the plan item-3 decision the one-shot SDK summary

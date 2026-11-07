@@ -157,13 +157,16 @@ pub.dev, never a path override).
 **`dart:ui` in a Flutter scope.** A scope over Flutter code (`d4rt-flutter`)
 resolves the `dart:ui` types Flutter re-exports (`TextDirection`, `Color`,
 `Offset` …) only when **both** halves hold `dart:ui`: the SDK summary built
-with Flutter's embedder (`sky_engine/lib/_embedder.yaml`; `SummaryGenerator`
-does this), and the scope's `packages.sum` linked against that same SDK —
-linked against the plain SDK, Flutter's `export 'dart:ui' show ...` lines are
-dropped from the bundle. `GroupedPackageBundleBuilder` links against the
-plain SDK, so in a bundler-built Flutter scope those types are undefined; the
-shipped single pair (`package_summary_generation.md`) links against the
-embedder SDK and resolves them.
+with Flutter's embedder (`sky_engine/lib/_embedder.yaml`), and the scope's
+`packages.sum` linked against that same SDK — linked against the plain SDK,
+Flutter's `export 'dart:ui' show ...` lines are dropped from the bundle.
+`GroupedPackageBundleBuilder` links against the SDK with the embedder of the
+packages' own `sky_engine` (`dartSdkWithEmbedder`) and names it in its result
+(`GroupedPackageBundle.embedderYamlPath`); the bundler builds the shared SDK
+summary with the embedder of the declared scopes and passes the same one to
+every scope, so a Flutter scope resolves them (`tom_specs_editor`
+`test/summary_scopes_test.dart`, `tom_analyzer_shared`
+`grouped_bundle_dart_ui_test.dart`).
 
 ### 3.3 Invocation
 
@@ -191,7 +194,8 @@ asset keys `summary_scopes.g.dart` names, and a bundle written anywhere else
 degrades a code field to plain text with no error raised anywhere.
 
 The executor (`bundler_executor.dart`) sequences the work: `sdk_summary.sum` is
-generated **once** into `out-dir` (idempotent — reused if it already exists),
+generated **once** into `out-dir` (idempotent — reused if it already exists
+and holds `dart:ui` exactly when a declared scope holds Flutter packages),
 each non-`sdk-only` bundle's `out-dir/<name>/packages.sum` is built via
 `BundleGenerator.generate(...)` (`bundle_generator.dart`), and the generated
 helper is written from the **full** config (so every declared scope is registered
@@ -319,7 +323,7 @@ committed `.gitkeep` keeps each asset dir present for `pubspec.yaml`.
 
 **First consumer** — `tom_forge/tom_specs_editor` wires two scopes:
 `dart-plain` (sdk-only) and `d4rt-flutter` (scoped to `tom_d4rt_flutter`; its
-`d4rt-flutter/packages.sum` covers ~80 packages / ~3340 libraries). The third
+`d4rt-flutter/packages.sum` covers 115 packages / 4879 libraries). The third
 example scope `d4rt-document` is illustrative and not wired — there is no settled
 package closure for `code-d4rt-doc`, so that content type falls back to a plain
 field.
@@ -327,11 +331,14 @@ field.
 **Testing.** Shipped coverage spans: config parsing (valid multi-bundle,
 `sdk-only`, optional-field defaults, and each rejection case via
 `BundlerConfigException`); bundle generation against fixtures (`sdk_summary.sum`
-and `<name>/packages.sum` produced non-empty, SDK summary idempotent); helper
+and `<name>/packages.sum` produced non-empty, SDK summary idempotent, a Flutter
+scope's SDK summary holding `dart:ui` and a stale one rebuilt); helper
 codegen (camelCase constants, asset paths, `register(...)` calls; the emitted
 file analyzes clean); the registry in `tom_dart_editor` (`register` idempotent,
 two editors of one scope share a single parsed store, byte buffers released after
-parse, unregistered scope → graceful fallback); and editor routing in
+parse, unregistered scope → graceful fallback); the generated scopes of
+`tom_specs_editor` analysing Flutter code with `dart:ui` types and plain Dart
+(`test/summary_scopes_test.dart`, skipped until the bundler has run); and editor routing in
 `tom_specs_editor` (`scopeForContentType` / `isDartCodeContentType`, and the
 summary-backed-vs-plain widget choice).
 

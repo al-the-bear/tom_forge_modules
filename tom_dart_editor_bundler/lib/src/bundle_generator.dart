@@ -11,9 +11,16 @@
 /// analyzer's *public* `buildSdkSummary` API — the same generator-layer split
 /// `tom_specs_clitool/bin/summaries.dart` uses.
 ///
+/// A scope of Flutter packages needs Flutter's embedder libraries (`dart:ui`
+/// …) on both sides: the shared SDK summary is built with the embedder of the
+/// declared scopes' `sky_engine`, and each grouped bundle is linked against
+/// the same one, so the `dart:ui` types Flutter re-exports resolve.
+///
 /// The run is idempotent/re-runnable: the SDK summary is skipped when already
-/// present, and each `packages.sum` is rebuilt and overwritten deterministically
-/// from the same inputs, so a second run yields the same asset tree.
+/// present and built the same way (with `dart:ui` exactly when a scope holds
+/// Flutter), and each `packages.sum` is rebuilt and overwritten
+/// deterministically from the same inputs, so a second run yields the same
+/// asset tree.
 library;
 
 import 'dart:io';
@@ -22,7 +29,12 @@ import 'package:analyzer/dart/sdk/build_sdk_summary.dart';
 import 'package:analyzer/file_system/physical_file_system.dart';
 import 'package:path/path.dart' as p;
 import 'package:tom_analyzer_shared/tom_analyzer_shared.dart'
-    show GroupedPackageBundleBuilder, resolveDartSdkPath;
+    show
+        GroupedPackageBundleBuilder,
+        flutterEmbedderYamlInPackageRoots,
+        readPackageRoots,
+        resolveDartSdkPath,
+        summaryLibraryUris;
 
 import 'asset_layout.dart';
 import 'bundler_config.dart';
@@ -65,10 +77,15 @@ class BundleGenerationResult {
   /// Per-scope outcomes, in declaration order (filtered when `--bundle` is set).
   final List<GeneratedBundle> bundles;
 
+  /// The Flutter embedder the SDK summary and the bundles were built with,
+  /// or null when no scope holds Flutter packages.
+  final String? embedderYamlPath;
+
   const BundleGenerationResult({
     required this.sdkSummaryPath,
     required this.sdkSummaryBuilt,
     required this.bundles,
+    this.embedderYamlPath,
   });
 }
 
@@ -146,18 +163,27 @@ class BundleGenerator {
 
     Directory(_resolve(baseDir, config.outDir)).createSync(recursive: true);
 
-    // ── shared SDK summary (idempotent: skip when present) ──────────────────
+    // The Flutter embedder of every declared scope (not only the selected
+    // ones), so a filtered run writes the same shared SDK summary.
+    final embedder = _flutterEmbedderOf(config, baseDir);
+    if (embedder != null) logLine('Flutter embedder: $embedder');
+
+    // ── shared SDK summary (idempotent: skip when present and built the
+    // same way — with dart:ui exactly when a scope holds Flutter) ──────────
     final sdkSummaryPath = SummaryAssetLayout.filePath(
         baseDir, SummaryAssetLayout.sdkSummarySegments(config));
     final sdkFile = File(sdkSummaryPath);
     bool sdkBuilt = false;
-    if (sdkFile.existsSync()) {
+    if (sdkFile.existsSync() &&
+        summaryLibraryUris(sdkFile.readAsBytesSync()).contains('dart:ui') ==
+            (embedder != null)) {
       logLine('SDK summary up to date: $sdkSummaryPath');
     } else {
       logLine('Building SDK summary...');
       final bytes = await buildSdkSummary(
         resourceProvider: resourceProvider,
         sdkPath: resolvedSdkPath,
+        embedderYamlPath: embedder,
       );
       sdkFile.writeAsBytesSync(bytes);
       sdkBuilt = true;
@@ -184,7 +210,12 @@ class BundleGenerator {
           bundle.packages.map((pkg) => _resolve(baseDir, pkg)).toList();
       final grouped = await GroupedPackageBundleBuilder(
         resourceProvider: resourceProvider,
-      ).buildFromDirs(dirs, sdkPath: resolvedSdkPath, onLog: logLine);
+      ).buildFromDirs(
+        dirs,
+        sdkPath: resolvedSdkPath,
+        embedderYamlPath: embedder,
+        onLog: logLine,
+      );
 
       final packagesSumPath = SummaryAssetLayout.filePath(
           baseDir, SummaryAssetLayout.packagesSegments(config, bundle)!);
@@ -207,7 +238,29 @@ class BundleGenerator {
       sdkSummaryPath: sdkSummaryPath,
       sdkSummaryBuilt: sdkBuilt,
       bundles: results,
+      embedderYamlPath: embedder,
     );
+  }
+
+  /// The embedder of the first `sky_engine` among the packages of [config]'s
+  /// scopes, or null when none holds Flutter. A package directory without a
+  /// resolved config is passed over here; building its scope reports it.
+  String? _flutterEmbedderOf(BundlerConfig config, String baseDir) {
+    for (final bundle in config.bundles) {
+      if (bundle.sdkOnly) continue;
+      for (final package in bundle.packages) {
+        final packageConfig = File(p.join(
+          _resolve(baseDir, package),
+          '.dart_tool',
+          'package_config.json',
+        ));
+        if (!packageConfig.existsSync()) continue;
+        final embedder =
+            flutterEmbedderYamlInPackageRoots(readPackageRoots(packageConfig));
+        if (embedder != null) return embedder;
+      }
+    }
+    return null;
   }
 
   /// Resolve [pathOrDir] against [baseDir] when relative; normalize either way.
