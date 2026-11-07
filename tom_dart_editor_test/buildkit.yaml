@@ -1,0 +1,35 @@
+# The Dart editor summary pair the Forge apps ship, built by
+# tom_dart_editor_bundler (tom_forge/tom_dart_editor_bundler):
+#   - the shared SDK summary          → assets/summaries/sdk_summary.sum
+#   - the scope's grouped bundle      → assets/summaries/dart-editor/packages.sum
+#   - a stamp beside each (what wrote it: Dart SDK, analyzer data version,
+#     Flutter embedder)
+#   - the scope-init helper           → lib/generated/summary_scopes.g.dart
+#
+# The scope is this app's whole resolved dependency closure: Flutter (with its
+# dart:ui), path, dcli and what they pull in. The pair is committed, and
+# copied as it is to tom_forge_app/assets/summaries/ and
+# tom_yaml_editor_test/assets/summaries/; test/shipped_summaries_test.dart
+# checks the copies and what the pair resolves.
+#
+# Rebuild (after an analyzer upgrade or a dependency change), with the Flutter
+# the apps build with on PATH, from this directory:
+#   flutter pub get
+#   dart run ../tom_dart_editor_bundler/bin/dart_editor_bundler.dart \
+#     --config buildkit.yaml --verbose
+# then copy assets/summaries/ to the two apps (see
+# tom_dart_editor/doc/package_summary_generation.md).
+dart-editor-bundler:
+  out-dir: assets/summaries
+  generated-helper: lib/generated/summary_scopes.g.dart
+  sdk-summary: sdk_summary.sum
+  bundles:
+    - name: dart-editor
+      packages:
+        - .
+      implicit-imports:
+        - dart:async
+        - dart:collection
+        - dart:math
+        - package:dcli/dcli.dart
+        - package:path/path.dart

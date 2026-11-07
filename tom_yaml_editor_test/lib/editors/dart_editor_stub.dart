@@ -162,8 +162,9 @@ class _DartEditorStubState extends State<DartEditorStub> {
             Expanded(
               child: SummaryBackedDartCodeEditor(
                 controller: _controller,
-                sdkSummaryAsset: 'assets/sdk_summary.sum',
-                packageSummaryAsset: 'assets/packages.sum',
+                sdkSummaryAsset: 'assets/summaries/sdk_summary.sum',
+                packageSummaryAsset:
+                    'assets/summaries/dart-editor/packages.sum',
                 implicitImports: _d4rtDcliImplicitImports,
                 includeAllPackageCompletions: true,
                 allowedPackagePrefixes: _d4rtDcliBridgedPackagePrefixes,

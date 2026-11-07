@@ -27,16 +27,21 @@ class ForgeDartSummaryAssets {
     required this.packageSummary,
   });
 
-  /// `assets/sdk_summary.sum` and `assets/packages.sum` of the running app.
+  /// The pair's place in an app, as tom_dart_editor_bundler lays it out: the
+  /// shared SDK summary and the `dart-editor` scope's package summary.
+  static const sdkSummaryPath = 'assets/summaries/sdk_summary.sum';
+  static const packageSummaryPath = 'assets/summaries/dart-editor/packages.sum';
+
+  /// The pair of the running app.
   static const root = ForgeDartSummaryAssets(
-    sdkSummary: 'assets/sdk_summary.sum',
-    packageSummary: 'assets/packages.sum',
+    sdkSummary: sdkSummaryPath,
+    packageSummary: packageSummaryPath,
   );
 
   /// The same two files, carried by the dependency [package].
   ForgeDartSummaryAssets.ofPackage(String package)
-    : sdkSummary = 'packages/$package/assets/sdk_summary.sum',
-      packageSummary = 'packages/$package/assets/packages.sum';
+    : sdkSummary = 'packages/$package/$sdkSummaryPath',
+      packageSummary = 'packages/$package/$packageSummaryPath';
 
   final String sdkSummary;
   final String packageSummary;

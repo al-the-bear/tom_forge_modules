@@ -25,8 +25,8 @@ EditorSuffix dartSuffixEditor() {
     }) {
       return SimpleSummaryBackedDartCodeEditor(
         initialCode: value as String? ?? '',
-        sdkSummaryAsset: 'assets/sdk_summary.sum',
-        packageSummaryAsset: 'assets/packages.sum',
+        sdkSummaryAsset: 'assets/summaries/sdk_summary.sum',
+        packageSummaryAsset: 'assets/summaries/dart-editor/packages.sum',
         readOnly: readOnly,
         settings: const DartEditorSettings(
           showToolbar: false,
@@ -50,8 +50,8 @@ EditorSuffix dartSuffixEditor() {
     }) {
       return SimpleSummaryBackedDartCodeEditor(
         initialCode: value as String? ?? '',
-        sdkSummaryAsset: 'assets/sdk_summary.sum',
-        packageSummaryAsset: 'assets/packages.sum',
+        sdkSummaryAsset: 'assets/summaries/sdk_summary.sum',
+        packageSummaryAsset: 'assets/summaries/dart-editor/packages.sum',
         readOnly: readOnly,
         onChanged: (code) => onChanged(code),
       );
@@ -84,18 +84,20 @@ script-dart: |
 
 ## 3) Asset requirements
 
-Dart analyzer-backed editing requires summary files in the host app:
+Dart analyzer-backed editing requires the summary pair in the host app, as
+`tom_dart_editor_bundler` lays it out (`tom_dart_editor/doc/package_summary_generation.md`;
+the Forge apps copy the pair built in `tom_dart_editor_test`):
 
-- `assets/sdk_summary.sum`
-- `assets/packages.sum`
+- `assets/summaries/sdk_summary.sum`
+- `assets/summaries/dart-editor/packages.sum`
 
-And in host `pubspec.yaml`:
+And in host `pubspec.yaml` (asset directory entries are not recursive):
 
 ```yaml
 flutter:
   assets:
-    - assets/sdk_summary.sum
-    - assets/packages.sum
+    - assets/summaries/
+    - assets/summaries/dart-editor/
 ```
 
 ## Result

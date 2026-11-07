@@ -33,6 +33,10 @@ flutter:
 
   assets:
     - assets/
+    # The Dart editor's summary pair, built by tom_dart_editor_bundler in
+    # tom_dart_editor_test and copied here.
+    - assets/summaries/
+    - assets/summaries/dart-editor/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

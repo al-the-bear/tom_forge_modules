@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:tom_dart_editor/tom_dart_editor.dart';
 
-void main() {
+import 'generated/summary_scopes.g.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Register the summary scope buildkit.yaml declares (the pair
+  // tom_dart_editor_bundler builds), before the first frame.
+  await SummaryScopes.initialize();
   runApp(const DartAnalyzerApp());
 }
 
@@ -61,8 +67,8 @@ class _AnalyzerScreenState extends State<AnalyzerScreen> {
                   'package:dcli/dcli.dart',
                   'package:path/path.dart',
                 ],
-                sdkSummaryAsset: 'assets/sdk_summary.sum',
-                packageSummaryAsset: 'assets/packages.sum',
+                // The summaries of the scope buildkit.yaml declares.
+                scope: SummaryScopes.dartEditor,
                 theme: DartEditorTheme.dark(),
                 onErrorsChanged: (errors) {
                   if (!mounted) return;

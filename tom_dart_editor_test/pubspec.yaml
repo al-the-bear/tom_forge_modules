@@ -24,12 +24,12 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
-  # tool/flutter_sdk.dart reads Flutter's embedder file.
-  yaml: ^3.1.0
 
 flutter:
   uses-material-design: true
   
+  # The summary pair tom_dart_editor_bundler builds from buildkit.yaml (asset
+  # directory entries are not recursive, so the scope's folder is listed).
   assets:
-    - assets/sdk_summary.sum
-    - assets/packages.sum
+    - assets/summaries/
+    - assets/summaries/dart-editor/

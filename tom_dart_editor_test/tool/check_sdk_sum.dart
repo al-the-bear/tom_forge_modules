@@ -3,8 +3,10 @@
 import 'dart:io';
 import 'package:analyzer/src/summary2/package_bundle_format.dart';
 
-void main() {
-  final bytes = File('assets/sdk_summary.sum').readAsBytesSync();
+void main(List<String> args) {
+  final bytes =
+      File(args.isNotEmpty ? args[0] : 'assets/summaries/sdk_summary.sum')
+          .readAsBytesSync();
   final bundle = PackageBundleReader(bytes);
   print('SDK Libraries: ${bundle.libraries.length}');
   for (var i = 0; i < 3 && i < bundle.libraries.length; i++) {

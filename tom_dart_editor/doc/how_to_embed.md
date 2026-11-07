@@ -54,28 +54,44 @@ SimpleSummaryBackedDartCodeEditor(
 - Use `SimpleSummaryBackedDartCodeEditor` for easiest embedding.
 - Use `SummaryBackedDartCodeEditor` if you need to manage your own `DartCodeController`.
 
+## Summaries by scope
+
+The summaries are built by `tom_dart_editor_bundler` from a
+`dart-editor-bundler:` block in the app's `buildkit.yaml`
+([Generating Summary Files](package_summary_generation.md)). It writes the
+shared `assets/summaries/sdk_summary.sum`, one
+`assets/summaries/<scope>/packages.sum` per scope, and
+`lib/generated/summary_scopes.g.dart`, which registers every scope in a
+shared, ref-counted `SummaryScopeRegistry`:
+
+```dart
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await SummaryScopes.initialize();
+  runApp(const MyApp());
+}
+
+SimpleSummaryBackedDartCodeEditor(
+  initialCode: code,
+  scope: SummaryScopes.dartEditor,
+)
+```
+
+Editors of one scope share one parsed bundle. See
+**[Summary Scopes](summary_scopes.md)**.
+
 ## Required assets
 
-Make sure both summary files are available in the embedding app's assets:
-
-- `assets/sdk_summary.sum`
-- `assets/packages.sum`
-
-And included in app `pubspec.yaml`:
+The scope folders are asset directories in the app's `pubspec.yaml`
+(directory entries are not recursive):
 
 ```yaml
 flutter:
   assets:
-    - assets/sdk_summary.sum
-    - assets/packages.sum
+    - assets/summaries/
+    - assets/summaries/dart-editor/
 ```
 
-## Summary scopes (planned)
-
-The explicit-asset embedding above ties one editor instance to one fixed
-`(sdk_summary.sum, packages.sum)` pair. A planned **summary scopes** design
-replaces the two asset paths with a single named `scope:` (e.g. `dart-plain`,
-`d4rt-flutter`, `d4rt-document`), resolved through a shared, ref-counted
-`SummaryScopeRegistry` so multiple editors can share one parsed bundle in
-memory. See **[Summary Scopes](summary_scopes.md)** (status: specified, not yet
-implemented).
+The explicit-asset form above (`sdkSummaryAsset:` / `packageSummaryAsset:`)
+reads two summary files from any asset paths — for summaries not registered as
+a scope; the paths in the examples are the parameters' defaults.

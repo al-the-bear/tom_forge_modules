@@ -12,7 +12,8 @@ import 'package:analyzer/src/summary2/package_bundle_format.dart';
 import 'package:analyzer/src/summary/package_bundle_reader.dart';
 
 void main(List<String> args) {
-  final path = args.isNotEmpty ? args[0] : 'assets/packages.sum';
+  final path =
+      args.isNotEmpty ? args[0] : 'assets/summaries/dart-editor/packages.sum';
   final file = File(path);
   if (!file.existsSync()) {
     print('ERROR: File not found: $path');

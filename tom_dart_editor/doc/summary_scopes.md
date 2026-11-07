@@ -8,10 +8,11 @@ an app that embeds **many** small editors — each targeting a **different** cod
 surface — generates and shares those bundles efficiently, and the
 `tom_dart_editor_bundler` CLI that produces them.
 
-The scoped model is the primary embedding path. The single explicit-asset flow in
-[`package_summary_generation.md`](package_summary_generation.md) and the
+The scoped model is the embedding path, and every summary in the workspace is
+built by this bundler — the Forge apps' shipped pair included
+([`package_summary_generation.md`](package_summary_generation.md)). The
 explicit-asset constructors in [`how_to_embed.md`](how_to_embed.md) remain as a
-lower-level escape hatch. The end-to-end reference is the package README's
+lower-level escape hatch for reading summaries from other paths. The end-to-end reference is the package README's
 ["Embedding with Summary Scopes"](../README.md) section and the companion CLI at
 [`../../tom_dart_editor_bundler`](../../tom_dart_editor_bundler).
 
@@ -151,8 +152,8 @@ URIs are `package:`, never `file:`, and the bundle is portable) — is the
 `GroupedPackageBundleBuilder(resourceProvider: …).buildFromDirs(dirs, sdkPath: …,
 onLog: …)`. It is consumed by **both** the bundler (`bundle_generator.dart`) and
 `tom_specs_clitool/bin/summaries.dart`, so the algorithm exists exactly once in
-the base library; both consumers pin `tom_analyzer_shared: ^0.5.0` (hosted from
-pub.dev, never a path override).
+the base library; both consumers take `tom_analyzer_shared` hosted from pub.dev
+(the bundler `^0.11.0`, the CLI `^0.10.0`), never through a path override.
 
 **`dart:ui` in a Flutter scope.** A scope over Flutter code (`d4rt-flutter`)
 resolves the `dart:ui` types Flutter re-exports (`TextDirection`, `Color`,
@@ -165,7 +166,8 @@ packages' own `sky_engine` (`dartSdkWithEmbedder`) and names it in its result
 (`GroupedPackageBundle.embedderYamlPath`); the bundler builds the shared SDK
 summary with the embedder of the declared scopes and passes the same one to
 every scope, so a Flutter scope resolves them (`tom_specs_editor`
-`test/summary_scopes_test.dart`, `tom_analyzer_shared`
+`test/summary_scopes_test.dart`, `tom_dart_editor_test`
+`test/shipped_summaries_test.dart`, `tom_analyzer_shared`
 `grouped_bundle_dart_ui_test.dart`).
 
 ### 3.3 Invocation
@@ -326,10 +328,15 @@ committed `.gitkeep` keeps each asset dir present for `pubspec.yaml`.
 `bin/dart_editor_bundler.dart` (the `ToolRunner` entrypoint) and `lib/src/`
 (`bundler_config.dart`, `bundle_generator.dart`, `helper_writer.dart`,
 `bundler_tool.dart`, `bundler_executor.dart`), depending on `tom_build_base`
-(CLI scaffold) and `tom_analyzer_shared: ^0.5.0` (summary generation incl.
-`GroupedPackageBundleBuilder`).
+(CLI scaffold) and `tom_analyzer_shared: ^0.11.0` (summary generation incl.
+`GroupedPackageBundleBuilder`, `SummaryStamp`).
 
-**First consumer** — `tom_forge/tom_specs_editor` wires two scopes:
+**The Forge apps' pair** — `tom_forge/tom_dart_editor_test` declares one scope,
+`dart-editor` (its whole closure: Flutter with `dart:ui`, `path`, `dcli`; 93
+packages), whose summaries are committed and copied to `tom_forge_app` and
+`tom_yaml_editor_test` ([`package_summary_generation.md`](package_summary_generation.md)).
+
+**Scoped code fields** — `tom_forge/tom_specs_editor` wires two scopes:
 `dart-plain` (sdk-only) and `d4rt-flutter` (scoped to `tom_d4rt_flutter`; its
 `d4rt-flutter/packages.sum` covers 115 packages / 4879 libraries). The third
 example scope `d4rt-document` is illustrative and not wired — there is no settled
@@ -357,8 +364,8 @@ summary-backed-vs-plain widget choice).
 
 - This is **editor-internal plumbing** for embedded code fields; it does **not**
   affect the object model or document format.
-- [`package_summary_generation.md`](package_summary_generation.md) — the
-  single-pair `.sum` build that this design generalises into per-scope bundles.
+- [`package_summary_generation.md`](package_summary_generation.md) — what the
+  build holds, and how the Forge apps' pair is built and copied.
 - [`how_to_embed.md`](how_to_embed.md) /
   [`dart_editor_usage_guide.md`](dart_editor_usage_guide.md) — explicit-asset
   embedding, which remains the escape hatch under the scoped model.

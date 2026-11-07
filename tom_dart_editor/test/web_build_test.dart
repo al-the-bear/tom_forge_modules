@@ -48,8 +48,9 @@ void main() {
     // and it is one app to keep working rather than two.
     //
     // Its `dcli` dependency is not an obstacle, though it looks like one. `dcli`
-    // is a fixture *source* for `tool/build_packages_summary.dart`, which bundles
-    // its libraries into `assets/packages.sum`; nothing under `lib/` imports it.
+    // is a fixture *source* for the summary pair tom_dart_editor_bundler builds
+    // from its buildkit.yaml (`assets/summaries/`); nothing under `lib/`
+    // imports it.
     // A declared dependency that the entry point never reaches is never
     // compiled, so it cannot fail a web build.
     // The build itself is the shared probe now. It was the only one when it

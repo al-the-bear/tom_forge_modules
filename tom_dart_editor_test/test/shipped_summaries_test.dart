@@ -1,9 +1,11 @@
-/// The summary pair the apps ship (`assets/sdk_summary.sum`,
-/// `assets/packages.sum`) is readable by the analyzer the editor runs on and
-/// resolves real code — the SDK, a package, Flutter and the `dart:ui` types
-/// Flutter re-exports — and every app ships the same pair
-/// (`tom_dart_editor/doc/package_summary_generation.md`, "When to rebuild").
-/// A pair written by another analyzer major fails here.
+/// The summary pair the apps ship — built by tom_dart_editor_bundler from
+/// this package's buildkit.yaml: `assets/summaries/sdk_summary.sum` and
+/// `assets/summaries/dart-editor/packages.sum`, each with its stamp — is
+/// readable by the analyzer the editor runs on and resolves real code (the
+/// SDK, a package, Flutter and the `dart:ui` types Flutter re-exports), and
+/// every app ships the same pair
+/// (`tom_dart_editor/doc/package_summary_generation.md`). A pair written by
+/// another analyzer fails here.
 @Timeout(Duration(minutes: 4))
 library;
 
@@ -12,9 +14,14 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_dart_editor/tom_dart_editor.dart';
+import 'package:tom_dart_editor_test/generated/summary_scopes.g.dart';
 
-const _sdk = 'assets/sdk_summary.sum';
-const _packages = 'assets/packages.sum';
+const _sdk = 'assets/summaries/sdk_summary.sum';
+const _packages = 'assets/summaries/dart-editor/packages.sum';
+
+/// Every file of the pair the bundler writes: the two summaries and their
+/// stamps.
+const _pair = [_sdk, '$_sdk.stamp', _packages, '$_packages.stamp'];
 
 void main() {
   final registry = SummaryScopeRegistry.instance;
@@ -29,14 +36,11 @@ void main() {
   test('SUM-1: code using the SDK, a package, Flutter and dart:ui analyses '
       'clean against the shipped summaries, and so does plain Dart code; a '
       'mistake is reported', () async {
-    await registry.register(
-      const SummaryScopeAsset(
-        name: 'shipped',
-        sdkSummaryAsset: _sdk,
-        packageSummaryAsset: _packages,
-      ),
+    // Registered as the app does, through the bundler's generated helper.
+    await SummaryScopes.initialize();
+    final adapter = SummaryBackedDartAnalysisAdapter.scope(
+      SummaryScopes.dartEditor,
     );
-    final adapter = SummaryBackedDartAnalysisAdapter.scope('shipped');
     await adapter.ensureInitialized();
 
     Future<void> expectClean(String code) async {
@@ -89,15 +93,28 @@ String joined() => p.joinn('a', 'b');
     );
   });
 
-  test('SUM-2: every app ships the same pair', () {
+  test('SUM-2: every app ships the same pair, stamps included', () {
     for (final app in ['../tom_forge_app', '../tom_yaml_editor_test']) {
-      for (final file in [_sdk, _packages]) {
+      for (final file in _pair) {
         expect(
           File('$app/$file').readAsBytesSync(),
           File(file).readAsBytesSync(),
           reason: '$app/$file differs from this package\'s: copy the pair',
         );
       }
+    }
+  });
+
+  test('SUM-3: each summary carries the bundler\'s stamp, built with dart:ui',
+      () {
+    for (final summary in [_sdk, _packages]) {
+      final stamp = File('$summary.stamp');
+      expect(stamp.existsSync(), isTrue, reason: '$summary has no stamp');
+      expect(stamp.readAsStringSync(), contains('dart-ui: yes'));
+      expect(
+        stamp.readAsStringSync(),
+        matches(RegExp(r'toolchain: \d+\.\d+\.\d+\+d\d+')),
+      );
     }
   });
 }
