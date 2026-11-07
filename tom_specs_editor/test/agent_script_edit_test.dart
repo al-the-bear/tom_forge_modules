@@ -13,8 +13,9 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_specs_editor/src/agent/agent_tools_module.dart';
-import 'package:tom_specs_editor/src/structure/review_store.dart';
 import 'package:tom_specs_editor/src/structure/spec_model.dart';
+
+import 'support/review_store_support.dart';
 
 /// A trivial single-content-field model (mirrors agent_turn_undo_test.dart): the
 /// scripting/change-log machinery operates on section-ID paths, so the schema
@@ -39,7 +40,7 @@ void main() {
 
   AgentToolsModule makeModule() => AgentToolsModule(
     modelFuture: Future<SpecModel>.value(SpecModel.fromJson(_model())),
-    review: ReviewStore(File('${dir.path}/review.yaml')),
+    review: memoryReviewStore(),
     scriptWorkspaceRoot: dir.path,
   );
 

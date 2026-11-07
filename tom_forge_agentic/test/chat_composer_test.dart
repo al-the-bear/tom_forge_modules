@@ -106,7 +106,7 @@ void main() {
           controller: _sendController(),
           onSendNow: (_) {},
           onAddToQueue: (_) {},
-          composePreview: (s) => s.replaceAll(r'${who}', 'Alex'),
+          composePreview: (s) async => s.replaceAll(r'${who}', 'Alex'),
         ),
       );
 

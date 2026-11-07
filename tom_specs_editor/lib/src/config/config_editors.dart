@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
@@ -17,7 +15,7 @@ class ConfigListSpec<T> {
     required this.title,
     required this.icon,
     required this.uri,
-    required this.backingFile,
+    required this.backingUri,
     required this.load,
     required this.save,
     required this.labelOf,
@@ -31,7 +29,7 @@ class ConfigListSpec<T> {
   final Uri uri;
 
   /// The YAML/markdown file the "Open raw file" button opens.
-  final File backingFile;
+  final Uri backingUri;
 
   final List<T> Function() load;
   final void Function(List<T> items) save;
@@ -58,7 +56,7 @@ class ConfigObjectSpec<T> {
     required this.title,
     required this.icon,
     required this.uri,
-    required this.backingFile,
+    required this.backingUri,
     required this.load,
     required this.save,
     required this.fields,
@@ -67,7 +65,9 @@ class ConfigObjectSpec<T> {
   final String title;
   final IconData icon;
   final Uri uri;
-  final File backingFile;
+
+  /// The YAML file the "Open raw file" button opens.
+  final Uri backingUri;
   final T Function() load;
   final void Function(T value) save;
   final List<ConfigField<T>> fields;
@@ -121,10 +121,10 @@ class ConfigListEditor<T> extends ForgeSurfaceEditor {
   @override
   ValueListenable<String?> get titleExtension => _titleExtension;
 
-  /// Ensures the backing file exists (persisting current state) then opens it.
-  void _openRaw() {
+  /// Persists the current state, then opens the backing file.
+  Future<void> _openRaw() {
     spec.save(_items);
-    onOpenRawFile(Uri.file(spec.backingFile.path));
+    return onOpenRawFile(spec.backingUri);
   }
 
   @override
@@ -153,7 +153,7 @@ class _ConfigListBody<T> extends StatefulWidget {
   final ConfigListSpec<T> spec;
   final List<T> initialItems;
   final ValueChanged<List<T>> onItemsChanged;
-  final VoidCallback onOpenRaw;
+  final Future<void> Function() onOpenRaw;
 
   @override
   State<_ConfigListBody<T>> createState() => _ConfigListBodyState<T>();
@@ -366,9 +366,10 @@ class ConfigObjectEditor<T> extends ForgeSurfaceEditor {
   @override
   ValueListenable<String?> get titleExtension => _titleExtension;
 
-  void _openRaw() {
+  /// Persists the current value, then opens the backing file.
+  Future<void> _openRaw() {
     spec.save(_value);
-    onOpenRawFile(Uri.file(spec.backingFile.path));
+    return onOpenRawFile(spec.backingUri);
   }
 
   @override
@@ -397,7 +398,7 @@ class _ConfigObjectBody<T> extends StatefulWidget {
   final ConfigObjectSpec<T> spec;
   final T initialValue;
   final ValueChanged<T> onValueChanged;
-  final VoidCallback onOpenRaw;
+  final Future<void> Function() onOpenRaw;
 
   @override
   State<_ConfigObjectBody<T>> createState() => _ConfigObjectBodyState<T>();

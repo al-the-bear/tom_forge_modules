@@ -270,7 +270,7 @@ void main() {
       final coordinator = ChatSendCoordinator(
         send: send,
         trail: trail,
-        compose: (raw) => raw.replaceAll('{{who}}', 'Alex'),
+        compose: (raw) async => raw.replaceAll('{{who}}', 'Alex'),
       );
 
       await coordinator.sendNow('hi {{who}}');

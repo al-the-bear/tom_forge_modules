@@ -57,7 +57,7 @@ class ChatComposerPanel extends StatefulWidget {
   /// Expands the current input's placeholders for the live preview (§11.5,
   /// OE-14). When null, no preview is shown. May throw for unsupported forms —
   /// [PlaceholderPreview] renders the error rather than crashing the composer.
-  final String Function(String source)? composePreview;
+  final PromptCompose? composePreview;
 
   /// The profiles offered in the picker (§11.1). Empty hides the picker.
   final List<ChatComposerProfile> profiles;

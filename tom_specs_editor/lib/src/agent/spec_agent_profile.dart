@@ -103,29 +103,55 @@ class SpecAgentProfile {
 /// The MCP surface is derived by intersecting each context's
 /// [AgentContext.toolset] with the [serverToolGroups] each editor MCP server
 /// provides: a server is included iff the context enables at least one of the
-/// tool groups that server exposes. The guidelines prompt is resolved by
-/// composing the `${guidelines-<name>}` placeholder through the editor's prompt
-/// [compose] registry.
+/// tool groups that server exposes. The guidelines prompts are resolved once,
+/// by [resolve], composing each authored application's
+/// `${guidelines-<name>}` placeholder through the editor's prompt composer
+/// (which reads the doc from the workspace).
 class SpecAgentProfiles {
-  /// Builds the resolver over the editor's live resources:
-  ///   * [compose] — the placeholder prompt registry (the editor's
-  ///     `SpecPromptComposer.compose`) used to expand the guidelines doc;
+  SpecAgentProfiles._({
+    required Map<String, String> prompts,
+    required Map<String, McpServerConfig> servers,
+    required Map<String, Set<AgentToolGroup>> serverToolGroups,
+    required AgentContextRegistry contexts,
+  }) : _prompts = prompts,
+       _servers = Map.unmodifiable(servers),
+       _serverToolGroups = Map.unmodifiable(serverToolGroups),
+       _contexts = contexts;
+
+  /// Builds the resolver over the editor's live resources, the guidelines
+  /// prompt of every authored application composed up front:
+  ///   * [compose] — the placeholder prompt composer (the editor's
+  ///     `SpecPromptComposer.compose`) used to expand the guidelines docs;
   ///   * [servers] — the editor's MCP servers (`AgentToolsModule.servers`);
   ///   * [serverToolGroups] — which `llm_and_d4rt_tools.md` §8 tool groups each
   ///     server provides (`AgentToolsModule.serverToolGroups`);
   ///   * [contexts] — the application contexts (defaults to
   ///     [tomSpecsContextRegistry] — all three canonical applications authored).
-  SpecAgentProfiles({
-    required String Function(String template) compose,
+  static Future<SpecAgentProfiles> resolve({
+    required Future<String> Function(String template) compose,
     required Map<String, McpServerConfig> servers,
     required Map<String, Set<AgentToolGroup>> serverToolGroups,
     AgentContextRegistry? contexts,
-  }) : _compose = compose,
-       _servers = Map.unmodifiable(servers),
-       _serverToolGroups = Map.unmodifiable(serverToolGroups),
-       _contexts = contexts ?? _defaultContexts();
+  }) async {
+    final registry = contexts ?? _defaultContexts();
+    final prompts = <String, String>{};
+    for (final application in registry.applications) {
+      final name = registry.context(application).guidelinesName;
+      // `${guidelines-<name>}` reads `<workspace>/_copilot_guidelines/
+      // <name>.md`; a missing doc renders empty (lenient), yielding no
+      // additive prompt.
+      prompts[application] = (await compose('\${guidelines-$name}')).trim();
+    }
+    return SpecAgentProfiles._(
+      prompts: prompts,
+      servers: servers,
+      serverToolGroups: serverToolGroups,
+      contexts: registry,
+    );
+  }
 
-  final String Function(String template) _compose;
+  /// The composed guidelines prompt per authored application.
+  final Map<String, String> _prompts;
   final Map<String, McpServerConfig> _servers;
   final Map<String, Set<AgentToolGroup>> _serverToolGroups;
   final AgentContextRegistry _contexts;
@@ -152,25 +178,19 @@ class SpecAgentProfiles {
     final resolved = _contexts.has(application)
         ? application
         : docSpecsApplication;
-    return _cache.putIfAbsent(
-      resolved,
-      () => _bind(_contexts.context(resolved)),
-    );
+    return _cache.putIfAbsent(resolved, () => _bind(resolved));
   }
 
-  /// Resolves one [context] into a live [SpecAgentProfile].
-  SpecAgentProfile _bind(AgentContext context) => SpecAgentProfile(
-    context: context,
-    systemPrompt: _resolvePrompt(context.guidelinesName),
-    mcpServers: _selectServers(context.toolset),
-  );
-
-  /// Expands the application's guidelines doc into an additive prompt through
-  /// the placeholder registry. `${guidelines-<name>}` reads
-  /// `<workspace>/_copilot_guidelines/<name>.md`; a missing doc renders empty
-  /// (lenient), yielding no additive prompt.
-  String _resolvePrompt(String guidelinesName) =>
-      _compose('\${guidelines-$guidelinesName}').trim();
+  /// Binds the authored [application]'s context into a live
+  /// [SpecAgentProfile].
+  SpecAgentProfile _bind(String application) {
+    final context = _contexts.context(application);
+    return SpecAgentProfile(
+      context: context,
+      systemPrompt: _prompts[application] ?? '',
+      mcpServers: _selectServers(context.toolset),
+    );
+  }
 
   /// The MCP servers [toolset] enables: each server whose provided tool groups
   /// intersect the toolset.

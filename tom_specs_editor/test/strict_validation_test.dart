@@ -11,8 +11,6 @@
 //   * the offending `@OneOf` subsection carries the mismatch badge in the tree,
 //     and a reference form field carries the dangling-id badge.
 
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -21,6 +19,7 @@ import 'package:tom_specs_editor/src/document/spec_document_controller.dart';
 import 'package:tom_specs_editor/src/document/spec_document_editor.dart';
 import 'package:tom_specs_editor/src/structure/review_store.dart';
 import 'package:tom_specs_editor/src/structure/spec_model.dart';
+import 'support/review_store_support.dart';
 
 /// A model with a `@Form` (author), a `@Min(2)` list, and an `@OneOf` container
 /// (`element`, discriminated on `kind`) carrying `action`/`input` case-bound
@@ -200,11 +199,7 @@ Map<String, dynamic> _oneOfJson() => {
 };
 
 ReviewStore _tempReviewStore() {
-  final dir = Directory.systemTemp.createTempSync('strict_validation_review');
-  addTearDown(() {
-    if (dir.existsSync()) dir.deleteSync(recursive: true);
-  });
-  return ReviewStore(File('${dir.path}/review.yaml'));
+  return memoryReviewStore();
 }
 
 Future<SpecDocumentController> _controller({SpecDocument? document}) async {

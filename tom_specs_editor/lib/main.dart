@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:tom_file_system/io.dart';
 
 import 'generated/summary_scopes.g.dart';
 import 'src/specs_editor_app.dart';
@@ -17,5 +20,13 @@ Future<void> main() async {
     debugPrint('Summary scope init skipped: $error');
     debugPrintStack(stackTrace: stack);
   }
-  runApp(const SpecsEditorApp());
+  // The workspace is the working folder; the editor reads and writes it
+  // through one TomLocalFileSystem, and the environment may move its review
+  // and preferences files.
+  runApp(
+    SpecsEditorApp(
+      fileSystem: TomLocalFileSystem(Directory.current.path),
+      environment: Platform.environment,
+    ),
+  );
 }

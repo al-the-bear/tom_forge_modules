@@ -1,7 +1,5 @@
-import 'dart:io';
-
 import 'package:flutter/foundation.dart';
-import 'package:path/path.dart' as p;
+import 'package:tom_file_system/tom_file_system.dart';
 import 'package:yaml/yaml.dart';
 
 /// Where a reviewed node belongs in the eventual document set.
@@ -146,22 +144,48 @@ class ReviewEntry {
 /// The store is keyed by structural path so a reviewer's decision can later be
 /// mapped straight back onto the object model for rework — folded onto one key
 /// per section by the host's [installKeyMapper] where several routes reach the
-/// same section. Saving happens
-/// synchronously after each mutation — the data set is small (one entry per
-/// reviewed node) and the guarantee that nothing is lost on crash is worth more
-/// than micro-optimising writes.
+/// same section. Every mutation is written at once, through the workspace's
+/// [TomFileSystem]: the writes run one after the other in the order of the
+/// mutations ([saved] completes when the last has landed), so the file always
+/// ends at the latest state — the data set is small (one entry per reviewed
+/// node) and nothing is lost to a crash between edits.
 class ReviewStore extends ChangeNotifier {
-  /// The file the entries persist to; null for a store whose entries travel
-  /// with the document they review ([ReviewStore.inDocument]).
-  final File? file;
-  final Map<String, ReviewEntry> _entries = {};
-
-  ReviewStore(File this.file);
+  /// A store persisting to [uri] in [fileSystem].
+  ReviewStore({required TomFileSystem this.fileSystem, required Uri this.uri});
 
   /// A store with no file of its own: its entries are the `review:` pass of
   /// the `*.docspecs.yaml` document being edited, saved when the document is
   /// (the per-file spec editor, `SpecFileEditor`).
-  ReviewStore.inDocument() : file = null;
+  ReviewStore.inDocument() : fileSystem = null, uri = null;
+
+  /// The review file's location: [overridePath] when given (the app passes
+  /// `TOM_SPECS_REVIEW_FILE`), else `review/structure_review.yaml` in the
+  /// workspace [fileSystem].
+  factory ReviewStore.resolveDefault(
+    TomFileSystem fileSystem, {
+    String? overridePath,
+  }) => ReviewStore(
+    fileSystem: fileSystem,
+    uri: fileSystem.uriOf(
+      overridePath != null && overridePath.isNotEmpty
+          ? overridePath
+          : 'review/structure_review.yaml',
+    ),
+  );
+
+  /// The file system the entries persist through; null for a store whose
+  /// entries travel with the document they review ([ReviewStore.inDocument]).
+  final TomFileSystem? fileSystem;
+
+  /// The file the entries persist to; null with [fileSystem].
+  final Uri? uri;
+
+  final Map<String, ReviewEntry> _entries = {};
+
+  Future<void> _writes = Future.value();
+
+  /// Completes when every write the store has started has landed.
+  Future<void> get saved => _writes;
 
   /// The host's storage-key mapper, or `null` for identity (see
   /// [installKeyMapper]).
@@ -205,16 +229,6 @@ class ReviewStore extends ChangeNotifier {
       a.length == b.length &&
       a.entries.every((e) => identical(b[e.key], e.value));
 
-  /// Resolves the review file location. Honors `TOM_SPECS_REVIEW_FILE`; falls
-  /// back to `<cwd>/review/structure_review.yaml`.
-  factory ReviewStore.resolveDefault() {
-    final override = Platform.environment['TOM_SPECS_REVIEW_FILE'];
-    final path = (override != null && override.isNotEmpty)
-        ? override
-        : p.join(Directory.current.path, 'review', 'structure_review.yaml');
-    return ReviewStore(File(path));
-  }
-
   /// Number of non-empty review entries currently held.
   int get count => _entries.length;
 
@@ -238,12 +252,13 @@ class ReviewStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Loads entries from disk if the file exists. Safe to call once at startup.
-  void load() {
-    final file = this.file;
-    if (file == null || !file.existsSync()) return;
-    final content = file.readAsStringSync();
-    if (content.trim().isEmpty) return;
+  /// Loads the entries from the review file, when it exists. Called once at
+  /// startup, before the store is shown.
+  Future<void> load() async {
+    final fileSystem = this.fileSystem;
+    if (fileSystem == null) return;
+    final content = await fileSystem.readTextIfExists(uri!);
+    if (content == null || content.trim().isEmpty) return;
     final doc = loadYaml(content);
     if (doc is! YamlMap) return;
     final entries = doc['entries'];
@@ -255,6 +270,7 @@ class ReviewStore extends ChangeNotifier {
         _entries.putIfAbsent(_key(key), () => ReviewEntry.fromMap(value));
       }
     }
+    notifyListeners();
   }
 
   /// Returns the entry for [path], or `null` if none has been recorded.
@@ -281,9 +297,32 @@ class ReviewStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Writes the entries as they are now, after the writes before it.
   void _save() {
-    final file = this.file;
-    if (file == null) return;
+    final fileSystem = this.fileSystem;
+    if (fileSystem == null) return;
+    final text = _render();
+    final uri = this.uri!;
+    _writes = _writes.then((_) async {
+      try {
+        await fileSystem.writeTextMakingFolder(uri, text);
+      } on Exception catch (error, stack) {
+        // Why: a failed write is reported and the chain goes on, so the next
+        // edit's write still runs and can bring the file up to date.
+        FlutterError.reportError(
+          FlutterErrorDetails(
+            exception: error,
+            stack: stack,
+            library: 'tom_specs_editor',
+            context: ErrorDescription('while saving the review file $uri'),
+          ),
+        );
+      }
+    });
+  }
+
+  /// The review file's text for the entries as they are now.
+  String _render() {
     final buffer = StringBuffer()
       ..writeln('# TomSpecs structure review.')
       ..writeln(
@@ -319,8 +358,7 @@ class ReviewStore extends ChangeNotifier {
       }
     }
 
-    file.parent.createSync(recursive: true);
-    file.writeAsStringSync(buffer.toString());
+    return buffer.toString();
   }
 
   /// Double-quotes and escapes a string for safe YAML emission.

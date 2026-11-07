@@ -2,7 +2,7 @@
 // sections.
 //
 // These tests drive the value-backed `SpecDocumentTree` over a synthetic model
-// + temp-file review store, asserting the header controls:
+// + in-memory review store, asserting the header controls:
 //   * strict mode → a fixed section's headline is read-only (no edit field);
 //   * non-strict mode → a fixed section's headline is an editable, prefilled
 //     field whose commit lands on the controller;
@@ -11,8 +11,6 @@
 //     default and the @SectionIdPattern generator;
 //   * flipping the strict-mode notifier re-gates the fixed headers live.
 
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -20,6 +18,7 @@ import 'package:tom_specs_editor/src/document/spec_document_controller.dart';
 import 'package:tom_specs_editor/src/document/spec_document_editor.dart';
 import 'package:tom_specs_editor/src/structure/review_store.dart';
 import 'package:tom_specs_editor/src/structure/spec_model.dart';
+import 'support/review_store_support.dart';
 
 /// A model with a fixed content section carrying an `@Headline` default and a
 /// complex list whose element type carries its own `@Headline` default and the
@@ -60,11 +59,7 @@ Map<String, dynamic> _json() => {
 };
 
 ReviewStore _tempReviewStore() {
-  final dir = Directory.systemTemp.createTempSync('strict_headline_review');
-  addTearDown(() {
-    if (dir.existsSync()) dir.deleteSync(recursive: true);
-  });
-  return ReviewStore(File('${dir.path}/review.yaml'));
+  return memoryReviewStore();
 }
 
 Future<SpecDocumentController> _controller({required bool strict}) async {

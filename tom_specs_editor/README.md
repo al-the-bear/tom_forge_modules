@@ -45,14 +45,22 @@ Implemented across `lib/src/`:
   a root navigator with a model-version footer, and **DocSpecs + markdown
   import/export**.
 - **`structure/`** — the ported structure browser + structural review (keyed by
-  structural path; `TOM_SPECS_REVIEW_FILE` override).
+  structural path; `review/structure_review.yaml`, `TOM_SPECS_REVIEW_FILE`
+  override).
 - **`agent/`** — an embedded spec agent suite (chat composer, prompt queue,
   prompt trail) with a spec agent engine (brain / conversational runtimes,
   memory plane, prompt composer, tools, script runner).
-- **`config/`** — config editors with a config rail, preferences, and raw-file
-  editing.
+- **`config/`** — config editors with a config rail, preferences
+  (`.tom/editor_preferences.yaml`, `TOM_SPECS_PREFS_FILE` override), and
+  raw-file editing.
 
-Version **1.0.0+1**. Covered by 25 test files carrying **246 tests**, spanning
+The working folder is the workspace: the app reads and writes it through one
+`TomLocalFileSystem`, which is also its Forge shell's file system — the review
+file, the preferences, `*.docspecs.yaml` documents, the files a prompt
+injects and the raw config files. The app starts once the review file and
+the preferences are loaded.
+
+Version **1.0.0+1**. Covered by 31 test files carrying **272 tests**, spanning
 the above areas plus undo and shell navigation.
 
 Not published: `publish_to: 'none'`, and outside the release-1 published set —

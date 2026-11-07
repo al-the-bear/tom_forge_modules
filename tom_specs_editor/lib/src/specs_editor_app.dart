@@ -1,10 +1,8 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:path/path.dart' as p;
 import 'package:tom_core_agentic/tom_core_agentic.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart'
     show StandardEditingActions;
+import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_forge_agentic/tom_forge_agentic.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
@@ -35,8 +33,29 @@ import 'structure/spec_structure_view.dart';
 ///
 /// The spec-specific editors/views (structure browser, document editor, chat
 /// suite, change log) arrive in later steps (10–18).
+///
+/// Everything the app reads and writes in the workspace — the review file,
+/// the editor preferences, the files a prompt injects, the raw config files
+/// — goes through [fileSystem], which is also the shell's. The app starts
+/// once the review file and the preferences are loaded and the agent
+/// profiles' guidelines are composed; until then it shows a progress
+/// indicator.
 class SpecsEditorApp extends StatefulWidget {
-  const SpecsEditorApp({super.key, this.chatModule});
+  const SpecsEditorApp({
+    super.key,
+    required this.fileSystem,
+    this.environment = const {},
+    this.chatModule,
+  });
+
+  /// The workspace (production: a `TomLocalFileSystem` of the working
+  /// folder).
+  final TomFileSystem fileSystem;
+
+  /// The process environment: `TOM_SPECS_REVIEW_FILE` and
+  /// `TOM_SPECS_PREFS_FILE` move the review file and the editor preferences
+  /// (a path relative to the workspace, or absolute).
+  final Map<String, String> environment;
 
   /// The agent chat module hosting the bottom-panel connection picker. The
   /// production app supplies its own (which scans 19900–19909 on launch);
@@ -71,11 +90,20 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
   late final SpecsShellModule _shellModule;
   late final ShellEditorIntegration _documentIntegration;
 
+  /// Completes when the app is built: its stores loaded, its modules
+  /// registered.
+  late final Future<void> _started = _start();
+
   @override
   void initState() {
     super.initState();
-    _shell = DefaultShellApi.withDefaults(
-      fileSystemSeed: const {},
+    _started.ignore(); // Why: the build's FutureBuilder reports its error.
+  }
+
+  Future<void> _start() async {
+    final fileSystem = widget.fileSystem;
+    _shell = DefaultShellApi.withDefaultsAndFileSystem(
+      fileSystem: fileSystem,
       appName: 'TomSpecs Editor',
       navigatorKey: _navigatorKey,
     );
@@ -84,7 +112,11 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
     // agent tools, and the document controller, so a review or document edit
     // from either the UI or the agent lands on the same state.
     final modelFuture = loadSpecModelFromAsset();
-    final reviewStore = ReviewStore.resolveDefault()..load();
+    final reviewStore = ReviewStore.resolveDefault(
+      fileSystem,
+      overridePath: widget.environment['TOM_SPECS_REVIEW_FILE'],
+    );
+    await reviewStore.load();
 
     // The structure module owns the structure browser; it is registered first
     // so its view exists before the shell builds the DocSpecs layout that hosts
@@ -100,8 +132,11 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
     // module persists to) so the document controller starts in the persisted
     // strict/relaxed headline mode (YRD9). The store is shared with the config
     // module so a Save and the controller's live mode agree on one file.
-    _preferencesStore = EditorPreferencesStore.resolveDefault();
-    final editorPreferences = _preferencesStore.load();
+    _preferencesStore = EditorPreferencesStore.resolveDefault(
+      fileSystem,
+      overridePath: widget.environment['TOM_SPECS_PREFS_FILE'],
+    );
+    final editorPreferences = await _preferencesStore.load();
 
     // One document controller is shared by the agent tools
     // (`tom_specs_editor_specification.md` §8) and the model-driven document
@@ -118,10 +153,15 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
     // navigation/mutation tools over the shared document controller; its server
     // config is folded into the agent send config below so the embedded agent
     // can call the tools mid-turn.
+    // The engine's own file boundary (tom_spec_engine's SpecFileFacade, the
+    // memory plane, the script runner) takes a folder on disk: the
+    // workspace's, when it is one.
+    final root = fileSystem.uriOf('');
     _toolsModule = AgentToolsModule(
       modelFuture: modelFuture,
       review: reviewStore,
       controller: _documentController,
+      scriptWorkspaceRoot: root.scheme == 'file' ? root.toFilePath() : null,
     );
     _toolsModule.activate(_shell);
     (_shell.modules as DefaultModuleRegistry).register(_toolsModule);
@@ -146,7 +186,7 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
     // surface its toolset enables, and its scope profile. DocSpecs is the
     // authored reference (item 10 authors CodeSpecs / Implementation); it
     // drives the launch send config below, replacing the static placeholder.
-    _agentProfiles = SpecAgentProfiles(
+    _agentProfiles = await SpecAgentProfiles.resolve(
       compose: _promptComposer.compose,
       servers: _toolsModule.servers,
       serverToolGroups: _toolsModule.serverToolGroups,
@@ -185,6 +225,7 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
     _configModule = SpecsConfigModule(
       rawFileModule: _rawFileModule,
       preferencesStore: _preferencesStore,
+      preferences: editorPreferences,
       compose: _promptComposer.compose,
       // A basic-prefs Save can flip strict headline mode (YRD9); push it into
       // the live controller so the document editor re-gates its headline/id
@@ -286,10 +327,13 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
   /// file-injections resolve against its `_ai/` folder, and the user's
   /// persisted chat variables are bound.
   SpecPromptComposer _buildPromptComposer() {
-    final workspace = Directory.current;
+    final root = widget.fileSystem.uriOf('');
     return SpecPromptComposer(
-      workspaceName: p.basename(workspace.path),
-      aiFolder: Directory(p.join(workspace.path, '_ai')),
+      workspaceName: root.pathSegments.lastWhere(
+        (segment) => segment.isNotEmpty,
+        orElse: () => '',
+      ),
+      fileSystem: widget.fileSystem,
       variables: ChatVariableStore.resolveDefault().load(),
       // OE-12 host context: `${chat}` = the live trail transcript, `${file}` =
       // the active document rendered as markdown. Both are read at compose-time
@@ -346,12 +390,32 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
         ),
         useMaterial3: true,
       ),
-      home: ForgeShellScaffold(
-        shell: _shell,
-        layoutController: _shell.layout as DefaultLayoutController,
-        systemState: _shell.systemState as DefaultSystemState,
-        statusBarController: _shell.statusBar,
-        notificationManager: _shell.notifications as DefaultNotificationManager,
+      home: FutureBuilder<void>(
+        future: _started,
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Scaffold(
+              body: Center(
+                child: Text(
+                  'The TomSpecs Editor could not start: ${snapshot.error}',
+                ),
+              ),
+            );
+          }
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
+          return ForgeShellScaffold(
+            shell: _shell,
+            layoutController: _shell.layout as DefaultLayoutController,
+            systemState: _shell.systemState as DefaultSystemState,
+            statusBarController: _shell.statusBar,
+            notificationManager:
+                _shell.notifications as DefaultNotificationManager,
+          );
+        },
       ),
     );
   }

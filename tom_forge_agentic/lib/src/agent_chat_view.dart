@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
 import 'chat/chat_composer_panel.dart';
+import 'chat/placeholder_preview.dart';
 import 'chat/chat_send_coordinator.dart';
 import 'connection/agent_connection_controller.dart';
 import 'connection/agent_connection_picker.dart';
@@ -46,7 +47,7 @@ class AgentChatView extends ForgeView {
 
   /// Expands the composer input's placeholders for the live preview (§11.5,
   /// OE-14); null hides the preview.
-  final String Function(String source)? composePreview;
+  final PromptCompose? composePreview;
 
   /// Profiles offered in the composer's profile picker (§11.1); empty hides it.
   final List<ChatComposerProfile> profiles;

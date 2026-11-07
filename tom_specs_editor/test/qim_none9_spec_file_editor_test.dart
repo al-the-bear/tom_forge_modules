@@ -3,14 +3,13 @@
 /// `*.tomspecs.yaml` beside the YAML editor.
 library;
 
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_specs_editor/src/document/spec_document_controller.dart';
 import 'package:tom_specs_editor/src/structure/review_store.dart';
 import 'package:tom_specs_editor/tom_specs_editor.dart';
+import 'support/review_store_support.dart';
 
 const _overview = 'D00/D00-OVR';
 
@@ -31,11 +30,9 @@ Map<String, dynamic> _json() => {
 
 /// A spec document holding [overview], as `*.docspecs.yaml` text.
 Future<String> _document(String overview) async {
-  final dir = Directory.systemTemp.createTempSync('qim_none9_review');
-  addTearDown(() => dir.deleteSync(recursive: true));
   final writer = SpecDocumentController(
     modelFuture: Future.value(SpecModel.fromJson(_json())),
-    review: ReviewStore(File('${dir.path}/review.yaml')),
+    review: memoryReviewStore(),
   );
   await writer.ensureLoaded();
   writer.setContent(_overview, overview);

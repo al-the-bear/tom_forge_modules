@@ -5,16 +5,14 @@
 /// the document's other edits.
 library;
 
-import 'dart:io';
-
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_dart_editor/tom_dart_editor.dart' show DartCodeController;
 import 'package:tom_specs_editor/src/document/spec_document_controller.dart';
 import 'package:tom_specs_editor/src/document/spec_document_editor.dart'
     show SpecDocumentFieldHistory;
-import 'package:tom_specs_editor/src/structure/review_store.dart';
 import 'package:tom_specs_editor/src/structure/spec_model.dart';
+import 'support/review_store_support.dart';
 
 Map<String, dynamic> _model() => {
   'roots': [
@@ -38,15 +36,13 @@ const _notes = 'D00-NTS';
 TextSelection _at(int offset) => TextSelection.collapsed(offset: offset);
 
 void main() {
-  late Directory dir;
   late SpecDocumentController doc;
   late DartCodeController field;
 
   setUp(() {
-    dir = Directory.systemTemp.createTempSync('wonecmpc23_');
     doc = SpecDocumentController(
       modelFuture: Future<SpecModel>.value(SpecModel.fromJson(_model())),
-      review: ReviewStore(File('${dir.path}/review.yaml')),
+      review: memoryReviewStore(),
     );
     field = DartCodeController(
       historyHost: SpecDocumentFieldHistory(doc, _code),
@@ -56,7 +52,6 @@ void main() {
   tearDown(() {
     field.dispose();
     doc.dispose();
-    dir.deleteSync(recursive: true);
   });
 
   test(

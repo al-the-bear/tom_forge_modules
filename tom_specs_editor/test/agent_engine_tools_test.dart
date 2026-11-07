@@ -17,8 +17,8 @@ import 'package:tom_vscode_scripting_api/tom_vscode_scripting_api.dart';
 
 import 'package:tom_specs_editor/src/agent/agent_tools_module.dart';
 import 'package:tom_specs_editor/src/document/spec_document_controller.dart';
-import 'package:tom_specs_editor/src/structure/review_store.dart';
 import 'package:tom_specs_editor/src/structure/spec_model.dart';
+import 'support/review_store_support.dart';
 
 /// A class graph with a content section, a form, and a list of complex items —
 /// enough to exercise doc_search / doc_reflect / doc_add_node.
@@ -59,7 +59,7 @@ Map<String, dynamic> _sampleJson() => {
 })
 _harness(Directory dir) {
   final model = SpecModel.fromJson(_sampleJson());
-  final review = ReviewStore(File('${dir.path}/review.yaml'));
+  final review = memoryReviewStore();
   final module = AgentToolsModule(
     modelFuture: Future<SpecModel>.value(model),
     review: review,
@@ -314,7 +314,7 @@ void main() {
         File('${assets.path}/schema.md').writeAsStringSync('# schema');
 
         final model = SpecModel.fromJson(_sampleJson());
-        final review = ReviewStore(File('${dir.path}/review.yaml'));
+        final review = memoryReviewStore();
         final module = AgentToolsModule(
           modelFuture: Future<SpecModel>.value(model),
           review: review,

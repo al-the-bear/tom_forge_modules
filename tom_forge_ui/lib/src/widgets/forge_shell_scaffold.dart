@@ -3078,9 +3078,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     final fs = widget.shell.fileSystem;
     final help = fs.uriOf('.forge/help/keyboard_shortcuts.md');
     if (!await fs.exists(help)) {
-      final folder = fs.uriOf('.forge/help/');
-      if (!await fs.exists(folder)) await fs.create(folder, directory: true);
-      await fs.writeText(help, _keyboardShortcutsHelpContent);
+      await fs.writeTextMakingFolder(help, _keyboardShortcutsHelpContent);
     }
     if (mounted) _layout.openFile(help);
   }

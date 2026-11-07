@@ -9,6 +9,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_core_agentic/tom_core_agentic.dart';
+import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_forge_agentic/tom_forge_agentic.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
@@ -36,8 +37,23 @@ AgentChatModule _fakeChatModule() {
   );
 }
 
+/// A workspace in memory that records which files are read.
+class _RecordingWorkspace extends TomMemoryFileSystem {
+  _RecordingWorkspace({super.seed});
+
+  final reads = <String>[];
+
+  @override
+  Future<String> readText(Uri uri) {
+    reads.add(pathOf(uri) ?? '$uri');
+    return super.readText(uri);
+  }
+}
+
 void main() {
-  testWidgets('SpecsEditorApp launches a Forge shell on DocSpecs', (
+  testWidgets('SpecsEditorApp starts over its workspace file system: the '
+      'shell is that file system, the review file and the preferences are '
+      'read through it, and a progress indicator shows until they are', (
     tester,
   ) async {
     // The Forge shell is a desktop IDE layout; give it a realistic window so
@@ -46,12 +62,34 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(1600, 1000));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    await tester.pumpWidget(SpecsEditorApp(chatModule: _fakeChatModule()));
+    final workspace = _RecordingWorkspace(
+      seed: {
+        'review/structure_review.yaml': 'version: 1\nentries:\n  {}\n',
+        'prefs/editor.yaml':
+            'version: 1\npreferences:\n  strictHeadlineEditing: false\n',
+      },
+    );
+    await tester.pumpWidget(
+      SpecsEditorApp(
+        fileSystem: workspace,
+        environment: const {'TOM_SPECS_PREFS_FILE': 'prefs/editor.yaml'},
+        chatModule: _fakeChatModule(),
+      ),
+    );
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
     await tester.pump();
 
     // The standard Forge shell scaffold is mounted — the app is a Forge shell,
     // not a bare MaterialApp.
-    expect(find.byType(ForgeShellScaffold), findsOneWidget);
+    final scaffold = tester.widget<ForgeShellScaffold>(
+      find.byType(ForgeShellScaffold),
+    );
+    expect(scaffold.shell.fileSystem, same(workspace));
+    expect(
+      workspace.reads,
+      containsAll(['review/structure_review.yaml', 'prefs/editor.yaml']),
+    );
     // No FlutterError was thrown while building the layout.
     expect(tester.takeException(), isNull);
   });

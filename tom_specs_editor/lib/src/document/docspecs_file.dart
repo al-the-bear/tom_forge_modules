@@ -1,5 +1,4 @@
-import 'dart:io';
-
+import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_som_dart_runtime/tom_som_dart_runtime.dart';
 
 import '../structure/review_store.dart';
@@ -113,24 +112,31 @@ class DocSpecsFile {
 
   // --- Session-id sidecar (A2) -----------------------------------------------
 
-  /// The session-id sidecar path for a document [file] (`<path>.session`).
-  static File sidecarFor(File file) => File('${file.path}.session');
+  /// The session-id sidecar of the document [uri] (`<file>.session`).
+  static Uri sidecarFor(Uri uri) => uri.replace(path: '${uri.path}.session');
 
-  /// Writes (or clears, on a null/empty id) the session-id sidecar.
-  static Future<void> writeSessionId(File file, String? sessionId) async {
-    final sidecar = sidecarFor(file);
+  /// Writes (or clears, on a null/empty id) the session-id sidecar of the
+  /// document [uri] in [fileSystem].
+  static Future<void> writeSessionId(
+    TomFileSystem fileSystem,
+    Uri uri,
+    String? sessionId,
+  ) async {
+    final sidecar = sidecarFor(uri);
     if (sessionId == null || sessionId.isEmpty) {
-      if (await sidecar.exists()) await sidecar.delete();
+      if (await fileSystem.exists(sidecar)) await fileSystem.delete(sidecar);
       return;
     }
-    await sidecar.writeAsString(sessionId);
+    await fileSystem.writeTextMakingFolder(sidecar, sessionId);
   }
 
-  /// Reads the session-id sidecar, or `null` when absent/empty.
-  static Future<String?> readSessionId(File file) async {
-    final sidecar = sidecarFor(file);
-    if (!await sidecar.exists()) return null;
-    final text = (await sidecar.readAsString()).trim();
-    return text.isEmpty ? null : text;
+  /// Reads the session-id sidecar of the document [uri], or `null` when
+  /// absent/empty.
+  static Future<String?> readSessionId(
+    TomFileSystem fileSystem,
+    Uri uri,
+  ) async {
+    final text = (await fileSystem.readTextIfExists(sidecarFor(uri)))?.trim();
+    return text == null || text.isEmpty ? null : text;
   }
 }

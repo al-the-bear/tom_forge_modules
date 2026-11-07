@@ -1,7 +1,7 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart'
     show StandardEditingActions, forgeTypingPause;
 import 'package:tom_forge_agentic/tom_forge_agentic.dart';
@@ -997,17 +997,13 @@ class SpecDocumentController extends ChangeNotifier {
   /// [caretBefore] and [caret] are the field's caret before and after this
   /// keystroke: the gesture keeps the first and the last, and its undo puts
   /// the caret back before the edit, its redo after it ([restoredCaretFor]).
-  void typeContent(
-    String path,
-    String value, {
-    int? caretBefore,
-    int? caret,
-  }) => _type(
-    _TypingTarget(_TypingKind.content, path),
-    value,
-    caretBefore: caretBefore,
-    caret: caret,
-  );
+  void typeContent(String path, String value, {int? caretBefore, int? caret}) =>
+      _type(
+        _TypingTarget(_TypingKind.content, path),
+        value,
+        caretBefore: caretBefore,
+        caret: caret,
+      );
 
   /// Typing in the form [field] at [path], as [typeContent] does for content:
   /// one undo entry and one change-log entry per gesture.
@@ -1174,7 +1170,8 @@ class SpecDocumentController extends ChangeNotifier {
 
   // --- `tom_specs_editor_specification.md` §15.1 `*.docspecs.yaml` I/O -------
 
-  /// Serializes the document + review state to [file] as a two-pass
+  /// Serializes the document + review state to [uri] in [fileSystem] as a
+  /// two-pass
   /// `*.docspecs.yaml` (`tom_specs_editor_specification.md` §15.1), then
   /// re-baselines as a save point.
   ///
@@ -1182,12 +1179,14 @@ class SpecDocumentController extends ChangeNotifier {
   /// optional [sessionId] is written to a `<file>.session` sidecar (A2), never
   /// into the document YAML. The undo stack is kept (post-save undo still
   /// works, N6), matching [save]'s contract.
-  Future<void> saveDocSpecs(File file, {String? sessionId}) async {
+  Future<void> saveDocSpecs(
+    TomFileSystem fileSystem,
+    Uri uri, {
+    String? sessionId,
+  }) async {
     await ensureLoaded();
-    final yaml = encodeDocSpecs();
-    await file.parent.create(recursive: true);
-    await file.writeAsString(yaml);
-    await DocSpecsFile.writeSessionId(file, sessionId);
+    await fileSystem.writeTextMakingFolder(uri, encodeDocSpecs());
+    await DocSpecsFile.writeSessionId(fileSystem, uri, sessionId);
     save();
   }
 
@@ -1202,12 +1201,13 @@ class SpecDocumentController extends ChangeNotifier {
     review: review.entries,
   );
 
-  /// Loads document + review state from a two-pass `*.docspecs.yaml` [file]
-  /// (`tom_specs_editor_specification.md` §15.1), restoring the full UI state.
-  /// Returns the SDK session id from the sidecar, or `null` when absent.
-  Future<String?> loadDocSpecs(File file) async {
-    await loadDocSpecsText(await file.readAsString());
-    return await DocSpecsFile.readSessionId(file);
+  /// Loads document + review state from the two-pass `*.docspecs.yaml` at
+  /// [uri] in [fileSystem] (`tom_specs_editor_specification.md` §15.1),
+  /// restoring the full UI state. Returns the SDK session id from the
+  /// sidecar, or `null` when absent.
+  Future<String?> loadDocSpecs(TomFileSystem fileSystem, Uri uri) async {
+    await loadDocSpecsText(await fileSystem.readText(uri));
+    return await DocSpecsFile.readSessionId(fileSystem, uri);
   }
 
   /// Loads document + review state from `*.docspecs.yaml` [text].

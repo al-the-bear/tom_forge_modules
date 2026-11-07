@@ -21,8 +21,8 @@ import 'package:tom_vscode_scripting_api/tom_vscode_scripting_api.dart';
 import 'package:tom_specs_editor/src/agent/agent_tools_module.dart';
 import 'package:tom_specs_editor/src/agent/spec_brain_runtime.dart';
 import 'package:tom_specs_editor/src/agent/spec_brain_tools.dart';
-import 'package:tom_specs_editor/src/structure/review_store.dart';
 import 'package:tom_specs_editor/src/structure/spec_model.dart';
+import 'support/review_store_support.dart';
 
 /// A class graph with a list of complex items — enough for the default
 /// search→recall→edit→verify procedure's constrained add.
@@ -57,7 +57,7 @@ Map<String, dynamic> _sampleJson() => {
 
 AgentToolsModule _module(Directory dir) {
   final model = SpecModel.fromJson(_sampleJson());
-  final review = ReviewStore(File('${dir.path}/review.yaml'));
+  final review = memoryReviewStore();
   return AgentToolsModule(
     modelFuture: Future<SpecModel>.value(model),
     review: review,

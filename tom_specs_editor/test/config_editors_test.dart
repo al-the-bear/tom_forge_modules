@@ -3,7 +3,7 @@
 //
 // Done condition for step 18: each editor opens, validates, and its
 // "Open raw file" button opens the backing YAML/markdown. These tests drive
-// each editor over temp-file stores, asserting it renders, surfaces a
+// each editor over temp-file agent stores (tom_core_agentic's own files), asserting it renders, surfaces a
 // validation error on invalid input, and routes the raw-file button to the
 // backing file via the injected opener. The basic-prefs panel test covers the
 // theme/font/default-app/default-profile round-trip.
@@ -43,7 +43,6 @@ SpecsConfigSpecs _specsIn(Directory dir, {AgentSettingsStore? agentSettings}) {
     queue: PromptQueueStore(File(f('queue.yaml'))),
     agentSettings:
         agentSettings ?? AgentSettingsStore(File(f('agent_settings.yaml'))),
-    preferences: EditorPreferencesStore(File(f('editor_preferences.yaml'))),
   );
 }
 
@@ -63,7 +62,7 @@ void _registerListTests<T>(
 ) {
   testWidgets('$name editor opens and renders its title', (tester) async {
     final spec = build(specs());
-    final editor = ConfigListEditor<T>(spec: spec, onOpenRawFile: (_) {});
+    final editor = ConfigListEditor<T>(spec: spec, onOpenRawFile: (_) async {});
     await _pump(tester, Builder(builder: editor.buildMain));
     expect(find.text(spec.title), findsOneWidget);
   });
@@ -73,12 +72,12 @@ void _registerListTests<T>(
     Uri? opened;
     final editor = ConfigListEditor<T>(
       spec: spec,
-      onOpenRawFile: (uri) => opened = uri,
+      onOpenRawFile: (uri) async => opened = uri,
     );
     await _pump(tester, Builder(builder: editor.buildMain));
     await tester.tap(find.byKey(const Key('config-open-raw-file')));
     await tester.pump();
-    expect(opened, Uri.file(spec.backingFile.path));
+    expect(opened, spec.backingUri);
   });
 }
 
@@ -130,7 +129,7 @@ void main() {
       final spec = specs.queueSpec();
       final editor = ConfigListEditor<QueuedPrompt>(
         spec: spec,
-        onOpenRawFile: (_) {},
+        onOpenRawFile: (_) async {},
       );
       await _pump(tester, Builder(builder: editor.buildMain));
       await tester.tap(find.byKey(const Key('config-add')));
@@ -162,10 +161,7 @@ void main() {
           agentSettings: AgentSettingsStore(
             File('${dir.path}/agent_settings.yaml'),
           ),
-          preferences: EditorPreferencesStore(
-            File('${dir.path}/editor_preferences.yaml'),
-          ),
-          compose: (s) => s.replaceAll(r'${who}', 'Alex'),
+          compose: (s) async => s.replaceAll(r'${who}', 'Alex'),
         );
         specsWithCompose.promptTemplates.save([
           PromptTemplate(id: 't1', name: 'Greeting', body: r'hi ${who}'),
@@ -173,11 +169,12 @@ void main() {
         final spec = specsWithCompose.promptTemplateSpec();
         final editor = ConfigListEditor<PromptTemplate>(
           spec: spec,
-          onOpenRawFile: (_) {},
+          onOpenRawFile: (_) async {},
         );
         await _pump(tester, Builder(builder: editor.buildMain));
         await tester.tap(find.byKey(const Key('config-item-0')));
         await tester.pump();
+        await tester.pump(); // the expansion completes
         // The preview field expands the body's placeholder.
         expect(find.text('hi Alex'), findsOneWidget);
       },
@@ -231,7 +228,7 @@ void main() {
       );
       final editor = ConfigListEditor<QueuedPrompt>(
         spec: spec,
-        onOpenRawFile: (_) {},
+        onOpenRawFile: (_) async {},
       );
       await _pump(tester, Builder(builder: editor.buildMain));
       await tester.tap(find.byKey(const Key('config-add')));
@@ -253,7 +250,7 @@ void main() {
       final spec = specs.chatVariableSpec();
       final editor = ConfigListEditor<ChatVariable>(
         spec: spec,
-        onOpenRawFile: (_) {},
+        onOpenRawFile: (_) async {},
       );
       await _pump(tester, Builder(builder: editor.buildMain));
       await tester.tap(find.byKey(const Key('config-item-0')));
@@ -272,7 +269,7 @@ void main() {
       final spec = specs.agentSettingsSpec();
       final editor = ConfigObjectEditor<AgentSettings>(
         spec: spec,
-        onOpenRawFile: (_) {},
+        onOpenRawFile: (_) async {},
       );
       await _pump(tester, Builder(builder: editor.buildMain));
       expect(find.text(spec.title), findsOneWidget);
@@ -288,7 +285,7 @@ void main() {
       final spec = _specsIn(dir, agentSettings: store).agentSettingsSpec();
       final editor = ConfigObjectEditor<AgentSettings>(
         spec: spec,
-        onOpenRawFile: (_) {},
+        onOpenRawFile: (_) async {},
       );
       await _pump(tester, Builder(builder: editor.buildMain));
       expect(find.byKey(const Key('config-validation-error')), findsOneWidget);
@@ -300,12 +297,12 @@ void main() {
       Uri? opened;
       final editor = ConfigObjectEditor<AgentSettings>(
         spec: spec,
-        onOpenRawFile: (uri) => opened = uri,
+        onOpenRawFile: (uri) async => opened = uri,
       );
       await _pump(tester, Builder(builder: editor.buildMain));
       await tester.tap(find.byKey(const Key('config-open-raw-file')));
       await tester.pump();
-      expect(opened, Uri.file(spec.backingFile.path));
+      expect(opened, spec.backingUri);
     });
   });
 

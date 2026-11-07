@@ -5,9 +5,7 @@
 //
 // The Done condition — "switching roots re-renders the same underlying data
 // consistently" — is driven here over a synthetic multi-root model and a
-// temp-file review store (asset loading is unavailable under flutter_test).
-
-import 'dart:io';
+// in-memory review store (asset loading is unavailable under flutter_test).
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -17,6 +15,7 @@ import 'package:tom_specs_editor/src/document/spec_document_controller.dart';
 import 'package:tom_specs_editor/src/document/spec_document_editor.dart';
 import 'package:tom_specs_editor/src/structure/review_store.dart';
 import 'package:tom_specs_editor/src/structure/spec_model.dart';
+import 'support/review_store_support.dart';
 
 /// Three roots in deliberately non-alphabetical, non-blueprint-first order so
 /// the ordering policy (Solution Blueprint first, then alphabetical by title) is
@@ -88,11 +87,7 @@ Map<String, dynamic> _multiRootJson({bool withGenerationInput = false}) => {
 };
 
 ReviewStore _tempReviewStore() {
-  final dir = Directory.systemTemp.createTempSync('root_nav_review');
-  addTearDown(() {
-    if (dir.existsSync()) dir.deleteSync(recursive: true);
-  });
-  return ReviewStore(File('${dir.path}/review.yaml'));
+  return memoryReviewStore();
 }
 
 Future<SpecDocumentController> _controller({

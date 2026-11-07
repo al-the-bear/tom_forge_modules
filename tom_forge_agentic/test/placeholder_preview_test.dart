@@ -2,6 +2,8 @@
 // widget expands a placeholder-bearing string via an injected `compose` and
 // must render an unsupported-expression error inline rather than crash.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_core_agentic/tom_core_agentic.dart';
@@ -18,9 +20,10 @@ void main() {
         tester,
         PlaceholderPreview(
           source: r'Hi ${name}!',
-          compose: (s) => s.replaceAll(r'${name}', 'Alex'),
+          compose: (s) async => s.replaceAll(r'${name}', 'Alex'),
         ),
       );
+      await tester.pump();
       expect(find.text('Hi Alex!'), findsOneWidget);
     });
 
@@ -30,7 +33,7 @@ void main() {
         tester,
         PlaceholderPreview(
           source: '   ',
-          compose: (s) => s,
+          compose: (s) async => s,
           emptyHint: 'no preview',
         ),
       );
@@ -47,12 +50,32 @@ void main() {
           compose: (_) => throw PlaceholderExpressionsUnsupportedError('1 + 1'),
         ),
       );
+      await tester.pump();
       // The widget swallows the throw and surfaces its message in the preview.
       expect(tester.takeException(), isNull);
       expect(
         find.textContaining('PlaceholderExpressionsUnsupportedError'),
         findsOneWidget,
       );
+    });
+
+    testWidgets('shows the latest source\'s expansion: one overtaken by a '
+        'newer source is dropped, even when it completes last', (tester) async {
+      final slow = Completer<String>();
+      Future<String> compose(String s) =>
+          s == 'first' ? slow.future : Future.value('expanded $s');
+      Widget preview(String source) =>
+          PlaceholderPreview(source: source, compose: compose);
+
+      await _pump(tester, preview('first'));
+      await _pump(tester, preview('second'));
+      await tester.pump();
+      expect(find.text('expanded second'), findsOneWidget);
+
+      slow.complete('expanded first');
+      await tester.pump();
+      expect(find.text('expanded second'), findsOneWidget);
+      expect(find.text('expanded first'), findsNothing);
     });
   });
 }

@@ -11,12 +11,14 @@ import 'structure/spec_structure_view.dart';
 /// view is exposed through [structureView] so the shell module can host it as a
 /// tab in the DocSpecs left panel.
 ///
-/// The model future and store are injectable: the app uses the bundled asset
-/// and the default review file, while tests supply a synthetic model and a
-/// temp-file store.
+/// The host gives the store (the app's is loaded from the workspace's review
+/// file); the model future defaults to the bundled asset, and tests supply a
+/// synthetic model.
 class SpecStructureModule extends ForgeModule {
-  SpecStructureModule({Future<SpecModel>? modelFuture, ReviewStore? store})
-    : _store = store ?? (ReviewStore.resolveDefault()..load()) {
+  SpecStructureModule({
+    Future<SpecModel>? modelFuture,
+    required ReviewStore store,
+  }) : _store = store {
     _view = SpecStructureView(
       modelFuture: modelFuture ?? loadSpecModelFromAsset(),
       store: _store,

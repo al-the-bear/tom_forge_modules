@@ -16,12 +16,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_core_agentic/tom_core_agentic.dart';
 import 'package:tom_forge_agentic/tom_forge_agentic.dart';
 import 'package:tom_specs_editor/src/document/spec_document_controller.dart';
-import 'package:tom_specs_editor/src/structure/review_store.dart';
 import 'package:tom_specs_editor/src/structure/spec_model.dart';
 // The agent SDK transport/client types live in the scripting API; hide the
 // duplicate QueuedPromptStatus this test never references.
 import 'package:tom_vscode_scripting_api/tom_vscode_scripting_api.dart'
     hide QueuedPromptStatus;
+import 'support/review_store_support.dart';
 
 /// A trivial single-content-field model (mirrors undo_test.dart): the turn /
 /// undo machinery operates purely on section-ID paths, so the schema shape is
@@ -110,7 +110,7 @@ void main() {
 
   SpecDocumentController makeController() => SpecDocumentController(
     modelFuture: Future<SpecModel>.value(SpecModel.fromJson(_model())),
-    review: ReviewStore(File('${dir.path}/review.yaml')),
+    review: memoryReviewStore(),
   );
 
   setUp(() => dir = Directory.systemTemp.createTempSync('specs_turn_undo_'));

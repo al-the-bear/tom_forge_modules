@@ -1,10 +1,8 @@
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_forge_agentic/tom_forge_agentic.dart';
 import 'package:tom_specs_editor/src/document/spec_document_controller.dart';
-import 'package:tom_specs_editor/src/structure/review_store.dart';
 import 'package:tom_specs_editor/src/structure/spec_model.dart';
+import 'support/review_store_support.dart';
 
 /// A trivial single-root model; the undo/change-log machinery operates purely
 /// on section-ID paths, so the schema shape is irrelevant here.
@@ -24,17 +22,12 @@ Map<String, dynamic> _model() => {
 };
 
 void main() {
-  late Directory dir;
-
   SpecDocumentController makeController({int max = 50}) =>
       SpecDocumentController(
         modelFuture: Future<SpecModel>.value(SpecModel.fromJson(_model())),
-        review: ReviewStore(File('${dir.path}/review.yaml')),
+        review: memoryReviewStore(),
         maxSnapshots: max,
       );
-
-  setUp(() => dir = Directory.systemTemp.createTempSync('specs_undo_'));
-  tearDown(() => dir.deleteSync(recursive: true));
 
   group('snapshot undo/redo', () {
     test('an edit is undoable and redoable', () async {

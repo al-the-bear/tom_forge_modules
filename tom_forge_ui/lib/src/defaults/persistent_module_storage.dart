@@ -62,7 +62,6 @@ class PersistentModuleStorage implements ForgeModuleStorage {
       module.displayName,
       () => _PersistentKeyValueStore(
         fileSystem: _fileSystem,
-        folder: _fileSystem.uriOf('$_modulesPath/'),
         file: _fileSystem.uriOf('$_modulesPath/$name'),
         data: {...?_loaded[name]},
       ),
@@ -87,25 +86,19 @@ class PersistentModuleStorage implements ForgeModuleStorage {
 class _PersistentKeyValueStore implements ForgeKeyValueStore {
   _PersistentKeyValueStore({
     required TomFileSystem fileSystem,
-    required Uri folder,
     required Uri file,
     required Map<String, Object?> data,
   }) : _fileSystem = fileSystem,
-       _folder = folder,
        _file = file,
        _data = data;
 
   final TomFileSystem _fileSystem;
-  final Uri _folder;
   final Uri _file;
   final Map<String, Object?> _data;
 
   Future<void> _flush() async {
     try {
-      if (!await _fileSystem.exists(_folder)) {
-        await _fileSystem.create(_folder, directory: true);
-      }
-      await _fileSystem.writeText(
+      await _fileSystem.writeTextMakingFolder(
         _file,
         const JsonEncoder.withIndent('  ').convert(_data),
       );

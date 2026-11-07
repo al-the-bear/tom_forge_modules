@@ -18,7 +18,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:tom_specs_editor/src/agent/spec_memory_plane.dart';
 import 'package:tom_specs_editor/src/document/spec_document_controller.dart';
-import 'package:tom_specs_editor/src/structure/review_store.dart';
 import 'package:tom_specs_editor/src/structure/spec_model.dart';
 
 import 'package:tom_spec_engine/memory.dart'
@@ -29,6 +28,7 @@ import 'package:tom_spec_engine/memory.dart'
         EmbeddingService,
         SpecProviderEmbedder,
         Vec;
+import 'support/review_store_support.dart';
 
 const _identity = EmbeddingModelIdentity(
   providerId: 'fake:provider',
@@ -132,7 +132,7 @@ void main() {
     dir = Directory.systemTemp.createTempSync('specs_plane_embedder_');
     controller = SpecDocumentController(
       modelFuture: Future<SpecModel>.value(_sampleModel()),
-      review: ReviewStore(File('${dir.path}/review.yaml')),
+      review: memoryReviewStore(),
     );
   });
   tearDown(() {

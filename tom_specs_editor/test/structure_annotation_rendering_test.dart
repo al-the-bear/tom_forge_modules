@@ -12,8 +12,6 @@
 // written out: a chip the display layer starts producing therefore fails here
 // until this tree renders it.
 
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_som_dart_runtime/spec_display_fixture.dart';
@@ -21,6 +19,7 @@ import 'package:tom_som_dart_runtime/spec_display_fixture.dart';
 import 'package:tom_specs_editor/src/structure/review_store.dart';
 import 'package:tom_specs_editor/src/structure/spec_model.dart';
 import 'package:tom_specs_editor/src/structure/spec_tree.dart';
+import 'support/review_store_support.dart';
 
 /// Expands every collapsed node, so a chip cannot pass by being unreachable.
 Future<void> _expandAll(WidgetTester tester) async {
@@ -39,16 +38,12 @@ Future<void> _expandAll(WidgetTester tester) async {
 }
 
 void main() {
-  late Directory dir;
   late ReviewStore store;
   final model = SpecModel.fromJson(kAnnotationShowcaseJson());
 
   setUp(() {
-    dir = Directory.systemTemp.createTempSync('specs_editor_annotations_');
-    store = ReviewStore(File('${dir.path}/review.yaml'));
+    store = memoryReviewStore();
   });
-
-  tearDown(() => dir.deleteSync(recursive: true));
 
   Future<void> pumpTree(WidgetTester tester) async {
     await tester.binding.setSurfaceSize(const Size(1400, 2400));

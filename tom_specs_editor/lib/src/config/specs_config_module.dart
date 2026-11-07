@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tom_core_agentic/tom_core_agentic.dart';
+import 'package:tom_forge_agentic/tom_forge_agentic.dart' show PromptCompose;
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
 import 'basic_prefs_panel.dart';
@@ -30,15 +31,16 @@ class SpecsConfigModule extends ForgeModule {
   SpecsConfigModule({
     SpecsConfigSpecs? specs,
     RawFileModule? rawFileModule,
-    EditorPreferencesStore? preferencesStore,
+    required EditorPreferencesStore preferencesStore,
+    required EditorPreferences preferences,
     AgentSettingsStore? settingsStore,
     AgentProfileStore? profileStore,
-    String Function(String source)? compose,
+    PromptCompose? compose,
     this.onPreferencesChanged,
   }) : _specs = specs ?? SpecsConfigSpecs(compose: compose),
        rawFileModule = rawFileModule ?? RawFileModule(),
-       _preferencesStore =
-           preferencesStore ?? EditorPreferencesStore.resolveDefault(),
+       _preferencesStore = preferencesStore,
+       _prefs = preferences,
        _settingsStore = settingsStore ?? AgentSettingsStore.resolveDefault(),
        _profileStore = profileStore ?? AgentProfileStore.resolveDefault();
 
@@ -63,8 +65,9 @@ class SpecsConfigModule extends ForgeModule {
   /// exist. Null before activation; exposed via [configRailView] and [views].
   ConfigRailView? _configRail;
 
-  /// Working copies the basic-prefs panel mutates; persisted on Save.
-  late EditorPreferences _prefs;
+  /// Working copies the basic-prefs panel mutates; persisted on Save. The
+  /// preferences start as the host loaded them.
+  EditorPreferences _prefs;
   late AgentSettings _settings;
 
   @override
@@ -73,13 +76,12 @@ class SpecsConfigModule extends ForgeModule {
   @override
   void activate(ForgeShellApi shell) {
     _shell = shell;
-    _prefs = _preferencesStore.load();
     _settings = _settingsStore.load();
     _buildEditors();
   }
 
   void _buildEditors() {
-    void open(Uri uri) => rawFileModule.openRawFile(uri);
+    Future<void> open(Uri uri) => rawFileModule.openRawFile(uri);
     _editors
       ..clear()
       ..addAll([
@@ -160,7 +162,7 @@ class SpecsConfigModule extends ForgeModule {
         onSettingsChanged: (s) => _settings = s,
       ),
       onSave: () async {
-        _preferencesStore.save(_prefs);
+        await _preferencesStore.save(_prefs);
         _settingsStore.save(_settings);
         onPreferencesChanged?.call(_prefs);
       },

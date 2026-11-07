@@ -10,13 +10,12 @@
 // synthetic SBP + RequirementsSpecification model that mirrors the real asset's
 // shape (FunctionalRequirements is reachable via both SBP and RSP).
 
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:tom_specs_editor/src/document/spec_document_controller.dart';
 import 'package:tom_specs_editor/src/structure/review_store.dart';
 import 'package:tom_specs_editor/src/structure/spec_model.dart';
+import 'support/review_store_support.dart';
 
 /// A two-root model: `SolutionBlueprint` (SBP, the master) and
 /// `RequirementsSpecification` (RSP, a projection). `FunctionalRequirements` is
@@ -125,11 +124,7 @@ const _sbpFr = 'SBP/systemOverview/requirements/functionalRequirements';
 const _rspFr = 'RSP/functionalRequirements';
 
 ReviewStore _tempReviewStore() {
-  final dir = Directory.systemTemp.createTempSync('projection_identity');
-  addTearDown(() {
-    if (dir.existsSync()) dir.deleteSync(recursive: true);
-  });
-  return ReviewStore(File('${dir.path}/review.yaml'));
+  return memoryReviewStore();
 }
 
 Future<SpecDocumentController> _controller() async {

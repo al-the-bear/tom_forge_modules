@@ -12,8 +12,8 @@ import 'package:tom_spec_engine/agent.dart';
 
 import 'package:tom_specs_editor/src/agent/agent_tools_module.dart';
 import 'package:tom_specs_editor/src/agent/spec_agent_profile.dart';
-import 'package:tom_specs_editor/src/structure/review_store.dart';
 import 'package:tom_specs_editor/src/structure/spec_model.dart';
+import 'support/review_store_support.dart';
 
 /// A minimal class graph with one content section.
 Map<String, dynamic> _sampleJson() => {
@@ -34,7 +34,7 @@ Map<String, dynamic> _sampleJson() => {
 
 AgentToolsModule _module(Directory dir) {
   final model = SpecModel.fromJson(_sampleJson());
-  final review = ReviewStore(File('${dir.path}/review.yaml'));
+  final review = memoryReviewStore();
   return AgentToolsModule(
     modelFuture: Future<SpecModel>.value(model),
     review: review,
@@ -60,10 +60,10 @@ void main() {
     dir.deleteSync(recursive: true);
   });
 
-  SpecAgentProfiles profiles({
+  Future<SpecAgentProfiles> profiles({
     String guidelinesPrompt = 'DOCSPECS GUIDELINES',
-  }) => SpecAgentProfiles(
-    compose: (template) {
+  }) => SpecAgentProfiles.resolve(
+    compose: (template) async {
       // The composer is always invoked with a guidelines placeholder. The
       // DocSpecs token yields the configured prompt; the other applications'
       // guidelines docs are unauthored on disk → lenient-empty.
@@ -76,51 +76,62 @@ void main() {
     serverToolGroups: module.serverToolGroups,
   );
 
-  test('the editor server→group map covers exactly the editor MCP servers', () {
-    expect(module.serverToolGroups.keys.toSet(), module.servers.keys.toSet());
-  });
+  test(
+    'the editor server→group map covers exactly the editor MCP servers',
+    () async {
+      expect(module.serverToolGroups.keys.toSet(), module.servers.keys.toSet());
+    },
+  );
 
-  test('the DocSpecs profile binds the reference application context', () {
-    final docSpecs = profiles().docSpecs;
-    expect(docSpecs.application, docSpecsApplication);
-    expect(docSpecs.toolset, {
-      AgentToolGroup.doc,
-      AgentToolGroup.memory,
-      AgentToolGroup.file,
-      AgentToolGroup.script,
-    });
-    expect(docSpecs.scopeNames, ['spec', 'files', 'memory']);
-  });
+  test(
+    'the DocSpecs profile binds the reference application context',
+    () async {
+      final docSpecs = (await profiles()).docSpecs;
+      expect(docSpecs.application, docSpecsApplication);
+      expect(docSpecs.toolset, {
+        AgentToolGroup.doc,
+        AgentToolGroup.memory,
+        AgentToolGroup.file,
+        AgentToolGroup.script,
+      });
+      expect(docSpecs.scopeNames, ['spec', 'files', 'memory']);
+    },
+  );
 
   test(
     'the prompt registry resolves the guidelines doc into the system prompt',
-    () {
-      final docSpecs = profiles().docSpecs;
+    () async {
+      final docSpecs = (await profiles()).docSpecs;
       expect(docSpecs.systemPrompt, 'DOCSPECS GUIDELINES');
     },
   );
 
-  test('all four tool groups select both editor MCP servers', () {
-    final docSpecs = profiles().docSpecs;
+  test('all four tool groups select both editor MCP servers', () async {
+    final docSpecs = (await profiles()).docSpecs;
     expect(docSpecs.mcpServers.keys.toSet(), module.servers.keys.toSet());
   });
 
-  test('buildSendConfig carries the additive prompt and the MCP surface', () {
-    final config = profiles().docSpecs.buildSendConfig();
-    expect(config.systemPrompt, 'DOCSPECS GUIDELINES');
-    expect(config.mcpServers, isNotNull);
-    expect(config.mcpServers!.keys.toSet(), module.servers.keys.toSet());
-  });
+  test(
+    'buildSendConfig carries the additive prompt and the MCP surface',
+    () async {
+      final config = (await profiles()).docSpecs.buildSendConfig();
+      expect(config.systemPrompt, 'DOCSPECS GUIDELINES');
+      expect(config.mcpServers, isNotNull);
+      expect(config.mcpServers!.keys.toSet(), module.servers.keys.toSet());
+    },
+  );
 
-  test('an empty guidelines doc sends no additive prompt', () {
-    final config = profiles(guidelinesPrompt: '').docSpecs.buildSendConfig();
+  test('an empty guidelines doc sends no additive prompt', () async {
+    final config = (await profiles(
+      guidelinesPrompt: '',
+    )).docSpecs.buildSendConfig();
     expect(config.systemPrompt, isNull);
   });
 
   test(
     'the memory scope addresses application/session/document (Q1 mapping)',
-    () {
-      final scope = profiles().docSpecs.memoryScope(
+    () async {
+      final scope = (await profiles()).docSpecs.memoryScope(
         session: 'phase-3',
         document: 'pd00',
       );
@@ -131,8 +142,8 @@ void main() {
   );
 
   test('all three canonical applications are authored with their own context '
-      '(item 10)', () {
-    final resolver = profiles();
+      '(item 10)', () async {
+    final resolver = await profiles();
     expect(resolver.isAuthored(docSpecsApplication), isTrue);
     expect(resolver.isAuthored(codeSpecsApplication), isTrue);
     expect(resolver.isAuthored(implementationApplication), isTrue);
@@ -154,10 +165,13 @@ void main() {
     expect(implementation.application, implementationApplication);
   });
 
-  test('a non-canonical application falls back to the DocSpecs profile', () {
-    final resolver = profiles();
-    expect(resolver.isAuthored('nope'), isFalse);
-    final fallback = resolver.profileFor('nope');
-    expect(fallback.application, docSpecsApplication);
-  });
+  test(
+    'a non-canonical application falls back to the DocSpecs profile',
+    () async {
+      final resolver = await profiles();
+      expect(resolver.isAuthored('nope'), isFalse);
+      final fallback = resolver.profileFor('nope');
+      expect(fallback.application, docSpecsApplication);
+    },
+  );
 }

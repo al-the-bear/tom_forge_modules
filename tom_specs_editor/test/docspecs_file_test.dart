@@ -1,6 +1,5 @@
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_som_dart_runtime/tom_som_dart_runtime.dart'
     show buildSomMetaTree, SpecYamlFormatException;
 import 'package:tom_specs_editor/src/document/docspecs_file.dart';
@@ -8,6 +7,7 @@ import 'package:tom_specs_editor/src/document/spec_document.dart';
 import 'package:tom_specs_editor/src/document/spec_document_controller.dart';
 import 'package:tom_specs_editor/src/structure/review_store.dart';
 import 'package:tom_specs_editor/src/structure/spec_model.dart';
+import 'support/review_store_support.dart';
 
 /// A single-root model exercising the field kinds the tree-driven codec
 /// walks: content sections, a `@Form`, a complex list with a section-id
@@ -307,10 +307,6 @@ review: {}
   });
 
   group('session-id sidecar (A2)', () {
-    late Directory dir;
-    setUp(() => dir = Directory.systemTemp.createTempSync('specs_docspecs_'));
-    tearDown(() => dir.deleteSync(recursive: true));
-
     test('the session id lives in a sidecar, never in the document YAML', () {
       final doc = SpecDocument()..setContent('D00/D00-OVR', 'x');
       final yaml = encode(doc);
@@ -318,45 +314,50 @@ review: {}
     });
 
     test('writeSessionId / readSessionId round-trips and clears', () async {
-      final file = File('${dir.path}/doc.docspecs.yaml');
-      await DocSpecsFile.writeSessionId(file, 'sess-1234');
-      expect(DocSpecsFile.sidecarFor(file).existsSync(), isTrue);
-      expect(await DocSpecsFile.readSessionId(file), 'sess-1234');
+      final fs = TomMemoryFileSystem();
+      final doc = fs.uriOf('specs/doc.docspecs.yaml');
+      final sidecar = DocSpecsFile.sidecarFor(doc);
+      expect(sidecar, fs.uriOf('specs/doc.docspecs.yaml.session'));
+      await DocSpecsFile.writeSessionId(fs, doc, 'sess-1234');
+      expect(await fs.exists(sidecar), isTrue);
+      expect(await DocSpecsFile.readSessionId(fs, doc), 'sess-1234');
 
-      await DocSpecsFile.writeSessionId(file, null);
-      expect(DocSpecsFile.sidecarFor(file).existsSync(), isFalse);
-      expect(await DocSpecsFile.readSessionId(file), isNull);
+      await DocSpecsFile.writeSessionId(fs, doc, null);
+      expect(await fs.exists(sidecar), isFalse);
+      expect(await DocSpecsFile.readSessionId(fs, doc), isNull);
     });
   });
 
   group('controller wiring (tom_specs_editor_specification.md §15.1)', () {
-    late Directory dir;
+    late TomMemoryFileSystem fs;
+    late Uri file;
 
     SpecDocumentController makeController() => SpecDocumentController(
       modelFuture: Future<SpecModel>.value(SpecModel.fromJson(_model())),
-      review: ReviewStore(File('${dir.path}/review.yaml')),
+      review: memoryReviewStore(),
     );
 
-    setUp(() => dir = Directory.systemTemp.createTempSync('specs_ctl_'));
-    tearDown(() => dir.deleteSync(recursive: true));
+    setUp(() {
+      fs = TomMemoryFileSystem();
+      file = fs.uriOf('specs/doc.docspecs.yaml');
+    });
 
     test(
       'save→load restores the full UI state and clears dirty + undo',
       () async {
-        final file = File('${dir.path}/doc.docspecs.yaml');
         final c = makeController();
         c.setContent('D00/D00-OVR', 'authored');
         c.setReview('D00/D00-OVR', (e) => e.scope = ReviewScope.global);
         expect(c.isDirty, isTrue);
         expect(c.canUndo, isTrue);
 
-        await c.saveDocSpecs(file, sessionId: 'sess-42');
+        await c.saveDocSpecs(fs, file, sessionId: 'sess-42');
         expect(c.isDirty, isFalse); // save re-baselines
         expect(c.canUndo, isTrue); // undo stack kept across save (N6)
 
         // A fresh controller loads the file and sees the same state.
         final c2 = makeController();
-        final session = await c2.loadDocSpecs(file);
+        final session = await c2.loadDocSpecs(fs, file);
         expect(c2.content('D00/D00-OVR'), 'authored');
         expect(c2.review.entryFor('D00/D00-OVR')?.scope, ReviewScope.global);
         expect(session, 'sess-42');
@@ -368,15 +369,14 @@ review: {}
     test(
       'the agent change log is not serialized (resets on save, M2)',
       () async {
-        final file = File('${dir.path}/doc.docspecs.yaml');
         final c = makeController();
         c.setContent('D00/D00-OVR', 'x');
         expect(c.changeLog.length, 1);
 
-        await c.saveDocSpecs(file);
+        await c.saveDocSpecs(fs, file);
         expect(c.changeLog.length, 0); // save() reset the log
 
-        final yaml = await file.readAsString();
+        final yaml = await fs.readText(file);
         expect(yaml, isNot(contains('changeLog')));
         expect(yaml, isNot(contains('change_log')));
       },

@@ -1,5 +1,6 @@
 import '../send/agent_send_controller.dart';
 import '../trail/prompt_trail_controller.dart';
+import 'placeholder_preview.dart';
 
 /// Sends a prompt through the bridge and records the exchange in the trail.
 ///
@@ -16,7 +17,7 @@ class ChatSendCoordinator {
   ChatSendCoordinator({
     required this.send,
     required this.trail,
-    String Function(String raw)? compose,
+    PromptCompose? compose,
     void Function(String turnId)? onTurnBegin,
     void Function()? onTurnEnd,
   })  : _compose = compose ?? _identity,
@@ -34,7 +35,7 @@ class ChatSendCoordinator {
   /// defaults to identity so a host without a placeholder context sends the
   /// prompt verbatim. A `${{ … }}` expression form makes this throw, which
   /// [sendNow] surfaces as a failed trail pair rather than a crash.
-  final String Function(String raw) _compose;
+  final PromptCompose _compose;
 
   /// Opens the agent-turn boundary just before the send (§9/§10, step 15). The
   /// host (the TomSpecs editor) wires its `SpecDocumentController.beginTurn` so
@@ -50,7 +51,7 @@ class ChatSendCoordinator {
   /// fails, so the host's undo group is never left open.
   final void Function()? _onTurnEnd;
 
-  static String _identity(String raw) => raw;
+  static Future<String> _identity(String raw) async => raw;
 
   /// Composes [prompt] (placeholder expansion, §11.5), streams the result
   /// through the bound bridge, and records the request/answer pair. Resolves
@@ -60,7 +61,7 @@ class ChatSendCoordinator {
   Future<void> sendNow(String prompt) async {
     final String composed;
     try {
-      composed = _compose(prompt);
+      composed = await _compose(prompt);
     } catch (error) {
       // A placeholder-resolution failure (e.g. the disabled `${{ … }}` form):
       // record the raw prompt with the error instead of sending anything.

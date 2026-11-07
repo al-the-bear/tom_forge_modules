@@ -34,26 +34,24 @@
 // (`tom_specs_editor_specification.md` §11.5 P2).
 library;
 
-import 'dart:io';
-
 import 'package:tom_core_agentic/tom_core_agentic.dart';
+import 'package:tom_file_system/tom_file_system.dart';
 
 /// Composes a final prompt by expanding the editor's supported placeholder
 /// forms against the built-ins, the chat variables, and the workspace `_ai/`
-/// folder. Stateless apart from its configuration; [compose] is pure given the
-/// clock and the filesystem.
+/// folder, read through the workspace's [TomFileSystem]. Stateless apart from
+/// its configuration; [compose] is pure given the clock and the files.
 class SpecPromptComposer {
   SpecPromptComposer({
     required this.workspaceName,
-    Directory? aiFolder,
+    required this.fileSystem,
     List<ChatVariable> variables = const <ChatVariable>[],
     DateTime Function()? clock,
     this.role = '',
     this.strict = false,
     String Function()? chatTranscript,
     String Function()? activeDocument,
-  }) : aiFolder = aiFolder ?? Directory('${Directory.current.path}/_ai'),
-       _variables = List<ChatVariable>.unmodifiable(variables),
+  }) : _variables = List<ChatVariable>.unmodifiable(variables),
        _clock = clock ?? DateTime.now,
        _chatTranscript = chatTranscript ?? _empty,
        _activeDocument = activeDocument ?? _empty;
@@ -62,9 +60,10 @@ class SpecPromptComposer {
   /// process's workspace folder name. Bound to the `${quest}` placeholder.
   final String workspaceName;
 
-  /// The workspace's `_ai/` folder, the root `${file-<relpath>}` injections
-  /// read from.
-  final Directory aiFolder;
+  /// The workspace: the `_ai/` folder the `${file-<relpath>}`, `${role-*}`
+  /// and `${quest-*}` injections read from, and the guideline folders beside
+  /// it, are its `_ai/`, `_copilot_guidelines/` and `_guidelines/`.
+  final TomFileSystem fileSystem;
 
   /// The value bound to `${role}`; empty unless the host supplies a role.
   final String role;
@@ -102,12 +101,13 @@ class SpecPromptComposer {
   /// Throws [PlaceholderExpressionsUnsupportedError] if the template contains a
   /// `${{ … }}` expression form (`tom_specs_editor_specification.md` §11.5 —
   /// expressions are disabled).
-  String compose(String template) {
+  Future<String> compose(String template) async {
+    final injections = await _fileInjections(template);
     final now = _clock();
     final bindings = <String, String>{
       for (final builtIn in builtInsFor(now)) builtIn.name: builtIn.value,
       for (final variable in _variables) variable.name: variable.value,
-      ..._fileInjections(template),
+      ...injections,
     };
     return EditorPlaceholderBindings(
       bindings: bindings,
@@ -115,30 +115,23 @@ class SpecPromptComposer {
     ).resolve(template);
   }
 
-  /// The workspace root. Invariant (`tom_specs_editor_specification.md` §11.5
-  /// P1): [aiFolder] is the workspace's `_ai/` folder, so its parent is the
-  /// workspace root — the base for the `${guidelines-*}` injection, which the
-  /// VS Code extension reads from `<workspace>/_copilot_guidelines/` (a sibling
-  /// of `_ai/`).
-  Directory get _workspaceRoot => aiFolder.parent;
-
   /// Reads every namespaced file-injection token in [template] and binds each
   /// to its file contents, matching the VS Code extension's folder conventions
   /// (`file-`, `guidelines-`, `role-`, `quest-`). A missing or unreadable file
   /// binds the empty string so the slot renders empty in lenient mode rather
   /// than failing the whole compose.
-  Map<String, String> _fileInjections(String template) {
+  Future<Map<String, String>> _fileInjections(String template) async {
     final out = <String, String>{};
     for (final match in _injectionToken.allMatches(template)) {
       final name = match.group(1)!.trim(); // e.g. guidelines-coding, file-a.md
       if (out.containsKey(name)) continue;
-      out[name] = _resolveInjection(name);
+      out[name] = await _resolveInjection(name);
     }
     return out;
   }
 
   /// Dispatches a single injection [name] to the right folder convention.
-  String _resolveInjection(String name) {
+  Future<String> _resolveInjection(String name) {
     if (name.startsWith('guidelines-')) {
       return _readGuidelines(name.substring('guidelines-'.length));
     }
@@ -155,60 +148,59 @@ class SpecPromptComposer {
   /// `${guidelines-<name>}` → `<workspace>/_copilot_guidelines/<name>.md`,
   /// falling back to `<workspace>/_guidelines/<name>.md`. `<name>` may already
   /// carry a `.md` suffix (no double extension).
-  String _readGuidelines(String rawName) {
+  Future<String> _readGuidelines(String rawName) async {
     if (rawName.isEmpty) return '';
     final fileName = rawName.endsWith('.md') ? rawName : '$rawName.md';
-    final root = _workspaceRoot.path;
-    final primary = _readFile('$root/_copilot_guidelines/$fileName');
+    final primary = await _readFile('_copilot_guidelines/$fileName');
     if (primary.isNotEmpty) return primary;
-    return _readFile('$root/_guidelines/$fileName');
+    return _readFile('_guidelines/$fileName');
   }
 
   /// `${role-<name>}` → `<_ai>/roles/<name>.md` (flat), falling back to the
   /// folder layout `<_ai>/roles/<name>/role.md`.
-  String _readRole(String rawName) {
+  Future<String> _readRole(String rawName) async {
     if (rawName.isEmpty) return '';
-    final flat = _readFile('${aiFolder.path}/roles/$rawName.md');
+    final flat = await _readFile('_ai/roles/$rawName.md');
     if (flat.isNotEmpty) return flat;
-    return _readFile('${aiFolder.path}/roles/$rawName/role.md');
+    return _readFile('_ai/roles/$rawName/role.md');
   }
 
   /// `${quest-<type>}` → the first file under `<_ai>/quests/<quest>/` whose
   /// name starts with `<type>.<quest>.`, where the quest is the workspace name
   /// (`tom_specs_editor_specification.md` §11.5 P1) — e.g. `${quest-overview}`
-  /// → `overview.<quest>.md`.
-  String _readQuest(String rawType) {
+  /// → `overview.<quest>.md`. The folder's entries are taken in name order, so
+  /// the match does not depend on the order the file system lists them in.
+  Future<String> _readQuest(String rawType) async {
     if (rawType.isEmpty || workspaceName.isEmpty) return '';
-    final dir = Directory('${aiFolder.path}/quests/$workspaceName');
-    return _readFirstMatching(dir, '$rawType.$workspaceName.');
-  }
-
-  String _readAiFile(String relPath) =>
-      relPath.isEmpty ? '' : _readFile('${aiFolder.path}/$relPath');
-
-  /// Reads [filePath], returning empty when it is missing or unreadable.
-  String _readFile(String filePath) {
+    final prefix = '$rawType.$workspaceName.';
     try {
-      final file = File(filePath);
-      return file.existsSync() ? file.readAsStringSync() : '';
-    } on FileSystemException {
+      final folder = fileSystem.uriOf('_ai/quests/$workspaceName/');
+      if (!await fileSystem.exists(folder)) return '';
+      final matches = [
+        for (final entry in await fileSystem.list(folder))
+          if (entry.kind == TomFileEntryKind.file &&
+              entry.name.startsWith(prefix))
+            entry,
+      ]..sort((a, b) => a.name.compareTo(b.name));
+      if (matches.isEmpty) return '';
+      return await fileSystem.readText(matches.first.uri);
+    } on Exception {
+      // Unreadable: the slot renders empty, as for a missing file.
       return '';
     }
   }
 
-  /// Returns the contents of the first file directly under [dir] whose name
-  /// starts with [prefix], or empty when the directory is missing or nothing
-  /// matches.
-  String _readFirstMatching(Directory dir, String prefix) {
+  Future<String> _readAiFile(String relPath) async =>
+      relPath.isEmpty ? '' : _readFile('_ai/$relPath');
+
+  /// Reads the workspace file at [relPath], returning empty when it is
+  /// missing or unreadable.
+  Future<String> _readFile(String relPath) async {
     try {
-      if (!dir.existsSync()) return '';
-      for (final entity in dir.listSync()) {
-        if (entity is File && entity.uri.pathSegments.last.startsWith(prefix)) {
-          return _readFile(entity.path);
-        }
-      }
-      return '';
-    } on FileSystemException {
+      return await fileSystem.readTextIfExists(fileSystem.uriOf(relPath)) ?? '';
+    } on Exception {
+      // Unreadable (permissions, not UTF-8): the slot renders empty, as for a
+      // missing file.
       return '';
     }
   }

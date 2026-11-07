@@ -8,8 +8,6 @@
 // a multi-line d4rt body with an embedded backtick run (the verbatim-fidelity
 // stress case).
 
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -19,6 +17,7 @@ import 'package:tom_specs_editor/src/document/spec_document.dart';
 import 'package:tom_specs_editor/src/document/spec_document_controller.dart';
 import 'package:tom_specs_editor/src/structure/review_store.dart';
 import 'package:tom_specs_editor/src/structure/spec_model.dart';
+import 'support/review_store_support.dart';
 
 /// A class graph covering content, enum, `@Form`, a complex sub-section, and a
 /// list of complex items (so the round-trip exercises every store).
@@ -85,11 +84,7 @@ Map<String, dynamic> _sampleJson() => {
 };
 
 ReviewStore _tempReviewStore() {
-  final dir = Directory.systemTemp.createTempSync('md_io_review');
-  addTearDown(() {
-    if (dir.existsSync()) dir.deleteSync(recursive: true);
-  });
-  return ReviewStore(File('${dir.path}/review.yaml'));
+  return memoryReviewStore();
 }
 
 Future<SpecDocumentController> _controller([SpecDocument? doc]) async {

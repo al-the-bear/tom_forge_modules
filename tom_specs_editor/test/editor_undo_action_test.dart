@@ -5,15 +5,13 @@
 // drives the document's own `DefaultUndoManager`; the controller stays the
 // single authority.
 
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart'
     show StandardEditingActions;
 import 'package:tom_specs_editor/src/document/spec_document_controller.dart';
 import 'package:tom_specs_editor/src/document/spec_document_editor.dart';
-import 'package:tom_specs_editor/src/structure/review_store.dart';
 import 'package:tom_specs_editor/src/structure/spec_model.dart';
+import 'support/review_store_support.dart';
 
 /// A trivial single-content-field model; the undo seam operates purely on
 /// section-ID paths, so the schema shape is irrelevant.
@@ -33,15 +31,10 @@ Map<String, dynamic> _model() => {
 };
 
 void main() {
-  late Directory dir;
-
   SpecDocumentController makeController() => SpecDocumentController(
     modelFuture: Future<SpecModel>.value(SpecModel.fromJson(_model())),
-    review: ReviewStore(File('${dir.path}/review.yaml')),
+    review: memoryReviewStore(),
   );
-
-  setUp(() => dir = Directory.systemTemp.createTempSync('specs_editor_undo_'));
-  tearDown(() => dir.deleteSync(recursive: true));
 
   final undoId = StandardEditingActions.undoActionId;
   final redoId = StandardEditingActions.redoActionId;

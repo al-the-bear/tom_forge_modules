@@ -1,7 +1,5 @@
-import 'dart:io';
-
-import 'package:path/path.dart' as p;
 import 'package:tom_core_agentic/tom_core_agentic.dart';
+import 'package:tom_file_system/tom_file_system.dart';
 
 /// Basic editor preferences surfaced through the Forge config section
 /// (`tom_specs_editor_specification.md` §12 — "Basic prefs → Forge config
@@ -63,44 +61,60 @@ class EditorPreferences {
   };
 }
 
-/// Loads/saves the singleton [EditorPreferences] as YAML.
+/// Loads/saves the singleton [EditorPreferences] as YAML, through the
+/// workspace's [TomFileSystem].
 class EditorPreferencesStore {
-  EditorPreferencesStore(this.file);
+  EditorPreferencesStore({required this.fileSystem, required this.uri});
 
-  final File file;
+  /// The prefs file's location: [overridePath] when given (the app passes
+  /// `TOM_SPECS_PREFS_FILE`), else `.tom/editor_preferences.yaml` in the
+  /// workspace [fileSystem].
+  factory EditorPreferencesStore.resolveDefault(
+    TomFileSystem fileSystem, {
+    String? overridePath,
+  }) => EditorPreferencesStore(
+    fileSystem: fileSystem,
+    uri: fileSystem.uriOf(
+      overridePath != null && overridePath.isNotEmpty
+          ? overridePath
+          : '.tom/editor_preferences.yaml',
+    ),
+  );
 
-  /// Resolves the prefs file. Honors `TOM_SPECS_PREFS_FILE`; falls back to
-  /// `<cwd>/.tom/editor_preferences.yaml`.
-  factory EditorPreferencesStore.resolveDefault() {
-    final override = Platform.environment['TOM_SPECS_PREFS_FILE'];
-    final path = (override != null && override.isNotEmpty)
-        ? override
-        : p.join(Directory.current.path, '.tom', 'editor_preferences.yaml');
-    return EditorPreferencesStore(File(path));
-  }
+  /// The file system the prefs file is read and written through.
+  final TomFileSystem fileSystem;
 
-  EditorPreferences load() {
+  /// The prefs file.
+  final Uri uri;
+
+  /// The saved preferences; the defaults when the file is missing, empty,
+  /// unreadable or not a preferences document.
+  Future<EditorPreferences> load() async {
+    final String? content;
     try {
-      if (!file.existsSync()) return const EditorPreferences();
-      final content = file.readAsStringSync();
-      if (content.trim().isEmpty) return const EditorPreferences();
-      final root = decodeAgentYaml(content);
-      final prefs = root['preferences'];
+      content = await fileSystem.readTextIfExists(uri);
+    } on Exception {
+      return const EditorPreferences();
+    }
+    if (content == null || content.trim().isEmpty) {
+      return const EditorPreferences();
+    }
+    try {
+      final prefs = decodeAgentYaml(content)['preferences'];
       if (prefs is! Map) return const EditorPreferences();
       return EditorPreferences.fromYaml(prefs.cast<String, dynamic>());
-    } on FileSystemException {
-      return const EditorPreferences();
     } on FormatException {
       return const EditorPreferences();
     }
   }
 
-  void save(EditorPreferences prefs) {
-    final yaml = encodeAgentYaml(<String, dynamic>{
-      'version': 1,
-      'preferences': prefs.toYaml(),
-    });
-    file.parent.createSync(recursive: true);
-    file.writeAsStringSync(yaml);
-  }
+  /// Writes [prefs], making the file's folder when it is missing.
+  Future<void> save(EditorPreferences prefs) =>
+      fileSystem.writeTextMakingFolder(
+        uri,
+        encodeAgentYaml(<String, dynamic>{
+          'version': 1,
+          'preferences': prefs.toYaml(),
+        }),
+      );
 }

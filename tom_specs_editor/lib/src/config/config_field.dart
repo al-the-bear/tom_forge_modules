@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tom_forge_agentic/tom_forge_agentic.dart'
-    show PlaceholderPreview;
+    show PlaceholderPreview, PromptCompose;
 
 /// A single editable field in a configuration detail form
 /// (`tom_specs_editor_specification.md` §12).
@@ -148,7 +148,7 @@ class ConfigField<T> {
   factory ConfigField.placeholderPreview({
     required String label,
     required String Function(T value) get,
-    required String Function(String source) compose,
+    required PromptCompose compose,
     String? help,
   }) {
     return ConfigField._(

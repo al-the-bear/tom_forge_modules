@@ -9,8 +9,6 @@
 /// §1, §4).
 library;
 
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -20,8 +18,8 @@ import 'package:tom_forge_agentic/tom_forge_agentic.dart' show ChangeKind;
 
 import 'package:tom_specs_editor/src/document/spec_document_controller.dart';
 import 'package:tom_specs_editor/src/document/spec_document_editor.dart';
-import 'package:tom_specs_editor/src/structure/review_store.dart';
 import 'package:tom_specs_editor/src/structure/spec_model.dart';
+import 'support/review_store_support.dart';
 
 const _overview = 'D00/D00-OVR';
 const _header = 'D00/D00-HDR';
@@ -70,13 +68,9 @@ Map<String, dynamic> _json() => {
 };
 
 Future<SpecDocumentController> _controller() async {
-  final dir = Directory.systemTemp.createTempSync('qim_none6_review');
-  addTearDown(() {
-    if (dir.existsSync()) dir.deleteSync(recursive: true);
-  });
   final controller = SpecDocumentController(
     modelFuture: Future<SpecModel>.value(SpecModel.fromJson(_json())),
-    review: ReviewStore(File('${dir.path}/review.yaml')),
+    review: memoryReviewStore(),
     strictHeadlineEditing: false,
   );
   await controller.ensureLoaded();
@@ -378,7 +372,8 @@ void main() {
       expect(
         controller.restoredCaretFor(_overview),
         isNull,
-        reason: 'setContent is no typing gesture: the field puts the caret '
+        reason:
+            'setContent is no typing gesture: the field puts the caret '
             'at the end',
       );
     });

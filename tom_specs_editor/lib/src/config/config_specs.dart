@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:tom_core_agentic/tom_core_agentic.dart';
+import 'package:tom_forge_agentic/tom_forge_agentic.dart' show PromptCompose;
 
 import 'config_editors.dart';
 import 'config_field.dart';
-import 'editor_preferences.dart';
 
 /// Builds the declarative [ConfigListSpec]/[ConfigObjectSpec]s for the seven
 /// config editors (`tom_specs_editor_specification.md` §12). Each spec binds a
@@ -20,7 +20,6 @@ class SpecsConfigSpecs {
     TimedRequestStore? timedRequests,
     PromptQueueStore? queue,
     AgentSettingsStore? agentSettings,
-    EditorPreferencesStore? preferences,
     this.compose,
   }) : profiles = profiles ?? AgentProfileStore.resolveDefault(),
        promptTemplates =
@@ -29,8 +28,7 @@ class SpecsConfigSpecs {
        chatVariables = chatVariables ?? ChatVariableStore.resolveDefault(),
        timedRequests = timedRequests ?? TimedRequestStore.resolveDefault(),
        queue = queue ?? PromptQueueStore.resolveDefault(),
-       agentSettings = agentSettings ?? AgentSettingsStore.resolveDefault(),
-       preferences = preferences ?? EditorPreferencesStore.resolveDefault();
+       agentSettings = agentSettings ?? AgentSettingsStore.resolveDefault();
 
   final AgentProfileStore profiles;
   final PromptTemplateStore promptTemplates;
@@ -39,14 +37,13 @@ class SpecsConfigSpecs {
   final TimedRequestStore timedRequests;
   final PromptQueueStore queue;
   final AgentSettingsStore agentSettings;
-  final EditorPreferencesStore preferences;
 
   /// Expands a placeholder-bearing string for the
   /// `tom_specs_editor_specification.md` §12 live placeholder preview (OE-14) —
   /// typically `SpecPromptComposer.compose`. When null, the preview field is
   /// omitted (the editors stay usable without a wired composer, e.g. in unit
   /// tests).
-  final String Function(String source)? compose;
+  final PromptCompose? compose;
 
   static String _newId(String prefix) =>
       '$prefix-${DateTime.now().microsecondsSinceEpoch}';
@@ -62,7 +59,7 @@ class SpecsConfigSpecs {
     title: 'Prompt Queue',
     icon: Icons.playlist_play_outlined,
     uri: _uri('/queue'),
-    backingFile: queue.file,
+    backingUri: queue.file.uri,
     load: queue.load,
     save: queue.save,
     labelOf: (p) => p.originalText.isEmpty ? '(empty prompt)' : p.originalText,
@@ -107,7 +104,7 @@ class SpecsConfigSpecs {
         title: 'Queue Templates',
         icon: Icons.bookmark_outline,
         uri: _uri('/queue-templates'),
-        backingFile: queueTemplates.file,
+        backingUri: queueTemplates.file.uri,
         load: queueTemplates.load,
         save: queueTemplates.save,
         labelOf: (t) => t.name.isEmpty ? '(unnamed)' : t.name,
@@ -145,7 +142,7 @@ class SpecsConfigSpecs {
     title: 'Profiles',
     icon: Icons.account_circle_outlined,
     uri: _uri('/profiles'),
-    backingFile: profiles.file,
+    backingUri: profiles.file.uri,
     load: profiles.load,
     save: profiles.save,
     labelOf: (p) => p.name.isEmpty ? '(unnamed)' : p.name,
@@ -232,7 +229,7 @@ class SpecsConfigSpecs {
         title: 'Prompt Templates',
         icon: Icons.notes_outlined,
         uri: _uri('/prompt-templates'),
-        backingFile: promptTemplates.file,
+        backingUri: promptTemplates.file.uri,
         load: promptTemplates.load,
         save: promptTemplates.save,
         labelOf: (t) => t.name.isEmpty ? '(unnamed)' : t.name,
@@ -282,7 +279,7 @@ class SpecsConfigSpecs {
         title: 'Chat Variables',
         icon: Icons.data_object_outlined,
         uri: _uri('/chat-variables'),
-        backingFile: chatVariables.file,
+        backingUri: chatVariables.file.uri,
         load: chatVariables.load,
         save: chatVariables.save,
         labelOf: (v) => v.name.isEmpty ? '(unnamed)' : v.name,
@@ -322,7 +319,7 @@ class SpecsConfigSpecs {
         title: 'Timed Requests',
         icon: Icons.schedule_outlined,
         uri: _uri('/timed-requests'),
-        backingFile: timedRequests.file,
+        backingUri: timedRequests.file.uri,
         load: timedRequests.load,
         save: timedRequests.save,
         labelOf: (r) =>
@@ -378,7 +375,7 @@ class SpecsConfigSpecs {
     title: 'Agent Settings',
     icon: Icons.tune_outlined,
     uri: _uri('/agent-settings'),
-    backingFile: agentSettings.file,
+    backingUri: agentSettings.file.uri,
     load: agentSettings.load,
     save: agentSettings.save,
     fields: [

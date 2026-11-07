@@ -14,8 +14,8 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:tom_specs_editor/src/agent/agent_tools_module.dart';
-import 'package:tom_specs_editor/src/structure/review_store.dart';
 import 'package:tom_specs_editor/src/structure/spec_model.dart';
+import 'support/review_store_support.dart';
 
 /// A minimal class graph with one content section to recall.
 Map<String, dynamic> _sampleJson() => {
@@ -37,7 +37,7 @@ Map<String, dynamic> _sampleJson() => {
 
 AgentToolsModule _module(Directory dir) {
   final model = SpecModel.fromJson(_sampleJson());
-  final review = ReviewStore(File('${dir.path}/review.yaml'));
+  final review = memoryReviewStore();
   return AgentToolsModule(
     modelFuture: Future<SpecModel>.value(model),
     review: review,

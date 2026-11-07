@@ -7,8 +7,6 @@
 // plus the controller/document/review side-effects.
 
 import 'dart:convert';
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_vscode_scripting_api/tom_vscode_scripting_api.dart';
 
@@ -16,6 +14,7 @@ import 'package:tom_specs_editor/src/agent/agent_tools_module.dart';
 import 'package:tom_specs_editor/src/document/spec_document_controller.dart';
 import 'package:tom_specs_editor/src/structure/review_store.dart';
 import 'package:tom_specs_editor/src/structure/spec_model.dart';
+import 'support/review_store_support.dart';
 
 /// A minimal class graph covering the writable field kinds: a content section,
 /// a form, and a list of complex items each carrying a content field.
@@ -57,16 +56,16 @@ Map<String, dynamic> _sampleJson() => {
   },
 };
 
-/// Builds an agent-tools module backed by the sample model and a temp-file
+/// Builds an agent-tools module backed by the sample model and an in-memory
 /// review store, returning the module plus the assembled `SdkMcpTool` map.
 ({
   AgentToolsModule module,
   Map<String, SdkMcpTool> tools,
   SpecDocumentController controller,
 })
-_harness(Directory dir) {
+_harness() {
   final model = SpecModel.fromJson(_sampleJson());
-  final review = ReviewStore(File('${dir.path}/review.yaml'));
+  final review = memoryReviewStore();
   final module = AgentToolsModule(
     modelFuture: Future<SpecModel>.value(model),
     review: review,
@@ -93,16 +92,9 @@ Future<Map<String, dynamic>> _invoke(
 }
 
 void main() {
-  late Directory dir;
-
-  setUp(() {
-    dir = Directory.systemTemp.createTempSync('specs_agent_tools_');
-  });
-  tearDown(() => dir.deleteSync(recursive: true));
-
   test('the server exposes all 13 tom_specs_editor_specification.md §8 '
       'tools', () {
-    final h = _harness(dir);
+    final h = _harness();
     expect(
       h.tools.keys,
       containsAll(<String>[
@@ -125,7 +117,7 @@ void main() {
 
   group('Layer A — schema', () {
     test('model_list_documents returns the roots as compact JSON', () async {
-      final h = _harness(dir);
+      final h = _harness();
       final json = await _invoke(h.tools['model_list_documents']!, {});
       final docs = json['documents'] as List;
       expect(docs, hasLength(1));
@@ -134,7 +126,7 @@ void main() {
     });
 
     test('model_get_section resolves by section id and lists fields', () async {
-      final h = _harness(dir);
+      final h = _harness();
       final json = await _invoke(h.tools['model_get_section']!, {'id': 'D00'});
       expect(json['name'], 'DemoDoc');
       final fields = (json['fields'] as List).cast<Map>();
@@ -145,14 +137,14 @@ void main() {
     });
 
     test('model_search finds a field by name', () async {
-      final h = _harness(dir);
+      final h = _harness();
       final json = await _invoke(h.tools['model_search']!, {'query': 'author'});
       final hits = (json['hits'] as List).cast<Map>();
       expect(hits.any((m) => m['formField'] == 'author'), isTrue);
     });
 
     test('unknown section id is a structured error', () async {
-      final h = _harness(dir);
+      final h = _harness();
       final result = await h.tools['model_get_section']!.handler!({
         'id': 'nope',
       });
@@ -164,7 +156,7 @@ void main() {
 
   group('Mutations edit the live model', () {
     test('doc_set_content writes content visible to doc_get_content', () async {
-      final h = _harness(dir);
+      final h = _harness();
       final set = await _invoke(h.tools['doc_set_content']!, {
         'id': 'D00/D00-OVR',
         'value': 'Hello world',
@@ -181,7 +173,7 @@ void main() {
     });
 
     test('doc_set_form_field writes one field of a form', () async {
-      final h = _harness(dir);
+      final h = _harness();
       await _invoke(h.tools['doc_set_form_field']!, {
         'id': 'D00/D00-HDR',
         'field': 'author',
@@ -197,7 +189,7 @@ void main() {
     });
 
     test('doc_add_list_item then doc_outline reflects the new count', () async {
-      final h = _harness(dir);
+      final h = _harness();
       final added = await _invoke(h.tools['doc_add_list_item']!, {
         'listId': 'D00/D00-ITM',
       });
@@ -228,7 +220,7 @@ void main() {
     });
 
     test('doc_section_meta reports list cardinality', () async {
-      final h = _harness(dir);
+      final h = _harness();
       await _invoke(h.tools['doc_add_list_item']!, {'listId': 'D00/D00-ITM'});
       await _invoke(h.tools['doc_add_list_item']!, {'listId': 'D00/D00-ITM'});
       final meta = await _invoke(h.tools['doc_section_meta']!, {
@@ -242,7 +234,7 @@ void main() {
 
   group('doc_set_review routes to the shared ReviewStore', () {
     test('records a decision persisted by the store', () async {
-      final h = _harness(dir);
+      final h = _harness();
       final json = await _invoke(h.tools['doc_set_review']!, {
         'path': 'D00/D00-ITM',
         'scope': 'global',

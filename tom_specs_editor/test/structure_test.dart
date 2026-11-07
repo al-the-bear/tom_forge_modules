@@ -8,6 +8,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tom_file_system/io.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
 import 'package:tom_specs_editor/src/spec_structure_module.dart';
@@ -16,6 +17,7 @@ import 'package:tom_specs_editor/src/structure/review_store.dart';
 import 'package:tom_specs_editor/src/structure/spec_model.dart';
 import 'package:tom_specs_editor/src/structure/spec_structure_view.dart';
 import 'package:tom_specs_editor/src/structure/spec_tree.dart';
+import 'support/review_store_support.dart';
 
 /// A minimal class graph covering the field kinds the tree renders: a content
 /// paragraph, a scalar, a complex sub-section, and a list of complex items.
@@ -74,9 +76,7 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     final model = SpecModel.fromJson(_sampleJson());
-    final dir = Directory.systemTemp.createTempSync('specs_review_view_');
-    addTearDown(() => dir.deleteSync(recursive: true));
-    final store = ReviewStore(File('${dir.path}/review.yaml'));
+    final store = memoryReviewStore();
 
     final view = SpecStructureView(
       modelFuture: Future<SpecModel>.value(model),
@@ -100,24 +100,25 @@ void main() {
     expect(find.textContaining('Demo Document'), findsWidgets);
   });
 
-  test('ReviewStore persists and round-trips review state to YAML', () {
-    final dir = Directory.systemTemp.createTempSync('specs_review_store_');
-    addTearDown(() => dir.deleteSync(recursive: true));
-    final file = File('${dir.path}/review.yaml');
+  test('ReviewStore persists and round-trips review state to YAML', () async {
+    final fs = TomMemoryFileSystem();
+    final uri = fs.uriOf('review/structure_review.yaml');
 
     const path = 'DemoDoc/items/§item/content';
-    final store = ReviewStore(file)
+    final store = ReviewStore(fileSystem: fs, uri: uri)
       ..update(path, (e) {
         e.scope = ReviewScope.global;
         e.addDetails = true;
         e.comment = 'needs its own section';
       });
+    await store.saved;
 
     expect(store.count, 1);
-    expect(file.existsSync(), isTrue);
+    expect(await fs.exists(uri), isTrue);
 
     // A fresh store loading the same file recovers the entry verbatim.
-    final reloaded = ReviewStore(file)..load();
+    final reloaded = ReviewStore(fileSystem: fs, uri: uri);
+    await reloaded.load();
     final entry = reloaded.entryFor(path);
     expect(entry, isNotNull);
     expect(entry!.scope, ReviewScope.global);
@@ -130,9 +131,35 @@ void main() {
       e.addDetails = false;
       e.comment = '';
     });
+    await reloaded.saved;
     expect(reloaded.count, 0);
-    final reloadedAgain = ReviewStore(file)..load();
+    final reloadedAgain = ReviewStore(fileSystem: fs, uri: uri);
+    await reloadedAgain.load();
     expect(reloadedAgain.count, 0);
+  });
+
+  test('ReviewStore on the local disk: the folder is made, and quick edits '
+      'land in order, the file ending at the last one', () async {
+    final dir = Directory.systemTemp.createTempSync('specs_review_store_');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    final store = ReviewStore.resolveDefault(TomLocalFileSystem(dir.path));
+    for (var i = 0; i < 5; i++) {
+      store.update('DemoDoc/items/§item/content', (e) => e.comment = 'v$i');
+    }
+    await store.saved;
+    final file = File('${dir.path}/review/structure_review.yaml');
+    expect(file.readAsStringSync(), contains('comment: "v4"'));
+
+    final moved = ReviewStore.resolveDefault(
+      TomLocalFileSystem(dir.path),
+      overridePath: '${dir.path}/elsewhere/review.yaml',
+    )..update('DemoDoc', (e) => e.reviewed = true);
+    await moved.saved;
+    expect(
+      File('${dir.path}/elsewhere/review.yaml').readAsStringSync(),
+      contains('reviewed: true'),
+      reason: 'TOM_SPECS_REVIEW_FILE may name an absolute path',
+    );
   });
 
   test('ReviewScope.parse maps the legacy only_pd token to onlyThisDocument', () {
@@ -148,19 +175,20 @@ void main() {
     expect(ReviewScope.onlyThisDocument.token, 'only_this_document');
   });
 
-  test('a structure_review.yaml carrying legacy only_pd still loads', () {
-    final dir = Directory.systemTemp.createTempSync('specs_review_legacy_');
-    addTearDown(() => dir.deleteSync(recursive: true));
-    final file = File('${dir.path}/structure_review.yaml')
-      ..writeAsStringSync(
-        'version: 1\n'
-        'entries:\n'
-        '  "DemoDoc/items/§item/content":\n'
-        '    scope: only_pd\n'
-        '    comment: "from a pre-rename review"\n',
-      );
+  test('a structure_review.yaml carrying legacy only_pd still loads', () async {
+    final fs = TomMemoryFileSystem(
+      seed: {
+        'review/structure_review.yaml':
+            'version: 1\n'
+            'entries:\n'
+            '  "DemoDoc/items/§item/content":\n'
+            '    scope: only_pd\n'
+            '    comment: "from a pre-rename review"\n',
+      },
+    );
 
-    final store = ReviewStore(file)..load();
+    final store = ReviewStore.resolveDefault(fs);
+    await store.load();
     final entry = store.entryFor('DemoDoc/items/§item/content');
     expect(entry, isNotNull);
     expect(entry!.scope, ReviewScope.onlyThisDocument);
@@ -169,12 +197,10 @@ void main() {
 
   test('SpecStructureModule hosts its view as the DocSpecs Structure tab', () {
     final model = SpecModel.fromJson(_sampleJson());
-    final dir = Directory.systemTemp.createTempSync('specs_review_module_');
-    addTearDown(() => dir.deleteSync(recursive: true));
 
     final structureModule = SpecStructureModule(
       modelFuture: Future<SpecModel>.value(model),
-      store: ReviewStore(File('${dir.path}/review.yaml')),
+      store: memoryReviewStore(),
     );
     expect(structureModule.views, contains(structureModule.structureView));
 

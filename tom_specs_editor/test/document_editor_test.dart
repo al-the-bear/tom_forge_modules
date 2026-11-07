@@ -3,11 +3,9 @@
 //
 // The step's Done condition: the bundled model renders; empty nodes collapse to
 // clickable chips; lists add/remove. These tests drive the value-backed
-// `SpecDocumentTree` over a synthetic model + temp-file review store (asset
+// `SpecDocumentTree` over a synthetic model + in-memory review store (asset
 // loading is not available under flutter_test), asserting the compact-tree
 // behaviour and the live edits routed through the shared controller.
-
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -19,6 +17,7 @@ import 'package:tom_specs_editor/src/document/spec_document_controller.dart';
 import 'package:tom_specs_editor/src/document/spec_document_editor.dart';
 import 'package:tom_specs_editor/src/structure/review_store.dart';
 import 'package:tom_specs_editor/src/structure/spec_model.dart';
+import 'support/review_store_support.dart';
 
 /// A class graph covering every render kind: a content paragraph, an enum, a
 /// `@Form` section, an empty complex sub-section, and a list of complex items.
@@ -102,11 +101,7 @@ Map<String, dynamic> _orderedJson() => {
 };
 
 ReviewStore _tempReviewStore() {
-  final dir = Directory.systemTemp.createTempSync('doc_editor_review');
-  addTearDown(() {
-    if (dir.existsSync()) dir.deleteSync(recursive: true);
-  });
-  return ReviewStore(File('${dir.path}/review.yaml'));
+  return memoryReviewStore();
 }
 
 Future<SpecDocumentController> _controller() => _controllerFor(_sampleJson());

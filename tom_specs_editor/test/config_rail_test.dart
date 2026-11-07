@@ -11,6 +11,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tom_file_system/tom_file_system.dart';
 
 import 'package:tom_core_agentic/tom_core_agentic.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
@@ -43,7 +44,6 @@ SpecsConfigSpecs _specsIn(Directory dir) {
     timedRequests: TimedRequestStore(File(f('timed_requests.yaml'))),
     queue: PromptQueueStore(File(f('queue.yaml'))),
     agentSettings: AgentSettingsStore(File(f('agent_settings.yaml'))),
-    preferences: EditorPreferencesStore(File(f('editor_preferences.yaml'))),
   );
 }
 
@@ -54,9 +54,10 @@ SpecsConfigModule _moduleIn(Directory dir) {
   return SpecsConfigModule(
     specs: _specsIn(dir),
     rawFileModule: RawFileModule(),
-    preferencesStore: EditorPreferencesStore(
-      File(f('editor_preferences.yaml')),
+    preferencesStore: EditorPreferencesStore.resolveDefault(
+      TomMemoryFileSystem(),
     ),
+    preferences: const EditorPreferences(),
     settingsStore: AgentSettingsStore(File(f('agent_settings.yaml'))),
     profileStore: AgentProfileStore(File(f('profiles.yaml'))),
   );
@@ -80,10 +81,10 @@ void main() {
     ) async {
       final specs = _specsIn(_tempDir());
       final editors = <ForgeEditor>[
-        ConfigListEditor(spec: specs.queueSpec(), onOpenRawFile: (_) {}),
+        ConfigListEditor(spec: specs.queueSpec(), onOpenRawFile: (_) async {}),
         ConfigObjectEditor(
           spec: specs.agentSettingsSpec(),
-          onOpenRawFile: (_) {},
+          onOpenRawFile: (_) async {},
         ),
       ];
       ForgeEditor? opened;
