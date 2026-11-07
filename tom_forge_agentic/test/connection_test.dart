@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_core_agentic/tom_core_agentic.dart';
+import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_forge_agentic/tom_forge_agentic.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
@@ -20,13 +21,9 @@ BridgeConnectionService _fakeService({
 
 /// An in-memory-ish store backed by a temp file, so persistence is exercised
 /// without touching the developer's real sidecar.
-BridgeChoiceStore _tempStore() {
-  final dir = Directory.systemTemp.createTempSync('tom_specs_bridge_test');
-  addTearDown(() {
-    if (dir.existsSync()) dir.deleteSync(recursive: true);
-  });
-  return BridgeChoiceStore(File('${dir.path}/bridge_connection.yaml'));
-}
+/// A BridgeChoiceStore over a fresh in-memory workspace.
+BridgeChoiceStore _tempStore() =>
+    BridgeChoiceStore.resolveDefault(TomMemoryFileSystem());
 
 void main() {
   group('AgentConnectionController', () {
@@ -65,33 +62,36 @@ void main() {
         service: _fakeService(),
         store: store,
       );
-      restored.loadPersisted();
+      await controller.saved;
+      await restored.loadPersisted();
       expect(restored.boundChoice, isNotNull);
       expect(restored.boundChoice!.port, 19900);
     });
 
-    test('a binding spelled localhost still matches a 127.0.0.1 scan',
-        () async {
-      // The sidecar and the scan get their host from different places, so a
-      // user who retypes "Bridge host" in settings leaves a binding whose
-      // spelling differs from the one the scan reports. Comparing the strings
-      // showed the bound window as merely available and offered to bind it
-      // again — the picker-side face of the same defect the reconnect
-      // coordinator showed as a still-gone modal for a live bridge.
-      final store = _tempStore()
-        ..save(const BridgeChoice(host: 'localhost', port: 19900));
-      final controller = AgentConnectionController(
-        service: _fakeService(),
-        store: store,
-      );
+    test(
+      'a binding spelled localhost still matches a 127.0.0.1 scan',
+      () async {
+        // The sidecar and the scan get their host from different places, so a
+        // user who retypes "Bridge host" in settings leaves a binding whose
+        // spelling differs from the one the scan reports. Comparing the strings
+        // showed the bound window as merely available and offered to bind it
+        // again — the picker-side face of the same defect the reconnect
+        // coordinator showed as a still-gone modal for a live bridge.
+        final store = _tempStore();
+        await store.save(const BridgeChoice(host: 'localhost', port: 19900));
+        final controller = AgentConnectionController(
+          service: _fakeService(),
+          store: store,
+        );
 
-      controller.loadPersisted();
-      await controller.scan();
+        await controller.loadPersisted();
+        await controller.scan();
 
-      expect(controller.servers.single.host, defaultBridgeHost);
-      expect(controller.bound, isNotNull);
-      expect(controller.bound!.status, BridgeServerStatus.bound);
-    });
+        expect(controller.servers.single.host, defaultBridgeHost);
+        expect(controller.bound, isNotNull);
+        expect(controller.bound!.status, BridgeServerStatus.bound);
+      },
+    );
 
     test('a failed scan records the error and clears servers', () async {
       final controller = AgentConnectionController(
@@ -121,9 +121,7 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
-          home: Scaffold(
-            body: AgentConnectionPicker(controller: controller),
-          ),
+          home: Scaffold(body: AgentConnectionPicker(controller: controller)),
         ),
       );
       await tester.pumpAndSettle();
@@ -138,8 +136,10 @@ void main() {
 
       expect(controller.bound, isNotNull);
       expect(controller.bound!.port, 19900);
-      expect(store.load(), isNotNull);
-      expect(store.load()!.port, 19900);
+      await tester.runAsync(() => controller.saved);
+      final saved = await tester.runAsync(store.load);
+      expect(saved, isNotNull);
+      expect(saved!.port, 19900);
       // The bound row now reads "bound" rather than offering a Bind button.
       expect(find.text('bound'), findsOneWidget);
     });
@@ -148,6 +148,7 @@ void main() {
   group('AgentChatModule', () {
     test('exposes a chat view over its connection controller', () {
       final module = AgentChatModule(
+        fileSystem: TomMemoryFileSystem(),
         controller: AgentConnectionController(
           service: _fakeService(),
           store: _tempStore(),
@@ -161,6 +162,7 @@ void main() {
 
     test('exposes the queue (Col 2) and trail (Col 3) editors (§5, OE-9)', () {
       final module = AgentChatModule(
+        fileSystem: TomMemoryFileSystem(),
         controller: AgentConnectionController(
           service: _fakeService(),
           store: _tempStore(),
@@ -171,14 +173,8 @@ void main() {
       // bottom chat view — they render their respective controllers.
       expect(module.queueEditor, isA<PromptQueueEditor>());
       expect(module.trailEditor, isA<PromptTrailEditor>());
-      expect(
-        module.queueEditor.controller,
-        same(module.queueController),
-      );
-      expect(
-        module.trailEditor.controller,
-        same(module.trailController),
-      );
+      expect(module.queueEditor.controller, same(module.queueController));
+      expect(module.trailEditor.controller, same(module.trailController));
       // Both are advertised as the module's editors so the shell can host them.
       expect(
         module.editors,

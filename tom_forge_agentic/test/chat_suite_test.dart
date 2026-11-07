@@ -4,10 +4,9 @@
 // send_test.dart) so the whole pipeline runs without a socket.
 
 import 'dart:async';
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_core_agentic/tom_core_agentic.dart';
+import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_forge_agentic/tom_forge_agentic.dart';
 // `tom_vscode_scripting_api` also exports a `QueuedPromptStatus`; this suite
 // asserts against the `tom_core_agentic` one, so hide the scripting-API name.
@@ -32,12 +31,14 @@ class _ScriptedTransport implements AgentSdkTransport {
   Future<void> startQuery(Map<String, dynamic> params) async {
     final streamId = params['streamId'];
     final messages = script(_calls++);
-    unawaited(Future<void>(() async {
-      for (final message in messages) {
-        _chunks.add({'streamId': streamId, 'message': message});
-      }
-      _chunks.add({'streamId': streamId, 'done': true});
-    }));
+    unawaited(
+      Future<void>(() async {
+        for (final message in messages) {
+          _chunks.add({'streamId': streamId, 'message': message});
+        }
+        _chunks.add({'streamId': streamId, 'done': true});
+      }),
+    );
   }
 
   @override
@@ -59,68 +60,54 @@ class _ScriptedTransport implements AgentSdkTransport {
 }
 
 Map<String, dynamic> _assistant(String text) => {
-      'type': 'assistant',
-      'message': {
-        'content': [
-          {'type': 'text', 'text': text},
-        ],
-      },
-    };
+  'type': 'assistant',
+  'message': {
+    'content': [
+      {'type': 'text', 'text': text},
+    ],
+  },
+};
 
 Map<String, dynamic> _success(String sessionId) => {
-      'type': 'result',
-      'subtype': 'success',
-      'is_error': false,
-      'session_id': sessionId,
-      'result': 'ok',
-    };
+  'type': 'result',
+  'subtype': 'success',
+  'is_error': false,
+  'session_id': sessionId,
+  'result': 'ok',
+};
 
 Map<String, dynamic> _errorResult(String text) => {
-      'type': 'result',
-      'subtype': 'error_during_execution',
-      'is_error': true,
-      'result': text,
-    };
+  'type': 'result',
+  'subtype': 'error_during_execution',
+  'is_error': true,
+  'result': text,
+};
 
-SpecSessionStore _tempSessionStore() {
-  final dir = Directory.systemTemp.createTempSync('tom_specs_chat_session');
-  addTearDown(() {
-    if (dir.existsSync()) dir.deleteSync(recursive: true);
-  });
-  return SpecSessionStore(File('${dir.path}/agent_session.yaml'));
-}
+/// A SpecSessionStore over a fresh in-memory workspace.
+SpecSessionStore _tempSessionStore() =>
+    SpecSessionStore.resolveDefault(TomMemoryFileSystem());
 
-AgentConnectionController _boundConnection() {
-  final dir = Directory.systemTemp.createTempSync('tom_specs_chat_bridge');
-  addTearDown(() {
-    if (dir.existsSync()) dir.deleteSync(recursive: true);
-  });
-  final store = BridgeChoiceStore(File('${dir.path}/bridge_connection.yaml'))
-    ..save(const BridgeChoice(host: '127.0.0.1', port: 19900));
-  return AgentConnectionController(
+Future<AgentConnectionController> _boundConnection() async {
+  final store = BridgeChoiceStore.resolveDefault(TomMemoryFileSystem());
+  await store.save(const BridgeChoice(host: '127.0.0.1', port: 19900));
+  final controller = AgentConnectionController(
     service: BridgeConnectionService(
       scanner: ({required host, required minPort, required maxPort}) async =>
           const {},
     ),
     store: store,
-  )..loadPersisted();
+  );
+  await controller.loadPersisted();
+  return controller;
 }
 
-PromptQueueStore _tempQueueStore() {
-  final dir = Directory.systemTemp.createTempSync('tom_specs_queue_ctrl');
-  addTearDown(() {
-    if (dir.existsSync()) dir.deleteSync(recursive: true);
-  });
-  return PromptQueueStore(File('${dir.path}/prompt_queue.yaml'));
-}
+/// A PromptQueueStore over a fresh in-memory workspace.
+PromptQueueStore _tempQueueStore() =>
+    PromptQueueStore.resolveDefault(TomMemoryFileSystem());
 
-PromptTrailStore _tempTrailStore() {
-  final dir = Directory.systemTemp.createTempSync('tom_specs_trail_ctrl');
-  addTearDown(() {
-    if (dir.existsSync()) dir.deleteSync(recursive: true);
-  });
-  return PromptTrailStore(File('${dir.path}/prompt_trail.yaml'));
-}
+/// A PromptTrailStore over a fresh in-memory workspace.
+PromptTrailStore _tempTrailStore() =>
+    PromptTrailStore.resolveDefault(TomMemoryFileSystem());
 
 /// A counter-based id generator for deterministic test ids.
 String Function() _ids(String prefix) {
@@ -130,7 +117,7 @@ String Function() _ids(String prefix) {
 
 void main() {
   group('PromptTrailController', () {
-    test('records a request then closes it with the answer', () {
+    test('records a request then closes it with the answer', () async {
       final controller = PromptTrailController(
         store: _tempTrailStore(),
         newId: _ids('t'),
@@ -146,20 +133,24 @@ void main() {
       expect(controller.pairs.single.answer?.text, 'hi there');
     });
 
-    test('persists pairs and reloads them in a fresh controller', () {
+    test('persists pairs and reloads them in a fresh controller', () async {
       final store = _tempTrailStore();
       final first = PromptTrailController(store: store, newId: _ids('t'));
       final id = first.recordRequest('ask');
       first.completeAnswer(id, 'answer');
 
-      final reloaded = PromptTrailController(store: store)..load();
+      await first.saved;
+      final reloaded = PromptTrailController(store: store);
+      await reloaded.load();
       expect(reloaded.pairs.single.request.text, 'ask');
       expect(reloaded.pairs.single.answer?.text, 'answer');
     });
 
-    test('failAnswer records the error text in place of the answer', () {
-      final controller =
-          PromptTrailController(store: _tempTrailStore(), newId: _ids('t'));
+    test('failAnswer records the error text in place of the answer', () async {
+      final controller = PromptTrailController(
+        store: _tempTrailStore(),
+        newId: _ids('t'),
+      );
       final id = controller.recordRequest('boom');
       controller.failAnswer(id, 'connection lost');
       expect(controller.pairs.single.answer?.text, 'connection lost');
@@ -167,20 +158,21 @@ void main() {
   });
 
   group('PromptQueueController', () {
-    PromptQueueController build({
+    Future<PromptQueueController> build({
       required _ScriptedTransport transport,
       PromptQueueStore? queueStore,
       PromptTrailController? trail,
-    }) {
+    }) async {
       final send = AgentSendController(
-        connection: _boundConnection(),
+        connection: await _boundConnection(),
         sessionStore: _tempSessionStore(),
         clientFactory: ({required host, required port}) async =>
             AgentSdkClient(transport),
       );
       final coordinator = ChatSendCoordinator(
         send: send,
-        trail: trail ??
+        trail:
+            trail ??
             PromptTrailController(store: _tempTrailStore(), newId: _ids('t')),
       );
       return PromptQueueController(
@@ -191,11 +183,11 @@ void main() {
       );
     }
 
-    test('addPrompt appends a pending item and persists it', () {
+    test('addPrompt appends a pending item and persists it', () async {
       final store = _tempQueueStore();
       final transport = _ScriptedTransport((_) => [_success('s')]);
       addTearDown(transport.dispose);
-      final controller = build(transport: transport, queueStore: store);
+      final controller = await build(transport: transport, queueStore: store);
 
       controller.addPrompt('do A');
       controller.addPrompt('do B');
@@ -203,14 +195,14 @@ void main() {
       expect(controller.items.map((i) => i.originalText), ['do A', 'do B']);
       expect(controller.items.first.status, QueuedPromptStatus.pending);
       // Persisted: a fresh controller over the same store reloads them.
-      expect(PromptQueueStore(store.file).load().map((i) => i.originalText),
-          ['do A', 'do B']);
+      await controller.saved;
+      expect((await store.load()).map((i) => i.originalText), ['do A', 'do B']);
     });
 
-    test('moveUp / moveDown reorder the queue', () {
+    test('moveUp / moveDown reorder the queue', () async {
       final transport = _ScriptedTransport((_) => [_success('s')]);
       addTearDown(transport.dispose);
-      final controller = build(transport: transport);
+      final controller = await build(transport: transport);
       controller.addPrompt('first');
       controller.addPrompt('second');
 
@@ -220,10 +212,10 @@ void main() {
       expect(controller.items.map((i) => i.originalText), ['first', 'second']);
     });
 
-    test('removeById drops the item', () {
+    test('removeById drops the item', () async {
       final transport = _ScriptedTransport((_) => [_success('s')]);
       addTearDown(transport.dispose);
-      final controller = build(transport: transport);
+      final controller = await build(transport: transport);
       final a = controller.addPrompt('keep');
       final b = controller.addPrompt('remove');
 
@@ -231,28 +223,32 @@ void main() {
       expect(controller.items.map((i) => i.id), [a.id]);
     });
 
-    test('sendNext dispatches the head pending item and records the trail',
-        () async {
-      final transport = _ScriptedTransport(
-        (_) => [_assistant('done!'), _success('s1')],
-      );
-      addTearDown(transport.dispose);
-      final trail =
-          PromptTrailController(store: _tempTrailStore(), newId: _ids('t'));
-      final controller = build(transport: transport, trail: trail);
-      controller.addPrompt('first task');
-      controller.addPrompt('second task');
+    test(
+      'sendNext dispatches the head pending item and records the trail',
+      () async {
+        final transport = _ScriptedTransport(
+          (_) => [_assistant('done!'), _success('s1')],
+        );
+        addTearDown(transport.dispose);
+        final trail = PromptTrailController(
+          store: _tempTrailStore(),
+          newId: _ids('t'),
+        );
+        final controller = await build(transport: transport, trail: trail);
+        controller.addPrompt('first task');
+        controller.addPrompt('second task');
 
-      await controller.sendNext();
+        await controller.sendNext();
 
-      expect(controller.items.first.status, QueuedPromptStatus.sent);
-      expect(controller.items.first.sentAt, isNotNull);
-      expect(controller.items[1].status, QueuedPromptStatus.pending);
-      // The exchange landed in the trail as a request/answer pair.
-      expect(trail.pairs, hasLength(1));
-      expect(trail.pairs.single.request.text, 'first task');
-      expect(trail.pairs.single.answer?.text, 'done!');
-    });
+        expect(controller.items.first.status, QueuedPromptStatus.sent);
+        expect(controller.items.first.sentAt, isNotNull);
+        expect(controller.items[1].status, QueuedPromptStatus.pending);
+        // The exchange landed in the trail as a request/answer pair.
+        expect(trail.pairs, hasLength(1));
+        expect(trail.pairs.single.request.text, 'first task');
+        expect(trail.pairs.single.answer?.text, 'done!');
+      },
+    );
 
     test('compose expands the prompt before it is sent (§11.5)', () async {
       final transport = _ScriptedTransport(
@@ -260,13 +256,15 @@ void main() {
       );
       addTearDown(transport.dispose);
       final send = AgentSendController(
-        connection: _boundConnection(),
+        connection: await _boundConnection(),
         sessionStore: _tempSessionStore(),
         clientFactory: ({required host, required port}) async =>
             AgentSdkClient(transport),
       );
-      final trail =
-          PromptTrailController(store: _tempTrailStore(), newId: _ids('t'));
+      final trail = PromptTrailController(
+        store: _tempTrailStore(),
+        newId: _ids('t'),
+      );
       final coordinator = ChatSendCoordinator(
         send: send,
         trail: trail,
@@ -280,86 +278,97 @@ void main() {
       expect(trail.pairs.single.answer?.text, 'ack');
     });
 
-    test('a compose failure is a failed trail pair, not a crash or a send',
-        () async {
-      final transport = _ScriptedTransport((_) => [_success('s')]);
-      addTearDown(transport.dispose);
-      final send = AgentSendController(
-        connection: _boundConnection(),
-        sessionStore: _tempSessionStore(),
-        clientFactory: ({required host, required port}) async =>
-            AgentSdkClient(transport),
-      );
-      final trail =
-          PromptTrailController(store: _tempTrailStore(), newId: _ids('t'));
-      final coordinator = ChatSendCoordinator(
-        send: send,
-        trail: trail,
-        compose: (_) =>
-            throw PlaceholderExpressionsUnsupportedError('1 + 1'),
-      );
+    test(
+      'a compose failure is a failed trail pair, not a crash or a send',
+      () async {
+        final transport = _ScriptedTransport((_) => [_success('s')]);
+        addTearDown(transport.dispose);
+        final send = AgentSendController(
+          connection: await _boundConnection(),
+          sessionStore: _tempSessionStore(),
+          clientFactory: ({required host, required port}) async =>
+              AgentSdkClient(transport),
+        );
+        final trail = PromptTrailController(
+          store: _tempTrailStore(),
+          newId: _ids('t'),
+        );
+        final coordinator = ChatSendCoordinator(
+          send: send,
+          trail: trail,
+          compose: (_) => throw PlaceholderExpressionsUnsupportedError('1 + 1'),
+        );
 
-      await coordinator.sendNow(r'compute ${{ 1 + 1 }}');
+        await coordinator.sendNow(r'compute ${{ 1 + 1 }}');
 
-      // The raw prompt is recorded with the unsupported-expression error; the
-      // transport was never queried (nothing streamed).
-      expect(trail.pairs.single.request.text, r'compute ${{ 1 + 1 }}');
-      expect(trail.pairs.single.answer?.text,
-          contains('PlaceholderExpressionsUnsupportedError'));
-      expect(send.output, isEmpty);
-    });
+        // The raw prompt is recorded with the unsupported-expression error; the
+        // transport was never queried (nothing streamed).
+        expect(trail.pairs.single.request.text, r'compute ${{ 1 + 1 }}');
+        expect(
+          trail.pairs.single.answer?.text,
+          contains('PlaceholderExpressionsUnsupportedError'),
+        );
+        expect(send.output, isEmpty);
+      },
+    );
 
-    test('sendNow brackets the send with a turn boundary (§9/§10, OE-10)',
-        () async {
-      // The streamed answer marks the window during which the §8 tools mutate
-      // the document; the turn must open before it and close after it.
-      final transport = _ScriptedTransport(
-        (_) => [_assistant('did work'), _success('s')],
-      );
-      addTearDown(transport.dispose);
-      final send = AgentSendController(
-        connection: _boundConnection(),
-        sessionStore: _tempSessionStore(),
-        clientFactory: ({required host, required port}) async =>
-            AgentSdkClient(transport),
-      );
-      final trail =
-          PromptTrailController(store: _tempTrailStore(), newId: _ids('t'));
+    test(
+      'sendNow brackets the send with a turn boundary (§9/§10, OE-10)',
+      () async {
+        // The streamed answer marks the window during which the §8 tools mutate
+        // the document; the turn must open before it and close after it.
+        final transport = _ScriptedTransport(
+          (_) => [_assistant('did work'), _success('s')],
+        );
+        addTearDown(transport.dispose);
+        final send = AgentSendController(
+          connection: await _boundConnection(),
+          sessionStore: _tempSessionStore(),
+          clientFactory: ({required host, required port}) async =>
+              AgentSdkClient(transport),
+        );
+        final trail = PromptTrailController(
+          store: _tempTrailStore(),
+          newId: _ids('t'),
+        );
 
-      final events = <String>[];
-      String? turnId;
-      final coordinator = ChatSendCoordinator(
-        send: send,
-        trail: trail,
-        onTurnBegin: (id) {
-          turnId = id;
-          // No answer has streamed yet — the turn opens before the send.
-          events.add('begin output=${send.output}');
-        },
-        onTurnEnd: () => events.add('end output=${send.output}'),
-      );
+        final events = <String>[];
+        String? turnId;
+        final coordinator = ChatSendCoordinator(
+          send: send,
+          trail: trail,
+          onTurnBegin: (id) {
+            turnId = id;
+            // No answer has streamed yet — the turn opens before the send.
+            events.add('begin output=${send.output}');
+          },
+          onTurnEnd: () => events.add('end output=${send.output}'),
+        );
 
-      await coordinator.sendNow('go');
+        await coordinator.sendNow('go');
 
-      // Opened before the send (empty output) and closed after it (answer in),
-      // in that order — one bracket around the mutating window.
-      expect(events, ['begin output=', 'end output=did work']);
-      // The turn id is the trail pair id, so the change-log turn and the trail
-      // exchange share an identifier.
-      expect(turnId, trail.pairs.single.id);
-    });
+        // Opened before the send (empty output) and closed after it (answer in),
+        // in that order — one bracket around the mutating window.
+        expect(events, ['begin output=', 'end output=did work']);
+        // The turn id is the trail pair id, so the change-log turn and the trail
+        // exchange share an identifier.
+        expect(turnId, trail.pairs.single.id);
+      },
+    );
 
     test('a turn that fails still closes its boundary (OE-10)', () async {
       final transport = _ScriptedTransport((_) => [_errorResult('boom')]);
       addTearDown(transport.dispose);
       final send = AgentSendController(
-        connection: _boundConnection(),
+        connection: await _boundConnection(),
         sessionStore: _tempSessionStore(),
         clientFactory: ({required host, required port}) async =>
             AgentSdkClient(transport),
       );
-      final trail =
-          PromptTrailController(store: _tempTrailStore(), newId: _ids('t'));
+      final trail = PromptTrailController(
+        store: _tempTrailStore(),
+        newId: _ids('t'),
+      );
       var begins = 0;
       var ends = 0;
       final coordinator = ChatSendCoordinator(
@@ -382,13 +391,15 @@ void main() {
       final transport = _ScriptedTransport((_) => [_success('s')]);
       addTearDown(transport.dispose);
       final send = AgentSendController(
-        connection: _boundConnection(),
+        connection: await _boundConnection(),
         sessionStore: _tempSessionStore(),
         clientFactory: ({required host, required port}) async =>
             AgentSdkClient(transport),
       );
-      final trail =
-          PromptTrailController(store: _tempTrailStore(), newId: _ids('t'));
+      final trail = PromptTrailController(
+        store: _tempTrailStore(),
+        newId: _ids('t'),
+      );
       var begins = 0;
       var ends = 0;
       final coordinator = ChatSendCoordinator(
@@ -414,7 +425,7 @@ void main() {
             : [_assistant('recovered'), _success('s2')],
       );
       addTearDown(transport.dispose);
-      final controller = build(transport: transport);
+      final controller = await build(transport: transport);
       final item = controller.addPrompt('flaky task');
 
       await controller.sendNext();

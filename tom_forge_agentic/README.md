@@ -26,10 +26,16 @@ In use by the TomSpecs editor (`tom_specs_editor`). What it exports:
 - `AgentChatModule` — the module an agent-enabled tool registers: it owns the
   connection, send, prompt-queue and prompt-trail controllers and offers the
   chat view (connection picker and composer) and the queue and trail editors
-  for the application's layout.
+  for the application's layout. The host gives it the workspace's
+  `TomFileSystem` (and its process environment): the controllers keep their
+  sidecars — bridge choice, session id, queue, trail — there, through
+  `tom_core_agentic`'s stores. A controller takes its store; `load()` is
+  asynchronous, and `saved` completes when its writes have landed.
 - Connection — `AgentConnectionController`, `AgentConnectionPicker`.
 - Sending — `AgentSendController`, `AgentSendPanel`, `AgentReconnectBanner`,
-  `ChatComposerPanel`, `ChatSendCoordinator`, the placeholder preview.
+  `ChatComposerPanel`, `ChatSendCoordinator`, the placeholder preview. Prompt
+  composition is asynchronous (`PromptCompose`): a composer may read the
+  files a prompt injects.
 - Prompt queue and trail — their controllers, editors and views.
 - Change log and review — `ChangeEntry`, `ChangeLog`, `ChangeLogPanel`,
   `ChangeReviewPanel`.

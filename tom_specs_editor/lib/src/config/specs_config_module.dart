@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:tom_core_agentic/tom_core_agentic.dart';
-import 'package:tom_forge_agentic/tom_forge_agentic.dart' show PromptCompose;
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
 import 'basic_prefs_panel.dart';
@@ -28,21 +27,21 @@ import 'raw_file_module.dart';
 /// both of which call `shell.layout.openEditor`. The basic-prefs panel persists
 /// both backing stores on the settings dialog's Save.
 class SpecsConfigModule extends ForgeModule {
+  /// The host gives the config [specs] (their stores over its workspace),
+  /// and the editor [preferences] and agent [settings] as it loaded them —
+  /// the basic-prefs panel's starting working copies.
   SpecsConfigModule({
-    SpecsConfigSpecs? specs,
+    required SpecsConfigSpecs specs,
     RawFileModule? rawFileModule,
     required EditorPreferencesStore preferencesStore,
     required EditorPreferences preferences,
-    AgentSettingsStore? settingsStore,
-    AgentProfileStore? profileStore,
-    PromptCompose? compose,
+    required AgentSettings settings,
     this.onPreferencesChanged,
-  }) : _specs = specs ?? SpecsConfigSpecs(compose: compose),
+  }) : _specs = specs,
        rawFileModule = rawFileModule ?? RawFileModule(),
        _preferencesStore = preferencesStore,
        _prefs = preferences,
-       _settingsStore = settingsStore ?? AgentSettingsStore.resolveDefault(),
-       _profileStore = profileStore ?? AgentProfileStore.resolveDefault();
+       _settings = settings;
 
   final SpecsConfigSpecs _specs;
 
@@ -55,8 +54,6 @@ class SpecsConfigModule extends ForgeModule {
   final ValueChanged<EditorPreferences>? onPreferencesChanged;
 
   final EditorPreferencesStore _preferencesStore;
-  final AgentSettingsStore _settingsStore;
-  final AgentProfileStore _profileStore;
 
   ForgeShellApi? _shell;
   final List<ForgeEditor> _editors = [];
@@ -65,10 +62,10 @@ class SpecsConfigModule extends ForgeModule {
   /// exist. Null before activation; exposed via [configRailView] and [views].
   ConfigRailView? _configRail;
 
-  /// Working copies the basic-prefs panel mutates; persisted on Save. The
-  /// preferences start as the host loaded them.
+  /// Working copies the basic-prefs panel mutates; persisted on Save. Both
+  /// start as the host loaded them.
   EditorPreferences _prefs;
-  late AgentSettings _settings;
+  AgentSettings _settings;
 
   @override
   String get displayName => 'TomSpecs Config';
@@ -76,7 +73,6 @@ class SpecsConfigModule extends ForgeModule {
   @override
   void activate(ForgeShellApi shell) {
     _shell = shell;
-    _settings = _settingsStore.load();
     _buildEditors();
   }
 
@@ -154,16 +150,23 @@ class SpecsConfigModule extends ForgeModule {
       id: 'specs.basic-prefs',
       title: 'Basic Preferences',
       icon: Icons.tune_outlined,
-      builder: (context) => BasicPrefsPanel(
-        prefs: _prefs,
-        settings: _settings,
-        profiles: _profileStore.load(),
-        onPrefsChanged: (p) => _prefs = p,
-        onSettingsChanged: (s) => _settings = s,
+      // The profiles are read when the panel opens, so it offers the ones the
+      // profile editor saved since.
+      builder: (context) => FutureBuilder<List<AgentProfile>>(
+        future: _specs.profiles.load(),
+        builder: (context, profiles) => profiles.hasData
+            ? BasicPrefsPanel(
+                prefs: _prefs,
+                settings: _settings,
+                profiles: profiles.requireData,
+                onPrefsChanged: (p) => _prefs = p,
+                onSettingsChanged: (s) => _settings = s,
+              )
+            : const Center(child: CircularProgressIndicator()),
       ),
       onSave: () async {
         await _preferencesStore.save(_prefs);
-        _settingsStore.save(_settings);
+        await _specs.agentSettings.save(_settings);
         onPreferencesChanged?.call(_prefs);
       },
     ),

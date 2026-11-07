@@ -4,8 +4,6 @@
 // SpecsShellModule: three registered applications (DocSpecs / CodeSpecs /
 // Implementation) with the 4-region layout, only DocSpecs functional.
 
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_core_agentic/tom_core_agentic.dart';
@@ -22,17 +20,15 @@ import 'package:tom_specs_editor/src/specs_shell_module.dart';
 /// An [AgentChatModule] whose controller scans a fixed table instead of opening
 /// real sockets, so the smoke test leaves no pending socket timers.
 AgentChatModule _fakeChatModule() {
-  final dir = Directory.systemTemp.createTempSync('tom_specs_editor_widget');
-  addTearDown(() {
-    if (dir.existsSync()) dir.deleteSync(recursive: true);
-  });
+  final workspace = TomMemoryFileSystem();
   return AgentChatModule(
+    fileSystem: workspace,
     controller: AgentConnectionController(
       service: BridgeConnectionService(
         scanner: ({required host, required minPort, required maxPort}) async =>
             const {19900: 'tom_agent_container'},
       ),
-      store: BridgeChoiceStore(File('${dir.path}/bridge_connection.yaml')),
+      store: BridgeChoiceStore.resolveDefault(workspace),
     ),
   );
 }

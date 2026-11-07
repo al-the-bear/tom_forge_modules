@@ -3,15 +3,14 @@
 //
 // Done condition for step 18: each editor opens, validates, and its
 // "Open raw file" button opens the backing YAML/markdown. These tests drive
-// each editor over temp-file agent stores (tom_core_agentic's own files), asserting it renders, surfaces a
+// each editor over agent stores in an in-memory workspace, asserting it renders, surfaces a
 // validation error on invalid input, and routes the raw-file button to the
 // backing file via the injected opener. The basic-prefs panel test covers the
 // theme/font/default-app/default-profile round-trip.
 
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tom_file_system/tom_file_system.dart';
 
 import 'package:tom_core_agentic/tom_core_agentic.dart';
 import 'package:tom_specs_editor/src/config/basic_prefs_panel.dart';
@@ -20,35 +19,16 @@ import 'package:tom_specs_editor/src/config/config_field.dart';
 import 'package:tom_specs_editor/src/config/config_specs.dart';
 import 'package:tom_specs_editor/src/config/editor_preferences.dart';
 
-/// A temp directory cleaned up after each test, used to back the stores so no
-/// real workspace file is touched.
-Directory _tempDir() {
-  final dir = Directory.systemTemp.createTempSync('specs_config');
-  addTearDown(() {
-    if (dir.existsSync()) dir.deleteSync(recursive: true);
-  });
-  return dir;
-}
+/// A [SpecsConfigSpecs] whose every store lives in [fs] (a fresh in-memory
+/// workspace unless given), so no real workspace file is touched.
+SpecsConfigSpecs _specsIn([TomFileSystem? fs]) =>
+    SpecsConfigSpecs(fileSystem: fs ?? TomMemoryFileSystem());
 
-/// Builds a [SpecsConfigSpecs] whose every store writes into [dir]. An
-/// [agentSettings] store may be supplied to pre-seed agent settings.
-SpecsConfigSpecs _specsIn(Directory dir, {AgentSettingsStore? agentSettings}) {
-  String f(String name) => '${dir.path}/$name';
-  return SpecsConfigSpecs(
-    profiles: AgentProfileStore(File(f('profiles.yaml'))),
-    promptTemplates: PromptTemplateStore(File(f('prompt_templates.yaml'))),
-    queueTemplates: QueueTemplateStore(File(f('queue_templates.yaml'))),
-    chatVariables: ChatVariableStore(File(f('chat_variables.yaml'))),
-    timedRequests: TimedRequestStore(File(f('timed_requests.yaml'))),
-    queue: PromptQueueStore(File(f('queue.yaml'))),
-    agentSettings:
-        agentSettings ?? AgentSettingsStore(File(f('agent_settings.yaml'))),
-  );
-}
-
-/// Pumps an editor's main body inside a minimal app.
-Future<void> _pump(WidgetTester tester, Widget body) {
-  return tester.pumpWidget(MaterialApp(home: Scaffold(body: body)));
+/// Pumps an editor's main body inside a minimal app, and a frame more for
+/// the editor's first read of its store.
+Future<void> _pump(WidgetTester tester, Widget body) async {
+  await tester.pumpWidget(MaterialApp(home: Scaffold(body: body)));
+  await tester.pump();
 }
 
 /// Registers the shared "opens" + "raw file" tests for one list editor,
@@ -84,13 +64,9 @@ void _registerListTests<T>(
 void main() {
   group('config list editors (tom_specs_editor_specification.md §12 '
       'step 18)', () {
-    late Directory dir;
     late SpecsConfigSpecs specs;
 
-    setUp(() {
-      dir = _tempDir();
-      specs = _specsIn(dir);
-    });
+    setUp(() => specs = _specsIn());
 
     _registerListTests<QueuedPrompt>(
       'queue',
@@ -143,27 +119,10 @@ void main() {
       (tester) async {
         // A composer that uppercases a known placeholder, so the preview's
         // expansion is visibly distinct from the raw body.
-        final specsWithCompose = SpecsConfigSpecs(
-          profiles: AgentProfileStore(File('${dir.path}/profiles.yaml')),
-          promptTemplates: PromptTemplateStore(
-            File('${dir.path}/prompt_templates.yaml'),
-          ),
-          queueTemplates: QueueTemplateStore(
-            File('${dir.path}/queue_templates.yaml'),
-          ),
-          chatVariables: ChatVariableStore(
-            File('${dir.path}/chat_variables.yaml'),
-          ),
-          timedRequests: TimedRequestStore(
-            File('${dir.path}/timed_requests.yaml'),
-          ),
-          queue: PromptQueueStore(File('${dir.path}/queue.yaml')),
-          agentSettings: AgentSettingsStore(
-            File('${dir.path}/agent_settings.yaml'),
-          ),
-          compose: (s) async => s.replaceAll(r'${who}', 'Alex'),
+        final specsWithCompose = _specsIn().withCompose(
+          (s) async => s.replaceAll(r'${who}', 'Alex'),
         );
-        specsWithCompose.promptTemplates.save([
+        await specsWithCompose.promptTemplates.save([
           PromptTemplate(id: 't1', name: 'Greeting', body: r'hi ${who}'),
         ]);
         final spec = specsWithCompose.promptTemplateSpec();
@@ -246,7 +205,7 @@ void main() {
     });
 
     testWidgets('a user-authored item can be removed', (tester) async {
-      specs.chatVariables.save(const [ChatVariable(name: 'mine')]);
+      await specs.chatVariables.save(const [ChatVariable(name: 'mine')]);
       final spec = specs.chatVariableSpec();
       final editor = ConfigListEditor<ChatVariable>(
         spec: spec,
@@ -265,7 +224,7 @@ void main() {
   group('agent-settings singleton editor '
       '(tom_specs_editor_specification.md §12 step 18)', () {
     testWidgets('opens and renders its title', (tester) async {
-      final specs = _specsIn(_tempDir());
+      final specs = _specsIn();
       final spec = specs.agentSettingsSpec();
       final editor = ConfigObjectEditor<AgentSettings>(
         spec: spec,
@@ -278,11 +237,12 @@ void main() {
     testWidgets('an invalid port range surfaces a validation error', (
       tester,
     ) async {
-      final dir = _tempDir();
-      final store = AgentSettingsStore(File('${dir.path}/agent_settings.yaml'));
+      final specs = _specsIn();
       // Persist a malformed range (start > end) so the editor opens invalid.
-      store.save(const AgentSettings(portScanStart: 50, portScanEnd: 10));
-      final spec = _specsIn(dir, agentSettings: store).agentSettingsSpec();
+      await specs.agentSettings.save(
+        const AgentSettings(portScanStart: 50, portScanEnd: 10),
+      );
+      final spec = specs.agentSettingsSpec();
       final editor = ConfigObjectEditor<AgentSettings>(
         spec: spec,
         onOpenRawFile: (_) async {},
@@ -292,7 +252,7 @@ void main() {
     });
 
     testWidgets('"Open raw file" opens the backing file', (tester) async {
-      final specs = _specsIn(_tempDir());
+      final specs = _specsIn();
       final spec = specs.agentSettingsSpec();
       Uri? opened;
       final editor = ConfigObjectEditor<AgentSettings>(

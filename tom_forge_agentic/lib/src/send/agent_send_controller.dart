@@ -54,10 +54,10 @@ class AgentSendController extends ChangeNotifier {
     this.config = const AgentSendConfig(),
     this.interruptRetryPrefix = AgentProfile.defaultInterruptRetryPrefix,
     List<Duration> reconnectBackoff = defaultReconnectBackoff,
-    SpecSessionStore? sessionStore,
+    required SpecSessionStore sessionStore,
     AgentSdkClientFactory? clientFactory,
   })  : _reconnectBackoff = reconnectBackoff,
-        _sessionStore = sessionStore ?? SpecSessionStore.resolveDefault(),
+        _sessionStore = sessionStore,
         _clientFactory = clientFactory ?? connectAgentSdkClient;
 
   /// The shared connection controller; its bound choice supplies the bridge

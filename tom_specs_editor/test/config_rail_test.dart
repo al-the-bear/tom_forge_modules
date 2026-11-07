@@ -7,8 +7,6 @@
 // all seven editors on activate (and not before); (3) the shell module hosts it
 // as the DocSpecs left panel's "Config" tab.
 
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_file_system/tom_file_system.dart';
@@ -23,45 +21,22 @@ import 'package:tom_specs_editor/src/config/raw_file_module.dart';
 import 'package:tom_specs_editor/src/config/specs_config_module.dart';
 import 'package:tom_specs_editor/src/specs_shell_module.dart';
 
-/// A temp directory cleaned up after each test, used to back the stores so no
-/// real workspace file is touched.
-Directory _tempDir() {
-  final dir = Directory.systemTemp.createTempSync('specs_rail');
-  addTearDown(() {
-    if (dir.existsSync()) dir.deleteSync(recursive: true);
-  });
-  return dir;
-}
+/// A [SpecsConfigSpecs] whose every store lives in a fresh in-memory
+/// workspace, so no real workspace file is touched.
+SpecsConfigSpecs _specs() =>
+    SpecsConfigSpecs(fileSystem: TomMemoryFileSystem());
 
-/// Builds a [SpecsConfigSpecs] whose every store writes into [dir].
-SpecsConfigSpecs _specsIn(Directory dir) {
-  String f(String name) => '${dir.path}/$name';
-  return SpecsConfigSpecs(
-    profiles: AgentProfileStore(File(f('profiles.yaml'))),
-    promptTemplates: PromptTemplateStore(File(f('prompt_templates.yaml'))),
-    queueTemplates: QueueTemplateStore(File(f('queue_templates.yaml'))),
-    chatVariables: ChatVariableStore(File(f('chat_variables.yaml'))),
-    timedRequests: TimedRequestStore(File(f('timed_requests.yaml'))),
-    queue: PromptQueueStore(File(f('queue.yaml'))),
-    agentSettings: AgentSettingsStore(File(f('agent_settings.yaml'))),
-  );
-}
-
-/// A [SpecsConfigModule] whose every backing store lives under [dir], so
-/// activating it touches no real workspace file.
-SpecsConfigModule _moduleIn(Directory dir) {
-  String f(String name) => '${dir.path}/$name';
-  return SpecsConfigModule(
-    specs: _specsIn(dir),
-    rawFileModule: RawFileModule(),
-    preferencesStore: EditorPreferencesStore.resolveDefault(
-      TomMemoryFileSystem(),
-    ),
-    preferences: const EditorPreferences(),
-    settingsStore: AgentSettingsStore(File(f('agent_settings.yaml'))),
-    profileStore: AgentProfileStore(File(f('profiles.yaml'))),
-  );
-}
+/// A [SpecsConfigModule] over [_specs], so activating it touches no real
+/// workspace file.
+SpecsConfigModule _module() => SpecsConfigModule(
+  specs: _specs(),
+  rawFileModule: RawFileModule(),
+  preferencesStore: EditorPreferencesStore.resolveDefault(
+    TomMemoryFileSystem(),
+  ),
+  preferences: const EditorPreferences(),
+  settings: const AgentSettings(),
+);
 
 DefaultShellApi _shell() => DefaultShellApi.withDefaults(
   fileSystemSeed: const {},
@@ -79,7 +54,7 @@ void main() {
     testWidgets('lists one keyed launcher per editor and routes taps', (
       tester,
     ) async {
-      final specs = _specsIn(_tempDir());
+      final specs = _specs();
       final editors = <ForgeEditor>[
         ConfigListEditor(spec: specs.queueSpec(), onOpenRawFile: (_) async {}),
         ConfigObjectEditor(
@@ -117,7 +92,7 @@ void main() {
   group('SpecsConfigModule rail (tom_specs_editor_specification.md §12 step 18 '
       '#3 / OE-16)', () {
     test('the rail is null before activation and covers all editors after', () {
-      final module = _moduleIn(_tempDir());
+      final module = _module();
       expect(
         module.configRailView,
         isNull,
@@ -134,7 +109,7 @@ void main() {
     });
 
     test('deactivation clears the rail', () {
-      final module = _moduleIn(_tempDir())..activate(_shell());
+      final module = _module()..activate(_shell());
       expect(module.configRailView, isNotNull);
       module.deactivate();
       expect(module.configRailView, isNull);

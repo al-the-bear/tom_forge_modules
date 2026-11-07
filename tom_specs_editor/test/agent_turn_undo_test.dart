@@ -10,10 +10,9 @@
 // edits stay inspectable in the change log.
 
 import 'dart:async';
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_core_agentic/tom_core_agentic.dart';
+import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_forge_agentic/tom_forge_agentic.dart';
 import 'package:tom_specs_editor/src/document/spec_document_controller.dart';
 import 'package:tom_specs_editor/src/structure/spec_model.dart';
@@ -93,28 +92,29 @@ class _MutatingTransport implements AgentSdkTransport {
   Future<void> dispose() => _chunks.close();
 }
 
-AgentConnectionController _boundConnection(Directory dir) {
-  final store = BridgeChoiceStore(File('${dir.path}/bridge_connection.yaml'))
-    ..save(const BridgeChoice(host: '127.0.0.1', port: 19900));
-  return AgentConnectionController(
+Future<AgentConnectionController> _boundConnection(TomFileSystem fs) async {
+  final store = BridgeChoiceStore.resolveDefault(fs);
+  await store.save(const BridgeChoice(host: '127.0.0.1', port: 19900));
+  final controller = AgentConnectionController(
     service: BridgeConnectionService(
       scanner: ({required host, required minPort, required maxPort}) async =>
           const {},
     ),
     store: store,
-  )..loadPersisted();
+  );
+  await controller.loadPersisted();
+  return controller;
 }
 
 void main() {
-  late Directory dir;
+  late TomMemoryFileSystem fs;
 
   SpecDocumentController makeController() => SpecDocumentController(
     modelFuture: Future<SpecModel>.value(SpecModel.fromJson(_model())),
     review: memoryReviewStore(),
   );
 
-  setUp(() => dir = Directory.systemTemp.createTempSync('specs_turn_undo_'));
-  tearDown(() => dir.deleteSync(recursive: true));
+  setUp(() => fs = TomMemoryFileSystem());
 
   test(
     'an agent send collapses its mid-stream mutations into one undo turn',
@@ -129,13 +129,13 @@ void main() {
       addTearDown(transport.dispose);
 
       final send = AgentSendController(
-        connection: _boundConnection(dir),
-        sessionStore: SpecSessionStore(File('${dir.path}/agent_session.yaml')),
+        connection: await _boundConnection(fs),
+        sessionStore: SpecSessionStore.resolveDefault(fs),
         clientFactory: ({required host, required port}) async =>
             AgentSdkClient(transport),
       );
       final trail = PromptTrailController(
-        store: PromptTrailStore(File('${dir.path}/prompt_trail.yaml')),
+        store: PromptTrailStore.resolveDefault(fs),
       );
 
       // Wired exactly as SpecsEditorApp wires it: the coordinator brackets the

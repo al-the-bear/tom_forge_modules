@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
@@ -31,8 +33,11 @@ class ConfigListSpec<T> {
   /// The YAML/markdown file the "Open raw file" button opens.
   final Uri backingUri;
 
-  final List<T> Function() load;
-  final void Function(List<T> items) save;
+  /// Reads the store's entries (from the workspace's file system).
+  final Future<List<T>> Function() load;
+
+  /// Writes the store's entries; the store runs its writes in order.
+  final Future<void> Function(List<T> items) save;
 
   /// Row label in the list pane.
   final String Function(T item) labelOf;
@@ -68,8 +73,12 @@ class ConfigObjectSpec<T> {
 
   /// The YAML file the "Open raw file" button opens.
   final Uri backingUri;
-  final T Function() load;
-  final void Function(T value) save;
+
+  /// Reads the store's value (from the workspace's file system).
+  final Future<T> Function() load;
+
+  /// Writes the store's value; the store runs its writes in order.
+  final Future<void> Function(T value) save;
   final List<ConfigField<T>> fields;
 }
 
@@ -98,8 +107,9 @@ class RawFileButton extends StatelessWidget {
 /// and the raw-file button.
 class ConfigListEditor<T> extends ForgeSurfaceEditor {
   ConfigListEditor({required this.spec, required this.onOpenRawFile})
-    : _title = ValueNotifier<String>(spec.title),
-      _items = spec.load();
+    : _title = ValueNotifier<String>(spec.title) {
+    _loaded = spec.load().then((items) => _items = items);
+  }
 
   final ConfigListSpec<T> spec;
   final RawFileOpener onOpenRawFile;
@@ -107,7 +117,11 @@ class ConfigListEditor<T> extends ForgeSurfaceEditor {
   final ValueNotifier<String> _title;
   final ValueNotifier<String?> _titleExtension = ValueNotifier<String?>(null);
 
-  List<T> _items;
+  /// The entries as last read or edited; set once [_loaded] completes.
+  List<T> _items = const [];
+
+  /// The store's first read; the body shows once it is done.
+  late final Future<List<T>> _loaded;
 
   @override
   IconData get icon => spec.icon;
@@ -121,21 +135,25 @@ class ConfigListEditor<T> extends ForgeSurfaceEditor {
   @override
   ValueListenable<String?> get titleExtension => _titleExtension;
 
-  /// Persists the current state, then opens the backing file.
-  Future<void> _openRaw() {
-    spec.save(_items);
+  /// Persists the current state, then opens the backing file once it has
+  /// landed.
+  Future<void> _openRaw() async {
+    await spec.save(_items);
     return onOpenRawFile(spec.backingUri);
   }
 
   @override
-  Widget buildMain(BuildContext context) => _ConfigListBody<T>(
-    spec: spec,
-    initialItems: _items,
-    onItemsChanged: (items) {
-      _items = items;
-      spec.save(items);
-    },
-    onOpenRaw: _openRaw,
+  Widget buildMain(BuildContext context) => _AfterLoad(
+    loaded: _loaded,
+    builder: (_) => _ConfigListBody<T>(
+      spec: spec,
+      initialItems: _items,
+      onItemsChanged: (items) {
+        _items = items;
+        unawaited(spec.save(items));
+      },
+      onOpenRaw: _openRaw,
+    ),
   );
 
   @override
@@ -343,8 +361,9 @@ class _ConfigListBodyState<T> extends State<_ConfigListBody<T>> {
 /// one object, validation, raw-file button. Used by the Agent Settings editor.
 class ConfigObjectEditor<T> extends ForgeSurfaceEditor {
   ConfigObjectEditor({required this.spec, required this.onOpenRawFile})
-    : _title = ValueNotifier<String>(spec.title),
-      _value = spec.load();
+    : _title = ValueNotifier<String>(spec.title) {
+    _loaded = spec.load().then((value) => _value = value);
+  }
 
   final ConfigObjectSpec<T> spec;
   final RawFileOpener onOpenRawFile;
@@ -352,7 +371,11 @@ class ConfigObjectEditor<T> extends ForgeSurfaceEditor {
   final ValueNotifier<String> _title;
   final ValueNotifier<String?> _titleExtension = ValueNotifier<String?>(null);
 
-  T _value;
+  /// The value as last read or edited; set once [_loaded] completes.
+  late T _value;
+
+  /// The store's first read; the body shows once it is done.
+  late final Future<T> _loaded;
 
   @override
   IconData get icon => spec.icon;
@@ -366,21 +389,25 @@ class ConfigObjectEditor<T> extends ForgeSurfaceEditor {
   @override
   ValueListenable<String?> get titleExtension => _titleExtension;
 
-  /// Persists the current value, then opens the backing file.
-  Future<void> _openRaw() {
-    spec.save(_value);
+  /// Persists the current value, then opens the backing file once it has
+  /// landed.
+  Future<void> _openRaw() async {
+    await spec.save(_value);
     return onOpenRawFile(spec.backingUri);
   }
 
   @override
-  Widget buildMain(BuildContext context) => _ConfigObjectBody<T>(
-    spec: spec,
-    initialValue: _value,
-    onValueChanged: (value) {
-      _value = value;
-      spec.save(value);
-    },
-    onOpenRaw: _openRaw,
+  Widget buildMain(BuildContext context) => _AfterLoad(
+    loaded: _loaded,
+    builder: (_) => _ConfigObjectBody<T>(
+      spec: spec,
+      initialValue: _value,
+      onValueChanged: (value) {
+        _value = value;
+        unawaited(spec.save(value));
+      },
+      onOpenRaw: _openRaw,
+    ),
   );
 
   @override
@@ -464,4 +491,26 @@ class _ConfigObjectBodyState<T> extends State<_ConfigObjectBody<T>> {
       ],
     );
   }
+}
+
+/// Shows [builder] once the store's first read [loaded] is done, a progress
+/// indicator before.
+class _AfterLoad extends StatelessWidget {
+  const _AfterLoad({required this.loaded, required this.builder});
+
+  final Future<Object?> loaded;
+  final WidgetBuilder builder;
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<Object?>(
+    future: loaded,
+    builder: (context, snapshot) {
+      if (snapshot.hasError) {
+        return Center(child: Text('Could not read: ${snapshot.error}'));
+      }
+      return snapshot.connectionState == ConnectionState.done
+          ? builder(context)
+          : const Center(child: CircularProgressIndicator());
+    },
+  );
 }

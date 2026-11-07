@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:tom_core_agentic/tom_core_agentic.dart';
 
@@ -18,10 +20,10 @@ import '../chat/chat_send_coordinator.dart';
 class PromptQueueController extends ChangeNotifier {
   PromptQueueController({
     required this.coordinator,
-    PromptQueueStore? store,
+    required PromptQueueStore store,
     String Function()? newId,
     String Function()? now,
-  })  : _store = store ?? PromptQueueStore.resolveDefault(),
+  })  : _store = store,
         _newId = newId ?? _defaultId,
         _now = now ?? _defaultNow;
 
@@ -41,11 +43,15 @@ class PromptQueueController extends ChangeNotifier {
   /// Whether a send-next / retry is currently in flight.
   bool get isDispatching => _dispatching;
 
+  /// Completes when every persisted write of the queue has landed.
+  Future<void> get saved => _store.settled;
+
   /// Restores the persisted queue, replacing any in-memory state.
-  void load() {
+  Future<void> load() async {
+    final items = await _store.load();
     _items
       ..clear()
-      ..addAll(_store.load());
+      ..addAll(items);
     notifyListeners();
   }
 
@@ -153,7 +159,7 @@ class PromptQueueController extends ChangeNotifier {
   }
 
   void _persistAndNotify() {
-    _store.save(_items);
+    unawaited(_store.save(List.of(_items)));
     notifyListeners();
   }
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:tom_core_agentic/tom_core_agentic.dart';
 
@@ -14,10 +16,10 @@ import 'package:tom_core_agentic/tom_core_agentic.dart';
 /// stable ordering without touching the clock.
 class PromptTrailController extends ChangeNotifier {
   PromptTrailController({
-    PromptTrailStore? store,
+    required PromptTrailStore store,
     String Function()? newId,
     String Function()? now,
-  })  : _store = store ?? PromptTrailStore.resolveDefault(),
+  })  : _store = store,
         _newId = newId ?? _defaultId,
         _now = now ?? _defaultNow;
 
@@ -30,11 +32,15 @@ class PromptTrailController extends ChangeNotifier {
   /// The trail pairs in chronological (oldest-first) order.
   List<TrailPair> get pairs => List.unmodifiable(_pairs);
 
+  /// Completes when every persisted write of the trail has landed.
+  Future<void> get saved => _store.settled;
+
   /// Restores the persisted trail, replacing any in-memory state.
-  void load() {
+  Future<void> load() async {
+    final pairs = await _store.load();
     _pairs
       ..clear()
-      ..addAll(_store.load());
+      ..addAll(pairs);
     notifyListeners();
   }
 
@@ -98,7 +104,7 @@ class PromptTrailController extends ChangeNotifier {
   }
 
   void _persistAndNotify() {
-    _store.save(_pairs);
+    unawaited(_store.save(List.of(_pairs)));
     notifyListeners();
   }
 

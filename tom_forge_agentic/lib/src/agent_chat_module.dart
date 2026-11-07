@@ -1,3 +1,7 @@
+import 'dart:async';
+
+import 'package:tom_core_agentic/tom_core_agentic.dart';
+import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
 import 'agent_chat_view.dart';
@@ -23,9 +27,14 @@ import 'trail/prompt_trail_editor.dart';
 ///
 /// All controllers are injectable so tests (and hosts that want to share one
 /// connection across modules) can supply their own — e.g. a [sendController]
-/// built over a fake transport so no socket is opened.
+/// built over a fake transport so no socket is opened. A controller not given
+/// keeps its sidecar (bridge choice, session id, trail, queue) in the
+/// workspace [TomFileSystem] passed as `fileSystem`, at the default location
+/// or the one `environment` (the host's process environment) names.
 class AgentChatModule extends ForgeModule {
   AgentChatModule({
+    required TomFileSystem fileSystem,
+    Map<String, String> environment = const {},
     AgentConnectionController? controller,
     AgentSendController? sendController,
     PromptTrailController? trailController,
@@ -37,10 +46,31 @@ class AgentChatModule extends ForgeModule {
     void Function(String? profileId)? onProfileSelected,
     void Function(String turnId)? onTurnBegin,
     void Function()? onTurnEnd,
-  }) : controller = controller ?? AgentConnectionController() {
+  }) : controller =
+           controller ??
+           AgentConnectionController(
+             store: BridgeChoiceStore.resolveDefault(
+               fileSystem,
+               environment: environment,
+             ),
+           ) {
     this.sendController =
-        sendController ?? AgentSendController(connection: this.controller);
-    this.trailController = trailController ?? PromptTrailController();
+        sendController ??
+        AgentSendController(
+          connection: this.controller,
+          sessionStore: SpecSessionStore.resolveDefault(
+            fileSystem,
+            environment: environment,
+          ),
+        );
+    this.trailController =
+        trailController ??
+        PromptTrailController(
+          store: PromptTrailStore.resolveDefault(
+            fileSystem,
+            environment: environment,
+          ),
+        );
     coordinator = ChatSendCoordinator(
       send: this.sendController,
       trail: this.trailController,
@@ -49,7 +79,14 @@ class AgentChatModule extends ForgeModule {
       onTurnEnd: onTurnEnd,
     );
     this.queueController =
-        queueController ?? PromptQueueController(coordinator: coordinator);
+        queueController ??
+        PromptQueueController(
+          coordinator: coordinator,
+          store: PromptQueueStore.resolveDefault(
+            fileSystem,
+            environment: environment,
+          ),
+        );
     _view = AgentChatView(
       controller: this.controller,
       sendController: this.sendController,
@@ -104,10 +141,10 @@ class AgentChatModule extends ForgeModule {
     // Restore the persisted binding + queue/trail, then scan for live servers.
     // The scan runs asynchronously; the picker reflects progress via the
     // controller.
-    controller.loadPersisted();
-    trailController.load();
-    queueController.load();
-    controller.scan();
+    unawaited(controller.loadPersisted());
+    unawaited(trailController.load());
+    unawaited(queueController.load());
+    unawaited(controller.scan());
   }
 
   @override

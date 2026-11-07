@@ -10,6 +10,7 @@ import 'agent/agent_tools_module.dart';
 import 'agent/send_controller_conversational_driver.dart';
 import 'agent/spec_agent_profile.dart';
 import 'agent/spec_prompt_composer.dart';
+import 'config/config_specs.dart';
 import 'config/editor_preferences.dart';
 import 'config/raw_file_module.dart';
 import 'config/specs_config_module.dart';
@@ -89,6 +90,7 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
   late final SpecsConfigModule _configModule;
   late final SpecsShellModule _shellModule;
   late final ShellEditorIntegration _documentIntegration;
+  late final SpecsConfigSpecs _configSpecs;
 
   /// Completes when the app is built: its stores loaded, its modules
   /// registered.
@@ -171,14 +173,29 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
     // composer can read it for the `${chat}` built-in (OE-12) — the composer is
     // built *before* the chat module, so the transcript source must exist first
     // and be injected into the module.
-    _trailController = PromptTrailController();
+    _trailController = PromptTrailController(
+      store: PromptTrailStore.resolveDefault(
+        fileSystem,
+        environment: widget.environment,
+      ),
+    );
+
+    // The agent configuration stores, over the workspace: the config editors
+    // edit them, the composer binds the chat variables, the chat module's
+    // picker offers the profiles.
+    _configSpecs = SpecsConfigSpecs(
+      fileSystem: fileSystem,
+      environment: widget.environment,
+    );
 
     // The `tom_specs_editor_specification.md` §11.5 placeholder composer is
     // built once and shared: the chat module uses it to expand sent prompts and
     // to drive the composer's live preview (OE-14), and the config module uses
     // it for the Prompt Templates / profile "live placeholder preview"
     // (`tom_specs_editor_specification.md` §12, OE-14).
-    _promptComposer = _buildPromptComposer();
+    _promptComposer = _buildPromptComposer(
+      await _configSpecs.chatVariables.load(),
+    );
 
     // The live Tom Brain profile binding (`llm_and_d4rt_tools.md` §11, item 7):
     // per application, an engine AgentContext resolved into the running send
@@ -197,7 +214,9 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
     // is built. Activation kicks off the port scan (19900–19909). The send
     // controller carries the `tom_specs_editor_specification.md` §8 tool server
     // (mcpServers seam) unless a test injects its own chat module.
-    _chatModule = widget.chatModule ?? _buildChatModule();
+    _chatModule =
+        widget.chatModule ??
+        _buildChatModule(await _configSpecs.profiles.load());
     _chatModule.activate(_shell);
     (_shell.modules as DefaultModuleRegistry).register(_chatModule);
 
@@ -223,10 +242,11 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
     (_shell.modules as DefaultModuleRegistry).register(_rawFileModule);
 
     _configModule = SpecsConfigModule(
+      specs: _configSpecs.withCompose(_promptComposer.compose),
       rawFileModule: _rawFileModule,
       preferencesStore: _preferencesStore,
       preferences: editorPreferences,
-      compose: _promptComposer.compose,
+      settings: await _configSpecs.agentSettings.load(),
       // A basic-prefs Save can flip strict headline mode (YRD9); push it into
       // the live controller so the document editor re-gates its headline/id
       // fields without a restart.
@@ -275,8 +295,15 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
   /// connection drives both, and the `tom_specs_editor_specification.md` §11.5
   /// placeholder composer is wired in so every sent prompt — from the composer
   /// or the queue — has its placeholders expanded first.
-  AgentChatModule _buildChatModule() {
-    final connection = AgentConnectionController();
+  AgentChatModule _buildChatModule(List<AgentProfile> profiles) {
+    final fileSystem = widget.fileSystem;
+    final environment = widget.environment;
+    final connection = AgentConnectionController(
+      store: BridgeChoiceStore.resolveDefault(
+        fileSystem,
+        environment: environment,
+      ),
+    );
     // The launch application is DocSpecs (`tom_specs_editor_specification.md`
     // §20 step 9 — only DocSpecs functional), so its live profile drives the
     // send config: the additive guidelines prompt + the MCP surface its toolset
@@ -286,11 +313,14 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
     final sendController = AgentSendController(
       connection: connection,
       config: _agentProfiles.docSpecs.buildSendConfig(),
+      sessionStore: SpecSessionStore.resolveDefault(
+        fileSystem,
+        environment: environment,
+      ),
     );
     // The composer profile picker (`tom_specs_editor_specification.md` §11.1,
     // OE-14): the persisted profiles mapped to the composer's lightweight type,
     // with the default profile pre-selected.
-    final profiles = AgentProfileStore.resolveDefault().load();
     final pickerProfiles = [
       for (final profile in profiles)
         ChatComposerProfile(id: profile.id, name: profile.name),
@@ -302,6 +332,8 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
       }
     }
     return AgentChatModule(
+      fileSystem: fileSystem,
+      environment: environment,
       controller: connection,
       sendController: sendController,
       trailController: _trailController,
@@ -326,7 +358,7 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
   /// for the current workspace: the quest is the workspace folder name,
   /// file-injections resolve against its `_ai/` folder, and the user's
   /// persisted chat variables are bound.
-  SpecPromptComposer _buildPromptComposer() {
+  SpecPromptComposer _buildPromptComposer(List<ChatVariable> variables) {
     final root = widget.fileSystem.uriOf('');
     return SpecPromptComposer(
       workspaceName: root.pathSegments.lastWhere(
@@ -334,7 +366,7 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
         orElse: () => '',
       ),
       fileSystem: widget.fileSystem,
-      variables: ChatVariableStore.resolveDefault().load(),
+      variables: variables,
       // OE-12 host context: `${chat}` = the live trail transcript, `${file}` =
       // the active document rendered as markdown. Both are read at compose-time
       // and stay lenient-empty before the model loads / the trail has content.

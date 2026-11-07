@@ -134,9 +134,12 @@ file follower all read and write through it, so they run on the local disk,
 in memory in a test and on the web. So does the TomSpecs editor: its review
 file and editor preferences (`ReviewStore`, `EditorPreferencesStore`), its
 `*.docspecs.yaml` documents and their session sidecars, the files a prompt
-injects (`SpecPromptComposer`) and the raw config files it opens
-(`RawFileModule`). An app gives one `TomLocalFileSystem` of the workspace to
-the shell and to its state.
+injects (`SpecPromptComposer`), the raw config files it opens
+(`RawFileModule`), and the agent sidecars its config editors and chat edit —
+`tom_core_agentic`'s stores (profiles, templates, chat variables, queue, timed
+requests, agent settings, trail, bridge choice, session id), each an
+`AgentSidecarStore` over the workspace's file system. An app gives one
+`TomLocalFileSystem` of the workspace to the shell and to its state.
 
 `dart:io` stays where a platform service needs it, each in its own place:
 
@@ -150,13 +153,9 @@ the shell and to its state.
 | The comment author | `tom_md_editor` `md_local_author.dart` | the OS user |
 | The website's dev server and preview | `tom_website_editor` `website_process_runner.dart`, `website_preview_*` | processes, the platform's browser |
 | Test workspaces | `tom_forge_ui` `testing/test_workspace.dart` | test support on a real disk |
-| The TomSpecs editor's workspace and environment | `tom_specs_editor` `main.dart` | the process's working folder becomes the workspace's `TomLocalFileSystem`; its environment moves the review and preferences files |
+| The TomSpecs editor's workspace and environment | `tom_specs_editor` `main.dart` | the process's working folder becomes the workspace's `TomLocalFileSystem`; its environment moves the review, preferences and agent sidecar files |
 | The native vector library of the agent memory | `tom_specs_editor` `spec_memory_plane.dart` (`_findSqliteVecRoot`) | locates the `sqlite_vec` binary on the host |
 | The spec engine's file boundary | `tom_specs_editor` `agent_tools_module.dart` | `tom_spec_engine`'s `SpecFileFacade`, memory plane and script runner take the workspace as a folder on disk (the app passes its workspace's) |
-
-The agent configuration stores the TomSpecs editor's config editors edit
-(profiles, templates, chat variables, the queue, timed requests, agent
-settings) are `tom_core_agentic`'s and read and write their own files.
 
 ### 2.7 The quest workbench
 

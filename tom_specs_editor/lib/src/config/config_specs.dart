@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tom_core_agentic/tom_core_agentic.dart';
+import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_forge_agentic/tom_forge_agentic.dart' show PromptCompose;
 
 import 'config_editors.dart';
@@ -12,7 +13,12 @@ import 'config_field.dart';
 /// so each field setter edits through a `fromYaml(toYaml()..[key] = value)`
 /// round-trip — the same pattern the step-16 queue controller uses.
 class SpecsConfigSpecs {
+  /// The stores not given are the workspace's: each at its default location
+  /// in [fileSystem], or the one [environment] (the host's process
+  /// environment) names.
   SpecsConfigSpecs({
+    required TomFileSystem fileSystem,
+    Map<String, String> environment = const {},
     AgentProfileStore? profiles,
     PromptTemplateStore? promptTemplates,
     QueueTemplateStore? queueTemplates,
@@ -21,14 +27,48 @@ class SpecsConfigSpecs {
     PromptQueueStore? queue,
     AgentSettingsStore? agentSettings,
     this.compose,
-  }) : profiles = profiles ?? AgentProfileStore.resolveDefault(),
+  }) : profiles =
+           profiles ??
+           AgentProfileStore.resolveDefault(
+             fileSystem,
+             environment: environment,
+           ),
        promptTemplates =
-           promptTemplates ?? PromptTemplateStore.resolveDefault(),
-       queueTemplates = queueTemplates ?? QueueTemplateStore.resolveDefault(),
-       chatVariables = chatVariables ?? ChatVariableStore.resolveDefault(),
-       timedRequests = timedRequests ?? TimedRequestStore.resolveDefault(),
-       queue = queue ?? PromptQueueStore.resolveDefault(),
-       agentSettings = agentSettings ?? AgentSettingsStore.resolveDefault();
+           promptTemplates ??
+           PromptTemplateStore.resolveDefault(
+             fileSystem,
+             environment: environment,
+           ),
+       queueTemplates =
+           queueTemplates ??
+           QueueTemplateStore.resolveDefault(
+             fileSystem,
+             environment: environment,
+           ),
+       chatVariables =
+           chatVariables ??
+           ChatVariableStore.resolveDefault(
+             fileSystem,
+             environment: environment,
+           ),
+       timedRequests =
+           timedRequests ??
+           TimedRequestStore.resolveDefault(
+             fileSystem,
+             environment: environment,
+           ),
+       queue =
+           queue ??
+           PromptQueueStore.resolveDefault(
+             fileSystem,
+             environment: environment,
+           ),
+       agentSettings =
+           agentSettings ??
+           AgentSettingsStore.resolveDefault(
+             fileSystem,
+             environment: environment,
+           );
 
   final AgentProfileStore profiles;
   final PromptTemplateStore promptTemplates;
@@ -37,6 +77,31 @@ class SpecsConfigSpecs {
   final TimedRequestStore timedRequests;
   final PromptQueueStore queue;
   final AgentSettingsStore agentSettings;
+
+  /// The same stores with [compose] as the live placeholder preview — for a
+  /// host whose composer reads one of these stores (the chat variables) and
+  /// so is built after them.
+  SpecsConfigSpecs withCompose(PromptCompose compose) => SpecsConfigSpecs._(
+    profiles: profiles,
+    promptTemplates: promptTemplates,
+    queueTemplates: queueTemplates,
+    chatVariables: chatVariables,
+    timedRequests: timedRequests,
+    queue: queue,
+    agentSettings: agentSettings,
+    compose: compose,
+  );
+
+  SpecsConfigSpecs._({
+    required this.profiles,
+    required this.promptTemplates,
+    required this.queueTemplates,
+    required this.chatVariables,
+    required this.timedRequests,
+    required this.queue,
+    required this.agentSettings,
+    required this.compose,
+  });
 
   /// Expands a placeholder-bearing string for the
   /// `tom_specs_editor_specification.md` §12 live placeholder preview (OE-14) —
@@ -59,7 +124,7 @@ class SpecsConfigSpecs {
     title: 'Prompt Queue',
     icon: Icons.playlist_play_outlined,
     uri: _uri('/queue'),
-    backingUri: queue.file.uri,
+    backingUri: queue.uri,
     load: queue.load,
     save: queue.save,
     labelOf: (p) => p.originalText.isEmpty ? '(empty prompt)' : p.originalText,
@@ -104,7 +169,7 @@ class SpecsConfigSpecs {
         title: 'Queue Templates',
         icon: Icons.bookmark_outline,
         uri: _uri('/queue-templates'),
-        backingUri: queueTemplates.file.uri,
+        backingUri: queueTemplates.uri,
         load: queueTemplates.load,
         save: queueTemplates.save,
         labelOf: (t) => t.name.isEmpty ? '(unnamed)' : t.name,
@@ -142,7 +207,7 @@ class SpecsConfigSpecs {
     title: 'Profiles',
     icon: Icons.account_circle_outlined,
     uri: _uri('/profiles'),
-    backingUri: profiles.file.uri,
+    backingUri: profiles.uri,
     load: profiles.load,
     save: profiles.save,
     labelOf: (p) => p.name.isEmpty ? '(unnamed)' : p.name,
@@ -229,7 +294,7 @@ class SpecsConfigSpecs {
         title: 'Prompt Templates',
         icon: Icons.notes_outlined,
         uri: _uri('/prompt-templates'),
-        backingUri: promptTemplates.file.uri,
+        backingUri: promptTemplates.uri,
         load: promptTemplates.load,
         save: promptTemplates.save,
         labelOf: (t) => t.name.isEmpty ? '(unnamed)' : t.name,
@@ -279,7 +344,7 @@ class SpecsConfigSpecs {
         title: 'Chat Variables',
         icon: Icons.data_object_outlined,
         uri: _uri('/chat-variables'),
-        backingUri: chatVariables.file.uri,
+        backingUri: chatVariables.uri,
         load: chatVariables.load,
         save: chatVariables.save,
         labelOf: (v) => v.name.isEmpty ? '(unnamed)' : v.name,
@@ -319,7 +384,7 @@ class SpecsConfigSpecs {
         title: 'Timed Requests',
         icon: Icons.schedule_outlined,
         uri: _uri('/timed-requests'),
-        backingUri: timedRequests.file.uri,
+        backingUri: timedRequests.uri,
         load: timedRequests.load,
         save: timedRequests.save,
         labelOf: (r) =>
@@ -375,7 +440,7 @@ class SpecsConfigSpecs {
     title: 'Agent Settings',
     icon: Icons.tune_outlined,
     uri: _uri('/agent-settings'),
-    backingUri: agentSettings.file.uri,
+    backingUri: agentSettings.uri,
     load: agentSettings.load,
     save: agentSettings.save,
     fields: [

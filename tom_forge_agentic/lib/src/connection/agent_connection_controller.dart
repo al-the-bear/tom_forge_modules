@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:tom_core_agentic/tom_core_agentic.dart';
 
@@ -12,9 +14,9 @@ import 'package:tom_core_agentic/tom_core_agentic.dart';
 class AgentConnectionController extends ChangeNotifier {
   AgentConnectionController({
     BridgeConnectionService? service,
-    BridgeChoiceStore? store,
+    required BridgeChoiceStore store,
   })  : _service = service ?? BridgeConnectionService(),
-        _store = store ?? BridgeChoiceStore.resolveDefault();
+        _store = store;
 
   final BridgeConnectionService _service;
   final BridgeChoiceStore _store;
@@ -68,10 +70,13 @@ class AgentConnectionController extends ChangeNotifier {
   bool isBound(BridgeServer server) =>
       _boundChoice != null && _boundChoice!.matches(server);
 
+  /// Completes when the binding's persisted writes have landed.
+  Future<void> get saved => _store.settled;
+
   /// Loads the persisted choice without scanning. Safe to call once at
   /// startup before [scan].
-  void loadPersisted() {
-    _boundChoice = _store.load();
+  Future<void> loadPersisted() async {
+    _boundChoice = await _store.load();
     _retag();
     notifyListeners();
   }
@@ -100,7 +105,7 @@ class AgentConnectionController extends ChangeNotifier {
   void bind(BridgeServer server) {
     _boundChoice = BridgeChoice(host: server.host, port: server.port);
     _boundWorkspace = server.workspace;
-    _store.save(_boundChoice!);
+    unawaited(_store.save(_boundChoice!));
     _retag();
     notifyListeners();
   }
@@ -109,7 +114,7 @@ class AgentConnectionController extends ChangeNotifier {
   void unbind() {
     _boundChoice = null;
     _boundWorkspace = null;
-    _store.clear();
+    unawaited(_store.clear());
     _retag();
     notifyListeners();
   }

@@ -57,8 +57,11 @@ Implemented across `lib/src/`:
 The working folder is the workspace: the app reads and writes it through one
 `TomLocalFileSystem`, which is also its Forge shell's file system — the review
 file, the preferences, `*.docspecs.yaml` documents, the files a prompt
-injects and the raw config files. The app starts once the review file and
-the preferences are loaded.
+injects, the raw config files and the agent sidecars under `.tom/`
+(profiles, templates, chat variables, queue, trail, settings, bridge choice,
+session id — `tom_core_agentic`'s stores, each moved by its `TOM_SPECS_*_FILE`
+variable). The app starts once the review file, the preferences, the chat
+variables, the profiles and the agent settings are loaded.
 
 Version **1.0.0+1**. Covered by 31 test files carrying **272 tests**, spanning
 the above areas plus undo and shell navigation.
