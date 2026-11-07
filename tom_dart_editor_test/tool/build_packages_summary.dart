@@ -8,7 +8,10 @@
 //   - package:dcli/dcli.dart
 //   - package:path/path.dart
 //
-// Uses ~/.pub-cache and the local .dart_tool/package_config.json to resolve.
+// Uses ~/.pub-cache and the local .dart_tool/package_config.json to resolve,
+// and links against the SDK with Flutter's embedder libraries
+// (tool/flutter_sdk.dart), the one build_sdk_summary.dart summarises: so
+// Flutter's `export 'dart:ui' show ...` lines are kept in the bundle.
 
 import 'dart:convert';
 import 'dart:io' as io;
@@ -25,23 +28,22 @@ import 'package:analyzer/src/dart/analysis/analysis_options_map.dart';
 import 'package:analyzer/src/dart/analysis/byte_store.dart';
 import 'package:analyzer/src/dart/analysis/driver.dart';
 import 'package:analyzer/src/dart/analysis/performance_logger.dart';
-import 'package:analyzer/src/dart/sdk/sdk.dart';
 import 'package:analyzer/src/file_system/file_system.dart'
     show ResourceUriResolver;
 import 'package:analyzer/src/generated/source.dart'
     show DartUriResolver, SourceFactory, UriResolver;
-import 'package:analyzer/src/util/sdk.dart';
-import 'package:analyzer/dart/sdk/build_sdk_summary.dart';
 import 'package:path/path.dart' as p;
+
+import 'flutter_sdk.dart';
 
 Future<void> main(List<String> args) async {
   final outputPath = args.isNotEmpty ? args[0] : 'assets/packages.sum';
 
   final resourceProvider = PhysicalResourceProvider.INSTANCE;
 
-  // Get SDK path
-  final sdkPath = getSdkPath();
-  print('Using SDK: $sdkPath');
+  final sdkPath = runningSdkPath();
+  final embedderYamlPath = flutterEmbedderYamlPath();
+  print('Using SDK: $sdkPath with the embedder $embedderYamlPath');
 
   // Read package_config.json to find installed packages
   final packageConfigFile = io.File('.dart_tool/package_config.json');
@@ -132,18 +134,12 @@ Future<void> main(List<String> args) async {
     io.exit(1);
   }
 
-  // Build SDK first (needed by the analysis driver)
-  print('\nBuilding SDK summary...');
-  final sdkSummaryBytes = await buildSdkSummary(
-    resourceProvider: resourceProvider,
-    sdkPath: sdkPath,
-  );
-  print('SDK summary: ${sdkSummaryBytes.length} bytes');
-
-  // Set up the analysis driver with SDK + package resolvers
-  final sdk = FolderBasedDartSdk(
+  // The SDK the package summary is linked against: the one the SDK summary
+  // holds, dart:ui included.
+  final sdk = sdkWithEmbedder(
     resourceProvider,
-    resourceProvider.getFolder(sdkPath),
+    sdkPath: sdkPath,
+    embedderYamlPath: embedderYamlPath,
   );
 
   final logger = PerformanceLog(StringBuffer());

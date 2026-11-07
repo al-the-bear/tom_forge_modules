@@ -154,6 +154,17 @@ onLog: …)`. It is consumed by **both** the bundler (`bundle_generator.dart`) a
 the base library; both consumers pin `tom_analyzer_shared: ^0.5.0` (hosted from
 pub.dev, never a path override).
 
+**`dart:ui` in a Flutter scope.** A scope over Flutter code (`d4rt-flutter`)
+resolves the `dart:ui` types Flutter re-exports (`TextDirection`, `Color`,
+`Offset` …) only when **both** halves hold `dart:ui`: the SDK summary built
+with Flutter's embedder (`sky_engine/lib/_embedder.yaml`; `SummaryGenerator`
+does this), and the scope's `packages.sum` linked against that same SDK —
+linked against the plain SDK, Flutter's `export 'dart:ui' show ...` lines are
+dropped from the bundle. `GroupedPackageBundleBuilder` links against the
+plain SDK, so in a bundler-built Flutter scope those types are undefined; the
+shipped single pair (`package_summary_generation.md`) links against the
+embedder SDK and resolves them.
+
 ### 3.3 Invocation
 
 Run in the consuming app dir so relative paths resolve against it:

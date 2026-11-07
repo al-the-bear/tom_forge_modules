@@ -1,10 +1,9 @@
 /// The summary pair the apps ship (`assets/sdk_summary.sum`,
 /// `assets/packages.sum`) is readable by the analyzer the editor runs on and
-/// resolves real code — the SDK, a package and Flutter — and every app ships
-/// the same pair (`tom_dart_editor/doc/package_summary_generation.md`, "When
-/// to rebuild"). A pair written by another analyzer major fails here.
-/// Flutter's `dart:ui` types are not covered yet (tom_forge
-/// later14_akga-dart-ui-in-editor-summaries).
+/// resolves real code — the SDK, a package, Flutter and the `dart:ui` types
+/// Flutter re-exports — and every app ships the same pair
+/// (`tom_dart_editor/doc/package_summary_generation.md`, "When to rebuild").
+/// A pair written by another analyzer major fails here.
 @Timeout(Duration(minutes: 4))
 library;
 
@@ -27,8 +26,9 @@ void main() {
   });
   tearDown(registry.resetForTesting);
 
-  test('SUM-1: code using the SDK, a package and Flutter analyses clean '
-      'against the shipped summaries; a mistake is reported', () async {
+  test('SUM-1: code using the SDK, a package, Flutter and dart:ui analyses '
+      'clean against the shipped summaries, and so does plain Dart code; a '
+      'mistake is reported', () async {
     await registry.register(
       const SummaryScopeAsset(
         name: 'shipped',
@@ -39,21 +39,44 @@ void main() {
     final adapter = SummaryBackedDartAnalysisAdapter.scope('shipped');
     await adapter.ensureInitialized();
 
-    const clean = '''
+    Future<void> expectClean(String code) async {
+      final errors = await adapter.analyzeCode(code);
+      expect(
+        errors.where((e) => e.severity == 'error'),
+        isEmpty,
+        reason: errors.map((e) => '${e.code}: ${e.message}').join('\n'),
+      );
+    }
+
+    // Flutter: its widgets, and the dart:ui types it re-exports.
+    await expectClean('''
 import 'dart:async';
+import 'dart:ui' as ui;
 import 'package:path/path.dart' as p;
 import 'package:flutter/widgets.dart';
 
 Future<String> joined() async => p.join('a', 'b');
 
 Widget box() => const SizedBox(width: 1, height: 2);
-''';
-    final errors = await adapter.analyzeCode(clean);
-    expect(
-      errors.where((e) => e.severity == 'error'),
-      isEmpty,
-      reason: errors.map((e) => '${e.code}: ${e.message}').join('\n'),
-    );
+
+Widget label() => const Text('x', textDirection: TextDirection.ltr);
+
+const Color red = Color(0xFFFF0000);
+const Offset origin = Offset.zero;
+final ui.Size size = const ui.Size(1, 2);
+''');
+
+    // Plain Dart: the SDK the summary also holds.
+    await expectClean('''
+import 'dart:convert';
+import 'dart:io';
+
+Future<String> read(String path) => File(path).readAsString();
+
+String encoded(Map<String, Object?> data) => jsonEncode(data);
+
+void main() => stdout.writeln(Platform.operatingSystem);
+''');
 
     final broken = await adapter.analyzeCode('''
 import 'package:path/path.dart' as p;

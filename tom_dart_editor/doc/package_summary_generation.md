@@ -12,7 +12,7 @@ Two summary files are required:
 
 | File | Contents | Size (typical) |
 |------|----------|----------------|
-| `sdk_summary.sum` | Dart SDK core libraries | ~3 MB |
+| `sdk_summary.sum` | Dart SDK libraries and Flutter's `dart:ui` | ~4 MB |
 | `packages.sum` | Package libraries (e.g., `path`, `dcli`) | ~30+ MB |
 
 ---
@@ -21,25 +21,31 @@ Two summary files are required:
 
 ### 1. SDK Summary
 
-The SDK summary is generated from the Dart SDK the build runs on (the plain
-SDK, without Flutter's `dart:ui`: the types Flutter re-exports from it do not
-resolve yet, tom_forge `later14_akga-dart-ui-in-editor-summaries`):
+The SDK summary is generated from the Dart SDK the build runs on with the
+libraries of Flutter's embedder added (`<sky_engine>/lib/_embedder.yaml`:
+`dart:ui`, `dart:ui_web` and the private libraries they need), so code using
+`TextDirection`, `Color`, `Offset` and the rest of `dart:ui` resolves, and
+plain Dart code (`dart:io`, `dart:convert` …) resolves as before. Run it with
+the `dart` of the Flutter whose `dart:ui` is wanted, after `flutter pub get`
+(the embedder is found through the package config's `sky_engine`):
 
 ```bash
 cd tom_forge/tom_dart_editor_test
+flutter pub get
 dart run tool/build_sdk_summary.dart assets/sdk_summary.sum
 ```
 
-Or use the analyzer's built-in function in your own tool:
+`tool/flutter_sdk.dart` finds the SDK and the embedder for both build tools.
+In your own tool, the analyzer's built-in function takes the embedder:
 
 ```dart
 import 'package:analyzer/dart/sdk/build_sdk_summary.dart';
 import 'package:analyzer/file_system/physical_file_system.dart';
-import 'package:analyzer/src/util/sdk.dart';
 
 final bytes = await buildSdkSummary(
   resourceProvider: PhysicalResourceProvider.INSTANCE,
-  sdkPath: getSdkPath(),
+  sdkPath: sdkPath,                // the running dart's SDK
+  embedderYamlPath: embedderYaml,  // <sky_engine>/lib/_embedder.yaml
 );
 File('assets/sdk_summary.sum').writeAsBytesSync(bytes);
 ```
@@ -60,6 +66,14 @@ The build tool:
 3. Uses `AnalysisDriver.buildPackageBundle()` to serialize the element model
 
 ### Critical Requirements
+
+**The same SDK for both summaries**: the package summary is linked against
+the SDK its driver resolves `dart:` URIs with, and it must be the SDK the SDK
+summary holds — the plain SDK with the embedder's libraries added
+(`sdkWithEmbedder` in `tool/flutter_sdk.dart`). Linked against the plain SDK,
+Flutter's `export 'dart:ui' show ...` lines are dropped from the bundle and
+every `dart:ui` type Flutter re-exports is undefined in the editor, even
+with an SDK summary that holds `dart:ui`.
 
 **Resolver Order**: `PackageMapUriResolver` MUST come before `ResourceUriResolver` in the `SourceFactory`:
 
@@ -90,7 +104,8 @@ summary also when an app's dependencies change. Build both in
 `tom_dart_editor_test` and copy the pair to every app that ships them:
 `tom_forge_app/assets/` and `tom_yaml_editor_test/assets/`.
 `tom_dart_editor_test/test/shipped_summaries_test.dart` checks that the pair
-analyses real code with the editor's analyzer and that the copies match.
+analyses real code with the editor's analyzer — Flutter with its `dart:ui`
+types, and plain Dart — and that the copies match.
 
 ---
 
@@ -134,7 +149,9 @@ Two workarounds in `analyzer_with_packages.dart` compensate for SDK limitations:
 | File | Role |
 |------|------|
 | `tom_dart_editor/lib/src/analyzer_with_packages.dart` | Consumer-side driver factory, `PackageSummaryUriResolver` |
+| `tom_dart_editor_test/tool/build_sdk_summary.dart` | Build tool for `sdk_summary.sum` |
 | `tom_dart_editor_test/tool/build_packages_summary.dart` | Build tool for `packages.sum` |
+| `tom_dart_editor_test/tool/flutter_sdk.dart` | The SDK both tools build against: the running SDK plus Flutter's embedder libraries |
 | `tom_dart_editor_test/tool/diagnose_packages_sum.dart` | Diagnostic tool to inspect bundle contents |
 | `tom_dart_editor_test/tool/check_sdk_sum.dart` | Diagnostic tool to inspect SDK bundle |
 
