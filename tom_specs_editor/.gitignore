@@ -53,6 +53,9 @@ assets/docspecs-schema/*.docspecs-schema.yaml
 # are always valid. The `**` pattern also covers the per-scope subdirectory
 # bundles (e.g. assets/summaries/d4rt-flutter/packages.sum).
 assets/summaries/**/*.sum
+# The stamp beside each bundle: what wrote it (Dart SDK, analyzer data
+# version, Flutter embedder); generated with it.
+assets/summaries/**/*.stamp
 
 # The generated scope-init helper IS committed (re-included past tom_forge's
 # repo-wide `*.g.dart` ignore): `lib/main.dart` imports it at compile time, so a

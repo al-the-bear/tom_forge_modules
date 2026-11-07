@@ -194,12 +194,20 @@ asset keys `summary_scopes.g.dart` names, and a bundle written anywhere else
 degrades a code field to plain text with no error raised anywhere.
 
 The executor (`bundler_executor.dart`) sequences the work: `sdk_summary.sum` is
-generated **once** into `out-dir` (idempotent — reused if it already exists
-and holds `dart:ui` exactly when a declared scope holds Flutter packages),
+generated **once** into `out-dir` (idempotent — reused while the stamp
+beside it, `sdk_summary.sum.stamp`, is the one this run would write: the Dart
+SDK, the analyzer data version and the Flutter embedder; a summary another
+analyzer wrote, or one without a stamp, is rebuilt),
 each non-`sdk-only` bundle's `out-dir/<name>/packages.sum` is built via
 `BundleGenerator.generate(...)` (`bundle_generator.dart`), and the generated
 helper is written from the **full** config (so every declared scope is registered
-even under `--bundle`).
+even under `--bundle`). Every summary gets its stamp. Before writing anything
+the bundler compares its analyzer with the one the consuming app resolves (the
+app's `.dart_tool/package_config.json`, by `AnalysisDriver.DATA_VERSION`) and
+refuses the run when they differ: the summary format follows the analyzer
+version exactly — analyzer 14.5.0 and 14.7.0 on one Dart SDK cannot read each
+other's — so the app could not read what it would write. Resolve both with the
+same Dart SDK on `PATH`.
 
 ### 3.4 Generated scope-init helper
 
@@ -332,7 +340,8 @@ field.
 `sdk-only`, optional-field defaults, and each rejection case via
 `BundlerConfigException`); bundle generation against fixtures (`sdk_summary.sum`
 and `<name>/packages.sum` produced non-empty, SDK summary idempotent, a Flutter
-scope's SDK summary holding `dart:ui` and a stale one rebuilt); helper
+scope's SDK summary holding `dart:ui`, a summary another analyzer wrote or an
+unstamped one rebuilt, a run against an app on another analyzer refused); helper
 codegen (camelCase constants, asset paths, `register(...)` calls; the emitted
 file analyzes clean); the registry in `tom_dart_editor` (`register` idempotent,
 two editors of one scope share a single parsed store, byte buffers released after

@@ -6,7 +6,11 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:tom_analyzer_shared/tom_analyzer_shared.dart'
-    show summaryLibraryUris;
+    show
+        SummaryStamp,
+        analyzerDataVersion,
+        currentToolchainKey,
+        summaryLibraryUris;
 import 'package:tom_dart_editor_bundler/tom_dart_editor_bundler.dart';
 import 'package:test/test.dart';
 
@@ -337,6 +341,91 @@ void main() {
         summaryLibraryUris(flutterSum.readAsBytesSync()),
         containsAll(['package:flutter/painting.dart', 'package:app/app.dart']),
       );
+    });
+
+    test('an SDK summary another analyzer wrote is rebuilt: its stamp '
+        'names another analyzer data version, or it has none', () async {
+      final base = _writeFixture();
+      addTearDown(() => base.deleteSync(recursive: true));
+      final loaded = loadBundlerConfig(projectDir: base.path);
+      final sdkSum = p.join(base.path, 'out', 'sdk_summary.sum');
+
+      final first = await BundleGenerator()
+          .generate(config: loaded.config, baseDir: loaded.baseDir);
+      expect(first.sdkSummaryBuilt, isTrue);
+      expect(SummaryStamp.readFor(sdkSum), SummaryStamp.current());
+      expect(
+        SummaryStamp.readFor(
+          p.join(base.path, 'out', 'with-foo', 'packages.sum'),
+        ),
+        SummaryStamp.current(),
+        reason: 'every summary written is stamped',
+      );
+
+      // Written by analyzer 14.5.0 (data version 739) for a 14.7.0 (752)
+      // reader on the same SDK: unreadable there, so not up to date.
+      SummaryStamp(
+        toolchain: currentToolchainKey(dataVersion: analyzerDataVersion - 13),
+      ).writeFor(sdkSum);
+      var again = await BundleGenerator()
+          .generate(config: loaded.config, baseDir: loaded.baseDir);
+      expect(again.sdkSummaryBuilt, isTrue);
+      expect(SummaryStamp.readFor(sdkSum), SummaryStamp.current());
+
+      // A summary from before the stamps: no stamp, rebuilt.
+      SummaryStamp.fileFor(sdkSum).deleteSync();
+      again = await BundleGenerator()
+          .generate(config: loaded.config, baseDir: loaded.baseDir);
+      expect(again.sdkSummaryBuilt, isTrue);
+
+      again = await BundleGenerator()
+          .generate(config: loaded.config, baseDir: loaded.baseDir);
+      expect(again.sdkSummaryBuilt, isFalse, reason: 'now current');
+    });
+
+    test('a run whose analyzer differs from the one the app resolves is '
+        'refused; the same one runs', () async {
+      final base = _writeFixture();
+      addTearDown(() => base.deleteSync(recursive: true));
+
+      // The app (the config's base directory) resolves an analyzer whose
+      // AnalysisDriver states [dataVersion].
+      void appAnalyzer(int dataVersion) {
+        final driver = File(p.join(base.path, 'analyzer_pkg', 'lib', 'src',
+            'dart', 'analysis', 'driver.dart'))
+          ..createSync(recursive: true);
+        driver.writeAsStringSync(
+            'class AnalysisDriver {\n'
+            '  static const int DATA_VERSION = $dataVersion;\n}\n');
+        File(p.join(base.path, '.dart_tool', 'package_config.json'))
+          ..createSync(recursive: true)
+          ..writeAsStringSync(jsonEncode({
+            'configVersion': 2,
+            'packages': [
+              {
+                'name': 'analyzer',
+                'rootUri': '../analyzer_pkg/',
+                'packageUri': 'lib/',
+              },
+            ],
+          }));
+      }
+
+      final loaded = loadBundlerConfig(projectDir: base.path);
+      appAnalyzer(analyzerDataVersion + 1);
+      await expectLater(
+        BundleGenerator()
+            .generate(config: loaded.config, baseDir: loaded.baseDir),
+        throwsA(isA<BundlerConfigException>().having(
+            (e) => e.toString(), 'message', contains('data version'))),
+      );
+      expect(File(p.join(base.path, 'out', 'sdk_summary.sum')).existsSync(),
+          isFalse, reason: 'nothing written');
+
+      appAnalyzer(analyzerDataVersion);
+      final result = await BundleGenerator()
+          .generate(config: loaded.config, baseDir: loaded.baseDir);
+      expect(result.sdkSummaryBuilt, isTrue);
     });
 
     test('--bundle filter rejects an unknown scope name', () async {

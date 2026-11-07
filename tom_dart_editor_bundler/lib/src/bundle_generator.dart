@@ -16,11 +16,14 @@
 /// declared scopes' `sky_engine`, and each grouped bundle is linked against
 /// the same one, so the `dart:ui` types Flutter re-exports resolve.
 ///
-/// The run is idempotent/re-runnable: the SDK summary is skipped when already
-/// present and built the same way (with `dart:ui` exactly when a scope holds
-/// Flutter), and each `packages.sum` is rebuilt and overwritten
-/// deterministically from the same inputs, so a second run yields the same
-/// asset tree.
+/// Every summary written gets a [SummaryStamp] beside it (`<file>.stamp`):
+/// the Dart SDK, the analyzer data version (the exact key of the summary
+/// format) and the Flutter embedder. The run is idempotent/re-runnable: the
+/// SDK summary is kept while its stamp is the one this run would write, and
+/// each `packages.sum` is rebuilt and overwritten deterministically from the
+/// same inputs, so a second run yields the same asset tree. A run whose
+/// analyzer differs from the one the consuming app resolves is refused: the
+/// app could not read what it writes.
 library;
 
 import 'dart:io';
@@ -31,10 +34,12 @@ import 'package:path/path.dart' as p;
 import 'package:tom_analyzer_shared/tom_analyzer_shared.dart'
     show
         GroupedPackageBundleBuilder,
+        SummaryStamp,
+        analyzerDataVersion,
+        analyzerDataVersionInPackageRoots,
         flutterEmbedderYamlInPackageRoots,
         readPackageRoots,
-        resolveDartSdkPath,
-        summaryLibraryUris;
+        resolveDartSdkPath;
 
 import 'asset_layout.dart';
 import 'bundler_config.dart';
@@ -161,6 +166,8 @@ class BundleGenerator {
       );
     }
 
+    _checkAnalyzerOfApp(baseDir, logLine);
+
     Directory(_resolve(baseDir, config.outDir)).createSync(recursive: true);
 
     // The Flutter embedder of every declared scope (not only the selected
@@ -168,15 +175,15 @@ class BundleGenerator {
     final embedder = _flutterEmbedderOf(config, baseDir);
     if (embedder != null) logLine('Flutter embedder: $embedder');
 
-    // ── shared SDK summary (idempotent: skip when present and built the
-    // same way — with dart:ui exactly when a scope holds Flutter) ──────────
+    // ── shared SDK summary (idempotent: kept while the stamp beside it is
+    // the one this run would write — the same analyzer data version, Dart
+    // SDK and Flutter embedder) ─────────────────────────────────────────────
     final sdkSummaryPath = SummaryAssetLayout.filePath(
         baseDir, SummaryAssetLayout.sdkSummarySegments(config));
     final sdkFile = File(sdkSummaryPath);
+    final stamp = SummaryStamp.current(embedderYamlPath: embedder);
     bool sdkBuilt = false;
-    if (sdkFile.existsSync() &&
-        summaryLibraryUris(sdkFile.readAsBytesSync()).contains('dart:ui') ==
-            (embedder != null)) {
+    if (stamp.isCurrentFor(sdkSummaryPath)) {
       logLine('SDK summary up to date: $sdkSummaryPath');
     } else {
       logLine('Building SDK summary...');
@@ -186,6 +193,7 @@ class BundleGenerator {
         embedderYamlPath: embedder,
       );
       sdkFile.writeAsBytesSync(bytes);
+      stamp.writeFor(sdkSummaryPath);
       sdkBuilt = true;
       logLine('  → $sdkSummaryPath (${bytes.length} bytes)');
     }
@@ -222,6 +230,7 @@ class BundleGenerator {
       final file = File(packagesSumPath);
       file.parent.createSync(recursive: true);
       file.writeAsBytesSync(grouped.bytes);
+      stamp.writeFor(packagesSumPath);
       logLine('  → $packagesSumPath (${grouped.bytes.length} bytes, '
           '${grouped.packageCount} packages, ${grouped.libraryCount} libraries)');
 
@@ -240,6 +249,35 @@ class BundleGenerator {
       bundles: results,
       embedderYamlPath: embedder,
     );
+  }
+
+  /// Refuses to write summaries the app at [baseDir] could not read: the
+  /// analyzer it resolves (its `.dart_tool/package_config.json`) must have
+  /// this bundler's analyzer data version, the exact key of the summary
+  /// format. An app with no resolved config or no analyzer is not checked.
+  void _checkAnalyzerOfApp(String baseDir, void Function(String) log) {
+    final config = File(p.join(baseDir, '.dart_tool', 'package_config.json'));
+    if (!config.existsSync()) {
+      log('No resolved package config in $baseDir: the app\'s analyzer is '
+          'not checked');
+      return;
+    }
+    final appVersion =
+        analyzerDataVersionInPackageRoots(readPackageRoots(config));
+    if (appVersion == null) {
+      log('$baseDir resolves no analyzer: not checked');
+      return;
+    }
+    if (appVersion != analyzerDataVersion) {
+      throw BundlerConfigException(
+        'the app at $baseDir resolves an analyzer with data version '
+        '$appVersion, this bundler links data version $analyzerDataVersion: '
+        'the summaries it writes would not be readable there. Resolve both '
+        'with the same Dart SDK (`dart pub get` in the bundler and '
+        '`flutter pub get` in the app, the same Flutter on PATH) and run '
+        'again.',
+      );
+    }
   }
 
   /// The embedder of the first `sky_engine` among the packages of [config]'s
