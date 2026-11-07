@@ -16,6 +16,7 @@ import 'package:tom_file_system/tom_file_system.dart';
 import '../adapters/forge_dart_editor.dart';
 import '../adapters/forge_md_editor.dart';
 import '../adapters/forge_plain_text_editor.dart';
+import '../adapters/tom_forge_shell_module.dart';
 import '../adapters/forge_yaml_editor.dart';
 import '../components/forge_component.dart';
 import '../components/forge_editor.dart';
@@ -2303,36 +2304,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   /// Converts a [KeyEvent] to a [ForgeShortcutKey] for chord matching.
   ForgeShortcutKey? _keyEventToShortcutKey(KeyEvent event) {
     if (event is! KeyDownEvent) return null;
-    final key = event.logicalKey;
-    // Ignore bare modifier presses.
-    if (key == LogicalKeyboardKey.controlLeft ||
-        key == LogicalKeyboardKey.controlRight ||
-        key == LogicalKeyboardKey.metaLeft ||
-        key == LogicalKeyboardKey.metaRight ||
-        key == LogicalKeyboardKey.shiftLeft ||
-        key == LogicalKeyboardKey.shiftRight ||
-        key == LogicalKeyboardKey.altLeft ||
-        key == LogicalKeyboardKey.altRight) {
-      return null;
-    }
-    final pressed = HardwareKeyboard.instance.logicalKeysPressed;
-    final useMeta = !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
-    final hasPrimary = useMeta
-        ? pressed.contains(LogicalKeyboardKey.metaLeft) ||
-              pressed.contains(LogicalKeyboardKey.metaRight)
-        : pressed.contains(LogicalKeyboardKey.controlLeft) ||
-              pressed.contains(LogicalKeyboardKey.controlRight);
-    final hasShift =
-        pressed.contains(LogicalKeyboardKey.shiftLeft) ||
-        pressed.contains(LogicalKeyboardKey.shiftRight);
-    final hasAlt =
-        pressed.contains(LogicalKeyboardKey.altLeft) ||
-        pressed.contains(LogicalKeyboardKey.altRight);
-    return ForgeShortcutKey(
-      key: key,
-      primaryModifier: hasPrimary,
-      shift: hasShift,
-      alt: hasAlt,
+    return ForgeShortcutKey.fromPressed(
+      event.logicalKey,
+      HardwareKeyboard.instance.logicalKeysPressed,
     );
   }
 
@@ -2793,8 +2767,14 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         label: 'Go',
         menus: [
           PlatformMenuItemGroup(members: [
-            PlatformMenuItem(label: 'Back', onSelected: () {}),
-            PlatformMenuItem(label: 'Forward', onSelected: () {}),
+            _platformMenuItem(
+              'Back',
+              TomForgeShellModule.navigateBackActionId,
+            ),
+            _platformMenuItem(
+              'Forward',
+              TomForgeShellModule.navigateForwardActionId,
+            ),
           ]),
           PlatformMenuItemGroup(members: [
             _guardedPlatformMenuItem(
@@ -3215,10 +3195,14 @@ the field, not the document.
                 builder: (context, constraints) {
                   final availableWidth = constraints.maxWidth;
                   final switcherMaxWidth = availableWidth < 520 ? 120.0 : 180.0;
-                  // The spacing the search box shares the row with (12 after
-                  // it) is reserved so the min-sized row never overflows.
-                  const rowSpacing = 12.0;
+                  // Fixed-width siblings the search box shares the row with:
+                  // the two 48px Back / Forward buttons and the spacing (8
+                  // before the search box, 12 after it), reserved so the
+                  // min-sized row never overflows.
+                  const navButtonsWidth = 96.0;
+                  const rowSpacing = 8.0 + 12.0;
                   final searchWidth = (availableWidth -
+                          navButtonsWidth -
                           switcherMaxWidth -
                           rowSpacing)
                       .clamp(180.0, 400.0)
@@ -3227,10 +3211,19 @@ the field, not the document.
                   return Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // No Back / Forward buttons: nothing provides
-                      // navigation history yet, and a control that cannot act
-                      // is not shown (tom_forge
-                      // later13_akfu-navigation-history-back-forward).
+                      _buildNavigationButton(
+                        icon: Icons.arrow_back,
+                        tooltip: 'Go Back',
+                        enabled: widget.shell.navigationHistory.canGoBack,
+                        go: widget.shell.navigationHistory.goBack,
+                      ),
+                      _buildNavigationButton(
+                        icon: Icons.arrow_forward,
+                        tooltip: 'Go Forward',
+                        enabled: widget.shell.navigationHistory.canGoForward,
+                        go: widget.shell.navigationHistory.goForward,
+                      ),
+                      const SizedBox(width: 8),
                       SizedBox(
                         key: _searchBoxKey,
                         width: searchWidth,
@@ -3422,6 +3415,22 @@ the field, not the document.
   /// Builds the action bar with quick-access action buttons.
   ///
   /// Shows actions from the user's preference, or defaults if none configured.
+  /// A title-bar Back or Forward button: enabled exactly when the
+  /// navigation history has somewhere to go.
+  Widget _buildNavigationButton({
+    required IconData icon,
+    required String tooltip,
+    required ValueListenable<bool> enabled,
+    required bool Function() go,
+  }) => ValueListenableBuilder<bool>(
+    valueListenable: enabled,
+    builder: (context, canGo, _) => IconButton(
+      icon: Icon(icon, size: ForgeDimensions.iconToolbar),
+      onPressed: canGo ? () => go() : null,
+      tooltip: tooltip,
+    ),
+  );
+
   Widget _buildActionBar(BuildContext context) {
     final theme = Theme.of(context);
     final activeEditor = widget.systemState.activeEditor;

@@ -1028,6 +1028,7 @@ class ForgePreferencesService extends ChangeNotifier {
     return <String, dynamic>{
       'keyId': key.key.keyId,
       'primaryModifier': key.primaryModifier,
+      'control': key.control,
       'shift': key.shift,
       'alt': key.alt,
     };
@@ -1045,6 +1046,7 @@ class ForgePreferencesService extends ChangeNotifier {
     return ForgeShortcutKey(
       key: logicalKey,
       primaryModifier: map['primaryModifier'] as bool? ?? false,
+      control: map['control'] as bool? ?? false,
       shift: map['shift'] as bool? ?? false,
       alt: map['alt'] as bool? ?? false,
     );

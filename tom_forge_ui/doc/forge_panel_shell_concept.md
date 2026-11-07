@@ -72,7 +72,7 @@ The framework lives in `tom_forge_ui` (library) with a test/demo application in 
 
 | Element | Position | Behavior |
 |---------|----------|----------|
-| **Back / Forward arrows** | Left | Navigate history for components that support it (e.g., browser views, help panels). Disabled when the focused component has no history. |
+| **Back / Forward arrows** | Left | Go back and forward through the navigation history: the places left across editors, applications and jumps within a document (an editor's own history first). Disabled when there is nowhere to go. |
 | **Search field** | Center | Displays the application title centered with a search-lens icon prefix. Tapping activates search mode (command palette style, see §11). The field serves dual purpose: application title display and quick search/command entry. |
 | **Application dropdown** | Right of search | Dropdown selector to switch between configured applications. Shows the current application name. All applications remain alive in memory when switching (see §6). |
 

@@ -34,7 +34,7 @@ suite.
 | `tom_forge_app/test/composed_workflows_test.dart` WF-1–WF-3 | on the running shell with Markdown, YAML and text documents open: the shell's Undo undoes the active document only; quitting asks once, naming exactly the unsaved documents; Save writes the active document and leaves the others unsaved |
 | `tom_forge_app/test/qim_none5_file_editors_test.dart` | each kind of file opens in the editor of its kind in the composed suite; extensions replace editors |
 | `tom_forge_app/test/wonecmpc25_forge_suite_test.dart` | what `composeForgeSuite` registers, in which order, with extensions |
-| `tom_forge_ui/test/widgets/ux_patterns_test.dart` and the suites cited in [integrated_ux_patterns.md](integrated_ux_patterns.md) | the integrated UX patterns P1–P12 |
+| `tom_forge_ui/test/widgets/ux_patterns_test.dart` and the suites cited in [integrated_ux_patterns.md](integrated_ux_patterns.md) | the integrated UX patterns P1–P13 |
 
 ## Adding a component
 

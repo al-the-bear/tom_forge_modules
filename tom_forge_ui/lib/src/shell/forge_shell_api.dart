@@ -9,6 +9,7 @@ import '../services/forge_environment.dart';
 import '../services/forge_file_decoration_manager.dart';
 import 'package:tom_file_system/tom_file_system.dart' show TomFileSystem;
 import '../services/forge_module_storage.dart';
+import '../services/forge_navigation_history.dart';
 import '../services/forge_notification_manager.dart';
 import '../services/forge_outline_manager.dart';
 import '../services/forge_output_channel_manager.dart';
@@ -44,6 +45,9 @@ abstract class ForgeShellApi {
 
   /// Layout control.
   ForgeLayoutController get layout;
+
+  /// Go Back / Go Forward across editors and the places within them.
+  ForgeNavigationHistory get navigationHistory;
 
   /// Status bar control.
   ForgeStatusBarController get statusBar;

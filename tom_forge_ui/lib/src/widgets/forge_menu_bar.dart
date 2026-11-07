@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 
 import '../actions/forge_action.dart' as shell_action;
+import '../adapters/tom_forge_shell_module.dart';
 import '../defaults/default_shell_api.dart';
 import '../defaults/default_system_state.dart';
 
@@ -250,15 +251,10 @@ class ForgeMenuBar extends StatelessWidget {
           _MenuButton(
             label: 'Go',
             items: [
-              _MenuItem(
-                label: 'Back',
-                shortcut: '⌃-',
-                onTap: () => _showNotImplemented(context, 'Go Back'),
-              ),
-              _MenuItem(
-                label: 'Forward',
-                shortcut: '⌃⇧-',
-                onTap: () => _showNotImplemented(context, 'Go Forward'),
+              _actionItem('Back', TomForgeShellModule.navigateBackActionId),
+              _actionItem(
+                'Forward',
+                TomForgeShellModule.navigateForwardActionId,
               ),
               const _MenuDivider(),
               _MenuItem(
@@ -377,6 +373,14 @@ class ForgeMenuBar extends StatelessWidget {
       ),
     );
   }
+
+  /// A menu entry running the shell action [actionId], showing the key the
+  /// shell's table binds it to.
+  _MenuItem _actionItem(String label, String actionId) => _MenuItem(
+    label: label,
+    shortcut: shellApi.shortcuts.getBinding(actionId)?.key.toDisplayString(),
+    onTap: () => shellApi.executeAction(actionId),
+  );
 
   void _showNotImplemented(BuildContext context, String feature) {
     ScaffoldMessenger.of(context).showSnackBar(

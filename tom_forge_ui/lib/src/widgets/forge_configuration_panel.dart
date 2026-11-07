@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
@@ -2270,32 +2269,9 @@ class _ShortcutsSettingsSectionState extends State<_ShortcutsSettingsSection> {
   }
 
   ForgeShortcutKey? _toShortcutKey(KeyDownEvent event) {
-    final key = event.logicalKey;
-    if ({
-      LogicalKeyboardKey.controlLeft,
-      LogicalKeyboardKey.controlRight,
-      LogicalKeyboardKey.metaLeft,
-      LogicalKeyboardKey.metaRight,
-      LogicalKeyboardKey.shiftLeft,
-      LogicalKeyboardKey.shiftRight,
-      LogicalKeyboardKey.altLeft,
-      LogicalKeyboardKey.altRight,
-    }.contains(key)) {
-      return null;
-    }
-    final pressed = HardwareKeyboard.instance.logicalKeysPressed;
-    final useMeta = !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
-    return ForgeShortcutKey(
-      key: key,
-      primaryModifier: useMeta
-          ? pressed.contains(LogicalKeyboardKey.metaLeft) ||
-              pressed.contains(LogicalKeyboardKey.metaRight)
-          : pressed.contains(LogicalKeyboardKey.controlLeft) ||
-              pressed.contains(LogicalKeyboardKey.controlRight),
-      shift: pressed.contains(LogicalKeyboardKey.shiftLeft) ||
-          pressed.contains(LogicalKeyboardKey.shiftRight),
-      alt: pressed.contains(LogicalKeyboardKey.altLeft) ||
-          pressed.contains(LogicalKeyboardKey.altRight),
+    return ForgeShortcutKey.fromPressed(
+      event.logicalKey,
+      HardwareKeyboard.instance.logicalKeysPressed,
     );
   }
 }
@@ -2412,33 +2388,9 @@ class _ChordCaptureDialogState extends State<_ChordCaptureDialog> {
   ForgeShortcutKey? _firstKey;
 
   ForgeShortcutKey? _toShortcutKey(KeyDownEvent event) {
-    final key = event.logicalKey;
-    if ({
-      LogicalKeyboardKey.controlLeft,
-      LogicalKeyboardKey.controlRight,
-      LogicalKeyboardKey.metaLeft,
-      LogicalKeyboardKey.metaRight,
-      LogicalKeyboardKey.shiftLeft,
-      LogicalKeyboardKey.shiftRight,
-      LogicalKeyboardKey.altLeft,
-      LogicalKeyboardKey.altRight,
-    }.contains(key)) {
-      return null;
-    }
-    final pressed = HardwareKeyboard.instance.logicalKeysPressed;
-    final useMeta =
-        !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
-    return ForgeShortcutKey(
-      key: key,
-      primaryModifier: useMeta
-          ? pressed.contains(LogicalKeyboardKey.metaLeft) ||
-              pressed.contains(LogicalKeyboardKey.metaRight)
-          : pressed.contains(LogicalKeyboardKey.controlLeft) ||
-              pressed.contains(LogicalKeyboardKey.controlRight),
-      shift: pressed.contains(LogicalKeyboardKey.shiftLeft) ||
-          pressed.contains(LogicalKeyboardKey.shiftRight),
-      alt: pressed.contains(LogicalKeyboardKey.altLeft) ||
-          pressed.contains(LogicalKeyboardKey.altRight),
+    return ForgeShortcutKey.fromPressed(
+      event.logicalKey,
+      HardwareKeyboard.instance.logicalKeysPressed,
     );
   }
 

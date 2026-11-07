@@ -145,9 +145,8 @@ reconnect banner, a document that could not be opened).
 
 A button, menu entry or item is shown only when something can run it; one
 that does not apply right now is disabled and says why (P3). A control that
-could never act is not shown: the title bar has no Back / Forward buttons
-until navigation history exists
-(`later13_akfu-navigation-history-back-forward`).
+could never act is not shown. The title bar's Go Back and Go Forward buttons
+are enabled exactly when the navigation history has somewhere to go (P13).
 
 - Tests: `widgets/phase_j_navigation_and_open_with_test.dart` 02.
 
@@ -163,3 +162,28 @@ motion or high contrast.
   `expectTomReadable` from `tom_reusable_ui/testing.dart`, per theme) and
   its pixel goldens, `widgets/forge_status_bar_test.dart` (static progress
   indicator).
+
+## P13. Back and Forward go where the user came from
+
+As VS Code's Go Back / Go Forward: every move between documents, or jump
+within one, records the place left — the editor's document, the caret's line
+and column when the editor reports them, the application and middle panel it
+was shown in. A move is any change of the active editor (a tab, quick open,
+search, problems, a reference, a module opening its document, closing the
+active editor, switching application) and opening the active file at another
+line. Back returns to the place left last, switching to its application and
+reopening a closed file; Forward undoes a Back; a new move drops what Forward
+had. The editors an application declares are its layout, not moves. An
+editor with its own history (`ForgeEditor.historyManager`) is the editor's
+part of the chain: while it can go, Back and Forward go through it first.
+The actions are `forge.navigate.back` and `forge.navigate.forward` on ⌃- and
+⌃⇧- on macOS, Ctrl+- and Ctrl+Shift+- on Windows and Linux (a
+`ForgeShortcutKey` with `control`: the Control key itself on every
+platform), and the title bar's two buttons; all are enabled from the
+history.
+
+- Code: `ForgeNavigationHistory` (`ForgeShellApi.navigationHistory`),
+  `DefaultNavigationHistory`, `DefaultLayoutController.openFile`,
+  `TomForgeShellModule` (the actions and keys).
+- Tests: `services/navigation_history_test.dart` NH-1–NH-9,
+  `widgets/phase_j_navigation_and_open_with_test.dart` 02.

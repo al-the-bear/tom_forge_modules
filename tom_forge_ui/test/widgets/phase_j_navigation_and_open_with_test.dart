@@ -38,10 +38,10 @@ void main() {
       expect(find.byType(ForgeQuickOpen), findsNothing);
     });
 
-    testWidgets('02: the title bar shows no back or forward button: no '
-        'control is shown that cannot act (integrated_ux_patterns.md P11)', (
-      WidgetTester tester,
-    ) async {
+    testWidgets('02: the title bar\'s Go Back and Go Forward buttons are '
+        'enabled exactly when the navigation history has somewhere to go, '
+        'and they and their keys move through it '
+        '(integrated_ux_patterns.md P11)', (WidgetTester tester) async {
       suppressOverflowErrorsForTest();
       await prepareLargeSurface(tester);
       final harness = _PhaseJHarness.create();
@@ -49,8 +49,47 @@ void main() {
       await tester.pumpWidget(harness.buildShellApp());
       await tester.pumpAndSettle();
 
-      expect(find.byTooltip('Back'), findsNothing);
-      expect(find.byTooltip('Forward'), findsNothing);
+      bool enabled(String tooltip) =>
+          tester
+              .widget<IconButton>(
+                find.ancestor(
+                  of: find.byTooltip(tooltip),
+                  matching: find.byType(IconButton),
+                ),
+              )
+              .onPressed !=
+          null;
+      final state = harness.shell.systemState;
+      final first = state.activeEditor!.uri;
+      expect((enabled('Go Back'), enabled('Go Forward')), (false, false));
+
+      final notes = Uri.file('/workspace/test-fixtures/notes.txt');
+      harness.shell.layout.openFile(notes);
+      await tester.pumpAndSettle();
+      expect(state.activeEditor?.uri, notes);
+      expect((enabled('Go Back'), enabled('Go Forward')), (true, false));
+
+      await tester.tap(find.byTooltip('Go Back'));
+      await tester.pumpAndSettle();
+      expect(state.activeEditor?.uri, first);
+      expect((enabled('Go Back'), enabled('Go Forward')), (false, true));
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.minus);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.pumpAndSettle();
+      expect(
+        state.activeEditor?.uri,
+        notes,
+        reason: 'Ctrl+Shift+- goes forward',
+      );
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.minus);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pumpAndSettle();
+      expect(state.activeEditor?.uri, first, reason: 'Ctrl+- goes back');
+      expect((enabled('Go Back'), enabled('Go Forward')), (false, true));
     });
 
     testWidgets('03: application switcher activates the selected application', (
@@ -193,7 +232,10 @@ void main() {
       await tester.tap(find.text('YAML Editor').first);
       await tester.pumpAndSettle();
 
-      expect(harness.shell.systemState.activeEditor, isA<_AltYamlChoiceEditor>());
+      expect(
+        harness.shell.systemState.activeEditor,
+        isA<_AltYamlChoiceEditor>(),
+      );
     });
 
     testWidgets('10: reset panel locations keeps middle index in bounds', (
@@ -253,6 +295,7 @@ class _PhaseJHarness {
       fileSystemSeed: const {
         '/workspace/test-fixtures/sample.md': '# Phase J\n',
         '/workspace/test-fixtures/choice.multi': 'choice content\n',
+        '/workspace/test-fixtures/notes.txt': 'notes\n',
       },
       appName: 'Phase J Harness',
       navigatorKey: navigatorKey,
@@ -429,12 +472,12 @@ class _PhaseJModule extends ForgeModule {
 
 class _AltDartChoiceEditor extends ForgeTestTextEditor {
   _AltDartChoiceEditor(super.module)
-      : super(
-          document: ForgeTestDocument(
-            uri: Uri.parse('file:///workspace/test-fixtures/choice.multi'),
-            content: 'dart candidate\n',
-          ),
-        );
+    : super(
+        document: ForgeTestDocument(
+          uri: Uri.parse('file:///workspace/test-fixtures/choice.multi'),
+          content: 'dart candidate\n',
+        ),
+      );
 
   @override
   FileHandlingResult canHandle(Uri uri) {
@@ -446,12 +489,12 @@ class _AltDartChoiceEditor extends ForgeTestTextEditor {
 
 class _AltYamlChoiceEditor extends ForgeTestTextEditor {
   _AltYamlChoiceEditor(super.module)
-      : super(
-          document: ForgeTestDocument(
-            uri: Uri.parse('file:///workspace/test-fixtures/choice.multi'),
-            content: 'yaml candidate\n',
-          ),
-        );
+    : super(
+        document: ForgeTestDocument(
+          uri: Uri.parse('file:///workspace/test-fixtures/choice.multi'),
+          content: 'yaml candidate\n',
+        ),
+      );
 
   @override
   FileHandlingResult canHandle(Uri uri) {

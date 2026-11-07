@@ -30,6 +30,7 @@ import '../services/forge_virtual_document_manager.dart';
 import '../services/forge_workspace_state_manager.dart';
 import '../shell/forge_context_menu_controller.dart';
 import '../shell/forge_layout_controller.dart';
+import '../services/forge_navigation_history.dart';
 import '../shell/forge_module_registry.dart';
 import '../shell/forge_shell_api.dart';
 import '../shell/forge_status_bar_controller.dart';
@@ -44,6 +45,7 @@ import 'package:tom_forge_core/tom_forge_core.dart'
 import 'package:tom_file_system/io.dart'
     show TomFileSystem, TomLocalFileSystem, TomMemoryFileSystem;
 import 'default_layout_controller.dart';
+import 'default_navigation_history.dart';
 import 'default_module_registry.dart';
 import 'default_notification_manager.dart';
 import 'default_outline_manager.dart';
@@ -71,6 +73,9 @@ class DefaultShellApi implements ForgeShellApi {
 
   @override
   final ForgeLayoutController layout;
+
+  @override
+  final ForgeNavigationHistory navigationHistory;
 
   @override
   final ForgeStatusBarController statusBar;
@@ -151,6 +156,7 @@ class DefaultShellApi implements ForgeShellApi {
     required this.systemState,
     required this.applications,
     required this.layout,
+    required this.navigationHistory,
     required this.statusBar,
     required this.fileSystem,
     required this.modules,
@@ -360,6 +366,11 @@ class DefaultShellApi implements ForgeShellApi {
     // events emit an ED002 diagnostic.
     layoutController.diagnosticManager = diagnosticManager;
     layoutController.notificationManager = notificationManager;
+    final navigationHistory = DefaultNavigationHistory(
+      systemState: systemState,
+      layout: layoutController,
+    );
+    layoutController.navigationHistory = navigationHistory;
 
     final progressManager = DefaultProgressManager();
     final dialogManager = DefaultDialogManager();
@@ -397,6 +408,7 @@ class DefaultShellApi implements ForgeShellApi {
       systemState: systemState,
       applications: systemState,
       layout: layoutController,
+      navigationHistory: navigationHistory,
       statusBar: statusBarController,
       fileSystem: fileSystem,
       modules: moduleRegistry,
@@ -778,6 +790,8 @@ class DefaultShellApi implements ForgeShellApi {
       registry.deactivateAll();
     }
     workspaceState.dispose();
+    final history = navigationHistory;
+    if (history is DefaultNavigationHistory) history.dispose();
     final layoutCtrl = layout;
     if (layoutCtrl is DefaultLayoutController) {
       layoutCtrl.dispose();

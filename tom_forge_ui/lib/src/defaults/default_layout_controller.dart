@@ -19,6 +19,7 @@ import '../components/forge_editor_choice.dart';
 import '../components/forge_text_editor.dart';
 import '../model/forge_application.dart';
 import '../module/forge_module.dart';
+import '../services/forge_navigation_history.dart';
 import '../shell/forge_layout_controller.dart';
 import '../shell/forge_module_registry.dart';
 import 'default_system_state.dart';
@@ -61,6 +62,10 @@ class DefaultLayoutController implements ForgeLayoutController {
 
   /// Late-bound notification manager for open-file recovery warnings.
   ForgeNotificationManager? notificationManager;
+
+  /// Late-bound navigation history: told of a jump within the active editor,
+  /// which changes no active editor it could follow.
+  ForgeNavigationHistory? navigationHistory;
 
   ForgeDiagnosticCollection? _openRecoveryDiagnostics;
 
@@ -226,11 +231,22 @@ class DefaultLayoutController implements ForgeLayoutController {
         for (var i = _middlePanels.value.length; i < declared.length; i++) [],
       ];
     }
-    for (var i = 0; i < declared.length; i++) {
-      for (final tab in declared[i].tabs) {
-        openEditor(tab.editor, tab.uri ?? tab.editor.uri, middlePanelIndex: i);
+    void openDeclared() {
+      for (var i = 0; i < declared.length; i++) {
+        for (final tab in declared[i].tabs) {
+          openEditor(
+            tab.editor,
+            tab.uri ?? tab.editor.uri,
+            middlePanelIndex: i,
+          );
+        }
       }
     }
+
+    // The declared editors are the application's layout, not places the
+    // user moved through.
+    final history = navigationHistory;
+    history == null ? openDeclared() : history.withoutRecording(openDeclared);
     if (declared.isNotEmpty) _activeMiddlePanelIndex.value = 0;
   }
 
@@ -284,6 +300,9 @@ class DefaultLayoutController implements ForgeLayoutController {
     final existing = _systemState.openEditors.where((e) => e.uri == uri);
     if (existing.isNotEmpty) {
       final editor = existing.first;
+      if (line != null && identical(editor, _systemState.activeEditor)) {
+        navigationHistory?.recordCurrentLocation();
+      }
       _systemState.setActiveEditor(editor);
       _navigateEditorTo(editor, line: line, column: column);
       return;

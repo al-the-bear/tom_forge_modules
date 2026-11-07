@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
@@ -1506,37 +1505,9 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
   }
 
   ForgeShortcutKey? _eventToShortcutKey(KeyDownEvent event) {
-    final key = event.logicalKey;
-    if (key == LogicalKeyboardKey.controlLeft ||
-        key == LogicalKeyboardKey.controlRight ||
-        key == LogicalKeyboardKey.metaLeft ||
-        key == LogicalKeyboardKey.metaRight ||
-        key == LogicalKeyboardKey.shiftLeft ||
-        key == LogicalKeyboardKey.shiftRight ||
-        key == LogicalKeyboardKey.altLeft ||
-        key == LogicalKeyboardKey.altRight) {
-      return null;
-    }
-
-    final pressed = HardwareKeyboard.instance.logicalKeysPressed;
-    final useMeta = !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
-    final hasPrimary = useMeta
-        ? pressed.contains(LogicalKeyboardKey.metaLeft) ||
-              pressed.contains(LogicalKeyboardKey.metaRight)
-        : pressed.contains(LogicalKeyboardKey.controlLeft) ||
-              pressed.contains(LogicalKeyboardKey.controlRight);
-    final hasShift =
-        pressed.contains(LogicalKeyboardKey.shiftLeft) ||
-        pressed.contains(LogicalKeyboardKey.shiftRight);
-    final hasAlt =
-        pressed.contains(LogicalKeyboardKey.altLeft) ||
-        pressed.contains(LogicalKeyboardKey.altRight);
-
-    return ForgeShortcutKey(
-      key: key,
-      primaryModifier: hasPrimary,
-      shift: hasShift,
-      alt: hasAlt,
+    return ForgeShortcutKey.fromPressed(
+      event.logicalKey,
+      HardwareKeyboard.instance.logicalKeysPressed,
     );
   }
 

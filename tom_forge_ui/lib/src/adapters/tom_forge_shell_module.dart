@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -70,6 +71,12 @@ class TomForgeShellModule extends ForgeModule {
   /// Whether this module handles the given file extension.
   bool canHandleExtension(String ext) =>
       supportedExtensions.contains(ext.toLowerCase());
+
+  /// The id of Go Back.
+  static const navigateBackActionId = 'forge.navigate.back';
+
+  /// The id of Go Forward.
+  static const navigateForwardActionId = 'forge.navigate.forward';
 
   @override
   void activate(ForgeShellApi shell) {
@@ -151,8 +158,9 @@ class TomForgeShellModule extends ForgeModule {
         defaultShortcut: key,
       );
       _actions.add(action);
-      _shortcuts
-          .add(ForgeShortcutBinding(action: action, key: key, context: 'Shell'));
+      _shortcuts.add(
+        ForgeShortcutBinding(action: action, key: key, context: 'Shell'),
+      );
     }
 
     // Single command palette action with two shortcut bindings.
@@ -174,20 +182,24 @@ class TomForgeShellModule extends ForgeModule {
       ),
     );
     _actions.add(paletteAction);
-    _shortcuts.add(ForgeShortcutBinding(
-      action: paletteAction,
-      key: const ForgeShortcutKey(
-        key: LogicalKeyboardKey.keyP,
-        primaryModifier: true,
-        shift: true,
+    _shortcuts.add(
+      ForgeShortcutBinding(
+        action: paletteAction,
+        key: const ForgeShortcutKey(
+          key: LogicalKeyboardKey.keyP,
+          primaryModifier: true,
+          shift: true,
+        ),
+        context: 'Shell',
       ),
-      context: 'Shell',
-    ));
-    _shortcuts.add(ForgeShortcutBinding(
-      action: paletteAction,
-      key: const ForgeShortcutKey(key: LogicalKeyboardKey.f1),
-      context: 'Shell',
-    ));
+    );
+    _shortcuts.add(
+      ForgeShortcutBinding(
+        action: paletteAction,
+        key: const ForgeShortcutKey(key: LogicalKeyboardKey.f1),
+        context: 'Shell',
+      ),
+    );
 
     add(
       'forge.toggleLeftPanel',
@@ -288,6 +300,61 @@ class TomForgeShellModule extends ForgeModule {
       ),
       icon: Icons.chevron_left,
     );
+    _addNavigationActions();
+  }
+
+  /// Go Back and Go Forward, as VS Code: ⌃- and ⌃⇧- on macOS, Ctrl+- and
+  /// Ctrl+Shift+- on Windows and Linux. They run the shell's navigation
+  /// history and are enabled exactly when it has somewhere to go.
+  void _addNavigationActions() {
+    final history = shellApi.navigationHistory;
+    void navigate(
+      String id,
+      String label,
+      ForgeShortcutKey key,
+      IconData icon,
+      bool Function() go,
+      ValueListenable<bool> enabled,
+    ) {
+      final action = ForgeAction(
+        id: id,
+        label: label,
+        icon: icon,
+        menu: ForgeMenuLocation.commandPalette,
+        execute: (_) async {
+          go();
+          return null;
+        },
+        isEnabled: () => enabled.value,
+        isVisible: () => true,
+        defaultShortcut: key,
+      );
+      _actions.add(action);
+      _shortcuts.add(
+        ForgeShortcutBinding(action: action, key: key, context: 'Shell'),
+      );
+    }
+
+    navigate(
+      navigateBackActionId,
+      'Go Back',
+      const ForgeShortcutKey(key: LogicalKeyboardKey.minus, control: true),
+      Icons.arrow_back,
+      history.goBack,
+      history.canGoBack,
+    );
+    navigate(
+      navigateForwardActionId,
+      'Go Forward',
+      const ForgeShortcutKey(
+        key: LogicalKeyboardKey.minus,
+        control: true,
+        shift: true,
+      ),
+      Icons.arrow_forward,
+      history.goForward,
+      history.canGoForward,
+    );
   }
 
   // ── Editor descriptor actions ──
@@ -341,11 +408,13 @@ class TomForgeShellModule extends ForgeModule {
       );
 
       _actions.add(action);
-      _shortcuts.add(ForgeShortcutBinding(
-        action: action,
-        key: shellShortcut,
-        context: desc.category,
-      ));
+      _shortcuts.add(
+        ForgeShortcutBinding(
+          action: action,
+          key: shellShortcut,
+          context: desc.category,
+        ),
+      );
     }
   }
 }

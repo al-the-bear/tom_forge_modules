@@ -143,8 +143,10 @@ class _ForgeCommandPaletteState extends State<ForgeCommandPalette> {
     if (key == null) return null;
 
     final parts = <String>[];
-    if (key.primaryModifier) {
-      parts.add(defaultTargetPlatform == TargetPlatform.macOS ? '⌘' : 'Ctrl');
+    final mac = defaultTargetPlatform == TargetPlatform.macOS;
+    if (key.control && mac) parts.add('⌃');
+    if (key.primaryModifier || (key.control && !mac)) {
+      parts.add(mac ? '⌘' : 'Ctrl');
     }
     if (key.alt) parts.add('Alt');
     if (key.shift) parts.add('Shift');

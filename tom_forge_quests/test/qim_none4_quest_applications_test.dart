@@ -231,13 +231,16 @@ Future<void> _pick(
   await _settle(tester);
 }
 
-/// The application layouts `.forge/state/apps/` holds.
+/// The application layouts `.forge/state/apps/` holds: its `*.json` files,
+/// not the temporary files of an atomic write still in flight (`.<name>.tmp`),
+/// which may be gone by the time they are read.
 int _savedLayouts(Directory forgeDir) {
   final apps = Directory('${forgeDir.path}/.forge/state/apps');
   if (!apps.existsSync()) return 0;
   return apps
       .listSync()
       .whereType<File>()
+      .where((f) => f.uri.pathSegments.last.endsWith('.json'))
       .where((f) => f.readAsStringSync().contains('"layout"'))
       .length;
 }
