@@ -38,7 +38,14 @@ dependencies:
   tom_yaml_editor:
     path: ../tom_yaml_editor
   flutter_pty: ^0.4.2
-  xterm: ^4.0.0
+  # The xterm fork (al-the-bear/tom_xterm, xterm 4.0.0 + tom.1): upstream
+  # declares equatable ^2.0.3 without importing it, which kept every app
+  # here off equatable 3 and so off dcli 10.4.7. Registry:
+  # _ai/quests/opensource/references.opensource.md (xterm fork).
+  xterm:
+    git:
+      url: https://github.com/al-the-bear/tom_xterm
+      ref: tom/4.0.0-no-equatable
   flutter_secure_storage: ^10.0.0
 
 dev_dependencies:
