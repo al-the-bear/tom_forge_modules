@@ -58,7 +58,7 @@
       "op": "decideAll",
       "decision": "accept",
       "decided": 2,
-      "expected": "<!-- docspec: solution-blueprint/1.6 -->\n# <!--[SBP]--> Solution Blueprint\n\nUnify three legacy order systems behind a single customer record.\n\n## <!--[INSC]--> Introduction And Scope\n\nReplace per-region order intake with a unified,single pipeline that nobody owns.\n\n> ⬆️ **C-2** (Alexis): Start with the EU.\n\n> ⬆️ **C-1** (Reviewer): Is the EU region in scope? Yes.\n\n> **❓ BQ-1 — scope:** Which region moves first?\n> - (a) EU\n> - **(b)** US\n> **Answer:** (b) because the US volume is larger.\n\n## <!--[CULA]--> Current Landscape\n\nThree systems, no shared customer record, manual reconciliation every week.\n"
+      "expected": "<!-- docspec: solution-blueprint/1.6 -->\n# <!--[SBP]--> Solution Blueprint\n\nUnify three legacy order systems behind a single customer record.\n\n## <!--[INSC]--> Introduction And Scope\n\nReplace per-region order intake with a unified, single pipeline that nobody owns.\n\n> ⬆️ **C-2** (Alexis): Start with the EU.\n\n> ⬆️ **C-1** (Reviewer): Is the EU region in scope? Yes.\n\n> **❓ BQ-1 — scope:** Which region moves first?\n> - (a) EU\n> - **(b)** US\n> **Answer:** (b) because the US volume is larger.\n\n## <!--[CULA]--> Current Landscape\n\nThree systems, no shared customer record, manual reconciliation every week.\n"
     }
   ]
 }
