@@ -79,7 +79,12 @@ class _SummaryBackedDartCodeEditorState
   void didUpdateWidget(SummaryBackedDartCodeEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    final importsChanged = !_listEquals(oldWidget.implicitImports,
+    // Both sides with the same fallback: an editor given no imports uses the
+    // controller's, and comparing that with the old widget's bare null made
+    // every rebuild a change — a host that rebuilds when the findings arrive
+    // then re-analysed for ever.
+    final importsChanged = !_listEquals(
+        oldWidget.implicitImports ?? oldWidget.controller.implicitImports,
         widget.implicitImports ?? widget.controller.implicitImports);
     final scopeChanged = oldWidget.scope != widget.scope;
     final assetsChanged = oldWidget.sdkSummaryAsset != widget.sdkSummaryAsset ||

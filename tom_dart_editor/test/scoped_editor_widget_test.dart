@@ -95,6 +95,44 @@ void main() {
     expect(loadedKeys, ['assets/summaries/sdk_summary.sum']);
   });
 
+  testWidgets(
+      'a parent that rebuilds on every report does not restart the analysis',
+      (tester) async {
+    // A host typically shows the findings, so it rebuilds when they arrive,
+    // and the rebuilt editor widget names the same scope and the controller's
+    // own imports. That is no change: comparing the old widget's explicit
+    // imports with the new one's fallback to the controller's re-analysed on
+    // every rebuild, and each analysis reported again, for ever.
+    await registry.register(sdkOnly);
+
+    final controller =
+        DartCodeController(initialCode: 'void main() { print(1); }');
+    addTearDown(controller.dispose);
+
+    var rounds = 0;
+    await tester.runAsync(() async {
+      await tester.pumpWidget(
+        host(
+          StatefulBuilder(
+            builder: (context, setState) => SummaryBackedDartCodeEditor(
+              controller: controller,
+              scope: 'dart-plain',
+              settings: const DartEditorSettings(showToolbar: false),
+              onErrorsChanged: (_) => setState(() => rounds++),
+            ),
+          ),
+        ),
+      );
+      for (var i = 0; i < 40; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        await tester.pump();
+      }
+    });
+
+    expect(rounds, 1, reason: 'one analysis for one text, however often the '
+        'host rebuilds');
+  });
+
   testWidgets('an absent scope degrades to empty diagnostics (no crash)',
       (tester) async {
     // No registration: the named scope is unavailable.
