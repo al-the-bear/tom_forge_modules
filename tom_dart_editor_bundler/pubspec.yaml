@@ -38,10 +38,11 @@ dependencies:
   # another analyzer wrote (the shared SDK summary is rebuilt, a run against
   # an app on another analyzer refused); the stamp names no machine path, so
   # it can be committed beside a shipped summary.
-  # 0.12.0 (a cached summary is complete or not cached) changes the summary
-  # cache, which the bundler does not use; it is taken to stay on the current
-  # release, which tom_forge_app's frozen-lock guard holds every lock to.
-  tom_analyzer_shared: ^0.12.0
+  # 0.12.0 (a cached summary is complete or not cached) and 0.13.0 (a bundle
+  # is named by its dependency closure) change the summary cache, which the
+  # bundler does not use; it takes them to stay on the current release, which
+  # tom_forge_app's frozen-lock guard holds every lock to.
+  tom_analyzer_shared: ^0.13.0
   # Public SDK-summary entry-point only (`buildSdkSummary` /
   # `PhysicalResourceProvider`). The grouped packages.sum build stays delegated
   # to tom_analyzer_shared; per the plan item-3 decision the one-shot SDK summary
