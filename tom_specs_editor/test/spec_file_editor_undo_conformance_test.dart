@@ -130,8 +130,5 @@ class _SpecFileSubject extends ForgeUndoSubject {
 }
 
 void main() {
-  runForgeUndoConformance(
-    'TomSpecs file editor',
-    _SpecFileSubject.new,
-  );
+  runForgeUndoConformance('TomSpecs file editor', _SpecFileSubject.new);
 }

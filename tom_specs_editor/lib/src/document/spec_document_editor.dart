@@ -436,17 +436,14 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
               headlineDefault: _controller.effectiveDefaultHeadline(
                 _rootSeg(root),
               ),
-              onHeadlineChanged: (v, before, caret) =>
-                  _controller.typeHeadline(
-                    _rootSeg(root),
-                    v,
-                    caretBefore: before,
-                    caret: caret,
-                  ),
-              headlineCaret: () => _controller.restoredCaretFor(
+              onHeadlineChanged: (v, before, caret) => _controller.typeHeadline(
                 _rootSeg(root),
-                headline: true,
+                v,
+                caretBefore: before,
+                caret: caret,
               ),
+              headlineCaret: () =>
+                  _controller.restoredCaretFor(_rootSeg(root), headline: true),
               document: _controller,
             ),
             if (cls != null)
@@ -534,12 +531,8 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
     headlineEditable: !_strict,
     headlineValue: _controller.headline(path),
     headlineDefault: _controller.effectiveDefaultHeadline(path),
-    onHeadlineChanged: (v, before, caret) => _controller.typeHeadline(
-      path,
-      v,
-      caretBefore: before,
-      caret: caret,
-    ),
+    onHeadlineChanged: (v, before, caret) =>
+        _controller.typeHeadline(path, v, caretBefore: before, caret: caret),
     headlineCaret: () => _controller.restoredCaretFor(path, headline: true),
     document: _controller,
   );
@@ -585,12 +578,8 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
         minLines: multiline ? 3 : 1,
         maxLines: multiline ? 8 : 1,
         document: _controller,
-        onTyped: (v, before, caret) => _controller.typeContent(
-          path,
-          v,
-          caretBefore: before,
-          caret: caret,
-        ),
+        onTyped: (v, before, caret) =>
+            _controller.typeContent(path, v, caretBefore: before, caret: caret),
         restoredCaret: () => _controller.restoredCaretFor(path),
       ),
     );
@@ -683,13 +672,12 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
               // (item 4); the id from the @SectionIdPattern generator on add.
               headline: _titleFor(itemPath),
               idValue: _controller.itemSectionId(itemPath),
-              onHeadlineChanged: (v, before, caret) =>
-                  _controller.typeHeadline(
-                    itemPath,
-                    v,
-                    caretBefore: before,
-                    caret: caret,
-                  ),
+              onHeadlineChanged: (v, before, caret) => _controller.typeHeadline(
+                itemPath,
+                v,
+                caretBefore: before,
+                caret: caret,
+              ),
               headlineCaret: () =>
                   _controller.restoredCaretFor(itemPath, headline: true),
               onIdChanged: (v) => _controller.setItemSectionId(itemPath, v),
