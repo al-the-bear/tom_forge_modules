@@ -63,3 +63,5 @@ assets/summaries/**/*.stamp
 # from the committed `buildkit.yaml` by tom_dart_editor_bundler. (The heavy `.sum`
 # bundles it references stay gitignored, per the policy above.)
 !lib/generated/summary_scopes.g.dart
+# Application package: its pubspec.lock is tracked (al_the_bear tom_app_locks, todo oqa2).
+!/pubspec.lock

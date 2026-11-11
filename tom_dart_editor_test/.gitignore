@@ -2,3 +2,5 @@
 # repo-wide `*.g.dart` ignore): lib/main.dart imports it, and it is written
 # with the summary pair the apps ship.
 !lib/generated/summary_scopes.g.dart
+# Application package: its pubspec.lock is tracked (al_the_bear tom_app_locks, todo oqa2).
+!/pubspec.lock
