@@ -11,7 +11,7 @@ abstract final class SummaryScopes {
         name: dartEditor,
         sdkSummaryAsset: 'assets/summaries/sdk_summary.sum',
         packageSummaryAsset: 'assets/summaries/dart-editor/packages.sum',
-        implicitImports: ['dart:async', 'dart:collection', 'dart:math', 'package:dcli/dcli.dart', 'package:path/path.dart'],
+        implicitImports: ['dart:async', 'dart:collection', 'dart:math', 'package:tom_dcli/dcli.dart', 'package:path/path.dart'],
       ),
     );
   }

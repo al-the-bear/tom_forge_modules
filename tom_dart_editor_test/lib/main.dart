@@ -64,7 +64,7 @@ class _AnalyzerScreenState extends State<AnalyzerScreen> {
                   'dart:async',
                   'dart:collection',
                   'dart:math',
-                  'package:dcli/dcli.dart',
+                  'package:tom_dcli/dcli.dart',
                   'package:path/path.dart',
                 ],
                 // The summaries of the scope buildkit.yaml declares.

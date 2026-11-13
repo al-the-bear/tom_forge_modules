@@ -29,7 +29,7 @@ class DartEditorStub extends StatefulWidget {
 
 class _DartEditorStubState extends State<DartEditorStub> {
   static const List<String> _d4rtDcliBridgedPackagePrefixes = [
-    'package:dcli/',
+    'package:tom_dcli/',
     'package:path/',
     'package:tom_chattools/',
     'package:tom_vscode_scripting_api/',
@@ -42,7 +42,7 @@ class _DartEditorStubState extends State<DartEditorStub> {
     'dart:convert',
     'dart:io',
     'dart:math',
-    'package:dcli/dcli.dart',
+    'package:tom_dcli/dcli.dart',
     'package:path/path.dart',
     'package:tom_chattools/tom_chattools.dart',
     'package:tom_vscode_scripting_api/script_globals.dart',

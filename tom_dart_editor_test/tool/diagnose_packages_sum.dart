@@ -65,7 +65,7 @@ void main(List<String> args) {
 
   print('\nhasLinkedLibrary checks:');
   for (final testUri in [
-    'package:dcli/dcli.dart',
+    'package:tom_dcli/dcli.dart',
     'package:path/path.dart',
     'package:dcli_core/dcli_core.dart',
   ]) {
@@ -74,7 +74,7 @@ void main(List<String> args) {
 
   print('\nhasUnlinkedUnit checks:');
   for (final testUri in [
-    'package:dcli/dcli.dart',
+    'package:tom_dcli/dcli.dart',
     'package:path/path.dart',
     'package:dcli_core/dcli_core.dart',
   ]) {

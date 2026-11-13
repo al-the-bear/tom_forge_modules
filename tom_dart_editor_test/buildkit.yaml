@@ -7,7 +7,7 @@
 #   - the scope-init helper           → lib/generated/summary_scopes.g.dart
 #
 # The scope is this app's whole resolved dependency closure: Flutter (with its
-# dart:ui), path, dcli and what they pull in. The pair is committed, and
+# dart:ui), path, tom_dcli and what they pull in. The pair is committed, and
 # copied as it is to tom_forge_app/assets/summaries/ and
 # tom_yaml_editor_test/assets/summaries/; test/shipped_summaries_test.dart
 # checks the copies and what the pair resolves.
@@ -31,5 +31,5 @@ dart-editor-bundler:
         - dart:async
         - dart:collection
         - dart:math
-        - package:dcli/dcli.dart
+        - package:tom_dcli/dcli.dart
         - package:path/path.dart
