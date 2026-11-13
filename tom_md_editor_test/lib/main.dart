@@ -837,7 +837,7 @@ to align with the first text character of that item (typically 2-4 spaces):
     nested items — just indent further.
 
 - **Configuration**
-  All configuration lives in `tom_project.yaml` at the project root.
+  All configuration lives in `buildkit.yaml` at the project root.
   The file is validated against a JSON schema on every build.
 
   Additional paragraphs that belong to the same list item are separated

@@ -24,7 +24,7 @@ const String kStatusLadderHelp =
     'Generator-managed by tom_package_scanner. Maturity ladder: '
     'not_started → works → published → released. A package reaches "released" '
     'when it carries a release.md marker in its package directory '
-    '(or tom_project.yaml release.state: released).';
+    '(or buildkit.yaml release.state: released).';
 
 /// Forge view for the §6a content browser: a component → module → optional
 /// submodule tree (plus `site.yaml` and `pages/`) on the left and a field /
