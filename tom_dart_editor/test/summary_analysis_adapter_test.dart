@@ -176,7 +176,7 @@ void main() {
     Directory privateTemp(String name) {
       Directory? workspace = Directory.current.absolute;
       while (workspace != null &&
-          !Directory(p.join(workspace.path, '.tom_metadata')).existsSync()) {
+          !File(p.join(workspace.path, 'buildkit_master.yaml')).existsSync()) {
         final parent = workspace.parent;
         workspace = parent.path == workspace.path ? null : parent;
       }

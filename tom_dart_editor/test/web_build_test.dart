@@ -97,7 +97,7 @@ void main() {
       Directory? workspaceRoot() {
         var dir = Directory.current.absolute;
         while (true) {
-          if (Directory(p.join(dir.path, '.tom_metadata')).existsSync()) {
+          if (File(p.join(dir.path, 'buildkit_master.yaml')).existsSync()) {
             return dir;
           }
           final parent = dir.parent;
