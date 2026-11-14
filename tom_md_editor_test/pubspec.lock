@@ -661,7 +661,7 @@ packages:
       path: "../../tom_ai/ai_build/tom_som_dart_runtime"
       relative: true
     source: path
-    version: "1.10.0"
+    version: "1.12.0"
   tom_undo:
     dependency: transitive
     description:
