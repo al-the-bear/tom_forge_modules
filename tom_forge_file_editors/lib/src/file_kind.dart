@@ -6,7 +6,7 @@ enum ForgeFileKind {
   /// Markdown: Forge's Markdown editor (tom_md_editor), reviews included.
   markdown,
 
-  /// A `*.todo.yaml` file: tom_reusable_ui's todo-file editor.
+  /// A `*.todo.yaml` file: tom_todo_ui's todo-file editor.
   todoFile,
 
   /// YAML: Forge's YAML editor (tom_yaml_editor), tree and source.

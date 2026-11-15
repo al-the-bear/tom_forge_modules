@@ -6,12 +6,12 @@ import 'package:tom_editors_shared/tom_editors_shared.dart';
 import 'package:tom_file_session/tom_file_session.dart';
 import 'package:tom_forge_core/tom_forge_core.dart' show FileHandlingResult;
 import 'package:tom_forge_ui/tom_forge_ui.dart';
-import 'package:tom_reusable_ui/tom_reusable_ui.dart';
+import 'package:tom_file_editors/tom_file_editors.dart';
 
 import 'protected_clipboard.dart';
 import 'session_file.dart';
 
-/// A `.env` file in tom_reusable_ui's `.env` editor, hosted by Forge: the
+/// A `.env` file in tom_file_editors' `.env` editor, hosted by Forge: the
 /// entries in a table with every value hidden until shown, the raw text
 /// beside it. The file's session is its one history (typing one entry per
 /// burst); the editor saves its own file, and a file changed on disk is not
@@ -146,7 +146,7 @@ class ForgeEnvFileEditor extends ForgeEditor {
   }
 }
 
-/// Forge as the host of a tom_reusable_ui file editor: the session, its
+/// Forge as the host of a tom_file_editors file editor: the session, its
 /// undo and redo, notices to the shell's notifications, the protected
 /// clipboard.
 class _ForgeTomFileEditorHost implements TomFileEditorHost {

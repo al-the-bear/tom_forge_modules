@@ -159,7 +159,7 @@ Animations give way to static indicators where the user asked for reduced
 motion or high contrast.
 
 - Tests: `golden/shell_golden_test.dart` SHELL-C (the readability scan
-  `expectTomReadable` from `tom_reusable_ui/testing.dart`, per theme) and
+  `expectTomReadable` from `tom_ui_testing/tom_ui_testing.dart`, per theme) and
   its pixel goldens, `widgets/forge_status_bar_test.dart` (static progress
   indicator).
 

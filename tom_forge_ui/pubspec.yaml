@@ -53,10 +53,9 @@ dev_dependencies:
   # The workspace scratch folder the restart test's real .forge lives in.
   tom_test_support:
     path: ../../tom_ai/basics/tom_test_support
-  # The WCAG readability scan the shell's chrome is held to
-  # (golden/shell_golden_test.dart): BSD-3, in Webwork's repository.
-  tom_reusable_ui:
-    path: ../../app_webwork/reusable/tom_reusable_ui
+  # The golden harness and the network wait.
+  tom_ui_testing:
+    path: ../../tom_ai/modules/tom_ui_testing
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

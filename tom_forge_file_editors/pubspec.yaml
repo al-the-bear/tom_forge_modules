@@ -31,9 +31,12 @@ dependencies:
   # The session each editor edits its file through.
   tom_file_session:
     path: ../../tom_ai/modules/tom_file_session
-  # The .env and todo-file editors (BSD-3: they name no Forge package).
-  tom_reusable_ui:
-    path: ../../app_webwork/reusable/tom_reusable_ui
+  # The file editors and the Markdown renderer.
+  tom_file_editors:
+    path: ../../tom_ai/modules/tom_file_editors
+  # The todo row, the details editor and the todo-file editor.
+  tom_todo_ui:
+    path: ../../tom_ai/modules/tom_todo_ui
   # The file system a todo file's siblings and schema are read through.
   tom_file_system:
     path: ../../tom_ai/basics/tom_file_system

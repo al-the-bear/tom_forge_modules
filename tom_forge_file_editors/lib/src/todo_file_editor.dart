@@ -8,12 +8,13 @@ import 'package:tom_file_session/tom_file_session.dart';
 import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_forge_core/tom_forge_core.dart' show FileHandlingResult;
 import 'package:tom_forge_ui/tom_forge_ui.dart';
-import 'package:tom_reusable_ui/tom_reusable_ui.dart';
+import 'package:tom_file_editors/tom_file_editors.dart';
+import 'package:tom_todo_ui/tom_todo_ui.dart';
 
 import 'protected_clipboard.dart';
 import 'session_file.dart';
 
-/// A `*.todo.yaml` file in `tom_reusable_ui`'s todo-file editor: the todos as
+/// A `*.todo.yaml` file in `tom_todo_ui`'s todo-file editor: the todos as
 /// a list, edited with the todo row and details editor, every change one
 /// entry in the file's history; the file's schema checked; archive and
 /// delete as a move to the `-archived` / `-deleted` sibling; every todo file

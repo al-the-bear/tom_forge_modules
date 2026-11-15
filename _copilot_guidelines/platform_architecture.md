@@ -173,9 +173,9 @@ client then sits in layer 4 or 5, never in the shell.
   the table above and in the layering test, which fails for a package it
   does not know.
 - **Licence:** every package here is BSD-3-Clause. Forge links no copyleft:
-  nothing in Forge depends on Webwork, the GPL application; a BSD-3 package
-  that lives in Webwork's repository (`tom_reusable_ui`) may be used and is
-  named in the layering test. The licence audit of the resolved graph
+  nothing in Forge depends on Webwork (an application on Forge, never a
+  dependency of it); the shared UI Forge uses is the BSD-3 Tom UI modules
+  in `tom_ai/modules` (`tom_file_editors`, `tom_todo_ui`, `tom_ui_testing`). The licence audit of the resolved graph
   (`tom_forge_app/test/qim_none1_licence_audit_test.dart`) checks the rest.
 - **Base first:** behaviour another `tom_*` library owns (the file system,
   undo, `.gitignore` rules in `tom_basics`, agent models in
