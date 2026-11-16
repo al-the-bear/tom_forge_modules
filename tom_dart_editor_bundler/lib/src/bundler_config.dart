@@ -6,6 +6,7 @@
 /// truth the bundler operates on.
 library;
 
+import 'package:tom_build_base/tom_build_base.dart' show withoutDefines;
 import 'package:yaml/yaml.dart';
 
 /// The top-level buildkit.yaml key under which the bundler config lives.
@@ -196,7 +197,9 @@ class BundlerConfig {
         source: source,
       );
     }
-    return BundlerConfig.fromMap(block, source: source);
+    // The section's `defines:` / `<MODE>-defines:` are ToolRunner's, not
+    // the bundler's keys.
+    return BundlerConfig.fromMap(withoutDefines(block), source: source);
   }
 
   /// Parse a pre-extracted `dart-editor-bundler` block map.

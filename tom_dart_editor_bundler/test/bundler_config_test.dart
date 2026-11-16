@@ -170,6 +170,21 @@ dart-editor-bundler:
       );
     });
 
+    test('the section\'s defines are not the bundler\'s keys '
+        '[2026-11-16]', () {
+      final config = BundlerConfig.fromYaml('''
+dart-editor-bundler:
+  defines:
+    scope: only
+  DEV-defines:
+    scope: dev
+  bundles:
+    - name: only
+      sdk-only: true
+''');
+      expect(config.bundles.single.name, 'only');
+    });
+
     test('unknown per-bundle key is rejected', () {
       expect(
         () => BundlerConfig.fromYaml('''

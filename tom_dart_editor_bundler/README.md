@@ -30,7 +30,9 @@ comes from `tom_build_base`; summary generation comes from `tom_analyzer_shared`
 
 The bundler is driven entirely by the `dart-editor-bundler:` block of the
 consuming project's `buildkit.yaml`. Unknown keys are rejected so typos fail
-loudly.
+loudly. The block's `defines:` and `<MODE>-defines:` are the build tools'
+defines (tom_build_base), not the bundler's keys: the bundler reads the block
+without them.
 
 ### Top-level keys
 
