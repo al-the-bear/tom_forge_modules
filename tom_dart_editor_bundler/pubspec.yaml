@@ -4,7 +4,7 @@ description: >-
   helper consumed by the tom_dart_editor embedded code editor. Reads a
   `dart-editor-bundler` block from a consuming app's buildkit.yaml and emits one
   SDK summary plus one grouped package bundle per named scope.
-version: 0.1.0
+version: 0.1.1
 # Internal build tooling consumed by path within the workspace (like
 # tom_specs_clitool); never published to pub.dev.
 publish_to: none

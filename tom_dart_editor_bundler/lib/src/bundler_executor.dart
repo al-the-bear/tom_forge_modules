@@ -9,6 +9,8 @@ library;
 
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
+
 import 'package:tom_build_base/tom_build_base_v2.dart';
 
 import 'bundle_generator.dart';
@@ -30,6 +32,16 @@ class DartEditorBundlerExecutor extends CommandExecutor {
       );
       final bundleFilter = args.extraOptions['bundle'] as String?;
 
+      if (args.dryRun) {
+        final message = _dryRun(loaded.config, loaded.baseDir, bundleFilter);
+        print(message);
+        return ItemResult.success(
+          path: context.path,
+          name: context.name,
+          message: 'dry-run',
+        );
+      }
+
       final result = await BundleGenerator().generate(
         config: loaded.config,
         baseDir: loaded.baseDir,
@@ -49,7 +61,7 @@ class DartEditorBundlerExecutor extends CommandExecutor {
       // The single-command ToolRunner path prints only the folder header and the
       // exit code, so surface the outcome here for an informative CLI.
       final message = _summarize(result, helper);
-      stdout.writeln(message);
+      print(message);
       return ItemResult.success(
         path: context.path,
         name: context.name,
@@ -63,6 +75,22 @@ class DartEditorBundlerExecutor extends CommandExecutor {
         error: e.toString(),
       );
     }
+  }
+
+  /// What a run would write, written nothing: the SDK summary, each bundle
+  /// (or the one [bundleFilter] names) and the scope-init helper.
+  String _dryRun(BundlerConfig config, String baseDir, String? bundleFilter) {
+    String rel(String path) => p.relative(p.join(baseDir, path), from: baseDir);
+    final bundles = [
+      for (final b in config.bundles)
+        if (bundleFilter == null || b.name == bundleFilter) b.name,
+    ];
+    return [
+      '[DRY RUN] would build '
+          '${rel(p.join(config.outDir, config.sdkSummary))}',
+      '  bundles: ${bundles.isEmpty ? '(none match)' : bundles.join(', ')}',
+      '  scope-init helper: ${rel(config.generatedHelper)}',
+    ].join('\n');
   }
 
   String _summarize(BundleGenerationResult result, HelperWriteResult helper) {

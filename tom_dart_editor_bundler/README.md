@@ -108,6 +108,7 @@ dart run ../tom_dart_editor_bundler/bin/dart_editor_bundler.dart \
 | --- | --- | --- |
 | `--config <path>` | `-c` | Path to the `buildkit.yaml` holding the `dart-editor-bundler` block. Defaults to the consuming project's `buildkit.yaml`. All other relative paths resolve against this file's directory. |
 | `--bundle <name>` | `-b` | Build only the named scope. The shared SDK summary is still emitted (every scope needs it). Useful for fast iteration on one scope. |
+| `--dry-run` | `-n` | Name the SDK summary, the bundles and the scope-init helper a run would build; write nothing. |
 | `--verbose` | | Log each step (SDK summary, per-scope bundle, helper write) and a summary of bytes produced. |
 | `--help` | `-h` | Show usage, the config schema, and an example. |
 | `--version` | | Print the tool version. |
