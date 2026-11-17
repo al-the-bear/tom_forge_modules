@@ -577,10 +577,10 @@ packages:
     dependency: transitive
     description:
       name: tom_basics
-      sha256: "643aa9402345c40d4ca7beba645c733b662c37288aa5048f71b4b116b248bec7"
+      sha256: "0a0a8cc6909e23d3a8922b563ce74d67a30c8ad696c5296e928b0a641959b5dc"
       url: "https://pub.dev"
     source: hosted
-    version: "3.3.0"
+    version: "3.3.1"
   tom_dart_editor:
     dependency: "direct main"
     description:
