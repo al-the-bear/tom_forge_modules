@@ -591,7 +591,7 @@ packages:
       path: "../../tom_ai/basics/tom_build_base"
       relative: true
     source: path
-    version: "2.39.3"
+    version: "2.40.0"
   tom_dcli:
     dependency: transitive
     description:
