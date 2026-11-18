@@ -24,7 +24,7 @@ anything below the apps, and nothing depends on them.
 | 2 Editors | `tom_md_editor`, `tom_yaml_editor`, `tom_dart_editor`, `tom_flow_editor` | The editor components, each usable without the shell (`tom_dart_editor/doc/how_to_embed.md`, `tom_yaml_editor/doc/how_to_embed.md`) |
 | 3 Shell | `tom_forge_ui` | The panel shell, `ForgeShellApi`, the component, editor, view, module and application contracts, and the adapters that make the layer-2 editors shell editors |
 | 4 Shell services | `tom_forge_agentic` | The agent and chat UI (composer, prompt queue, trail, change log and review) over `tom_core_agentic`, for any module to use |
-| 5 Modules | `tom_forge_file_editors`, `tom_forge_quests`, `tom_website_editor`, `tom_specs_editor` | Feature modules: each a `ForgeModule` with its editors, views, actions and applications (`tom_specs_editor` is also an app of its own) |
+| 5 Modules | `tom_forge_file_editors`, `tom_forge_pdf_editors`, `tom_forge_quests`, `tom_website_editor`, `tom_specs_editor` | Feature modules: each a `ForgeModule` with its editors, views, actions and applications (`tom_specs_editor` is also an app of its own) |
 | 6 Apps | `tom_forge_app` | Composition: `composeForgeSuite`, and Tom Forge's `main` |
 | Harness | `tom_dart_editor_test`, `tom_flow_editor_test`, `tom_forge_ui_test`, `tom_md_editor_test`, `tom_yaml_editor_test`, `tom_wpe_webview_test` | Companion apps and test beds |
 
@@ -96,7 +96,9 @@ In an app composed by `composeForgeSuite`, the file editors module
 every other module, so it is asked last, and it opens a file over a
 `ForgeFileSession` in the editor of its kind unless another module's editor
 accepts the file, the file is Dart, or the user gave its extension a default
-editor; those go on to steps 2 and 3. **Open With** offers every module's
+editor; those go on to steps 2 and 3. The PDF editors module (`tom_forge_pdf_editors`)
+is registered before the extensions' modules and takes every `.pdf`, which the
+file editors therefore leave alone. **Open With** offers every module's
 choices for a file (`ForgeModule.editorChoicesFor`) and the open editors that
 accept it.
 

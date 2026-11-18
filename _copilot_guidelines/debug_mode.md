@@ -48,6 +48,13 @@ every editor component has such a trail with its switch off.
 Each component owns its own flag. Flags are **independent** — you can enable
 just the YAML editor trail without activating the Dart editor trail.
 
+A built app switches the run-time flags on from its command line:
+`tom_forge_app --trail=pdf <file.pdf>` sets `kForgePdfDebug` and
+`kPdfEditorDebug` (`ForgeLaunch`, `tom_forge_app/lib/src/forge_launch.dart`).
+A release build prints nothing to stdout; read its trail with
+`/usr/bin/log show --predicate 'process == "tom_forge_app"'` (in zsh, `log`
+is a builtin).
+
 ---
 
 ## Pattern (canonical implementation)
