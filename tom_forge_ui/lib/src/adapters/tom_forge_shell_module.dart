@@ -377,12 +377,8 @@ class TomForgeShellModule extends ForgeModule {
       final shortcut = desc.suggestedShortcut;
       if (shortcut == null) continue;
 
-      final shellShortcut = ForgeShortcutKey(
-        key: shortcut.key,
-        primaryModifier: shortcut.usePrimaryModifier,
-        shift: shortcut.shift,
-        alt: shortcut.alt,
-      );
+      // One ForgeShortcutKey for the shell and the editors.
+      final shellShortcut = shortcut;
 
       final actionId = desc.id;
 

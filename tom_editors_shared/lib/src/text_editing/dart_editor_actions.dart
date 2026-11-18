@@ -31,7 +31,7 @@ class DartEditorActions {
   /// Primary shortcut for trigger completion: Ctrl+Space.
   static final ForgeShortcutKey triggerCompletionShortcut = ForgeShortcutKey(
     key: LogicalKeyboardKey.space,
-    usePrimaryModifier: true,
+    primaryModifier: true,
   );
 
   /// Alternative: Alt+Space (common on Linux/Windows).
@@ -43,7 +43,7 @@ class DartEditorActions {
   /// Alternative: Ctrl+I (IntelliJ-style).
   static final ForgeShortcutKey triggerCompletionAltShortcut2 = ForgeShortcutKey(
     key: LogicalKeyboardKey.keyI,
-    usePrimaryModifier: true,
+    primaryModifier: true,
   );
 
   /// All alternative shortcuts for trigger completion.

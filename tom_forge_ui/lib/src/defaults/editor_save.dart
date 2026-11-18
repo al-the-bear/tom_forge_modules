@@ -1,4 +1,4 @@
-import 'package:tom_editors_shared/tom_editors_shared.dart';
+import 'package:tom_editors_shared/text_types.dart';
 
 import '../components/forge_editor.dart';
 

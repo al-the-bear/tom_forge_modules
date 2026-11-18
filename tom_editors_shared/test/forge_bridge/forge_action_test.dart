@@ -31,7 +31,7 @@ void main() {
     test('creates with all fields', () {
       final shortcut = ForgeShortcutKey(
         key: LogicalKeyboardKey.keyT,
-        usePrimaryModifier: true,
+        primaryModifier: true,
       );
       bool executed = false;
 
@@ -79,7 +79,7 @@ void main() {
     test('editing factory with shortcut', () {
       final shortcut = ForgeShortcutKey(
         key: LogicalKeyboardKey.keyE,
-        usePrimaryModifier: true,
+        primaryModifier: true,
       );
 
       final action = ForgeAction.editing(

@@ -16,30 +16,30 @@ void main() {
     group('shortcuts', () {
       test('addKey uses Ctrl+N', () {
         final shortcut = YamlEditorActions.addKeyShortcut;
-        expect(shortcut.usePrimaryModifier, isTrue);
+        expect(shortcut.primaryModifier, isTrue);
         expect(shortcut.key.keyLabel, 'N');
       });
 
       test('removeKey uses Ctrl+Delete', () {
         final shortcut = YamlEditorActions.removeKeyShortcut;
-        expect(shortcut.usePrimaryModifier, isTrue);
+        expect(shortcut.primaryModifier, isTrue);
       });
 
       test('toggleTextMode uses Ctrl+T', () {
         final shortcut = YamlEditorActions.toggleTextModeShortcut;
-        expect(shortcut.usePrimaryModifier, isTrue);
+        expect(shortcut.primaryModifier, isTrue);
         expect(shortcut.key.keyLabel, 'T');
       });
 
       test('save uses Ctrl+S', () {
         final shortcut = YamlEditorActions.saveShortcut;
-        expect(shortcut.usePrimaryModifier, isTrue);
+        expect(shortcut.primaryModifier, isTrue);
         expect(shortcut.key.keyLabel, 'S');
       });
 
       test('search uses Ctrl+F', () {
         final shortcut = YamlEditorActions.searchShortcut;
-        expect(shortcut.usePrimaryModifier, isTrue);
+        expect(shortcut.primaryModifier, isTrue);
         expect(shortcut.key.keyLabel, 'F');
       });
     });

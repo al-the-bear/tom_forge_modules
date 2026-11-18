@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:tom_editors_shared/tom_editors_shared.dart'
+import 'package:tom_editors_shared/text_types.dart'
     show ForgeTextSettings;
 import 'package:tom_forge_core/tom_forge_core.dart'
   show AutoSaveConfig, DefaultConfigManager, ForgeConfig, ForgeSearchConfig;

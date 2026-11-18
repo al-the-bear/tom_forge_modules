@@ -29,38 +29,38 @@ void main() {
       test('cut shortcut uses Cmd/Ctrl+X', () {
         final shortcut = StandardEditingActions.cutShortcut;
         expect(shortcut.key, LogicalKeyboardKey.keyX);
-        expect(shortcut.usePrimaryModifier, true);
+        expect(shortcut.primaryModifier, true);
       });
 
       test('copy shortcut uses Cmd/Ctrl+C', () {
         final shortcut = StandardEditingActions.copyShortcut;
         expect(shortcut.key, LogicalKeyboardKey.keyC);
-        expect(shortcut.usePrimaryModifier, true);
+        expect(shortcut.primaryModifier, true);
       });
 
       test('paste shortcut uses Cmd/Ctrl+V', () {
         final shortcut = StandardEditingActions.pasteShortcut;
         expect(shortcut.key, LogicalKeyboardKey.keyV);
-        expect(shortcut.usePrimaryModifier, true);
+        expect(shortcut.primaryModifier, true);
       });
 
       test('selectAll shortcut uses Cmd/Ctrl+A', () {
         final shortcut = StandardEditingActions.selectAllShortcut;
         expect(shortcut.key, LogicalKeyboardKey.keyA);
-        expect(shortcut.usePrimaryModifier, true);
+        expect(shortcut.primaryModifier, true);
       });
 
       test('undo shortcut uses Cmd/Ctrl+Z, the platform convention', () {
         final shortcut = StandardEditingActions.undoShortcut;
         expect(shortcut.key, LogicalKeyboardKey.keyZ);
-        expect(shortcut.usePrimaryModifier, true);
+        expect(shortcut.primaryModifier, true);
         expect(shortcut.shift, false);
       });
 
       test('redo shortcut uses Shift+Cmd/Ctrl+Z', () {
         final shortcut = StandardEditingActions.redoShortcut;
         expect(shortcut.key, LogicalKeyboardKey.keyZ);
-        expect(shortcut.usePrimaryModifier, true);
+        expect(shortcut.primaryModifier, true);
         expect(shortcut.shift, true);
       });
 
@@ -71,20 +71,20 @@ void main() {
         } else {
           final redo = alternates[StandardEditingActions.redoActionId]!;
           expect(redo.single.key, LogicalKeyboardKey.keyY);
-          expect(redo.single.usePrimaryModifier, true);
+          expect(redo.single.primaryModifier, true);
         }
       });
 
       test('deleteLine shortcut uses Shift+Cmd/Ctrl+K, clear of Ctrl+Y', () {
         final shortcut = StandardEditingActions.deleteLineShortcut;
         expect(shortcut.key, LogicalKeyboardKey.keyK);
-        expect(shortcut.usePrimaryModifier, true);
+        expect(shortcut.primaryModifier, true);
         expect(shortcut.shift, true);
       });
 
       test('no two standard actions share a key', () {
         final keys = StandardEditingActions.defaultShortcuts.values
-            .map((k) => '${k.key.keyId}/${k.usePrimaryModifier}/${k.shift}/${k.alt}')
+            .map((k) => '${k.key.keyId}/${k.primaryModifier}/${k.shift}/${k.alt}')
             .toList();
         expect(keys.toSet(), hasLength(keys.length));
       });
@@ -92,27 +92,27 @@ void main() {
       test('duplicateLine shortcut uses Cmd/Ctrl+D', () {
         final shortcut = StandardEditingActions.duplicateLineShortcut;
         expect(shortcut.key, LogicalKeyboardKey.keyD);
-        expect(shortcut.usePrimaryModifier, true);
+        expect(shortcut.primaryModifier, true);
       });
 
       test('moveLineUp shortcut uses Alt+ArrowUp', () {
         final shortcut = StandardEditingActions.moveLineUpShortcut;
         expect(shortcut.key, LogicalKeyboardKey.arrowUp);
         expect(shortcut.alt, true);
-        expect(shortcut.usePrimaryModifier, false);
+        expect(shortcut.primaryModifier, false);
       });
 
       test('moveLineDown shortcut uses Alt+ArrowDown', () {
         final shortcut = StandardEditingActions.moveLineDownShortcut;
         expect(shortcut.key, LogicalKeyboardKey.arrowDown);
         expect(shortcut.alt, true);
-        expect(shortcut.usePrimaryModifier, false);
+        expect(shortcut.primaryModifier, false);
       });
 
       test('toggleComment shortcut uses Cmd/Ctrl+/', () {
         final shortcut = StandardEditingActions.toggleCommentShortcut;
         expect(shortcut.key, LogicalKeyboardKey.slash);
-        expect(shortcut.usePrimaryModifier, true);
+        expect(shortcut.primaryModifier, true);
       });
     });
 

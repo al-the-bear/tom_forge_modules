@@ -22,7 +22,7 @@ import '../services/forge_undo_manager.dart';
 import '../services/forge_virtual_document_manager.dart';
 import '../services/forge_workspace_state_manager.dart';
 import '../actions/forge_action.dart';
-import 'package:tom_editors_shared/tom_editors_shared.dart'
+import 'package:tom_editors_shared/text_types.dart'
     show ForgeTextSettings;
 import '../model/forge_application.dart';
 import 'forge_context_menu_controller.dart';

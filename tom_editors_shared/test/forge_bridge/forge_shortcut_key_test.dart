@@ -8,11 +8,11 @@ void main() {
     test('creates with key and modifiers', () {
       final shortcut = ForgeShortcutKey(
         key: LogicalKeyboardKey.keyS,
-        usePrimaryModifier: true,
+        primaryModifier: true,
       );
 
       expect(shortcut.key, LogicalKeyboardKey.keyS);
-      expect(shortcut.usePrimaryModifier, true);
+      expect(shortcut.primaryModifier, true);
       expect(shortcut.shift, false);
       expect(shortcut.alt, false);
     });
@@ -20,7 +20,7 @@ void main() {
     test('creates with shift modifier', () {
       final shortcut = ForgeShortcutKey(
         key: LogicalKeyboardKey.keyZ,
-        usePrimaryModifier: true,
+        primaryModifier: true,
         shift: true,
       );
 
@@ -30,7 +30,7 @@ void main() {
     test('toActivator returns SingleActivator', () {
       final shortcut = ForgeShortcutKey(
         key: LogicalKeyboardKey.keyC,
-        usePrimaryModifier: true,
+        primaryModifier: true,
       );
 
       final activator = shortcut.toActivator();
@@ -41,7 +41,7 @@ void main() {
     test('toDisplayString formats correctly on macOS', () {
       final shortcut = ForgeShortcutKey(
         key: LogicalKeyboardKey.keyS,
-        usePrimaryModifier: true,
+        primaryModifier: true,
       );
 
       // Note: defaultTargetPlatform may vary in tests
@@ -53,7 +53,7 @@ void main() {
     test('toDisplayString includes shift when present', () {
       final shortcut = ForgeShortcutKey(
         key: LogicalKeyboardKey.keyZ,
-        usePrimaryModifier: true,
+        primaryModifier: true,
         shift: true,
       );
 
@@ -64,15 +64,15 @@ void main() {
     test('equality based on key and modifiers', () {
       final key1 = ForgeShortcutKey(
         key: LogicalKeyboardKey.keyA,
-        usePrimaryModifier: true,
+        primaryModifier: true,
       );
       final key2 = ForgeShortcutKey(
         key: LogicalKeyboardKey.keyA,
-        usePrimaryModifier: true,
+        primaryModifier: true,
       );
       final key3 = ForgeShortcutKey(
         key: LogicalKeyboardKey.keyB,
-        usePrimaryModifier: true,
+        primaryModifier: true,
       );
 
       expect(key1, equals(key2));
@@ -82,11 +82,11 @@ void main() {
     test('hashCode consistent with equality', () {
       final key1 = ForgeShortcutKey(
         key: LogicalKeyboardKey.keyA,
-        usePrimaryModifier: true,
+        primaryModifier: true,
       );
       final key2 = ForgeShortcutKey(
         key: LogicalKeyboardKey.keyA,
-        usePrimaryModifier: true,
+        primaryModifier: true,
       );
 
       expect(key1.hashCode, equals(key2.hashCode));

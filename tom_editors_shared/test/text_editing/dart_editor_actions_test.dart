@@ -27,20 +27,20 @@ void main() {
       test('triggerCompletion uses Ctrl+Space', () {
         final shortcut = DartEditorActions.triggerCompletionShortcut;
         expect(shortcut.key, LogicalKeyboardKey.space);
-        expect(shortcut.usePrimaryModifier, true);
+        expect(shortcut.primaryModifier, true);
       });
 
       test('triggerCompletion alt1 uses Alt+Space', () {
         final shortcut = DartEditorActions.triggerCompletionAltShortcut1;
         expect(shortcut.key, LogicalKeyboardKey.space);
         expect(shortcut.alt, true);
-        expect(shortcut.usePrimaryModifier, false);
+        expect(shortcut.primaryModifier, false);
       });
 
       test('triggerCompletion alt2 uses Ctrl+I', () {
         final shortcut = DartEditorActions.triggerCompletionAltShortcut2;
         expect(shortcut.key, LogicalKeyboardKey.keyI);
-        expect(shortcut.usePrimaryModifier, true);
+        expect(shortcut.primaryModifier, true);
       });
 
       test('triggerCompletionAltShortcuts contains both alternatives', () {

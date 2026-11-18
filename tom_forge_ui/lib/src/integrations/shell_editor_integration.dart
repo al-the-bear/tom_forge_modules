@@ -4,7 +4,6 @@ import 'package:flutter/widgets.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart' as shared;
 
 import '../actions/forge_action.dart' as shell;
-import '../actions/forge_shortcut_binding.dart' as shell;
 import '../shell/forge_shell_api.dart';
 
 /// Debug toggle for shell integration tracing.
@@ -51,9 +50,9 @@ class ShellEditorIntegration extends shared.ForgeEditorIntegration
     required ForgeShellApi shellApi,
     required String editorId,
     required String editorTypeId,
-  })  : _shellApi = shellApi,
-        _editorId = editorId,
-        _editorTypeId = editorTypeId;
+  }) : _shellApi = shellApi,
+       _editorId = editorId,
+       _editorTypeId = editorTypeId;
 
   /// The shell's binding table changes — the user rebound a key — so the
   /// editor rebuilds its key map.
@@ -103,13 +102,9 @@ class ShellEditorIntegration extends shared.ForgeEditorIntegration
   /// Registers a complete Forge action and bridges it into shell registries.
   void registerShellAction(shared.ForgeAction action) {
     _knownActions[action.id] = action;
-    registerAction(
-      action.id,
-      () {
-        action.execute({});
-      },
-      isEnabled: action.isEnabled,
-    );
+    registerAction(action.id, () {
+      action.execute({});
+    }, isEnabled: action.isEnabled);
     _registerWithShell(action);
   }
 
@@ -185,7 +180,7 @@ class ShellEditorIntegration extends shared.ForgeEditorIntegration
       // the editor's Shortcuts widget would intercept the first key press
       // and execute the action immediately, bypassing the chord popup.
       if (binding.isChord) return null;
-      return _toSharedShortcut(binding.key);
+      return binding.key;
     }
     return _knownActions[actionId]?.defaultShortcut;
   }
@@ -276,7 +271,7 @@ class ShellEditorIntegration extends shared.ForgeEditorIntegration
     // stays bound however many editors register the action afterwards.
     final shortcut = action.defaultShortcut;
     if (shortcut != null && _shellApi.shortcuts.getBinding(actionId) == null) {
-      _shellApi.shortcuts.rebind(wrappedAction, _toShellShortcut(shortcut));
+      _shellApi.shortcuts.rebind(wrappedAction, shortcut);
     }
   }
 
@@ -324,9 +319,7 @@ class ShellEditorIntegration extends shared.ForgeEditorIntegration
       execute: action.execute,
       isEnabled: action.isEnabled,
       isVisible: action.isVisible,
-      defaultShortcut: action.defaultShortcut == null
-          ? null
-          : _toShellShortcut(action.defaultShortcut!),
+      defaultShortcut: action.defaultShortcut,
       showInContextMenu: action.showInContextMenu,
       undo: action.undo,
     );
@@ -343,29 +336,9 @@ class ShellEditorIntegration extends shared.ForgeEditorIntegration
       execute: action.execute,
       isEnabled: action.isEnabled,
       isVisible: action.isVisible,
-      defaultShortcut: action.defaultShortcut == null
-          ? null
-          : _toSharedShortcut(action.defaultShortcut!),
+      defaultShortcut: action.defaultShortcut,
       showInContextMenu: action.showInContextMenu,
       undo: action.undo,
-    );
-  }
-
-  shell.ForgeShortcutKey _toShellShortcut(shared.ForgeShortcutKey key) {
-    return shell.ForgeShortcutKey(
-      key: key.key,
-      primaryModifier: key.usePrimaryModifier,
-      shift: key.shift,
-      alt: key.alt,
-    );
-  }
-
-  shared.ForgeShortcutKey _toSharedShortcut(shell.ForgeShortcutKey key) {
-    return shared.ForgeShortcutKey(
-      key: key.key,
-      usePrimaryModifier: key.primaryModifier,
-      shift: key.shift,
-      alt: key.alt,
     );
   }
 

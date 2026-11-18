@@ -39,58 +39,58 @@ void main() {
       test('toggleBold uses primary+B', () {
         final shortcut = MdEditorActions.toggleBoldShortcut;
         expect(shortcut.key, LogicalKeyboardKey.keyB);
-        expect(shortcut.usePrimaryModifier, true);
+        expect(shortcut.primaryModifier, true);
       });
 
       test('toggleItalic uses primary+I', () {
         final shortcut = MdEditorActions.toggleItalicShortcut;
         expect(shortcut.key, LogicalKeyboardKey.keyI);
-        expect(shortcut.usePrimaryModifier, true);
+        expect(shortcut.primaryModifier, true);
       });
 
       test('toggleCode uses primary+E', () {
         final shortcut = MdEditorActions.toggleCodeShortcut;
         expect(shortcut.key, LogicalKeyboardKey.keyE);
-        expect(shortcut.usePrimaryModifier, true);
+        expect(shortcut.primaryModifier, true);
       });
 
       test('insertLink uses primary+K', () {
         final shortcut = MdEditorActions.insertLinkShortcut;
         expect(shortcut.key, LogicalKeyboardKey.keyK);
-        expect(shortcut.usePrimaryModifier, true);
+        expect(shortcut.primaryModifier, true);
       });
 
       test('insertTable uses Alt+T', () {
         final shortcut = MdEditorActions.insertTableShortcut;
         expect(shortcut.key, LogicalKeyboardKey.keyT);
         expect(shortcut.alt, true);
-        expect(shortcut.usePrimaryModifier, false);
+        expect(shortcut.primaryModifier, false);
       });
 
       test('insertHeading uses Alt+H', () {
         final shortcut = MdEditorActions.insertHeadingShortcut;
         expect(shortcut.key, LogicalKeyboardKey.keyH);
         expect(shortcut.alt, true);
-        expect(shortcut.usePrimaryModifier, false);
+        expect(shortcut.primaryModifier, false);
       });
 
       test('toggleList uses Alt+L', () {
         final shortcut = MdEditorActions.toggleListShortcut;
         expect(shortcut.key, LogicalKeyboardKey.keyL);
         expect(shortcut.alt, true);
-        expect(shortcut.usePrimaryModifier, false);
+        expect(shortcut.primaryModifier, false);
       });
 
       test('save uses primary+S', () {
         final shortcut = MdEditorActions.saveShortcut;
         expect(shortcut.key, LogicalKeyboardKey.keyS);
-        expect(shortcut.usePrimaryModifier, true);
+        expect(shortcut.primaryModifier, true);
       });
 
       test('search uses primary+F', () {
         final shortcut = MdEditorActions.searchShortcut;
         expect(shortcut.key, LogicalKeyboardKey.keyF);
-        expect(shortcut.usePrimaryModifier, true);
+        expect(shortcut.primaryModifier, true);
       });
     });
 

@@ -30,7 +30,7 @@ void main() {
         label: 'Cut',
         shortcut: const shared.ForgeShortcutKey(
           key: LogicalKeyboardKey.keyX,
-          usePrimaryModifier: true,
+          primaryModifier: true,
         ),
         execute: () => true,
         isEnabled: () => true,
@@ -55,7 +55,7 @@ void main() {
         label: 'Save',
         shortcut: const shared.ForgeShortcutKey(
           key: LogicalKeyboardKey.keyS,
-          usePrimaryModifier: true,
+          primaryModifier: true,
         ),
         execute: () => true,
         isEnabled: () => true,
@@ -76,7 +76,7 @@ void main() {
       final resolved = integration.getShortcutForAction(action.id);
       expect(resolved, isNotNull);
       expect(resolved!.key, equals(LogicalKeyboardKey.keyS));
-      expect(resolved.usePrimaryModifier, isTrue);
+      expect(resolved.primaryModifier, isTrue);
       expect(resolved.shift, isTrue);
     });
 

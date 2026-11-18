@@ -41,34 +41,34 @@ class StandardEditingActions {
   // Standard keyboard shortcuts (using primary modifier - Cmd on Mac, Ctrl elsewhere)
   static final ForgeShortcutKey cutShortcut = ForgeShortcutKey(
     key: LogicalKeyboardKey.keyX,
-    usePrimaryModifier: true,
+    primaryModifier: true,
   );
 
   static final ForgeShortcutKey copyShortcut = ForgeShortcutKey(
     key: LogicalKeyboardKey.keyC,
-    usePrimaryModifier: true,
+    primaryModifier: true,
   );
 
   static final ForgeShortcutKey pasteShortcut = ForgeShortcutKey(
     key: LogicalKeyboardKey.keyV,
-    usePrimaryModifier: true,
+    primaryModifier: true,
   );
 
   static final ForgeShortcutKey selectAllShortcut = ForgeShortcutKey(
     key: LogicalKeyboardKey.keyA,
-    usePrimaryModifier: true,
+    primaryModifier: true,
   );
 
   // Undo: Cmd+Z / Ctrl+Z, the platform convention (concept §11.3).
   static final ForgeShortcutKey undoShortcut = ForgeShortcutKey(
     key: LogicalKeyboardKey.keyZ,
-    usePrimaryModifier: true,
+    primaryModifier: true,
   );
 
   // Redo: Shift+Cmd+Z / Shift+Ctrl+Z (concept §11.3).
   static final ForgeShortcutKey redoShortcut = ForgeShortcutKey(
     key: LogicalKeyboardKey.keyZ,
-    usePrimaryModifier: true,
+    primaryModifier: true,
     shift: true,
   );
 
@@ -76,7 +76,7 @@ class StandardEditingActions {
   // VS Code uses — Ctrl+Y is Redo on Windows and Linux.
   static final ForgeShortcutKey deleteLineShortcut = ForgeShortcutKey(
     key: LogicalKeyboardKey.keyK,
-    usePrimaryModifier: true,
+    primaryModifier: true,
     shift: true,
   );
 
@@ -90,7 +90,7 @@ class StandardEditingActions {
           redoActionId: [
             ForgeShortcutKey(
               key: LogicalKeyboardKey.keyY,
-              usePrimaryModifier: true,
+              primaryModifier: true,
             ),
           ],
         };
@@ -98,7 +98,7 @@ class StandardEditingActions {
   // Duplicate line: Cmd+D / Ctrl+D.
   static final ForgeShortcutKey duplicateLineShortcut = ForgeShortcutKey(
     key: LogicalKeyboardKey.keyD,
-    usePrimaryModifier: true,
+    primaryModifier: true,
   );
 
   // Move line up: Alt+ArrowUp.
@@ -116,7 +116,7 @@ class StandardEditingActions {
   // Toggle comment: Cmd+/ / Ctrl+/.
   static final ForgeShortcutKey toggleCommentShortcut = ForgeShortcutKey(
     key: LogicalKeyboardKey.slash,
-    usePrimaryModifier: true,
+    primaryModifier: true,
   );
 
   /// Creates a Cut action.

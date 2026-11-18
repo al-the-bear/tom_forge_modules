@@ -1,13 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
-import 'package:tom_editors_shared/tom_editors_shared.dart'
+import 'package:tom_editors_shared/text_types.dart'
     show ForgeTextSettings, StandardEditingActions;
 
 import '../model/forge_application.dart';
 import '../model/forge_config.dart';
 import '../actions/forge_action.dart';
-import '../actions/forge_shortcut_binding.dart';
 import '../components/forge_editor.dart';
 import '../services/forge_action_registry.dart';
 import '../services/forge_clipboard.dart';
@@ -213,14 +212,7 @@ class DefaultShellApi implements ForgeShellApi {
         },
         isEnabled: () => isActionEnabled(id),
         isVisible: () => true,
-        defaultShortcut: key == null
-            ? null
-            : ForgeShortcutKey(
-                key: key.key,
-                primaryModifier: key.usePrimaryModifier,
-                shift: key.shift,
-                alt: key.alt,
-              ),
+        defaultShortcut: key,
       );
       if (actionRegistry.getAction(id) == null) {
         actionRegistry.registerAction(action);
@@ -762,8 +754,7 @@ class DefaultShellApi implements ForgeShellApi {
         }
         // Disposing the shell disposes the workspace state: a change that
         // came in during the last write has nowhere to go any more.
-      } while (_applicationsChangedDuringWrite &&
-          workspaceState.isInitialized);
+      } while (_applicationsChangedDuringWrite && workspaceState.isInitialized);
       _applicationsWrite = null;
     }();
   }

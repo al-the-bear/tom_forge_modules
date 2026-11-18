@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
-import 'package:tom_editors_shared/tom_editors_shared.dart'
+import 'package:tom_editors_shared/text_types.dart'
     show ForgeTextDefaults, ForgeTextSettings;
 
 import '../actions/forge_shortcut_binding.dart';

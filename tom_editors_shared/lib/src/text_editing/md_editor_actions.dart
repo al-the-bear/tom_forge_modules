@@ -48,25 +48,25 @@ class MdEditorActions {
   /// Bold: Cmd+B / Ctrl+B.
   static final ForgeShortcutKey toggleBoldShortcut = ForgeShortcutKey(
     key: LogicalKeyboardKey.keyB,
-    usePrimaryModifier: true,
+    primaryModifier: true,
   );
 
   /// Italic: Cmd+I / Ctrl+I.
   static final ForgeShortcutKey toggleItalicShortcut = ForgeShortcutKey(
     key: LogicalKeyboardKey.keyI,
-    usePrimaryModifier: true,
+    primaryModifier: true,
   );
 
   /// Inline code: Cmd+E / Ctrl+E.
   static final ForgeShortcutKey toggleCodeShortcut = ForgeShortcutKey(
     key: LogicalKeyboardKey.keyE,
-    usePrimaryModifier: true,
+    primaryModifier: true,
   );
 
   /// Insert link: Cmd+K / Ctrl+K.
   static final ForgeShortcutKey insertLinkShortcut = ForgeShortcutKey(
     key: LogicalKeyboardKey.keyK,
-    usePrimaryModifier: true,
+    primaryModifier: true,
   );
 
   /// Insert table: Alt+T.
@@ -90,13 +90,13 @@ class MdEditorActions {
   /// Save: Cmd+S / Ctrl+S.
   static final ForgeShortcutKey saveShortcut = ForgeShortcutKey(
     key: LogicalKeyboardKey.keyS,
-    usePrimaryModifier: true,
+    primaryModifier: true,
   );
 
   /// Search: Cmd+F / Ctrl+F.
   static final ForgeShortcutKey searchShortcut = ForgeShortcutKey(
     key: LogicalKeyboardKey.keyF,
-    usePrimaryModifier: true,
+    primaryModifier: true,
   );
 
   // ── Factory methods ────────────────────────────────────────────────────

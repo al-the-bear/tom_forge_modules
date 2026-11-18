@@ -42,31 +42,31 @@ class YamlEditorActions {
   /// Add key: Cmd+N / Ctrl+N.
   static final ForgeShortcutKey addKeyShortcut = ForgeShortcutKey(
     key: LogicalKeyboardKey.keyN,
-    usePrimaryModifier: true,
+    primaryModifier: true,
   );
 
   /// Remove key: Cmd+Delete / Ctrl+Delete.
   static final ForgeShortcutKey removeKeyShortcut = ForgeShortcutKey(
     key: LogicalKeyboardKey.delete,
-    usePrimaryModifier: true,
+    primaryModifier: true,
   );
 
   /// Toggle text mode: Cmd+T / Ctrl+T.
   static final ForgeShortcutKey toggleTextModeShortcut = ForgeShortcutKey(
     key: LogicalKeyboardKey.keyT,
-    usePrimaryModifier: true,
+    primaryModifier: true,
   );
 
   /// Save: Cmd+S / Ctrl+S.
   static final ForgeShortcutKey saveShortcut = ForgeShortcutKey(
     key: LogicalKeyboardKey.keyS,
-    usePrimaryModifier: true,
+    primaryModifier: true,
   );
 
   /// Search: Cmd+F / Ctrl+F.
   static final ForgeShortcutKey searchShortcut = ForgeShortcutKey(
     key: LogicalKeyboardKey.keyF,
-    usePrimaryModifier: true,
+    primaryModifier: true,
   );
 
   // ── Factory methods ────────────────────────────────────────────────────

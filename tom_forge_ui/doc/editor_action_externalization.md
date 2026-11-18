@@ -291,7 +291,7 @@ The `ShellEditorIntegration` bridge simplifies significantly — it no longer ne
 - `_editorInternalActions` exclusion list
 - `_resolveAction()` fallback pool with hardcoded action lists
 - `_registerWithShell()` wrapping logic
-- `_toShellAction()` / `_toShellShortcut()` conversion methods
+- the `_toShellAction()` conversion method
 
 Instead, it reads descriptors from the editor and forwards `executeAction()` calls from the shell.
 
@@ -432,9 +432,8 @@ Currently a minimal placeholder. When implemented, it follows the same pattern: 
 1. Maintains `_editorInternalActions` exclusion set (6 hardcoded action IDs)
 2. Has `_resolveAction()` with a hardcoded pool of **all possible actions across all editors** (22 actions from Dart + MD + YAML + Standard)
 3. Wraps each action in a shell-compatible `ForgeAction` via `_toShellAction()`
-4. Converts shortcut keys between shared and shell formats via `_toShellShortcut()`
-5. Decides per-action whether to register with shell or handle internally
-6. Returns `null` from `getShortcutForAction()` for chord bindings to prevent editor interception
+4. Decides per-action whether to register with shell or handle internally
+5. Returns `null` from `getShortcutForAction()` for chord bindings to prevent editor interception
 
 ### 4.2 Proposed Simplification
 
@@ -479,7 +478,7 @@ class ShellEditorIntegration implements ForgeEditorIntegration {
     // Always return the shell's effective binding — no local shortcuts
     final binding = _shellApi.shortcuts.getBinding(actionId);
     if (binding == null || binding.isChord) return null;
-    return _toSharedShortcut(binding.key);
+    return binding.key;
   }
 
   // ... text context, focus, text manipulation methods unchanged

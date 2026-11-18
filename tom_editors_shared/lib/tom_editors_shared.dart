@@ -49,24 +49,16 @@ export 'src/search/search_box.dart';
 export 'src/debug/editor_logger.dart';
 
 // Forge Bridge
-export 'src/forge_bridge/forge_shortcut_key.dart';
-export 'src/forge_bridge/forge_action.dart';
-export 'src/forge_bridge/editor_action_descriptor.dart';
-export 'src/forge_bridge/editor_action_provider.dart';
-export 'src/forge_bridge/editor_capabilities.dart';
-export 'src/forge_bridge/editor_state_snapshot.dart';
+// The webview-free text and editor-contract types (text_types.dart).
+export 'text_types.dart';
 
 // Text Editing (Forge Integration)
-export 'src/text_editing/forge_text_settings.dart';
-export 'src/text_editing/forge_text_context.dart';
 export 'src/text_editing/forge_editor_integration.dart';
 export 'src/text_editing/text_undo_entry.dart';
 export 'src/text_editing/history/forge_caret_at_change.dart';
 export 'src/text_editing/history/forge_editor_owns_undo.dart';
-export 'src/text_editing/history/forge_saved_marker.dart';
 export 'src/text_editing/history/forge_text_history.dart';
 export 'src/text_editing/history/forge_undo_depth.dart';
-export 'src/text_editing/standard_editing_actions.dart';
 export 'src/text_editing/editor_shortcut_map.dart';
 export 'src/text_editing/forge_text_field.dart';
 export 'src/text_editing/integrations/base_standalone_integration.dart';

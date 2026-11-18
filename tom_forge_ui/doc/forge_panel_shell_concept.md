@@ -1872,7 +1872,7 @@ abstract class ForgeShortcutManager {
 
 #### ForgeShortcutBinding and ForgeShortcutKey
 
-Shortcut bindings connect actions to key combinations. Used throughout the module system (§8.2), component contracts (§4.3), and the menu system (§7.2):
+Shortcut bindings connect actions to key combinations. Used throughout the module system (§8.2), component contracts (§4.3), and the menu system (§7.2). `ForgeShortcutKey` is declared once, in `tom_editors_shared`'s webview-free `text_types.dart`, and re-exported by `tom_forge_ui`, so the shell and the editors use the same type (it also has `control`, the Control key itself, and `fromPressed`):
 
 ```dart
 class ForgeShortcutBinding {

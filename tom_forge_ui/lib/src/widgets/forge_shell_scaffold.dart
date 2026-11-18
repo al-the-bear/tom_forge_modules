@@ -9,7 +9,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:file_selector/file_selector.dart'
     show XTypeGroup, getSaveLocation;
 import 'package:tom_forge_core/tom_forge_core.dart';
-import 'package:tom_editors_shared/tom_editors_shared.dart'
+import 'package:tom_editors_shared/text_types.dart'
     show StandardEditingActions;
 import 'package:tom_file_system/tom_file_system.dart';
 
@@ -2403,10 +2403,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   String? _alternateActionFor(ForgeShortcutKey key) {
     for (final entry in StandardEditingActions.alternateShortcuts.entries) {
       for (final alternate in entry.value) {
-        if (alternate.key == key.key &&
-            alternate.usePrimaryModifier == key.primaryModifier &&
-            alternate.shift == key.shift &&
-            alternate.alt == key.alt) {
+        if (alternate == key) {
           return entry.key;
         }
       }
