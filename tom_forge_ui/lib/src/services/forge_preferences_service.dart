@@ -52,6 +52,10 @@ class ForgePreferencesService extends ChangeNotifier {
   static const _keyReduceMotion = 'forge.appearance.reduceMotion';
   static const _keyActionBarActions = 'forge.actionBar.actions';
 
+  /// The path setting of an external tool: `forge.tools.<toolId>.path`.
+  static String externalToolPathKey(String toolId) =>
+      'forge.tools.$toolId.path';
+
   SharedPreferences? _prefs;
   ForgeStartupPreferences _startupPreferences = ForgeStartupPreferences();
   int _maxRecentWorkspaces = 10;
@@ -64,8 +68,7 @@ class ForgePreferencesService extends ChangeNotifier {
   final Map<String, String> _fileTypeDefaultEditors = <String, String>{};
   final Map<String, ForgeShortcutKey> _shortcutOverrides =
       <String, ForgeShortcutKey>{};
-  final Map<String, ForgeChordKey> _chordOverrides =
-      <String, ForgeChordKey>{};
+  final Map<String, ForgeChordKey> _chordOverrides = <String, ForgeChordKey>{};
   final Set<String> _deletedBindings = <String>{};
   List<String> _layoutOpenEditors = <String>[];
   ThemeMode _themeMode = ThemeMode.dark;
@@ -87,8 +90,10 @@ class ForgePreferencesService extends ChangeNotifier {
 
   /// Action bar per editor type: editorTypeId → list of action ids.
   /// An empty list means no custom configuration (use defaults).
-  final Map<String, List<String>> _actionBarActions =
-      <String, List<String>>{};
+  final Map<String, List<String>> _actionBarActions = <String, List<String>>{};
+
+  /// External tools' paths: tool id → path (absent: search).
+  final Map<String, String> _externalToolPaths = <String, String>{};
 
   bool _isLoaded = false;
 
@@ -107,6 +112,32 @@ class ForgePreferencesService extends ChangeNotifier {
     if (debugEnabled) {
       debugPrint('[ForgePreferencesService] $message');
     }
+  }
+
+  /// The path the user set for the external tool [toolId]
+  /// (`forge.tools.<toolId>.path`), or `null` when unset: the tool's
+  /// detection searches then.
+  String? externalToolPath(String toolId) => _externalToolPaths[toolId];
+
+  /// Sets (or with `null` / empty, clears) the path of the external tool
+  /// [toolId] and stores it.
+  Future<void> setExternalToolPath(String toolId, String? path) async {
+    final value = path?.trim() ?? '';
+    final old = _externalToolPaths[toolId];
+    if (value.isEmpty) {
+      _externalToolPaths.remove(toolId);
+    } else {
+      _externalToolPaths[toolId] = value;
+    }
+    if (old != _externalToolPaths[toolId]) notifyListeners();
+    final prefs = _prefs ?? await SharedPreferences.getInstance();
+    _prefs ??= prefs;
+    if (value.isEmpty) {
+      await prefs.remove(externalToolPathKey(toolId));
+    } else {
+      await prefs.setString(externalToolPathKey(toolId), value);
+    }
+    _log('external tool $toolId path ${value.isEmpty ? 'cleared' : 'set'}');
   }
 
   /// The currently loaded startup preferences.
@@ -138,12 +169,15 @@ class ForgePreferencesService extends ChangeNotifier {
   /// Reads editor-specific configuration map for the given editor type.
   Map<String, dynamic> getEditorSpecificConfig(String editorTypeId) {
     return Map<String, dynamic>.from(
-        _editorSpecificConfig[editorTypeId] ?? <String, dynamic>{});
+      _editorSpecificConfig[editorTypeId] ?? <String, dynamic>{},
+    );
   }
 
   /// Stores editor-specific configuration map for an editor type.
   void setEditorSpecificConfig(
-      String editorTypeId, Map<String, dynamic> config) {
+    String editorTypeId,
+    Map<String, dynamic> config,
+  ) {
     _editorSpecificConfig[editorTypeId] = Map<String, dynamic>.from(config);
     _log('updated editor specific config for $editorTypeId');
     notifyListeners();
@@ -484,7 +518,8 @@ class ForgePreferencesService extends ChangeNotifier {
   /// Returns an empty list if no custom configuration exists.
   List<String> getActionBarActions(String editorTypeId) {
     return List<String>.unmodifiable(
-        _actionBarActions[editorTypeId] ?? <String>[]);
+      _actionBarActions[editorTypeId] ?? <String>[],
+    );
   }
 
   /// Sets the action bar actions for a specific editor type.
@@ -505,9 +540,12 @@ class ForgePreferencesService extends ChangeNotifier {
     try {
       final decoded = jsonDecode(jsonStr);
       if (decoded is Map) {
-        return decoded.map((k, v) => MapEntry(
+        return decoded.map(
+          (k, v) => MapEntry(
             k.toString(),
-            v is Map ? Map<String, dynamic>.from(v) : <String, dynamic>{}));
+            v is Map ? Map<String, dynamic>.from(v) : <String, dynamic>{},
+          ),
+        );
       }
     } catch (_) {}
     return <String, Map<String, dynamic>>{};
@@ -533,6 +571,16 @@ class ForgePreferencesService extends ChangeNotifier {
       );
 
       _maxRecentWorkspaces = _prefs!.getInt(_keyMaxRecentWorkspaces) ?? 10;
+      _externalToolPaths.clear();
+      for (final key in _prefs!.getKeys()) {
+        final match = RegExp(
+          r'^forge\.tools\.([a-z0-9_]+)\.path$',
+        ).firstMatch(key);
+        final value = match == null ? null : _prefs!.getString(key);
+        if (value != null && value.isNotEmpty) {
+          _externalToolPaths[match!.group(1)!] = value;
+        }
+      }
       _centralConfigDirectory = _prefs!.getString(_keyConfigDirectory);
       _editorTextSettings
         ..clear()
@@ -566,8 +614,7 @@ class ForgePreferencesService extends ChangeNotifier {
           _prefs!.getInt(_keyTerminalScrollbackLines) ?? 10000;
       _terminalFontFamily =
           _prefs!.getString(_keyTerminalFontFamily) ?? 'monospace';
-      _terminalFontSize =
-          (_prefs!.getDouble(_keyTerminalFontSize)) ?? 14.0;
+      _terminalFontSize = (_prefs!.getDouble(_keyTerminalFontSize)) ?? 14.0;
       _searchConfig = _loadSearchConfig();
       _editorSpecificConfig
         ..clear()
@@ -580,8 +627,7 @@ class ForgePreferencesService extends ChangeNotifier {
           _prefs!.getDouble(_keyDimRightPanelDefaultWidth) ?? 280.0;
       _bottomPanelDefaultHeight =
           _prefs!.getDouble(_keyDimBottomPanelDefaultHeight) ?? 200.0;
-      _dividerHitTarget =
-          _prefs!.getDouble(_keyDimDividerHitTarget) ?? 14.0;
+      _dividerHitTarget = _prefs!.getDouble(_keyDimDividerHitTarget) ?? 14.0;
       _reduceMotion = _prefs!.getBool(_keyReduceMotion) ?? false;
       _loadActionBarActions();
       _isLoaded = true;
@@ -687,10 +733,7 @@ class ForgePreferencesService extends ChangeNotifier {
 
   Future<void> _saveTerminalPreferences() async {
     if (_terminalDefaultShell != null) {
-      await _prefs!.setString(
-        _keyTerminalDefaultShell,
-        _terminalDefaultShell!,
-      );
+      await _prefs!.setString(_keyTerminalDefaultShell, _terminalDefaultShell!);
     } else {
       await _prefs!.remove(_keyTerminalDefaultShell);
     }
@@ -699,19 +742,13 @@ class ForgePreferencesService extends ChangeNotifier {
       jsonEncode(_terminalShellPaths),
     );
     await _prefs!.setString(_keyTerminalStartFolder, _terminalStartFolder);
-    await _prefs!.setInt(
-      _keyTerminalScrollbackLines,
-      _terminalScrollbackLines,
-    );
+    await _prefs!.setInt(_keyTerminalScrollbackLines, _terminalScrollbackLines);
     await _prefs!.setString(_keyTerminalFontFamily, _terminalFontFamily);
     await _prefs!.setDouble(_keyTerminalFontSize, _terminalFontSize);
   }
 
   Future<void> _saveLayoutDimensions() async {
-    await _prefs!.setDouble(
-      _keyDimPanelContentMinWidth,
-      _panelContentMinWidth,
-    );
+    await _prefs!.setDouble(_keyDimPanelContentMinWidth, _panelContentMinWidth);
     await _prefs!.setDouble(
       _keyDimLeftPanelDefaultWidth,
       _leftPanelDefaultWidth,
@@ -740,8 +777,8 @@ class ForgePreferencesService extends ChangeNotifier {
         _actionBarActions.clear();
         for (final entry in decoded.entries) {
           if (entry.key is String && entry.value is List) {
-            _actionBarActions[entry.key as String] =
-                (entry.value as List).cast<String>();
+            _actionBarActions[entry.key as String] = (entry.value as List)
+                .cast<String>();
           }
         }
       }
@@ -968,13 +1005,17 @@ class ForgePreferencesService extends ChangeNotifier {
           final first = value['firstKey'];
           final second = value['secondKey'];
           if (first is Map && second is Map) {
-            final firstKey =
-                _shortcutKeyFromMap(Map<String, dynamic>.from(first));
-            final secondKey =
-                _shortcutKeyFromMap(Map<String, dynamic>.from(second));
+            final firstKey = _shortcutKeyFromMap(
+              Map<String, dynamic>.from(first),
+            );
+            final secondKey = _shortcutKeyFromMap(
+              Map<String, dynamic>.from(second),
+            );
             if (firstKey != null && secondKey != null) {
-              result[actionId] =
-                  ForgeChordKey(firstKey: firstKey, secondKey: secondKey);
+              result[actionId] = ForgeChordKey(
+                firstKey: firstKey,
+                secondKey: secondKey,
+              );
             }
           }
         }

@@ -9,6 +9,7 @@ import '../components/forge_editor.dart';
 import '../components/forge_editor_choice.dart';
 import '../components/forge_view.dart';
 import '../shell/forge_shell_api.dart';
+import '../tools/forge_external_tool.dart';
 import 'forge_config_panel.dart';
 
 /// Registration interface for shell modules.
@@ -68,6 +69,11 @@ abstract class ForgeModule {
   /// [ForgeConfigPanel.priority] to control ordering (100+ recommended
   /// for modules; 0–99 is reserved for built-in panels).
   List<ForgeConfigPanel> get configPanels => [];
+
+  /// External tools this module uses (LibreOffice, pandoc, ...): each is a
+  /// row of the Configuration panel's *External Tools* section, with its path
+  /// setting `forge.tools.<id>.path`.
+  List<ForgeExternalTool> get externalTools => [];
 
   /// Opens [uri] itself, when this module owns documents of that kind, and
   /// answers whether it did.

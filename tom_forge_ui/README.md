@@ -51,6 +51,22 @@ carry the key `forge-context-menu:<id>`. Guideline:
 `../_copilot_guidelines/context_menu_contributions.md`; test:
 `test/widgets/module_context_menu_test.dart`.
 
+## External tools
+
+The Configuration panel's *External Tools* section has one row per external
+tool Forge uses (LibreOffice, later pandoc, Graphviz, ...): its path, the
+detected version and state, *Save*, *Choose…*, *Check again* and
+*Auto-detect* (every copy a wider search finds, with version and state, to
+pick one). `tom_forge_ui` knows no tool: the module that owns one returns a
+`ForgeExternalTool` descriptor from `ForgeModule.externalTools` (`id`, `name`,
+`order` — LibreOffice is 0 —, `check(path)`, `autoDetect()`, the path hint and
+download page). The path is kept as `forge.tools.<id>.path` in
+`ForgePreferencesService` (`externalToolPath`, `setExternalToolPath`; empty
+means the tool's detection searches), where the module's own detection reads
+it (`ForgePreferencesService.instance.externalToolPath(id)`). Debug trail:
+`kForgeExternalToolsDebug`, prefix `[FT]`; tests:
+`test/widgets/external_tools_section_test.dart`.
+
 ## Platform support
 
 Desktop and mobile. **Not the web**, and the reason is architectural rather than

@@ -4094,6 +4094,9 @@ the field, not the document.
       preferencesService: _preferences,
       shellApi: widget.shell,
       modulePanels: modulePanels,
+      externalTools: widget.shell.modules.allModules
+          .expand((m) => m.externalTools)
+          .toList(),
       onSettingsChanged: _onPreferencesChanged,
       expandSection: _configSectionTarget,
     );

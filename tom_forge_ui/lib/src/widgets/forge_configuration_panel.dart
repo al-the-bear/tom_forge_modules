@@ -11,6 +11,8 @@ import '../actions/forge_shortcut_binding.dart';
 import '../module/forge_config_panel.dart';
 import '../services/forge_preferences_service.dart';
 import '../shell/forge_shell_api.dart';
+import '../tools/forge_external_tool.dart';
+import '../tools/forge_external_tools_section.dart';
 
 /// In-panel configuration view shown when the config cog is clicked.
 ///
@@ -21,6 +23,10 @@ class ForgeConfigurationPanel extends StatefulWidget {
   final ForgePreferencesService preferencesService;
   final ForgeShellApi? shellApi;
   final List<ForgeConfigPanel> modulePanels;
+
+  /// The external tools the modules registered (the *External Tools*
+  /// section's rows).
+  final List<ForgeExternalTool> externalTools;
   final VoidCallback? onSettingsChanged;
 
   /// When set to a non-null section index, the accordion expands that section.
@@ -31,6 +37,7 @@ class ForgeConfigurationPanel extends StatefulWidget {
     required this.preferencesService,
     this.shellApi,
     this.modulePanels = const [],
+    this.externalTools = const [],
     this.onSettingsChanged,
     this.expandSection,
   });
@@ -57,6 +64,7 @@ class _ForgeConfigurationPanelState extends State<ForgeConfigurationPanel> {
     _SectionDef('Shortcuts', Icons.keyboard),
     _SectionDef('Chord Shortcuts', Icons.piano),
     _SectionDef('File Types', Icons.folder_open),
+    _SectionDef('External Tools', Icons.build_outlined),
   ];
 
   int get _totalSections =>
@@ -253,6 +261,11 @@ class _ForgeConfigurationPanelState extends State<ForgeConfigurationPanel> {
         7 => _FileTypesSettingsSection(
             preferencesService: widget.preferencesService,
             shellApi: widget.shellApi,
+            onChanged: widget.onSettingsChanged,
+          ),
+        8 => ForgeExternalToolsSection(
+            tools: widget.externalTools,
+            preferencesService: widget.preferencesService,
             onChanged: widget.onSettingsChanged,
           ),
         _ => const SizedBox.shrink(),

@@ -364,6 +364,8 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
       _settingItem('Chord Shortcuts', 'forge.shortcuts.chords', Icons.piano, 6),
       // File Types (section 7)
       _settingItem('File Type Defaults', 'forge.editor.fileTypeDefaults', Icons.file_copy, 7),
+      // External Tools (section 8)
+      _settingItem('External Tools', 'forge.tools', Icons.build_outlined, 8),
     ];
 
     if (query.isEmpty) return settings;
