@@ -51,6 +51,18 @@ carry the key `forge-context-menu:<id>`. Guideline:
 `../_copilot_guidelines/context_menu_contributions.md`; test:
 `test/widgets/module_context_menu_test.dart`.
 
+## Find in non-text editors
+
+The shell's find bar (`editor.find`, Cmd+F) serves text editors and every
+editor that implements `ForgeFindTarget`: `find(query, caseSensitive:,
+wholeWord:)`, `findNext`, `findPrevious`, `clearFind` and a `findStatus`
+(`ForgeFindStatus`: current match, total, searching) the bar's counter shows.
+For such an editor Find is enabled, the query goes to the editor as it is
+typed, next and previous move its matches, Replace is not offered, and closing
+the bar (or switching to another editor) clears its search. An editor whose
+own keys catch Cmd+F runs the shell's `editor.find` action. Test:
+`test/widgets/find_target_test.dart`.
+
 ## External tools
 
 The Configuration panel's *External Tools* section has one row per external

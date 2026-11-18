@@ -18,7 +18,7 @@ import 'forge_pdf_trail.dart';
 /// `full` from the tab's actions (*pdf.js view: components / integrated /
 /// full*, DPPJ-5). Save, undo, redo and find go to the view's controller;
 /// history and dirty are pdf.js's own.
-class ForgePdfJsEditor extends ForgeEditor {
+class ForgePdfJsEditor extends ForgeEditor implements ForgeFindTarget {
   /// An editor of [uri] over [host] in [mode]. [channelForTesting] replaces
   /// the webview; [testBaseUri] keeps the controller offline (widget tests
   /// under a fake clock).
@@ -80,9 +80,18 @@ class ForgePdfJsEditor extends ForgeEditor {
     return c;
   }
 
+  final _findStatus = ValueNotifier(ForgeFindStatus.none);
+  String _findQuery = '';
+  bool _findCase = false;
+  bool _findWord = false;
+
   void _changed() {
     if (_closed) return;
     _dirty.value = controller.isDirty;
+    final count = controller.findCount;
+    _findStatus.value = count == null || _findQuery.isEmpty
+        ? ForgeFindStatus.none
+        : ForgeFindStatus(current: count.current, total: count.total);
     _titleExtension.value = controller.mode == TomPdfJsMode.components
         ? null
         : 'pdf.js ${controller.mode.name}';
@@ -104,7 +113,10 @@ class ForgePdfJsEditor extends ForgeEditor {
     forgePdfTrail('pdf.js view: ${mode.name} → ${next.name}');
     final old = controller;
     old.removeListener(_changed);
+    final view = old.viewPosition;
     _controller.value = _make(next);
+    // The new page goes where the old one stood.
+    if (view != null) controller.restoreView(view);
     unawaited(old.close().then((_) => old.dispose()));
     _changed();
     return true;
@@ -162,7 +174,6 @@ class ForgePdfJsEditor extends ForgeEditor {
     StandardEditingActions.saveActionId,
     StandardEditingActions.undoActionId,
     StandardEditingActions.redoActionId,
-    forgePdfFindActionId,
   };
 
   @override
@@ -171,7 +182,6 @@ class ForgePdfJsEditor extends ForgeEditor {
       controller.state == TomPdfJsState.open && !controller.isReadOnly,
     StandardEditingActions.undoActionId => controller.canUndo,
     StandardEditingActions.redoActionId => controller.canRedo,
-    forgePdfFindActionId => controller.state == TomPdfJsState.open,
     _ => false,
   };
 
@@ -187,8 +197,6 @@ class ForgePdfJsEditor extends ForgeEditor {
           unawaited(controller.undo());
         case StandardEditingActions.redoActionId:
           unawaited(controller.redo());
-        case forgePdfFindActionId:
-          _mainView.currentState?.showFind();
       }
       return true;
     } catch (e, s) {
@@ -218,6 +226,76 @@ class ForgePdfJsEditor extends ForgeEditor {
   @override
   Stream<void> get onStateChanged => _states.stream;
 
+  // ------------------------------------------------------------------ find
+
+  /// The shell's find bar, opened by Cmd+F in the page or the toolbar.
+  void _openShellFind() {
+    forgePdfTrail('pdf.js: find → the shell\'s find bar');
+    host.shell.executeAction(forgePdfFindActionId);
+  }
+
+  @override
+  void find(
+    String query, {
+    bool caseSensitive = false,
+    bool wholeWord = false,
+  }) {
+    forgePdfTrail('pdf.js: find ${query.length} chars');
+    _findQuery = query;
+    _findCase = caseSensitive;
+    _findWord = wholeWord;
+    if (query.isEmpty) _findStatus.value = ForgeFindStatus.none;
+    unawaited(
+      controller.find(
+        query,
+        caseSensitive: caseSensitive,
+        entireWord: wholeWord,
+      ),
+    );
+  }
+
+  void _again({required bool previous}) {
+    if (_findQuery.isEmpty) return;
+    unawaited(
+      controller.find(
+        _findQuery,
+        caseSensitive: _findCase,
+        entireWord: _findWord,
+        again: true,
+        previous: previous,
+      ),
+    );
+  }
+
+  @override
+  void findNext() => _again(previous: false);
+
+  @override
+  void findPrevious() => _again(previous: true);
+
+  @override
+  void clearFind() => find('');
+
+  @override
+  ValueListenable<ForgeFindStatus> get findStatus => _findStatus;
+
+  // ----------------------------------------------------------------- state
+
+  /// The page and pdf.js's scale (`.forge/state/editors/`).
+  @override
+  Map<String, dynamic>? saveState() {
+    final p = controller.viewPosition;
+    return p == null ? null : {'route': 'pdfjs', ...p.toJson()};
+  }
+
+  @override
+  void restoreState(Map<String, dynamic> state) {
+    final p = PdfJsViewPosition.fromJson(state);
+    if (p == null) return;
+    forgePdfTrail('pdf.js: restore $p');
+    controller.restoreView(p);
+  }
+
   @override
   Widget buildMain(BuildContext context) =>
       ValueListenableBuilder<TomPdfJsController>(
@@ -226,6 +304,7 @@ class ForgePdfJsEditor extends ForgeEditor {
           key: _mainView,
           controller: controller,
           channelForTesting: channelForTesting,
+          onFind: _openShellFind,
         ),
       );
 

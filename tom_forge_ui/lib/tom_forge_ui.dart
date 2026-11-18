@@ -18,6 +18,7 @@ export 'src/adapters/tom_forge_shell_module.dart';
 export 'src/components/component_history_manager.dart';
 export 'src/components/forge_component.dart';
 export 'src/components/forge_editor.dart';
+export 'src/components/forge_find_target.dart';
 export 'src/components/forge_editor_choice.dart';
 export 'src/components/forge_schema_editor.dart';
 export 'src/components/forge_surface_editor.dart';

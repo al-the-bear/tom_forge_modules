@@ -12,16 +12,15 @@ import 'package:tom_pdf_editor/tom_pdf_editor.dart';
 import 'forge_pdf_host.dart';
 import 'forge_pdf_trail.dart';
 
-/// The action id of the editor's own find bar (`editor.find`, the shell's
-/// Find action id): the shell's find bar serves text editors, so a PDF
-/// editor opens its own.
+/// The shell's Find action, which the PDF editors' Cmd+F runs: the shell's
+/// find bar searches them as [ForgeFindTarget]s.
 const forgePdfFindActionId = 'editor.find';
 
 /// The PDFium editor as a Forge editor (choice `pdf.pdfium`, the default for
 /// `.pdf`): `TomPdfEditor` over its controller, the shell's save, undo,
 /// redo, copy and find routed to the controller, the dirty marker the
 /// controller's (the annotation history's saved marker).
-class ForgePdfEditor extends ForgeEditor {
+class ForgePdfEditor extends ForgeEditor implements ForgeFindTarget {
   /// An editor of [uri] over [host]; it opens the document at once.
   ForgePdfEditor({
     required this.uri,
@@ -53,9 +52,17 @@ class ForgePdfEditor extends ForgeEditor {
   final _states = StreamController<void>.broadcast();
   bool _closed = false;
 
+  final _findStatus = ValueNotifier(ForgeFindStatus.none);
+
   void _changed() {
     if (_closed) return;
     _dirty.value = controller.isDirty;
+    final hits = controller.hits.length;
+    _findStatus.value = ForgeFindStatus(
+      current: hits == 0 ? 0 : controller.currentHit + 1,
+      total: hits,
+      searching: controller.searching,
+    );
     if (!_states.isClosed) _states.add(null);
   }
 
@@ -97,7 +104,6 @@ class ForgePdfEditor extends ForgeEditor {
     StandardEditingActions.undoActionId,
     StandardEditingActions.redoActionId,
     StandardEditingActions.copyActionId,
-    forgePdfFindActionId,
   };
 
   @override
@@ -108,9 +114,6 @@ class ForgePdfEditor extends ForgeEditor {
     StandardEditingActions.redoActionId => controller.canRedo,
     StandardEditingActions.copyActionId =>
       controller.selection.isNotEmpty && controller.canCopy,
-    forgePdfFindActionId =>
-      controller.state == TomPdfEditorState.open &&
-          controller.hasTextLayer != false,
     _ => false,
   };
 
@@ -128,8 +131,6 @@ class ForgePdfEditor extends ForgeEditor {
           unawaited(controller.redo());
         case StandardEditingActions.copyActionId:
           unawaited(_copy());
-        case forgePdfFindActionId:
-          controller.showFind();
       }
       return true;
     } catch (e, s) {
@@ -167,15 +168,70 @@ class ForgePdfEditor extends ForgeEditor {
   @override
   Stream<void> get onStateChanged => _states.stream;
 
+  // ------------------------------------------------------------------ find
+
+  /// The shell's find bar, opened by Cmd+F inside the editor.
+  void _openShellFind() {
+    forgePdfTrail('pdfium: find → the shell\'s find bar');
+    host.shell.executeAction(forgePdfFindActionId);
+  }
+
   @override
-  Widget buildMain(BuildContext context) =>
-      TomPdfEditor(controller: controller, decoder: decoder);
+  void find(
+    String query, {
+    bool caseSensitive = false,
+    bool wholeWord = false,
+  }) {
+    forgePdfTrail('pdfium: find ${query.length} chars');
+    if (controller.hasTextLayer == false && query.isNotEmpty) {
+      controller.showFind(); // says the PDF has no text layer
+      return;
+    }
+    controller.find(query, matchCase: caseSensitive, wholeWord: wholeWord);
+  }
+
+  @override
+  void findNext() => controller.nextHit();
+
+  @override
+  void findPrevious() => controller.previousHit();
+
+  @override
+  void clearFind() => controller.hideFind();
+
+  @override
+  ValueListenable<ForgeFindStatus> get findStatus => _findStatus;
+
+  // ----------------------------------------------------------------- state
+
+  /// The page, the offset into it and the zoom (`.forge/state/editors/`).
+  @override
+  Map<String, dynamic>? saveState() {
+    final p = controller.viewPosition;
+    return p == null ? null : {'route': 'pdfium', ...p.toJson()};
+  }
+
+  @override
+  void restoreState(Map<String, dynamic> state) {
+    final p = PdfViewPosition.fromJson(state);
+    if (p == null) return;
+    forgePdfTrail('pdfium: restore $p');
+    controller.restoreView(p);
+  }
+
+  @override
+  Widget buildMain(BuildContext context) => TomPdfEditor(
+    controller: controller,
+    decoder: decoder,
+    onFind: _openShellFind,
+  );
 
   /// A second view of the same document and history, with its own viewport.
   @override
   Widget buildCopy(BuildContext context) => TomPdfEditor(
     controller: controller,
     decoder: decoder,
+    onFind: _openShellFind,
     showPageList: false,
   );
 

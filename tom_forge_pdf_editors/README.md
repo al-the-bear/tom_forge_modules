@@ -26,15 +26,18 @@ is `tom_forge_app`'s.
 
 ## How it fits the shell
 
-- **Opening.** `openUri` takes a `.pdf` (any case) of the shell's file system
-  with a local (`file:`) path; it shows an editor of this module already open
+- **Opening.** `openUri` takes a `.pdf` (any case) of the shell's file system;
+  it shows an editor of this module already open
   on the file, else opens the editor the file-type default for `pdf` names
   (`pdf.pdfium` when none does). `editorChoicesFor` gives both choices; each
   opens its editor once per file, so a file may be open in both routes.
-  A file of a file system without a local path is not opened (the binary save
-  rules work on paths).
+  A file with a local (`file:`) path is read and saved through the module's
+  `TomBinaryFiles` on that path; a file of a file system without local paths
+  through `TomFileSystemBinaryFiles` over the shell's file system (the
+  constructor's `fileSystemFiles` gives another): PDFium opens it from its
+  bytes and saves into bytes, pdf.js gets the bytes through its content site.
 - **Host.** `ForgePdfHost` implements `TomPdfEditorHost` (and so the pdf.js
-  view's `TomPdfViewHost`): `TomBinaryFileAccess` on the file's path, PDFium
+  view's `TomPdfViewHost`): the file's `TomBinaryFiles` and path, PDFium
   from the binaries layer (`TomPdfiumLocator`, `PdfiumEngine.acquire`), the
   shell's notifications for notices, the shell's `openExternal` for links,
   the annotation author from the login name.
@@ -45,9 +48,16 @@ is `tom_forge_app`'s.
   `isActionEnabled` follows `canUndo` / `canRedo`; `isDirty` is the
   controller's (PDFium: the annotation and form history's saved marker; pdf.js:
   its annotation storage). History changes fire `onStateChanged`.
-- **Find and copy.** `editor.find` opens the editor's own find bar (the
-  shell's find bar serves text editors only); Cmd+F does the same inside the
-  editor. The PDFium editor copies the selected text.
+- **Find and copy.** Both editors are `ForgeFindTarget`s: `editor.find` and
+  Cmd+F inside the editor open the shell's find bar, which searches the
+  document (match case, whole word, previous / next, the count); the editors'
+  own find bars stay hidden. Closing the bar clears the search. The PDFium
+  editor copies the selected text.
+- **Kept view state.** `saveState` keeps the page, the offset into it and the
+  zoom (PDFium; `{route: pdfium, page, offset, zoom}`) or the page and the
+  scale (pdf.js; `{route: pdfjs, page, scale}`); `restoreState` returns a
+  reopened tab there once the document has loaded. A pdf.js mode switch keeps
+  the position.
 - **Outside changes.** `replaceContent` answers false, so the shell closes
   and reopens the editor (a new controller, an empty history). When the
   window regains focus, every editor checks its file (`checkExternal`): a

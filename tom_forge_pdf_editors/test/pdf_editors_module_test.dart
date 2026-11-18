@@ -13,83 +13,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart'
     show StandardEditingActions;
-import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_forge_pdf_editors/testing.dart';
 import 'package:tom_forge_pdf_editors/tom_forge_pdf_editors.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 import 'package:tom_pdf_editor/pdfjs.dart';
-import 'package:tom_pdf_editor/testing.dart';
 import 'package:tom_pdf_editor/tom_pdf_editor.dart';
+
+import 'support/workspace.dart';
 
 const _save = StandardEditingActions.saveActionId;
 const _undo = StandardEditingActions.undoActionId;
 const _redo = StandardEditingActions.redoActionId;
-
-/// A shell with the module over a memory file system, a fake engine and
-/// in-memory binary files at the same paths.
-class _Workspace {
-  _Workspace() {
-    shell = DefaultShellApi.withDefaultsAndFileSystem(
-      fileSystem: fs,
-      appName: 'PDF editors',
-      navigatorKey: GlobalKey<NavigatorState>(),
-    );
-    engine = FakePdfEngine(docs, files: files);
-    module = ForgePdfEditorsModule(
-      files: files,
-      locatePdfium: () => const TomPdfiumLibrary.found(
-        '/fake/libpdfium.dylib',
-        kPdfiumBindingsTag,
-      ),
-      startEngine: (_) async => engine,
-      decoder: forgePdfTestDecoder,
-      authorName: 'Tester',
-      pdfJsChannelForTesting: () => pages.last,
-      pdfJsTestBaseUri: Uri.parse('http://pdfjs.test/t/'),
-    )..activate(shell);
-    (shell.modules as DefaultModuleRegistry).register(module);
-  }
-
-  final fs = TomMemoryFileSystem();
-  final files = MemoryBinaryFiles();
-  final docs = <String, FakePdfDocument>{};
-  late final FakePdfEngine engine;
-  late final DefaultShellApi shell;
-  late final ForgePdfEditorsModule module;
-
-  /// The scripted pages handed to pdf.js editors, newest last.
-  final pages = <ScriptedPdfJsPage>[ScriptedPdfJsPage()];
-
-  Uri add(String path) {
-    files.write(path, utf8.encode('%PDF-$path'));
-    docs[path] = FakePdfDocument(
-      pages: const [PdfPageSize(300, 400)],
-      texts: const ['page text'],
-    );
-    return fs.uriOf(path);
-  }
-
-  ForgeEditor? editorOf(Uri uri) =>
-      shell.systemState.openEditors.where((e) => e.uri == uri).lastOrNull;
-
-  Future<void> show(WidgetTester tester, ForgeEditor editor) async {
-    await tester.binding.setSurfaceSize(const Size(1000, 800));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(body: Builder(builder: editor.buildMain)),
-      ),
-    );
-    await tester.pumpAndSettle();
-  }
-}
 
 void main() {
   testWidgets('FPDF-OPEN-1: a .pdf (any case) opens in the PDFium editor, '
       'once; other files and files without a path are declined', (
     tester,
   ) async {
-    final w = _Workspace();
+    final w = Workspace();
     final a = w.add('/docs/a.pdf');
     final b = w.add('/docs/B.PDF');
     expect(w.module.openUri(a), isTrue);
@@ -114,7 +55,7 @@ void main() {
   testWidgets('FPDF-CHOICE-1: Open With offers both editors; each choice '
       'opens its editor once, both may be open on one file; the file-type '
       'default picks the editor openUri opens', (tester) async {
-    final w = _Workspace();
+    final w = Workspace();
     final a = w.add('/docs/a.pdf');
     final choices = w.module.editorChoicesFor(a);
     expect(choices.map((c) => c.id), [
@@ -145,7 +86,7 @@ void main() {
 
   testWidgets('FPDF-ROUTE-1: the shell\'s undo, redo and save reach the '
       'controller; dirty and the state stream follow it', (tester) async {
-    final w = _Workspace();
+    final w = Workspace();
     final a = w.add('/docs/a.pdf');
     w.module.openUri(a);
     final editor = w.editorOf(a)! as ForgePdfEditor;
@@ -187,7 +128,7 @@ void main() {
   testWidgets('FPDF-REOPEN-1: replaceContent answers false; the closed '
       'editor gives its document up and the next open starts clean with an '
       'empty history', (tester) async {
-    final w = _Workspace();
+    final w = Workspace();
     final a = w.add('/docs/a.pdf');
     w.module.openUri(a);
     final first = w.editorOf(a)! as ForgePdfEditor;
@@ -210,7 +151,7 @@ void main() {
 
   testWidgets('FPDF-FOCUS-1: when the window regains focus a clean editor '
       'reopens a file changed on disk', (tester) async {
-    final w = _Workspace();
+    final w = Workspace();
     final a = w.add('/docs/a.pdf');
     w.module.openUri(a);
     final editor = w.editorOf(a)! as ForgePdfEditor;
@@ -228,7 +169,7 @@ void main() {
       'the same controller; the pdf.js editor\'s copy says it cannot split', (
     tester,
   ) async {
-    final w = _Workspace();
+    final w = Workspace();
     final a = w.add('/docs/a.pdf');
     w.module.openUri(a);
     final editor = w.editorOf(a)! as ForgePdfEditor;
@@ -268,7 +209,7 @@ void main() {
         'switch to integrated and full; a dirty document is not switched', (
       tester,
     ) async {
-      final w = _Workspace();
+      final w = Workspace();
       final a = w.add('/docs/a.pdf');
       w.module.editorChoicesFor(a)[1].open(a);
       final js = w.editorOf(a)! as ForgePdfJsEditor;
@@ -306,7 +247,7 @@ void main() {
 
     testWidgets('FPDFJS-ROUTE-1: undo, redo and save go to the page; history '
         'and dirty come back from it', (tester) async {
-      final w = _Workspace();
+      final w = Workspace();
       final a = w.add('/docs/a.pdf');
       w.module.editorChoicesFor(a)[1].open(a);
       final js = w.editorOf(a)! as ForgePdfJsEditor;
@@ -337,7 +278,7 @@ void main() {
 
     testWidgets('FPDFJS-REOPEN-1: replaceContent answers false; closing the '
         'editor closes the page and the next open starts anew', (tester) async {
-      final w = _Workspace();
+      final w = Workspace();
       final a = w.add('/docs/a.pdf');
       w.module.editorChoicesFor(a)[1].open(a);
       final js = w.editorOf(a)! as ForgePdfJsEditor;

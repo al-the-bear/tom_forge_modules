@@ -21,6 +21,7 @@ import '../adapters/forge_yaml_editor.dart';
 import '../components/forge_component.dart';
 import '../components/forge_editor.dart';
 import '../components/forge_editor_choice.dart';
+import '../components/forge_find_target.dart';
 import '../components/forge_surface_editor.dart';
 import '../components/forge_text_editor.dart';
 import '../components/forge_view.dart';
@@ -256,6 +257,10 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   final FocusNode _replaceFieldFocusNode = FocusNode();
   List<ForgeTextRange> _findMatches = const [];
   int _activeFindMatchIndex = -1;
+
+  /// The non-text editor the find bar searches now, with its status
+  /// listened to.
+  ForgeFindTarget? _findTarget;
   ForgeTextEditor? _decoratedFindEditor;
   StreamSubscription<Uri>? _saveSubscription;
   StreamSubscription<EditorListChangeEvent>? _editorChangeSubscription;
@@ -1633,6 +1638,44 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     return active is ForgeTextEditor ? active : null;
   }
 
+  /// The active editor when it is searched as a [ForgeFindTarget] (a
+  /// non-text editor: a PDF).
+  ForgeFindTarget? get _activeFindTarget {
+    final active = widget.systemState.activeEditor;
+    return active is ForgeFindTarget && active is! ForgeTextEditor
+        ? active as ForgeFindTarget
+        : null;
+  }
+
+  /// Whether the find bar can search the active editor.
+  bool get _canFind => _activeTextEditor != null || _activeFindTarget != null;
+
+  void _onFindStatus() {
+    if (mounted) setState(() {});
+  }
+
+  /// Makes [target] the find bar's target (null: none), moving the status
+  /// listener and clearing the old target's search.
+  void _setFindTarget(ForgeFindTarget? target) {
+    if (identical(target, _findTarget)) return;
+    final old = _findTarget;
+    if (old != null) {
+      old.findStatus.removeListener(_onFindStatus);
+      try {
+        old.clearFind();
+      } catch (_) {
+        // The editor may be gone (closed while the bar was open).
+      }
+    }
+    _findTarget = target;
+    target?.findStatus.addListener(_onFindStatus);
+  }
+
+  void _searchFindTarget(ForgeFindTarget target) {
+    _setFindTarget(target);
+    target.find(_findQueryController.text);
+  }
+
   void _registerFindReplaceActions() {
     widget.shell.actionRegistry.registerAction(
       shell_action.ForgeAction(
@@ -1643,7 +1686,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
           _openFindReplaceBar(showReplaceFields: false);
           return null;
         },
-        isEnabled: () => _activeTextEditor != null,
+        isEnabled: () => _canFind,
         isVisible: () => true,
       ),
     );
@@ -1719,7 +1762,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       'forge.focusSearch',
       'Focus Search',
       () => _openFindReplaceBar(showReplaceFields: false),
-      isEnabled: () => _activeTextEditor != null,
+      isEnabled: () => _canFind,
     );
     overrideAction(
       'forge.focusPanel1',
@@ -1841,8 +1884,18 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
 
     if (!_showFindReplaceBar) {
       _clearFindDecorations();
+      _setFindTarget(null);
       return;
     }
+
+    final target = _activeFindTarget;
+    if (target != null) {
+      _clearFindDecorations();
+      _searchFindTarget(target);
+      if (mounted) setState(() {});
+      return;
+    }
+    _setFindTarget(null);
 
     final editor = _activeTextEditor;
     if (editor == null) {
@@ -1861,12 +1914,30 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
 
   void _onFindQueryChanged() {
     if (!_showFindReplaceBar) return;
+    final target = _activeFindTarget;
+    if (target != null) {
+      _searchFindTarget(target);
+      return;
+    }
     final editor = _activeTextEditor;
     if (editor == null) return;
     _recomputeFindMatches(editor, moveToFirst: true);
   }
 
   void _openFindReplaceBar({required bool showReplaceFields}) {
+    final target = _activeFindTarget;
+    if (target != null) {
+      // A non-text editor: it searches itself; nothing to replace.
+      setState(() {
+        _showFindReplaceBar = true;
+        _showReplaceFields = false;
+      });
+      _searchFindTarget(target);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _findFieldFocusNode.requestFocus();
+      });
+      return;
+    }
     final editor = _activeTextEditor;
     if (editor == null) {
       widget.shell.notifications.showWarning(
@@ -1901,6 +1972,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
 
   void _closeFindReplaceBar() {
     _clearFindDecorations();
+    _setFindTarget(null);
     if (!mounted) return;
     setState(() {
       _showFindReplaceBar = false;
@@ -1982,6 +2054,11 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   }
 
   void _selectFindMatch({required bool next}) {
+    final target = _activeFindTarget;
+    if (target != null) {
+      next ? target.findNext() : target.findPrevious();
+      return;
+    }
     final editor = _activeTextEditor;
     if (editor == null || _findMatches.isEmpty) return;
 
@@ -4205,7 +4282,9 @@ the field, not the document.
             : editors.last;
         final useMainRender = _isPrimaryEditorRender(panelIndex, currentEditor);
         final showFindBar =
-            _showFindReplaceBar && currentEditor is ForgeTextEditor;
+            _showFindReplaceBar &&
+            (currentEditor is ForgeTextEditor ||
+                currentEditor is ForgeFindTarget);
 
         return EditorDropZoneOverlay(
           panelIndex: panelIndex,
@@ -4277,8 +4356,14 @@ the field, not the document.
 
   Widget _buildFindReplaceBar() {
     final theme = Theme.of(context);
-    final hasMatches = _findMatches.isNotEmpty;
-    final counterText = hasMatches
+    final target = _findTarget;
+    final status = target?.findStatus.value;
+    final hasMatches = status != null
+        ? status.total > 0
+        : _findMatches.isNotEmpty;
+    final counterText = status != null
+        ? '${status.current}/${status.total}${status.searching ? '…' : ''}'
+        : hasMatches
         ? '${_activeFindMatchIndex + 1}/${_findMatches.length}'
         : '0/0';
 
@@ -4331,6 +4416,7 @@ the field, not the document.
               style: theme.textTheme.bodySmall,
             ),
             const SizedBox(width: 8),
+            if (target == null)
             TextButton(
               key: const Key('find-toggle-replace-button'),
               onPressed: () {
@@ -4340,7 +4426,7 @@ the field, not the document.
               },
               child: Text(_showReplaceFields ? 'Hide Replace' : 'Replace'),
             ),
-            if (_showReplaceFields) ...[
+            if (_showReplaceFields && target == null) ...[
               const SizedBox(width: 8),
               SizedBox(
                 width: 220,

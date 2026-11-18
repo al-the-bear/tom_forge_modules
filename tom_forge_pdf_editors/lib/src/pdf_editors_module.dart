@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:tom_file_session/io.dart'
     show TomBinaryFileAccess, TomLocalContentServer;
-import 'package:tom_file_session/tom_file_session.dart' show TomBinaryFiles;
+import 'package:tom_file_session/tom_file_session.dart'
+    show TomBinaryFiles, TomFileSystemBinaryFiles;
+import 'package:tom_file_system/tom_file_system.dart' show TomFileSystem;
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 import 'package:tom_pdf_editor/io.dart';
 import 'package:tom_pdf_editor/pdfium.dart';
@@ -34,11 +36,14 @@ class ForgePdfEditorsModule extends ForgeModule {
     TomPdfiumLibrary Function()? locatePdfium,
     Future<TomPdfEngine> Function(TomPdfiumLibrary library)? startEngine,
     this.decoder = decodeBgra,
+    TomBinaryFiles Function(TomFileSystem fileSystem)? fileSystemFiles,
     this.server,
     this.authorName,
     this.pdfJsChannelForTesting,
     this.pdfJsTestBaseUri,
   }) : files = files ?? const TomBinaryFileAccess(),
+       fileSystemFiles =
+           fileSystemFiles ?? ((fs) => TomFileSystemBinaryFiles(fs)),
        locatePdfium = locatePdfium ?? (() => const TomPdfiumLocator().locate()),
        startEngine =
            startEngine ?? ((library) => PdfiumEngine.acquire(library.path!));
@@ -49,8 +54,11 @@ class ForgePdfEditorsModule extends ForgeModule {
   /// The pdf.js view's choice id.
   static const pdfJsChoiceId = 'pdf.pdfjs';
 
-  /// The file access.
+  /// The file access for local (`file:`) files.
   final TomBinaryFiles files;
+
+  /// The file access for the files of a file system without local paths.
+  final TomBinaryFiles Function(TomFileSystem fileSystem) fileSystemFiles;
 
   /// Where PDFium is.
   final TomPdfiumLibrary Function() locatePdfium;
@@ -130,15 +138,25 @@ class ForgePdfEditorsModule extends ForgeModule {
     return name.toLowerCase().endsWith('.pdf');
   }
 
-  /// The file's local path: a `file:` URI of the shell's file system. The
-  /// editors read and write the file through `TomBinaryFiles` on that path;
-  /// a file of a remote or virtual file system is not opened (null).
-  String? _pathOf(Uri uri) {
+  /// Where the editors read and write [uri]: a `file:` URI by its local
+  /// path through [files]; any other file of the shell's file system (a
+  /// remote or virtual one) by its path in that file system through
+  /// `TomFileSystemBinaryFiles` — its bytes go to PDFium and pdf.js, the
+  /// saved bytes back through the file system. `null` for a URI outside the
+  /// shell's file system.
+  (String, TomBinaryFiles)? _accessOf(Uri uri) {
     final shell = _shell;
-    if (shell == null || !uri.isScheme('file')) return null;
-    if (shell.fileSystem.pathOf(uri) == null) return null;
-    return uri.toFilePath();
+    if (shell == null) return null;
+    final fsPath = shell.fileSystem.pathOf(uri);
+    if (fsPath == null) return null;
+    if (uri.isScheme('file')) return (uri.toFilePath(), files);
+    final remote = _remoteFiles ??= fileSystemFiles(shell.fileSystem);
+    return (fsPath, remote);
   }
+
+  TomBinaryFiles? _remoteFiles;
+
+  String? _pathOf(Uri uri) => _accessOf(uri)?.$1;
 
   @override
   bool openUri(Uri uri, {int? middlePanelIndex}) {
@@ -146,7 +164,7 @@ class ForgePdfEditorsModule extends ForgeModule {
       final shell = _shell;
       if (shell == null || !handles(uri)) return false;
       if (_pathOf(uri) == null) {
-        forgePdfTrail('openUri declined: not a local file');
+        forgePdfTrail('openUri declined: not in the shell\'s file system');
         return false;
       }
       // An editor of this module already open on the file is shown.
@@ -215,11 +233,14 @@ class ForgePdfEditorsModule extends ForgeModule {
       );
       return;
     }
-    final path = _pathOf(uri)!;
+    final (path, access) = _accessOf(uri)!;
+    if (!identical(access, files)) {
+      forgePdfTrail('$id: no local path, the file system\'s bytes');
+    }
     final host = ForgePdfHost(
       filePath: path,
       shell: shell,
-      files: files,
+      files: access,
       locatePdfium: locatePdfium,
       startEngine: startEngine,
       authorName: authorName,
