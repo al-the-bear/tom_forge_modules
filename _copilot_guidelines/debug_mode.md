@@ -40,6 +40,7 @@ flag lets the compiler eliminate all dead code.
 | Quest applications (`tom_forge_quests`) | `lib/src/quests_trail.dart` | `kForgeQuestsDebug` |
 | PDF editor (`tom_ai/modules/tom_pdf_editor`) | `lib/src/pdf_editor_trail.dart` | `kPdfEditorDebug` (switchable at run time) |
 | External Tools section (`tom_forge_ui`) | `lib/src/tools/external_tools_trail.dart` | `kForgeExternalToolsDebug` (switchable at run time), prefix `[FT]` |
+| PDF editors in Forge (`tom_forge_pdf_editors`) | `lib/src/forge_pdf_trail.dart` | `kForgePdfDebug` (switchable at run time) |
 
 `tom_forge_app/test/editor_component_contract_test.dart` (EC-4) checks that
 every editor component has such a trail with its switch off.
@@ -131,7 +132,9 @@ Each component uses a two-letter prefix inside `[XX …]`. Current components:
 |--------|-----------|
 | `YE`   | YAML Editor |
 | `DE`   | Dart Editor *(reserved, not yet implemented)* |
-| `PE`   | PDF Editor (`tom_pdf_editor`) |
+| `PE`   | PDF Editor (`tom_pdf_editor`; `PE:js` its pdf.js view) |
+| `FP`   | PDF editors in Forge (`tom_forge_pdf_editors`) |
+| `FT`   | External Tools section (`tom_forge_ui`) |
 
 Filter in terminal:
 ```bash
