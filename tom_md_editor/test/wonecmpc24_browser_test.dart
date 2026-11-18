@@ -7,7 +7,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
-import 'package:tom_editors_shared/tom_editors_shared.dart' show MermaidWebView;
+import 'package:tom_mermaid_view/tom_mermaid_view.dart' show MermaidWebView;
 import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_md_editor/tom_md_editor.dart';
 

@@ -21,7 +21,7 @@ on anything below the apps, and nothing depends on them.
 | Layer | Packages | What it is |
 | ----- | -------- | ---------- |
 | 0 Foundation | `tom_forge_core`, `tom_website_editor_core`, `tom_dart_editor_bundler`, `tom_web_build_probe` | Pure Dart, no Flutter: the types and service contracts (`tom_forge_core`), the website model, the Dart editor's summary bundler tool, the web-compile probe the editor packages use in their tests |
-| 1 Editor kit | `tom_editors_shared` | Widgets and utilities every editor builds on: tree view, validation, the text editor core, `TextUndoEntry` on `tom_undo`'s stack, the typing pause |
+| 1 Editor kit | `tom_editors_shared`, `tom_mermaid_view` | Widgets and utilities every editor builds on: tree view, validation, the text editor core, `TextUndoEntry` on `tom_undo`'s stack, the typing pause (`tom_editors_shared`, no webview); Mermaid diagrams in a webview with the bundled mermaid.js (`tom_mermaid_view`, taken only where diagrams are rendered) |
 | 2 Editors | `tom_md_editor`, `tom_yaml_editor`, `tom_dart_editor`, `tom_flow_editor` | The editor components, each usable without the shell (`tom_dart_editor/doc/how_to_embed.md`, `tom_yaml_editor/doc/how_to_embed.md`) |
 | 3 Shell | `tom_forge_ui` | The panel shell, `ForgeShellApi`, the component, editor, view, module and application contracts, and the adapters that make the layer-2 editors shell editors |
 | 4 Shell services | `tom_forge_agentic` | The agent and chat UI (composer, prompt queue, trail, change log and review) over `tom_core_agentic`, for any module to use |

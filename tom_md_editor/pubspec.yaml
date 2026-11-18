@@ -33,6 +33,9 @@ dependencies:
   path: ^1.9.0
   tom_editors_shared:
     path: ../tom_editors_shared
+  # The Mermaid plugin's renderer: MermaidWebView with the mermaid.js asset.
+  tom_mermaid_view:
+    path: ../tom_mermaid_view
   # The undo stack the controller keeps its edit operations on.
   tom_forge_core:
     path: ../tom_forge_core

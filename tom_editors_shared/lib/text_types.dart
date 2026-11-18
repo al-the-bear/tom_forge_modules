@@ -1,10 +1,10 @@
 /// The text and editor-contract types Forge's shell shares with its editors,
 /// without the webview.
 ///
-/// `package:tom_editors_shared/tom_editors_shared.dart` also exports the
-/// Mermaid view, which imports `flutter_inappwebview`; a library that only
-/// needs these types imports this one, so its import closure stays free of
-/// the webview. The main library re-exports everything here.
+/// A library that only needs these types imports this one rather than
+/// `package:tom_editors_shared/tom_editors_shared.dart`, which re-exports
+/// everything here together with the tree, text-editor and validation
+/// widgets.
 ///
 /// - **Text settings**: [ForgeTextSettings], [ForgeTextDefaults]
 /// - **Text context**: [ForgeTextContext], [TextEditingContextImpl]

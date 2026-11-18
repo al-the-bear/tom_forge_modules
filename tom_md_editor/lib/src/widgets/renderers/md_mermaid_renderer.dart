@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:tom_editors_shared/tom_editors_shared.dart';
+import 'package:tom_mermaid_view/tom_mermaid_view.dart';
 
 import '../../debug/md_editor_debug.dart';
 import '../../theme/md_editor_theme.dart';

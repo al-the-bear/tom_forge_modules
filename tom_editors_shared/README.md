@@ -33,13 +33,15 @@ Then import:
 import 'package:tom_editors_shared/tom_editors_shared.dart';
 ```
 
-The main library also exports the Mermaid view, which brings the webview
-(`flutter_inappwebview`). A library that needs only the text and
-editor-contract types the Forge shell shares with its editors
+The package has no webview and bundles no diagram renderer: Mermaid diagrams
+(`MermaidWebView`, with mermaid.js and the webview plugin) are in the package
+`tom_mermaid_view`, which only applications that render diagrams take.
+
+A library that needs only the text and editor-contract types the Forge shell shares with its editors
 (`ForgeTextSettings`, `ForgeTextDefaults`, `ForgeTextContext`,
 `StandardEditingActions`, `ForgeAction`, `ForgeShortcutKey`,
 `EditorStateSnapshot`, `EditorActionDescriptor`, `EditorActionProvider`,
-`EditorCapabilities`, `ForgeSavedMarker`) imports the webview-free library
+`EditorCapabilities`, `ForgeSavedMarker`) imports the smaller library
 instead:
 
 ```dart

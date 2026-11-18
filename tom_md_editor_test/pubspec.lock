@@ -655,6 +655,13 @@ packages:
       relative: true
     source: path
     version: "0.1.0"
+  tom_mermaid_view:
+    dependency: transitive
+    description:
+      path: "../tom_mermaid_view"
+      relative: true
+    source: path
+    version: "0.1.0"
   tom_som_dart_runtime:
     dependency: transitive
     description:

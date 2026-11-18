@@ -144,7 +144,7 @@ class _MermaidWebViewState extends State<MermaidWebView> {
     try {
       // Load mermaid.js from bundled asset once and cache it.
       _mermaidJs ??= await rootBundle.loadString(
-        'packages/tom_editors_shared/assets/js/mermaid.min.js',
+        'packages/tom_mermaid_view/assets/js/mermaid.min.js',
       );
 
       // Keep a stable initialData instance so platform-view updates don't
