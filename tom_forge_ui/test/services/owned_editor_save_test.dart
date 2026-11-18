@@ -11,6 +11,7 @@ library;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_forge_ui_testing/tom_forge_ui_testing.dart';
 
 class _OwnedEditor extends ForgeTestTextEditor {
   _OwnedEditor(super.module);

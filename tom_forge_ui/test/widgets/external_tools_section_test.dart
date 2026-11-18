@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_forge_ui_testing/tom_forge_ui_testing.dart';
 
 /// A tool whose detection answers from fixed copies.
 class _FakeTool extends ForgeExternalTool {

@@ -1,7 +1,7 @@
 # The editor history contract
 
 Every Forge editor keeps its undo history the same way. The rules below are
-checked by the conformance harness (`package:tom_forge_ui/testing.dart`),
+checked by the conformance harness (`package:tom_forge_ui_testing/tom_forge_ui_testing.dart`),
 which every editor's suite runs, and the shared helpers in
 `tom_editors_shared` (`lib/src/text_editing/history/`) implement them once.
 
@@ -125,7 +125,7 @@ navigation, not undo) is likewise reserved.
 ## 9. The conformance harness
 
 `runForgeUndoConformance(name, create, skip: ...)` from
-`package:tom_forge_ui/testing.dart` runs six checks against an editor:
+`package:tom_forge_ui_testing/tom_forge_ui_testing.dart` runs six checks against an editor:
 
 | Check | What it asserts |
 |-------|-----------------|

@@ -1,0 +1,32 @@
+name: tom_forge_ui_testing
+description: >-
+  Test support for Forge's shell and editors: the undo conformance harness
+  every editor's suite runs, and the test document, text editor, module and
+  workspace the shell's suites build on. Test-only: a suite depends on it
+  (dev_dependencies); nothing a product links does. License: BSD-3-Clause.
+publish_to: none
+version: 0.1.0
+repository: https://github.com/al-the-bear/tom_forge
+
+environment:
+  sdk: ^3.10.8
+  flutter: ">=1.17.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # The undo conformance harness is built on it.
+  flutter_test:
+    sdk: flutter
+  # The shell types the helpers implement and the harness drives.
+  tom_forge_ui:
+    path: ../tom_forge_ui
+  # The document and text contracts of the test document and editor.
+  tom_forge_core:
+    path: ../tom_forge_core
+  # StandardEditingActions and the typing pause the harness uses.
+  tom_editors_shared:
+    path: ../tom_editors_shared
+
+dev_dependencies:
+  flutter_lints: ^6.0.0

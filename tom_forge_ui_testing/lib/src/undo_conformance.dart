@@ -12,7 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart'
     show StandardEditingActions, forgeTypingPause;
 
-import '../components/forge_editor.dart';
+import 'package:tom_forge_ui/tom_forge_ui.dart';
 
 /// The checks.
 enum ForgeUndoCheck {
@@ -50,14 +50,11 @@ abstract class ForgeUndoSubject {
   ForgeEditor get editor;
 
   /// The text controller of [view]'s first [EditableText].
-  TextEditingController controllerOf(WidgetTester tester, Finder view) =>
-      tester
-          .widget<EditableText>(
-            find
-                .descendant(of: view, matching: find.byType(EditableText))
-                .first,
-          )
-          .controller;
+  TextEditingController controllerOf(WidgetTester tester, Finder view) => tester
+      .widget<EditableText>(
+        find.descendant(of: view, matching: find.byType(EditableText)).first,
+      )
+      .controller;
 
   TextEditingController _main(WidgetTester tester) =>
       controllerOf(tester, find.byKey(forgeUndoMainView));
@@ -123,17 +120,13 @@ void runForgeUndoConformance(
       String description,
       Future<void> Function(WidgetTester tester) body,
     ) {
-      testWidgets(
-        'UNDO-CONF ${which.name}: $description',
-        (tester) async {
-          await body(tester);
-          // Let a typing pause still running end before the tree goes — and
-          // the debounce an editor may hold typing in before the pause starts.
-          await tester.pump(forgeTypingPause);
-          await tester.pump(forgeTypingPause);
-        },
-        skip: skip.containsKey(which),
-      );
+      testWidgets('UNDO-CONF ${which.name}: $description', (tester) async {
+        await body(tester);
+        // Let a typing pause still running end before the tree goes — and
+        // the debounce an editor may hold typing in before the pause starts.
+        await tester.pump(forgeTypingPause);
+        await tester.pump(forgeTypingPause);
+      }, skip: skip.containsKey(which));
     }
 
     Future<ForgeUndoSubject> mount(

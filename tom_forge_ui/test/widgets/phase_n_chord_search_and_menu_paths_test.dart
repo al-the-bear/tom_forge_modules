@@ -9,6 +9,7 @@ import 'package:tom_forge_core/tom_forge_core.dart'
     show FileHandlingResult, ForgePanelLocation;
 import 'package:tom_forge_ui/src/widgets/forge_quick_open.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_forge_ui_testing/tom_forge_ui_testing.dart';
 
 import 'support/shell_test_utils.dart';
 

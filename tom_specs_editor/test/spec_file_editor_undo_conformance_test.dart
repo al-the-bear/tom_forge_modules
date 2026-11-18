@@ -10,7 +10,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_file_system/tom_file_system.dart';
-import 'package:tom_forge_ui/testing.dart';
+import 'package:tom_forge_ui_testing/tom_forge_ui_testing.dart';
 import 'package:tom_specs_editor/tom_specs_editor.dart';
 
 const _overview = 'D00/D00-OVR';

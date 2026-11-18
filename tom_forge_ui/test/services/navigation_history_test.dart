@@ -11,6 +11,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_forge_core/tom_forge_core.dart' show ForgeTextPosition;
 import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_forge_ui_testing/tom_forge_ui_testing.dart';
 
 /// A test editor whose reveal moves the caret, as the shell's text editors
 /// do.

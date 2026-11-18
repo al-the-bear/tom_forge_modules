@@ -5,6 +5,7 @@ import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_dart_editor/tom_dart_editor.dart';
 import 'package:tom_md_editor/tom_md_editor.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_forge_ui_testing/tom_forge_ui_testing.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

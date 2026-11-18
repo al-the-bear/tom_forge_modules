@@ -20,9 +20,10 @@ class ForgeTestWorkspace {
   Future<void> _populate() async {
     await _createFile('readme.md', '# Test Workspace\n\nThis is a test.');
     await _createFile(
-        'config.yaml', 'name: test\nversion: 1\ndescription: Test config');
-    await _createFile(
-        'main.dart', 'void main() {\n  print("Hello");\n}');
+      'config.yaml',
+      'name: test\nversion: 1\ndescription: Test config',
+    );
+    await _createFile('main.dart', 'void main() {\n  print("Hello");\n}');
     await _createFile('data.json', '{"key": "value"}');
     await _createFile('sample.test', 'Test file content');
 
@@ -33,9 +34,13 @@ class ForgeTestWorkspace {
 
     // Schema files.
     await _createFile(
-        'schema/form.yaml', '# schema: form-v2\nfields:\n  - name: title');
+      'schema/form.yaml',
+      '# schema: form-v2\nfields:\n  - name: title',
+    );
     await _createFile(
-        'schema/workflow.yaml', '# schema: workflow\nsteps:\n  - id: start');
+      'schema/workflow.yaml',
+      '# schema: workflow\nsteps:\n  - id: start',
+    );
   }
 
   Future<void> _createFile(String path, String content) async {

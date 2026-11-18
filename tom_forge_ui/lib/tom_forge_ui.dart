@@ -74,11 +74,9 @@ export 'src/services/forge_undo_manager.dart';
 export 'src/services/forge_virtual_document_manager.dart';
 export 'src/services/forge_workspace_state_manager.dart';
 
-// ── Testing ──
-export 'src/testing/test_document.dart';
-export 'src/testing/test_module.dart';
-export 'src/testing/test_text_editor.dart';
-export 'src/testing/test_workspace.dart';
+// The test doubles (ForgeTestDocument, ForgeTestTextEditor, ForgeTestModule,
+// ForgeTestWorkspace) and the undo conformance harness are in
+// package:tom_forge_ui_testing, a dev dependency of the suites using them.
 
 // ── Defaults ──
 export 'src/defaults/default_clipboard.dart';

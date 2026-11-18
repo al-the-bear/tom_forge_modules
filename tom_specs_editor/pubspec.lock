@@ -1437,6 +1437,13 @@ packages:
       relative: true
     source: path
     version: "0.0.1"
+  tom_forge_ui_testing:
+    dependency: "direct dev"
+    description:
+      path: "../tom_forge_ui_testing"
+      relative: true
+    source: path
+    version: "0.1.0"
   tom_llm:
     dependency: transitive
     description:

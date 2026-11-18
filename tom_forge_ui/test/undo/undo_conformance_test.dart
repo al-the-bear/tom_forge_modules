@@ -16,7 +16,7 @@ import 'package:tom_editors_shared/tom_editors_shared.dart'
         ForgeTextState,
         StandardEditingActions;
 import 'package:tom_forge_core/tom_forge_core.dart';
-import 'package:tom_forge_ui/testing.dart';
+import 'package:tom_forge_ui_testing/tom_forge_ui_testing.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 
 void main() {

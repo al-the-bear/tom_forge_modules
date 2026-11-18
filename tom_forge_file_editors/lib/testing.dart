@@ -10,7 +10,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_file_session/tom_file_session.dart';
-import 'package:tom_forge_ui/testing.dart';
+import 'package:tom_forge_ui_testing/tom_forge_ui_testing.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 import 'package:tom_md_editor/tom_md_editor.dart' show MdRawTextEditor;
 import 'package:tom_todo_ui/tom_todo_ui.dart' show TomTodoFileSource;

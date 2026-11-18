@@ -8,7 +8,7 @@ library;
 
 import 'package:tom_forge_pdf_editors/testing.dart';
 import 'package:tom_forge_pdf_editors/tom_forge_pdf_editors.dart';
-import 'package:tom_forge_ui/testing.dart';
+import 'package:tom_forge_ui_testing/tom_forge_ui_testing.dart';
 
 void main() {
   runForgeUndoConformance(

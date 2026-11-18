@@ -21,7 +21,7 @@ suite.
 
 | Contract | Test |
 | -------- | ---- |
-| One history per document (six checks) | `runForgeUndoConformance` from `package:tom_forge_ui/testing.dart`, run by every document editor — the register is in [editor_component_contract.md](editor_component_contract.md) §2 |
+| One history per document (six checks) | `runForgeUndoConformance` from `package:tom_forge_ui_testing/tom_forge_ui_testing.dart`, run by every document editor — the register is in [editor_component_contract.md](editor_component_contract.md) §2 |
 | Surfaces | `tom_forge_ui/test/components/forge_surface_editor_test.dart` |
 | YAML fidelity | `tom_yaml_editor/test/yaml_fidelity_test.dart` ([configuration_compatibility.md](configuration_compatibility.md) §3) |
 | `.forge/` state and git | `tom_forge_ui/test/services/keep_forge_state_out_of_git_test.dart`, `forge_state_files_test.dart` |

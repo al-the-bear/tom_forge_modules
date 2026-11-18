@@ -6,7 +6,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tom_forge_ui/testing.dart';
+import 'package:tom_forge_ui_testing/tom_forge_ui_testing.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 import 'package:tom_website_editor/tom_website_editor.dart';
 import 'package:tom_yaml_editor/tom_yaml_editor.dart'

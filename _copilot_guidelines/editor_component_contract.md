@@ -60,7 +60,7 @@ plain-text adapters), `ForgeSchemaEditor` (structured data with a schema; the
 YAML adapter), `ForgeVisualEditor` (canvas; not implemented).
 
 **Every document editor runs the undo conformance harness**
-(`package:tom_forge_ui/testing.dart`, `runForgeUndoConformance`): six checks
+(`package:tom_forge_ui_testing/tom_forge_ui_testing.dart`, `runForgeUndoConformance`): six checks
 — dirty follows the saved state, the caret after undo and redo, typing undone
 within the pause, no redo after typing, split copies share the history,
 replaced content clears it. A check an editor does not meet yet is skipped
@@ -76,7 +76,7 @@ their runs is in the contract test (EC-1, EC-2):
 | `SpecDocumentEditor` | `tom_specs_editor` | covered by `SpecFileEditor`'s run, which adds only the file load, `getContent` and `replaceContent` to it |
 | `ForgePdfEditor`, `ForgePdfJsEditor` | `tom_forge_pdf_editors` | `tom_forge_pdf_editors/test/undo_conformance_test.dart` (skips with reasons in its README) |
 
-Test doubles in `tom_forge_ui/lib/src/testing/` (`ForgeTestTextEditor`) are
+Test doubles in `tom_forge_ui_testing` (`ForgeTestTextEditor`) are
 not part of the register.
 
 ## 3. Shell editor: a surface

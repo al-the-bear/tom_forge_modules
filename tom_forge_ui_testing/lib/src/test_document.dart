@@ -11,8 +11,8 @@ class ForgeTestDocument implements ForgeDocument {
   int _version = 0;
 
   ForgeTestDocument({Uri? uri, String content = ''})
-      : _uri = uri ?? Uri.parse('test://untitled'),
-        _lines = content.isEmpty ? [''] : content.split('\n');
+    : _uri = uri ?? Uri.parse('test://untitled'),
+      _lines = content.isEmpty ? [''] : content.split('\n');
 
   @override
   Uri get uri => _uri;
@@ -29,8 +29,10 @@ class ForgeTestDocument implements ForgeDocument {
   @override
   String textInRange(ForgeTextRange range) {
     if (range.start.line == range.end.line) {
-      return _lines[range.start.line]
-          .substring(range.start.column, range.end.column);
+      return _lines[range.start.line].substring(
+        range.start.column,
+        range.end.column,
+      );
     }
     final buffer = StringBuffer();
     buffer.write(_lines[range.start.line].substring(range.start.column));
@@ -77,7 +79,8 @@ class ForgeTestDocument implements ForgeDocument {
   void replace(ForgeTextRange range, String text) {
     if (range.start.line == range.end.line) {
       final line = _lines[range.start.line];
-      _lines[range.start.line] = line.substring(0, range.start.column) +
+      _lines[range.start.line] =
+          line.substring(0, range.start.column) +
           text +
           line.substring(range.end.column);
     } else {
@@ -102,10 +105,12 @@ class ForgeTestDocument implements ForgeDocument {
     final results = <ForgeTextRange>[];
     for (var lineNum = 0; lineNum < _lines.length; lineNum++) {
       for (final match in pattern.allMatches(_lines[lineNum])) {
-        results.add(ForgeTextRange(
-          start: ForgeTextPosition(line: lineNum, column: match.start),
-          end: ForgeTextPosition(line: lineNum, column: match.end),
-        ));
+        results.add(
+          ForgeTextRange(
+            start: ForgeTextPosition(line: lineNum, column: match.start),
+            end: ForgeTextPosition(line: lineNum, column: match.end),
+          ),
+        );
       }
     }
     return results;
@@ -136,8 +141,9 @@ class ForgeTestDocument implements ForgeDocument {
   }
 
   void _fireChange(List<ForgeTextRange> changes) {
-    _changeController
-        .add(DocumentChangeEvent(changes: changes, document: this));
+    _changeController.add(
+      DocumentChangeEvent(changes: changes, document: this),
+    );
   }
 
   /// Dispose the change stream.

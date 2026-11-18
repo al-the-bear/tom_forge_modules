@@ -1,9 +1,5 @@
-import '../actions/forge_action.dart';
-import '../actions/forge_shortcut_binding.dart';
-import '../components/forge_editor.dart';
-import '../components/forge_view.dart';
-import '../module/forge_module.dart';
-import '../shell/forge_shell_api.dart';
+import 'package:tom_forge_ui/tom_forge_ui.dart';
+
 import 'test_text_editor.dart';
 
 /// A minimal [ForgeModule] for testing the shell integration layer.
@@ -42,17 +38,17 @@ class ForgeTestModule extends ForgeModule {
 
   @override
   List<ForgeAction> get actions => [
-        ForgeAction(
-          id: 'test.insertText',
-          label: 'Insert Test Text',
-          execute: (_) async {
-            testTextEditor.insertText('[TEST]');
-            return null;
-          },
-          isEnabled: () => true,
-          isVisible: () => true,
-        ),
-      ];
+    ForgeAction(
+      id: 'test.insertText',
+      label: 'Insert Test Text',
+      execute: (_) async {
+        testTextEditor.insertText('[TEST]');
+        return null;
+      },
+      isEnabled: () => true,
+      isVisible: () => true,
+    ),
+  ];
 
   @override
   List<ForgeShortcutBinding> get shortcuts => const [];

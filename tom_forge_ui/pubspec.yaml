@@ -9,17 +9,12 @@ environment:
   flutter: ">=1.17.0"
 
 dependencies:
-  tom_undo:
-    path: ../../tom_ai/basics/tom_undo
   tom_file_system:
     path: ../../tom_ai/basics/tom_file_system
   # The per-file session the plain-text editor edits through.
   tom_file_session:
     path: ../../tom_ai/modules/tom_file_session
   flutter:
-    sdk: flutter
-  # lib/testing.dart (the undo conformance harness) is built on it.
-  flutter_test:
     sdk: flutter
   file_picker: ^12.0.0
   # The shell's save dialog hands the chosen location back for the caller to
@@ -49,7 +44,12 @@ dependencies:
   flutter_secure_storage: ^10.0.0
 
 dev_dependencies:
+  flutter_test:
+    sdk: flutter
   flutter_lints: ^6.0.0
+  # The undo conformance harness and the shell test doubles.
+  tom_forge_ui_testing:
+    path: ../tom_forge_ui_testing
   # The workspace scratch folder the restart test's real .forge lives in.
   tom_test_support:
     path: ../../tom_ai/basics/tom_test_support

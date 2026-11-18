@@ -14,8 +14,9 @@ and the one below are the same table.
 ## 1. Layers
 
 A package depends only on packages of a **lower** layer (its
-`dependencies` and `dev_dependencies` alike). Harness packages depend on
-anything below the apps, and nothing depends on them.
+`dependencies` and `dev_dependencies` alike), with one exception: any package
+may take a test-support package as a dev_dependency. Harness packages depend
+on anything below the apps, and nothing depends on them.
 
 | Layer | Packages | What it is |
 | ----- | -------- | ---------- |
@@ -24,6 +25,7 @@ anything below the apps, and nothing depends on them.
 | 2 Editors | `tom_md_editor`, `tom_yaml_editor`, `tom_dart_editor`, `tom_flow_editor` | The editor components, each usable without the shell (`tom_dart_editor/doc/how_to_embed.md`, `tom_yaml_editor/doc/how_to_embed.md`) |
 | 3 Shell | `tom_forge_ui` | The panel shell, `ForgeShellApi`, the component, editor, view, module and application contracts, and the adapters that make the layer-2 editors shell editors |
 | 4 Shell services | `tom_forge_agentic` | The agent and chat UI (composer, prompt queue, trail, change log and review) over `tom_core_agentic`, for any module to use |
+| 4 Test support | `tom_forge_ui_testing` | The undo conformance harness and the shell's test doubles, built on `flutter_test`; any package may take it as a dev_dependency, the shell's own suites included, so no product links the test framework |
 | 5 Modules | `tom_forge_file_editors`, `tom_forge_pdf_editors`, `tom_forge_quests`, `tom_website_editor`, `tom_specs_editor` | Feature modules: each a `ForgeModule` with its editors, views, actions and applications (`tom_specs_editor` is also an app of its own) |
 | 6 Apps | `tom_forge_app` | Composition: `composeForgeSuite`, and Tom Forge's `main` |
 | Harness | `tom_dart_editor_test`, `tom_flow_editor_test`, `tom_forge_ui_test`, `tom_md_editor_test`, `tom_yaml_editor_test`, `tom_wpe_webview_test` | Companion apps and test beds |
@@ -67,7 +69,7 @@ component in a middle split that holds no document is a surface
 (`ForgeSurfaceEditor`). Every document editor keeps one history per document
 under the history contract
 (`tom_forge_ui/_copilot_guidelines/editor_history_contract.md`); the
-conformance harness in `package:tom_forge_ui/testing.dart` checks it.
+conformance harness in `package:tom_forge_ui_testing/tom_forge_ui_testing.dart` checks it.
 
 ### 2.2 Module → shell: `ForgeModule`
 

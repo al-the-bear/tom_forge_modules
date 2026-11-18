@@ -4,9 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 
-import '../components/forge_component.dart';
-import '../components/forge_text_editor.dart';
-import '../module/forge_module.dart';
+import 'package:tom_forge_ui/tom_forge_ui.dart';
+
 import 'test_document.dart';
 
 /// Minimal [ForgeTextEditor] implementation for unit and integration tests.
@@ -16,14 +15,17 @@ class ForgeTestTextEditor extends ForgeTextEditor {
   final ForgeTestDocument _document;
   final _title = ValueNotifier<String>('Test');
   final _titleExtension = ValueNotifier<String?>(null);
-  final _cursorPosition =
-      ValueNotifier<ForgeTextPosition>(const ForgeTextPosition.zero());
+  final _cursorPosition = ValueNotifier<ForgeTextPosition>(
+    const ForgeTextPosition.zero(),
+  );
   final _selection = ValueNotifier<ForgeTextRange?>(null);
   final _selections = ValueNotifier<List<ForgeTextRange>>([]);
-  final _visibleRange = ValueNotifier<ForgeTextRange>(ForgeTextRange(
-    start: const ForgeTextPosition.zero(),
-    end: const ForgeTextPosition(line: 20, column: 0),
-  ));
+  final _visibleRange = ValueNotifier<ForgeTextRange>(
+    ForgeTextRange(
+      start: const ForgeTextPosition.zero(),
+      end: const ForgeTextPosition(line: 20, column: 0),
+    ),
+  );
   final _isDirty = ValueNotifier<bool>(false);
   final Map<String, List<ForgeDecorationRange>> _decorations = {};
   ForgeTextEditorOptions _options;
@@ -32,8 +34,8 @@ class ForgeTestTextEditor extends ForgeTextEditor {
     this.module, {
     ForgeTestDocument? document,
     ForgeTextEditorOptions options = const ForgeTextEditorOptions(),
-  })  : _document = document ?? ForgeTestDocument(),
-        _options = options {
+  }) : _document = document ?? ForgeTestDocument(),
+       _options = options {
     _title.value = uri.pathSegments.isNotEmpty ? uri.pathSegments.last : 'Test';
   }
 
@@ -46,8 +48,7 @@ class ForgeTestTextEditor extends ForgeTextEditor {
   ValueListenable<String?> get titleExtension => _titleExtension;
 
   @override
-  IconData get icon =>
-      const IconData(0xe8e0, fontFamily: 'MaterialIcons'); // text_fields
+  IconData get icon => const IconData(0xe8e0, fontFamily: 'MaterialIcons'); // text_fields
 
   @override
   ForgeComponentSizeHints get sizeHints => const ForgeComponentSizeHints();
@@ -145,13 +146,15 @@ class ForgeTestTextEditor extends ForgeTextEditor {
   @override
   void selectAll() {
     final lastLine = _document.lineCount - 1;
-    setSelection(ForgeTextRange(
-      start: const ForgeTextPosition.zero(),
-      end: ForgeTextPosition(
-        line: lastLine,
-        column: _document.lineAt(lastLine).length,
+    setSelection(
+      ForgeTextRange(
+        start: const ForgeTextPosition.zero(),
+        end: ForgeTextPosition(
+          line: lastLine,
+          column: _document.lineAt(lastLine).length,
+        ),
       ),
-    ));
+    );
   }
 
   @override
@@ -189,7 +192,9 @@ class ForgeTestTextEditor extends ForgeTextEditor {
 
   @override
   void setDecorations(
-      ForgeDecorationType type, List<ForgeDecorationRange> ranges) {
+    ForgeDecorationType type,
+    List<ForgeDecorationRange> ranges,
+  ) {
     _decorations[type.key] = ranges;
   }
 
