@@ -1408,14 +1408,14 @@ packages:
       path: "../../tom_ai/modules/tom_file_session"
       relative: true
     source: path
-    version: "1.5.0"
+    version: "1.7.0"
   tom_file_system:
     dependency: "direct main"
     description:
       path: "../../tom_ai/basics/tom_file_system"
       relative: true
     source: path
-    version: "0.2.0"
+    version: "0.2.1"
   tom_forge_agentic:
     dependency: "direct main"
     description:
