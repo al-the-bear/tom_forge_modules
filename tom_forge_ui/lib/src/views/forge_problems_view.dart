@@ -47,9 +47,8 @@ class ForgeProblemsView extends ForgeView {
   IconData get icon => Icons.error_outline;
 
   @override
-  ForgeComponentSizeHints get sizeHints => const ForgeComponentSizeHints(
-        preferredSize: Size(400, 200),
-      );
+  ForgeComponentSizeHints get sizeHints =>
+      const ForgeComponentSizeHints(preferredSize: Size(400, 200));
 
   @override
   Widget buildMain(BuildContext context) {
@@ -120,11 +119,14 @@ class _ProblemsContentState extends State<_ProblemsContent> {
       _SeverityFilter.all => diags,
       _SeverityFilter.errors =>
         diags.where((d) => d.severity == ForgeSeverity.error).toList(),
-      _SeverityFilter.warnings => diags
-          .where((d) =>
-              d.severity == ForgeSeverity.error ||
-              d.severity == ForgeSeverity.warning)
-          .toList(),
+      _SeverityFilter.warnings =>
+        diags
+            .where(
+              (d) =>
+                  d.severity == ForgeSeverity.error ||
+                  d.severity == ForgeSeverity.warning,
+            )
+            .toList(),
     };
     if (_searchQuery.isEmpty) return diags;
     final RegExp? pattern = _buildSearchPattern();
@@ -141,10 +143,7 @@ class _ProblemsContentState extends State<_ProblemsContent> {
     if (_searchQuery.isEmpty) return null;
     try {
       if (_searchIsRegex) {
-        return RegExp(
-          _searchQuery,
-          caseSensitive: _searchCaseSensitive,
-        );
+        return RegExp(_searchQuery, caseSensitive: _searchCaseSensitive);
       }
       var query = RegExp.escape(_searchQuery);
       if (_searchFullWord) {
@@ -169,11 +168,10 @@ class _ProblemsContentState extends State<_ProblemsContent> {
                   child: Text(
                     'No problems detected',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withValues(alpha: 0.4),
-                        ),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.4),
+                    ),
                   ),
                 )
               : _buildDiagnosticList(context, allDiags),
@@ -184,11 +182,15 @@ class _ProblemsContentState extends State<_ProblemsContent> {
 
   /// Combined filter chips + search bar.
   /// Shows them in one row when wide enough, wraps to two rows when narrow.
+  /// Nothing overflows at any width: the chips scroll sideways when they do
+  /// not fit, the info count is cut with an ellipsis, and the search toggles
+  /// give way to the field below [_searchTogglesMinWidth].
   Widget _buildToolBar(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Below 400px, stack vertically.
-        final inline = constraints.maxWidth >= 400;
+        // Below 560 px (three chips with three-digit counts, a usable search
+        // field and the toggles), stack vertically.
+        final inline = constraints.maxWidth >= 560;
         if (inline) {
           return Container(
             height: 28,
@@ -196,9 +198,12 @@ class _ProblemsContentState extends State<_ProblemsContent> {
             color: Theme.of(context).colorScheme.surface,
             child: Row(
               children: [
-                ..._buildFilterChips(context),
+                Flexible(
+                  flex: 3,
+                  child: _scrollingChips(_buildFilterChips(context)),
+                ),
                 const SizedBox(width: 8),
-                Expanded(child: _buildSearchField(context)),
+                Expanded(flex: 2, child: _buildSearchField(context)),
                 const SizedBox(width: 4),
                 ..._buildSearchToggles(context),
               ],
@@ -209,25 +214,36 @@ class _ProblemsContentState extends State<_ProblemsContent> {
           mainAxisSize: MainAxisSize.min,
           children: [
             _buildFilterBar(context),
-            _buildSearchBar(context),
+            _buildSearchBar(context, constraints.maxWidth),
           ],
         );
       },
     );
   }
 
+  /// The narrowest search bar that still shows the regex / word / case
+  /// toggles beside the field.
+  static const double _searchTogglesMinWidth = 200;
+
+  /// [chips] in one line that scrolls sideways when it is wider than the
+  /// space it gets.
+  Widget _scrollingChips(List<Widget> chips) => SingleChildScrollView(
+    scrollDirection: Axis.horizontal,
+    child: Row(mainAxisSize: MainAxisSize.min, children: chips),
+  );
+
   Widget _buildFilterBar(BuildContext context) {
     final theme = Theme.of(context);
     final all = widget.diagnosticManager.all;
-    final errorCount =
-        all.where((d) => d.severity == ForgeSeverity.error).length;
-    final warningCount =
-        all.where((d) => d.severity == ForgeSeverity.warning).length;
-    final infoCount =
-        all.where((d) => d.severity == ForgeSeverity.info).length;
+    final errorCount = all
+        .where((d) => d.severity == ForgeSeverity.error)
+        .length;
+    final warningCount = all
+        .where((d) => d.severity == ForgeSeverity.warning)
+        .length;
+    final infoCount = all.where((d) => d.severity == ForgeSeverity.info).length;
 
-    Widget chip(
-        _SeverityFilter f, IconData icon, Color color, String label) {
+    Widget chip(_SeverityFilter f, IconData icon, Color color, String label) {
       final selected = _filter == f;
       return Padding(
         padding: const EdgeInsets.only(right: 4),
@@ -268,17 +284,39 @@ class _ProblemsContentState extends State<_ProblemsContent> {
       color: theme.colorScheme.surface,
       child: Row(
         children: [
-          chip(_SeverityFilter.all, Icons.list, theme.colorScheme.onSurface,
-              'All (${all.length})'),
-          chip(_SeverityFilter.errors, Icons.error, theme.colorScheme.error,
-              'Errors ($errorCount)'),
-          chip(_SeverityFilter.warnings, Icons.warning_amber, Colors.orange,
-              'Warnings ($warningCount)'),
-          const Spacer(),
-          Text(
-            '$infoCount info',
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+          Expanded(
+            child: _scrollingChips([
+              chip(
+                _SeverityFilter.all,
+                Icons.list,
+                theme.colorScheme.onSurface,
+                'All (${all.length})',
+              ),
+              chip(
+                _SeverityFilter.errors,
+                Icons.error,
+                theme.colorScheme.error,
+                'Errors ($errorCount)',
+              ),
+              chip(
+                _SeverityFilter.warnings,
+                Icons.warning_amber,
+                Colors.orange,
+                'Warnings ($warningCount)',
+              ),
+            ]),
+          ),
+          const SizedBox(width: 4),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 64),
+            child: Text(
+              '$infoCount info',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              softWrap: false,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+              ),
             ),
           ),
         ],
@@ -290,13 +328,14 @@ class _ProblemsContentState extends State<_ProblemsContent> {
   List<Widget> _buildFilterChips(BuildContext context) {
     final theme = Theme.of(context);
     final all = widget.diagnosticManager.all;
-    final errorCount =
-        all.where((d) => d.severity == ForgeSeverity.error).length;
-    final warningCount =
-        all.where((d) => d.severity == ForgeSeverity.warning).length;
+    final errorCount = all
+        .where((d) => d.severity == ForgeSeverity.error)
+        .length;
+    final warningCount = all
+        .where((d) => d.severity == ForgeSeverity.warning)
+        .length;
 
-    Widget chip(
-        _SeverityFilter f, IconData icon, Color color, String label) {
+    Widget chip(_SeverityFilter f, IconData icon, Color color, String label) {
       final selected = _filter == f;
       return Padding(
         padding: const EdgeInsets.only(right: 4),
@@ -332,12 +371,24 @@ class _ProblemsContentState extends State<_ProblemsContent> {
     }
 
     return [
-      chip(_SeverityFilter.all, Icons.list, theme.colorScheme.onSurface,
-          'All (${all.length})'),
-      chip(_SeverityFilter.errors, Icons.error, theme.colorScheme.error,
-          'Errors ($errorCount)'),
-      chip(_SeverityFilter.warnings, Icons.warning_amber, Colors.orange,
-          'Warnings ($warningCount)'),
+      chip(
+        _SeverityFilter.all,
+        Icons.list,
+        theme.colorScheme.onSurface,
+        'All (${all.length})',
+      ),
+      chip(
+        _SeverityFilter.errors,
+        Icons.error,
+        theme.colorScheme.error,
+        'Errors ($errorCount)',
+      ),
+      chip(
+        _SeverityFilter.warnings,
+        Icons.warning_amber,
+        Colors.orange,
+        'Warnings ($warningCount)',
+      ),
     ];
   }
 
@@ -355,18 +406,23 @@ class _ProblemsContentState extends State<_ProblemsContent> {
             color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
           ),
           isDense: true,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 8,
+            vertical: 4,
+          ),
           border: const OutlineInputBorder(),
           prefixIcon: Padding(
             padding: const EdgeInsets.only(left: 6, right: 4),
-            child: Icon(Icons.search,
-                size: 14,
-                color:
-                    theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+            child: Icon(
+              Icons.search,
+              size: 14,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+            ),
           ),
-          prefixIconConstraints:
-              const BoxConstraints(minWidth: 24, minHeight: 22),
+          prefixIconConstraints: const BoxConstraints(
+            minWidth: 24,
+            minHeight: 22,
+          ),
           suffixIcon: _searchQuery.isNotEmpty
               ? GestureDetector(
                   onTap: () => setState(() {
@@ -375,15 +431,18 @@ class _ProblemsContentState extends State<_ProblemsContent> {
                   }),
                   child: Padding(
                     padding: const EdgeInsets.only(right: 4),
-                    child: Icon(Icons.close,
-                        size: 14,
-                        color: theme.colorScheme.onSurface
-                            .withValues(alpha: 0.5)),
+                    child: Icon(
+                      Icons.close,
+                      size: 14,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                    ),
                   ),
                 )
               : null,
-          suffixIconConstraints:
-              const BoxConstraints(minWidth: 22, minHeight: 22),
+          suffixIconConstraints: const BoxConstraints(
+            minWidth: 22,
+            minHeight: 22,
+          ),
         ),
         style: theme.textTheme.bodySmall,
       ),
@@ -440,7 +499,7 @@ class _ProblemsContentState extends State<_ProblemsContent> {
     ];
   }
 
-  Widget _buildSearchBar(BuildContext context) {
+  Widget _buildSearchBar(BuildContext context, double width) {
     final theme = Theme.of(context);
 
     Widget toggle(String label, bool active, VoidCallback onTap) {
@@ -451,8 +510,9 @@ class _ProblemsContentState extends State<_ProblemsContent> {
           height: 22,
           margin: const EdgeInsets.only(left: 2),
           decoration: BoxDecoration(
-            color:
-                active ? theme.colorScheme.primary.withValues(alpha: 0.2) : null,
+            color: active
+                ? theme.colorScheme.primary.withValues(alpha: 0.2)
+                : null,
             borderRadius: BorderRadius.circular(2),
             border: Border.all(
               color: active
@@ -490,20 +550,26 @@ class _ProblemsContentState extends State<_ProblemsContent> {
                 decoration: InputDecoration(
                   hintText: 'Filter problems...',
                   hintStyle: theme.textTheme.bodySmall?.copyWith(
-                    color:
-                        theme.colorScheme.onSurface.withValues(alpha: 0.35),
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
                   ),
                   isDense: true,
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   border: const OutlineInputBorder(),
                   prefixIcon: Padding(
                     padding: const EdgeInsets.only(left: 6, right: 4),
-                    child: Icon(Icons.search, size: 14,
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                    child: Icon(
+                      Icons.search,
+                      size: 14,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                    ),
                   ),
-                  prefixIconConstraints:
-                      const BoxConstraints(minWidth: 24, minHeight: 22),
+                  prefixIconConstraints: const BoxConstraints(
+                    minWidth: 24,
+                    minHeight: 22,
+                  ),
                   suffixIcon: _searchQuery.isNotEmpty
                       ? GestureDetector(
                           onTap: () => setState(() {
@@ -512,36 +578,46 @@ class _ProblemsContentState extends State<_ProblemsContent> {
                           }),
                           child: Padding(
                             padding: const EdgeInsets.only(right: 4),
-                            child: Icon(Icons.close, size: 14,
-                                color: theme.colorScheme.onSurface
-                                    .withValues(alpha: 0.5)),
+                            child: Icon(
+                              Icons.close,
+                              size: 14,
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.5,
+                              ),
+                            ),
                           ),
                         )
                       : null,
-                  suffixIconConstraints:
-                      const BoxConstraints(minWidth: 22, minHeight: 22),
+                  suffixIconConstraints: const BoxConstraints(
+                    minWidth: 22,
+                    minHeight: 22,
+                  ),
                 ),
                 style: theme.textTheme.bodySmall,
               ),
             ),
           ),
           const SizedBox(width: 4),
-          toggle('.*', _searchIsRegex, () {
-            setState(() => _searchIsRegex = !_searchIsRegex);
-          }),
-          toggle('W', _searchFullWord, () {
-            setState(() => _searchFullWord = !_searchFullWord);
-          }),
-          toggle('Aa', _searchCaseSensitive, () {
-            setState(() => _searchCaseSensitive = !_searchCaseSensitive);
-          }),
+          if (width >= _searchTogglesMinWidth) ...[
+            toggle('.*', _searchIsRegex, () {
+              setState(() => _searchIsRegex = !_searchIsRegex);
+            }),
+            toggle('W', _searchFullWord, () {
+              setState(() => _searchFullWord = !_searchFullWord);
+            }),
+            toggle('Aa', _searchCaseSensitive, () {
+              setState(() => _searchCaseSensitive = !_searchCaseSensitive);
+            }),
+          ],
         ],
       ),
     );
   }
 
   Widget _buildDiagnosticList(
-      BuildContext context, List<ForgeDiagnostic> diags) {
+    BuildContext context,
+    List<ForgeDiagnostic> diags,
+  ) {
     // Group by URI.
     final grouped = <Uri, List<ForgeDiagnostic>>{};
     for (final diag in diags) {
@@ -561,8 +637,9 @@ class _ProblemsContentState extends State<_ProblemsContent> {
     // Show truncation warning for very large diagnostic sets.
     const scalabilityLimit = 10000;
     final truncated = items.length > scalabilityLimit;
-    final displayItems =
-        truncated ? items.take(scalabilityLimit).toList() : items;
+    final displayItems = truncated
+        ? items.take(scalabilityLimit).toList()
+        : items;
 
     return Column(
       children: [
@@ -584,8 +661,7 @@ class _ProblemsContentState extends State<_ProblemsContent> {
             itemBuilder: (context, index) {
               final item = displayItems[index];
               if (item.isHeader) {
-                return _buildFileHeader(
-                    context, item.uri!, item.headerCount!);
+                return _buildFileHeader(context, item.uri!, item.headerCount!);
               }
               return _buildDiagnostic(context, item.diagnostic!);
             },
@@ -601,20 +677,24 @@ class _ProblemsContentState extends State<_ProblemsContent> {
       padding: const EdgeInsets.only(left: 8, top: 6, bottom: 2),
       child: Row(
         children: [
-          Text(
-            name,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+          Flexible(
+            child: Text(
+              name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              softWrap: false,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold),
+            ),
           ),
           const SizedBox(width: 6),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
             decoration: BoxDecoration(
-              color: Theme.of(context)
-                  .colorScheme
-                  .onSurface
-                  .withValues(alpha: 0.1),
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
@@ -657,12 +737,13 @@ class _ProblemsContentState extends State<_ProblemsContent> {
       },
       child: InkWell(
         onTap: () {
-          final isCtrl = HardwareKeyboard.instance.logicalKeysPressed
-              .any((k) =>
-                  k == LogicalKeyboardKey.controlLeft ||
-                  k == LogicalKeyboardKey.controlRight ||
-                  k == LogicalKeyboardKey.metaLeft ||
-                  k == LogicalKeyboardKey.metaRight);
+          final isCtrl = HardwareKeyboard.instance.logicalKeysPressed.any(
+            (k) =>
+                k == LogicalKeyboardKey.controlLeft ||
+                k == LogicalKeyboardKey.controlRight ||
+                k == LogicalKeyboardKey.metaLeft ||
+                k == LogicalKeyboardKey.metaRight,
+          );
           if (isCtrl) {
             setState(() {
               if (_selected.contains(diag)) {
@@ -694,18 +775,26 @@ class _ProblemsContentState extends State<_ProblemsContent> {
               Icon(iconData, size: 14, color: iconColor),
               const SizedBox(width: 6),
               Expanded(
+                flex: 3,
                 child: Text(
                   diag.message,
                   style: theme.textTheme.bodySmall,
+                  maxLines: 1,
+                  softWrap: false,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               if (diag.source.isNotEmpty) ...[
-                Text(
-                  diag.source,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color:
-                        theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                // The source gives way before the message and the position.
+                Flexible(
+                  child: Text(
+                    diag.source,
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -713,8 +802,7 @@ class _ProblemsContentState extends State<_ProblemsContent> {
               Text(
                 '${diag.range.start.line + 1}:${diag.range.start.column + 1}',
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color:
-                      theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                 ),
               ),
             ],
@@ -725,20 +813,14 @@ class _ProblemsContentState extends State<_ProblemsContent> {
   }
 
   void _showContextMenu(BuildContext context, Offset position) {
-    final overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox;
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
     showMenu<String>(
       context: context,
       position: RelativeRect.fromRect(
         position & Size.zero,
         Offset.zero & overlay.size,
       ),
-      items: [
-        const PopupMenuItem(
-          value: 'copy',
-          child: Text('Copy'),
-        ),
-      ],
+      items: [const PopupMenuItem(value: 'copy', child: Text('Copy'))],
     ).then((value) {
       if (value == 'copy' && _selected.isNotEmpty) {
         _copySelectedAsJson();
@@ -760,9 +842,9 @@ class _ProblemsContentState extends State<_ProblemsContent> {
       };
     }).toList();
 
-    final json = const JsonEncoder.withIndent('  ').convert(
-      items.length == 1 ? items.first : items,
-    );
+    final json = const JsonEncoder.withIndent(
+      '  ',
+    ).convert(items.length == 1 ? items.first : items);
     Clipboard.setData(ClipboardData(text: json));
   }
 }
