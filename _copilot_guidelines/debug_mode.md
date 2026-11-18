@@ -38,6 +38,7 @@ flag lets the compiler eliminate all dead code.
 | Markdown Editor (`tom_md_editor`) | `lib/src/integration/editor_trail.dart` | `kMdEditorIntegrationDebug` (switchable at run time) |
 | Dart Editor (`tom_dart_editor`) | `lib/src/editor_trail.dart` | `kDartEditorDebug` |
 | Quest applications (`tom_forge_quests`) | `lib/src/quests_trail.dart` | `kForgeQuestsDebug` |
+| PDF editor (`tom_ai/modules/tom_pdf_editor`) | `lib/src/pdf_editor_trail.dart` | `kPdfEditorDebug` (switchable at run time) |
 
 `tom_forge_app/test/editor_component_contract_test.dart` (EC-4) checks that
 every editor component has such a trail with its switch off.
@@ -129,6 +130,7 @@ Each component uses a two-letter prefix inside `[XX …]`. Current components:
 |--------|-----------|
 | `YE`   | YAML Editor |
 | `DE`   | Dart Editor *(reserved, not yet implemented)* |
+| `PE`   | PDF Editor (`tom_pdf_editor`) |
 
 Filter in terminal:
 ```bash
