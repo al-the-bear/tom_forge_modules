@@ -6,19 +6,24 @@ bar, menus, command palette, quick open, configuration, the built-in views
 (explorer, outline, output, problems, revisions, search) and the plain-text
 editor.
 
-It carries no terminal, no code editor and no keychain, so it builds where
-those do not. They plug in through `ForgeShellComponents`:
+It carries no terminal, no code editor, no keychain, no native file dialog
+and no `dart:io`, so it builds where those do not, the web included. They plug
+in through `ForgeShellComponents`:
 
 - a terminal-manager factory and the view of a terminal (`tom_forge_terminal`);
 - editor types the layout controller opens files with (`tom_forge_code_editors`:
   Markdown, Dart, YAML);
-- a secret-storage factory (`tom_forge_platform_secrets`).
+- a secret-storage factory (`tom_forge_platform_secrets`);
+- the file pickers (`ForgeFilePickers`: folder, files, save location) and the
+  host environment (`ForgeHostEnvironment`: installed shells, folders outside
+  the workspace) (`tom_forge_desktop_host`).
 
 A shell takes the components it is given (`DefaultShellApi.withDefaults…(
 components: …)`) or the registered ones (`ForgeShellComponents.register`).
 Without any it has no terminals (`ForgeNoTerminalManager`), keeps secrets in
-memory and opens files as plain text. `tom_forge_ui` is this package with all
-three parts, and `useForgeDesktopComponents()` registers them.
+memory, opens files as plain text and picks nothing (`ForgeNoFilePickers`,
+`ForgeNoHostEnvironment`). `tom_forge_ui` is this package with all four
+parts, and `useForgeDesktopComponents()` registers them.
 
 An editor tells the shell its type by implementing `ForgeEditorOfType`
 (`editorTypeId`): the text settings, the action bar and **Open With** are keyed

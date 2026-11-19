@@ -6,7 +6,9 @@ import 'package:tom_forge_core/tom_forge_core.dart';
 import '../components/forge_editor.dart';
 import '../components/forge_view.dart';
 import '../defaults/stub_services.dart';
+import '../defaults/default_shell_api.dart';
 import '../module/forge_module.dart';
+import 'forge_host_ports.dart';
 import 'forge_layout_controller.dart';
 
 /// Makes the terminal manager of a shell over [fileSystem].
@@ -73,14 +75,18 @@ class ForgeEditorType {
 
 /// The parts a Forge shell is assembled from that the shell core does not
 /// carry itself: the terminal manager (and the view of a terminal), the
-/// secret storage, and editor types beyond plain text.
+/// secret storage, editor types beyond plain text, and the host's file
+/// pickers and environment.
 ///
 /// The core works without any of them — no terminals
 /// ([ForgeNoTerminalManager]), secrets in memory ([DefaultSecretStorage]),
-/// files opened as plain text — so it builds where the terminal or the
-/// editors do not. `tom_forge_terminal`, `tom_forge_code_editors` and
-/// `tom_forge_platform_secrets` provide them; `package:tom_forge_ui`'s
-/// `useForgeDesktopComponents()` registers all three as [registered], which
+/// files opened as plain text, no file pickers ([ForgeNoFilePickers]) and no
+/// host environment ([ForgeNoHostEnvironment]) — so it builds where the
+/// terminal, the editors or `dart:io` do not, the web included.
+/// `tom_forge_terminal`, `tom_forge_code_editors`,
+/// `tom_forge_platform_secrets` and `tom_forge_desktop_host` provide them;
+/// `package:tom_forge_ui`'s `useForgeDesktopComponents()` registers all
+/// four as [registered], which
 /// every shell made afterwards takes unless it is given its own.
 class ForgeShellComponents {
   const ForgeShellComponents({
@@ -88,6 +94,8 @@ class ForgeShellComponents {
     this.secretStorage,
     this.terminalView,
     this.editorTypes = const [],
+    this.filePickers,
+    this.hostEnvironment,
   });
 
   /// Makes the terminal manager; null: no terminals.
@@ -101,6 +109,23 @@ class ForgeShellComponents {
 
   /// The editor types beyond plain text, in the order they are offered.
   final List<ForgeEditorType> editorTypes;
+
+  /// The host's file pickers; null: none ([ForgeNoFilePickers]).
+  final ForgeFilePickers? filePickers;
+
+  /// The host environment; null: none ([ForgeNoHostEnvironment]).
+  final ForgeHostEnvironment? hostEnvironment;
+
+  /// The file pickers to use: [filePickers], or none.
+  ForgeFilePickers get pickers => filePickers ?? const ForgeNoFilePickers();
+
+  /// The host environment to use: [hostEnvironment], or none.
+  ForgeHostEnvironment get host =>
+      hostEnvironment ?? const ForgeNoHostEnvironment();
+
+  /// The components of [shell] (a [DefaultShellApi]), else [registered].
+  static ForgeShellComponents of(Object? shell) =>
+      shell is DefaultShellApi ? shell.components : registered;
 
   /// The components every shell takes unless it is given its own; none
   /// until an application registers them (see [register]).
@@ -124,6 +149,8 @@ class ForgeShellComponents {
       secretStorage: other.secretStorage ?? secretStorage,
       terminalView: other.terminalView ?? terminalView,
       editorTypes: types.values.toList(growable: false),
+      filePickers: other.filePickers ?? filePickers,
+      hostEnvironment: other.hostEnvironment ?? hostEnvironment,
     );
   }
 

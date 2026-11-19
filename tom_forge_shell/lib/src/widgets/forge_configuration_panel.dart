@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:tom_editors_shared/text_types.dart'
     show ForgeTextSettings;
 import 'package:tom_forge_core/tom_forge_core.dart'
@@ -11,6 +10,7 @@ import '../actions/forge_shortcut_binding.dart';
 import '../module/forge_config_panel.dart';
 import '../services/forge_preferences_service.dart';
 import '../shell/forge_shell_api.dart';
+import '../shell/forge_shell_components.dart';
 import '../tools/forge_external_tool.dart';
 import '../tools/forge_external_tools_section.dart';
 
@@ -267,6 +267,7 @@ class _ForgeConfigurationPanelState extends State<ForgeConfigurationPanel> {
             tools: widget.externalTools,
             preferencesService: widget.preferencesService,
             onChanged: widget.onSettingsChanged,
+            filePickers: ForgeShellComponents.of(widget.shellApi).pickers,
           ),
         _ => const SizedBox.shrink(),
       };
@@ -1756,7 +1757,9 @@ class _EditorSettingsSectionState extends State<_EditorSettingsSection> {
           icon: const Icon(Icons.folder_open, size: 18),
           tooltip: 'Browse\u2026',
           onPressed: () async {
-            final path = await FilePicker.getDirectoryPath();
+            final path = await ForgeShellComponents.of(
+              widget.shellApi,
+            ).pickers.pickFolder();
             if (path != null) {
               _updateConfig(configKey, path);
             }

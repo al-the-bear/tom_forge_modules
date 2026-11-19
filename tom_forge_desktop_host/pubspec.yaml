@@ -1,0 +1,30 @@
+name: tom_forge_desktop_host
+description: >-
+  Forge's desktop host for the panel shell: the native file dialogs
+  (file_picker, file_selector) and the machine's shells and folders
+  (dart:io) as ForgeShellComponents, the workspace folder above a picked
+  folder, keeping .forge/ out of git, and the workspace folder selector.
+  License: BSD-3-Clause.
+publish_to: none
+version: 0.1.0
+repository: https://github.com/al-the-bear/tom_forge
+
+environment:
+  sdk: ^3.10.8
+  flutter: ">=1.17.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  tom_forge_shell:
+    path: ../tom_forge_shell
+  file_picker: ^12.0.0
+  # The save dialog hands the chosen location back for the caller to write;
+  # file_picker 12's saveFile writes the bytes itself, so the location comes
+  # from file_selector.
+  file_selector: ^1.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0

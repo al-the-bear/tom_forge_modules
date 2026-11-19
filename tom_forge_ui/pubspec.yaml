@@ -24,6 +24,8 @@ dependencies:
     path: ../tom_forge_code_editors
   tom_forge_platform_secrets:
     path: ../tom_forge_platform_secrets
+  tom_forge_desktop_host:
+    path: ../tom_forge_desktop_host
 
 dev_dependencies:
   flutter_test:

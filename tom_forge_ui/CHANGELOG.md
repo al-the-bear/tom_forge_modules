@@ -1,5 +1,11 @@
 ## Unreleased
 
+* The native file dialogs and the `dart:io` host pieces moved out of the core
+  into `tom_forge_desktop_host` (re-exported here, part of
+  `forgeDesktopComponents`): the core reaches them through the
+  `ForgeFilePickers` and `ForgeHostEnvironment` ports and builds for the web.
+  `ForgeShellScaffold.onOpenFolder` passes the picked folder's path (a
+  `String`) instead of a `Directory`.
 * The package is the umbrella of Forge's panel shell: the code moved to
   `tom_forge_shell` (the core), `tom_forge_terminal`, `tom_forge_code_editors`
   and `tom_forge_platform_secrets`, all re-exported here. Shells take the

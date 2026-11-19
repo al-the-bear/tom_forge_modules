@@ -1,8 +1,6 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:tom_editors_shared/text_types.dart'
     show ForgeTextSettings;
 
@@ -11,6 +9,7 @@ import '../actions/forge_shortcut_binding.dart';
 import '../module/forge_config_panel.dart';
 import '../services/forge_preferences_service.dart';
 import '../shell/forge_shell_api.dart';
+import '../shell/forge_shell_components.dart';
 
 /// Active configuration sub-tab.
 enum _ConfigTab {
@@ -160,7 +159,7 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
         TextEditingController(text: prefs.terminalFontSize.toStringAsFixed(0));
     _terminalShellPaths = List<String>.from(prefs.terminalShellPaths);
     if (_terminalShellPaths.isEmpty) {
-      _terminalShellPaths = _detectAvailableShells();
+      _terminalShellPaths = _components.host.installedShells();
     }
     _terminalStartFolder = prefs.terminalStartFolder;
 
@@ -179,29 +178,21 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
     super.dispose();
   }
 
-  static List<String> _detectAvailableShells() {
-    if (Platform.isWindows) {
-      return [
-        r'C:\Windows\System32\cmd.exe',
-        r'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe',
-      ];
-    }
-    final candidates = [
-      '/bin/bash',
-      '/bin/zsh',
-      '/bin/sh',
-      '/bin/fish',
-      '/usr/bin/fish',
-    ];
-    return candidates.where((p) => File(p).existsSync()).toList();
-  }
+  /// The host's pickers and environment: the shell's components, else the
+  /// registered ones.
+  ForgeShellComponents get _components =>
+      ForgeShellComponents.of(widget.shellApi);
+
+  /// Whether this host is Windows, for the shell path hints.
+  static bool get _isWindows =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
 
   Future<void> _selectCentralDirectory() async {
     setState(() => _isSelectingDirectory = true);
 
     try {
-      final result = await FilePicker.getDirectoryPath(
-        dialogTitle: 'Select Central Configuration Directory',
+      final result = await _components.pickers.pickFolder(
+        title: 'Select Central Configuration Directory',
         initialDirectory: _centralDirController.text.isNotEmpty
             ? _centralDirController.text
             : null,
@@ -242,15 +233,12 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
           );
           return;
         }
-        final dir = Directory(centralDir);
-        if (!dir.existsSync()) {
-          // Try to create it
-          try {
-            dir.createSync(recursive: true);
-          } catch (e) {
-            setState(() => _errorMessage = 'Cannot create directory: $e');
-            return;
-          }
+        // Made when missing (the host environment; refused without one).
+        try {
+          _components.host.ensureFolder(centralDir);
+        } catch (e) {
+          setState(() => _errorMessage = 'Cannot create directory: $e');
+          return;
         }
         prefs.centralConfigDirectory = centralDir;
       } else {
@@ -757,7 +745,7 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
             controller: _terminalDefaultShellController,
             decoration: InputDecoration(
               labelText: 'Default Shell',
-              hintText: Platform.isWindows ? 'cmd.exe' : '/bin/zsh',
+              hintText: _isWindows ? 'cmd.exe' : '/bin/zsh',
               border: const OutlineInputBorder(),
               helperText: 'Leave empty to use platform default',
             ),
@@ -890,7 +878,7 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
           controller: controller,
           autofocus: true,
           decoration: InputDecoration(
-            hintText: Platform.isWindows ? r'C:\path\to\shell.exe' : '/bin/fish',
+            hintText: _isWindows ? r'C:\path\to\shell.exe' : '/bin/fish',
             border: const OutlineInputBorder(),
           ),
           onSubmitted: (value) => Navigator.of(context).pop(value.trim()),

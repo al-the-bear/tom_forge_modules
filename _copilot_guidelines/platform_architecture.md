@@ -23,8 +23,8 @@ on anything below the apps, and nothing depends on them.
 | 0 Foundation | `tom_forge_core`, `tom_website_editor_core`, `tom_dart_editor_bundler`, `tom_web_build_probe` | Pure Dart, no Flutter: the types and service contracts (`tom_forge_core`), the website model, the Dart editor's summary bundler tool, the web-compile probe the editor packages use in their tests |
 | 1 Editor kit | `tom_editors_shared`, `tom_mermaid_view` | Widgets and utilities every editor builds on: tree view, validation, the text editor core, `TextUndoEntry` on `tom_undo`'s stack, the typing pause (`tom_editors_shared`, no webview); Mermaid diagrams in a webview with the bundled mermaid.js (`tom_mermaid_view`, taken only where diagrams are rendered) |
 | 2 Editors | `tom_md_editor`, `tom_yaml_editor`, `tom_dart_editor`, `tom_flow_editor` | The editor components, each usable without the shell (`tom_dart_editor/doc/how_to_embed.md`, `tom_yaml_editor/doc/how_to_embed.md`) |
-| 3 Shell core | `tom_forge_shell` | The panel shell, `ForgeShellApi`, the component, editor, view, module and application contracts, the default services, the scaffold and its widgets, the built-in views and the plain-text editor; no terminal, no code editor, no keychain. What a shell is assembled from beyond that comes in as `ForgeShellComponents` (terminal manager and view, secret storage, editor types) |
-| 4 Shell parts | `tom_forge_terminal`, `tom_forge_code_editors`, `tom_forge_platform_secrets` | The parts that plug into the core: PTY and process terminals with the terminal view (`flutter_pty`, the `xterm` fork); the adapters that make the layer-2 Markdown, Dart and YAML editors shell editors, as editor types; secrets in the platform keychain (`flutter_secure_storage`) |
+| 3 Shell core | `tom_forge_shell` | The panel shell, `ForgeShellApi`, the component, editor, view, module and application contracts, the default services, the scaffold and its widgets, the built-in views and the plain-text editor; no terminal, no code editor, no keychain, no native file dialog and no `dart:io`, so it builds for the web. What a shell is assembled from beyond that comes in as `ForgeShellComponents` (terminal manager and view, secret storage, editor types, file pickers, host environment) |
+| 4 Shell parts | `tom_forge_terminal`, `tom_forge_code_editors`, `tom_forge_platform_secrets`, `tom_forge_desktop_host` | The parts that plug into the core: PTY and process terminals with the terminal view (`flutter_pty`, the `xterm` fork); the adapters that make the layer-2 Markdown, Dart and YAML editors shell editors, as editor types; secrets in the platform keychain (`flutter_secure_storage`); the desktop host — the native file dialogs (`file_picker`, `file_selector`), the machine's shells and folders, the workspace folder above a picked folder and `.forge/` kept out of git (`dart:io`) |
 | 4 Test support | `tom_forge_ui_testing` | The undo conformance harness and the shell's test doubles, built on `flutter_test` and the shell core; any package may take it as a dev_dependency, the shell's own suites included, so no product links the test framework |
 | 5 Shell umbrella | `tom_forge_ui` | The core with its parts as one library, and `useForgeDesktopComponents()` / `forgeDesktopComponents`, which register or hand a shell the terminal, the code editors and the keychain |
 | 6 Shell services | `tom_forge_agentic` | The agent and chat UI (composer, prompt queue, trail, change log and review) over `tom_core_agentic`, for any module to use |
@@ -39,10 +39,11 @@ What the layering buys:
   so every editor embeds in any Flutter app; the shell wraps it in an adapter
   (`ForgeMdEditor`, `ForgeYamlEditor`, `ForgeDartEditor` in
   `tom_forge_code_editors`).
-- **The shell core needs neither a terminal nor the editors.**
-  `tom_forge_shell` builds without `flutter_pty`, `xterm`, the layer-2 editors
-  and `flutter_secure_storage`: without its parts it has no terminals, keeps
-  secrets in memory and opens files as plain text. An app hands a shell its
+- **The shell core needs neither a terminal nor the editors nor the desktop.**
+  `tom_forge_shell` builds without `flutter_pty`, `xterm`, the layer-2 editors,
+  `flutter_secure_storage`, the file-picker plugins and `dart:io` — for the web
+  too: without its parts it has no terminals, keeps secrets in memory, opens
+  files as plain text and picks no files or folders. An app hands a shell its
   parts (`components: forgeDesktopComponents`) or registers them once
   (`useForgeDesktopComponents()`, also what a test package's
   `flutter_test_config.dart` does).
@@ -160,9 +161,9 @@ requests, agent settings, trail, bridge choice, session id), each an
 | Platform service | Where | Why |
 | ---------------- | ----- | --- |
 | Terminals | `tom_forge_terminal` `pty_terminal.dart`, `default_terminal_manager.dart` | processes and pseudo-terminals |
-| Finding the workspace folder above a picked folder; keeping `.forge/` out of git | `tom_forge_shell` `forge_host_workspace.dart` | host folders before a file system exists; runs git |
-| Native folder pickers | `tom_forge_shell` `workspace_folder_selector.dart`, the scaffold's Open Folder | a local folder is chosen by nature |
-| Shell detection and the central configuration folder | `tom_forge_shell` `forge_configuration_dialog.dart` | installed shells; a host folder outside the workspace, picked natively |
+| Finding the workspace folder above a picked folder; keeping `.forge/` out of git | `tom_forge_desktop_host` `forge_host_workspace.dart` | host folders before a file system exists; runs git |
+| Native file and folder dialogs | `tom_forge_desktop_host` `desktop_host.dart` (`DesktopFilePickers`), `workspace_folder_selector.dart`; the core reaches them through `ForgeFilePickers` (Open Folder, Open File, Save As, the configuration's folder and tool paths) | a local folder is chosen by nature |
+| Shell detection and the central configuration folder | `tom_forge_desktop_host` `desktop_host.dart` (`DesktopHostEnvironment`), reached through `ForgeHostEnvironment` from the configuration dialog | installed shells; a host folder outside the workspace, picked natively |
 | Local images in the Markdown preview | `tom_md_editor` `local_file_image_io.dart` (conditional import) | Flutter's own file image providers |
 | The comment author | `tom_md_editor` `md_local_author.dart` | the OS user |
 | The website's dev server and preview | `tom_website_editor` `website_process_runner.dart`, `website_preview_*` | processes, the platform's browser |

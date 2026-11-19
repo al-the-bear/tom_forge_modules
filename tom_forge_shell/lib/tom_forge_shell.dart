@@ -9,6 +9,7 @@
 library;
 
 // ── Components the shell is assembled from ──
+export 'src/shell/forge_host_ports.dart';
 export 'src/shell/forge_shell_components.dart';
 
 // ── Actions ──
@@ -104,7 +105,6 @@ export 'src/defaults/default_status_bar_controller.dart';
 export 'src/defaults/default_system_state.dart';
 export 'src/defaults/default_undo_manager.dart';
 export 'src/defaults/default_workspace_state_manager.dart';
-export 'src/defaults/forge_host_workspace.dart';
 export 'src/defaults/persistent_module_storage.dart';
 export 'src/defaults/shell_autosave_controller.dart';
 export 'src/defaults/stub_services.dart';
@@ -129,7 +129,6 @@ export 'src/widgets/forge_quick_pick_overlay.dart';
 export 'src/widgets/forge_shell_scaffold.dart';
 export 'src/widgets/forge_shortcut_menu_popup.dart';
 export 'src/widgets/forge_status_bar_widget.dart';
-export 'src/widgets/workspace_folder_selector.dart';
 
 // ── Views ──
 export 'src/views/forge_file_explorer_view.dart';

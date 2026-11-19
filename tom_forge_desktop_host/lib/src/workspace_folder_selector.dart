@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 
-import '../services/forge_preferences_service.dart';
+import 'package:tom_forge_shell/tom_forge_shell.dart';
 
 /// A dialog for selecting a workspace folder.
 ///
@@ -11,10 +11,7 @@ import '../services/forge_preferences_service.dart';
 class WorkspaceFolderSelector extends StatefulWidget {
   final String? initialPath;
 
-  const WorkspaceFolderSelector({
-    super.key,
-    this.initialPath,
-  });
+  const WorkspaceFolderSelector({super.key, this.initialPath});
 
   /// Shows the workspace selector dialog.
   /// Returns the selected directory or null if cancelled.
@@ -27,7 +24,8 @@ class WorkspaceFolderSelector extends StatefulWidget {
   }
 
   @override
-  State<WorkspaceFolderSelector> createState() => _WorkspaceFolderSelectorState();
+  State<WorkspaceFolderSelector> createState() =>
+      _WorkspaceFolderSelectorState();
 }
 
 class _WorkspaceFolderSelectorState extends State<WorkspaceFolderSelector> {
@@ -107,10 +105,7 @@ class _WorkspaceFolderSelectorState extends State<WorkspaceFolderSelector> {
                   color: isDark ? Colors.blue[300] : Colors.blue[700],
                 ),
                 const SizedBox(width: 16),
-                Text(
-                  'Open Workspace',
-                  style: theme.textTheme.headlineSmall,
-                ),
+                Text('Open Workspace', style: theme.textTheme.headlineSmall),
               ],
             ),
             const SizedBox(height: 24),
@@ -294,10 +289,7 @@ class _WorkspaceWelcomePageState extends State<WorkspaceWelcomePage> {
               const SizedBox(height: 48),
 
               // Start section
-              Text(
-                'Start',
-                style: theme.textTheme.titleLarge,
-              ),
+              Text('Start', style: theme.textTheme.titleLarge),
               const SizedBox(height: 16),
               _ActionButton(
                 icon: Icons.folder_open,
@@ -312,10 +304,7 @@ class _WorkspaceWelcomePageState extends State<WorkspaceWelcomePage> {
                 dense: true,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 4),
                 controlAffinity: ListTileControlAffinity.leading,
-                title: const Text(
-                  'Reset UI',
-                  style: TextStyle(fontSize: 13),
-                ),
+                title: const Text('Reset UI', style: TextStyle(fontSize: 13)),
                 subtitle: const Text(
                   'Start with a fresh layout (discard panel positions)',
                   style: TextStyle(fontSize: 11),
@@ -330,27 +319,23 @@ class _WorkspaceWelcomePageState extends State<WorkspaceWelcomePage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Quick Access',
-                      style: theme.textTheme.titleLarge,
-                    ),
+                    Text('Quick Access', style: theme.textTheme.titleLarge),
                     if (_prefsLoaded)
                       Text(
                         '(max ${_prefs.maxRecentWorkspaces})',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[500],
-                        ),
+                        style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                       ),
                   ],
                 ),
                 const SizedBox(height: 16),
-                ..._recentFolders.map((path) => _RecentFolderItem(
-                      path: path,
-                      onTap: () => _selectFolder(path),
-                      onRemove: () => _removeFromRecent(path),
-                      isDark: isDark,
-                    )),
+                ..._recentFolders.map(
+                  (path) => _RecentFolderItem(
+                    path: path,
+                    onTap: () => _selectFolder(path),
+                    onRemove: () => _removeFromRecent(path),
+                    isDark: isDark,
+                  ),
+                ),
               ],
             ],
           ),
@@ -397,12 +382,8 @@ class _ActionButtonState extends State<_ActionButton> {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: _isHovered
-                ? (widget.isDark
-                    ? Colors.grey[800]
-                    : Colors.white)
-                : (widget.isDark
-                    ? Colors.grey[850]
-                    : Colors.grey[200]),
+                ? (widget.isDark ? Colors.grey[800] : Colors.white)
+                : (widget.isDark ? Colors.grey[850] : Colors.grey[200]),
             borderRadius: BorderRadius.circular(8),
             boxShadow: _isHovered
                 ? [
@@ -444,18 +425,12 @@ class _ActionButtonState extends State<_ActionButton> {
                     ),
                     Text(
                       widget.subtitle,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey[500],
-                      ),
+                      style: TextStyle(fontSize: 13, color: Colors.grey[500]),
                     ),
                   ],
                 ),
               ),
-              Icon(
-                Icons.chevron_right,
-                color: Colors.grey[500],
-              ),
+              Icon(Icons.chevron_right, color: Colors.grey[500]),
             ],
           ),
         ),
@@ -498,9 +473,7 @@ class _RecentFolderItemState extends State<_RecentFolderItem> {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: _isHovered
-                ? (widget.isDark
-                    ? Colors.grey[800]
-                    : Colors.grey[200])
+                ? (widget.isDark ? Colors.grey[800] : Colors.grey[200])
                 : null,
             borderRadius: BorderRadius.circular(4),
           ),
@@ -525,10 +498,7 @@ class _RecentFolderItemState extends State<_RecentFolderItem> {
                     ),
                     Text(
                       widget.path,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[500],
-                      ),
+                      style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
@@ -536,11 +506,7 @@ class _RecentFolderItemState extends State<_RecentFolderItem> {
               ),
               if (_isHovered && widget.onRemove != null)
                 IconButton(
-                  icon: Icon(
-                    Icons.close,
-                    size: 16,
-                    color: Colors.grey[500],
-                  ),
+                  icon: Icon(Icons.close, size: 16, color: Colors.grey[500]),
                   onPressed: widget.onRemove,
                   tooltip: 'Remove from Quick Access',
                   padding: EdgeInsets.zero,

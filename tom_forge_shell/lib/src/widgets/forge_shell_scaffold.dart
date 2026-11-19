@@ -1,13 +1,9 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:ui' show AppExitResponse, AppExitType;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:file_selector/file_selector.dart'
-    show XTypeGroup, getSaveLocation;
 import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_editors_shared/text_types.dart'
     show StandardEditingActions;
@@ -139,9 +135,10 @@ class ForgeShellScaffold extends StatefulWidget {
   final ForgePreferencesService? preferencesService;
 
   /// Callback invoked when the user selects File > Open Folder.
-  /// The selected [Directory] is passed to the callback so the parent can
-  /// reinitialise the workspace. When null, the action is a no-op.
-  final void Function(Directory)? onOpenFolder;
+  /// The path of the selected folder is passed to the callback so the parent
+  /// can reinitialise the workspace. When null, the action is a no-op; the
+  /// folder is picked with the shell's [ForgeFilePickers].
+  final void Function(String path)? onOpenFolder;
 
   const ForgeShellScaffold({
     super.key,
@@ -872,49 +869,31 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
           bool canSelectFolders = false,
           List<FileFilter>? filters,
         }) async {
-          final type = filters != null && filters.isNotEmpty
-              ? FileType.custom
-              : FileType.any;
-          final allowedExtensions =
-              filters?.expand((f) => f.extensions).toList();
-          final List<PlatformFile> files;
-          if (canSelectMany) {
-            files = await FilePicker.pickFiles(
-              dialogTitle: title ?? 'Open File',
-              type: type,
-              allowedExtensions: allowedExtensions,
-            );
-          } else {
-            final file = await FilePicker.pickFile(
-              dialogTitle: title ?? 'Open File',
-              type: type,
-              allowedExtensions: allowedExtensions,
-            );
-            files = file == null ? const [] : [file];
-          }
-          if (files.isEmpty) return null;
-          return files
-              .where((f) => f.path != null)
-              .map((f) => Uri.file(f.path!))
-              .toList();
+          final extensions = filters != null && filters.isNotEmpty
+              ? filters.expand((f) => f.extensions).toList()
+              : null;
+          final paths = await widget.shell.components.pickers.pickFiles(
+            title: title ?? 'Open File',
+            allowMultiple: canSelectMany,
+            extensions: extensions,
+          );
+          if (paths.isEmpty) return null;
+          return paths.map(Uri.file).toList();
         };
 
     dialogs.onSaveDialog =
         ({String? title, Uri? defaultUri, List<FileFilter>? filters}) async {
-          // The caller writes the file; file_picker 12's saveFile writes the
-          // bytes itself, so the location comes from file_selector.
-          final location = await getSaveLocation(
-            confirmButtonText: title ?? 'Save File',
-            suggestedName: defaultUri?.pathSegments.isNotEmpty == true
-                ? defaultUri!.pathSegments.last
-                : null,
-            acceptedTypeGroups: [
-              for (final f in filters ?? const <FileFilter>[])
-                XTypeGroup(label: f.name, extensions: f.extensions),
-            ],
-          );
+          // The caller writes the file; the picker only says where.
+          final location = await widget.shell.components.pickers
+              .pickSaveLocation(
+                title: title ?? 'Save File',
+                suggestedName: defaultUri?.pathSegments.isNotEmpty == true
+                    ? defaultUri!.pathSegments.last
+                    : null,
+                filters: filters ?? const <FileFilter>[],
+              );
           if (location == null) return null;
-          return Uri.file(location.path);
+          return Uri.file(location);
         };
   }
 
@@ -1853,11 +1832,11 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   }
 
   Future<void> _handleOpenFolder() async {
-    final result = await FilePicker.getDirectoryPath(
-      dialogTitle: 'Open Workspace Folder',
+    final result = await widget.shell.components.pickers.pickFolder(
+      title: 'Open Workspace Folder',
     );
     if (result == null || !mounted) return;
-    widget.onOpenFolder?.call(Directory(result));
+    widget.onOpenFolder?.call(result);
   }
 
   /// Subscribes to the active editor's [onStateChanged] stream so the

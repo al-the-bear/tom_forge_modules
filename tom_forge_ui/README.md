@@ -1,19 +1,21 @@
 # Tom Forge UI
 
 Forge's panel shell with everything a desktop Forge needs, as one library.
-`package:tom_forge_ui/tom_forge_ui.dart` re-exports four packages:
+`package:tom_forge_ui/tom_forge_ui.dart` re-exports five packages:
 
 | Package | What it is | Depends on |
 | --- | --- | --- |
-| `tom_forge_shell` | The shell core: `ForgeShellApi` and its default services, the scaffold, panels, tab bar, menus, command palette, configuration, the built-in views and the plain-text editor | Flutter, `tom_forge_core`, `tom_editors_shared` (webview-free), `tom_file_system`, `tom_file_session`, the file pickers, `shared_preferences` |
+| `tom_forge_shell` | The shell core: `ForgeShellApi` and its default services, the scaffold, panels, tab bar, menus, command palette, configuration, the built-in views and the plain-text editor; builds for the web | Flutter, `tom_forge_core`, `tom_editors_shared` (webview-free), `tom_file_system`, `tom_file_session`, `shared_preferences` |
 | `tom_forge_terminal` | PTY-backed and process-backed terminals and the terminal view | the core, `flutter_pty`, the `xterm` fork |
 | `tom_forge_code_editors` | The Markdown, Dart and YAML editor adapters, the Dart outline provider, and the editor types the layout controller opens those files with | the core, `tom_md_editor`, `tom_dart_editor`, `tom_yaml_editor` |
 | `tom_forge_platform_secrets` | Secret storage in the platform keychain | the core, `flutter_secure_storage` |
+| `tom_forge_desktop_host` | The native file dialogs, the machine's shells and folders, the workspace folder above a picked folder, `.forge/` kept out of git, the workspace folder selector | the core, `file_picker`, `file_selector`, `dart:io` |
 
-The core builds without the other three: without them a shell has no
-terminals, keeps secrets in memory and opens every file as plain text. They
-plug in as `ForgeShellComponents` — a terminal-manager factory, a terminal
-view, a secret-storage factory, editor types — which a shell takes when it is
+The core builds without the other four, for the web too: without them a
+shell has no terminals, keeps secrets in memory, opens every file as plain
+text and picks no files or folders. They plug in as `ForgeShellComponents` —
+a terminal-manager factory, a terminal view, a secret-storage factory, editor
+types, the file pickers, the host environment — which a shell takes when it is
 made:
 
 ```dart

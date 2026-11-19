@@ -1,10 +1,11 @@
 import 'dart:async';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../services/forge_preferences_service.dart';
+import '../shell/forge_host_ports.dart';
+import '../shell/forge_shell_components.dart';
 import 'external_tools_trail.dart';
 import 'forge_external_tool.dart';
 
@@ -21,6 +22,7 @@ class ForgeExternalToolsSection extends StatefulWidget {
     required this.preferencesService,
     this.onChanged,
     this.pickPath,
+    this.filePickers,
   });
 
   /// The registered tools.
@@ -32,9 +34,13 @@ class ForgeExternalToolsSection extends StatefulWidget {
   /// Called after a path was saved.
   final VoidCallback? onChanged;
 
-  /// Picks a path for a tool (default: the platform's file or folder
+  /// Picks a path for a tool (default: [filePickers]' file or folder
   /// dialog); `null` when cancelled. Tests give their own.
   final Future<String?> Function(ForgeExternalTool tool)? pickPath;
+
+  /// The pickers the default [pickPath] uses: the shell's, else the
+  /// registered ones ([ForgeShellComponents]).
+  final ForgeFilePickers? filePickers;
 
   @override
   State<ForgeExternalToolsSection> createState() =>
@@ -108,6 +114,9 @@ class _ForgeExternalToolsSectionState extends State<ForgeExternalToolsSection> {
               preferencesService: widget.preferencesService,
               onChanged: widget.onChanged,
               pickPath: widget.pickPath,
+              filePickers:
+                  widget.filePickers ??
+                  ForgeShellComponents.registered.pickers,
             ),
       ],
     );
@@ -122,12 +131,14 @@ class _ToolRow extends StatefulWidget {
     required this.preferencesService,
     this.onChanged,
     this.pickPath,
+    required this.filePickers,
   });
 
   final ForgeExternalTool tool;
   final ForgePreferencesService preferencesService;
   final VoidCallback? onChanged;
   final Future<String?> Function(ForgeExternalTool tool)? pickPath;
+  final ForgeFilePickers filePickers;
 
   @override
   State<_ToolRow> createState() => _ToolRowState();
@@ -216,14 +227,14 @@ class _ToolRowState extends State<_ToolRow> {
     if (pick != null) {
       path = await pick(_tool);
     } else if (_tool.pathIsDirectory) {
-      path = await FilePicker.getDirectoryPath(
-        dialogTitle: 'Choose ${_tool.name}',
+      path = await widget.filePickers.pickFolder(
+        title: 'Choose ${_tool.name}',
       );
     } else {
-      final result = await FilePicker.pickFiles(
-        dialogTitle: 'Choose ${_tool.name}',
+      final result = await widget.filePickers.pickFiles(
+        title: 'Choose ${_tool.name}',
       );
-      path = result.isEmpty ? null : result.first.path;
+      path = result.isEmpty ? null : result.first;
     }
     if (path == null || !mounted) return;
     externalToolsTrail('$_id: chosen $path');
