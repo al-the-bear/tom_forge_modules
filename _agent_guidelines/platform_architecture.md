@@ -79,7 +79,7 @@ surfaces, is [editor_component_contract.md](editor_component_contract.md). A
 component in a middle split that holds no document is a surface
 (`ForgeSurfaceEditor`). Every document editor keeps one history per document
 under the history contract
-(`tom_forge_ui/_copilot_guidelines/editor_history_contract.md`); the
+(`tom_forge_ui/_agent_guidelines/editor_history_contract.md`); the
 conformance harness in `package:tom_forge_ui_testing/tom_forge_ui_testing.dart` checks it.
 
 ### 2.2 Module → shell: `ForgeModule`
@@ -209,7 +209,7 @@ client then sits in layer 4 or 5, never in the shell.
 | Panel shell concept and specification | `tom_forge_ui/doc/forge_panel_shell_concept.md`, `forge_panel_shell_spec.md` |
 | Editor base and component API | `tom_forge_ui/doc/forge_editor_base.md` |
 | Editing actions through the active editor | `tom_forge_ui/doc/editor_action_externalization.md`, the workspace's `global_actions_coordination.md` |
-| History and undo | `tom_forge_ui/_copilot_guidelines/editor_history_contract.md` |
+| History and undo | `tom_forge_ui/_agent_guidelines/editor_history_contract.md` |
 | Feature coverage against VS Code | `tom_forge_ui/doc/forge_vs_code_api_comparison.md`, `forge_feature_checklist.md` |
 | Embedding an editor | `how_to_embed.md` in `tom_dart_editor/doc`, `tom_yaml_editor/doc` |
 | Summary scopes of the Dart editor | `tom_dart_editor/doc/summary_scopes.md` |

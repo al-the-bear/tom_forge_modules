@@ -35,7 +35,7 @@ An editor tells the shell its type by implementing `ForgeEditorOfType`
 by it. An editor that takes the shell's text options implements
 `ForgeTextOptionsReceiver`.
 
-Part of Tom Forge; the layers are in `tom_forge/_copilot_guidelines/platform_architecture.md`.
+Part of Tom Forge; the layers are in `tom_forge/_agent_guidelines/platform_architecture.md`.
 
 ## License
 

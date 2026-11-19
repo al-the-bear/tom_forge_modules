@@ -46,7 +46,7 @@ abstract class ForgeEditor extends ForgeComponent
   /// saved state. Measured against a saved marker ([ForgeSavedMarker]),
   /// never as "can undo" or "anything changed", so undoing back to the saved
   /// state shows clean (the history contract, tom_forge_ui's
-  /// `_copilot_guidelines/editor_history_contract.md`).
+  /// `_agent_guidelines/editor_history_contract.md`).
   ValueListenable<bool> get isDirty;
 
   /// The document as it is now is the saved state (after a save): moves the

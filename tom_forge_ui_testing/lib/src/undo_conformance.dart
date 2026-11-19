@@ -1,7 +1,7 @@
 /// The undo conformance checks every Forge editor runs (wonecmpc19).
 ///
 /// One harness, one set of checks: the history contract in
-/// `_copilot_guidelines/editor_history_contract.md` stated as tests. An
+/// `_agent_guidelines/editor_history_contract.md` stated as tests. An
 /// editor's suite describes how to drive it ([ForgeUndoSubject]) and calls
 /// [runForgeUndoConformance]; a check the editor does not meet yet is
 /// skipped with the reason, which says which todo removes the skip.

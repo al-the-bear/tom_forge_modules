@@ -12,7 +12,7 @@ reads its analysis summaries (`layout.dartSummaryAssets`, on a
 `DefaultLayoutController`) and the shell module's `registerMdEditor` /
 `mdEditors` and their Dart and YAML twins.
 
-Part of Tom Forge; the layers are in `tom_forge/_copilot_guidelines/platform_architecture.md`.
+Part of Tom Forge; the layers are in `tom_forge/_agent_guidelines/platform_architecture.md`.
 
 ## License
 

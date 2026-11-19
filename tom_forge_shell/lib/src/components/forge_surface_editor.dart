@@ -15,7 +15,7 @@ import 'forge_editor.dart';
 /// of its own, such as `agent:` or `specs:`), it is not a file.
 ///
 /// A document editor extends [ForgeEditor] (or one of its kinds) instead and
-/// meets the history contract (`tom_forge/_copilot_guidelines/
+/// meets the history contract (`tom_forge/_agent_guidelines/
 /// editor_component_contract.md` §2).
 abstract class ForgeSurfaceEditor extends ForgeEditor {
   final ValueNotifier<bool> _neverDirty = ValueNotifier<bool>(false);

@@ -1,7 +1,7 @@
 # Tom Forge UI — Copilot Guidelines
 
 Guidelines for `tom_forge_ui`, the Forge shell and its editor adapters. The
-repository-wide guidelines are in [`../../_copilot_guidelines/`](../../_copilot_guidelines/index.md).
+repository-wide guidelines are in [`../../_agent_guidelines/`](../../_agent_guidelines/index.md).
 
 | Document | Purpose |
 |----------|---------|

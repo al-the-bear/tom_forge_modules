@@ -19,7 +19,7 @@ global handler of its own.
 - Code: `DefaultShellApi.executeAction`, `ForgeEditor` (`EditorActionProvider`
   defaults), `StandardEditingActions`.
 - Tests: `widgets/action_bar_state_test.dart` 01–04.
-- Detail: the workspace's `_copilot_guidelines/global_actions_coordination.md`,
+- Detail: the workspace's `_agent_guidelines/global_actions_coordination.md`,
   `tom_forge_ui/doc/editor_action_externalization.md`.
 
 ## P2. One table of keys; undo keys reach the document
@@ -34,7 +34,7 @@ its keys. A key whose action did nothing is not consumed.
 - Tests: `widgets/wonecmpc18_undo_key_routing_test.dart` KR-1–KR-8,
   `services/forge_shortcut_manager_test.dart`,
   `widgets/phase_g_configuration_and_shortcuts_test.dart`.
-- Detail: `tom_forge_ui/_copilot_guidelines/editor_history_contract.md` §4.
+- Detail: `tom_forge_ui/_agent_guidelines/editor_history_contract.md` §4.
 
 ## P3. Context menus are contributions
 

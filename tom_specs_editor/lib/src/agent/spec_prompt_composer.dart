@@ -21,7 +21,7 @@
 //   * namespaced file-injection tokens (missing files render empty in lenient
 //     mode), matching the VS Code extension's folder conventions:
 //       - `${file-<relpath>}`    — read from under the `_ai/` folder;
-//       - `${guidelines-<name>}` — `<workspace>/_copilot_guidelines/<name>.md`
+//       - `${guidelines-<name>}` — `<workspace>/_agent_guidelines/<name>.md`
 //         (fallback `_guidelines/<name>.md`); `<name>` may carry `.md`;
 //       - `${role-<name>}`       — `<_ai>/roles/<name>.md` (fallback
 //         `<_ai>/roles/<name>/role.md`);
@@ -62,7 +62,7 @@ class SpecPromptComposer {
 
   /// The workspace: the `_ai/` folder the `${file-<relpath>}`, `${role-*}`
   /// and `${quest-*}` injections read from, and the guideline folders beside
-  /// it, are its `_ai/`, `_copilot_guidelines/` and `_guidelines/`.
+  /// it, are its `_ai/`, `_agent_guidelines/` and `_guidelines/`.
   final TomFileSystem fileSystem;
 
   /// The value bound to `${role}`; empty unless the host supplies a role.
@@ -145,13 +145,13 @@ class SpecPromptComposer {
     return _readAiFile(name.substring('file-'.length));
   }
 
-  /// `${guidelines-<name>}` → `<workspace>/_copilot_guidelines/<name>.md`,
+  /// `${guidelines-<name>}` → `<workspace>/_agent_guidelines/<name>.md`,
   /// falling back to `<workspace>/_guidelines/<name>.md`. `<name>` may already
   /// carry a `.md` suffix (no double extension).
   Future<String> _readGuidelines(String rawName) async {
     if (rawName.isEmpty) return '';
     final fileName = rawName.endsWith('.md') ? rawName : '$rawName.md';
-    final primary = await _readFile('_copilot_guidelines/$fileName');
+    final primary = await _readFile('_agent_guidelines/$fileName');
     if (primary.isNotEmpty) return primary;
     return _readFile('_guidelines/$fileName');
   }

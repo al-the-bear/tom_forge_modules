@@ -1,7 +1,7 @@
 /// A tree edit changes what it targets and nothing else: comments, blank
 /// lines, flow collections, key order and quoting of the rest of a workspace
 /// YAML file stay as they were written
-/// (`tom_forge/_copilot_guidelines/configuration_compatibility.md` §3).
+/// (`tom_forge/_agent_guidelines/configuration_compatibility.md` §3).
 library;
 
 import 'package:flutter_test/flutter_test.dart';

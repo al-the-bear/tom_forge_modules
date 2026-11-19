@@ -11,7 +11,7 @@ import 'package:flutter/foundation.dart';
 // Non-const so it can be toggled at runtime (e.g. from tests
 // or debug UI).
 //
-// See: tom_forge/_copilot_guidelines/debug_mode.md
+// See: tom_forge/_agent_guidelines/debug_mode.md
 // ============================================================
 bool kYamlEditorDebug = false;
 

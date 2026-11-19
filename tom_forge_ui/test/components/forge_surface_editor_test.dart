@@ -1,5 +1,5 @@
 /// A surface: a middle-panel component that is not bound to a document
-/// (`tom_forge/_copilot_guidelines/editor_component_contract.md` §3).
+/// (`tom_forge/_agent_guidelines/editor_component_contract.md` §3).
 library;
 
 import 'package:flutter/foundation.dart';

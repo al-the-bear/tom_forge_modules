@@ -1,7 +1,7 @@
 /// The shell's navigation history (`ForgeNavigationHistory`), as VS Code's
 /// Go Back / Go Forward: every move between documents, or jump within one,
 /// records the place left; Back returns there, reopening a closed file;
-/// Forward undoes a Back (`tom_forge/_copilot_guidelines/integrated_ux_patterns.md`
+/// Forward undoes a Back (`tom_forge/_agent_guidelines/integrated_ux_patterns.md`
 /// P11).
 library;
 

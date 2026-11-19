@@ -1,5 +1,5 @@
 /// The workspace's `.forge/` is kept out of git without editing a file the
-/// workspace tracks (`tom_forge/_copilot_guidelines/configuration_compatibility.md`
+/// workspace tracks (`tom_forge/_agent_guidelines/configuration_compatibility.md`
 /// §2): git decides what is ignored, and what Forge adds goes to the clone's
 /// own `.git/info/exclude`.
 library;

@@ -58,7 +58,7 @@ right-click for through `show`. The built-in `ForgeFileExplorerView` appends
 the contributions for `ForgeContextTarget.explorerFileKind` /
 `explorerDirectoryKind` to its row menu when given `contextMenus:`. Entries
 carry the key `forge-context-menu:<id>`. Guideline:
-`../_copilot_guidelines/context_menu_contributions.md`; test:
+`../_agent_guidelines/context_menu_contributions.md`; test:
 `test/widgets/module_context_menu_test.dart`.
 
 ## Find in non-text editors

@@ -1,7 +1,7 @@
 # Tom Flow Editor
 
 Placeholder for Tom Forge's flow editor component: layer 2 (editors) of the
-platform architecture (`../_copilot_guidelines/platform_architecture.md`).
+platform architecture (`../_agent_guidelines/platform_architecture.md`).
 
 The flow editor is not built. The package holds the Flutter package template
 and its web-compile check (`test/web_build_test.dart`), so the slot exists in

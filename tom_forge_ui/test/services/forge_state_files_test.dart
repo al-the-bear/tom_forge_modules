@@ -1,7 +1,7 @@
 /// Forge's own state under `.forge/` is per machine and has no migrations: a
 /// state file Forge cannot read — damaged, or written by another version —
 /// counts as absent, and the workspace opens with fresh state
-/// (`tom_forge/_copilot_guidelines/configuration_compatibility.md` §2).
+/// (`tom_forge/_agent_guidelines/configuration_compatibility.md` §2).
 library;
 
 import 'dart:async';

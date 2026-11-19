@@ -137,7 +137,7 @@ class SpecAgentProfiles {
     final prompts = <String, String>{};
     for (final application in registry.applications) {
       final name = registry.context(application).guidelinesName;
-      // `${guidelines-<name>}` reads `<workspace>/_copilot_guidelines/
+      // `${guidelines-<name>}` reads `<workspace>/_agent_guidelines/
       // <name>.md`; a missing doc renders empty (lenient), yielding no
       // additive prompt.
       prompts[application] = (await compose('\${guidelines-$name}')).trim();

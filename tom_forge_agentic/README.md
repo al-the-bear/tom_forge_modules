@@ -41,5 +41,5 @@ In use by the TomSpecs editor (`tom_specs_editor`). What it exports:
   `ChangeReviewPanel`.
 
 It is layer 4 (shell services) of the platform architecture
-(`../_copilot_guidelines/platform_architecture.md`): it builds on the shell,
+(`../_agent_guidelines/platform_architecture.md`): it builds on the shell,
 and modules build on it.
