@@ -316,12 +316,30 @@ def screenshots():
     print(f"screenshots in {RESULTS}/*/screenshots")
 
 
+def screen_locked():
+    """Whether the screen is locked: WebKit then draws nothing in a window
+    and frame timings are not those of a person watching."""
+    r = subprocess.run(
+        ["swift", "-e", "import CoreGraphics; let d = CGSessionCopyCurrentDictionary() "
+         "as? [String: Any] ?? [:]; print((d[\"CGSSessionScreenIsLocked\"] as? Int ?? 0) == 1)"],
+        capture_output=True, text=True,
+    )
+    return r.stdout.strip() == "true"
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--runs", type=int, default=3)
     ap.add_argument("--skip-probes", action="store_true")
     ap.add_argument("--skip-drive", action="store_true")
+    ap.add_argument("--allow-locked-screen", action="store_true",
+                    help="run the drives although the screen is locked (no "
+                         "frame timings, pdf.js drawn by a stand-in)")
     a = ap.parse_args()
+    if not a.skip_drive and not a.allow_locked_screen and screen_locked():
+        sys.exit("the screen is locked: the runs would take no frame timings "
+                 "and overwrite the results; unlock it, or pass "
+                 "--allow-locked-screen")
     if not SAMPLES.is_dir():
         sys.exit(f"no samples at {SAMPLES}: run samples/fetch_samples.py first")
     if not a.skip_drive and not a.skip_probes and WORK.exists():

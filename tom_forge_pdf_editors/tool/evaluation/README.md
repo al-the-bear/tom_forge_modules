@@ -22,6 +22,10 @@ python3 run_evaluation.py --runs 1     # one run
 python3 run_evaluation.py --skip-probes
 ```
 
+With the screen locked the runner stops before the runs, since they would
+overwrite the results without frame timings; `--allow-locked-screen` runs
+them anyway (see *A locked screen* below).
+
 `run_evaluation.py` (standard library only):
 
 1. compiles `pdfkit_tool.swift`, the macOS Preview side (PDFKit);
