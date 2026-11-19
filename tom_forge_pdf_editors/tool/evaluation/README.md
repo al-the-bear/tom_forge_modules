@@ -5,7 +5,7 @@ PDFium editor and the pdf.js view in its three modes (`integrated`, `full`,
 `components`), measured the same way over the public sample set. It
 implements the PDF part of `part-evaluation` and `part-pdf-pdfjs`
 § *What the comparison with PDFium measures* of the working document
-`_ai/quests/tom_forge/ideas/office_and_pdf_integration_prototype/office_and_pdf_integration_prototype.md`.
+`_ai/quests/tom_forge/ideas/office_and_pdf_integration_prototype/office_and_pdf_integration_prototype.docspecs.md`.
 
 It is a small macOS Flutter app (`tom_forge_pdf_route_evaluation`, not
 sandboxed, like Forge's debug and profile builds) whose integration test is
