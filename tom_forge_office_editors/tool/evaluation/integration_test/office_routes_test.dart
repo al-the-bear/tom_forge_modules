@@ -1089,6 +1089,10 @@ class _LokRoute {
     c.undo();
     await _within(tester, () => c.canRedo, ms: 5000);
     check('undo: redo enabled', true, c.canRedo);
+    // The modified flag comes in its own callback, after the history's: give
+    // it time to arrive before reading it (it stays set if the engine keeps
+    // it).
+    await _within(tester, () => !c.isDirty, ms: 3000);
     check(
       'undo back to the saved state: clean (the modified flag follows it)',
       false,
@@ -1751,6 +1755,10 @@ class _ZetaRoute {
     await c.undo();
     await _within(tester, () => c.canRedo, ms: 10000);
     check('undo: redo enabled', true, c.canRedo);
+    // The modified flag comes in its own callback, after the history's: give
+    // it time to arrive before reading it (it stays set if the engine keeps
+    // it).
+    await _within(tester, () => !c.isDirty, ms: 3000);
     check(
       'undo back to the saved state: clean (the modified flag follows it)',
       false,

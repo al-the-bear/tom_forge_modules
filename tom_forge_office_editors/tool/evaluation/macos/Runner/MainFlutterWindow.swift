@@ -18,8 +18,11 @@ class MainFlutterWindow: NSWindow {
     // window images show it): it comes to the front at the start.
     // Flutter stops drawing a fully covered window, and the harness waits
     // on frames: the window floats above the others for the run (on its
-    // display; the screen is unlocked whenever the runner starts it).
+    // display; the screen is unlocked whenever the runner starts it), and
+    // on every Space: on one Space only it is hidden as soon as the person
+    // at the machine switches to another.
     self.level = .floating
+    self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
     NSApp.activate(ignoringOtherApps: true)
     self.makeKeyAndOrderFront(nil)
     DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
