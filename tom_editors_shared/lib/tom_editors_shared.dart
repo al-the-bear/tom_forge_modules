@@ -2,13 +2,12 @@
 ///
 /// Provides generic components with zero format-specific logic:
 ///
-/// - **Validation**: [ValidationError], [ValidationBadge], [ValidationTooltip],
-///   [ErrorPropagator]
-/// - **Tree**: [TreeNode], [TreeController], [TreeView]
-/// - **Controls**: [CollapseToggle], [ActionButton], [NodeActionRow]
+/// - From `tom_ui_controls`, re-exported: **Validation** ([ValidationError],
+///   [ValidationBadge], [ValidationTooltip], [ErrorPropagator]), **Tree**
+///   ([TreeNode], [TreeController], [TreeView]), **Controls**
+///   ([CollapseToggle], [ActionButton], [NodeActionRow]), **Layout**
+///   ([DraggableSeparator], [SplitPanel]), **Search** ([SearchBox])
 /// - **Text Editing**: [SyntaxHighlighter], [TextMarker], [TextEditorCore]
-/// - **Layout**: [DraggableSeparator], [SplitPanel]
-/// - **Search**: [SearchBox]
 /// - **Debug**: [EditorLogger]
 /// - **Forge Bridge**: [ForgeShortcutKey], [ForgeAction], [ForgeMenuLocation]
 /// - **Text Settings**: [ForgeTextSettings], [ForgeTextContext]
@@ -16,21 +15,14 @@
 library;
 
 // Validation
-export 'src/validation/validation_error.dart';
-export 'src/validation/validation_badge.dart';
-export 'src/validation/validation_tooltip.dart';
-export 'src/validation/error_propagator.dart';
+// The tree view, split panels, search box, small controls and validation
+// markers: tom_ui_controls (tom_ai/modules), re-exported so every editor and
+// application built on the editor kit keeps its imports.
+export 'package:tom_ui_controls/tom_ui_controls.dart';
 
 // Tree
-export 'src/tree/tree_node.dart';
-export 'src/tree/tree_controller.dart';
-export 'src/tree/tree_view.dart';
-export 'src/tree/tree_theme.dart';
 
 // Inline Controls
-export 'src/controls/collapse_toggle.dart';
-export 'src/controls/action_button.dart';
-export 'src/controls/node_action_row.dart';
 
 // Text Editor
 export 'src/text_editor/syntax_highlighter.dart';
@@ -39,11 +31,8 @@ export 'src/text_editor/text_editor_core.dart';
 export 'src/text_editor/text_editor_theme.dart';
 
 // Layout
-export 'src/layout/draggable_separator.dart';
-export 'src/layout/split_panel.dart';
 
 // Search
-export 'src/search/search_box.dart';
 
 // Debug
 export 'src/debug/editor_logger.dart';

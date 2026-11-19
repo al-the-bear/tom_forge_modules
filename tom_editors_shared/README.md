@@ -1,8 +1,10 @@
 # Tom Editors Shared
 
-Reusable Flutter widgets and utilities for tree-based structured editors.
-Provides generic tree views, a validation framework, undo/redo history,
-a syntax-highlighted text editor core, and inline control widgets.
+Reusable Flutter widgets and utilities for tree-based structured editors:
+undo/redo history, a syntax-highlighted text editor core, the text and
+editor-contract types the Forge shell shares with its editors, and, re-exported
+from `tom_ui_controls` (`tom_ai/modules`), the tree view, validation markers,
+split panels, search box and inline control widgets.
 
 **Version:** 0.1.0  
 **SDK:** Dart ≥ 3.0.0 · Flutter
@@ -11,11 +13,12 @@ a syntax-highlighted text editor core, and inline control widgets.
 
 | Component | Classes | Purpose |
 |-----------|---------|---------|
-| **Tree** | `TreeNode`, `TreeController`, `TreeView`, `TreeTheme` | Generic tree data model with expand/collapse, selection, keyboard nav, and theming |
-| **Validation** | `ValidationError`, `ValidationBadge`, `ValidationTooltip`, `ErrorPropagator` | Severity-based errors that propagate up the tree, with badge and tooltip widgets |
+| **Tree** (from `tom_ui_controls`) | `TreeNode`, `TreeController`, `TreeView`, `TreeTheme` | Generic tree data model with expand/collapse, selection, keyboard nav, and theming |
+| **Validation** (from `tom_ui_controls`) | `ValidationError`, `ValidationBadge`, `ValidationTooltip`, `ErrorPropagator` | Severity-based errors that propagate up the tree, with badge and tooltip widgets |
+| **Layout and search** (from `tom_ui_controls`) | `SplitPanel`, `DraggableSeparator`, `SearchBox` | Split panes with a draggable separator; a search and replace box |
 | **Undo/Redo** | `TextUndoEntry` | A text change with its before and after selection, kept on `tom_undo`'s `TomUndoStack` — the one undo stack the workspace's editors share |
 | **Text Editor** | `TextEditorCore`, `SyntaxHighlighter`, `TextMarker`, `TextEditorTheme` | Line-numbered text editor with pluggable syntax highlighting and marker overlays |
-| **Controls** | `CollapseToggle`, `ActionButton`, `NodeActionRow` | Compact widgets for tree-row inline actions (expand, add, delete, etc.) |
+| **Controls** (from `tom_ui_controls`) | `CollapseToggle`, `ActionButton`, `NodeActionRow` | Compact widgets for tree-row inline actions (expand, add, delete, etc.) |
 
 ## Getting Started
 
@@ -32,6 +35,11 @@ Then import:
 ```dart
 import 'package:tom_editors_shared/tom_editors_shared.dart';
 ```
+
+The tree view, validation markers, split panels, search box and controls live
+in `tom_ui_controls`, which any Flutter application can take on its own; this
+package depends on it and re-exports it, so importing
+`tom_editors_shared.dart` gives them too.
 
 The package has no webview and bundles no diagram renderer: Mermaid diagrams
 (`MermaidWebView`, with mermaid.js and the webview plugin) are in the package
@@ -68,8 +76,8 @@ final controller = TreeController<String>(roots: nodes);
 
 TreeView<String>(
   controller: controller,
-  theme: TreeTheme(),
-  rowBuilder: (context, node, isSelected, isFocused) {
+  theme: const TreeTheme(),
+  nodeBuilder: (context, node, isSelected) {
     return Text(node.data);
   },
 );
@@ -97,9 +105,13 @@ final error = ValidationError(
   severity: ValidationSeverity.error,
 );
 
+// Count errors and warnings at and below each path of the tree.
+final propagated = ErrorPropagator.propagate([error]);
+final counts = ErrorPropagator.countAt(propagated, ['server']);
+
 // Show in UI
-ValidationBadge(errors: [error]);
-ValidationTooltip(errors: [error], child: myWidget);
+ValidationBadge(errorCount: counts.errors, warningCount: counts.warnings);
+ValidationTooltip(errors: [error]);
 ```
 
 ### Text Editor
@@ -107,9 +119,9 @@ ValidationTooltip(errors: [error], child: myWidget);
 ```dart
 TextEditorCore(
   text: sourceCode,
-  onChanged: (value) => setState(() => sourceCode = value),
+  onTextChanged: (value) => setState(() => sourceCode = value),
   highlighter: MyCustomHighlighter(),
-  theme: TextEditorTheme(),
+  theme: const TextEditorTheme(),
   readOnly: false,
 );
 ```

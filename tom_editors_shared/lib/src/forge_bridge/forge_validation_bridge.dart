@@ -1,6 +1,7 @@
 import 'package:tom_forge_core/tom_forge_core.dart';
 
-import '../validation/validation_error.dart';
+import 'package:tom_ui_controls/tom_ui_controls.dart'
+    show ValidationError, ValidationSeverity;
 
 /// Converts [ValidationError] instances to [ForgeDiagnostic] instances.
 ///

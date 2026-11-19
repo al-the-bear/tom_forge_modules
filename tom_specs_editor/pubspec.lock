@@ -1544,6 +1544,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.1.0"
+  tom_ui_controls:
+    dependency: transitive
+    description:
+      path: "../../tom_ai/modules/tom_ui_controls"
+      relative: true
+    source: path
+    version: "0.1.0"
   tom_ui_support:
     dependency: transitive
     description:
