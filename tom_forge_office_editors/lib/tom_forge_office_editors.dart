@@ -13,3 +13,6 @@ export 'src/forge_office_trail.dart' show kForgeOfficeDebug;
 export 'src/forge_zetaoffice_editor.dart';
 export 'src/libreoffice_tool.dart';
 export 'src/office_editors_module.dart';
+// What the module's `detect` answers, for a host or test giving its own.
+export 'package:tom_office_editor/tom_office_editor.dart'
+    show LibreOfficeInstallation, LibreOfficeState;
