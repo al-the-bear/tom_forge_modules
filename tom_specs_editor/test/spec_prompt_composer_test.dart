@@ -135,9 +135,9 @@ void main() {
 
   group('namespaced file-injection prefixes (tom_specs_editor_specification.md '
       '§11.5 P1, OE-13)', () {
-    test('\${guidelines-<name>} reads _copilot_guidelines/<name>.md at the '
+    test('\${guidelines-<name>} reads _agent_guidelines/<name>.md at the '
         'workspace root', () async {
-      await put('_copilot_guidelines/coding.md', 'coding rules');
+      await put('_agent_guidelines/coding.md', 'coding rules');
       final composer = make();
       expect(await composer.compose(r'${guidelines-coding}'), 'coding rules');
     });

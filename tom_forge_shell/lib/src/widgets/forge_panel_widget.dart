@@ -3,9 +3,8 @@ import 'package:flutter/services.dart';
 
 import '../components/forge_view.dart';
 import '../model/forge_application.dart';
-import '../theme/forge_shell_theme.dart';
+import 'package:tom_forge_shared_ui/tom_forge_shared_ui.dart';
 import 'forge_drag_data.dart';
-import 'forge_shell_scaffold.dart';
 
 /// Position of vertical icon strip on side panels.
 enum IconStripPosition { left, right }

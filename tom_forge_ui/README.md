@@ -5,7 +5,7 @@ Forge's panel shell with everything a desktop Forge needs, as one library.
 
 | Package | What it is | Depends on |
 | --- | --- | --- |
-| `tom_forge_shell` | The shell core: `ForgeShellApi` and its default services, the scaffold, panels, tab bar, menus, command palette, configuration, the built-in views and the plain-text editor; builds for the web | Flutter, `tom_forge_core`, `tom_editors_shared` (webview-free), `tom_file_system`, `tom_file_session`, `shared_preferences` |
+| `tom_forge_shell` | The shell core: `ForgeShellApi` and its default services, the scaffold, panels, tab bar, menus, command palette, configuration, the built-in views and the plain-text editor; builds for the web | Flutter, `tom_forge_core`, `tom_forge_shared_ui` (the theme, dimensions, animations, action and status bars, overlays, notification views and context menu rendering, which it re-exports), `tom_editors_shared` (webview-free), `tom_file_system`, `tom_file_session`, `shared_preferences` |
 | `tom_forge_terminal` | PTY-backed and process-backed terminals and the terminal view | the core, `flutter_pty`, the `xterm` fork |
 | `tom_forge_code_editors` | The Markdown, Dart and YAML editor adapters, the Dart outline provider, and the editor types the layout controller opens those files with | the core, `tom_md_editor`, `tom_dart_editor`, `tom_yaml_editor` |
 | `tom_forge_platform_secrets` | Secret storage in the platform keychain | the core, `flutter_secure_storage` |
@@ -58,7 +58,7 @@ right-click for through `show`. The built-in `ForgeFileExplorerView` appends
 the contributions for `ForgeContextTarget.explorerFileKind` /
 `explorerDirectoryKind` to its row menu when given `contextMenus:`. Entries
 carry the key `forge-context-menu:<id>`. Guideline:
-`../_copilot_guidelines/context_menu_contributions.md`; test:
+`../_agent_guidelines/context_menu_contributions.md`; test:
 `test/widgets/module_context_menu_test.dart`.
 
 ## Find in non-text editors

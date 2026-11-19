@@ -119,9 +119,28 @@ void main() {
       expect(theme.focusRing, const Color(0xFFFFFFFF));
     });
 
-    test('forMode(system) returns highContrast', () {
-      final theme = ForgeShellTheme.forMode(ThemeMode.system);
-      // High-contrast sentinel: ThemeMode.system → highContrast().
+    test("forMode(system) follows the platform's brightness", () {
+      expect(
+        ForgeShellTheme.forMode(
+          ThemeMode.system,
+          platformBrightness: Brightness.dark,
+        ).panelSurface,
+        const Color(0xFF1E1E1E),
+      );
+      expect(
+        ForgeShellTheme.forMode(
+          ThemeMode.system,
+          platformBrightness: Brightness.light,
+        ).panelSurface,
+        const Color(0xFFF3F3F3),
+      );
+    });
+
+    test('forMode(highContrast: true) returns highContrast', () {
+      final theme = ForgeShellTheme.forMode(
+        ThemeMode.light,
+        highContrast: true,
+      );
       expect(theme.panelSurface, const Color(0xFF000000));
       expect(theme.panelDivider, const Color(0xFFFFFFFF));
       expect(theme.focusRing, const Color(0xFFFFFFFF));

@@ -4,9 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../components/forge_editor.dart';
-import '../theme/forge_shell_theme.dart';
+import 'package:tom_forge_shared_ui/tom_forge_shared_ui.dart';
 import 'forge_drag_data.dart';
-import 'forge_shell_scaffold.dart';
 
 /// Callback for when a tab is dropped onto this tab bar from another panel.
 /// [isCopy] is true when SHIFT was held during the drop (copy semantics).

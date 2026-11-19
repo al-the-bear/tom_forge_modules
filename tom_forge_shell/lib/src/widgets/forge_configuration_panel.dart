@@ -457,6 +457,7 @@ class _ShellSettingsSectionState extends State<_ShellSettingsSection> {
   late TextEditingController _bottomPanelHeightController;
   late TextEditingController _dividerHitTargetController;
   late bool _reduceMotion;
+  late bool _highContrast;
 
   @override
   void initState() {
@@ -502,6 +503,7 @@ class _ShellSettingsSectionState extends State<_ShellSettingsSection> {
       text: widget.preferencesService.dividerHitTarget.toInt().toString(),
     );
     _reduceMotion = widget.preferencesService.reduceMotion;
+    _highContrast = widget.preferencesService.highContrast;
   }
 
   @override
@@ -595,6 +597,7 @@ class _ShellSettingsSectionState extends State<_ShellSettingsSection> {
     final hitT = double.tryParse(_dividerHitTargetController.text.trim());
     if (hitT != null) prefs.dividerHitTarget = hitT;
     prefs.reduceMotion = _reduceMotion;
+    prefs.highContrast = _highContrast;
     prefs.save();
     widget.onChanged?.call();
   }
@@ -659,6 +662,11 @@ class _ShellSettingsSectionState extends State<_ShellSettingsSection> {
               _themeModeButton(context, ThemeMode.system, 'System'),
             ],
           ),
+          const SizedBox(height: 8),
+          _toggle('High contrast', _highContrast, (v) {
+            setState(() => _highContrast = v);
+            widget.preferencesService.highContrast = v;
+          }),
           const SizedBox(height: 16),
           _sectionHeader(theme, 'Quick Access'),
           const SizedBox(height: 8),

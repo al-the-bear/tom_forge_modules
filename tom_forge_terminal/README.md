@@ -9,7 +9,7 @@ otherwise, and the view a terminal is shown in (`SingleTerminalView`).
 takes when it is made or which `ForgeShellComponents.register` registers
 (`tom_forge_ui`'s `useForgeDesktopComponents()` does).
 
-Part of Tom Forge; the layers are in `tom_forge/_copilot_guidelines/platform_architecture.md`.
+Part of Tom Forge; the layers are in `tom_forge/_agent_guidelines/platform_architecture.md`.
 
 ## License
 

@@ -4,8 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../actions/forge_shortcut_binding.dart';
 import '../services/forge_shortcut_manager.dart';
-import '../theme/forge_shell_theme.dart';
-import 'forge_shell_scaffold.dart';
+import 'package:tom_forge_shared_ui/tom_forge_shared_ui.dart';
 
 /// Overlay that appears when the first key of a chord shortcut is pressed.
 ///

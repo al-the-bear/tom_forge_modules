@@ -6,15 +6,16 @@ import '../actions/status_bar_item.dart';
 import '../services/forge_progress_manager.dart';
 import '../shell/forge_status_bar_controller.dart';
 import '../shell/forge_system_state.dart';
-import '../theme/forge_shell_theme.dart';
+import 'package:tom_forge_shared_ui/tom_forge_shared_ui.dart';
 
-/// Status bar widget (~24px) at the bottom of the shell scaffold.
+/// The shell's status bar: the adapter between the shell and the shared
+/// [ForgeStatusBar].
 ///
-/// Reads [StatusBarItem]s from [ForgeStatusBarController] and
-/// segments them left / center / right by alignment, sorted by priority.
-/// When [systemState] is provided, items are filtered by their
-/// [StatusBarItem.isActive] callback and the widget rebuilds on
-/// focus / editor / diagnostic changes.
+/// Reads [StatusBarItem]s from [ForgeStatusBarController]. When
+/// [systemState] is provided, items are filtered by their
+/// [StatusBarItem.isActive] callback and the bar is rebuilt on
+/// focus / editor / diagnostic changes; an item's own
+/// [ForgeStatusItem.visible] is followed by the shared bar.
 ///
 /// When [progressManager] is provided, status-bar-targeted progress
 /// events render an inline progress indicator.
@@ -110,115 +111,6 @@ class _ForgeStatusBarWidgetState extends State<ForgeStatusBarWidget> {
     if (state != null) {
       items = items.where((i) => i.isActive(state)).toList();
     }
-    final leftItems = items
-        .where((i) => i.alignment == StatusBarAlignment.left)
-        .toList()
-      ..sort((a, b) => b.priority.compareTo(a.priority));
-    final centerItems = items
-        .where((i) => i.alignment == StatusBarAlignment.center)
-        .toList()
-      ..sort((a, b) => b.priority.compareTo(a.priority));
-    final rightItems = items
-        .where((i) => i.alignment == StatusBarAlignment.right)
-        .toList()
-      ..sort((a, b) => b.priority.compareTo(a.priority));
-
-    final theme = Theme.of(context);
-    final shellTheme = theme.extension<ForgeShellTheme>();
-
-    return Container(
-      height: 24,
-      color: shellTheme?.statusBarBackground ?? theme.colorScheme.primary,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Row(
-        children: [
-          for (final item in leftItems) _buildItem(context, item),
-          const Spacer(),
-          if (_progressMessage != null) _buildProgressIndicator(context),
-          for (final item in centerItems) _buildItem(context, item),
-          const Spacer(),
-          for (final item in rightItems) _buildItem(context, item),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProgressIndicator(BuildContext context) {
-    final theme = Theme.of(context);
-    final color = theme.colorScheme.onPrimary;
-    final mediaQuery = MediaQuery.maybeOf(context);
-    final useStaticIndicator =
-        (mediaQuery?.disableAnimations ?? false) ||
-        (mediaQuery?.highContrast ?? false);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (useStaticIndicator)
-            Icon(Icons.sync, size: 12, color: color)
-          else
-            SizedBox(
-              width: 10,
-              height: 10,
-              child: CircularProgressIndicator(
-                strokeWidth: 1.5,
-                color: color,
-              ),
-            ),
-          const SizedBox(width: 4),
-          Text(
-            _progressMessage!,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: color,
-              fontSize: 11,
-            ),
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildItem(BuildContext context, StatusBarItem item) {
-    final theme = Theme.of(context);
-    final color = theme.colorScheme.onPrimary;
-
-    return GestureDetector(
-      onTap: item.onTap,
-      behavior: HitTestBehavior.opaque,
-      child: MouseRegion(
-        cursor: item.onTap != null
-            ? SystemMouseCursors.click
-            : SystemMouseCursors.basic,
-        child: Tooltip(
-          message: item.tooltip ?? '',
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (item.icon != null) ...[
-                  Icon(item.icon, size: 12, color: color),
-                  const SizedBox(width: 2),
-                ],
-                ValueListenableBuilder<String>(
-                  valueListenable: item.text,
-                  builder: (context, text, _) {
-                    return Text(
-                      text,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: color,
-                        fontSize: 11,
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
+    return ForgeStatusBar(items: items, progressMessage: _progressMessage);
   }
 }

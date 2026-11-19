@@ -4,7 +4,12 @@ Forge's panel shell core: `ForgeShellApi` and its default services
 (`DefaultShellApi`), the scaffold (`ForgeShellScaffold`), panels, editor tab
 bar, menus, command palette, quick open, configuration, the built-in views
 (explorer, outline, output, problems, revisions, search) and the plain-text
-editor.
+editor. Its look — `ForgeShellTheme`, `forgeThemeData`, `ForgeDimensions`,
+`ForgeAnimations`, the action bar and the status bar widgets, the input
+box, quick pick, error recovery dialog and focus indicator, the notification
+toasts and history, the context menu rendering — is
+`tom_forge_shared_ui`, which it re-exports, so the
+applications beside the shell share it without depending on the shell.
 
 It carries no terminal, no code editor, no keychain, no native file dialog
 and no `dart:io`, so it builds where those do not, the web included. They plug
@@ -30,7 +35,7 @@ An editor tells the shell its type by implementing `ForgeEditorOfType`
 by it. An editor that takes the shell's text options implements
 `ForgeTextOptionsReceiver`.
 
-Part of Tom Forge; the layers are in `tom_forge/_copilot_guidelines/platform_architecture.md`.
+Part of Tom Forge; the layers are in `tom_forge/_agent_guidelines/platform_architecture.md`.
 
 ## License
 

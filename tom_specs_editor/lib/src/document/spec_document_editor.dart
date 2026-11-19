@@ -569,14 +569,19 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
         ),
       );
     }
-    final multiline = field.kind == SpecFieldKind.content;
+    // Every value editor is multi-line, so a value keeps its line breaks:
+    // a one-line field filters them out of its input on the first keystroke
+    // (Flutter's single-line formatter). Prose content opens three lines
+    // high and scrolls past eight; a scalar starts one line high and grows
+    // with its value.
+    final prose = field.kind == SpecFieldKind.content;
     return _FieldBlock(
       header: _fieldHeader(field, path),
       child: _ValueField(
         key: ValueKey('content:$path'),
         value: _controller.content(path) ?? '',
-        minLines: multiline ? 3 : 1,
-        maxLines: multiline ? 8 : 1,
+        minLines: prose ? 3 : 1,
+        maxLines: prose ? 8 : null,
         document: _controller,
         onTyped: (v, before, caret) =>
             _controller.typeContent(path, v, caretBefore: before, caret: caret),
@@ -604,44 +609,67 @@ class _SpecDocumentTreeState extends State<SpecDocumentTree> {
     );
   }
 
+  /// The width of a form grid's label column.
+  static const double _formLabelWidth = 160;
+
+  /// A form as one grid (`tom_specs_editor_specification.md` §13): the label
+  /// in a fixed-width left column, the value in the right one, one row per
+  /// declared field in model order. Every value cell is a multi-line field
+  /// that starts one line high and grows with its value, so a hard-wrapped
+  /// or multi-paragraph value is edited in its cell with its line breaks
+  /// kept; the value is stored exactly as typed (how it is written into a
+  /// rendition is the renderer's rule on export).
   Widget _formField(SpecField field, String path) {
     return _FieldBlock(
       header: _fieldHeader(field, path),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          for (final ff in field.formFields)
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      child: Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: Table(
+          key: ValueKey('form-grid:$path'),
+          columnWidths: const {
+            0: FixedColumnWidth(_formLabelWidth),
+            1: FlexColumnWidth(),
+          },
+          defaultVerticalAlignment: TableCellVerticalAlignment.top,
+          children: [
+            for (final ff in field.formFields)
+              TableRow(
+                key: ValueKey('form-row:$path/${ff.name}'),
                 children: [
-                  Text(
-                    ff.label.isNotEmpty ? ff.label : ff.name,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                  Padding(
+                    // Lined up with the first line of the value's text.
+                    padding: const EdgeInsets.only(top: 9, right: 8, bottom: 4),
+                    child: Text(
+                      ff.label.isNotEmpty ? ff.label : ff.name,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
-                  _ValueField(
-                    key: ValueKey('form:$path/${ff.name}'),
-                    value: _controller.formField(path, ff.name) ?? '',
-                    hint: ff.hint,
-                    document: _controller,
-                    onTyped: (v, before, caret) => _controller.typeFormField(
-                      path,
-                      ff.name,
-                      v,
-                      caretBefore: before,
-                      caret: caret,
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: _ValueField(
+                      key: ValueKey('form:$path/${ff.name}'),
+                      value: _controller.formField(path, ff.name) ?? '',
+                      hint: ff.hint,
+                      maxLines: null,
+                      document: _controller,
+                      onTyped: (v, before, caret) => _controller.typeFormField(
+                        path,
+                        ff.name,
+                        v,
+                        caretBefore: before,
+                        caret: caret,
+                      ),
+                      restoredCaret: () =>
+                          _controller.restoredCaretFor(path, field: ff.name),
                     ),
-                    restoredCaret: () =>
-                        _controller.restoredCaretFor(path, field: ff.name),
                   ),
                 ],
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1451,7 +1479,7 @@ class _ValueField extends StatefulWidget {
     required this.document,
     required this.restoredCaret,
     this.minLines = 1,
-    this.maxLines = 1,
+    this.maxLines,
     this.hint,
   });
 
@@ -1466,8 +1494,13 @@ class _ValueField extends StatefulWidget {
 
   /// The document whose history the field's typing, undo and redo are.
   final SpecDocumentController document;
+
+  /// The lines the field opens with.
   final int minLines;
-  final int maxLines;
+
+  /// The lines it grows to before it scrolls; null: it grows with its value.
+  /// Never 1: a one-line field drops the line breaks of what is typed.
+  final int? maxLines;
   final String? hint;
 
   @override

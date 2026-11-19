@@ -4,7 +4,7 @@ Test support for Forge's shell (`tom_forge_ui`) and its editors:
 
 - **The undo conformance harness** — `runForgeUndoConformance` and
   `ForgeUndoSubject`: the history contract every Forge editor's suite runs
-  (`tom_forge/_copilot_guidelines/editor_history_contract.md`). An editor's
+  (`tom_forge/_agent_guidelines/editor_history_contract.md`). An editor's
   suite describes how to drive it with a `ForgeUndoSubject` and calls the
   harness; a check the editor does not meet yet is skipped with its reason.
 - **Shell test doubles** — `ForgeTestDocument`, `ForgeTestTextEditor`,

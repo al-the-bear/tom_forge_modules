@@ -3,9 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../theme/forge_shell_theme.dart';
+import 'package:tom_forge_shared_ui/tom_forge_shared_ui.dart';
 import 'forge_drag_data.dart';
-import 'forge_shell_scaffold.dart';
 
 /// Callback when a component is dropped on a zone in the overlay.
 ///

@@ -1,28 +1,30 @@
-import 'package:flutter/foundation.dart';
-import 'package:flutter/widgets.dart';
+import 'package:tom_forge_shared_ui/tom_forge_shared_ui.dart';
 
 import '../shell/forge_system_state.dart';
 
-/// Alignment for status bar items.
-enum StatusBarAlignment { left, center, right }
+export 'package:tom_forge_shared_ui/tom_forge_shared_ui.dart'
+    show StatusBarAlignment, ForgeStatusItem, ForgeStatusItemBuilder;
 
-/// A single status bar item contributed by a module or the shell.
-class StatusBarItem {
-  final ValueListenable<String> text;
-  final IconData? icon;
-  final StatusBarAlignment alignment;
-  final int priority;
-  final VoidCallback? onTap;
-  final String? tooltip;
-  final bool Function(ForgeSystemState state) isActive;
-
+/// A status bar item contributed by a module, an application or the shell:
+/// a [ForgeStatusItem] that is shown only while [isActive] holds for the
+/// shell's [ForgeSystemState] (the focused panel, the active editor, the
+/// diagnostics). [ForgeStatusBarWidget] filters by it and hands the rest to
+/// the shared [ForgeStatusBar].
+class StatusBarItem extends ForgeStatusItem {
   const StatusBarItem({
-    required this.text,
-    this.icon,
-    this.alignment = StatusBarAlignment.left,
-    this.priority = 0,
-    this.onTap,
-    this.tooltip,
+    required super.text,
+    super.icon,
+    super.alignment,
+    super.priority,
+    super.onTap,
+    super.tooltip,
+    super.visible,
+    super.color,
+    super.emphasis,
+    super.builder,
     required this.isActive,
   });
+
+  /// Whether the item applies in the shell's current state.
+  final bool Function(ForgeSystemState state) isActive;
 }
