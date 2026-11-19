@@ -309,6 +309,50 @@ void main() {
       expect(find.text('updated'), findsOneWidget);
       expect(find.text('initial'), findsNothing);
     });
+
+    testWidgets('an item is shown while visible, and the bar rebuilds when '
+        'that changes (02b_woneb2)', (WidgetTester tester) async {
+      final visible = ValueNotifier<bool>(false);
+      final harness = _StatusBarHarness.create();
+      harness.register(
+        _TestStatusBarModule(
+          name: 'Visible',
+          items: [
+            StatusBarItem(
+              text: ValueNotifier<String>('syncing'),
+              visible: visible,
+              isActive: (_) => true,
+            ),
+          ],
+        ),
+      );
+
+      await tester.pumpWidget(harness.buildApp());
+      expect(find.text('syncing'), findsNothing);
+      visible.value = true;
+      await tester.pump();
+      expect(find.text('syncing'), findsOneWidget);
+      visible.value = false;
+      await tester.pump();
+      expect(find.text('syncing'), findsNothing);
+    });
+
+    testWidgets('the shell renders through the shared ForgeStatusBar', (
+      WidgetTester tester,
+    ) async {
+      final harness = _StatusBarHarness.create();
+      harness.register(
+        _TestStatusBarModule(name: 'Shared', items: [_item('shared')]),
+      );
+      await tester.pumpWidget(harness.buildApp());
+      expect(
+        find.descendant(
+          of: find.byType(ForgeStatusBar),
+          matching: find.text('shared'),
+        ),
+        findsOneWidget,
+      );
+    });
   });
 }
 

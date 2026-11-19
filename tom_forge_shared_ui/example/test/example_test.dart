@@ -11,4 +11,26 @@ void main() {
     final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
     expect(scaffold.backgroundColor, ForgeShellTheme.dark().panelSurface);
   });
+
+  testWidgets('the action bar drives the status bar', (tester) async {
+    await tester.pumpWidget(const SharedUiExampleApp());
+    expect(find.text('0 items'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('forge.actionBar.remove')));
+    await tester.pump();
+    expect(find.text('0 items'), findsOneWidget, reason: 'remove disabled');
+    await tester.tap(find.byKey(const ValueKey('forge.actionBar.add')));
+    await tester.tap(find.byKey(const ValueKey('forge.actionBar.add')));
+    await tester.pump();
+    expect(find.text('2 items'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('forge.actionBar.remove')));
+    await tester.pump();
+    expect(find.text('1 items'), findsOneWidget);
+
+    expect(find.text('Working'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('forge.actionBar.work')));
+    await tester.pump();
+    expect(find.text('Working'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 2));
+    expect(find.text('Working'), findsNothing);
+  });
 }

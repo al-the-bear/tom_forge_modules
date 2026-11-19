@@ -3427,7 +3427,6 @@ the field, not the document.
   );
 
   Widget _buildActionBar(BuildContext context) {
-    final theme = Theme.of(context);
     final activeEditor = widget.systemState.activeEditor;
     final editorTypeId = activeEditor != null ? _editorTypeId(activeEditor) : null;
 
@@ -3440,8 +3439,8 @@ the field, not the document.
       actionIds = _defaultActionBarActions;
     }
 
-    // Build action buttons.
-    final buttons = <Widget>[];
+    // Map the action ids to the shared bar's items.
+    final items = <ForgeActionItem>[];
     final isStandardAction = StandardEditingActions.standardActionIds.contains;
     final snapshot = activeEditor?.stateSnapshot;
     for (final actionId in actionIds) {
@@ -3459,41 +3458,20 @@ the field, not the document.
         isEnabled = action.isEnabled();
       }
 
-      // Get shortcut display string if available.
-      final binding = widget.shell.shortcuts.getBinding(actionId);
-
-      buttons.add(
-        Tooltip(
-          message: binding != null
-              ? '${action.label}\n${binding.displayString}'
-              : action.label,
-          child: InkWell(
-            onTap: isEnabled
-                ? () => widget.shell.executeAction(actionId)
-                : null,
-            borderRadius: BorderRadius.circular(4),
-            child: Padding(
-              padding: const EdgeInsets.all(4),
-              child: Icon(
-                action.icon ?? Icons.extension,
-                size: ForgeDimensions.iconToolbar,
-                color: isEnabled
-                    ? theme.colorScheme.onSurface
-                    : theme.colorScheme.onSurface.withValues(alpha: 0.3),
-              ),
-            ),
-          ),
+      items.add(
+        ForgeActionItem(
+          id: actionId,
+          icon: action.icon ?? Icons.extension,
+          label: action.label,
+          shortcut: widget.shell.shortcuts.getBinding(actionId)?.displayString,
+          enabled: ForgeFixedListenable<bool>(isEnabled),
+          onInvoke: () => widget.shell.executeAction(actionId),
         ),
       );
     }
 
-    if (buttons.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: buttons,
+    return ForgeActionBar(
+      groups: [ForgeActionGroup(id: 'forge.actionBar', items: items)],
     );
   }
 
