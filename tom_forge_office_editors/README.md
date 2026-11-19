@@ -122,14 +122,17 @@ Both editors run Forge's undo conformance harness
 `tom_forge_office_editors_testing`) against fakes that model the engines'
 undo behaviour: a scripted LibreOffice helper (`ScriptedOfficeHelper`: text
 committed by the input method or typed as keys, one undo step each, a new
-edit ends the redo, the modified flag cleared only by a save) and a scripted
-ZetaOffice page. They check the routing, not LibreOffice itself. Skips, with
-their reasons (full conformance is decided after the comparison,
+edit ends the redo, the modified flag false whenever undo or redo reaches
+the saved state) and a scripted ZetaOffice page (the same history and
+flag). The evaluation's engine checks found LibreOffice 26.8.3.1 and
+ZetaOffice clearing the flag that way. The fakes check the routing, not the
+engines themselves. Skips, with their reasons (full conformance is decided
+after the comparison,
 `officeproto31h`):
 
 | Check | `ForgeOfficeEditor` (LibreOfficeKit) | `ForgeZetaOfficeEditor` |
 | --- | --- | --- |
-| `dirtyFollowsSavedState` | skipped: LibreOffice's modified flag stays set after undoing back to the saved state; the editor keeps no saved marker of its own | skipped: the same engine, the same flag |
+| `dirtyFollowsSavedState` | **runs** | **runs** |
 | `caretAfterUndoAndRedo` | skipped: the caret is the engine's, no text offset to compare; LibreOffice restores it | skipped: the caret is ZetaOffice's, inside the webview |
 | `typingUndoneWithinPause` | skipped: LibreOffice groups typing itself; `forgeTypingPause` does not reach it | skipped: ZetaOffice groups typing itself |
 | `noRedoAfterTyping` | **runs** | **runs** |

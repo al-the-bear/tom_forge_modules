@@ -28,6 +28,13 @@ abstract final class EvalConfig {
     defaultValue: 10,
   );
 
+  /// The measures to take (their names in the trail, e.g. `page,engine`),
+  /// comma-separated; empty: all. For checking one measure.
+  static const measures = String.fromEnvironment('EVAL_MEASURES');
+
+  static bool takes(String name) =>
+      measures.isEmpty || measures.split(',').contains(name);
+
   /// The routes to run (`lok`, `zetaoffice`), comma-separated; empty: both.
   static const only = String.fromEnvironment('EVAL_ONLY');
 

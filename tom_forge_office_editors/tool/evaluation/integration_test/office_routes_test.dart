@@ -82,6 +82,9 @@ Future<void> _wait(WidgetTester tester, [int ms = 300]) async {
 /// Runs [body] and keeps its answer, or its error as a not-measured entry:
 /// one failing measure never stops the run.
 Future<Object?> _measure(String name, Future<Object?> Function() body) async {
+  if (!EvalConfig.takes(name)) {
+    return notMeasured('not selected in this run (EVAL_MEASURES)');
+  }
   try {
     _step('measure $name');
     return await body();
@@ -230,7 +233,8 @@ class _LokRoute {
     final c = controllers.first;
     await _until(
       tester,
-      () => c.state != TomOfficeEditorState.idle &&
+      () =>
+          c.state != TomOfficeEditorState.idle &&
           c.state != TomOfficeEditorState.opening,
       '${paths.first} opened',
       seconds: seconds,
@@ -238,7 +242,8 @@ class _LokRoute {
     for (final other in controllers.skip(1)) {
       await _until(
         tester,
-        () => other.state != TomOfficeEditorState.opening &&
+        () =>
+            other.state != TomOfficeEditorState.opening &&
             other.state != TomOfficeEditorState.idle,
         'the other documents',
         seconds: seconds,
@@ -360,14 +365,17 @@ class _LokRoute {
             .firstOrNull;
         if (callback == null) return false;
         request ??= after
-            .where((e) =>
-                e.sent && e.message is OfficeRenderTile && e.us >= callback!)
+            .where(
+              (e) =>
+                  e.sent && e.message is OfficeRenderTile && e.us >= callback!,
+            )
             .map((e) => e.us)
             .firstOrNull;
         if (request == null) return false;
         tile = after
-            .where((e) =>
-                !e.sent && e.message is OfficeTile && e.us >= request!)
+            .where(
+              (e) => !e.sent && e.message is OfficeTile && e.us >= request!,
+            )
             .map((e) => e.us)
             .firstOrNull;
         return tile != null;
@@ -744,7 +752,8 @@ class _LokRoute {
     final victim = launcher.channels
         .firstWhere(
           (ch) => ch.record.any(
-            (e) => e.sent &&
+            (e) =>
+                e.sent &&
                 e.message is OfficeOpen &&
                 (e.message as OfficeOpen).path == reportPath,
           ),
@@ -772,8 +781,8 @@ class _LokRoute {
       'tab_noticed': noticed,
       'noticed_ms': noticed ? noticedMs : null,
       'tab_message': 'LibreOffice stopped: $message',
-      'other_tab_unaffected': other.state == TomOfficeEditorState.open &&
-          otherAnswers,
+      'other_tab_unaffected':
+          other.state == TomOfficeEditorState.open && otherAnswers,
       'lost': listEquals(before, File(reportPath).readAsBytesSync())
           ? 'the unsaved edit (the file on disk unchanged)'
           : 'the file on disk changed',
@@ -843,7 +852,8 @@ class _LokRoute {
       String? then,
     }) async {
       try {
-        final command = _ribbonCommand(c.docType, control) ??
+        final command =
+            _ribbonCommand(c.docType, control) ??
             (control == 'find' ? ('.uno:SearchDialog', '') : null);
         if (command == null) throw StateError('no ribbon command $control');
         c.uno(command.$1, command.$2);
@@ -935,7 +945,8 @@ class _LokRoute {
     if (w == null) {
       return {
         'window_mode': 'fails',
-        'reason': 'no dialog in 20 s (windows: '
+        'reason':
+            'no dialog in 20 s (windows: '
             '${c.windows.map((x) => '${x.kind} ${x.title}').toList()})',
       };
     }
@@ -1079,8 +1090,8 @@ class _LokRoute {
     await _within(tester, () => c.canRedo, ms: 5000);
     check('undo: redo enabled', true, c.canRedo);
     check(
-      'undo back to the saved state: still dirty (the modified flag stays)',
-      true,
+      'undo back to the saved state: clean (the modified flag follows it)',
+      false,
       c.isDirty,
     );
     c.redo();
@@ -1142,8 +1153,9 @@ class _ZetaRoute {
     final frames = await _measure('page', () async => _pageHasFrames());
     r['page'] = _probeResult ?? frames;
     final live = frames == true;
-    Future<Object?> paged(String name, Future<Object?> Function() body) =>
-        live ? _measure(name, body) : Future.value(notMeasured(_noFramesReason));
+    Future<Object?> paged(String name, Future<Object?> Function() body) => live
+        ? _measure(name, body)
+        : Future.value(notMeasured(_noFramesReason));
     r['editing_latency'] = await paged('latency', _latency);
     r['scrolling'] = await paged('scrolling', _scrolling);
     r['memory'] = await _measure('memory', _memory);
@@ -1195,7 +1207,8 @@ class _ZetaRoute {
     await c.prepare();
     await _until(
       tester,
-      () => c.state == TomZetaOfficeState.open ||
+      () =>
+          c.state == TomZetaOfficeState.open ||
           c.state == TomZetaOfficeState.failed ||
           c.state == TomZetaOfficeState.needsDownload,
       '$path in ZetaOffice',
@@ -1316,7 +1329,8 @@ class _ZetaRoute {
   /// [count] key events dispatched to the canvas in the page, each timed
   /// from its keydown to the second animation frame after it (the frame
   /// after the one the key was handled in).
-  static String _keysScript(int count) => '''
+  static String _keysScript(int count) =>
+      '''
     (async () => {
       const c = document.getElementById('qtcanvas');
       c.focus();
@@ -1352,7 +1366,9 @@ class _ZetaRoute {
       final value = await page('keys', _keysScript(100)) as Map?;
       final after = await c.readForTest();
       final typed = after != before;
-      final times = [for (final t in (value?['times'] as List? ?? [])) t as num];
+      final times = [
+        for (final t in (value?['times'] as List? ?? [])) t as num,
+      ];
       out[name] = {
         'keystrokes': times.length,
         'the_keys_reached_the_document': typed,
@@ -1375,7 +1391,8 @@ class _ZetaRoute {
 
   /// [frames] wheel events on the canvas, one per animation frame, timed by
   /// the frame intervals; with [zoom] the wheel holds Ctrl.
-  static String _wheelScript(int frames, {bool zoom = false}) => '''
+  static String _wheelScript(int frames, {bool zoom = false}) =>
+      '''
     (async () => {
       const c = document.getElementById('qtcanvas');
       const r = c.getBoundingClientRect();
@@ -1395,7 +1412,8 @@ class _ZetaRoute {
 
   /// [count] wheel events on the canvas, one every 16 ms by timer (no
   /// frame timing: the memory samples only need the scroll).
-  static String _wheelTimerScript(int count) => '''
+  static String _wheelTimerScript(int count) =>
+      '''
     (async () => {
       const c = document.getElementById('qtcanvas');
       const r = c.getBoundingClientRect();
@@ -1503,7 +1521,11 @@ class _ZetaRoute {
       try {
         final ms = await open(path);
         if (ms == null) {
-          out[name] = {'opened': false, 'state': c.state.name, 'error': c.error};
+          out[name] = {
+            'opened': false,
+            'state': c.state.name,
+            'error': c.error,
+          };
           continue;
         }
         final unchanged = await c.save();
@@ -1601,7 +1623,10 @@ class _ZetaRoute {
     final out = <String, Object?>{};
     // A LibreOfficeKit tab beside it: the other tab.
     final other = TomOfficeEditorController(
-      host: EvalOfficeHost(EvalConfig.copy('deck.pptx', 'zeta-crash'), launcher),
+      host: EvalOfficeHost(
+        EvalConfig.copy('deck.pptx', 'zeta-crash'),
+        launcher,
+      ),
     );
     await other.open();
     final path = EvalConfig.copy('report.docx', 'zeta-crash');
@@ -1615,9 +1640,9 @@ class _ZetaRoute {
     // the evaluation app (MainFlutterWindow.swift), never a pid search.
     final t0 = _now;
     final victims =
-        await const MethodChannel('eval/webkit').invokeListMethod<int>(
-          'killWebContent',
-        ) ??
+        await const MethodChannel(
+          'eval/webkit',
+        ).invokeListMethod<int>('killWebContent') ??
         const <int>[];
     final noticed = await _within(
       tester,
@@ -1653,7 +1678,10 @@ class _ZetaRoute {
     other.dispose();
     final damaged = <String, Object?>{};
     for (final name in evalDamagedFiles) {
-      final ms = await open(EvalConfig.copy(name, 'zeta-damaged'), seconds: 200);
+      final ms = await open(
+        EvalConfig.copy(name, 'zeta-damaged'),
+        seconds: 200,
+      );
       damaged[name] = {
         'forge_running': true,
         'state': c.state.name,
@@ -1724,8 +1752,8 @@ class _ZetaRoute {
     await _within(tester, () => c.canRedo, ms: 10000);
     check('undo: redo enabled', true, c.canRedo);
     check(
-      'undo back to the saved state: still dirty (the modified flag stays)',
-      true,
+      'undo back to the saved state: clean (the modified flag follows it)',
+      false,
       c.isDirty,
     );
     await c.editForTest('b');

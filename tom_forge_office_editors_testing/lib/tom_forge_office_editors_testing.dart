@@ -8,9 +8,9 @@
 ///
 /// The runs check the routing — the shell's undo and redo reaching the
 /// controller, the dirty marker, the views — against fakes that model
-/// LibreOffice's documented undo behaviour (a new edit ends the redo; the
-/// modified flag stays set after undoing back to the saved state), not
-/// LibreOffice itself (part-forge-integration, *History and the undo
+/// LibreOffice's undo behaviour as the evaluation's engine checks found it
+/// (a new edit ends the redo; the modified flag clears when undo or redo
+/// reaches the saved state), not LibreOffice itself (part-forge-integration, *History and the undo
 /// conformance harness*).
 ///
 /// Test-only: a package of its own, taken as a dev_dependency by the suites
@@ -40,10 +40,6 @@ const _decidedBy = 'Decided after the comparison (officeproto31h)';
 
 /// The checks the LibreOfficeKit editor skips, with the reason.
 const forgeOfficeEditorSkips = <ForgeUndoCheck, String>{
-  ForgeUndoCheck.dirtyFollowsSavedState:
-      'LibreOffice\'s modified flag (.uno:ModifiedStatus) stays set after '
-      'undoing back to the saved state; the editor keeps no saved marker of '
-      'its own. $_decidedBy',
   ForgeUndoCheck.caretAfterUndoAndRedo:
       'the caret is the engine\'s: there is no text offset to compare, and '
       'LibreOffice restores it itself. $_decidedBy',
@@ -59,9 +55,6 @@ const forgeOfficeEditorSkips = <ForgeUndoCheck, String>{
 
 /// The checks the ZetaOffice editor skips, with the reason.
 const forgeZetaOfficeEditorSkips = <ForgeUndoCheck, String>{
-  ForgeUndoCheck.dirtyFollowsSavedState:
-      'the same engine and the same modified flag as LibreOffice: it stays '
-      'set after undoing back to the saved state. $_decidedBy',
   ForgeUndoCheck.caretAfterUndoAndRedo:
       'the caret is ZetaOffice\'s, inside the webview. $_decidedBy',
   ForgeUndoCheck.typingUndoneWithinPause:
@@ -104,11 +97,12 @@ final forgeOfficeTestUri = Uri.file(_testPath);
 
 /// LibreOffice as the fake helper channel plays it: the document is
 /// [text]; text committed by the input method (`textInput` input, then
-/// end) or typed as a key is appended, one undo step per commit or key; undo and redo
-/// move it through the history; a new edit ends the redo; the modified flag
-/// is set by every edit, undo and redo and cleared only by a save
-/// (`STATE_CHANGED .uno:ModifiedStatus`, `.uno:Undo`, `.uno:Redo`, as
-/// LibreOfficeKit reports them). A save writes [text] to the temporary
+/// end) or typed as a key is appended, one undo step per commit or key;
+/// undo and redo move it through the history; a new edit ends the redo; the
+/// modified flag says whether the history stands at the saved state (the
+/// opened one until a save), so undoing back to it clears the flag, as
+/// LibreOffice 26.8.3.1 does (`STATE_CHANGED .uno:ModifiedStatus`,
+/// `.uno:Undo`, `.uno:Redo`, as LibreOfficeKit reports them). A save writes [text] to the temporary
 /// target through [fileSystem].
 class ScriptedOfficeHelper extends FakeOfficeHelperChannel {
   /// A helper whose document holds [text]; saves go to [fileSystem].
@@ -124,8 +118,17 @@ class ScriptedOfficeHelper extends FakeOfficeHelperChannel {
   final _redo = <String>[];
   String? _composition;
 
+  /// The undo depth of the saved state (the opened one until a save), or
+  /// null once a new edit after undoing past it made it unreachable.
+  int? _savedDepth = 0;
+
   /// The saves, in order.
   int saves = 0;
+
+  /// Whether the document differs from its saved state, as LibreOffice's
+  /// `.uno:ModifiedStatus` says it: false again when undo or redo reaches
+  /// the saved state's position in the history.
+  bool get modified => _savedDepth != _undo.length;
 
   @override
   void send(OfficeHelperCommand command) {
@@ -148,13 +151,13 @@ class ScriptedOfficeHelper extends FakeOfficeHelperChannel {
         if (_undo.isEmpty) return;
         _redo.add(text);
         text = _undo.removeLast();
-        _report(modified: true);
+        _report();
       case OfficeUno(command: '.uno:Redo'):
         sent.add(command);
         if (_redo.isEmpty) return;
         _undo.add(text);
         text = _redo.removeLast();
-        _report(modified: true);
+        _report();
       case OfficeSave(:final id, :final targetPath):
         sent.add(command);
         unawaited(() async {
@@ -163,6 +166,7 @@ class ScriptedOfficeHelper extends FakeOfficeHelperChannel {
             Uint8List.fromList(utf8.encode(text)),
           );
           saves++;
+          _savedDepth = _undo.length;
           emit(OfficeSaved(id: id, ok: true));
           callback('STATE_CHANGED', '.uno:ModifiedStatus=false');
         }());
@@ -173,13 +177,16 @@ class ScriptedOfficeHelper extends FakeOfficeHelperChannel {
 
   /// The user types [typed] into the document.
   void edit(String typed) {
+    // A new edit ends the redo; a saved state in it is gone for good.
+    final saved = _savedDepth;
+    if (saved != null && saved > _undo.length) _savedDepth = null;
     _undo.add(text);
     _redo.clear();
     text += typed;
-    _report(modified: true);
+    _report();
   }
 
-  void _report({required bool modified}) {
+  void _report() {
     callback(
       'STATE_CHANGED',
       '.uno:Undo=${_undo.isEmpty ? 'disabled' : 'enabled'}',
@@ -188,7 +195,7 @@ class ScriptedOfficeHelper extends FakeOfficeHelperChannel {
       'STATE_CHANGED',
       '.uno:Redo=${_redo.isEmpty ? 'disabled' : 'enabled'}',
     );
-    if (modified) callback('STATE_CHANGED', '.uno:ModifiedStatus=true');
+    callback('STATE_CHANGED', '.uno:ModifiedStatus=$modified');
   }
 }
 
@@ -196,7 +203,8 @@ class ScriptedOfficeHelper extends FakeOfficeHelperChannel {
 /// page load with `ready` and `loaded`; typed text is appended with
 /// ZetaOffice's history (a new edit ends the redo); `undo`, `redo` and
 /// `save` work as the bridge does, the save posting [text] through
-/// [serving].
+/// [serving]. The modified flag is false whenever undo or redo reaches the
+/// saved state, as ZetaOffice's own flag is.
 class ScriptedZetaOfficePage extends FakeZetaOfficeChannel {
   /// A page whose document holds [text].
   ScriptedZetaOfficePage(this.text, this.serving);
@@ -210,6 +218,13 @@ class ScriptedZetaOfficePage extends FakeZetaOfficeChannel {
   final _undo = <String>[];
   final _redo = <String>[];
 
+  /// The undo depth of the saved state (the opened one until a save), or
+  /// null once a new edit after undoing past it made it unreachable.
+  int? _savedDepth = 0;
+
+  /// Whether the document differs from its saved state.
+  bool get modified => _savedDepth != _undo.length;
+
   @override
   Future<void> load(Uri page) async {
     await super.load(page);
@@ -220,7 +235,7 @@ class ScriptedZetaOfficePage extends FakeZetaOfficeChannel {
         'kind': 'text',
         'product': 'ZetaOffice (scripted)',
       });
-      _history(modified: false);
+      _history();
     });
   }
 
@@ -232,14 +247,15 @@ class ScriptedZetaOfficePage extends FakeZetaOfficeChannel {
         if (_undo.isEmpty) return;
         _redo.add(text);
         text = _undo.removeLast();
-        _history(modified: true);
+        _history();
       case 'redo':
         if (_redo.isEmpty) return;
         _undo.add(text);
         text = _redo.removeLast();
-        _history(modified: true);
+        _history();
       case 'save':
         await serving.postSave(utf8.encode(text));
+        _savedDepth = _undo.length;
         emit({'type': 'saved', 'ok': true, 'copy': false});
         emit({'type': 'modified', 'value': false});
     }
@@ -247,13 +263,16 @@ class ScriptedZetaOfficePage extends FakeZetaOfficeChannel {
 
   /// The user types [typed] into the page.
   void edit(String typed) {
+    // A new edit ends the redo; a saved state in it is gone for good.
+    final saved = _savedDepth;
+    if (saved != null && saved > _undo.length) _savedDepth = null;
     _undo.add(text);
     _redo.clear();
     text += typed;
-    _history(modified: true);
+    _history();
   }
 
-  void _history({required bool modified}) {
+  void _history() {
     emit({
       'type': 'history',
       'canUndo': _undo.isNotEmpty,
