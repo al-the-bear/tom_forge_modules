@@ -1408,7 +1408,7 @@ packages:
       path: "../../tom_ai/modules/tom_file_session"
       relative: true
     source: path
-    version: "1.8.0"
+    version: "1.9.0"
   tom_file_system:
     dependency: "direct main"
     description:
