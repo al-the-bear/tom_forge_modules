@@ -43,6 +43,7 @@ flag lets the compiler eliminate all dead code.
 | ZetaOffice view (`tom_ai/modules/tom_office_editor`) | `lib/src/zetaoffice/trail.dart` | `kZetaOfficeDebug` (switchable at run time), prefix `[ZO]` |
 | External Tools section (`tom_forge_ui`) | `lib/src/tools/external_tools_trail.dart` | `kForgeExternalToolsDebug` (switchable at run time), prefix `[FT]` |
 | PDF editors in Forge (`tom_forge_pdf_editors`) | `lib/src/forge_pdf_trail.dart` | `kForgePdfDebug` (switchable at run time) |
+| Office editors in Forge (`tom_forge_office_editors`) | `lib/src/forge_office_trail.dart` | `kForgeOfficeDebug` (switchable at run time), prefix `[FO]` |
 
 `tom_forge_app/test/editor_component_contract_test.dart` (EC-4) checks that
 every editor component has such a trail with its switch off.
@@ -145,6 +146,7 @@ Each component uses a two-letter prefix inside `[XX …]`. Current components:
 | `OE`   | Office Editor (`tom_office_editor`) |
 | `ZO`   | ZetaOffice view (`tom_office_editor`) |
 | `FP`   | PDF editors in Forge (`tom_forge_pdf_editors`) |
+| `FO`   | Office editors in Forge (`tom_forge_office_editors`) |
 | `FT`   | External Tools section (`tom_forge_ui`) |
 
 Filter in terminal:

@@ -115,6 +115,9 @@ void runForgeUndoConformance(
   Map<ForgeUndoCheck, String> skip = const {},
 }) {
   group('$name undo conformance', () {
+    // The subjects of the running check, disposed at its end.
+    final mounted = <ForgeUndoSubject>[];
+
     void check(
       ForgeUndoCheck which,
       String description,
@@ -126,6 +129,15 @@ void runForgeUndoConformance(
         // the debounce an editor may hold typing in before the pause starts.
         await tester.pump(forgeTypingPause);
         await tester.pump(forgeTypingPause);
+        // The tree goes, then the subjects, inside the test: an editor whose
+        // engine keeps a timer (a helper's ping, a webview's clock) ends it
+        // before the binding checks for pending timers.
+        await tester.pumpWidget(const SizedBox());
+        for (final s in [...mounted]) {
+          mounted.remove(s);
+          s.dispose();
+        }
+        await tester.pump(const Duration(seconds: 1));
       }, skip: skip.containsKey(which));
     }
 
@@ -135,7 +147,11 @@ void runForgeUndoConformance(
       bool withCopy = false,
     }) async {
       final subject = create(savedText);
-      addTearDown(subject.dispose);
+      mounted.add(subject);
+      // A check that failed half-way leaves it to the tear-down.
+      addTearDown(() {
+        if (mounted.remove(subject)) subject.dispose();
+      });
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
