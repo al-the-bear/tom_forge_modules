@@ -119,7 +119,6 @@ export 'src/widgets/forge_drag_data.dart';
 export 'src/widgets/forge_drop_zone_overlay.dart';
 export 'src/widgets/forge_editor_tab_bar.dart';
 export 'src/widgets/forge_menu_bar.dart';
-export 'src/widgets/forge_notification_overlay.dart';
 export 'src/widgets/forge_open_with_dialog.dart';
 export 'src/widgets/forge_panel_widget.dart';
 export 'src/widgets/forge_shell_scaffold.dart';

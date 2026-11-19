@@ -57,4 +57,19 @@ void main() {
     expect(find.text('10 items'), findsOneWidget);
     expect(find.byType(ForgeQuickPickOverlay<int>), findsNothing);
   });
+
+  testWidgets('a toast from the action bar, its action resets the count', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const SharedUiExampleApp());
+    await tester.tap(find.byKey(const ValueKey('forge.actionBar.add')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('forge.actionBar.notify')));
+    await tester.pump();
+    expect(find.text('1 items so far'), findsOneWidget);
+    await tester.tap(find.text('Reset'));
+    await tester.pump();
+    expect(find.text('1 items so far'), findsNothing);
+    expect(find.text('0 items'), findsOneWidget);
+  });
 }

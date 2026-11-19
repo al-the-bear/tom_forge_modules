@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../defaults/default_notification_manager.dart';
+import 'package:tom_forge_core/tom_forge_core.dart'
+    show DefaultNotificationManager, NotificationItem, NotificationSeverity;
 
 /// Popup panel anchored above the status bar, showing notification history.
 ///

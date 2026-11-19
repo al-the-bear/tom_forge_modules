@@ -12,6 +12,11 @@
   `ForgeErrorRecoveryDialog` with `ErrorRecoveryAction`, and
   `ForgeFocusIndicator`, taken out of `tom_forge_shell`, which re-exports
   them.
+- `ForgeNotificationOverlay` and `ForgeNotificationPopup`, taken out of
+  `tom_forge_shell`; the package now depends on `tom_forge_core` and
+  re-exports its `DefaultNotificationManager`, `NotificationItem` and
+  `NotificationSeverity`. Choosing a toast's action now also removes the
+  toast (it used to stay on screen after answering).
 
 - `ForgeShellTheme` (dark, light, high contrast), `ForgeDimensions` and
   `ForgeAnimations`, taken out of `tom_forge_shell`, which re-exports them.

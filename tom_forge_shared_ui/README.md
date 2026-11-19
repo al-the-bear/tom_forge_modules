@@ -39,10 +39,20 @@ shell itself:
   keyboard focus only, in the theme's `focusRing`). The overlays answer
   through a `Completer`; Forge's dialog manager shows them over the shell, an
   application in an `OverlayEntry` of its own.
+- **Notifications**: `ForgeNotificationOverlay` (the toasts, top right: a
+  severity icon, the message, a close button and the notification's actions;
+  one without actions leaves after the manager's 4 s, a chosen action answers
+  the caller and removes the toast) and `ForgeNotificationPopup` (the
+  history, newest first, with severity icons, age and *Clear all*), both over
+  `tom_forge_core`'s `DefaultNotificationManager`. The package re-exports
+  `DefaultNotificationManager`, `NotificationItem` and `NotificationSeverity`
+  for them. An application beside Forge shows its own toasts the way Forge
+  does, and Webwork's entries mirrored into Forge's manager show the same.
 - **`ForgeFixedListenable`**: a listenable whose value never changes, for an
   item whose state is known when it is built.
 
-It depends on Flutter and `tom_ui_support` only: no terminal, no editors, no
+It depends on Flutter, `tom_ui_support` and `tom_forge_core` (pure Dart: the
+notification manager) only: no terminal, no editors, no
 webview, no native plugin, so it builds for every Flutter platform, the web
 included. `tom_forge_shell` depends on it and re-exports it, so code that
 imports `package:tom_forge_shell` or `package:tom_forge_ui` sees the same
@@ -98,10 +108,11 @@ ForgeStatusBar(
 );
 ```
 
-`example/` is a minimal app over the package (an action bar that changes a
+`example/` is a minimal app over the package: an action bar that changes a
 counter, a status bar that shows it and a busy item while work runs, the
-input box renaming the document and the quick pick setting the count); building it for macOS, the
-web, iOS and Android shows the package builds on each.
+input box renaming the document, the quick pick setting the count, and a
+toast whose action resets it. Building it for macOS, the web, iOS and
+Android shows the package builds on each.
 
 ## License
 

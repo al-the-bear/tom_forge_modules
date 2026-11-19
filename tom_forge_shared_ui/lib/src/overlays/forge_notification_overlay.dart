@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../defaults/default_notification_manager.dart';
+import 'package:tom_forge_core/tom_forge_core.dart'
+    show DefaultNotificationManager, NotificationItem, NotificationSeverity;
 
 /// Notification toast overlay positioned in the top-right.
 ///
@@ -112,7 +113,12 @@ class _ForgeNotificationOverlayState extends State<ForgeNotificationOverlay> {
                     Padding(
                       padding: const EdgeInsets.only(left: 6),
                       child: TextButton(
-                        onPressed: () => item.dismiss(action),
+                        // The chosen action answers the caller, and the
+                        // toast leaves the screen.
+                        onPressed: () {
+                          item.dismiss(action);
+                          widget.manager.remove(item);
+                        },
                         style: TextButton.styleFrom(
                           padding:
                               const EdgeInsets.symmetric(horizontal: 8),

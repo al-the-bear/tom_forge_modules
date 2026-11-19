@@ -42,6 +42,7 @@ class _ExampleWindowState extends State<ExampleWindow> {
   final _busy = ValueNotifier<bool>(false);
   final _busyText = ValueNotifier<String>('Working');
   final _name = ValueNotifier<String>('Untitled');
+  final _notifications = DefaultNotificationManager();
   Timer? _work;
 
   @override
@@ -56,6 +57,7 @@ class _ExampleWindowState extends State<ExampleWindow> {
   @override
   void dispose() {
     _work?.cancel();
+    _notifications.dispose();
     for (final n in [_count, _countText, _canRemove, _busy, _busyText, _name]) {
       n.dispose();
     }
@@ -162,6 +164,23 @@ class _ExampleWindowState extends State<ExampleWindow> {
                   ],
                 ),
                 ForgeActionGroup(
+                  id: 'notify',
+                  items: [
+                    ForgeActionItem(
+                      id: 'notify',
+                      icon: Icons.notifications,
+                      label: 'Show a toast',
+                      onInvoke: () async {
+                        final answer = await _notifications.showInformation(
+                          '${_count.value} items so far',
+                          actions: ['Reset'],
+                        );
+                        if (answer == 'Reset') _count.value = 0;
+                      },
+                    ),
+                  ],
+                ),
+                ForgeActionGroup(
                   id: 'work',
                   items: [
                     ForgeActionItem(
@@ -187,7 +206,11 @@ class _ExampleWindowState extends State<ExampleWindow> {
             thickness: ForgeDimensions.dividerVisual,
             color: shell.panelDivider,
           ),
-          const Expanded(child: SizedBox.shrink()),
+          Expanded(
+            child: Stack(
+              children: [ForgeNotificationOverlay(manager: _notifications)],
+            ),
+          ),
           ForgeStatusBar(
             items: [
               ForgeStatusItem(text: _countText, icon: Icons.list),
