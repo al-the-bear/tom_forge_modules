@@ -39,6 +39,7 @@ flag lets the compiler eliminate all dead code.
 | Dart Editor (`tom_dart_editor`) | `lib/src/editor_trail.dart` | `kDartEditorDebug` |
 | Quest applications (`tom_forge_quests`) | `lib/src/quests_trail.dart` | `kForgeQuestsDebug` |
 | PDF editor (`tom_ai/modules/tom_pdf_editor`) | `lib/src/pdf_editor_trail.dart` | `kPdfEditorDebug` (switchable at run time) |
+| Office editor (`tom_ai/modules/tom_office_editor`) | `lib/src/office_editor_trail.dart` | `kOfficeEditorDebug` (switchable at run time), prefix `[OE]` |
 | External Tools section (`tom_forge_ui`) | `lib/src/tools/external_tools_trail.dart` | `kForgeExternalToolsDebug` (switchable at run time), prefix `[FT]` |
 | PDF editors in Forge (`tom_forge_pdf_editors`) | `lib/src/forge_pdf_trail.dart` | `kForgePdfDebug` (switchable at run time) |
 
@@ -140,6 +141,7 @@ Each component uses a two-letter prefix inside `[XX …]`. Current components:
 | `YE`   | YAML Editor |
 | `DE`   | Dart Editor *(reserved, not yet implemented)* |
 | `PE`   | PDF Editor (`tom_pdf_editor`; `PE:js` its pdf.js view) |
+| `OE`   | Office Editor (`tom_office_editor`) |
 | `FP`   | PDF editors in Forge (`tom_forge_pdf_editors`) |
 | `FT`   | External Tools section (`tom_forge_ui`) |
 
