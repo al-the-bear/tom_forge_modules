@@ -34,7 +34,7 @@ editors (element selection, viewport, zoom); no editor implements it yet.
 
 A **document editor** is a `ForgeEditor` bound to a document: a file, or the
 document a tool owns. It answers to the shell through
-`tom_forge_ui/lib/src/components/forge_editor.dart`:
+`tom_forge_shell/lib/src/components/forge_editor.dart`:
 
 - **Routing:** `canHandle(uri)` — accept, inspect (then
   `canHandleContent(uri, bytes)`), or reject.

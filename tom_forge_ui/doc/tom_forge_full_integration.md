@@ -104,7 +104,7 @@ Implementation evidence:
    `tom_forge_ui/test/widgets/forge_menu_bar_test.dart`.
 2. Implemented real action dispatch for menu commands (`file.save`,
    `file.saveAll`, `file.close`, `edit.undo`, `edit.redo`) in
-   `tom_forge_ui/lib/src/widgets/forge_menu_bar.dart`.
+   `tom_forge_shell/lib/src/widgets/forge_menu_bar.dart`.
 3. Confirmed tests pass in `tom_forge_ui` after implementation.
 4. Verified `tom_forge_ui_test` end-to-end package validation with
    `flutter analyze` and `flutter test` passing after staging SDK alignment.
@@ -121,11 +121,11 @@ Status timeline: In-Progress -> Completed (2026-03-26, strict re-verification)
 
 Primary files:
 
-1. `tom_forge_ui/lib/src/widgets/forge_menu_bar.dart`
-2. `tom_forge_ui/lib/src/widgets/forge_command_palette.dart`
-3. `tom_forge_ui/lib/src/widgets/forge_shell_scaffold.dart`
-4. `tom_forge_ui/lib/src/defaults/default_shell_api.dart`
-5. `tom_forge_ui/lib/src/defaults/default_module_registry.dart`
+1. `tom_forge_shell/lib/src/widgets/forge_menu_bar.dart`
+2. `tom_forge_shell/lib/src/widgets/forge_command_palette.dart`
+3. `tom_forge_shell/lib/src/widgets/forge_shell_scaffold.dart`
+4. `tom_forge_shell/lib/src/defaults/default_shell_api.dart`
+5. `tom_forge_shell/lib/src/defaults/default_module_registry.dart`
 
 Tasks:
 
@@ -145,17 +145,17 @@ Acceptance criteria:
 Implementation evidence:
 
 1. Replaced critical File/Edit placeholder menu paths with real action
-   dispatch in `tom_forge_ui/lib/src/widgets/forge_menu_bar.dart`.
+   dispatch in `tom_forge_shell/lib/src/widgets/forge_menu_bar.dart`.
 2. Unified command palette action source to shell action registry, with
    deduped module-action fallback coverage in
-   `tom_forge_ui/lib/src/widgets/forge_command_palette.dart`.
+   `tom_forge_shell/lib/src/widgets/forge_command_palette.dart`.
 3. Command palette now shows effective shortcut bindings from shortcut manager
    (runtime binding first, default shortcut second).
 4. Updated shell scaffold shortcuts to platform-aware primary modifier mapping
-   in `tom_forge_ui/lib/src/widgets/forge_shell_scaffold.dart`.
+   in `tom_forge_shell/lib/src/widgets/forge_shell_scaffold.dart`.
 5. Updated module registration wiring so module actions/shortcuts are published
-   into shell registries in `tom_forge_ui/lib/src/defaults/default_module_registry.dart`
-   and `tom_forge_ui/lib/src/defaults/default_shell_api.dart`.
+   into shell registries in `tom_forge_shell/lib/src/defaults/default_module_registry.dart`
+   and `tom_forge_shell/lib/src/defaults/default_shell_api.dart`.
 6. Added and passed new Phase B tests:
    1. `tom_forge_ui/test/widgets/phase_b_command_palette_test.dart`
    2. `tom_forge_ui/test/widgets/phase_b_shortcut_platform_test.dart`
@@ -173,8 +173,8 @@ Status timeline: In-Progress -> Completed (2026-03-26 final completion audit)
 
 Primary files:
 
-1. `tom_forge_ui/lib/src/widgets/forge_configuration_dialog.dart`
-2. `tom_forge_ui/lib/src/services/forge_preferences_service.dart`
+1. `tom_forge_shell/lib/src/widgets/forge_configuration_dialog.dart`
+2. `tom_forge_shell/lib/src/services/forge_preferences_service.dart`
 3. `tom_forge_ui_test` persistence entrypoint code as needed
 
 Tasks:
@@ -192,15 +192,15 @@ Acceptance criteria:
 Implementation evidence:
 
 1. Added persistent editor text settings storage in
-   `tom_forge_ui/lib/src/services/forge_preferences_service.dart` using
+   `tom_forge_shell/lib/src/services/forge_preferences_service.dart` using
    shared preferences key `forge.editor.textSettings` with per-editor-type
    serialization and round-trip loading.
 2. Added shell startup hydration and runtime synchronization from preferences in
-   `tom_forge_ui/lib/src/widgets/forge_shell_scaffold.dart` so persisted
+   `tom_forge_shell/lib/src/widgets/forge_shell_scaffold.dart` so persisted
    settings are applied to shell APIs during initialization and on preference
    updates.
 3. Updated settings dialog save flow in
-   `tom_forge_ui/lib/src/widgets/forge_configuration_dialog.dart` to persist
+   `tom_forge_shell/lib/src/widgets/forge_configuration_dialog.dart` to persist
    per-editor text settings via preferences and apply them to the active shell.
 4. Added and passed Phase C tests:
    1. `tom_forge_ui/test/services/forge_preferences_service_test.dart`
@@ -239,7 +239,7 @@ Gate per cycle:
 Implementation evidence (first cycle):
 
 1. Added `.txt` file-type editor dispatch in
-   `tom_forge_ui/lib/src/defaults/default_layout_controller.dart` by routing
+   `tom_forge_shell/lib/src/defaults/default_layout_controller.dart` by routing
    plain-text files through the markdown-based editor adapter path.
 2. Added first-cycle Phase D integration tests in
    `tom_forge_ui/test/widgets/phase_d_expansion_cycle_test.dart` covering:

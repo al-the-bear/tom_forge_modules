@@ -108,6 +108,8 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
       fileSystem: fileSystem,
       appName: 'TomSpecs Editor',
       navigatorKey: _navigatorKey,
+      // The terminal, the code editors and the keychain.
+      components: forgeDesktopComponents,
     );
 
     // One shared model future + review store feeds the structure browser, the

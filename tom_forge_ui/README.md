@@ -1,36 +1,44 @@
-<!--
-This README describes the package. If you publish this package to pub.dev,
-this README's contents appear on the landing page for your package.
+# Tom Forge UI
 
-For information about how to write a good package README, see the guide for
-[writing package pages](https://dart.dev/tools/pub/writing-package-pages).
+Forge's panel shell with everything a desktop Forge needs, as one library.
+`package:tom_forge_ui/tom_forge_ui.dart` re-exports four packages:
 
-For general information about developing packages, see the Dart guide for
-[creating packages](https://dart.dev/guides/libraries/create-packages)
-and the Flutter guide for
-[developing packages and plugins](https://flutter.dev/to/develop-packages).
--->
+| Package | What it is | Depends on |
+| --- | --- | --- |
+| `tom_forge_shell` | The shell core: `ForgeShellApi` and its default services, the scaffold, panels, tab bar, menus, command palette, configuration, the built-in views and the plain-text editor | Flutter, `tom_forge_core`, `tom_editors_shared` (webview-free), `tom_file_system`, `tom_file_session`, the file pickers, `shared_preferences` |
+| `tom_forge_terminal` | PTY-backed and process-backed terminals and the terminal view | the core, `flutter_pty`, the `xterm` fork |
+| `tom_forge_code_editors` | The Markdown, Dart and YAML editor adapters, the Dart outline provider, and the editor types the layout controller opens those files with | the core, `tom_md_editor`, `tom_dart_editor`, `tom_yaml_editor` |
+| `tom_forge_platform_secrets` | Secret storage in the platform keychain | the core, `flutter_secure_storage` |
 
-TODO: Put a short description of the package here that helps potential users
-know whether this package might be useful for them.
-
-## Features
-
-TODO: List what your package can do. Maybe include images, gifs, or videos.
-
-## Getting started
-
-TODO: List prerequisites and provide or point to information on how to
-start using the package.
-
-## Usage
-
-TODO: Include short and useful examples for package users. Add longer examples
-to `/example` folder.
+The core builds without the other three: without them a shell has no
+terminals, keeps secrets in memory and opens every file as plain text. They
+plug in as `ForgeShellComponents` — a terminal-manager factory, a terminal
+view, a secret-storage factory, editor types — which a shell takes when it is
+made:
 
 ```dart
-const like = 'sample';
+import 'package:tom_forge_ui/tom_forge_ui.dart';
+
+// Hand one shell its parts ...
+final shell = DefaultShellApi.withDefaultsAndFileSystem(
+  fileSystem: fileSystem,
+  appName: 'My Forge',
+  navigatorKey: navigatorKey,
+  components: forgeDesktopComponents,
+);
+
+// ... or register them once at start, for every shell made afterwards.
+void main() {
+  useForgeDesktopComponents();
+  runApp(const MyApp());
+}
 ```
+
+A test package registers them in its `test/flutter_test_config.dart`
+(`useForgeDesktopComponents()` in `testExecutable`), as this package's own
+suites do. A host that wants the shell where the terminal or the editors do
+not build depends on `tom_forge_shell` alone and registers only the parts it
+has.
 
 ## Context menus
 

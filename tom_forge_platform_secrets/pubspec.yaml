@@ -1,0 +1,27 @@
+name: tom_forge_platform_secrets
+description: >-
+  Forge's secret storage in the platform keychain (flutter_secure_storage), as ForgeShellComponents for the panel shell.
+  License: BSD-3-Clause.
+publish_to: none
+version: 0.1.0
+repository: https://github.com/al-the-bear/tom_forge
+
+environment:
+  sdk: ^3.10.8
+  flutter: ">=1.17.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  tom_forge_shell:
+    path: ../tom_forge_shell
+  tom_forge_core:
+    path: ../tom_forge_core
+  tom_file_system:
+    path: ../../tom_ai/basics/tom_file_system
+  flutter_secure_storage: ^10.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0

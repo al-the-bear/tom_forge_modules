@@ -18,9 +18,9 @@ dependencies:
   # The undo conformance harness is built on it.
   flutter_test:
     sdk: flutter
-  # The shell types the helpers implement and the harness drives.
-  tom_forge_ui:
-    path: ../tom_forge_ui
+  # The shell core's types the helpers implement and the harness drives.
+  tom_forge_shell:
+    path: ../tom_forge_shell
   # The document and text contracts of the test document and editor.
   tom_forge_core:
     path: ../tom_forge_core

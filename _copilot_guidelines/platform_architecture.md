@@ -23,25 +23,34 @@ on anything below the apps, and nothing depends on them.
 | 0 Foundation | `tom_forge_core`, `tom_website_editor_core`, `tom_dart_editor_bundler`, `tom_web_build_probe` | Pure Dart, no Flutter: the types and service contracts (`tom_forge_core`), the website model, the Dart editor's summary bundler tool, the web-compile probe the editor packages use in their tests |
 | 1 Editor kit | `tom_editors_shared`, `tom_mermaid_view` | Widgets and utilities every editor builds on: tree view, validation, the text editor core, `TextUndoEntry` on `tom_undo`'s stack, the typing pause (`tom_editors_shared`, no webview); Mermaid diagrams in a webview with the bundled mermaid.js (`tom_mermaid_view`, taken only where diagrams are rendered) |
 | 2 Editors | `tom_md_editor`, `tom_yaml_editor`, `tom_dart_editor`, `tom_flow_editor` | The editor components, each usable without the shell (`tom_dart_editor/doc/how_to_embed.md`, `tom_yaml_editor/doc/how_to_embed.md`) |
-| 3 Shell | `tom_forge_ui` | The panel shell, `ForgeShellApi`, the component, editor, view, module and application contracts, and the adapters that make the layer-2 editors shell editors |
-| 4 Shell services | `tom_forge_agentic` | The agent and chat UI (composer, prompt queue, trail, change log and review) over `tom_core_agentic`, for any module to use |
-| 4 Test support | `tom_forge_ui_testing` | The undo conformance harness and the shell's test doubles, built on `flutter_test`; any package may take it as a dev_dependency, the shell's own suites included, so no product links the test framework |
-| 5 Modules | `tom_forge_file_editors`, `tom_forge_pdf_editors`, `tom_forge_quests`, `tom_website_editor`, `tom_specs_editor` | Feature modules: each a `ForgeModule` with its editors, views, actions and applications (`tom_specs_editor` is also an app of its own) |
-| 6 Module test support | `tom_forge_file_editors_testing`, `tom_forge_pdf_editors_testing` | Each module's undo conformance subjects (how to drive its editors through the harness), for the module's own suite and an app's; taken only as dev_dependencies |
-| 7 Apps | `tom_forge_app` | Composition: `composeForgeSuite`, and Tom Forge's `main` |
+| 3 Shell core | `tom_forge_shell` | The panel shell, `ForgeShellApi`, the component, editor, view, module and application contracts, the default services, the scaffold and its widgets, the built-in views and the plain-text editor; no terminal, no code editor, no keychain. What a shell is assembled from beyond that comes in as `ForgeShellComponents` (terminal manager and view, secret storage, editor types) |
+| 4 Shell parts | `tom_forge_terminal`, `tom_forge_code_editors`, `tom_forge_platform_secrets` | The parts that plug into the core: PTY and process terminals with the terminal view (`flutter_pty`, the `xterm` fork); the adapters that make the layer-2 Markdown, Dart and YAML editors shell editors, as editor types; secrets in the platform keychain (`flutter_secure_storage`) |
+| 4 Test support | `tom_forge_ui_testing` | The undo conformance harness and the shell's test doubles, built on `flutter_test` and the shell core; any package may take it as a dev_dependency, the shell's own suites included, so no product links the test framework |
+| 5 Shell umbrella | `tom_forge_ui` | The core with its parts as one library, and `useForgeDesktopComponents()` / `forgeDesktopComponents`, which register or hand a shell the terminal, the code editors and the keychain |
+| 6 Shell services | `tom_forge_agentic` | The agent and chat UI (composer, prompt queue, trail, change log and review) over `tom_core_agentic`, for any module to use |
+| 7 Modules | `tom_forge_file_editors`, `tom_forge_pdf_editors`, `tom_forge_quests`, `tom_website_editor`, `tom_specs_editor` | Feature modules: each a `ForgeModule` with its editors, views, actions and applications (`tom_specs_editor` is also an app of its own) |
+| 8 Module test support | `tom_forge_file_editors_testing`, `tom_forge_pdf_editors_testing` | Each module's undo conformance subjects (how to drive its editors through the harness), for the module's own suite and an app's; taken only as dev_dependencies |
+| 9 Apps | `tom_forge_app` | Composition: `composeForgeSuite`, and Tom Forge's `main` |
 | Harness | `tom_dart_editor_test`, `tom_flow_editor_test`, `tom_forge_ui_test`, `tom_md_editor_test`, `tom_yaml_editor_test`, `tom_wpe_webview_test` | Companion apps and test beds |
 
 What the layering buys:
 
-- **An editor never knows the shell.** Layer 2 cannot import `tom_forge_ui`,
+- **An editor never knows the shell.** Layer 2 cannot import the shell,
   so every editor embeds in any Flutter app; the shell wraps it in an adapter
   (`ForgeMdEditor`, `ForgeYamlEditor`, `ForgeDartEditor` in
-  `tom_forge_ui/lib/src/adapters/`).
+  `tom_forge_code_editors`).
+- **The shell core needs neither a terminal nor the editors.**
+  `tom_forge_shell` builds without `flutter_pty`, `xterm`, the layer-2 editors
+  and `flutter_secure_storage`: without its parts it has no terminals, keeps
+  secrets in memory and opens files as plain text. An app hands a shell its
+  parts (`components: forgeDesktopComponents`) or registers them once
+  (`useForgeDesktopComponents()`, also what a test package's
+  `flutter_test_config.dart` does).
 - **The contracts are below the UI.** `tom_forge_core` holds the service
   contracts (clipboard, configuration, diagnostics, notifications, output,
   search, secrets, terminals, undo, virtual documents) and pure-Dart
   defaults, so a headless tool or a test uses them without Flutter.
-- **A module is added, not wired in.** Layer 5 depends on the shell, never the
+- **A module is added, not wired in.** Layer 7 depends on the shell, never the
   shell on a module; an app decides which modules it composes.
 
 `tom_flow_editor` is a placeholder (the package template, unpublished): the
@@ -52,7 +61,7 @@ take its place in the quest workbench for now.
 
 ### 2.1 Component → shell: `ForgeComponent`, `ForgeEditor`, `ForgeView`
 
-`tom_forge_ui/lib/src/components/`. A component is what the shell shows in a
+`tom_forge_shell/lib/src/components/`. A component is what the shell shows in a
 panel. A `ForgeEditor` is bound to a document URI and
 
 - answers whether it opens a file — `canHandle(uri)` (accept, inspect,
@@ -74,7 +83,7 @@ conformance harness in `package:tom_forge_ui_testing/tom_forge_ui_testing.dart` 
 
 ### 2.2 Module → shell: `ForgeModule`
 
-`tom_forge_ui/lib/src/module/forge_module.dart`. A module contributes
+`tom_forge_shell/lib/src/module/forge_module.dart`. A module contributes
 editors, views, actions, shortcuts, context-menu contributions
 (`context_menu_contributions.md`), shortcut menus, status-bar items and
 settings panels. In `activate(shell)` it receives the `ForgeShellApi` — the
@@ -107,7 +116,7 @@ accept it.
 
 ### 2.4 Application → shell: `ForgeApplication`
 
-`tom_forge_ui/lib/src/model/forge_application.dart`. An application is a
+`tom_forge_shell/lib/src/model/forge_application.dart`. An application is a
 title, an icon and a layout — `PanelLayout` (side, bottom and middle panels)
 or `FullScreenLayout` (one view) — switched to through the application
 switcher. Static applications are added on every start; a restorable one is
@@ -150,14 +159,14 @@ requests, agent settings, trail, bridge choice, session id), each an
 
 | Platform service | Where | Why |
 | ---------------- | ----- | --- |
-| Terminals | `tom_forge_ui` `pty_terminal.dart`, `default_terminal_manager.dart` | processes and pseudo-terminals |
-| Finding the workspace folder above a picked folder; keeping `.forge/` out of git | `tom_forge_ui` `forge_host_workspace.dart` | host folders before a file system exists; runs git |
-| Native folder pickers | `tom_forge_ui` `workspace_folder_selector.dart`, the scaffold's Open Folder | a local folder is chosen by nature |
-| Shell detection and the central configuration folder | `tom_forge_ui` `forge_configuration_dialog.dart` | installed shells; a host folder outside the workspace, picked natively |
+| Terminals | `tom_forge_terminal` `pty_terminal.dart`, `default_terminal_manager.dart` | processes and pseudo-terminals |
+| Finding the workspace folder above a picked folder; keeping `.forge/` out of git | `tom_forge_shell` `forge_host_workspace.dart` | host folders before a file system exists; runs git |
+| Native folder pickers | `tom_forge_shell` `workspace_folder_selector.dart`, the scaffold's Open Folder | a local folder is chosen by nature |
+| Shell detection and the central configuration folder | `tom_forge_shell` `forge_configuration_dialog.dart` | installed shells; a host folder outside the workspace, picked natively |
 | Local images in the Markdown preview | `tom_md_editor` `local_file_image_io.dart` (conditional import) | Flutter's own file image providers |
 | The comment author | `tom_md_editor` `md_local_author.dart` | the OS user |
 | The website's dev server and preview | `tom_website_editor` `website_process_runner.dart`, `website_preview_*` | processes, the platform's browser |
-| Test workspaces | `tom_forge_ui` `testing/test_workspace.dart` | test support on a real disk |
+| Test workspaces | `tom_forge_ui_testing` `test_workspace.dart` | test support on a real disk |
 | The TomSpecs editor's workspace and environment | `tom_specs_editor` `main.dart` | the process's working folder becomes the workspace's `TomLocalFileSystem`; its environment moves the review, preferences and agent sidecar files |
 | The native vector library of the agent memory | `tom_specs_editor` `spec_memory_plane.dart` (`_findSqliteVecRoot`) | locates the `sqlite_vec` binary on the host |
 | The spec engine's file boundary | `tom_specs_editor` `agent_tools_module.dart` | `tom_spec_engine`'s `SpecFileFacade`, memory plane and script runner take the workspace as a folder on disk (the app passes its workspace's) |

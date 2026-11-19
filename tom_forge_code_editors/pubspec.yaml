@@ -1,0 +1,32 @@
+name: tom_forge_code_editors
+description: >-
+  Forge's code editors in the panel shell: the Markdown, Dart and YAML editor adapters, the Dart outline provider and the editor types the layout controller opens files with, as ForgeShellComponents.
+  License: BSD-3-Clause.
+publish_to: none
+version: 0.1.0
+repository: https://github.com/al-the-bear/tom_forge
+
+environment:
+  sdk: ^3.10.8
+  flutter: ">=1.17.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  tom_forge_shell:
+    path: ../tom_forge_shell
+  tom_forge_core:
+    path: ../tom_forge_core
+  tom_editors_shared:
+    path: ../tom_editors_shared
+  tom_md_editor:
+    path: ../tom_md_editor
+  tom_dart_editor:
+    path: ../tom_dart_editor
+  tom_yaml_editor:
+    path: ../tom_yaml_editor
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0

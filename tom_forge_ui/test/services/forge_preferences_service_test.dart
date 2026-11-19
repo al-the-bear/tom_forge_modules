@@ -3,8 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart'
     show ForgeTextSettings;
-import 'package:tom_forge_ui/src/services/forge_preferences_service.dart';
-import 'package:tom_forge_ui/src/actions/forge_shortcut_binding.dart';
+import 'package:tom_forge_shell/src/services/forge_preferences_service.dart';
+import 'package:tom_forge_shell/src/actions/forge_shortcut_binding.dart';
 
 void main() {
   group('ForgePreferencesService editor settings persistence', () {

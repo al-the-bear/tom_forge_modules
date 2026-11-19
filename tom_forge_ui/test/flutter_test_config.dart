@@ -14,11 +14,16 @@
 // `flutter test` auto-discovers this file (walking up from the test file to the
 // package root) and runs `testExecutable` before the suite, installing the
 // comparator. See quest todo RCJ17.
+//
+// It also registers Forge's desktop components (the terminal, the code
+// editors, the keychain) for every shell the suites make, as an application
+// does at start (useForgeDesktopComponents).
 
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tom_forge_ui/tom_forge_ui.dart' show useForgeDesktopComponents;
 
 /// Fraction (0.0–1.0) of pixel difference tolerated before a golden fails.
 /// 3% comfortably absorbs the observed <1.5% cross-host font/AA drift with
@@ -27,6 +32,7 @@ import 'package:flutter_test/flutter_test.dart';
 const double _goldenTolerance = 0.03;
 
 Future<void> testExecutable(FutureOr<void> Function() testMain) async {
+  useForgeDesktopComponents();
   final defaultComparator = goldenFileComparator as LocalFileComparator;
   goldenFileComparator = _TolerantGoldenComparator(
     // Append a filename so LocalFileComparator's internal dirname() recovers the

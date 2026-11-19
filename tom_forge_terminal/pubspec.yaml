@@ -1,0 +1,35 @@
+name: tom_forge_terminal
+description: >-
+  Forge's terminal for the panel shell: PTY-backed and process-backed terminal managers and the terminal view, as ForgeShellComponents.
+  License: BSD-3-Clause.
+publish_to: none
+version: 0.1.0
+repository: https://github.com/al-the-bear/tom_forge
+
+environment:
+  sdk: ^3.10.8
+  flutter: ">=1.17.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  tom_forge_shell:
+    path: ../tom_forge_shell
+  tom_forge_core:
+    path: ../tom_forge_core
+  tom_file_system:
+    path: ../../tom_ai/basics/tom_file_system
+  flutter_pty: ^0.4.2
+  # The xterm fork (al-the-bear/tom_xterm, xterm 4.0.0 + tom.1): upstream
+  # declares equatable ^2.0.3 without importing it, which kept every app
+  # here off equatable 3 and so off dcli 10.4.7. Registry:
+  # _ai/quests/opensource/references.opensource.md (xterm fork).
+  xterm:
+    git:
+      url: https://github.com/al-the-bear/tom_xterm
+      ref: tom/4.0.0-no-equatable
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0

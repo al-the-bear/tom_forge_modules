@@ -1,4 +1,4 @@
-import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_forge_shell/tom_forge_shell.dart';
 
 import 'test_text_editor.dart';
 

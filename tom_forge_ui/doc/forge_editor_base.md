@@ -162,7 +162,7 @@ abstract interface class ForgeTextContext {
 
 #### 3.3.2 ForgeAction (Unified)
 
-All actions — both shell-level and editor-level — use the **same `ForgeAction` class** from `tom_forge_ui/lib/src/actions/forge_action.dart`. This eliminates the need for a separate editing action type.
+All actions — both shell-level and editor-level — use the **same `ForgeAction` class** from `tom_forge_shell/lib/src/actions/forge_action.dart`. This eliminates the need for a separate editing action type.
 
 For simple synchronous editing operations, use the `ForgeAction.editing()` factory:
 
@@ -715,7 +715,7 @@ For each editor (MD, Dart, YAML):
 ## 10. File Structure (Revised)
 
 ```
-tom_forge_ui/lib/src/
+tom_forge_shell/lib/src/
   actions/
     forge_action.dart                        # EXISTING - unified action class
     forge_shortcut_binding.dart              # EXISTING - shortcut key
@@ -732,7 +732,7 @@ tom_editors_shared/lib/src/
       md_standalone_integration.dart         # Markdown editor standalone
       yaml_standalone_integration.dart       # YAML editor standalone
 
-tom_forge_ui/lib/src/
+tom_forge_shell/lib/src/
   integrations/
     shell_editor_integration.dart            # Shell integration implementation
 ```
@@ -743,7 +743,7 @@ tom_forge_ui/lib/src/
 
 ### 11.1 ForgeShortcutKey (Existing)
 
-The `ForgeShortcutKey` class **already exists** in `tom_forge_ui/lib/src/actions/forge_shortcut_binding.dart`:
+The `ForgeShortcutKey` class **already exists** in `tom_forge_shell/lib/src/actions/forge_shortcut_binding.dart`:
 
 ```dart
 // EXISTING in tom_forge_ui - DO NOT REDEFINE
@@ -1191,7 +1191,7 @@ class _ActionIntent extends Intent {
 ## 14. File Structure (Revised)
 
 ```
-tom_forge_ui/lib/src/
+tom_forge_shell/lib/src/
   actions/
     forge_action.dart                    # EXISTING - unified action class (with editing() factory)
     forge_shortcut_binding.dart          # EXISTING - shortcut key
@@ -1208,7 +1208,7 @@ tom_editors_shared/lib/src/
       md_standalone_integration.dart
       yaml_standalone_integration.dart
 
-tom_forge_ui/lib/src/
+tom_forge_shell/lib/src/
   integrations/
     shell_editor_integration.dart        # Shell integration implementation
 ```
@@ -1796,7 +1796,7 @@ Status: Completed (2026-03-26)
 
 Verification:
 
-- Implemented in `tom_forge_ui/lib/src/integrations/shell_editor_integration.dart`
+- Implemented in `tom_forge_shell/lib/src/integrations/shell_editor_integration.dart`
 - Adapter wiring completed in `forge_md_editor.dart`, `forge_dart_editor.dart`, `forge_yaml_editor.dart`
 - Settings dialog integration completed in `forge_configuration_dialog.dart`
 - Tests: `tom_forge_ui/test/integration/shell_editor_integration_test.dart` (5/5 pass)
@@ -1804,7 +1804,7 @@ Verification:
 
 #### 16.5.1 ShellEditorIntegration Implementation
 
-Location: `tom_forge_ui/lib/src/integrations/shell_editor_integration.dart`
+Location: `tom_forge_shell/lib/src/integrations/shell_editor_integration.dart`
 
 See Section 13.3 for full implementation. Key features:
 

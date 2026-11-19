@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:tom_forge_ui/src/widgets/forge_quick_open.dart';
+import 'package:tom_forge_shell/src/widgets/forge_quick_open.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 import 'package:tom_forge_ui_testing/tom_forge_ui_testing.dart';
 
