@@ -1,8 +1,8 @@
 /// The PDF editors under Forge's undo conformance harness
-/// (`package:tom_forge_ui/testing.dart`): how to drive each one as a
-/// [ForgeUndoSubject], the checks each skips and why ([forgePdfEditorSkips],
-/// [forgePdfJsEditorSkips]), a scripted pdf.js page standing in for the
-/// webview ([ScriptedPdfJsPage]) and a decoder that needs no real I/O
+/// (`package:tom_forge_ui_testing/tom_forge_ui_testing.dart`): how to drive
+/// each one as a [ForgeUndoSubject], the checks each skips and why
+/// ([forgePdfEditorSkips], [forgePdfJsEditorSkips]), a scripted pdf.js page
+/// standing in for the webview ([ScriptedPdfJsPage]) and a decoder that needs no real I/O
 /// ([forgePdfTestDecoder]).
 ///
 /// The harness's checks speak of text; a PDF has annotations. The subjects
@@ -13,7 +13,8 @@
 /// pdf.js themselves (part-forge-integration, *History and the undo
 /// conformance harness*).
 ///
-/// Test-only: a suite imports it; nothing a product links does.
+/// Test-only: a package of its own, taken as a dev_dependency by the suites
+/// that drive these editors; nothing a product links depends on it.
 library;
 
 import 'dart:async';
@@ -28,7 +29,7 @@ import 'package:tom_forge_ui/tom_forge_ui.dart';
 import 'package:tom_pdf_editor/testing.dart';
 import 'package:tom_pdf_editor/tom_pdf_editor.dart';
 
-import 'tom_forge_pdf_editors.dart';
+import 'package:tom_forge_pdf_editors/tom_forge_pdf_editors.dart';
 
 /// Decodes nothing: a small blank image made synchronously, so rendered
 /// pages need no real decoding under the test's fake clock.

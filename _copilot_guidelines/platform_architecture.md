@@ -27,7 +27,8 @@ on anything below the apps, and nothing depends on them.
 | 4 Shell services | `tom_forge_agentic` | The agent and chat UI (composer, prompt queue, trail, change log and review) over `tom_core_agentic`, for any module to use |
 | 4 Test support | `tom_forge_ui_testing` | The undo conformance harness and the shell's test doubles, built on `flutter_test`; any package may take it as a dev_dependency, the shell's own suites included, so no product links the test framework |
 | 5 Modules | `tom_forge_file_editors`, `tom_forge_pdf_editors`, `tom_forge_quests`, `tom_website_editor`, `tom_specs_editor` | Feature modules: each a `ForgeModule` with its editors, views, actions and applications (`tom_specs_editor` is also an app of its own) |
-| 6 Apps | `tom_forge_app` | Composition: `composeForgeSuite`, and Tom Forge's `main` |
+| 6 Module test support | `tom_forge_file_editors_testing`, `tom_forge_pdf_editors_testing` | Each module's undo conformance subjects (how to drive its editors through the harness), for the module's own suite and an app's; taken only as dev_dependencies |
+| 7 Apps | `tom_forge_app` | Composition: `composeForgeSuite`, and Tom Forge's `main` |
 | Harness | `tom_dart_editor_test`, `tom_flow_editor_test`, `tom_forge_ui_test`, `tom_md_editor_test`, `tom_yaml_editor_test`, `tom_wpe_webview_test` | Companion apps and test beds |
 
 What the layering buys:

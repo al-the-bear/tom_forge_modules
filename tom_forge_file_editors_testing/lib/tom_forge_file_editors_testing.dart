@@ -1,10 +1,11 @@
 /// The file editors under Forge's undo conformance harness
-/// (`package:tom_forge_ui/testing.dart`): how to drive each one, as a
-/// [ForgeUndoSubject] over an editor the caller made — this package's suite
-/// builds them directly, an app's suite through the module it composes
+/// (`package:tom_forge_ui_testing/tom_forge_ui_testing.dart`): how to drive
+/// each one, as a [ForgeUndoSubject] over an editor the caller made — the
+/// module's suite builds them directly, an app's suite through the module it composes
 /// ([ForgeFileEditorsModule.editorFor]), so both run the same checks.
 ///
-/// Test-only: a suite imports it; nothing a product links does.
+/// Test-only: a package of its own, taken as a dev_dependency by the suites
+/// that drive these editors; nothing a product links depends on it.
 library;
 
 import 'package:flutter/material.dart';
@@ -15,7 +16,7 @@ import 'package:tom_forge_ui/tom_forge_ui.dart';
 import 'package:tom_md_editor/tom_md_editor.dart' show MdRawTextEditor;
 import 'package:tom_todo_ui/tom_todo_ui.dart' show TomTodoFileSource;
 
-import 'tom_forge_file_editors.dart';
+import 'package:tom_forge_file_editors/tom_forge_file_editors.dart';
 
 Future<void> _save(ForgeFileSession session) async {
   expect(await session.save(), isNot(ForgeFileSaveOutcome.conflict));

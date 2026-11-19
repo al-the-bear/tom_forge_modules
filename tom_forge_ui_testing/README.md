@@ -24,8 +24,10 @@ dev_dependencies:
 import 'package:tom_forge_ui_testing/tom_forge_ui_testing.dart';
 ```
 
-A package whose own library builds undo subjects for others (for example
-`tom_forge_file_editors/lib/testing.dart`) takes it in `dependencies`.
+A module's undo subjects, which other packages' suites drive too, are in a
+test-support package of their own that takes this one as a dependency
+(`tom_forge_file_editors_testing`, `tom_forge_pdf_editors_testing`); the
+module itself takes both only as dev_dependencies.
 
 ## License
 

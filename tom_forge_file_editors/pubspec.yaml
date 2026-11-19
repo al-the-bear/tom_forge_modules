@@ -42,12 +42,13 @@ dependencies:
     path: ../../tom_ai/basics/tom_file_system
   # Decoding a schema the todo-file editor reads.
   tom_basics: ">=3.3.0"
-  # lib/testing.dart (the editors' undo conformance subjects) is built on
-  # them: the test framework and Forge's undo conformance harness.
-  flutter_test:
-    sdk: flutter
-  tom_forge_ui_testing:
-    path: ../tom_forge_ui_testing
 
 dev_dependencies:
   flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter
+  # Forge's undo conformance harness and this module's undo subjects.
+  tom_forge_ui_testing:
+    path: ../tom_forge_ui_testing
+  tom_forge_file_editors_testing:
+    path: ../tom_forge_file_editors_testing

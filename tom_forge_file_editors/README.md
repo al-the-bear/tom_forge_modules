@@ -70,7 +70,8 @@ neither.
 
 ## Testing
 
-`package:tom_forge_file_editors/testing.dart` holds how to drive each editor
+The test-support package `tom_forge_file_editors_testing` (a dev_dependency)
+holds how to drive each editor
 through Forge's undo conformance harness (`package:tom_forge_ui_testing/tom_forge_ui_testing.dart`)
 — `ForgeMarkdownFileSubject`, `ForgeYamlFileSubject`, `ForgeTextFileSubject`,
 `ForgeEnvFileSubject`, `ForgeTodoFileSubject`, each over an editor the caller

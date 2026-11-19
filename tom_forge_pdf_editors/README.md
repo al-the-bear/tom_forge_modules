@@ -72,7 +72,8 @@ is `tom_forge_app`'s.
 ## Undo conformance
 
 Both editors run Forge's undo conformance harness
-(`test/undo_conformance_test.dart`, the subjects in `lib/testing.dart`) against
+(`test/undo_conformance_test.dart`, the subjects in the test-support package
+`tom_forge_pdf_editors_testing`) against
 the base components' fakes: the fake PDFium engine and a scripted pdf.js page.
 The checks speak of text; the subjects map typing to adding a note, and the
 document's text to the notes' texts. Skips, with their reasons (full
