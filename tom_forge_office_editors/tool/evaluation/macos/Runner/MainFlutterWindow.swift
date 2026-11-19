@@ -23,6 +23,8 @@ class MainFlutterWindow: NSWindow {
     // at the machine switches to another.
     self.level = .floating
     self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+    // Nor can it be minimised: a minimised window draws no frames either.
+    self.styleMask.remove(.miniaturizable)
     NSApp.activate(ignoringOtherApps: true)
     self.makeKeyAndOrderFront(nil)
     DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
@@ -45,9 +47,13 @@ class MainFlutterWindow: NSWindow {
 
     RegisterGeneratedPlugins(registry: flutterViewController)
 
-    // The crash-isolation measure: WebKit's own test switch ends exactly this
-    // window's web content processes (never another app's), as the system
-    // would under memory pressure. Evaluation only, never in Forge.
+    // The crash-isolation measure: this window's web content processes end
+    // as the system ends one under memory pressure, by a SIGKILL to the pid
+    // WebKit gives for each of this window's webviews (never another app's).
+    // WebKit's test switch _killWebContentProcess is not used: it ends the
+    // process as requested by the client, and WebKit then tells no
+    // navigation delegate, so the tab could never notice it. Evaluation only,
+    // never in Forge.
     let webkit = FlutterMethodChannel(
       name: "eval/webkit", binaryMessenger: flutterViewController.engine.binaryMessenger)
     webkit.setMethodCallHandler { [weak self] call, result in
@@ -57,9 +63,10 @@ class MainFlutterWindow: NSWindow {
       }
       var pids: [Int] = []
       MainFlutterWindow.webViews(root).forEach { web in
-        if let pid = web.value(forKey: "_webProcessIdentifier") as? Int { pids.append(pid) }
-        let kill = Selector(("_killWebContentProcess"))
-        if web.responds(to: kill) { web.perform(kill) }
+        if let pid = web.value(forKey: "_webProcessIdentifier") as? Int, pid > 0 {
+          pids.append(pid)
+          Darwin.kill(pid_t(pid), SIGKILL)
+        }
       }
       result(pids)
     }

@@ -1570,7 +1570,9 @@ class _ZetaRoute {
       final t0 = _now;
       final bytes = await c.exportPdfForTest();
       if (bytes == null) {
-        out[name] = notMeasured('the PDF export failed or did not answer');
+        out[name] = notMeasured(
+          'the PDF export failed: ${c.exportErrorForTest ?? 'no reason'}',
+        );
         continue;
       }
       File('${dir.path}/$name.pdf').writeAsBytesSync(bytes);
@@ -1640,8 +1642,9 @@ class _ZetaRoute {
       await c.editForTest('unsaved ');
       await _within(tester, () => c.isDirty, ms: 10000);
     }
-    // Only this window's web content process: WebKit's own test switch in
-    // the evaluation app (MainFlutterWindow.swift), never a pid search.
+    // Only this window's web content process: the pid WebKit gives for this
+    // window's webview, killed in the evaluation app (MainFlutterWindow.swift),
+    // never a pid search.
     final t0 = _now;
     final victims =
         await const MethodChannel(
@@ -1667,7 +1670,8 @@ class _ZetaRoute {
     );
     out['web_content_process_killed'] = {
       'killed_processes': victims,
-      'killed_by': 'WKWebView _killWebContentProcess (WebKit\'s test switch)',
+      'killed_by': 'SIGKILL to the webview\'s web content process (as the '
+          'system ends one under memory pressure)',
       'forge_running': true,
       'tab_noticed': noticed,
       'noticed_ms': noticed ? noticedMs : null,
