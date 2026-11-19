@@ -139,4 +139,4 @@ export 'src/views/forge_revision_view.dart';
 export 'src/views/forge_search_view.dart';
 
 // ── Theme ──
-export 'src/theme/forge_shell_theme.dart';
+export 'package:tom_forge_shared_ui/tom_forge_shared_ui.dart';

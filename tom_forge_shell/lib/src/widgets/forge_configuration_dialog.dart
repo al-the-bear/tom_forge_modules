@@ -113,6 +113,7 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
 
   // Theme mode.
   late ThemeMode _selectedThemeMode;
+  bool _highContrast = false;
 
   @override
   void initState() {
@@ -164,6 +165,7 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
     _terminalStartFolder = prefs.terminalStartFolder;
 
     _selectedThemeMode = prefs.themeMode;
+    _highContrast = prefs.highContrast;
   }
 
   @override
@@ -271,6 +273,7 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
 
       // Theme mode.
       prefs.themeMode = _selectedThemeMode;
+      prefs.highContrast = _highContrast;
 
       // Terminal settings.
       final shellText = _terminalDefaultShellController.text.trim();
@@ -606,6 +609,18 @@ class _ForgeConfigurationDialogState extends State<ForgeConfigurationDialog> {
                 },
               ),
             ],
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: 220,
+            child: CheckboxListTile(
+              title: const Text('High contrast'),
+              value: _highContrast,
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              onChanged: (v) => setState(() => _highContrast = v ?? false),
+            ),
           ),
           const SizedBox(height: 24),
           _sectionHeader(theme, 'Quick Access'),

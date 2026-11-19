@@ -27,6 +27,12 @@ class ForgeMenuBar extends StatelessWidget {
   final ThemeMode currentThemeMode;
   final ValueChanged<ThemeMode>? onThemeModeChanged;
 
+  /// Whether the High Contrast item is checked.
+  final bool highContrast;
+
+  /// Called with the new value when High Contrast is toggled.
+  final ValueChanged<bool>? onHighContrastChanged;
+
   const ForgeMenuBar({
     super.key,
     required this.shellApi,
@@ -34,6 +40,8 @@ class ForgeMenuBar extends StatelessWidget {
     this.onSettings,
     this.currentThemeMode = ThemeMode.dark,
     this.onThemeModeChanged,
+    this.highContrast = false,
+    this.onHighContrastChanged,
   });
 
   DefaultSystemState get _systemState =>
@@ -241,9 +249,14 @@ class ForgeMenuBar extends StatelessWidget {
                 onTap: () => onThemeModeChanged?.call(ThemeMode.light),
               ),
               _MenuItem(
-                label: 'High Contrast',
+                label: 'System Theme',
                 shortcut: currentThemeMode == ThemeMode.system ? '✓' : '',
                 onTap: () => onThemeModeChanged?.call(ThemeMode.system),
+              ),
+              _MenuItem(
+                label: 'High Contrast',
+                shortcut: highContrast ? '✓' : '',
+                onTap: () => onHighContrastChanged?.call(!highContrast),
               ),
             ],
             isDark: isDark,

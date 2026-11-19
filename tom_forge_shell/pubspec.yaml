@@ -15,6 +15,9 @@ dependencies:
     sdk: flutter
   tom_forge_core:
     path: ../tom_forge_core
+  # The shell's theme tokens, dimensions and animations, shared with Webwork.
+  tom_forge_shared_ui:
+    path: ../tom_forge_shared_ui
   # The text types and editor contracts the shell shares with its editors.
   tom_editors_shared:
     path: ../tom_editors_shared

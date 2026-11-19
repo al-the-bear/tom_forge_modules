@@ -8,6 +8,7 @@ import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_editors_shared/text_types.dart'
     show StandardEditingActions;
 import 'package:tom_file_system/tom_file_system.dart';
+import 'package:tom_forge_shared_ui/tom_forge_shared_ui.dart';
 
 import '../adapters/tom_forge_shell_module.dart';
 import '../components/forge_component.dart';
@@ -50,64 +51,6 @@ import 'forge_open_with_dialog.dart';
 import 'forge_panel_widget.dart';
 import 'forge_shortcut_menu_popup.dart';
 import 'forge_status_bar_widget.dart';
-
-/// Animation constants for shell UI.
-class ForgeAnimations {
-  /// When true, all durations return [Duration.zero] and curves use
-  /// [Curves.linear]. Enabled automatically in high-contrast mode.
-  static bool reduceMotion = false;
-
-  static Duration get panelTransition =>
-      reduceMotion ? Duration.zero : const Duration(milliseconds: 200);
-  static Duration get tabTransition =>
-      reduceMotion ? Duration.zero : const Duration(milliseconds: 150);
-  static Duration get dropZoneFade =>
-      reduceMotion ? Duration.zero : const Duration(milliseconds: 100);
-  static Duration get shortcutPopupIn =>
-      reduceMotion ? Duration.zero : const Duration(milliseconds: 150);
-  static Duration get shortcutPopupOut =>
-      reduceMotion ? Duration.zero : const Duration(milliseconds: 100);
-  static Duration get notificationIn =>
-      reduceMotion ? Duration.zero : const Duration(milliseconds: 200);
-  static Duration get notificationOut =>
-      reduceMotion ? Duration.zero : const Duration(milliseconds: 150);
-
-  static Curve get panelCurve =>
-      reduceMotion ? Curves.linear : Curves.easeOutCubic;
-  static Curve get tabCurve => reduceMotion ? Curves.linear : Curves.easeOut;
-  static Curve get popupCurve =>
-      reduceMotion ? Curves.linear : Curves.easeOutBack;
-}
-
-/// Dimension constants for shell layout.
-class ForgeDimensions {
-  // Panels – no upper limits; users may drag to any size.
-  static const double panelMinSize = 50;
-  static const double leftPanelDefaultWidth = 280;
-  static const double rightPanelDefaultWidth = 280;
-  static const double bottomPanelDefaultHeight = 200;
-  static const double middlePanelMinWidth = 200;
-
-  /// Minimum width at which panel content stops shrinking and gets clipped.
-  static const double panelContentMinWidth = 400;
-
-  // Fixed elements
-  static const double titleBarHeight = 48;
-  static const double menuBarHeight = 32;
-  static const double statusBarHeight = 24;
-  static const double tabBarHeight = 36;
-  static const double sectionHeaderHeight = 32;
-  static const double sideTabBarCollapsed = 48;
-  static const double sideTabBarExpanded = 200;
-
-  // Interactive
-  static const double dividerHitTarget = 14;
-  static const double dividerVisual = 2;
-
-  // Icons
-  static const double iconTab = 20;
-  static const double iconToolbar = 18;
-}
 
 /// Root shell layout widget.
 ///
@@ -2592,6 +2535,10 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
                           currentThemeMode: _preferences.themeMode,
                           onThemeModeChanged: (mode) {
                             _preferences.themeMode = mode;
+                          },
+                          highContrast: _preferences.highContrast,
+                          onHighContrastChanged: (value) {
+                            _preferences.highContrast = value;
                           },
                         ),
                       Expanded(child: _buildContentArea(context)),

@@ -6,7 +6,7 @@ import '../actions/status_bar_item.dart';
 import '../services/forge_progress_manager.dart';
 import '../shell/forge_status_bar_controller.dart';
 import '../shell/forge_system_state.dart';
-import '../theme/forge_shell_theme.dart';
+import 'package:tom_forge_shared_ui/tom_forge_shared_ui.dart';
 
 /// Status bar widget (~24px) at the bottom of the shell scaffold.
 ///

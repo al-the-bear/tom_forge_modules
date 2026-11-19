@@ -1,0 +1,22 @@
+name: tom_forge_shared_ui_example
+description: >-
+  A minimal app over tom_forge_shared_ui; building it for macOS, the web, iOS and Android shows the package builds on each.
+publish_to: none
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.10.8
+
+dependencies:
+  flutter:
+    sdk: flutter
+  tom_forge_shared_ui:
+    path: ..
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

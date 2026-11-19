@@ -28,6 +28,7 @@ class ForgePreferencesService extends ChangeNotifier {
   static const _keyLayoutOpenEditors = 'forge.layout.openEditors';
   static const _keyLayoutSnapshot = 'forge.layout.snapshot';
   static const _keyThemeMode = 'forge.appearance.themeMode';
+  static const _keyHighContrast = 'forge.appearance.highContrast';
   static const _keyFileTypeDefaults = 'forge.files.typeDefaults';
   static const _keyShortcutOverrides = 'forge.shortcuts.overrides';
   static const _keyChordOverrides = 'forge.shortcuts.chordOverrides';
@@ -72,6 +73,7 @@ class ForgePreferencesService extends ChangeNotifier {
   final Set<String> _deletedBindings = <String>{};
   List<String> _layoutOpenEditors = <String>[];
   ThemeMode _themeMode = ThemeMode.dark;
+  bool _highContrast = false;
   String? _terminalDefaultShell;
   List<String> _terminalShellPaths = <String>[];
   String _terminalStartFolder = 'workspace';
@@ -396,6 +398,21 @@ class ForgePreferencesService extends ChangeNotifier {
     }
   }
 
+  /// Whether the shell is drawn in high contrast, in every theme mode
+  /// (`forge.appearance.highContrast`). The platform's own high-contrast
+  /// setting gives high contrast too, through `MaterialApp`'s
+  /// `highContrastTheme`.
+  bool get highContrast => _highContrast;
+
+  /// Sets and persists [highContrast].
+  set highContrast(bool value) {
+    if (_highContrast != value) {
+      _highContrast = value;
+      _prefs?.setBool(_keyHighContrast, value);
+      notifyListeners();
+    }
+  }
+
   /// Maximum number of recent workspaces to track.
   int get maxRecentWorkspaces => _maxRecentWorkspaces;
   set maxRecentWorkspaces(int value) {
@@ -606,6 +623,7 @@ class ForgePreferencesService extends ChangeNotifier {
         ..addAll(_loadDeletedBindings());
       _layoutOpenEditors = _loadLayoutOpenEditors();
       _themeMode = _loadThemeMode();
+      _highContrast = _prefs!.getBool(_keyHighContrast) ?? false;
       _terminalDefaultShell = _prefs!.getString(_keyTerminalDefaultShell);
       _terminalShellPaths = _loadTerminalShellPaths();
       _terminalStartFolder =
@@ -698,6 +716,7 @@ class ForgePreferencesService extends ChangeNotifier {
       await _saveChordOverrides();
       await _saveDeletedBindings();
       await _prefs!.setString(_keyThemeMode, _themeMode.name);
+      await _prefs!.setBool(_keyHighContrast, _highContrast);
       await _saveTerminalPreferences();
       await _saveSearchConfig();
       await _saveEditorSpecificConfig();
