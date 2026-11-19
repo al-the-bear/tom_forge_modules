@@ -1172,6 +1172,7 @@ void main() {
           await idle(tester, const Duration(seconds: 3));
           final after = {'state': c.state.name, 'message': c.failure};
           var reopened = false;
+          Object? reloadError;
           try {
             await c.reload();
             await waitFor(
@@ -1181,12 +1182,21 @@ void main() {
               timeout: const Duration(seconds: 60),
             );
             reopened = c.pageCount == 43;
-          } catch (_) {}
+          } catch (e) {
+            reloadError = '$e';
+          }
+          final afterReload = {
+            'state': c.state.name,
+            'message': c.failure,
+            'pages': c.pageCount,
+            'error': ?reloadError,
+          };
           out['content process killed (pdf-text open)'] = {
             'killed_pids': now.toList(),
             'forge_still_running': true,
             'tab_after': after,
             'reload_reopens_the_document': reopened,
+            'tab_after_reload': afterReload,
             'lost':
                 'unsaved annotations and form values in the page (a '
                 'clean document here)',
