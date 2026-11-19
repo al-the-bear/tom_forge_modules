@@ -97,6 +97,12 @@ abstract class ForgeWorkspaceStateManager {
   /// Load configuration data from `.forge/config.json`.
   Future<Map<String, dynamic>?> loadConfig();
 
+  /// Completes when every write and delete of a state file started so far
+  /// has ended. Writes of one file land in the order they were started, and
+  /// a load waits for the writes of its file, so this is only needed to know
+  /// that the state is on disk (e.g. before another process reads it).
+  Future<void> flushed();
+
   /// Dispose resources.
   void dispose();
 }

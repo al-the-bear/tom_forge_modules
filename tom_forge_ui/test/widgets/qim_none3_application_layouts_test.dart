@@ -101,8 +101,11 @@ void main() {
       ]);
       await _written(tester, session.shell);
 
+      // Closing the shell writes the layouts; wait until every write started
+      // is on disk — not until two files exist, which an earlier debounced
+      // write of the same layouts already satisfies.
       await tester.pumpWidget(const SizedBox());
-      await _io(tester, until: () => _savedApplications(workspace).length == 2);
+      await _flushed(tester, session.shell);
       expect(
         _savedApplications(workspace),
         hasLength(2),
@@ -161,7 +164,7 @@ void main() {
 
       await _written(tester, session.shell);
       await tester.pumpWidget(const SizedBox());
-      await _io(tester);
+      await _flushed(tester, session.shell);
     },
   );
 }
@@ -199,6 +202,15 @@ Future<void> _written(WidgetTester tester, DefaultShellApi shell) async {
   unawaited(shell.applicationsWritten().then((_) => done = true));
   await _io(tester, until: () => done);
   expect(done, isTrue, reason: 'the open applications were written');
+}
+
+/// Waits until every write of `.forge` state started so far has ended
+/// ([ForgeWorkspaceStateManager.flushed]).
+Future<void> _flushed(WidgetTester tester, DefaultShellApi shell) async {
+  var done = false;
+  unawaited(shell.workspaceState.flushed().then((_) => done = true));
+  await _io(tester, until: () => done);
+  expect(done, isTrue, reason: 'the .forge state writes ended');
 }
 
 /// Lets file opens, which read through the file system, finish.

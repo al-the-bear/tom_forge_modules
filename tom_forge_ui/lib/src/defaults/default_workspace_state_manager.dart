@@ -34,11 +34,20 @@ import '../services/forge_workspace_state_manager.dart';
 /// works with it to the end: the shell writes state at exit and disposes
 /// this manager in the same frame, so a write in flight must not look the
 /// file system up again.
+///
+/// Writes and deletes of one file run one after another, in the order they
+/// were started, and a read of the file waits for them. Each write is atomic
+/// (a temporary file renamed into place), so without the order two writes in
+/// flight at once — the shell's debounced layout save and the one at exit —
+/// would leave whichever *finished* last, an older layout among them.
 class DefaultWorkspaceStateManager implements ForgeWorkspaceStateManager {
   static bool debugEnabled = false;
 
   TomFileSystem? _fs;
   bool _initialized = false;
+
+  /// The file system [flushed] waits for; kept after [dispose].
+  TomFileSystem? _flushFs;
 
   @override
   bool get isInitialized => _initialized;
@@ -67,6 +76,7 @@ class DefaultWorkspaceStateManager implements ForgeWorkspaceStateManager {
     await _folder(workspace, 'revisions');
     await _folder(workspace, 'undo');
     _fs = workspace;
+    _flushFs = workspace;
     _initialized = true;
     _log('initialized at ${workspace.uriOf('.forge/')} (created=${!existed})');
     return !existed;
@@ -139,10 +149,8 @@ class DefaultWorkspaceStateManager implements ForgeWorkspaceStateManager {
   }
 
   @override
-  Future<String?> readRevision(Uri fileUri, String revisionId) => _read(
-    fileSystem,
-    'revisions/${_uriHash(fileUri)}/$revisionId.snapshot',
-  );
+  Future<String?> readRevision(Uri fileUri, String revisionId) =>
+      _read(fileSystem, 'revisions/${_uriHash(fileUri)}/$revisionId.snapshot');
 
   @override
   Future<void> deleteRevision(Uri fileUri, String revisionId) async {
@@ -240,6 +248,20 @@ class DefaultWorkspaceStateManager implements ForgeWorkspaceStateManager {
       _delete(fileSystem, 'state/apps/${_stringHash(appId)}.json');
 
   @override
+  Future<void> flushed() async {
+    // The file system of the last initialize: the shell disposes this
+    // manager in the frame it writes its state, and still asks for the flush.
+    final fs = _flushFs;
+    if (fs == null) return;
+    final pending = _pendingOf(fs);
+    while (pending.isNotEmpty) {
+      await Future.wait([
+        for (final write in pending.values) write.catchError((Object _) {}),
+      ]);
+    }
+  }
+
+  @override
   void dispose() {
     _fs = null;
     _initialized = false;
@@ -265,20 +287,56 @@ class DefaultWorkspaceStateManager implements ForgeWorkspaceStateManager {
     if (!await fs.exists(uri)) await fs.create(uri, directory: true);
   }
 
-  static Future<void> _write(
+  /// The last write or delete started on each state file of a file system,
+  /// by its URI, until it has ended — per file-system instance, so two
+  /// workspaces (or two tests) never wait for each other.
+  static final Expando<Map<Uri, Future<void>>> _pendingByFs = Expando();
+
+  static Map<Uri, Future<void>> _pendingOf(TomFileSystem fs) =>
+      _pendingByFs[fs] ??= {};
+
+  /// Runs [operation] on [uri] after the write or delete started on it
+  /// before has ended, whether that succeeded or not.
+  static Future<void> _inOrder(
     TomFileSystem fs,
-    String relative,
-    String text,
-  ) async {
-    final slash = relative.lastIndexOf('/');
-    if (slash > 0) await _folder(fs, relative.substring(0, slash));
-    await fs.writeText(_at(fs, relative), text);
+    Uri uri,
+    Future<void> Function() operation,
+  ) {
+    final pending = _pendingOf(fs);
+    final previous = pending[uri];
+    final next = previous == null
+        ? operation()
+        : previous.then((_) => operation(), onError: (Object _) => operation());
+    pending[uri] = next;
+    void ended() {
+      if (identical(pending[uri], next)) pending.remove(uri);
+    }
+
+    next.then((_) => ended(), onError: (Object _) => ended());
+    return next;
+  }
+
+  static Future<void> _write(TomFileSystem fs, String relative, String text) {
+    final uri = _at(fs, relative);
+    return _inOrder(fs, uri, () async {
+      final slash = relative.lastIndexOf('/');
+      if (slash > 0) await _folder(fs, relative.substring(0, slash));
+      await fs.writeText(uri, text);
+    });
   }
 
   /// The text of [relative], or null when it does not exist or cannot be
-  /// read.
+  /// read; after the writes of [relative] started before have ended.
   static Future<String?> _read(TomFileSystem fs, String relative) async {
     final uri = _at(fs, relative);
+    final pending = _pendingOf(fs)[uri];
+    if (pending != null) {
+      try {
+        await pending;
+      } on Object {
+        // A failed write leaves the file as it was: read that.
+      }
+    }
     try {
       if (!await fs.exists(uri)) return null;
       return await fs.readText(uri);
@@ -305,9 +363,11 @@ class DefaultWorkspaceStateManager implements ForgeWorkspaceStateManager {
     }
   }
 
-  static Future<void> _delete(TomFileSystem fs, String relative) async {
+  static Future<void> _delete(TomFileSystem fs, String relative) {
     final uri = _at(fs, relative);
-    if (await fs.exists(uri)) await fs.delete(uri);
+    return _inOrder(fs, uri, () async {
+      if (await fs.exists(uri)) await fs.delete(uri);
+    });
   }
 
   static String _uriHash(Uri uri) => _stringHash(uri.toString());
