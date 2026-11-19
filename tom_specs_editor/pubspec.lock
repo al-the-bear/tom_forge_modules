@@ -1362,10 +1362,10 @@ packages:
     dependency: transitive
     description:
       name: tom_d4rt_dcli
-      sha256: f7fd61d1963d9b97eb4ec985e12391ab6e46cf2766cf6d6ba26f116d8ef7f428
+      sha256: "7d99037ad49dceff2eeee738c30d4613d3c60c5e42441ea9f1ec514f5935c1cc"
       url: "https://pub.dev"
     source: hosted
-    version: "2.3.0"
+    version: "2.4.0"
   tom_dart_editor:
     dependency: "direct main"
     description:
