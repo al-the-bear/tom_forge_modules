@@ -38,7 +38,7 @@ import '../services/forge_dialog_manager.dart';
 import '../shell/forge_context_menu_controller.dart';
 import '../shell/forge_layout_controller.dart';
 import '../shell/forge_status_bar_controller.dart';
-import '../actions/forge_action.dart' as shell_action;
+import '../actions/forge_action.dart';
 import '../actions/forge_shortcut_binding.dart';
 import '../services/forge_shortcut_manager.dart';
 import 'forge_configuration_panel.dart';
@@ -558,10 +558,10 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
 
   void _registerApplicationActions() {
     widget.shell.actionRegistry.registerAction(
-      shell_action.ForgeAction(
+      ForgeAction(
         id: 'forge.application.close',
         label: 'Close Application',
-        menu: shell_action.ForgeMenuLocation.file,
+        menu: ForgeMenuLocation.file,
         execute: (_) async {
           final active = widget.shell.applications.active;
           if (active != null) await widget.shell.applications.close(active.id);
@@ -575,10 +575,10 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     // window close is (the exit listener above). macOS has the app menu's
     // Quit item for it; the web has no exit.
     widget.shell.actionRegistry.registerAction(
-      shell_action.ForgeAction(
+      ForgeAction(
         id: 'forge.application.quit',
         label: 'Quit',
-        menu: shell_action.ForgeMenuLocation.file,
+        menu: ForgeMenuLocation.file,
         execute: (_) async {
           await ServicesBinding.instance.exitApplication(
             AppExitType.cancelable,
@@ -1122,10 +1122,10 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         // the wildcard binding. The actual dispatch happens in
         // DefaultShellApi.executeAction which resolves the wildcard.
         final suffix = entry.key.substring(2);
-        final wildcardAction = shell_action.ForgeAction(
+        final wildcardAction = ForgeAction(
           id: entry.key,
           label: '$suffix (all editors)',
-          menu: shell_action.ForgeMenuLocation.commandPalette,
+          menu: ForgeMenuLocation.commandPalette,
           execute: (_) async => null,
           isEnabled: () => true,
           isVisible: () => true,
@@ -1678,10 +1678,10 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
 
   void _registerFindReplaceActions() {
     widget.shell.actionRegistry.registerAction(
-      shell_action.ForgeAction(
+      ForgeAction(
         id: _actionEditorFind,
         label: 'Find',
-        menu: shell_action.ForgeMenuLocation.edit,
+        menu: ForgeMenuLocation.edit,
         execute: (_) async {
           _openFindReplaceBar(showReplaceFields: false);
           return null;
@@ -1692,10 +1692,10 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     );
 
     widget.shell.actionRegistry.registerAction(
-      shell_action.ForgeAction(
+      ForgeAction(
         id: _actionEditReplace,
         label: 'Replace',
-        menu: shell_action.ForgeMenuLocation.edit,
+        menu: ForgeMenuLocation.edit,
         execute: (_) async {
           _openFindReplaceBar(showReplaceFields: true);
           return null;
@@ -1719,10 +1719,10 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       VoidCallback handler, {
       bool Function()? isEnabled,
     }) {
-      final action = shell_action.ForgeAction(
+      final action = ForgeAction(
         id: id,
         label: label,
-        menu: shell_action.ForgeMenuLocation.commandPalette,
+        menu: ForgeMenuLocation.commandPalette,
         execute: (_) async {
           handler();
           return null;
@@ -2871,14 +2871,14 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     ];
   }
 
-  Map<String, List<shell_action.ForgeAction>> _toolActionsByModule() {
-    final result = <String, List<shell_action.ForgeAction>>{};
+  Map<String, List<ForgeAction>> _toolActionsByModule() {
+    final result = <String, List<ForgeAction>>{};
 
     for (final module in widget.shell.modules.allModules) {
       final actions =
           module.actions
               .where(
-                (action) => action.menu == shell_action.ForgeMenuLocation.tools,
+                (action) => action.menu == ForgeMenuLocation.tools,
               )
               .where((action) => action.isVisible())
               .toList(growable: false)
@@ -4988,9 +4988,9 @@ class _EditorViewAdapter extends ForgeView {
   @override
   Widget buildCopy(BuildContext context) => editor.buildCopy(context);
   @override
-  List<shell_action.ForgeAction> get actions => editor.actions;
+  List<ForgeAction> get actions => editor.actions;
   @override
-  List<shell_action.ForgeAction> get headerActions => editor.headerActions;
+  List<ForgeAction> get headerActions => editor.headerActions;
 }
 
 /// Wraps a [ForgeView] as a surface so it can appear as a tab in the middle
@@ -5016,9 +5016,9 @@ class _ViewEditorAdapter extends ForgeSurfaceEditor {
   @override
   Widget buildCopy(BuildContext context) => view.buildCopy(context);
   @override
-  List<shell_action.ForgeAction> get actions => view.actions;
+  List<ForgeAction> get actions => view.actions;
   @override
-  List<shell_action.ForgeAction> get headerActions => view.headerActions;
+  List<ForgeAction> get headerActions => view.headerActions;
   @override
   Uri get uri => _syntheticUri;
 }

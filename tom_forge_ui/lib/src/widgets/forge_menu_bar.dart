@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 
-import '../actions/forge_action.dart' as shell_action;
+import '../actions/forge_action.dart';
 import '../adapters/tom_forge_shell_module.dart';
 import '../defaults/default_shell_api.dart';
 import '../defaults/default_system_state.dart';
@@ -301,13 +301,13 @@ class ForgeMenuBar extends StatelessWidget {
   }
 
   List<_MenuItemBase> _buildToolsMenuItems(BuildContext context) {
-    final grouped = <String, List<shell_action.ForgeAction>>{};
+    final grouped = <String, List<ForgeAction>>{};
 
     for (final module in shellApi.modules.allModules) {
       final actions =
           module.actions
               .where(
-                (action) => action.menu == shell_action.ForgeMenuLocation.tools,
+                (action) => action.menu == ForgeMenuLocation.tools,
               )
               .where((action) => action.isVisible())
               .toList(growable: false)

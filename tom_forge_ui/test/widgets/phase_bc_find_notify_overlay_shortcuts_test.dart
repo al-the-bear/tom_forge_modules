@@ -7,7 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 // ForgeMenuLocation is exported by both barrels; the module's ForgeAction is
 // the tom_forge_ui type, so use its ForgeMenuLocation and hide the core one.
-import 'package:tom_forge_core/tom_forge_core.dart' hide ForgeMenuLocation;
+import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 import 'package:tom_forge_ui_testing/tom_forge_ui_testing.dart';
 import 'package:tom_forge_ui/src/widgets/forge_notification_popup.dart';

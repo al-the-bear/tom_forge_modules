@@ -12,6 +12,3 @@ enum LayoutChangeType {
 
 /// Locations for progress indicators.
 enum ForgeProgressLocation { statusBar, overlay }
-
-/// Top-level menu locations.
-enum ForgeMenuLocation { file, edit, view, go, modules, help }

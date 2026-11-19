@@ -919,7 +919,11 @@ class ForgeAction {
   final Future<void> Function(Object undoInfo)? undo;
 }
 
-enum ForgeMenuLocation { file, edit, view, go, modules, help }
+// Declared once, in tom_editors_shared (text_types.dart), with ForgeAction;
+// tom_forge_ui re-exports both.
+enum ForgeMenuLocation {
+  file, edit, view, go, run, tools, help, contextMenu, commandPalette,
+}
 ```
 
 **Action execution model:**
@@ -1072,7 +1076,7 @@ class TomFormEditorModule extends ForgeModule {
   /// Add a form field to the active form.
   late final addFieldAction = ForgeAction(
     label: 'Add Form Field',
-    menu: ForgeMenuLocation.modules,
+    menu: ForgeMenuLocation.tools,
     group: 'Form Editor',
     priority: 0,
     execute: (parameters) async {

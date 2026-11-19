@@ -291,7 +291,6 @@ The `ShellEditorIntegration` bridge simplifies significantly — it no longer ne
 - `_editorInternalActions` exclusion list
 - `_resolveAction()` fallback pool with hardcoded action lists
 - `_registerWithShell()` wrapping logic
-- the `_toShellAction()` conversion method
 
 Instead, it reads descriptors from the editor and forwards `executeAction()` calls from the shell.
 
@@ -431,7 +430,7 @@ Currently a minimal placeholder. When implemented, it follows the same pattern: 
 
 1. Maintains `_editorInternalActions` exclusion set (6 hardcoded action IDs)
 2. Has `_resolveAction()` with a hardcoded pool of **all possible actions across all editors** (22 actions from Dart + MD + YAML + Standard)
-3. Wraps each action in a shell-compatible `ForgeAction` via `_toShellAction()`
+3. Wraps each action in a `ForgeAction` whose `execute` calls the editor's handler (the shell and the editors share one `ForgeAction` type, `tom_editors_shared`'s)
 4. Decides per-action whether to register with shell or handle internally
 5. Returns `null` from `getShortcutForAction()` for chord bindings to prevent editor interception
 
@@ -489,7 +488,6 @@ class ShellEditorIntegration implements ForgeEditorIntegration {
 - `_editorInternalActions` set
 - `_resolveAction()` method and its hardcoded action pool
 - `_registerWithShell()` method
-- `_toShellAction()` conversion
 - `_knownActions` cache
 
 ### 4.3 Module Registration Change
@@ -511,7 +509,7 @@ void register(ForgeModule module) {
         id: descriptor.id,
         label: descriptor.label,
         icon: descriptor.icon,
-        menu: ForgeMenuLocation.none,
+        menu: ForgeMenuLocation.commandPalette,
         execute: (_) async {
           integration.executeAction(descriptor.id);
           return null;

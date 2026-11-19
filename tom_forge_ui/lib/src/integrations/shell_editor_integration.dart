@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart' as shared;
 
-import '../actions/forge_action.dart' as shell;
 import '../shell/forge_shell_api.dart';
 
 /// Debug toggle for shell integration tracing.
@@ -204,10 +203,7 @@ class ShellEditorIntegration extends shared.ForgeEditorIntegration
 
   /// Gets context menu actions provided by the shell.
   List<shared.ForgeAction> getContextMenuActions() {
-    return _shellApi
-        .getContextActionsFor(_editorId)
-        .map(_toSharedAction)
-        .toList(growable: false);
+    return _shellApi.getContextActionsFor(_editorId).toList(growable: false);
   }
 
   @override
@@ -231,7 +227,6 @@ class ShellEditorIntegration extends shared.ForgeEditorIntegration
   }
 
   void _registerWithShell(shared.ForgeAction action) {
-    final shellAction = _toShellAction(action);
     // Wrap the execute callback so that it delegates to the editor
     // integration's action handler (stored in _actionHandlers via
     // super.registerAction).  Without this, actions resolved via
@@ -248,23 +243,23 @@ class ShellEditorIntegration extends shared.ForgeEditorIntegration
     // registry. The registry's isEnabled is only used for command palette
     // and context menu display.
 
-    final wrappedAction = shell.ForgeAction(
-      id: shellAction.id,
-      label: shellAction.label,
-      icon: shellAction.icon,
-      menu: shellAction.menu,
-      group: shellAction.group,
-      priority: shellAction.priority,
+    final wrappedAction = shared.ForgeAction(
+      id: action.id,
+      label: action.label,
+      icon: action.icon,
+      menu: action.menu,
+      group: action.group,
+      priority: action.priority,
       execute: (_) async {
         final handler = actionHandler(actionId);
         handler?.call();
         return null;
       },
-      isEnabled: shellAction.isEnabled,
-      isVisible: shellAction.isVisible,
-      defaultShortcut: shellAction.defaultShortcut,
-      showInContextMenu: shellAction.showInContextMenu,
-      undo: shellAction.undo,
+      isEnabled: action.isEnabled,
+      isVisible: action.isVisible,
+      defaultShortcut: action.defaultShortcut,
+      showInContextMenu: action.showInContextMenu,
+      undo: action.undo,
     );
     _shellApi.actionRegistry.registerAction(wrappedAction);
     // The default key only where the table has none: a key the user bound
@@ -306,86 +301,6 @@ class ShellEditorIntegration extends shared.ForgeEditorIntegration
       defaultShortcut: descriptor.suggestedShortcut,
       showInContextMenu: descriptor.showInContextMenu,
     );
-  }
-
-  shell.ForgeAction _toShellAction(shared.ForgeAction action) {
-    return shell.ForgeAction(
-      id: action.id,
-      label: action.label,
-      icon: action.icon,
-      menu: _toShellMenu(action.menu),
-      group: action.group,
-      priority: action.priority,
-      execute: action.execute,
-      isEnabled: action.isEnabled,
-      isVisible: action.isVisible,
-      defaultShortcut: action.defaultShortcut,
-      showInContextMenu: action.showInContextMenu,
-      undo: action.undo,
-    );
-  }
-
-  shared.ForgeAction _toSharedAction(shell.ForgeAction action) {
-    return shared.ForgeAction(
-      id: action.id,
-      label: action.label,
-      icon: action.icon,
-      menu: _toSharedMenu(action.menu),
-      group: action.group,
-      priority: action.priority,
-      execute: action.execute,
-      isEnabled: action.isEnabled,
-      isVisible: action.isVisible,
-      defaultShortcut: action.defaultShortcut,
-      showInContextMenu: action.showInContextMenu,
-      undo: action.undo,
-    );
-  }
-
-  shell.ForgeMenuLocation _toShellMenu(shared.ForgeMenuLocation menu) {
-    switch (menu) {
-      case shared.ForgeMenuLocation.file:
-        return shell.ForgeMenuLocation.file;
-      case shared.ForgeMenuLocation.edit:
-        return shell.ForgeMenuLocation.edit;
-      case shared.ForgeMenuLocation.view:
-        return shell.ForgeMenuLocation.view;
-      case shared.ForgeMenuLocation.go:
-        return shell.ForgeMenuLocation.go;
-      case shared.ForgeMenuLocation.run:
-        return shell.ForgeMenuLocation.run;
-      case shared.ForgeMenuLocation.tools:
-        return shell.ForgeMenuLocation.tools;
-      case shared.ForgeMenuLocation.help:
-        return shell.ForgeMenuLocation.help;
-      case shared.ForgeMenuLocation.contextMenu:
-        return shell.ForgeMenuLocation.contextMenu;
-      case shared.ForgeMenuLocation.commandPalette:
-        return shell.ForgeMenuLocation.commandPalette;
-    }
-  }
-
-  shared.ForgeMenuLocation _toSharedMenu(shell.ForgeMenuLocation menu) {
-    switch (menu) {
-      case shell.ForgeMenuLocation.file:
-        return shared.ForgeMenuLocation.file;
-      case shell.ForgeMenuLocation.edit:
-        return shared.ForgeMenuLocation.edit;
-      case shell.ForgeMenuLocation.view:
-        return shared.ForgeMenuLocation.view;
-      case shell.ForgeMenuLocation.go:
-        return shared.ForgeMenuLocation.go;
-      case shell.ForgeMenuLocation.run:
-        return shared.ForgeMenuLocation.run;
-      case shell.ForgeMenuLocation.tools:
-        return shared.ForgeMenuLocation.tools;
-      case shell.ForgeMenuLocation.help:
-        return shared.ForgeMenuLocation.help;
-      case shell.ForgeMenuLocation.contextMenu:
-        return shared.ForgeMenuLocation.contextMenu;
-      case shell.ForgeMenuLocation.commandPalette:
-        return shared.ForgeMenuLocation.commandPalette;
-    }
   }
 }
 

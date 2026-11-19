@@ -1,5 +1,9 @@
 ## Unreleased
 
+- `ForgeMenuLocation` is gone: nothing used it, and the menu locations Forge's
+  shell and editors place actions in are `tom_editors_shared`'s
+  `ForgeMenuLocation` (re-exported by `tom_forge_ui`), declared once with
+  `ForgeAction`. Breaking: the next release is 3.0.0.
 - `forgeLoadGitignores(fileSystem, {root})` walks a `TomFileSystem` instead
   of a host path (it was `forgeLoadGitignores(String rootPath)`), so the
   rules come from the same files the shell shows, on disk, in memory or on
