@@ -17,6 +17,10 @@
   re-exports its `DefaultNotificationManager`, `NotificationItem` and
   `NotificationSeverity`. Choosing a toast's action now also removes the
   toast (it used to stay on screen after answering).
+- Context menus: `ForgeContextMenuEntry`, `forgeContextMenuItems` and
+  `forgeContextMenuEntryKey`, taken out of `tom_forge_shell`, and the new
+  `showForgeContextMenuEntries`. The shell keeps `ForgeContextMenuController`
+  and `showForgeContextMenu`, which draws through it.
 
 - `ForgeShellTheme` (dark, light, high contrast), `ForgeDimensions` and
   `ForgeAnimations`, taken out of `tom_forge_shell`, which re-exports them.

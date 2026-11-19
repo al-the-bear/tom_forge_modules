@@ -207,8 +207,41 @@ class _ExampleWindowState extends State<ExampleWindow> {
             color: shell.panelDivider,
           ),
           Expanded(
-            child: Stack(
-              children: [ForgeNotificationOverlay(manager: _notifications)],
+            // A right-click on the panel opens its context menu.
+            child: GestureDetector(
+              key: const ValueKey('example.panel'),
+              behavior: HitTestBehavior.opaque,
+              onSecondaryTapUp: (details) => showForgeContextMenuEntries(
+                context,
+                globalPosition: details.globalPosition,
+                entries: [
+                  ForgeContextMenuEntry(
+                    id: 'add',
+                    label: 'Add item',
+                    enabled: true,
+                    group: 'items',
+                    run: () async => _count.value++,
+                  ),
+                  ForgeContextMenuEntry(
+                    id: 'remove',
+                    label: 'Remove item',
+                    enabled: _count.value > 0,
+                    unavailableReason: _count.value > 0 ? null : 'No items',
+                    group: 'items',
+                    run: () async => _count.value--,
+                  ),
+                  ForgeContextMenuEntry(
+                    id: 'rename',
+                    label: 'Rename…',
+                    enabled: true,
+                    group: 'document',
+                    run: _rename,
+                  ),
+                ],
+              ),
+              child: Stack(
+                children: [ForgeNotificationOverlay(manager: _notifications)],
+              ),
             ),
           ),
           ForgeStatusBar(

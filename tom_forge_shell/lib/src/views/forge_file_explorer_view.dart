@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
+import 'package:tom_forge_shared_ui/tom_forge_shared_ui.dart';
 import 'package:tom_file_system/tom_file_system.dart';
 
 import '../components/forge_component.dart';
@@ -12,7 +13,6 @@ import '../defaults/default_system_state.dart';
 import '../defaults/stub_services.dart';
 import '../shell/forge_context_menu_controller.dart';
 import '../shell/forge_layout_controller.dart';
-import '../widgets/forge_context_menu.dart';
 
 /// File explorer tree view.
 ///

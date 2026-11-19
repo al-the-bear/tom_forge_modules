@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart' show kSecondaryButton;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_forge_shared_ui/tom_forge_shared_ui.dart';
@@ -71,5 +72,24 @@ void main() {
     await tester.pump();
     expect(find.text('1 items so far'), findsNothing);
     expect(find.text('0 items'), findsOneWidget);
+  });
+
+  testWidgets('a right-click on the panel opens its context menu', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const SharedUiExampleApp());
+    await tester.tap(
+      find.byKey(const ValueKey('example.panel')),
+      buttons: kSecondaryButton,
+    );
+    await tester.pumpAndSettle();
+    final remove = tester.widget<PopupMenuItem<ForgeContextMenuEntry>>(
+      find.byKey(forgeContextMenuEntryKey('remove')),
+    );
+    expect(remove.enabled, isFalse, reason: 'no items yet');
+    expect(find.byType(PopupMenuDivider), findsOneWidget);
+    await tester.tap(find.byKey(forgeContextMenuEntryKey('add')));
+    await tester.pumpAndSettle();
+    expect(find.text('1 items'), findsOneWidget);
   });
 }

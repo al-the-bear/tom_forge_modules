@@ -6,7 +6,8 @@
 /// ([ForgeStatusBar] over [ForgeStatusItem]s), and the shell's overlays and
 /// dialogs: [ForgeInputBoxOverlay], [ForgeQuickPickOverlay],
 /// [ForgeErrorRecoveryDialog], [ForgeFocusIndicator], and the notification
-/// toasts and history ([ForgeNotificationOverlay], [ForgeNotificationPopup]).
+/// toasts and history ([ForgeNotificationOverlay], [ForgeNotificationPopup]),
+/// and context menus ([ForgeContextMenuEntry], [showForgeContextMenuEntries]).
 ///
 /// It depends on Flutter, `tom_ui_support` and `tom_forge_core` only, so a
 /// package that needs Forge's look — Webwork, a quest application — takes it
@@ -21,6 +22,7 @@ export 'package:tom_forge_core/tom_forge_core.dart'
 
 export 'src/action_bar/forge_action_bar.dart';
 export 'src/action_bar/forge_action_item.dart';
+export 'src/context_menu/forge_context_menu.dart';
 export 'src/forge_animations.dart';
 export 'src/forge_dimensions.dart';
 export 'src/forge_fixed_listenable.dart';

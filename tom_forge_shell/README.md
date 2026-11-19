@@ -7,7 +7,7 @@ bar, menus, command palette, quick open, configuration, the built-in views
 editor. Its look — `ForgeShellTheme`, `forgeThemeData`, `ForgeDimensions`,
 `ForgeAnimations`, the action bar and the status bar widgets, the input
 box, quick pick, error recovery dialog and focus indicator, the notification
-toasts and history — is
+toasts and history, the context menu rendering — is
 `tom_forge_shared_ui`, which it re-exports, so the
 applications beside the shell share it without depending on the shell.
 

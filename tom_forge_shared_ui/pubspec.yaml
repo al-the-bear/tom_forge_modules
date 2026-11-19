@@ -1,6 +1,6 @@
 name: tom_forge_shared_ui
 description: >-
-  The look Forge's shell and the applications beside it share: the ForgeShellTheme tokens, the shell's dimensions and animation timings, the action bar and the status bar, the input box, quick pick, error recovery dialog and focus indicator, the notification toasts and history, without the shell, the terminal, the editors or a webview.
+  The look Forge's shell and the applications beside it share: the ForgeShellTheme tokens, the shell's dimensions and animation timings, the action bar and the status bar, the input box, quick pick, error recovery dialog and focus indicator, the notification toasts and history, the context menu rendering, without the shell, the terminal, the editors or a webview.
   License: BSD-3-Clause.
 publish_to: none
 version: 0.1.0

@@ -48,6 +48,15 @@ shell itself:
   `DefaultNotificationManager`, `NotificationItem` and `NotificationSeverity`
   for them. An application beside Forge shows its own toasts the way Forge
   does, and Webwork's entries mirrored into Forge's manager show the same.
+- **Context menus**: `ForgeContextMenuEntry` (id, label, enabled, the
+  reason a disabled entry shows, group, `run`), `forgeContextMenuItems` (the
+  entries as popup-menu items: in order, a divider where the group changes,
+  a disabled entry's reason as its tooltip), `forgeContextMenuEntryKey`
+  (`forge-context-menu:<id>`) and `showForgeContextMenuEntries(context,
+  entries:, globalPosition:)`, which draws the entries at a position and runs
+  the chosen one (nothing for no entries). Forge's `showForgeContextMenu`
+  resolves a target's entries with its controller and draws them with it, so
+  a Webwork menu (the Explorer row menu) looks and behaves the same.
 - **`ForgeFixedListenable`**: a listenable whose value never changes, for an
   item whose state is known when it is built.
 
@@ -111,7 +120,7 @@ ForgeStatusBar(
 `example/` is a minimal app over the package: an action bar that changes a
 counter, a status bar that shows it and a busy item while work runs, the
 input box renaming the document, the quick pick setting the count, and a
-toast whose action resets it. Building it for macOS, the web, iOS and
+toast whose action resets it, and a right-click menu on the panel. Building it for macOS, the web, iOS and
 Android shows the package builds on each.
 
 ## License
