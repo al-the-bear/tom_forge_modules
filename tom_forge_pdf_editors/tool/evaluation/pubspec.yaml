@@ -1,0 +1,30 @@
+name: tom_forge_pdf_route_evaluation
+description: >-
+  The PDF routes' evaluation harness (office/PDF prototype, part-evaluation):
+  integration tests over the PDFium route and the pdf.js route in its three
+  modes, run on macOS in a profile build, writing YAML results.
+publish_to: none
+version: 0.1.0
+
+environment:
+  sdk: ^3.10.8
+
+dependencies:
+  flutter:
+    sdk: flutter
+  tom_file_session:
+    path: ../../../../tom_ai/modules/tom_file_session
+  tom_pdf_editor:
+    path: ../../../../tom_ai/modules/tom_pdf_editor
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+  flutter_driver:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true

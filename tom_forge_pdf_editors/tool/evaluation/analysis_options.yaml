@@ -1,0 +1,11 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    - build/**
+    - macos/**
+
+linter:
+  rules:
+    # The harness reports its progress on the console.
+    avoid_print: false
