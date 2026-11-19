@@ -33,4 +33,28 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
     expect(find.text('Working'), findsNothing);
   });
+
+  testWidgets('the input box renames, the quick pick sets the count', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const SharedUiExampleApp());
+    expect(find.text('Untitled'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('forge.actionBar.rename')));
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const Key('forge-input-box-field')),
+      'Notes',
+    );
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+    expect(find.text('Notes'), findsOneWidget);
+    expect(find.byType(ForgeInputBoxOverlay), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('forge.actionBar.pick')));
+    await tester.pump();
+    await tester.tap(find.text('Ten'));
+    await tester.pump();
+    expect(find.text('10 items'), findsOneWidget);
+    expect(find.byType(ForgeQuickPickOverlay<int>), findsNothing);
+  });
 }

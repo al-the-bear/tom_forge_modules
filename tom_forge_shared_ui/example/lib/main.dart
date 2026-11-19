@@ -41,6 +41,7 @@ class _ExampleWindowState extends State<ExampleWindow> {
   final _canRemove = ValueNotifier<bool>(false);
   final _busy = ValueNotifier<bool>(false);
   final _busyText = ValueNotifier<String>('Working');
+  final _name = ValueNotifier<String>('Untitled');
   Timer? _work;
 
   @override
@@ -55,7 +56,7 @@ class _ExampleWindowState extends State<ExampleWindow> {
   @override
   void dispose() {
     _work?.cancel();
-    for (final n in [_count, _countText, _canRemove, _busy, _busyText]) {
+    for (final n in [_count, _countText, _canRemove, _busy, _busyText, _name]) {
       n.dispose();
     }
     super.dispose();
@@ -65,6 +66,47 @@ class _ExampleWindowState extends State<ExampleWindow> {
     _busy.value = true;
     _work?.cancel();
     _work = Timer(const Duration(seconds: 2), () => _busy.value = false);
+  }
+
+  /// Shows [build]'s overlay over the window until its completer answers.
+  Future<T?> _showOverlay<T>(
+    Widget Function(Completer<T?> completer) build,
+  ) async {
+    final completer = Completer<T?>();
+    final entry = OverlayEntry(builder: (_) => build(completer));
+    Overlay.of(context).insert(entry);
+    try {
+      return await completer.future;
+    } finally {
+      entry.remove();
+    }
+  }
+
+  Future<void> _rename() async {
+    final name = await _showOverlay<String>(
+      (completer) => ForgeInputBoxOverlay(
+        prompt: 'Rename',
+        value: _name.value,
+        validateInput: (v) => v.trim().isEmpty ? 'A name is required' : null,
+        completer: completer,
+      ),
+    );
+    if (name != null) _name.value = name;
+  }
+
+  Future<void> _pickCount() async {
+    final count = await _showOverlay<int>(
+      (completer) => ForgeQuickPickOverlay<int>(
+        placeholder: 'How many items?',
+        items: const [
+          ForgeQuickPickItem(label: 'None', value: 0),
+          ForgeQuickPickItem(label: 'Three', value: 3, description: 'a few'),
+          ForgeQuickPickItem(label: 'Ten', value: 10, description: 'many'),
+        ],
+        completer: completer,
+      ),
+    );
+    if (count != null) _count.value = count;
   }
 
   @override
@@ -103,6 +145,23 @@ class _ExampleWindowState extends State<ExampleWindow> {
                   ],
                 ),
                 ForgeActionGroup(
+                  id: 'dialogs',
+                  items: [
+                    ForgeActionItem(
+                      id: 'rename',
+                      icon: Icons.edit,
+                      label: 'Rename (input box)',
+                      onInvoke: _rename,
+                    ),
+                    ForgeActionItem(
+                      id: 'pick',
+                      icon: Icons.list_alt,
+                      label: 'Pick a count (quick pick)',
+                      onInvoke: _pickCount,
+                    ),
+                  ],
+                ),
+                ForgeActionGroup(
                   id: 'work',
                   items: [
                     ForgeActionItem(
@@ -132,6 +191,11 @@ class _ExampleWindowState extends State<ExampleWindow> {
           ForgeStatusBar(
             items: [
               ForgeStatusItem(text: _countText, icon: Icons.list),
+              ForgeStatusItem(
+                text: _name,
+                icon: Icons.description,
+                alignment: StatusBarAlignment.center,
+              ),
               ForgeStatusItem(
                 text: _busyText,
                 visible: _busy,

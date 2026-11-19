@@ -5,7 +5,8 @@ Forge's panel shell core: `ForgeShellApi` and its default services
 bar, menus, command palette, quick open, configuration, the built-in views
 (explorer, outline, output, problems, revisions, search) and the plain-text
 editor. Its look — `ForgeShellTheme`, `forgeThemeData`, `ForgeDimensions`,
-`ForgeAnimations`, the action bar and the status bar widgets — is
+`ForgeAnimations`, the action bar and the status bar widgets, the input
+box, quick pick, error recovery dialog and focus indicator — is
 `tom_forge_shared_ui`, which it re-exports, so the
 applications beside the shell share it without depending on the shell.
 

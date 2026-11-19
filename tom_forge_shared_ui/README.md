@@ -30,6 +30,15 @@ shell itself:
   an `isActive(ForgeSystemState)` filter; Forge's status bar controllers
   stay in the shell, which reads them from its module and application
   registries and hands the active items to this bar.
+- **The shell's overlays and dialogs**: `ForgeInputBoxOverlay` (a text
+  prompt at the top of the window, with validation; Enter answers the text,
+  Escape or a click outside answers null), `ForgeQuickPickOverlay<T>` over
+  `ForgeQuickPickItem<T>`s (a filtered pick list driven by the keyboard),
+  `ForgeErrorRecoveryDialog` (retry, cancel and optionally overwrite, as
+  `ErrorRecoveryAction`), and `ForgeFocusIndicator` (a focus ring for
+  keyboard focus only, in the theme's `focusRing`). The overlays answer
+  through a `Completer`; Forge's dialog manager shows them over the shell, an
+  application in an `OverlayEntry` of its own.
 - **`ForgeFixedListenable`**: a listenable whose value never changes, for an
   item whose state is known when it is built.
 
@@ -90,7 +99,8 @@ ForgeStatusBar(
 ```
 
 `example/` is a minimal app over the package (an action bar that changes a
-counter, a status bar that shows it and a busy item while work runs); building it for macOS, the
+counter, a status bar that shows it and a busy item while work runs, the
+input box renaming the document and the quick pick setting the count); building it for macOS, the
 web, iOS and Android shows the package builds on each.
 
 ## License

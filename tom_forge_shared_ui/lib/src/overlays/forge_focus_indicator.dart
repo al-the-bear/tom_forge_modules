@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:tom_forge_shared_ui/tom_forge_shared_ui.dart';
+import '../forge_shell_theme.dart';
 
 /// A wrapper that draws a visible focus ring only when the child gains focus
 /// via the keyboard (not mouse clicks).

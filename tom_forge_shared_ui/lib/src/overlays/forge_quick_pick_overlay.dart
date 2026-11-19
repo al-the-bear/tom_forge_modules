@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../services/forge_dialog_manager.dart';
+import 'forge_quick_pick_item.dart';
 
 /// A VS Code-style quick-pick overlay for selecting from a list of items.
 ///
