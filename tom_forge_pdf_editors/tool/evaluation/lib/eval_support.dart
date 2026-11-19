@@ -330,13 +330,21 @@ Map<String, Object?> frameStats(List<ui.FrameTiming> timings) {
   };
 }
 
+/// A page frame is late (jank) when its interval is over this many ms: one
+/// and a half frame budgets at 60 Hz, so at least one frame was missed.
+/// WebKit coarsens `performance.now()` to whole milliseconds, so an on-time
+/// frame of 16.67 ms reads as 16 or 17 ms; the 16.7 ms budget itself would
+/// count half of the on-time frames as late.
+const kPageJankThresholdMs = 25.0;
+
 /// Frame intervals measured in a page with `requestAnimationFrame`, in ms:
-/// the share over 16.7 ms is the jank.
+/// the share over [kPageJankThresholdMs] is the jank.
 Map<String, Object?> intervalStats(List<num> intervals) {
-  final over = intervals.where((i) => i > 16.7).length;
+  final over = intervals.where((i) => i > kPageJankThresholdMs).length;
   return {
     'frames': intervals.length,
     'interval_ms': distribution(intervals),
+    'jank_threshold_ms': kPageJankThresholdMs,
     'jank_share': intervals.isEmpty ? double.nan : over / intervals.length,
   };
 }
