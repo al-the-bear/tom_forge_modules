@@ -79,6 +79,15 @@ const evalCoreFiles = [
   'deck.odp',
 ];
 
+/// `EVAL_FILES` (comma-separated sample names) replaces the files of the
+/// fidelity exports and the round trips: a reduction run over variants of one
+/// sample (`EVAL_SAMPLES` then names their folder). Empty keeps the lists.
+const _evalFiles = String.fromEnvironment('EVAL_FILES');
+
+/// [defaults], or the `EVAL_FILES` list when one is given.
+List<String> evalFilesOr(List<String> defaults) =>
+    _evalFiles.isEmpty ? defaults : _evalFiles.split(',');
+
 /// The older formats (DPOE-2), made from the core files by the runner with
 /// desktop LibreOffice before the runs (in the scratch folder).
 const evalOlderFiles = ['report.doc', 'sheet.xls', 'deck.ppt'];

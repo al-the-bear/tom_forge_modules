@@ -652,7 +652,7 @@ class _LokRoute {
     final out = <String, Object?>{};
     final dir = Directory('${EvalConfig.work}/roundtrip/lok')
       ..createSync(recursive: true);
-    for (final name in [...evalCoreFiles, ...evalOlderFiles]) {
+    for (final name in evalFilesOr([...evalCoreFiles, ...evalOlderFiles])) {
       final path = EvalConfig.copy(name, 'roundtrip/lok-work');
       final stem = name.substring(0, name.lastIndexOf('.'));
       final ext = name.substring(name.lastIndexOf('.') + 1);
@@ -733,7 +733,7 @@ class _LokRoute {
   Future<Object?> _fidelityExports() async {
     final out = <String, Object?>{};
     final dir = Directory('$_shared/fidelity/lok')..createSync(recursive: true);
-    for (final name in evalCoreFiles) {
+    for (final name in evalFilesOr(evalCoreFiles)) {
       final path = EvalConfig.copy(name, 'fidelity');
       final target = '${dir.path}/$name.pdf';
       out[name] = await _exportPdf(path, target);
@@ -1590,7 +1590,7 @@ class _ZetaRoute {
     final out = <String, Object?>{};
     final dir = Directory('${EvalConfig.work}/roundtrip/zetaoffice')
       ..createSync(recursive: true);
-    for (final name in [...evalCoreFiles, ...evalOlderFiles]) {
+    for (final name in evalFilesOr([...evalCoreFiles, ...evalOlderFiles])) {
       final path = EvalConfig.copy(name, 'roundtrip/zeta-work');
       final stem = name.substring(0, name.lastIndexOf('.'));
       final ext = name.substring(name.lastIndexOf('.') + 1);
@@ -1634,7 +1634,7 @@ class _ZetaRoute {
     final out = <String, Object?>{};
     final dir = Directory('$_shared/fidelity/zetaoffice')
       ..createSync(recursive: true);
-    for (final name in evalCoreFiles) {
+    for (final name in evalFilesOr(evalCoreFiles)) {
       final ms = await open(EvalConfig.copy(name, 'zeta-fidelity'));
       if (ms == null) {
         out[name] = notMeasured('did not open: ${c.error}');
