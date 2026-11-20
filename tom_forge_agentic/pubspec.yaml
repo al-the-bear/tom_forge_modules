@@ -1,8 +1,8 @@
 name: tom_forge_agentic
 description: >-
-  Reusable Flutter agent/chat UI for Tom Forge tools: chat composer, prompt
-  queue, prompt trail, agent settings, navigation/mutation tool surface, and
-  the change-log + three-way review. UI only — all non-UI logic (provider
+  The agent/chat UI of Tom Forge tools: the Forge chat module, the chat view
+  and the prompt queue and trail editors, over tom_agentic_ui's views and
+  controllers, which it re-exports. UI only — all non-UI logic (provider
   API, models, placeholder engine) lives in tom_core_agentic.
 version: 0.1.0
 publish_to: none
@@ -24,8 +24,9 @@ dependencies:
   tom_file_system:
     path: ../../tom_ai/basics/tom_file_system
 
-  # The cooperative cancellation the send controller hands the send engine.
-  tom_basics: ">=3.3.0"
+  # The agent views and controllers, re-exported from the barrel.
+  tom_agentic_ui:
+    path: ../../tom_ai/modules/tom_agentic_ui
 
   # Forge shell contracts so the reusable agent surfaces can be contributed as
   # Forge modules/views by any agent/chat-enabled Forge tool.
@@ -38,9 +39,6 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
-  # Test-only: the send-controller test fakes the Agent SDK transport to run the
-  # whole §7 pipeline without opening a socket.
-  tom_vscode_scripting_api: ^6.0.0
 
 flutter:
   uses-material-design: true

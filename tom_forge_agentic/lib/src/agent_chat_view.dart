@@ -1,14 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_agentic_ui/tom_agentic_ui.dart';
 
-import 'chat/chat_composer_panel.dart';
-import 'chat/placeholder_preview.dart';
-import 'chat/chat_send_coordinator.dart';
-import 'connection/agent_connection_controller.dart';
-import 'connection/agent_connection_picker.dart';
-import 'queue/prompt_queue_controller.dart';
-import 'send/agent_send_controller.dart';
 
 /// The bottom-panel agent chat view (§5, §11.1).
 ///

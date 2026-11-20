@@ -1,9 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_agentic_ui/tom_agentic_ui.dart';
 
-import 'prompt_trail_controller.dart';
-import 'prompt_trail_view.dart';
 
 /// Hosts the [PromptTrailView] as a Forge **middle-panel** editor (§5 Col 3).
 ///

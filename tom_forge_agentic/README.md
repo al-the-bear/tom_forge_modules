@@ -13,6 +13,13 @@ renders an identical experience:
 - navigation / mutation tool surface
 - change-log + three-way review
 
+The views and controllers themselves need no shell and live in
+[`tom_agentic_ui`](../../tom_ai/modules/tom_agentic_ui) (`tom_ai/modules`),
+which this package depends on and re-exports, so a Forge tool imports
+`package:tom_forge_agentic/tom_forge_agentic.dart` alone. This package adds
+what needs the Forge shell: `AgentChatModule`, the chat view and the queue and
+trail editors.
+
 All **non-UI logic** — the provider/model API, prompt-queue/trail/profile
 models, and the placeholder engine — lives in
 [`tom_core_agentic`](../../tom_ai/core_extension/tom_core_agentic), which this package
@@ -31,15 +38,18 @@ In use by the TomSpecs editor (`tom_specs_editor`). What it exports:
   sidecars — bridge choice, session id, queue, trail — there, through
   `tom_core_agentic`'s stores. A controller takes its store; `load()` is
   asynchronous, and `saved` completes when its writes have landed.
-- Connection — `AgentConnectionController`, `AgentConnectionPicker`.
-- Sending — `AgentSendController`, `AgentSendPanel`, `AgentReconnectBanner`,
-  `ChatComposerPanel`, `ChatSendCoordinator`, the placeholder preview. Prompt
-  composition is asynchronous (`PromptCompose`): a composer may read the
-  files a prompt injects.
-- Prompt queue and trail — their controllers, editors and views.
-- Change log and review — `ChangeEntry`, `ChangeLog`, `ChangeLogPanel`,
-  `ChangeReviewPanel`.
+- `PromptQueueEditor`, `PromptTrailEditor` — the queue and trail as Forge
+  editors.
+- Re-exported from `tom_agentic_ui`:
+  - Connection — `AgentConnectionController`, `AgentConnectionPicker`.
+  - Sending — `AgentSendController`, `AgentSendPanel`, `AgentReconnectBanner`,
+    `ChatComposerPanel`, `ChatSendCoordinator`, the placeholder preview.
+    Prompt composition is asynchronous (`PromptCompose`): a composer may read
+    the files a prompt injects.
+  - Prompt queue and trail — their controllers and views.
+  - Change log and review — `ChangeEntry`, `ChangeLog`, `ChangeLogPanel`,
+    `ChangeReviewPanel`.
 
-It is layer 4 (shell services) of the platform architecture
+It is layer 6 (shell services) of the platform architecture
 (`../_agent_guidelines/platform_architecture.md`): it builds on the shell,
 and modules build on it.

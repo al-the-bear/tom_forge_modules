@@ -1277,6 +1277,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.11.2"
+  tom_agentic_ui:
+    dependency: transitive
+    description:
+      path: "../../tom_ai/modules/tom_agentic_ui"
+      relative: true
+    source: path
+    version: "0.1.0"
   tom_basics:
     dependency: transitive
     description:

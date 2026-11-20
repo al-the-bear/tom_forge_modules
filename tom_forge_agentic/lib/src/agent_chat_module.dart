@@ -3,16 +3,10 @@ import 'dart:async';
 import 'package:tom_core_agentic/tom_core_agentic.dart';
 import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_agentic_ui/tom_agentic_ui.dart';
 
 import 'agent_chat_view.dart';
-import 'chat/chat_composer_panel.dart';
-import 'chat/placeholder_preview.dart';
-import 'chat/chat_send_coordinator.dart';
-import 'connection/agent_connection_controller.dart';
-import 'queue/prompt_queue_controller.dart';
 import 'queue/prompt_queue_editor.dart';
-import 'send/agent_send_controller.dart';
-import 'trail/prompt_trail_controller.dart';
 import 'trail/prompt_trail_editor.dart';
 
 /// Reusable agent chat module (§4.2, §6, §11).
