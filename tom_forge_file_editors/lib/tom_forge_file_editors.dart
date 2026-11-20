@@ -4,11 +4,15 @@
 /// opens files in them.
 library;
 
+// The session-file binding and frame the editors use: tom_file_editors
+// (tom_ai/modules), re-exported under the names they always had here.
+export 'package:tom_file_editors/tom_file_editors.dart'
+    show ForgeSessionFile, ForgeSessionFileFrame;
+
 export 'src/env_file_editor.dart';
 export 'src/file_editors_module.dart';
 export 'src/file_kind.dart';
 export 'src/markdown_file_editor.dart';
 export 'src/protected_clipboard.dart';
-export 'src/session_file.dart';
 export 'src/todo_file_editor.dart';
 export 'src/yaml_file_editor.dart';

@@ -9,7 +9,6 @@ import 'package:tom_forge_ui/tom_forge_ui.dart';
 import 'package:tom_file_editors/tom_file_editors.dart';
 
 import 'protected_clipboard.dart';
-import 'session_file.dart';
 
 /// A `.env` file in tom_file_editors' `.env` editor, hosted by Forge: the
 /// entries in a table with every value hidden until shown, the raw text

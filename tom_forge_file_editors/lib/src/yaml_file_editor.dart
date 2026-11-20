@@ -6,8 +6,9 @@ import 'package:tom_editors_shared/tom_editors_shared.dart'
 import 'package:tom_file_session/tom_file_session.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 import 'package:tom_yaml_editor/tom_yaml_editor.dart';
+import 'package:tom_file_editors/tom_file_editors.dart'
+    show ForgeSessionFile, ForgeSessionFileFrame;
 
-import 'session_file.dart';
 
 /// A YAML file in Forge's YAML editor (tree and source, schema-aware), read
 /// and saved through its [ForgeFileSession]: the controller keeps the one

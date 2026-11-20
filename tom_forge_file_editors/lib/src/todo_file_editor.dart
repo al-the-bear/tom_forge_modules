@@ -12,7 +12,6 @@ import 'package:tom_file_editors/tom_file_editors.dart';
 import 'package:tom_todo_ui/tom_todo_ui.dart';
 
 import 'protected_clipboard.dart';
-import 'session_file.dart';
 
 /// A `*.todo.yaml` file in `tom_todo_ui`'s todo-file editor: the todos as
 /// a list, edited with the todo row and details editor, every change one
