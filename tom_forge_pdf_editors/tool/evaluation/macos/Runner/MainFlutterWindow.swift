@@ -13,6 +13,20 @@ class MainFlutterWindow: NSWindow {
     self.contentViewController = flutterViewController
     self.setFrame(windowFrame, display: true)
 
+    // Flutter draws no frames for a window that is fully covered, minimised
+    // or on another Space, and the harness waits on frames: with the screen
+    // unlocked the window floats above the others on every Space and comes
+    // to the front. It is never minimisable.
+    self.styleMask.remove(.miniaturizable)
+    let session = CGSessionCopyCurrentDictionary() as? [String: Any]
+    let locked = session?["CGSSessionScreenIsLocked"] as? Bool ?? false
+    if !locked {
+      self.level = .floating
+      self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+      NSApp.activate(ignoringOtherApps: true)
+      self.makeKeyAndOrderFront(nil)
+    }
+
     // An evaluation-only switch (WebKit SPI, never in Forge): WebKit stops
     // drawing (and requestAnimationFrame) in a window it finds covered or
     // hidden, so every webview of the window keeps drawing when the window

@@ -42,6 +42,35 @@ them anyway (see *A locked screen* below).
 `--dart-define=EVAL_ONLY=pdfjs-components` (or a comma-separated list of
 routes) runs some routes only, when the harness itself is being worked on.
 
+### The checks
+
+`integration_test/pdf_checks_test.dart` takes the measures that are not
+timed, once per route (PDFium, and pdf.js in each mode), into
+`results/<route>/checks.yaml`:
+
+- **engine checks against the fakes:** clean and nothing to undo after
+  opening, an edit dirties and enables undo, undo enables redo, undo back to
+  the saved state, a new edit ends the redo, a save clears dirty, each
+  against what the undo-conformance fakes (`tom_forge_pdf_editors_testing`)
+  model; for PDFium also the saved annotation read back after reopening;
+- **the feature checklist:** search, text selection, highlight, note, ink,
+  free text, form filling (text fields, checkboxes, combo and list boxes),
+  page thumbnails, and what of the route's own UI works inside a Forge tab;
+- **pdf.js's dialog checklist:** document properties, print, the password
+  prompt and the stamp's image picker, with a screenshot of each that opens
+  (`results/<route>/screenshots/dialog-*.png`). Print and the image picker
+  open system panels the harness cannot answer: whether they are offered is
+  recorded, they are not triggered.
+
+It runs with the screen unlocked and takes a few minutes:
+
+```bash
+flutter drive --profile -d macos --driver test_driver/integration_test.dart \
+  --target integration_test/pdf_checks_test.dart \
+  --dart-define=EVAL_SAMPLES=<samples/files> \
+  --dart-define=EVAL_RESULTS=<results> --dart-define=EVAL_WORK=<scratch>
+```
+
 ## What it measures
 
 | Measure | PDFium route | pdf.js route (each mode) |
@@ -100,6 +129,7 @@ images, copies, the drive logs); it is deleted at the start of a run.
 
 - **Chrome's viewer:** headless Chrome draws its PDF viewer blank, so whether
   an annotation shows in it is a checklist item for a person.
-- **pdf.js's stamp tool:** it asks for an image through a file dialog.
+- **pdf.js's stamp tool and print:** they open the system's file dialog and
+  print panel; the checks record that they are offered.
 - **Memory after ten minutes of editing:** a PDF route has no editing session
   of that length; its edits are annotations and form fields.
