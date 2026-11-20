@@ -65,7 +65,7 @@ void main() {
     choices[1].open(a);
     final js = w.editorOf(a);
     expect(js, isA<ForgePdfJsEditor>());
-    expect((js! as ForgePdfJsEditor).mode, TomPdfJsMode.components);
+    expect((js! as ForgePdfJsEditor).mode, TomPdfJsMode.full);
     choices[1].open(a);
     choices[0].open(a);
     final open = w.shell.systemState.openEditors.where((e) => e.uri == a);
@@ -205,27 +205,35 @@ void main() {
   });
 
   group('the pdf.js editor', () {
-    testWidgets('FPDFJS-1: opens in components mode; the tab\'s actions '
-        'switch to integrated and full; a dirty document is not switched', (
-      tester,
-    ) async {
+    testWidgets('FPDFJS-1: opens in full mode (DPEV-5); the tab\'s actions '
+        'switch to components and integrated; a dirty document is not '
+        'switched', (tester) async {
       final w = Workspace();
       final a = w.add('/docs/a.pdf');
       w.module.editorChoicesFor(a)[1].open(a);
       final js = w.editorOf(a)! as ForgePdfJsEditor;
       await w.show(tester, js);
       final page = w.pages.single;
-      expect(
-        page.loads.single.path,
-        endsWith('/pdfjs/web/forge/components.html'),
-      );
+      expect(ForgePdfJsEditor.defaultMode, TomPdfJsMode.full);
+      expect(page.loads.single.path, endsWith('/pdfjs/web/forge-full.html'));
       expect(js.controller.state, TomPdfJsState.open);
+      expect(js.titleExtension.value, isNull, reason: 'the default mode');
       expect(js.headerActions.map((x) => x.label), [
         'pdf.js view: components',
         'pdf.js view: integrated',
         'pdf.js view: full',
       ]);
-      expect(js.headerActions.first.isEnabled(), isFalse);
+      expect(js.headerActions.last.isEnabled(), isFalse);
+      expect(js.headerActions.first.isEnabled(), isTrue);
+
+      await js.headerActions.first.execute({});
+      await tester.pumpAndSettle();
+      expect(js.mode, TomPdfJsMode.components);
+      expect(
+        page.loads.last.path,
+        endsWith('/pdfjs/web/forge/components.html'),
+      );
+      expect(js.titleExtension.value, 'pdf.js components');
 
       await js.headerActions[1].execute({});
       await tester.pumpAndSettle();

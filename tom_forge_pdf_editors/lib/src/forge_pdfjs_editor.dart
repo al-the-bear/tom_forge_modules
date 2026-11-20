@@ -13,11 +13,11 @@ import 'forge_pdf_editor.dart' show forgePdfFindActionId;
 import 'forge_pdf_host.dart';
 import 'forge_pdf_trail.dart';
 
-/// The pdf.js view as a Forge editor (choice `pdf.pdfjs`, the comparison
-/// route): `TomPdfJsView` in `components` mode, switched to `integrated` or
-/// `full` from the tab's actions (*pdf.js view: components / integrated /
-/// full*, DPPJ-5). Save, undo, redo and find go to the view's controller;
-/// history and dirty are pdf.js's own.
+/// The pdf.js view as a Forge editor (choice `pdf.pdfjs`, under *Open
+/// With*): `TomPdfJsView` in `full` mode (pdf.js's own viewer, DPEV-5),
+/// switched to `components` or `integrated` from the tab's actions (*pdf.js
+/// view: components / integrated / full*). Save, undo, redo and find go to
+/// the view's controller; history and dirty are pdf.js's own.
 class ForgePdfJsEditor extends ForgeEditor implements ForgeFindTarget {
   /// An editor of [uri] over [host] in [mode]. [channelForTesting] replaces
   /// the webview; [testBaseUri] keeps the controller offline (widget tests
@@ -25,7 +25,7 @@ class ForgePdfJsEditor extends ForgeEditor implements ForgeFindTarget {
   ForgePdfJsEditor({
     required this.uri,
     required this.host,
-    TomPdfJsMode mode = TomPdfJsMode.components,
+    TomPdfJsMode mode = defaultMode,
     this.server,
     this.channelForTesting,
     this.testBaseUri,
@@ -36,6 +36,10 @@ class ForgePdfJsEditor extends ForgeEditor implements ForgeFindTarget {
     _controller = ValueNotifier(_make(mode));
     forgePdfTrail('pdf.js editor for ${host.name} (${mode.name})');
   }
+
+  /// The mode a new tab opens in: `full`, pdf.js's own viewer, with the
+  /// fewest slow frames of the three modes in the evaluation (DPEV-5).
+  static const defaultMode = TomPdfJsMode.full;
 
   @override
   final Uri uri;
@@ -92,7 +96,7 @@ class ForgePdfJsEditor extends ForgeEditor implements ForgeFindTarget {
     _findStatus.value = count == null || _findQuery.isEmpty
         ? ForgeFindStatus.none
         : ForgeFindStatus(current: count.current, total: count.total);
-    _titleExtension.value = controller.mode == TomPdfJsMode.components
+    _titleExtension.value = controller.mode == defaultMode
         ? null
         : 'pdf.js ${controller.mode.name}';
     if (!_states.isClosed) _states.add(null);
@@ -281,15 +285,24 @@ class ForgePdfJsEditor extends ForgeEditor implements ForgeFindTarget {
 
   // ----------------------------------------------------------------- state
 
-  /// The page and pdf.js's scale (`.forge/state/editors/`).
+  /// The mode, the page and pdf.js's scale (`.forge/state/editors/`).
   @override
   Map<String, dynamic>? saveState() {
     final p = controller.viewPosition;
-    return p == null ? null : {'route': 'pdfjs', ...p.toJson()};
+    return {'route': 'pdfjs', 'mode': mode.name, ...?p?.toJson()};
   }
 
+  /// The kept mode first (a reopened tab shows the mode it was left in),
+  /// then the page and scale.
   @override
   void restoreState(Map<String, dynamic> state) {
+    final kept = TomPdfJsMode.values
+        .where((m) => m.name == state['mode'])
+        .firstOrNull;
+    if (kept != null && kept != mode) {
+      forgePdfTrail('pdf.js: restore ${kept.name} mode');
+      setMode(kept);
+    }
     final p = PdfJsViewPosition.fromJson(state);
     if (p == null) return;
     forgePdfTrail('pdf.js: restore $p');

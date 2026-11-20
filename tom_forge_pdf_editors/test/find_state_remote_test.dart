@@ -185,13 +185,17 @@ void main() {
       await tester.pumpAndSettle();
       expect(js.saveState(), {
         'route': 'pdfjs',
+        'mode': 'full',
         'page': 5,
         'scale': 'page-width',
       });
 
-      expect(js.setMode(TomPdfJsMode.full), isTrue);
+      expect(js.setMode(TomPdfJsMode.components), isTrue);
       await tester.pumpAndSettle();
-      expect(page.loads.last.path, endsWith('/pdfjs/web/forge-full.html'));
+      expect(
+        page.loads.last.path,
+        endsWith('/pdfjs/web/forge/components.html'),
+      );
       final calls = page.callNames;
       expect(calls.sublist(calls.lastIndexOf('open')), [
         'open',
@@ -199,6 +203,37 @@ void main() {
         'scrollTo',
       ]);
       expect(page.calls.last.$2, [6]);
+    });
+
+    testWidgets('FPDFJS-STATE-2: a kept state reopens the tab in its mode, '
+        'at its page and scale', (tester) async {
+      final w = Workspace();
+      final a = w.add('/docs/a.pdf');
+      w.module.editorChoicesFor(a)[1].open(a);
+      final js = w.editorOf(a)! as ForgePdfJsEditor;
+      js.restoreState({
+        'route': 'pdfjs',
+        'mode': 'integrated',
+        'page': 2,
+        'scale': '1.5',
+      });
+      expect(js.mode, TomPdfJsMode.integrated);
+      await w.show(tester, js);
+      final page = w.pages.last;
+      expect(
+        page.loads.last.path,
+        endsWith('/pdfjs/web/forge-integrated.html'),
+      );
+      final names = page.callNames;
+      expect(names.sublist(names.lastIndexOf('open')), [
+        'open',
+        'zoom',
+        'scrollTo',
+      ]);
+      expect(js.saveState()!['mode'], 'integrated');
+      // An unknown mode leaves the mode as it is.
+      js.restoreState(const {'mode': 'nonsense'});
+      expect(js.mode, TomPdfJsMode.integrated);
     });
   });
 

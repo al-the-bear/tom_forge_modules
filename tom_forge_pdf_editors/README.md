@@ -7,7 +7,7 @@ editors under *Open With*:
 | Choice id | Editor | What it is |
 | --- | --- | --- |
 | `pdf.pdfium` | `ForgePdfEditor` | the PDFium editor (`tom_pdf_editor`'s `TomPdfEditor`): native rendering, annotations, form filling — the default |
-| `pdf.pdfjs` | `ForgePdfJsEditor` | Mozilla's pdf.js in a webview (`TomPdfJsView`), the comparison route; it opens in `components` mode, and the tab's actions *pdf.js view: components / integrated / full* switch it (DPPJ-5) |
+| `pdf.pdfjs` | `ForgePdfJsEditor` | Mozilla's pdf.js in a webview (`TomPdfJsView`), under *Open With*; it opens in `full` mode, pdf.js's own viewer (`ForgePdfJsEditor.defaultMode`, DPEV-5), and the tab's actions *pdf.js view: components / integrated / full* switch it; a kept view state reopens the tab in its mode |
 
 License: BSD-3-Clause. Not published (`publish_to: none`). Desktop only:
 PDFium over FFI, a local content server for pdf.js.
@@ -55,9 +55,9 @@ is `tom_forge_app`'s.
   editor copies the selected text.
 - **Kept view state.** `saveState` keeps the page, the offset into it and the
   zoom (PDFium; `{route: pdfium, page, offset, zoom}`) or the page and the
-  scale (pdf.js; `{route: pdfjs, page, scale}`); `restoreState` returns a
-  reopened tab there once the document has loaded. A pdf.js mode switch keeps
-  the position.
+  scale and the mode (pdf.js; `{route: pdfjs, mode, page, scale}`);
+  `restoreState` returns a reopened tab there, a pdf.js tab in its mode, once
+  the document has loaded. A pdf.js mode switch keeps the position.
 - **Outside changes.** `replaceContent` answers false, so the shell closes
   and reopens the editor (a new controller, an empty history). When the
   window regains focus, every editor checks its file (`checkExternal`): a
