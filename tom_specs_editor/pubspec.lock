@@ -1510,7 +1510,7 @@ packages:
   tom_mermaid_view:
     dependency: transitive
     description:
-      path: "../tom_mermaid_view"
+      path: "../../tom_ai/modules/tom_mermaid_view"
       relative: true
     source: path
     version: "0.1.0"

@@ -65,8 +65,8 @@ export 'src/text_editing/integrations/md_standalone_integration.dart';
 // YAML Editor Actions
 export 'src/text_editing/yaml_editor_actions.dart';
 
-// Mermaid diagrams (MermaidWebView) are in package:tom_mermaid_view, with
-// the mermaid.js asset and the webview.
+// Mermaid diagrams (MermaidWebView) are in package:tom_mermaid_view
+// (tom_ai/modules), with the mermaid.js asset and the webview.
 
 // Forge Bridge
 export 'src/forge_bridge/forge_document_adapter.dart';

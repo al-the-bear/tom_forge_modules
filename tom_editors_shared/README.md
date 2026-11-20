@@ -43,7 +43,8 @@ package depends on it and re-exports it, so importing
 
 The package has no webview and bundles no diagram renderer: Mermaid diagrams
 (`MermaidWebView`, with mermaid.js and the webview plugin) are in the package
-`tom_mermaid_view`, which only applications that render diagrams take.
+`tom_mermaid_view` (`tom_ai/modules`), which only applications that render
+diagrams take.
 
 A library that needs only the text and editor-contract types the Forge shell shares with its editors
 (`ForgeTextSettings`, `ForgeTextDefaults`, `ForgeTextContext`,
