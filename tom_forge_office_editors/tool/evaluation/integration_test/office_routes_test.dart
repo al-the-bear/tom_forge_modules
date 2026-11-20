@@ -606,9 +606,11 @@ class _LokRoute {
     }
     final after = _footprints(_pids());
     await _closeAll();
-    num peakOf(String key) => [before, ...samples, after]
-        .map((m) => (m[key] as num?) ?? 0)
-        .reduce((a, b) => a > b ? a : b);
+    num peakOf(String key) => [
+      before,
+      ...samples,
+      after,
+    ].map((m) => (m[key] as num?) ?? 0).reduce((a, b) => a > b ? a : b);
     return {
       'minutes': EvalConfig.editMinutes,
       'keystrokes': keys,
@@ -706,7 +708,16 @@ class _LokRoute {
       c.key(VclKey.escape);
       c.key(VclKey.escape);
     } else {
-      c.key(VclKey.home | VclKey.mod1); // the start of the document
+      // Into the body first: _focusDocument taps near the page's top, which
+      // in a letter is its header, and Cmd+Home in a header stays there
+      // (the text export leaves headers out). The middle of the view is the
+      // first page's body.
+      final view = find.byType(TomOfficeDocumentView);
+      if (view.evaluate().isNotEmpty) {
+        await tester.tapAt(tester.getCenter(view.first));
+        await _wait(tester, 400);
+      }
+      c.key(VclKey.home | VclKey.mod1); // the start of the body
       await _wait(tester, 300);
       c.commitText('$evalEditWord ');
     }
