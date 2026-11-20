@@ -43,6 +43,24 @@ void _step(String what) => print('[eval] $what');
 
 int get _now => evalClock.elapsedMicroseconds;
 
+/// When each tile's decode started and ended (the last 4000): the latency
+/// breakdown splits the way from the tile's arrival to its storing into the
+/// wait before the decode starts, the decoder call, and what follows it.
+final _decodes = <({int start, int end})>[];
+
+Future<ui.Image> _timedDecode(
+  Uint8List pixels,
+  int width,
+  int height,
+  OfficePixelFormat format,
+) async {
+  final start = _now;
+  final image = await decodeOfficeTile(pixels, width, height, format);
+  _decodes.add((start: start, end: _now));
+  if (_decodes.length > 4000) _decodes.removeRange(0, 1000);
+  return image;
+}
+
 /// The time of every frame's build since [_recordFrames] (the last 4000).
 final _frameTimes = <int>[];
 var _framesRecorded = false;
@@ -239,7 +257,10 @@ class _LokRoute {
     await _closeAll();
     final controllers = [
       for (final p in paths)
-        TomOfficeEditorController(host: EvalOfficeHost(p, launcher)),
+        TomOfficeEditorController(
+          host: EvalOfficeHost(p, launcher),
+          decoder: _timedDecode,
+        ),
     ];
     _open.addAll(controllers);
     await tester.pumpWidget(LokEvalApp(controllers: controllers));
@@ -364,6 +385,15 @@ class _LokRoute {
     final channel = _channel;
     final total = <num>[], engine = <num>[], dart = <num>[], pipe = <num>[];
     final decode = <num>[], frame = <num>[];
+    final waitBefore = <num>[], decoderCall = <num>[], afterDecode = <num>[];
+    final streamHop = <num>[];
+    final ownPipe = <num>[], olderTiles = <num>[];
+    // When a listener beside the controller's sees each tile: the stream's
+    // own hop from the recording to the listeners.
+    final seen = <int>[];
+    final sub = channel.events.listen((e) {
+      if (e is OfficeTile) seen.add(_now);
+    });
     var missed = 0;
     const letters = 'evaluationkeystrokes';
     // When the tile revision moves (a tile decoded and stored), and when each
@@ -376,7 +406,8 @@ class _LokRoute {
       final from = channel.record.length;
       final tKey = _now;
       c.typeText(letters[i % letters.length]);
-      int? callback, request, tile;
+      int? callback, request, tile, ownRequest;
+      var older = 0;
       // This key's callback, then the first tile requested and received
       // after it.
       final answered = await _within(tester, () {
@@ -394,13 +425,36 @@ class _LokRoute {
             .map((e) => e.us)
             .firstOrNull;
         if (request == null) return false;
-        tile = after
+        // The first tile that answers one of the requests sent after the
+        // callback (by its id): an answer to an older request is one the
+        // controller drops as superseded.
+        final asked = <int, int>{
+          for (final e in after)
+            if (e.sent && e.message is OfficeRenderTile && e.us >= callback!)
+              (e.message as OfficeRenderTile).id: e.us,
+        };
+        final hit = after
             .where(
-              (e) => !e.sent && e.message is OfficeTile && e.us >= request!,
+              (e) =>
+                  !e.sent &&
+                  e.message is OfficeTile &&
+                  asked.containsKey((e.message as OfficeTile).id),
             )
-            .map((e) => e.us)
             .firstOrNull;
-        return tile != null;
+        if (hit == null) return false;
+        tile = hit.us;
+        ownRequest = asked[(hit.message as OfficeTile).id];
+        older = after
+            .where(
+              (e) =>
+                  !e.sent &&
+                  e.message is OfficeTile &&
+                  e.us >= request! &&
+                  e.us < hit.us &&
+                  !asked.containsKey((e.message as OfficeTile).id),
+            )
+            .length;
+        return true;
       }, ms: 3000);
       if (!answered) {
         missed++;
@@ -432,11 +486,24 @@ class _LokRoute {
       engine.add(_ms(callback! - tKey));
       dart.add(_ms(request! - callback!));
       pipe.add(_ms(tile! - request!));
+      ownPipe.add(_ms(tile! - ownRequest!));
+      olderTiles.add(older);
       decode.add(_ms(tRev! - tile!));
       frame.add(_ms(tFrame! - tRev!));
+      // The first decode started after the tile arrived (the controller
+      // decodes a tile as soon as it is handled).
+      final d = _decodes.where((x) => x.start >= tile!).firstOrNull;
+      final s = seen.where((x) => x >= tile!).firstOrNull;
+      if (s != null) streamHop.add(_ms(s - tile!));
+      if (d != null && d.end <= tRev!) {
+        waitBefore.add(_ms(d.start - tile!));
+        decoderCall.add(_ms(d.end - d.start));
+        afterDecode.add(_ms(tRev! - d.end));
+      }
       await _wait(tester, 40);
     }
     c.tileRevision.removeListener(revised);
+    await sub.cancel();
     return {
       'keystrokes': count,
       'without_tile_in_3_s': missed,
@@ -445,7 +512,18 @@ class _LokRoute {
         'key_to_first_callback (LibreOffice)': distribution(engine),
         'callback_to_tile_request (Dart)': distribution(dart),
         'tile_request_to_tile (pipe and rendering)': distribution(pipe),
+        'of which: its own request to the tile': distribution(ownPipe),
+        'older tiles received before it (dropped as superseded)': distribution(
+          olderTiles,
+        ),
         'tile_to_stored (decode)': distribution(decode),
+        'of which: tile_to_decode_start (waiting on the UI isolate)':
+            distribution(waitBefore),
+        'of which: decoder_call': distribution(decoderCall),
+        'the tile seen by a listener beside the controller': distribution(
+          streamHop,
+        ),
+        'of which: decoded_to_stored': distribution(afterDecode),
         'stored_to_frame (the next frame starts)': distribution(frame),
       },
       'measured_by':
