@@ -43,6 +43,22 @@ void _step(String what) => print('[eval] $what');
 
 int get _now => evalClock.elapsedMicroseconds;
 
+/// The time of every frame's build since [_recordFrames] (the last 4000).
+final _frameTimes = <int>[];
+var _framesRecorded = false;
+
+/// Records a timestamp at the start of every frame (a persistent frame
+/// callback runs in each frame's build phase, the frame that paints what
+/// changed before it).
+void _recordFrames() {
+  if (_framesRecorded) return;
+  _framesRecorded = true;
+  SchedulerBinding.instance.addPersistentFrameCallback((_) {
+    _frameTimes.add(_now);
+    if (_frameTimes.length > 4000) _frameTimes.removeRange(0, 1000);
+  });
+}
+
 double _ms(int us) => us / 1000;
 
 Future<void> _until(
@@ -347,9 +363,15 @@ class _LokRoute {
   ) async {
     final channel = _channel;
     final total = <num>[], engine = <num>[], dart = <num>[], pipe = <num>[];
-    final frame = <num>[];
+    final decode = <num>[], frame = <num>[];
     var missed = 0;
     const letters = 'evaluationkeystrokes';
+    // When the tile revision moves (a tile decoded and stored), and when each
+    // frame starts: the tile's way to the screen, without polling for it.
+    _recordFrames();
+    final revisions = <int>[];
+    void revised() => revisions.add(_now);
+    c.tileRevision.addListener(revised);
     for (var i = 0; i < count; i++) {
       final from = channel.record.length;
       final tKey = _now;
@@ -385,18 +407,36 @@ class _LokRoute {
         await _wait(tester, 100);
         continue;
       }
-      // The tile decoded and shown: the revision moves; then the frame.
-      final rev = c.tileRevision.value;
-      await _within(tester, () => c.tileRevision.value != rev, ms: 500);
-      await tester.pump();
-      final tFrame = _now;
-      total.add(_ms(tFrame - tKey));
+      // The tile decoded and stored: the first revision after it; then the
+      // first frame after that, which paints it.
+      int? firstAfter(List<int> times, int t) {
+        for (final x in times) {
+          if (x >= t) return x;
+        }
+        return null;
+      }
+
+      int? tRev, tFrame;
+      final shown = await _within(tester, () {
+        tRev ??= firstAfter(revisions, tile!);
+        if (tRev == null) return false;
+        tFrame = firstAfter(_frameTimes, tRev!);
+        return tFrame != null;
+      }, ms: 3000);
+      if (!shown) {
+        missed++;
+        await _wait(tester, 100);
+        continue;
+      }
+      total.add(_ms(tFrame! - tKey));
       engine.add(_ms(callback! - tKey));
       dart.add(_ms(request! - callback!));
       pipe.add(_ms(tile! - request!));
-      frame.add(_ms(tFrame - tile!));
+      decode.add(_ms(tRev! - tile!));
+      frame.add(_ms(tFrame! - tRev!));
       await _wait(tester, 40);
     }
+    c.tileRevision.removeListener(revised);
     return {
       'keystrokes': count,
       'without_tile_in_3_s': missed,
@@ -405,12 +445,14 @@ class _LokRoute {
         'key_to_first_callback (LibreOffice)': distribution(engine),
         'callback_to_tile_request (Dart)': distribution(dart),
         'tile_request_to_tile (pipe and rendering)': distribution(pipe),
-        'tile_to_frame (decode, build, paint)': distribution(frame),
+        'tile_to_stored (decode)': distribution(decode),
+        'stored_to_frame (the next frame starts)': distribution(frame),
       },
       'measured_by':
-          'the recorded helper channel (the [OE] trail\'s key, callback, '
-          'tile request and tile events, timestamped) and the frame after '
-          'the tile revision changed',
+          'the recorded helper channel (key sent, LibreOffice\'s first '
+          'callback, tile requested, tile received, timestamped), the tile '
+          'revision\'s change (the tile decoded and stored) and the start of '
+          'the first frame after it (a persistent frame callback)',
     };
   }
 
@@ -542,21 +584,41 @@ class _LokRoute {
     final c = await open([EvalConfig.copy('report.docx', 'session')]);
     await _focusDocument(c);
     final before = _footprints(_pids());
-    final end = DateTime.now().add(Duration(minutes: EvalConfig.editMinutes));
+    final start = DateTime.now();
+    final end = start.add(Duration(minutes: EvalConfig.editMinutes));
     var keys = 0;
+    // Every 30 s the footprints are sampled: the session's peak, not only
+    // its end.
+    final samples = <Map<String, Object?>>[];
+    var nextSample = start.add(const Duration(seconds: 30));
     while (DateTime.now().isBefore(end)) {
       c.typeText('w');
       keys++;
       if (keys % 60 == 0) c.key(VclKey.enter);
       await _wait(tester, 200);
+      if (DateTime.now().isAfter(nextSample)) {
+        samples.add({
+          's': DateTime.now().difference(start).inSeconds,
+          ..._footprints(_pids()),
+        });
+        nextSample = nextSample.add(const Duration(seconds: 30));
+      }
     }
     final after = _footprints(_pids());
     await _closeAll();
+    num peakOf(String key) => [before, ...samples, after]
+        .map((m) => (m[key] as num?) ?? 0)
+        .reduce((a, b) => a > b ? a : b);
     return {
       'minutes': EvalConfig.editMinutes,
       'keystrokes': keys,
       'before_mb': before,
       'after_mb': after,
+      'peak_mb': {
+        'forge (this app)': peakOf('forge (this app)'),
+        'total_mb': peakOf('total_mb'),
+      },
+      'samples_every_30_s': samples,
     };
   }
 
@@ -1670,7 +1732,8 @@ class _ZetaRoute {
     );
     out['web_content_process_killed'] = {
       'killed_processes': victims,
-      'killed_by': 'SIGKILL to the webview\'s web content process (as the '
+      'killed_by':
+          'SIGKILL to the webview\'s web content process (as the '
           'system ends one under memory pressure)',
       'forge_running': true,
       'tab_noticed': noticed,

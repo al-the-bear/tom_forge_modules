@@ -8,6 +8,7 @@
 library;
 
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:tom_file_session/io.dart';
@@ -30,7 +31,11 @@ final Stopwatch evalClock = Stopwatch()..start();
 class RecordingHelperChannel implements TomOfficeHelperChannel {
   RecordingHelperChannel(this.inner) {
     _events = inner.events.map((e) {
-      record.add((us: evalClock.elapsedMicroseconds, sent: false, message: e));
+      record.add((
+        us: evalClock.elapsedMicroseconds,
+        sent: false,
+        message: _withoutPixels(e),
+      ));
       if (e is OfficeHello) helperPid = e.pid;
       return e;
     }).asBroadcastStream();
@@ -38,6 +43,28 @@ class RecordingHelperChannel implements TomOfficeHelperChannel {
 
   /// The real channel.
   final TomOfficeHelperChannel inner;
+
+  /// A tile as recorded: its fields without its pixels. The record holds
+  /// every message of a run; with the pixels (about 1 MB a tile at device
+  /// pixel ratio 2) a 10-minute editing session kept tens of GB alive in the
+  /// harness, which its memory measures then counted as Forge's.
+  static OfficeHelperEvent _withoutPixels(OfficeHelperEvent e) =>
+      e is OfficeTile
+      ? OfficeTile(
+          id: e.id,
+          part: e.part,
+          x: e.x,
+          y: e.y,
+          w: e.w,
+          h: e.h,
+          pxW: e.pxW,
+          pxH: e.pxH,
+          format: e.format,
+          pixels: _noPixels,
+        )
+      : e;
+
+  static final _noPixels = Uint8List(0);
 
   /// Every message, in order.
   final record = <EvalHelperEvent>[];
@@ -58,7 +85,11 @@ class RecordingHelperChannel implements TomOfficeHelperChannel {
 
   @override
   void send(OfficeHelperCommand command) {
-    record.add((us: evalClock.elapsedMicroseconds, sent: true, message: command));
+    record.add((
+      us: evalClock.elapsedMicroseconds,
+      sent: true,
+      message: command,
+    ));
     inner.send(command);
   }
 
@@ -180,7 +211,10 @@ class ZetaEvalApp extends StatelessWidget {
   Widget build(BuildContext context) => MaterialApp(
     debugShowCheckedModeBanner: false,
     home: Scaffold(
-      body: TomZetaOfficeView(key: ValueKey(controller), controller: controller),
+      body: TomZetaOfficeView(
+        key: ValueKey(controller),
+        controller: controller,
+      ),
     ),
   );
 }
