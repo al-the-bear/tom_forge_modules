@@ -49,6 +49,19 @@ The scratch folder is `ztmp/office_evaluation_work/` of the workspace (the
 copies, the exports, the references, the drive logs); it is deleted at the
 start of a run unless `--skip-references` or `--skip-drive` is given.
 
+Running the integration test directly (`flutter drive --profile … --target
+integration_test/office_routes_test.dart`) takes these switches as
+`--dart-define`s, for a partial run into a scratch folder of its own:
+
+| Define | Effect |
+| --- | --- |
+| `EVAL_SAMPLES`, `EVAL_RESULTS`, `EVAL_WORK` | the sample folder, the results folder, the scratch folder |
+| `EVAL_RUN` | the run number written (`run-<n>.yaml`); run 1 also takes the one-off measures |
+| `EVAL_ONLY` | the routes: `lok`, `zetaoffice` |
+| `EVAL_MEASURES` | the measures, by name (`open`, `latency`, `scrolling`, `memory`, `roundtrip`, `fidelity`, `screenshots`, `session`, `three`, `crash`, `dialogs`, `features`, `engine`, `page`, `download`); the others are recorded as not selected |
+| `EVAL_FILES` | the files of the fidelity exports and the round trips instead of the core files and older formats: a reduction run over variants of one sample in an `EVAL_SAMPLES` folder of their own (it must also hold `report.docx`, ZetaOffice's start-up probe) |
+| `EVAL_EDIT_MINUTES` | the editing session's length |
+
 ## What it measures
 
 | Measure | `lok` | `zetaoffice` |
