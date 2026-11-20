@@ -327,8 +327,11 @@ def fidelity(route):
     for name in CORE:
         pdf = WORK / "fidelity" / route / f"{name}.pdf"
         if not pdf.exists():
-            result[name] = {"verdict": "fails to open",
-                            "reason": "the route exported no PDF"}
+            # The document may well have opened: the export is what
+            # failed (its reason is in the run's fidelity_exports).
+            result[name] = {"measured": False,
+                            "reason": "the route exported no PDF (see "
+                                      "fidelity_exports for why)"}
             continue
         lo = next((ref / "libreoffice" / name).glob("*.pdf"), None)
         ms = ref / "msoffice" / f"{name}.pdf"
@@ -550,7 +553,9 @@ def du(path):
 def code_lines(paths):
     total = 0
     for root in paths:
-        for f in Path(root).rglob("*"):
+        root = Path(root)
+        # A file counts itself (rglob on a file finds nothing).
+        for f in ([root] if root.is_file() else root.rglob("*")):
             if f.suffix in (".dart", ".js") and f.is_file():
                 for line in f.read_text(errors="replace").splitlines():
                     s = line.strip()
