@@ -1,10 +1,12 @@
 /// The file editors in a Forge shell: the module opens a file in the editor
-/// of its kind over a ForgeFileSession; edits are undone through the
-/// editor's history and make it dirty; the editor saves its own file — the
-/// shell writes nothing — keeping its encoding, byte-order mark and line
-/// endings; a file changed on disk is not written over; a host replaces an
-/// editor, keeps a file for another module, or offers another editor for
-/// some files beside the editor of their kind (Open With).
+/// of its kind over a ForgeFileSession — its own `.env`, todo and text
+/// kinds, and the kinds the application registered, asked in their order
+/// after `.env` and todo files; edits are undone through the editor's
+/// history and make it dirty; the editor saves its own file — the shell
+/// writes nothing; a host replaces an editor, keeps a file for another
+/// module, or offers another editor for some files beside the editor of
+/// their kind (Open With). The Markdown and YAML kinds' own behaviour is
+/// tested in their adapters.
 library;
 
 import 'dart:convert';
@@ -22,16 +24,38 @@ import 'package:tom_forge_shell/tom_forge_shell.dart'
         DefaultLayoutController,
         DefaultModuleRegistry,
         DefaultShellApi,
+        ForgeModule,
         ForgePlainTextEditor,
         TomForgeShellModule;
-import 'package:tom_yaml_editor/tom_yaml_editor.dart' show kYamlEditorDebug;
 
 const _undo = StandardEditingActions.undoActionId;
 const _redo = StandardEditingActions.redoActionId;
 
+/// The editor of a registered kind: a plain-text editor of its own type.
+class _KindEditor extends ForgePlainTextEditor {
+  _KindEditor(this.request)
+    : super(session: request.session, module: request.module as ForgeModule);
+
+  final ForgeFileKindRequest request;
+}
+
+/// A kind the application registers, standing in for an adapter's.
+ForgeKitFileKind _kind(String id, String label, List<String> extensions) =>
+    ForgeKitFileKind(
+      id: id,
+      label: label,
+      icon: Icons.description_outlined,
+      extensions: extensions,
+      create: _KindEditor.new,
+    );
+
+final _markdown = _kind('markdown', 'Markdown Editor', ['md', 'markdown']);
+final _yaml = _kind('yaml', 'YAML Editor', ['yaml', 'yml']);
+
 class _Workspace {
   _Workspace({
-    Map<ForgeFileKind, ForgeFileEditorBuilder> builders = const {},
+    List<ForgeKitFileKind>? kinds,
+    Map<String, ForgeFileEditorBuilder> builders = const {},
     List<ForgeFileEditorAlternative> alternatives = const [],
     bool Function(Uri uri)? claims,
   }) {
@@ -43,6 +67,7 @@ class _Workspace {
     final registry = shell.modules as DefaultModuleRegistry;
     registry.register(TomForgeShellModule()..activate(shell));
     module = ForgeFileEditorsModule(
+      fileKinds: ForgeFileKindRegistry(kinds ?? [_markdown, _yaml]),
       builders: builders,
       alternatives: alternatives,
       claims: claims,
@@ -57,27 +82,28 @@ class _Workspace {
   Future<void> write(String path, List<int> bytes) =>
       fs.write(fs.uriOf(path), Uint8List.fromList(bytes));
 
-  Future<List<int>> read(String path) async => (await fs.read(fs.uriOf(path))).bytes;
+  Future<List<int>> read(String path) async =>
+      (await fs.read(fs.uriOf(path))).bytes;
 
   /// Opens [path] and waits for its editor and its file.
   Future<ForgeEditor> open(WidgetTester tester, String path) async {
     final uri = fs.uriOf(path);
     shell.layout.openFile(uri);
     await tester.pumpAndSettle();
-    final editor = shell.systemState.openEditors.firstWhere((e) => e.uri == uri);
+    final editor = shell.systemState.openEditors.firstWhere(
+      (e) => e.uri == uri,
+    );
     await tester.pumpWidget(
-      MaterialApp(home: Scaffold(body: Builder(builder: editor.buildMain))),
+      MaterialApp(
+        home: Scaffold(body: Builder(builder: editor.buildMain)),
+      ),
     );
     await tester.pumpAndSettle();
     return editor;
   }
 }
 
-List<int> _bom(String text) => [0xEF, 0xBB, 0xBF, ...utf8.encode(text)];
-
 void main() {
-  setUp(() => kYamlEditorDebug = false);
-
   testWidgets('FE-1: each kind opens in its editor, once', (tester) async {
     final w = _Workspace();
     addTearDown(w.shell.dispose);
@@ -85,8 +111,18 @@ void main() {
     await w.write('/b.yaml', utf8.encode('b: 1\n'));
     await w.write('/.env', utf8.encode('KEY=secret\n'));
     await w.write('/c.txt', utf8.encode('c\n'));
-    expect(await w.open(tester, '/a.md'), isA<ForgeMarkdownFileEditor>());
-    expect(await w.open(tester, '/b.yaml'), isA<ForgeYamlFileEditor>());
+    final markdown = await w.open(tester, '/a.md');
+    expect(markdown, isA<_KindEditor>());
+    expect(
+      (markdown as _KindEditor).request.module,
+      isA<TomForgeShellModule>(),
+    );
+    expect(markdown.request.api, same(w.shell));
+    expect(markdown.request.session.path, w.fs.pathOf(w.fs.uriOf('/a.md')));
+    expect(
+      ((await w.open(tester, '/b.yaml')) as _KindEditor).request.session.path,
+      w.fs.pathOf(w.fs.uriOf('/b.yaml')),
+    );
     expect(await w.open(tester, '/.env'), isA<ForgeEnvFileEditor>());
     expect(await w.open(tester, '/c.txt'), isA<ForgePlainTextEditor>());
     final again = await w.open(tester, '/a.md');
@@ -97,55 +133,9 @@ void main() {
     expect(forgeFileKindOf('.env.local'), ForgeFileKind.env);
   });
 
-  testWidgets('FE-2: Markdown — undo, dirty and a save that keeps the BOM '
-      'and the CRLF line endings', (tester) async {
-    final w = _Workspace();
-    addTearDown(w.shell.dispose);
-    await w.write('/a.md', _bom('# A\r\n\r\nfirst\r\n'));
-    final editor = await w.open(tester, '/a.md') as ForgeMarkdownFileEditor;
-    expect(editor.controller.markdown, '# A\n\nfirst\n');
-    expect(editor.getContent(), isNull, reason: 'the shell writes nothing');
-    editor.controller.applyEdit('# A\n\nfirst\nsecond\n');
-    await tester.pump();
-    expect(editor.isDirty.value, isTrue);
-    expect(editor.executeAction(_undo), isTrue);
-    await tester.pump();
-    expect(editor.isDirty.value, isFalse);
-    expect(editor.executeAction(_redo), isTrue);
-    await tester.pump();
-    expect(saveOwnedEditor(editor), isTrue);
-    await tester.pumpAndSettle();
-    expect(await w.read('/a.md'), _bom('# A\r\n\r\nfirst\r\nsecond\r\n'));
-    expect(editor.isDirty.value, isFalse);
-    await tester.pump(const Duration(seconds: 2));
-  });
-
-  testWidgets('FE-3: YAML — an edit saved in place; a file changed on disk is '
-      'not written over until the user keeps theirs', (tester) async {
-    final w = _Workspace();
-    addTearDown(w.shell.dispose);
-    await w.write('/b.yaml', utf8.encode('b: 1\n'));
-    final editor = await w.open(tester, '/b.yaml') as ForgeYamlFileEditor;
-    editor.controller.textMode = true;
-    editor.controller.editSource('b: 2\n', const TextSelection.collapsed(offset: 4));
-    await w.write('/b.yaml', utf8.encode('b: 3\n'));
-    await tester.pumpAndSettle();
-    expect(editor.executeAction(StandardEditingActions.saveActionId), isTrue);
-    await tester.pumpAndSettle();
-    expect(utf8.decode(await w.read('/b.yaml')), 'b: 3\n');
-    expect(find.byKey(const Key('forge-file-changed-on-disk')), findsOneWidget);
-    expect(editor.isDirty.value, isTrue);
-    await tester.tap(find.text('Keep mine'));
-    await tester.pumpAndSettle();
-    expect(editor.executeAction(StandardEditingActions.saveActionId), isTrue);
-    await tester.pumpAndSettle();
-    expect(utf8.decode(await w.read('/b.yaml')), 'b: 2\n');
-    expect(editor.isDirty.value, isFalse);
-    await tester.pump(const Duration(seconds: 2));
-  });
-
-  testWidgets('FE-4: .env — the session is the history; a save writes it',
-      (tester) async {
+  testWidgets('FE-4: .env — the session is the history; a save writes it', (
+    tester,
+  ) async {
     final w = _Workspace();
     addTearDown(w.shell.dispose);
     await w.write('/.env', utf8.encode('KEY=secret\n'));
@@ -171,7 +161,7 @@ void main() {
     ForgeEditor? built;
     final w = _Workspace(
       builders: {
-        ForgeFileKind.markdown: (session, _, module) =>
+        _markdown.id: (session, _, module) =>
             built = ForgePlainTextEditor(session: session, module: module),
       },
       claims: (uri) => !uri.path.endsWith('.skip'),
@@ -212,9 +202,9 @@ void main() {
     await w.write('/b.yaml', utf8.encode('b: 1\n'));
     final spec = w.fs.uriOf('/a.spec.yaml');
 
-    expect(w.module.editorChoicesFor(w.fs.uriOf('/b.yaml')).map((c) => c.id),
-        ['yaml'],
-        reason: 'no alternative matches it');
+    expect(w.module.editorChoicesFor(w.fs.uriOf('/b.yaml')).map((c) => c.id), [
+      'yaml',
+    ], reason: 'no alternative matches it');
     final choices = w.module.editorChoicesFor(spec);
     expect(choices.map((c) => (c.id, c.label)), [
       ('yaml', 'YAML Editor'),
@@ -224,8 +214,10 @@ void main() {
     // The shell's Open With shows the choice.
     final layout = w.shell.layout as DefaultLayoutController;
     await layout.openFileWith(spec);
-    expect(layout.pendingEditorChoice.value?.$2.map((c) => c.id),
-        ['yaml', 'spec']);
+    expect(layout.pendingEditorChoice.value?.$2.map((c) => c.id), [
+      'yaml',
+      'spec',
+    ]);
 
     layout.resolveEditorChoice(choices[1], spec);
     await tester.pumpAndSettle();
@@ -240,7 +232,7 @@ void main() {
     // The editor of its kind is its own editor beside it.
     choices[0].open(spec);
     await tester.pumpAndSettle();
-    expect(w.shell.systemState.activeEditor, isA<ForgeYamlFileEditor>());
+    expect(w.shell.systemState.activeEditor, isA<_KindEditor>());
     expect(
       w.shell.systemState.openEditors.where((e) => e.uri == spec),
       hasLength(2),
@@ -262,19 +254,23 @@ void main() {
     addTearDown(tester.view.reset);
     final w = _Workspace();
     addTearDown(w.shell.dispose);
-    const todos = 'quest: garden\ntodos:\n'
+    const todos =
+        'quest: garden\ntodos:\n'
         '  - id: gx1_ajka-plant\n    title: Plant\n    description: d\n'
         '    status: not-started\n';
     await w.write('/q/todos.garden.todo.yaml', utf8.encode(todos));
     await w.write(
       '/o/more.garden.todo.yaml',
-      utf8.encode('quest: garden\ntodos:\n'
-          '  - id: sx1_ajka-ask\n    title: Ask\n    description: d\n'
-          '    status: not-started\n'),
+      utf8.encode(
+        'quest: garden\ntodos:\n'
+        '  - id: sx1_ajka-ask\n    title: Ask\n    description: d\n'
+        '    status: not-started\n',
+      ),
     );
     expect(forgeFileKindOf('todos.garden.todo.yaml'), ForgeFileKind.todoFile);
     final editor =
-        await w.open(tester, '/q/todos.garden.todo.yaml') as ForgeTodoFileEditor;
+        await w.open(tester, '/q/todos.garden.todo.yaml')
+            as ForgeTodoFileEditor;
     expect(find.byKey(const Key('tom-todo-file-editor')), findsOneWidget);
     expect(find.text('Board'), findsNothing, reason: 'Forge has no board');
 
@@ -296,12 +292,59 @@ void main() {
 
     await tester.tap(find.text('All files'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('tom-todo-aggregate-row-sx1_ajka-ask')));
+    await tester.tap(
+      find.byKey(const Key('tom-todo-aggregate-row-sx1_ajka-ask')),
+    );
     await tester.pumpAndSettle();
     final other = w.shell.systemState.openEditors
         .whereType<ForgeTodoFileEditor>()
         .firstWhere((e) => e.uri == w.fs.uriOf('/o/more.garden.todo.yaml'));
     expect(other.selection, 'sx1_ajka-ask');
+    await tester.pump(const Duration(seconds: 2));
+  });
+
+  testWidgets('FE-8: without registered kinds Markdown and YAML open as plain '
+      'text; .env and todo files stay this package\'s whatever is registered', (
+    tester,
+  ) async {
+    final bare = _Workspace(kinds: const []);
+    addTearDown(bare.shell.dispose);
+    await bare.write('/a.md', utf8.encode('# A\n'));
+    final text = await bare.open(tester, '/a.md');
+    expect(text, isA<ForgePlainTextEditor>());
+    expect(text, isNot(isA<_KindEditor>()));
+    expect(
+      bare.module.editorChoicesFor(bare.fs.uriOf('/a.md')).map((c) => c.id),
+      ['text'],
+    );
+
+    // A kind that would take every YAML and .env file: the module's own
+    // kinds are asked first.
+    final w = _Workspace(
+      kinds: [
+        _kind('greedy', 'Greedy', ['todo.yaml', 'env', 'yaml']),
+      ],
+    );
+    addTearDown(w.shell.dispose);
+    await w.write('/x.env', utf8.encode('KEY=1\n'));
+    await w.write('/q/todos.garden.todo.yaml', utf8.encode('todos: []\n'));
+    await w.write('/c.yaml', utf8.encode('c: 1\n'));
+    expect(w.module.editorFor(w.fs.uriOf('/x.env')), isA<ForgeEnvFileEditor>());
+    expect(
+      w.module.editorFor(w.fs.uriOf('/q/todos.garden.todo.yaml')),
+      isA<ForgeTodoFileEditor>(),
+    );
+    expect(w.module.editorFor(w.fs.uriOf('/c.yaml')), isA<_KindEditor>());
+    expect(
+      w.module.editorChoicesFor(w.fs.uriOf('/c.yaml')).map((c) => c.label),
+      ['Greedy'],
+    );
+    // A kind registered later is asked too.
+    w.module.fileKinds.register(_kind('notes', 'Notes', ['notes']));
+    await w.write('/d.notes', utf8.encode('d\n'));
+    expect(w.module.editorChoicesFor(w.fs.uriOf('/d.notes')).map((c) => c.id), [
+      'notes',
+    ]);
     await tester.pump(const Duration(seconds: 2));
   });
 }

@@ -26,7 +26,9 @@
 /// - **Focus:** [ForgeFocusIndicator] (keyboard focus, or the kit's focused
 ///   component with [ForgeFocusIndicator.kit]).
 /// - **Editors:** [ForgeEditorSurface] shows any [ForgeEditor] connected to
-///   the kit: its state, its keys, undo, redo, the clipboard and find.
+///   the kit: its state, its keys, undo, redo, the clipboard and find;
+///   [ForgeSessionFileFrame] draws the state of a file an editor reads and
+///   saves through the kit's `ForgeSessionFile` above the editor.
 ///
 /// It depends on Flutter, `tom_ui_support`, `tom_forge_core` and
 /// `tom_forge_kit` only, so a package that needs Forge's look — Webwork, a
@@ -44,6 +46,7 @@ export 'src/action_bar/forge_action_item.dart';
 export 'src/command_list/forge_command_list.dart';
 export 'src/context_menu/forge_context_menu.dart';
 export 'src/editor_surface/forge_editor_surface.dart';
+export 'src/editor_surface/forge_session_file_frame.dart';
 export 'src/forge_animations.dart';
 export 'src/forge_dimensions.dart';
 export 'src/forge_fixed_listenable.dart';

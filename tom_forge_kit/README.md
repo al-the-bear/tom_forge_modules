@@ -59,6 +59,25 @@ window. The editor adapters export theirs (`forgeMarkdownEditorType` in
 `forgeYamlEditorType` in `tom_forge_yaml_editor`); the panel shell takes them
 through `ForgeShellComponents.editorTypes`.
 
+## File kinds
+
+`ForgeKitFileKind` is one kind of file a module opens over a
+`ForgeFileSession` (`tom_file_session`, re-exported): an id (the **Open With**
+choice's, the key a host's replacement editor is given under), a label and an
+icon for **Open With**, the file extensions it takes and a factory taking a
+`ForgeFileKindRequest` — the session, the module and the application's
+`ForgeKitApi`. The application keeps the kinds it takes in a
+`ForgeFileKindRegistry` (asked in order, the first match taking the file; a
+kind registered again under its id replaces the old one in place) and hands it
+to its file module; nothing registers itself on import. The Markdown and YAML
+adapters export theirs (`forgeMarkdownFileKind`, `forgeYamlFileKind`).
+
+`ForgeSessionFile` binds an editor's controller, which keeps the one history,
+to its session, which carries the bytes: loaded once, `\n` line endings in the
+editor and CRLF kept on save, a save that checks the disk first (`canSave`,
+`save`, `keepMine`, `takeTheirs`, `replaceWith`). `tom_forge_shared_ui`'s
+`ForgeSessionFileFrame` draws its state.
+
 An editor reaches the application through the API it is given, or the one its
 module was activated with: `forgeKitApiOf(module)` answers it for a module
 that implements `ForgeKitApiProvider` (the panel shell's own module does).

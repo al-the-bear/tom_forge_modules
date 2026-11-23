@@ -2,6 +2,8 @@
 
 ## 0.2.0 (unreleased)
 
+- `ForgeSessionFileFrame`: the state of a file an editor reads and saves
+  through the kit's `ForgeSessionFile`, drawn above the editor.
 - The package draws the models of `tom_forge_kit` and depends on it; it
   imposes no layout, and every element works without the panel shell.
 - Action bar: `ForgeKitActionBar(api:, model:)` over a

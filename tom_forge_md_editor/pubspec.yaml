@@ -20,6 +20,10 @@ dependencies:
   # action integration (ShellEditorIntegration). Never the shell (R9).
   tom_forge_kit:
     path: ../tom_forge_kit
+  # The frame a file kind's editor shows the state of its file in
+  # (ForgeSessionFileFrame).
+  tom_forge_shared_ui:
+    path: ../tom_forge_shared_ui
   # Diagnostics, text positions and options.
   tom_forge_core:
     path: ../tom_forge_core
@@ -31,3 +35,10 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  # Test support only: Forge's undo conformance harness with the file kind
+  # test bed (it brings the panel shell to the suites, never to the
+  # adapter), and the file kind editor's undo subject.
+  tom_forge_ui_testing:
+    path: ../tom_forge_ui_testing
+  tom_forge_md_editor_testing:
+    path: ../tom_forge_md_editor_testing

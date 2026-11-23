@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart';
-import 'package:tom_file_session/tom_file_session.dart';
 import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_forge_kit/tom_forge_kit.dart';

@@ -10,8 +10,6 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_dart_editor/tom_dart_editor.dart' show DartCodeController;
-import 'package:tom_file_session/tom_file_session.dart'
-    show ForgeFileSaveOutcome;
 import 'package:tom_forge_ui_testing/tom_forge_ui_testing.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 import 'package:tom_md_editor/tom_md_editor.dart'

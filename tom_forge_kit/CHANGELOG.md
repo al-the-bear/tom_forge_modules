@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- File kinds: `ForgeKitFileKind` (an id, a label and icon for Open With, the
+  extensions and a factory taking a `ForgeFileKindRequest`: the session, the
+  module, the application's API) and `ForgeFileKindRegistry`, which the
+  application fills and hands its file module. `ForgeSessionFile` binds an
+  editor's controller to its `ForgeFileSession`; the kit re-exports
+  `ForgeFileSession`, `ForgeFileSessionState`, `ForgeFileSaveOutcome` and
+  `forgeReadOnlyAbove` from `tom_file_session` (a new dependency).
 - Editor types without layout: `ForgeKitEditorType` (an id, a name, the file
   extensions it opens by default and a factory) and `ForgeKitEditorRequest`
   (the file, its content, the module, the application's API, its file system

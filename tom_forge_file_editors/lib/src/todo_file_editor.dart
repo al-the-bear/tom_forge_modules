@@ -4,11 +4,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:tom_basics/utilities.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart';
-import 'package:tom_file_session/tom_file_session.dart';
 import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_forge_core/tom_forge_core.dart' show FileHandlingResult;
 import 'package:tom_forge_kit/tom_forge_kit.dart';
-import 'package:tom_file_editors/tom_file_editors.dart';
+// The session-file binding and frame are Forge's (the kit's and
+// tom_forge_shared_ui's), shared with the Markdown and YAML file kinds.
+import 'package:tom_file_editors/tom_file_editors.dart'
+    hide ForgeSessionFile, ForgeSessionFileFrame;
+import 'package:tom_forge_shared_ui/tom_forge_shared_ui.dart'
+    show ForgeSessionFileFrame;
 import 'package:tom_todo_ui/tom_todo_ui.dart';
 
 import 'protected_clipboard.dart';
@@ -201,9 +205,7 @@ class _ForgeTodoFileHost implements TomTodoFileEditorHost {
   );
 
   @override
-  late final TomTodoRelocator relocator = TomTodoRelocator(
-    clock: editor.clock,
-  );
+  late final TomTodoRelocator relocator = TomTodoRelocator(clock: editor.clock);
 
   @override
   DateTime Function() get clock => editor.clock;
@@ -250,9 +252,9 @@ class _ForgeTodoFileHost implements TomTodoFileEditorHost {
     if (manager != null) {
       unawaited(manager.showInformation(message));
     } else {
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+      ScaffoldMessenger.maybeOf(
+        context,
+      )?.showSnackBar(SnackBar(content: Text(message)));
     }
   }
 

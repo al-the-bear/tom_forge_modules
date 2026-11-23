@@ -1,9 +1,15 @@
 # Tom Forge File Editors Testing
 
-Test support for `tom_forge_file_editors`: the file editors (Markdown, YAML, plain text, .env, todo files) as undo subjects ForgeMarkdownFileSubject, ForgeYamlFileSubject, ForgeTextFileSubject, ForgeEnvFileSubject and ForgeTodoFileSubject. They describe how to drive each editor
-for Forge's undo conformance harness (`tom_forge_ui_testing`), so the module's
-own suite and an application's suite (e.g. `tom_forge_app`'s, through the
-module it composes) run the same checks.
+Test support for `tom_forge_file_editors`: the light file editors (plain
+text, `.env`, todo files) as undo subjects `ForgeTextFileSubject`,
+`ForgeEnvFileSubject` and `ForgeTodoFileSubject`. They describe how to drive
+each editor for Forge's undo conformance harness (`tom_forge_ui_testing`), so
+the module's own suite and an application's suite (e.g. `tom_forge_app`'s,
+through the module it composes) run the same checks.
+
+The Markdown and YAML file kinds live in their adapters, and so do their
+subjects: `tom_forge_md_editor_testing` (`ForgeMarkdownFileSubject`) and
+`tom_forge_yaml_editor_testing` (`ForgeYamlFileSubject`).
 
 It depends on `flutter_test`, so it is a package of its own and is taken only
 in `dev_dependencies`:

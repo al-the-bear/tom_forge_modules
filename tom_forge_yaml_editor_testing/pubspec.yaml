@@ -1,0 +1,32 @@
+name: tom_forge_yaml_editor_testing
+description: >-
+  Test support for tom_forge_yaml_editor: the YAML file kind's editor
+  (ForgeYamlFileEditor) as the undo subject ForgeYamlFileSubject, for Forge's
+  undo conformance harness (tom_forge_ui_testing). Test-only: suites take it
+  as a dev_dependency; nothing a product links depends on it.
+  License: BSD-3-Clause.
+publish_to: none
+version: 0.1.0
+repository: https://github.com/al-the-bear/tom_forge
+
+environment:
+  sdk: ^3.11.0
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_test:
+    sdk: flutter
+  # The adapter whose file kind's editor the subject drives.
+  tom_forge_yaml_editor:
+    path: ../tom_forge_yaml_editor
+  # The save outcome the subject checks (ForgeFileSaveOutcome).
+  tom_forge_kit:
+    path: ../tom_forge_kit
+  # Forge's undo conformance harness.
+  tom_forge_ui_testing:
+    path: ../tom_forge_ui_testing
+
+dev_dependencies:
+  flutter_lints: ^6.0.0

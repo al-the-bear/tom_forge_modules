@@ -1,13 +1,12 @@
-/// The five file editors under Forge's undo conformance harness, with no
-/// check skipped: the Markdown and YAML editors (their controllers keep the
-/// history), the plain-text, `.env` and todo-file editors (the file session
-/// keeps it).
+/// The three light file editors under Forge's undo conformance harness,
+/// with no check skipped: the plain-text, `.env` and todo-file editors (the
+/// file session keeps the history). The Markdown and YAML file kinds run the
+/// harness in their adapters (`tom_forge_md_editor`, `tom_forge_yaml_editor`).
 /// Save saves through the session. The subjects are the package's
 /// (`testing.dart`), so an app composing the editors runs the same checks.
 library;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_file_session/tom_file_session.dart';
 import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_forge_file_editors_testing/tom_forge_file_editors_testing.dart';
@@ -15,7 +14,6 @@ import 'package:tom_forge_file_editors/tom_forge_file_editors.dart';
 import 'package:tom_forge_ui_testing/tom_forge_ui_testing.dart';
 import 'package:tom_forge_shell/tom_forge_shell.dart'
     show DefaultShellApi, ForgePlainTextEditor, TomForgeShellModule;
-import 'package:tom_yaml_editor/tom_yaml_editor.dart' show kYamlEditorDebug;
 
 TomForgeShellModule _module() => TomForgeShellModule()
   ..activate(
@@ -33,26 +31,6 @@ ForgeFileSession _session(String name, String text) {
 }
 
 void main() {
-  setUp(() => kYamlEditorDebug = false);
-
-  runForgeUndoConformance(
-    'Markdown file editor',
-    (saved) => ForgeMarkdownFileSubject(
-      ForgeMarkdownFileEditor(
-        session: _session('notes.md', saved),
-        module: _module(),
-      ),
-    ),
-  );
-  runForgeUndoConformance(
-    'YAML file editor',
-    (saved) => ForgeYamlFileSubject(
-      ForgeYamlFileEditor(
-        session: _session('config.yaml', saved),
-        module: _module(),
-      ),
-    ),
-  );
   runForgeUndoConformance(
     'text file editor',
     (saved) => ForgeTextFileSubject(

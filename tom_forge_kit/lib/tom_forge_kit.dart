@@ -22,6 +22,10 @@
 ///   [ForgeSharedPreferencesStateStore], [ForgeFileStateStore]), written
 ///   once per gesture and never before the start's restore
 ///   ([ForgeCoalescedStateWriter]).
+/// - **Files:** the kinds of file a module opens over a [ForgeFileSession]
+///   ([ForgeKitFileKind], kept in a [ForgeFileKindRegistry] the application
+///   fills) and the binding of an editor's controller to its session
+///   ([ForgeSessionFile]).
 /// - **Defaults:** [DefaultKitApi] and [DefaultKitState] for a host that is
 ///   not the panel shell, the default services, [ForgeAutosaveController].
 ///
@@ -45,6 +49,19 @@ export 'src/components/forge_surface_editor.dart';
 export 'src/components/forge_text_editor.dart';
 export 'src/components/forge_view.dart';
 export 'src/components/forge_visual_editor.dart';
+
+// ── Files ──
+// The session a file editor reads and saves its file through
+// (tom_file_session), the binding of an editor's controller to it, and the
+// file kinds a module opens files with.
+export 'package:tom_file_session/tom_file_session.dart'
+    show
+        ForgeFileSaveOutcome,
+        ForgeFileSession,
+        ForgeFileSessionState,
+        forgeReadOnlyAbove;
+export 'src/files/forge_file_kind.dart';
+export 'src/files/forge_session_file.dart';
 
 // ── Kit ──
 export 'src/kit/default_kit_api.dart';

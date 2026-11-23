@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- The YAML file kind `forgeYamlFileKind` (a `ForgeKitFileKind`) and its editor
+  `ForgeYamlFileEditor`, moved here from `tom_forge_file_editors`: the editor
+  over a `ForgeFileSession`, bound through the kit's `ForgeSessionFile` and
+  framed by `tom_forge_shared_ui`'s `ForgeSessionFileFrame`, now also taking
+  the application's `ForgeKitApi` (`api:`). An application registers the
+  kind with its file module; nothing registers itself on import. The undo
+  conformance run moved with it; its subject is in `tom_forge_yaml_editor_testing`.
+- Depends on `tom_forge_shared_ui`.
+
 ## 0.1.0
 
 - `ForgeYamlEditor` and its editor type `forgeYamlEditorType`, moved out of

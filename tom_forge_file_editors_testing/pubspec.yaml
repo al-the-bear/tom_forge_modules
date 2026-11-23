@@ -1,6 +1,6 @@
 name: tom_forge_file_editors_testing
 description: >-
-  Test support for tom_forge_file_editors: the file editors (Markdown, YAML, plain text, .env, todo files) as undo subjects ForgeMarkdownFileSubject, ForgeYamlFileSubject, ForgeTextFileSubject, ForgeEnvFileSubject and ForgeTodoFileSubject, for Forge's undo conformance harness
+  Test support for tom_forge_file_editors: the light file editors (plain text, .env, todo files) as undo subjects ForgeTextFileSubject, ForgeEnvFileSubject and ForgeTodoFileSubject, for Forge's undo conformance harness
   (tom_forge_ui_testing). Test-only: suites take it as a dev_dependency;
   nothing a product links depends on it. License: BSD-3-Clause.
 publish_to: none
@@ -29,9 +29,6 @@ dependencies:
   # The file sessions the subjects save through.
   tom_file_session:
     path: ../../tom_ai/modules/tom_file_session
-  # The Markdown raw view the Markdown subject types into.
-  tom_md_editor:
-    path: ../tom_md_editor
   # The todo file's source view the todo subject types into.
   tom_todo_ui:
     path: ../../tom_ai/modules/tom_todo_ui

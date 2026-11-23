@@ -24,6 +24,9 @@ dependencies:
   # The document and text contracts of the test document and editor.
   tom_forge_core:
     path: ../tom_forge_core
+  # The in-memory file system of the file kind test bed.
+  tom_file_system:
+    path: ../../tom_ai/basics/tom_file_system
   # StandardEditingActions and the typing pause the harness uses.
   tom_editors_shared:
     path: ../tom_editors_shared

@@ -35,6 +35,7 @@ element out.
 | Menus | `ForgeMenuModel.of(api, location)`: the actions of a `ForgeMenuLocation` by group, with separators | `ForgeMenuButton(api:, location:)` (a menu anchor, no menu bar imposed); `forgeMenuChildren(api, model)` for an application's own `MenuBar` |
 | Command list | `ForgeCommandListModel.of(api, query:)` | `ForgeCommandList(api:, onRun:)`: a filter field and the matching actions with their keys; arrows, Enter or a click run one through `api.executeAction` — a body a palette, a dialog or a side area hosts |
 | Editor | any `ForgeEditor` | `ForgeEditorSurface(api:, editor:)`, below |
+| File state | the kit's `ForgeSessionFile` (an editor's controller bound to its `ForgeFileSession`) | `ForgeSessionFileFrame(file:, child:)`: the editor with the file's state above it — loading, not readable, a refusal, read-only, deleted on disk, or changed on disk with *Keep mine* / *Take theirs* |
 
 The earlier constructors stay: `ForgeActionBar(groups:)` over
 `ForgeActionGroup`s of `ForgeActionItem`s, `ForgeStatusBar` over

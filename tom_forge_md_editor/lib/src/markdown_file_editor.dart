@@ -3,24 +3,34 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart'
     show StandardEditingActions;
-import 'package:tom_file_session/tom_file_session.dart';
-import 'package:tom_forge_yaml_editor/tom_forge_yaml_editor.dart';
-import 'package:tom_yaml_editor/tom_yaml_editor.dart';
-import 'package:tom_file_editors/tom_file_editors.dart'
-    show ForgeSessionFile, ForgeSessionFileFrame;
+import 'package:tom_forge_kit/tom_forge_kit.dart'
+    show ForgeFileSession, ForgeSessionFile;
+import 'package:tom_forge_shared_ui/tom_forge_shared_ui.dart'
+    show ForgeSessionFileFrame;
+import 'package:tom_md_editor/tom_md_editor.dart';
 
-/// A YAML file in Forge's YAML editor (tree and source, schema-aware), read
-/// and saved through its [ForgeFileSession]: the controller keeps the one
-/// history over the source text, the session the bytes. The editor saves its
-/// own file, and a file changed on disk is not written over.
-class ForgeYamlFileEditor extends ForgeYamlEditor {
-  ForgeYamlFileEditor({required this.session, required super.module})
-    : super(controller: YamlEditorController(uri: session.uri)) {
+import 'forge_md_editor.dart';
+
+/// A Markdown file in Forge's Markdown editor, read and saved through its
+/// [ForgeFileSession]: the editor's controller keeps the one history (and
+/// the reviews: guarded line edits, CriticMarkup marks, comments), the
+/// session the bytes. The editor saves its own file — the application hands
+/// it the save and never writes it — and a file changed on disk is not
+/// written over.
+class ForgeMarkdownFileEditor extends ForgeMdEditor {
+  ForgeMarkdownFileEditor({
+    required this.session,
+    required super.module,
+    super.api,
+  }) : super(controller: MdEditorController(uri: session.uri)) {
     file = ForgeSessionFile(
       session: session,
-      textOf: () => controller.sourceText,
+      textOf: () {
+        controller.flush();
+        return controller.markdown;
+      },
       adopt: controller.replaceContent,
-      markSaved: controller.markClean,
+      markSaved: controller.markSaved,
     );
   }
 
@@ -37,9 +47,11 @@ class ForgeYamlFileEditor extends ForgeYamlEditor {
   @override
   Widget buildCopy(BuildContext context) => buildMain(context);
 
+  /// The session saves the file; the application has no text to write.
   @override
   String? getContent() => null;
 
+  /// The application never marks it clean: the save does.
   @override
   void markClean() {}
 
