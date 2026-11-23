@@ -2,6 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart';
+import 'package:tom_file_editors/tom_file_editors.dart'
+    show
+        TomTextMarker,
+        TomTextMarkerSeverity,
+        TomTextSource,
+        TomTextSourceState;
 import 'package:yaml/yaml.dart';
 
 import 'dart:async';
@@ -16,7 +22,7 @@ import 'model/yaml_document_model.dart';
 import 'model/yaml_edit_operation.dart';
 import 'schema/schema_marker_generator.dart';
 import 'schema/schema_walker.dart';
-import 'text_editor/yaml_syntax_highlighter.dart';
+import 'text_editor/yaml_source_view.dart';
 import 'tree/editor_trail.dart';
 import 'tree/list_node_row.dart';
 import 'tree/map_node_row.dart';
@@ -159,8 +165,12 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
 
   bool _textInputFocused = false;
   /// Diagnostics of the source text, recomputed when it changes.
-  List<TextMarker> _textMarkers = const [];
+  List<TomTextMarker> _textMarkers = const [];
   String? _markersFor;
+
+  /// The source view of text mode, which the editing actions reach.
+  final GlobalKey<TomTextSourceState> _sourceKey =
+      GlobalKey<TomTextSourceState>();
 
   bool get _textMode => widget.controller.textMode;
 
@@ -258,6 +268,14 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
         StandardEditingActions.redoActionId,
         () => widget.controller.redo(),
         isEnabled: () => widget.controller.canRedo,
+      );
+      // The clipboard and line edits run on the source view while text mode
+      // shows it.
+      registerYamlSourceActions(
+        _integration,
+        source: _sourceKey,
+        shown: () => mounted && _textMode,
+        editable: () => !widget.readOnly,
       );
       _buildShortcutMap();
       trailEvent('registerActions: done');
@@ -427,7 +445,7 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
   }
 
   /// The markers for the source text, recomputed when it changed.
-  List<TextMarker> get _sourceMarkers {
+  List<TomTextMarker> get _sourceMarkers {
     final text = widget.controller.sourceText;
     if (_markersFor != text) {
       _markersFor = text;
@@ -436,7 +454,7 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
     return _textMarkers;
   }
 
-  ({String? parseError, List<TextMarker> markers}) _computeTextDiagnostics(
+  ({String? parseError, List<TomTextMarker> markers}) _computeTextDiagnostics(
     String text,
   ) {
     if (text.isEmpty) return (parseError: null, markers: const []);
@@ -458,11 +476,11 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
       return (
         parseError: error.toString(),
         markers: [
-          TextMarker(
+          TomTextMarker(
             start: start,
             end: end,
             message: error.toString(),
-            type: TextMarkerType.error,
+            severity: TomTextMarkerSeverity.error,
             line: line,
             column: column,
           ),
@@ -1031,67 +1049,26 @@ class _YamlSchemaEditorState extends State<YamlSchemaEditor> {
   }
 
   Widget _buildTextModeEditor(YamlEditorTheme theme) {
-    final textEditorTheme = TextEditorTheme(
-      background: theme.colors.background,
-      textStyle: TextStyle(
-        fontFamily: 'monospace',
-        fontFamilyFallback: const [
-          'JetBrains Mono',
-          'Menlo',
-          'Monaco',
-          'Courier New',
-        ],
-        fontSize: theme.fonts.valueFontSize,
-        color: theme.colors.valueColor,
-        height: 1.4,
-      ),
-      lineNumberStyle: TextStyle(
-        fontFamily: 'monospace',
-        fontFamilyFallback: const [
-          'JetBrains Mono',
-          'Menlo',
-          'Monaco',
-          'Courier New',
-        ],
-        fontSize: theme.fonts.valueFontSize,
-        color: theme.colors.hintColor,
-        height: 1.4,
-      ),
-      gutterBackground: theme.colors.surface,
-      gutterBorderColor: theme.colors.separatorColor.withAlpha(80),
-    );
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Expanded(
-          child: TextEditorCore(
+          child: TomTextSource(
+            key: _sourceKey,
             text: widget.controller.sourceText,
             selection: widget.controller.sourceSelection,
-            highlighter: YamlSyntaxHighlighter(
-              colors: YamlHighlightColors(
-                key: theme.colors.keyColor,
-                string: theme.colors.valueColor,
-                number: theme.colors.numberColor,
-                boolean: theme.colors.boolColor,
-                nullValue: theme.colors.nullColor,
-                comment: theme.colors.commentColor,
-                punctuation: theme.structureColors.collapseIcon,
-                colon: theme.colors.warningColor,
-                dash: theme.colors.boolColor,
-                bracket: theme.colors.numberColor,
-              ),
-            ),
+            highlighter: yamlSourceHighlighter(theme),
             markers: _sourceMarkers,
             onValueChanged: widget.readOnly
                 ? null
-                : (value) => widget.controller
-                    .editSource(value.text, value.selection),
+                : (value) =>
+                    widget.controller.editSource(value.text, value.selection),
             onSelectionChanged: _onSourceSelectionChanged,
             readOnly: widget.readOnly,
-            theme: textEditorTheme,
-            integration: _integration,
-            commentPrefix: '# ',
+            style: yamlSourceStyle(theme),
+            // The undo and redo keys reach the document's history through
+            // the editor's key map (or the shell's), not the source's own.
+            handleHistoryKeys: false,
           ),
         ),
         if (widget.controller.parseError != null)

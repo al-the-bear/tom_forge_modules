@@ -17,6 +17,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "14.7.0"
+  args:
+    dependency: transitive
+    description:
+      name: args
+      sha256: d0481093c50b1da8910eb0bb301626d4d8eb7284aa739614d2b394ee09e3ea04
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.7.0"
   async:
     dependency: transitive
     description:
@@ -147,6 +155,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.1.2"
+  json_schema:
+    dependency: transitive
+    description:
+      name: json_schema
+      sha256: f37d9c3fdfe8c9aae55fdfd5af815d24ce63c3a0f6a2c1f0982c30f43643fa1a
+      url: "https://pub.dev"
+    source: hosted
+    version: "5.2.2"
   leak_tracker:
     dependency: transitive
     description:
@@ -179,6 +195,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "5.1.1"
+  logging:
+    dependency: transitive
+    description:
+      name: logging
+      sha256: c8245ada5f1717ed44271ed1c26b8ce85ca3228fd2ffdb75468ab01979309d61
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.3.0"
+  markdown:
+    dependency: transitive
+    description:
+      name: markdown
+      sha256: ee85086ad7698b42522c6ad42fe195f1b9898e4d974a1af4576c1a3a176cada9
+      url: "https://pub.dev"
+    source: hosted
+    version: "7.3.1"
   matcher:
     dependency: transitive
     description:
@@ -227,6 +259,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.2.1"
+  quiver:
+    dependency: transitive
+    description:
+      name: quiver
+      sha256: ea0b925899e64ecdfbf9c7becb60d5b50e706ade44a85b2363be2a22d88117d2
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.2.2"
+  rfc_6901:
+    dependency: transitive
+    description:
+      name: rfc_6901
+      sha256: "6a43b1858dca2febaf93e15639aa6b0c49ccdfd7647775f15a499f872b018154"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.1"
   sky_engine:
     dependency: transitive
     description: flutter
@@ -309,6 +357,27 @@ packages:
       relative: true
     source: path
     version: "0.1.0"
+  tom_file_editors:
+    dependency: transitive
+    description:
+      path: "../../tom_ai/modules/tom_file_editors"
+      relative: true
+    source: path
+    version: "0.2.0"
+  tom_file_session:
+    dependency: transitive
+    description:
+      path: "../../tom_ai/modules/tom_file_session"
+      relative: true
+    source: path
+    version: "1.10.0"
+  tom_file_session_ui:
+    dependency: transitive
+    description:
+      path: "../../tom_ai/modules/tom_file_session_ui"
+      relative: true
+    source: path
+    version: "0.1.0"
   tom_file_system:
     dependency: transitive
     description:
@@ -330,10 +399,25 @@ packages:
       relative: true
     source: path
     version: "0.2.0"
+  tom_todo_model:
+    dependency: transitive
+    description:
+      name: tom_todo_model
+      sha256: bb03976524b270b6d47257b6581f10268310d76f972e2409810db82f51d517d6
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.2.0"
   tom_ui_controls:
     dependency: transitive
     description:
       path: "../../tom_ai/modules/tom_ui_controls"
+      relative: true
+    source: path
+    version: "0.1.0"
+  tom_ui_support:
+    dependency: transitive
+    description:
+      path: "../../tom_ai/modules/tom_ui_support"
       relative: true
     source: path
     version: "0.1.0"
@@ -359,6 +443,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.4.0"
+  uri:
+    dependency: transitive
+    description:
+      name: uri
+      sha256: "889eea21e953187c6099802b7b4cf5219ba8f3518f604a1033064d45b1b8268a"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.0"
   uuid:
     dependency: transitive
     description:

@@ -1,8 +1,7 @@
 # Tom Editors Shared
 
 Reusable Flutter widgets and utilities for tree-based structured editors:
-undo/redo history, a syntax-highlighted text editor core, the text and
-editor-contract types the Forge shell shares with its editors, and, re-exported
+undo/redo history, the text and editor-contract types the Forge shell shares with its editors, and, re-exported
 from `tom_ui_controls` (`tom_ai/modules`), the tree view, validation markers,
 split panels, search box and inline control widgets.
 
@@ -17,7 +16,7 @@ split panels, search box and inline control widgets.
 | **Validation** (from `tom_ui_controls`) | `ValidationError`, `ValidationBadge`, `ValidationTooltip`, `ErrorPropagator` | Severity-based errors that propagate up the tree, with badge and tooltip widgets |
 | **Layout and search** (from `tom_ui_controls`) | `SplitPanel`, `DraggableSeparator`, `SearchBox` | Split panes with a draggable separator; a search and replace box |
 | **Undo/Redo** | `TextUndoEntry` | A text change with its before and after selection, kept on `tom_undo`'s `TomUndoStack` — the one undo stack the workspace's editors share |
-| **Text Editor** | `TextEditorCore`, `TextMarker`, `TextEditorTheme`; `SyntaxHighlighter` and `HighlightSpan` re-exported from `tom_text_highlight` for one release | Line-numbered text editor with pluggable syntax highlighting and marker overlays |
+| **Highlighting** | `SyntaxHighlighter` and `HighlightSpan`, re-exported from `tom_text_highlight` for one release | The highlighter interface. The line-numbered source editor with its markers is `TomTextSource` / `TomTextMarker` in `tom_file_editors` (`tom_ai/modules`) |
 | **Controls** (from `tom_ui_controls`) | `CollapseToggle`, `ActionButton`, `NodeActionRow` | Compact widgets for tree-row inline actions (expand, add, delete, etc.) |
 
 ## Getting Started
@@ -115,14 +114,18 @@ ValidationBadge(errorCount: counts.errors, warningCount: counts.warnings);
 ValidationTooltip(errors: [error]);
 ```
 
-### Text Editor
+### Source editor
+
+The line-numbered source editor is `tom_file_editors`' `TomTextSource`: a
+highlighter, markers (`TomTextMarker`), find, the line edits and the
+clipboard through its state, and a look (`TomTextSourceStyle`).
 
 ```dart
-TextEditorCore(
+TomTextSource(
   text: sourceCode,
-  onTextChanged: (value) => setState(() => sourceCode = value),
+  onChanged: (value) => setState(() => sourceCode = value),
   highlighter: MyCustomHighlighter(),
-  theme: const TextEditorTheme(),
+  markers: const [TomTextMarker(start: 4, end: 9, message: 'unknown key')],
   readOnly: false,
 );
 ```

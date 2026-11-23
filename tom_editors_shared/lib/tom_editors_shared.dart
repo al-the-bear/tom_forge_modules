@@ -7,7 +7,9 @@
 ///   ([TreeNode], [TreeController], [TreeView]), **Controls**
 ///   ([CollapseToggle], [ActionButton], [NodeActionRow]), **Layout**
 ///   ([DraggableSeparator], [SplitPanel]), **Search** ([SearchBox])
-/// - **Text Editing**: [SyntaxHighlighter], [TextMarker], [TextEditorCore]
+/// - **Text Editing**: [SyntaxHighlighter] (re-exported; the source editor
+///   and its markers are `tom_file_editors`' `TomTextSource` and
+///   `TomTextMarker`)
 /// - **Debug**: [EditorLogger]
 /// - **Forge Bridge**: [ForgeShortcutKey], [ForgeAction], [ForgeMenuLocation]
 /// - **Text Settings**: [ForgeTextSettings], [ForgeTextContext]
@@ -29,9 +31,6 @@ export 'package:tom_ui_controls/tom_ui_controls.dart';
 // re-exported here for one release so existing imports keep working.
 export 'package:tom_text_highlight/tom_text_highlight.dart'
     show SyntaxHighlighter, HighlightSpan;
-export 'src/text_editor/text_marker.dart';
-export 'src/text_editor/text_editor_core.dart';
-export 'src/text_editor/text_editor_theme.dart';
 
 // Layout
 

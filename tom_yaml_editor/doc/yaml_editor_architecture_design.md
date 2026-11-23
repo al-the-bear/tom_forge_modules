@@ -31,7 +31,6 @@ graph TD
         TH["TreeTheme\n(base theme system)"]
         TV["TreeView\n(generic tree widget)"]
         VF["ValidationFramework\n(error model, badges, tooltips)"]
-        TE["TextEditorCore\n(syntax-highlighted text field)"]
         IC["InlineControls\n(add/remove/collapse buttons)"]
     end
 
@@ -306,20 +305,23 @@ classDiagram
     YamlEditorController --> ForgeTextHistory : one per document
 ```
 
-### 4. TextEditorCore
+### 4. TomTextSource (tom_file_editors)
 
-A themed, syntax-highlighted text editing widget with gutter, line numbers, and marker overlay support.
+The source editor of `tom_file_editors` (`tom_ai/modules`): monospaced, line numbers, the highlighter's colours, markers drawn as wavy underlines, find, and the line edits and clipboard reached through its state. Text mode and the subtree inspector show it in the editor's theme (`yamlSourceStyle`, `yamlSourceHighlighter` in `lib/src/text_editor/yaml_source_view.dart`).
 
 ```mermaid
 classDiagram
-    class TextEditorCore {
+    class TomTextSource {
         +String text
         +SyntaxHighlighter? highlighter
-        +List~TextMarker~ markers
-        +TextEditorTheme theme
-        +bool showLineNumbers
+        +List~TomTextMarker~ markers
+        +TomTextSourceStyle? style
+        +TextSelection? selection
         +bool readOnly
+        +bool hostOwnsUndo
+        +bool handleHistoryKeys
         +ValueChanged~String~? onChanged
+        +ValueChanged~TextEditingValue~? onValueChanged
     }
 
     class SyntaxHighlighter {
@@ -327,34 +329,38 @@ classDiagram
         +highlight(text) List~HighlightSpan~
     }
 
-    class TextMarker {
-        +int line
-        +int startCol
-        +int endCol
-        +TextMarkerType type
-        +String? tooltip
+    class TomTextMarker {
+        +int start
+        +int end
+        +String message
+        +TomTextMarkerSeverity severity
+        +int? line
+        +int? column
     }
 
-    class TextMarkerType {
+    class TomTextMarkerSeverity {
         <<enumeration>>
         error
         warning
         info
     }
 
-    class TextEditorTheme {
-        +Color background
-        +Color gutterBackground
-        +Color lineNumberColor
-        +Color cursorColor
-        +String fontFamily
-        +double fontSize
+    class TomTextSourceStyle {
+        +TextStyle? textStyle
+        +TextStyle? lineNumberStyle
+        +Color? background
+        +Color? gutterBackground
+        +Color? gutterBorderColor
+        +Color? cursorColor
+        +bool highlightCurrentLine
     }
 
-    TextEditorCore --> SyntaxHighlighter : uses
-    TextEditorCore --> TextMarker : displays
-    TextEditorCore --> TextEditorTheme : styled with
+    TomTextSource --> SyntaxHighlighter : uses
+    TomTextSource --> TomTextMarker : displays
+    TomTextSource --> TomTextSourceStyle : styled with
 ```
+
+The markers are neutral: `SchemaMarkerGenerator` maps the schema findings onto them, the text mode adds the parse error. `registerYamlSourceActions` offers the source's clipboard and line edits to the editor's action integration while text mode shows it.
 
 **Why shared:** Any editor that opens a raw-text sub-editor (JSON fragment, YAML subtree, TOML section) needs line numbers, syntax highlighting, and error markers.
 
@@ -466,7 +472,7 @@ classDiagram
 
 ### SubtreeInspector
 
-The subtree inspector combines `TextEditorCore` (from shared) with YAML-specific syntax highlighting and schema-aware markers:
+The subtree inspector combines `TomTextSource` (from `tom_file_editors`) with YAML-specific syntax highlighting and schema-aware markers:
 
 ```mermaid
 classDiagram
@@ -485,10 +491,10 @@ classDiagram
     }
 
     class SchemaMarkerGenerator {
-        +generateMarkers(yaml, schema, basePath) List~TextMarker~
+        +generate(yamlText, errors) List~TomTextMarker~
     }
 
-    SubtreeInspector --> TextEditorCore : wraps (from shared)
+    SubtreeInspector --> TomTextSource : wraps (from tom_file_editors)
     SubtreeInspector --> YamlSyntaxHighlighter : uses
     SubtreeInspector --> SchemaMarkerGenerator : uses
     YamlSyntaxHighlighter ..|> SyntaxHighlighter : implements
@@ -610,7 +616,7 @@ graph TD
     YEC --> UH["TomUndoStack (tom_undo)"]
     YEC --> SW["SchemaWalker"]
 
-    SI --> TEC["TextEditorCore (shared)"]
+    SI --> TEC["TomTextSource (tom_file_editors)"]
     SI --> YSH["YamlSyntaxHighlighter"]
     SI --> SMG["SchemaMarkerGenerator"]
 
@@ -775,7 +781,7 @@ flowchart LR
     subgraph Inspector["Subtree Inspector Panel"]
         direction TB
         Header["Path: prompt > meta-data  [Apply] [×]"]
-        Editor["TextEditorCore\n+ YamlSyntaxHighlighter\n+ SchemaMarkerOverlay"]
+        Editor["TomTextSource\n+ YamlSyntaxHighlighter\n+ TomTextMarker markers"]
         Header --> Editor
     end
 

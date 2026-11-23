@@ -7,7 +7,7 @@ features.
 
 **Version:** 0.1.0  
 **SDK:** Dart ≥ 3.0.0 · Flutter  
-**Depends on:** `tom_editors_shared`, `yaml`, `yaml_edit`
+**Depends on:** `tom_editors_shared`, `tom_file_editors`, `yaml`, `yaml_edit`
 
 ## Features
 
@@ -21,6 +21,12 @@ features.
   suffix matchers or key-based resolvers
 - **Subtree inspector** — side panel, bottom sheet, or dialog for focused
   subtree editing
+- **Source view** — text mode and the subtree inspector are
+  `tom_file_editors`' source editor (`TomTextSource`) in the editor's theme:
+  line numbers, YAML highlighting, parse-error and schema markers
+  (`SchemaMarkerGenerator` maps the findings onto `TomTextMarker`), find,
+  and the clipboard and line edits offered to the editor's action
+  integration while the source is shown
 - **Validation error list** — filterable, sortable error panel with row
   highlighting
 - **Full theming** — colours, fonts, structure indicators, and embedded-editor

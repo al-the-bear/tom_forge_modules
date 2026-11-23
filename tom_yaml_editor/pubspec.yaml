@@ -23,6 +23,10 @@ dependencies:
   # The shared YAML tokenizer YamlSyntaxHighlighter styles.
   tom_text_highlight:
     path: ../../tom_ai/modules/tom_text_highlight
+  # The source view of the text mode and the subtree inspector
+  # (TomTextSource) with its markers (TomTextMarker) and line edits.
+  tom_file_editors:
+    path: ../../tom_ai/modules/tom_file_editors
   # The undo stack the controller keeps its edit operations on.
   tom_forge_core:
     path: ../tom_forge_core

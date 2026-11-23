@@ -2,9 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart';
+import 'package:tom_file_editors/tom_file_editors.dart'
+    show TomTextMarker, TomTextSource;
 import 'package:yaml/yaml.dart';
 
 import '../schema/schema_marker_generator.dart';
+import '../text_editor/yaml_source_view.dart';
 import '../text_editor/yaml_syntax_highlighter.dart';
 import '../yaml_editor_controller.dart';
 import '../yaml_editor_theme.dart';
@@ -23,7 +26,7 @@ enum SubtreeInspectorMode {
 
 /// A text-based inspector for editing a YAML subtree as raw text.
 ///
-/// Wraps [TextEditorCore] with YAML syntax highlighting and schema-based
+/// Wraps the source editor ([TomTextSource]) with YAML syntax highlighting and schema-based
 /// error markers. Includes a header with path breadcrumb, and Apply/Cancel
 /// buttons. Provides live preview with debounced parsing and validation.
 ///
@@ -88,7 +91,7 @@ class SubtreeInspectorState extends State<SubtreeInspector> {
   List<ValidationError> _previewErrors = [];
 
   /// Text markers for underlines from schema validation.
-  List<TextMarker> _markers = [];
+  List<TomTextMarker> _markers = [];
 
   /// Whether the current text has parse errors.
   bool _hasParseErrors = false;
@@ -107,20 +110,7 @@ class SubtreeInspectorState extends State<SubtreeInspector> {
   @override
   void initState() {
     super.initState();
-    _highlighter = YamlSyntaxHighlighter(
-      colors: YamlHighlightColors(
-        key: widget.theme.colors.keyColor,
-        string: widget.theme.colors.valueColor,
-        number: widget.theme.colors.numberColor,
-        boolean: widget.theme.colors.boolColor,
-        nullValue: widget.theme.colors.nullColor,
-        comment: widget.theme.colors.commentColor,
-        punctuation: widget.theme.structureColors.collapseIcon,
-        colon: widget.theme.colors.warningColor,
-        dash: widget.theme.colors.boolColor,
-        bracket: widget.theme.colors.numberColor,
-      ),
-    );
+    _highlighter = yamlSourceHighlighter(widget.theme);
     _initializeText();
   }
 
@@ -391,44 +381,16 @@ class SubtreeInspectorState extends State<SubtreeInspector> {
 
   /// The main text editor.
   Widget _buildEditor() {
-    var textEditorTheme = TextEditorTheme(
-      background: widget.theme.colors.background,
-      textStyle: TextStyle(
-        fontFamily: 'monospace',
-        fontFamilyFallback: const [
-          'JetBrains Mono',
-          'Menlo',
-          'Monaco',
-          'Courier New',
-        ],
-        fontSize: widget.theme.fonts.valueFontSize,
-        color: widget.theme.colors.valueColor,
-        height: 1.4,
-      ),
-      lineNumberStyle: TextStyle(
-        fontFamily: 'monospace',
-        fontFamilyFallback: const [
-          'JetBrains Mono',
-          'Menlo',
-          'Monaco',
-          'Courier New',
-        ],
-        fontSize: widget.theme.fonts.valueFontSize,
-        color: widget.theme.colors.hintColor,
-        height: 1.4,
-      ),
-      gutterBackground: widget.theme.colors.surface,
-      gutterBorderColor: widget.theme.colors.separatorColor.withAlpha(80),
-    );
-
-    return TextEditorCore(
+    // The inspector edits a scratch draft with no history of its own: the
+    // text field keeps its own undo until Apply.
+    return TomTextSource(
       text: _currentText,
       highlighter: _highlighter,
       markers: _markers,
-      onTextChanged: widget.readOnly ? null : _onTextChanged,
+      onChanged: widget.readOnly ? null : _onTextChanged,
       hostOwnsUndo: false,
       readOnly: widget.readOnly,
-      theme: textEditorTheme,
+      style: yamlSourceStyle(widget.theme),
     );
   }
 

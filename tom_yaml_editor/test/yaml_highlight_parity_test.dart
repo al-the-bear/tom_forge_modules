@@ -1,8 +1,9 @@
 // The YAML editor's source view looks as before: the shared YamlHighlighter
 // in the editor's colours gives every visible character the colour the
 // editor's own YamlSyntaxHighlighter gave it (spans applied in order, the
-// later winning, as TextEditorCore applies them). The former highlighter is
-// kept below, verbatim (renamed), as the reference.
+// later winning, as the source view's TomTextSource applies them through
+// highlightedInlineSpans). The former highlighter is kept below, verbatim
+// (renamed), as the reference.
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart';

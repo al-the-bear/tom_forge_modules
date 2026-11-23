@@ -73,8 +73,10 @@ its text fields in `ForgeEditorOwnsUndo`, which overrides `UndoTextIntent` and
 `Shortcuts` (built with `buildEditorShortcutMap`), so the editor's keys reach
 its own history first. A field shown outside the editor's key map (a popout
 route) passes `onUndo`/`onRedo`, so the platform's keys reach the document's
-history there. `TextEditorCore` and `ForgeTextField` (`undoOwnedByHost`) do
-this themselves for a host that keeps the history.
+history there. `tom_file_editors`' `TomTextSource` (`hostOwnsUndo`, with
+`handleHistoryKeys: false` when the editor's key map routes the keys) and
+`ForgeTextField` (`undoOwnedByHost`) do this themselves for a host that keeps
+the history.
 
 A field that shows one value of the document (a tree field) keeps no history
 of its own: it writes each change through the document, drops the echo of a

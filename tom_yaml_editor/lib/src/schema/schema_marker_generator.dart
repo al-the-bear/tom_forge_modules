@@ -1,6 +1,10 @@
-import 'package:tom_editors_shared/tom_editors_shared.dart';
+import 'package:tom_editors_shared/tom_editors_shared.dart'
+    show ValidationError, ValidationSeverity;
+import 'package:tom_file_editors/tom_file_editors.dart'
+    show TomTextMarker, TomTextMarkerSeverity;
 
-/// Maps validation errors to line/column [TextMarker] positions.
+/// Maps validation errors onto the source view's markers ([TomTextMarker]),
+/// with their line and column.
 ///
 /// Walks the YAML text to find the character offsets for each error's path,
 /// so that squiggly underlines can be rendered in the text editor view.
@@ -14,28 +18,28 @@ import 'package:tom_editors_shared/tom_editors_shared.dart';
 class SchemaMarkerGenerator {
   const SchemaMarkerGenerator._();
 
-  /// Generate [TextMarker]s from validation errors.
+  /// Generate [TomTextMarker]s from validation errors.
   ///
   /// For each [ValidationError], finds the approximate line/column in the
   /// YAML source and creates a marker spanning the relevant token.
-  static List<TextMarker> generate({
+  static List<TomTextMarker> generate({
     required String yamlText,
     required List<ValidationError> errors,
   }) {
     if (errors.isEmpty || yamlText.isEmpty) return [];
 
     var lines = yamlText.split('\n');
-    var markers = <TextMarker>[];
+    var markers = <TomTextMarker>[];
 
     for (var error in errors) {
       var location = _findPathLocation(lines, error.path);
       if (location == null) continue;
 
-      markers.add(TextMarker(
+      markers.add(TomTextMarker(
         start: location.startOffset,
         end: location.endOffset,
         message: error.message,
-        type: _markerType(error.severity),
+        severity: _markerSeverity(error.severity),
         line: location.line,
         column: location.column,
       ));
@@ -109,14 +113,14 @@ class SchemaMarkerGenerator {
     return null;
   }
 
-  static TextMarkerType _markerType(ValidationSeverity severity) {
+  static TomTextMarkerSeverity _markerSeverity(ValidationSeverity severity) {
     switch (severity) {
       case ValidationSeverity.error:
-        return TextMarkerType.error;
+        return TomTextMarkerSeverity.error;
       case ValidationSeverity.warning:
-        return TextMarkerType.warning;
+        return TomTextMarkerSeverity.warning;
       case ValidationSeverity.info:
-        return TextMarkerType.info;
+        return TomTextMarkerSeverity.info;
     }
   }
 }

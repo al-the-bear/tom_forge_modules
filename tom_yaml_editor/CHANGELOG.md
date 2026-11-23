@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Breaking:** text mode and the subtree inspector draw through
+  `tom_file_editors`' `TomTextSource` instead of `tom_editors_shared`'s
+  removed `TextEditorCore`. `SchemaMarkerGenerator.generate` answers
+  `TomTextMarker`s (`severity` instead of `type`). Look, highlighting,
+  markers, line numbers and the editing actions stay; the source view gains
+  find (Cmd/Ctrl+F). The clipboard and line-editing actions of the action
+  integration run on the source only while text mode shows it.
 - `YamlSyntaxHighlighter` is the shared `YamlHighlighter` of
   `tom_text_highlight` (the one YAML tokenizer of the Forge editors and
   `tom_file_editors`) in the editor's `YamlHighlightColors`. The colours are

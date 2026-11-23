@@ -31,9 +31,9 @@ This document specifies a **unified text editing foundation** for the Tom Forge 
 | MD Editor | `TextField` with `MdSyntaxHighlightController` | Single multiline field |
 | Dart Editor | `TextField` with `_HighlightingTextController` | Single multiline field |
 | YAML Editor | Multiple `TextField` widgets in tree structure | Structured editing |
-| tom_editors_shared | `TextEditorCore` using `TextField` | Shared foundation |
+| tom_file_editors (`tom_ai/modules`) | `TomTextSource` using `TextField` | Shared source editor (YAML text mode and subtree inspector, the file editors) |
 
-TextEditorCore seems the right place to incorporate this.
+`TomTextSource` seems the right place to incorporate this.
 
 ### 2.2 Keyboard Shortcut Approaches
 
