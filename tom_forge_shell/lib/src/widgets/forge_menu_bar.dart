@@ -316,7 +316,7 @@ class ForgeMenuBar extends StatelessWidget {
   List<_MenuItemBase> _buildToolsMenuItems(BuildContext context) {
     final grouped = <String, List<ForgeAction>>{};
 
-    for (final module in shellApi.modules.allModules) {
+    for (final module in shellApi.modules.allKitModules) {
       final actions =
           module.actions
               .where(

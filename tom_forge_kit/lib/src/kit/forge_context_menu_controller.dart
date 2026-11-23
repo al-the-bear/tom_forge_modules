@@ -45,7 +45,7 @@ class ForgeContextMenuController {
     final entries = <ForgeContextMenuEntry>[];
     final drawn = <String>{};
     final contributions = [
-      for (final module in _modules.allModules) ...module.contextMenus,
+      for (final module in _modules.allKitModules) ...module.contextMenus,
       ...?_moreContributions?.call(),
     ];
     for (final contribution in contributions) {

@@ -76,8 +76,15 @@ class _RecordingEditorHost implements ForgeEditorHost {
   bool opens = true;
 
   @override
-  Future<void> showEditor(ForgeEditor editor, {bool focus = true}) async {
-    calls.add('show ${editor.uri.path} focus=$focus');
+  Future<void> showEditor(
+    ForgeEditor editor, {
+    bool focus = true,
+    Object? placement,
+  }) async {
+    calls.add(
+      'show ${editor.uri.path} focus=$focus'
+      '${placement == null ? '' : ' at $placement'}',
+    );
     state.addOpenEditor(editor);
     if (focus) state.setActiveEditor(editor);
   }
@@ -96,11 +103,13 @@ class _RecordingEditorHost implements ForgeEditorHost {
   }
 
   @override
-  Future<ForgeEditor?> openEditorFor(Uri uri) async {
-    calls.add('openFor ${uri.path}');
+  Future<ForgeEditor?> openEditorFor(Uri uri, {Object? placement}) async {
+    calls.add(
+      'openFor ${uri.path}${placement == null ? '' : ' at $placement'}',
+    );
     if (!opens) return null;
     final editor = _FakeEditor(uri);
-    await showEditor(editor);
+    await showEditor(editor, placement: placement);
     return editor;
   }
 }
@@ -214,6 +223,37 @@ void main() {
       expect(host.calls, ['openFor /a.txt', 'show /a.txt focus=true']);
       expect(state.activeEditor?.uri, Uri.file('/a.txt'));
       expect(state.openEditors, hasLength(1));
+    });
+
+    test('passes the placement hint through to the editor host', () async {
+      // The kit never reads the hint: what the host recorded (e.g. a
+      // ForgeNavigationLocation's placement) reaches it unchanged.
+      final location = ForgeNavigationLocation(
+        uri: Uri.file('/a.txt'),
+        placement: 'right column',
+      );
+
+      final opened = await api.openFile(
+        location.uri,
+        placement: location.placement,
+      );
+
+      expect(opened, isTrue);
+      expect(host.calls, [
+        'openFor /a.txt at right column',
+        'show /a.txt focus=true at right column',
+      ]);
+    });
+
+    test('a module that claims the file takes it whatever the hint', () async {
+      final module = _Module(claims: {'/bundle.pkg'});
+      api.registerModule(module);
+
+      final opened = await api.openFile(Uri.file('/bundle.pkg'), placement: 1);
+
+      expect(opened, isTrue);
+      expect(module.opened, [Uri.file('/bundle.pkg')]);
+      expect(host.calls, isEmpty);
     });
 
     test('answers false when nothing can open the file', () async {

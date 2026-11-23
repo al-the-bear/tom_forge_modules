@@ -13,6 +13,7 @@ import 'package:tom_forge_kit/tom_forge_kit.dart';
 import '../components/forge_editor_choice.dart';
 
 import '../adapters/tom_forge_shell_module.dart';
+import '../module/forge_module.dart';
 import '../defaults/default_layout_controller.dart';
 import '../defaults/default_shell_api.dart';
 import '../defaults/default_system_state.dart';
@@ -2700,7 +2701,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   Map<String, List<ForgeAction>> _toolActionsByModule() {
     final result = <String, List<ForgeAction>>{};
 
-    for (final module in widget.shell.modules.allModules) {
+    for (final module in widget.shell.modules.allKitModules) {
       final actions =
           module.actions
               .where(
@@ -3937,16 +3938,16 @@ the field, not the document.
   }
 
   Widget _buildConfigurationPanel(BuildContext context) {
-    final modulePanels = widget.shell.modules.allModules
-        .expand((m) => m.configPanels)
+    final modulePanels = widget.shell.modules.allKitModules
+        .expand(forgeModuleSettingsSections)
         .toList()
       ..sort((a, b) => a.priority.compareTo(b.priority));
     return ForgeConfigurationPanel(
       preferencesService: _preferences,
       shellApi: widget.shell,
       modulePanels: modulePanels,
-      externalTools: widget.shell.modules.allModules
-          .expand((m) => m.externalTools)
+      externalTools: widget.shell.modules.allKitModules
+          .expand(forgeModuleExternalTools)
           .toList(),
       onSettingsChanged: _onPreferencesChanged,
       expandSection: _configSectionTarget,

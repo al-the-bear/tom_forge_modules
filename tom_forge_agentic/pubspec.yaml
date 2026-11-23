@@ -29,14 +29,10 @@ dependencies:
     path: ../../tom_ai/modules/tom_agentic_ui
 
   # The Forge kit: editors, views and the kit API the agent surfaces are
-  # contributed through.
+  # contributed through. AgentChatModule is a ForgeKitModule, which the panel
+  # shell's registry takes as well, so this package needs no shell.
   tom_forge_kit:
     path: ../tom_forge_kit
-  # The panel shell, for its extras only: AgentChatModule is a ForgeModule
-  # with activate(ForgeShellApi), because the panel shell's module registry
-  # takes only ForgeModule (the specs editor registers it there).
-  tom_forge_shell:
-    path: ../tom_forge_shell
   tom_forge_core:
     path: ../tom_forge_core
 
@@ -44,16 +40,6 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
-  # The desktop components flutter_test_config.dart registers for every
-  # shell the suites make: terminal, code editors, keychain, desktop host.
-  tom_forge_terminal:
-    path: ../tom_forge_terminal
-  tom_forge_code_editors:
-    path: ../tom_forge_code_editors
-  tom_forge_platform_secrets:
-    path: ../tom_forge_platform_secrets
-  tom_forge_desktop_host:
-    path: ../tom_forge_desktop_host
 
 flutter:
   uses-material-design: true

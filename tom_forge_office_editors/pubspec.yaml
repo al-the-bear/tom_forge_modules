@@ -20,15 +20,15 @@ dependencies:
   # The Forge kit: the editor contract, the kit API and its services.
   tom_forge_kit:
     path: ../tom_forge_kit
-  # The panel shell, for its extras only: OfficeEditorsModule is a ForgeModule
-  # with activate(ForgeShellApi) (the panel shell's module registry takes only
-  # ForgeModule); it opens its editors in the panel layout
-  # (shell.layout.openEditor with a middle panel, the user's default editor of
-  # DefaultLayoutController), offers them to Open With (ForgeEditorChoice),
-  # brings LibreOffice as an external tool of the Configuration panel
-  # (ForgeExternalTool, its path in ForgePreferencesService), picks files
-  # through the shell's registered file pickers (ForgeShellComponents) and
-  # the host opens links outside (shell.environment.openExternal).
+  # The panel shell, for what the kit does not have: LibreOffice as an
+  # external tool of the Configuration panel (ForgeExternalTool,
+  # ForgeToolCopy, ForgeToolState; its path in ForgePreferencesService), the
+  # shell's registered file pickers (ForgeShellComponents), the host opening
+  # links outside (shell.environment.openExternal) and the user's default
+  # editor as the layout keeps it (DefaultLayoutController).
+  # OfficeEditorsModule is a ForgeModule (activate(ForgeShellApi)) for them,
+  # and so opens its editors in a middle panel (shell.layout.openEditor) and
+  # offers them to Open With with one (ForgeEditorChoice).
   tom_forge_shell:
     path: ../tom_forge_shell
   tom_editors_shared:

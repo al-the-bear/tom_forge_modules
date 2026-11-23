@@ -38,6 +38,14 @@ asks through this port: `showEditor`, `closeEditor`, `bringToFront`, and
 resource and where it goes. The panel shell implements it with its editor tabs
 (`ForgeTabEditorHost`).
 
+`showEditor`, `openEditorFor` and `ForgeKitApi.openFile` take a placement
+hint (`placement:`): an opaque value the application recorded or understands
+— the `placement` a `ForgeNavigationLocation` carries is one — which the kit
+passes through unread (`DefaultKitApi.openFile` hands it to `openEditorFor`).
+The application interprets it (the panel shell: the index of a middle panel)
+and places the editor as it decides when it is null or one it does not
+understand. It names no panel, tab or window.
+
 ## `ForgeStateStore`
 
 Keyed documents the host persists — the workspace state, the layouts an
@@ -97,6 +105,16 @@ and `tom_forge_shared_ui`'s `ForgeEditorSurface` both route through these.
 `ForgeKitModule` is the module contract without layout. What an application
 offers beyond it (the panel shell's settings sections, status items, external
 tools) a module hands over as `ForgeModuleExtra`s, which the application
-reads as it decides (`module.extras`).
+reads as it decides (`module.extras`). The kit defines one kind,
+`ForgeKitStatusItemsExtra` (status items as `ForgeKitStatusItem` data); the
+others are the application's.
+
+A module that needs nothing of a host beyond this contract is a
+`ForgeKitModule` and runs in any application on the kit: `DefaultKitApi`
+registers it (`registerModule`), and so does the panel shell
+(`DefaultShellApi.registerModule`), which reads its extras for its status bar
+and places its editors. `ForgeKitModuleRegistry.allKitModules` answers every
+registered module, whatever the host's own module type (`allModules` may
+narrow to it).
 
 License: BSD-3-Clause.

@@ -559,14 +559,47 @@ class DefaultShellApi implements ForgeShellApi {
   @override
   bool redo() => executeAction(StandardEditingActions.redoActionId);
 
-  /// Opens [uri]: asks every module first ([ForgeModule.openUri]), then the
-  /// [editorHost]; answers whether something opened it.
+  /// Opens [uri]: asks every module first ([ForgeKitModule.openUri]), then
+  /// the [editorHost] with [placement] as its hint (the panel shell's: the
+  /// index of a middle panel, [ForgeTabEditorHost.middlePanelIndexOf]);
+  /// answers whether something opened it.
   @override
-  Future<bool> openFile(Uri uri) async {
-    for (final module in modules.allModules) {
+  Future<bool> openFile(Uri uri, {Object? placement}) async {
+    for (final module in modules.allKitModules) {
       if (module.openUri(uri)) return true;
     }
-    return await editorHost.openEditorFor(uri) != null;
+    return await editorHost.openEditorFor(uri, placement: placement) != null;
+  }
+
+  /// Activates [module] with this API and registers it (its actions,
+  /// shortcuts and shortcut menus) in [modules]: a [ForgeModule] or a module
+  /// written against the kit alone ([ForgeKitModule]), which receives this
+  /// [ForgeShellApi] as its [ForgeKitApi]. A module whose activation throws
+  /// is reported and not registered.
+  void registerModule(ForgeKitModule module) {
+    final registry = modules;
+    if (registry is! DefaultModuleRegistry) {
+      throw StateError(
+        'registerModule needs a DefaultModuleRegistry, not '
+        '${registry.runtimeType}',
+      );
+    }
+    try {
+      module.activate(this);
+    } catch (error, stackTrace) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+          library: 'tom_forge_shell',
+          context: ErrorDescription(
+            'while activating module ${module.displayName}',
+          ),
+        ),
+      );
+      return;
+    }
+    registry.register(module);
   }
 
   @override

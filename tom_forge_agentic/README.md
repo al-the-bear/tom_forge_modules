@@ -17,8 +17,10 @@ The views and controllers themselves need no shell and live in
 [`tom_agentic_ui`](../../tom_ai/modules/tom_agentic_ui) (`tom_ai/modules`),
 which this package depends on and re-exports, so a Forge tool imports
 `package:tom_forge_agentic/tom_forge_agentic.dart` alone. This package adds
-what needs the Forge shell: `AgentChatModule`, the chat view and the queue and
-trail editors.
+what needs the Forge kit: `AgentChatModule`, the chat view and the queue and
+trail editors. It takes the kit only, not the panel shell: `AgentChatModule`
+is a `ForgeKitModule`, which any application on the kit registers — the panel
+shell's registry included.
 
 All **non-UI logic** — the provider/model API, prompt-queue/trail/profile
 models, and the placeholder engine — lives in
@@ -51,5 +53,5 @@ In use by the TomSpecs editor (`tom_specs_editor`). What it exports:
     `ChangeReviewPanel`.
 
 It is layer 7 (shell services) of the platform architecture
-(`../_agent_guidelines/platform_architecture.md`): it builds on the shell,
-and modules build on it.
+(`../_agent_guidelines/platform_architecture.md`): it builds on the kit, and
+modules build on it.

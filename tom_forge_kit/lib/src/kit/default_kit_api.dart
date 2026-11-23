@@ -256,11 +256,11 @@ class DefaultKitApi implements ForgeKitApi {
   // ── Opening ──
 
   @override
-  Future<bool> openFile(Uri uri) async {
-    for (final module in modules.allModules) {
+  Future<bool> openFile(Uri uri, {Object? placement}) async {
+    for (final module in modules.allKitModules) {
       if (module.openUri(uri)) return true;
     }
-    return await editorHost.openEditorFor(uri) != null;
+    return await editorHost.openEditorFor(uri, placement: placement) != null;
   }
 
   // ── Restore ──

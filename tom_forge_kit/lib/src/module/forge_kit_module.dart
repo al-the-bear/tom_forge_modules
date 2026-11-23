@@ -8,6 +8,7 @@ import '../components/forge_editor.dart';
 import '../components/forge_editor_choice.dart';
 import '../components/forge_view.dart';
 import '../kit/forge_kit_api.dart';
+import '../model/forge_kit_status_item.dart';
 
 /// The contract of a module: what it contributes to the application it runs
 /// in — editors, views, actions, shortcuts, context-menu entries — free of
@@ -73,10 +74,11 @@ abstract class ForgeKitModule {
 /// One contribution of a module beyond the [ForgeKitModule] contract: a
 /// [kind] that says what it is and the [value] itself.
 ///
-/// The kit defines no kinds; an application defines the ones it reads (the
-/// panel shell's settings sections, status items and external tools are
-/// extras of its own kinds) and ignores the kinds it does not know. Open for
-/// subclassing, so an application can give its kinds a typed value.
+/// The kit defines one kind, [ForgeKitStatusItemsExtra] (status items as
+/// data, which name no place); an application defines the others it reads
+/// (the panel shell's settings sections and external tools are extras of its
+/// own kinds) and ignores the kinds it does not know. Open for subclassing,
+/// so an application can give its kinds a typed value.
 class ForgeModuleExtra {
   const ForgeModuleExtra({required this.kind, required this.value});
 
@@ -88,6 +90,20 @@ class ForgeModuleExtra {
 
   @override
   String toString() => 'ForgeModuleExtra($kind)';
+}
+
+/// A module's status items as data ([ForgeKitStatusItem]s), the one extra
+/// kind the kit defines: an application with a status bar shows the active
+/// ones as it decides (the panel shell beside its own modules' items).
+class ForgeKitStatusItemsExtra extends ForgeModuleExtra {
+  const ForgeKitStatusItemsExtra(List<ForgeKitStatusItem> items)
+    : super(kind: kindId, value: items);
+
+  /// The kind of this extra.
+  static const kindId = 'forge.kit.statusItems';
+
+  /// The items.
+  List<ForgeKitStatusItem> get items => value as List<ForgeKitStatusItem>;
 }
 
 /// A module that carries [ForgeModuleExtra]s of its own.

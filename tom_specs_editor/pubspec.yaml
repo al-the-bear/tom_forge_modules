@@ -18,10 +18,10 @@ dependencies:
   # The Forge kit: editors, views, actions, the kit API and its services.
   tom_forge_kit:
     path: ../tom_forge_kit
-  # The panel shell, for its extras and because the TomSpecs Editor is an app
-  # of its own: it makes its shell (DefaultShellApi, ForgeShellScaffold); its
-  # modules are ForgeModules with activate(ForgeShellApi) (the panel shell's
-  # module registry takes only ForgeModule); it brings three applications with
+  # The panel shell, because the TomSpecs Editor is an app of its own: it
+  # makes its shell (DefaultShellApi, ForgeShellScaffold) and registers its
+  # modules there (its own are ForgeModules with activate(ForgeShellApi),
+  # AgentChatModule a ForgeKitModule); it brings three applications with
   # their panel layouts (ForgeApplication, PanelLayout and its configs), a
   # settings section (ForgeConfigPanel) and the shell's plain-text editor for
   # raw config files (ForgePlainTextEditor).

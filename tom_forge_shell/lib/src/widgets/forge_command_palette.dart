@@ -72,7 +72,7 @@ class _ForgeCommandPaletteState extends State<ForgeCommandPalette> {
       }
 
       // Include module actions that may not yet be in registry.
-      for (final module in widget.shellApi.modules.allModules) {
+      for (final module in widget.shellApi.modules.allKitModules) {
         for (final action in module.actions) {
           commandsById.putIfAbsent(action.id, () {
             final binding = widget.shellApi.shortcuts.getBinding(action.id);

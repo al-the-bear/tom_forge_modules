@@ -252,5 +252,8 @@ class DefaultKitModuleRegistry<M extends ForgeKitModule>
   }
 
   @override
-  List<M> get allModules => List.unmodifiable(_modules.values);
+  List<M> get allModules => allKitModules;
+
+  @override
+  List<M> get allKitModules => List.unmodifiable(_modules.values);
 }

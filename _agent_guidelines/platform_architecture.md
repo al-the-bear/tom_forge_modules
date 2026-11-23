@@ -28,8 +28,8 @@ on anything below the apps, and nothing depends on them.
 | 5 Shell parts | `tom_forge_terminal`, `tom_forge_code_editors`, `tom_forge_platform_secrets`, `tom_forge_desktop_host` | The parts that plug into the core: PTY and process terminals with the terminal view (`flutter_pty`, the `xterm` fork); the adapters that make the layer-2 Markdown, Dart and YAML editors shell editors, as editor types; secrets in the platform keychain (`flutter_secure_storage`); the desktop host — the native file dialogs (`file_picker`, `file_selector`), the machine's shells and folders, the workspace folder above a picked folder and `.forge/` kept out of git (`dart:io`) |
 | 5 Test support | `tom_forge_ui_testing` | The undo conformance harness and the shell's test doubles, built on `flutter_test` and the shell core; any package may take it as a dev_dependency, the shell's own suites included, so no product links the test framework |
 | 6 Shell umbrella | `tom_forge_ui` | The core with its parts as one library, and `useForgeDesktopComponents()` / `forgeDesktopComponents`, which register or hand a shell the terminal, the code editors, the keychain and the desktop host — the full desktop for consumers outside this repository (Webwork); no package in `tom_forge` takes it (PL-7) |
-| 7 Shell services | `tom_forge_agentic` | The agent and chat UI for any module to use: the Forge chat module, the chat view and the prompt queue and trail editors, over the composer, queue, trail, connection, send and change-log views and controllers of `tom_ai/modules/tom_agentic_ui` (which needs no shell and is re-exported) |
-| 8 Modules | `tom_forge_file_editors`, `tom_forge_office_editors`, `tom_forge_pdf_editors`, `tom_forge_quests`, `tom_website_editor`, `tom_specs_editor` | Feature modules: each a `ForgeModule` with its editors, views, actions and applications (`tom_specs_editor` is also an app of its own). Each takes the kit, the shell parts it uses (the code editors for the Markdown and YAML adapters) and the shell for the panel shell's extras its pubspec names; never the umbrella |
+| 7 Shell services | `tom_forge_agentic` | The agent and chat UI for any module to use: the Forge chat module (a `ForgeKitModule`: it takes the kit, not the shell), the chat view and the prompt queue and trail editors, over the composer, queue, trail, connection, send and change-log views and controllers of `tom_ai/modules/tom_agentic_ui` (which needs no shell and is re-exported) |
+| 8 Modules | `tom_forge_file_editors`, `tom_forge_office_editors`, `tom_forge_pdf_editors`, `tom_forge_quests`, `tom_website_editor`, `tom_specs_editor` | Feature modules: each a module with its editors, views, actions and applications (`tom_specs_editor` is also an app of its own). Each takes the kit, the shell parts it uses (the code editors for the Markdown and YAML adapters) and the shell only for what its pubspec names that the kit does not have — then it is a `ForgeModule`; never the umbrella |
 | 9 Module test support | `tom_forge_file_editors_testing`, `tom_forge_office_editors_testing`, `tom_forge_pdf_editors_testing` | Each module's undo conformance subjects (how to drive its editors through the harness), for the module's own suite and an app's; taken only as dev_dependencies |
 | 10 Apps | `tom_forge_app` | Composition: `composeForgeSuite`, and Tom Forge's `main` |
 | Harness | `tom_dart_editor_test`, `tom_flow_editor_test`, `tom_forge_ui_test`, `tom_md_editor_test`, `tom_yaml_editor_test`, `tom_wpe_webview_test` | Companion apps and test beds |
@@ -97,22 +97,39 @@ under the history contract
 (`tom_forge_ui/_agent_guidelines/editor_history_contract.md`); the
 conformance harness in `package:tom_forge_ui_testing/tom_forge_ui_testing.dart` checks it.
 
-### 2.2 Module → shell: `ForgeModule`
+### 2.2 Module → shell: `ForgeKitModule`, `ForgeModule`
 
+`tom_forge_kit/lib/src/module/forge_kit_module.dart` and
 `tom_forge_shell/lib/src/module/forge_module.dart`. A module contributes
 editors, views, actions, shortcuts, context-menu contributions
 (`context_menu_contributions.md`), shortcut menus, status-bar items and
-settings panels. In `activate(shell)` it receives the `ForgeShellApi` — the
-only door into the shell: layout, applications, file system, modules,
-configuration, storage, undo, dialogs, notifications and the other managers.
+settings panels.
+
+- A **`ForgeKitModule`** needs nothing of a host beyond the kit: in
+  `activate(api)` it receives a `ForgeKitApi`, places its editors through the
+  editor host (`ForgeEditorHost`, with a layout-free placement hint) and hands
+  what an application offers beyond the contract over as `ForgeModuleExtra`s.
+  The panel shell registers it as it registers a `ForgeModule`
+  (`DefaultShellApi.registerModule` activates it with the `ForgeShellApi`),
+  takes its editors, views, actions, context menus, `openUri` and Open With
+  choices, and reads its extras; of the extras the shell reads, a kit-only
+  module can offer only the kit's `ForgeKitStatusItemsExtra` (status items):
+  the settings sections (`ForgeConfigPanel`) and external tools are the
+  shell's types.
+- A **`ForgeModule`** is the kit's contract plus the panel shell's: in
+  `activate(shell)` it receives the `ForgeShellApi` — layout, applications,
+  file system, modules, configuration, storage, undo, dialogs, notifications
+  and the other managers — and it brings status-bar items, settings sections
+  and external tools.
 
 ### 2.3 Opening a file
 
 The shell's layout controller (`DefaultLayoutController`) decides which
 editor opens a file, in this order:
 
-1. **A module that owns the document** — `ForgeModule.openUri`, asked before
-   the file is read as text (a directory bundle, an encrypted container).
+1. **A module that owns the document** — `ForgeModule.openUri` (a
+   `ForgeKitModule`'s `openUri`), asked before the file is read as text (a
+   directory bundle, an encrypted container).
 2. **A module editor that accepts the URI** — `canHandle` accept; then the
    editors that asked to inspect, by content.
 3. **The user's default editor for the extension** (settings), else the
@@ -209,15 +226,19 @@ client then sits in layer 5 or 6, never in the shell.
   `tom_forge_shared_ui` when it shows the kit's UI elements, and on a shell
   part only when it uses it (`tom_forge_code_editors` for the Markdown, YAML
   and Dart adapters, `tom_forge_terminal`, `tom_forge_platform_secrets`,
-  `tom_forge_desktop_host`), each with a pubspec comment why. It takes
-  `tom_forge_shell` only for the panel shell's extras — `ForgeModule` with
-  `activate(ForgeShellApi)` (the panel shell's module registry takes only
-  `ForgeModule`), the layout, applications, the status bar, panel views,
-  settings sections, external tools, the plain-text editor — and its pubspec
-  comment names exactly those; it imports the shell with a `show` list of
-  them and the kit for the rest. What a module needs beyond `ForgeKitApi`
-  without a shell goes through the module contract's hooks
-  (`ForgeModuleExtra`).
+  `tom_forge_desktop_host`), each with a pubspec comment why. **A module
+  whose use of the shell would be only registration or editor placement is a
+  `ForgeKitModule` and does not take `tom_forge_shell`**: the panel shell's
+  registry takes a kit module, and `ForgeEditorHost` places editors with a
+  placement hint the shell maps to a middle panel. It takes
+  `tom_forge_shell` only for what the kit does not have — the applications
+  and their panel layouts, the window focus, the host environment, the file
+  pickers, settings sections, external tools, the plain-text editor and the
+  shell's own module, a `ForgeModule` for an adapter that takes one — and is
+  then a `ForgeModule`; its pubspec comment names exactly those, and it
+  imports the shell with a `show` list of them and the kit for the rest. What
+  a module needs beyond `ForgeKitApi` without a shell goes through the module
+  contract's hooks (`ForgeModuleExtra`).
 - **Licence:** every package here is BSD-3-Clause. Forge links no copyleft:
   nothing in Forge depends on Webwork (an application on Forge, never a
   dependency of it); the shared UI Forge uses is the BSD-3 Tom UI modules

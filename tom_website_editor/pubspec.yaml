@@ -22,11 +22,12 @@ dependencies:
   # The YAML adapter (ForgeYamlEditor) the website config editor builds on.
   tom_forge_code_editors:
     path: ../tom_forge_code_editors
-  # The panel shell, for its extras only: WebsiteEditorModule is a ForgeModule
-  # with activate(ForgeShellApi) (the panel shell's module registry takes only
-  # ForgeModule); it brings a settings section (ForgeConfigPanel), opens files
-  # through the panel layout (shell.layout.openFile) and reads the shell's
-  # workspace root (shell.systemState.workspaceRootPath).
+  # The panel shell, for what the kit does not have: a settings section of the
+  # configuration dialog (ForgeConfigPanel), the workspace root its config is
+  # found under (shell.systemState.workspaceRootPath), and a ForgeModule for
+  # its config editor's YAML adapter (ForgeYamlEditor takes one).
+  # WebsiteEditorModule is a ForgeModule (activate(ForgeShellApi)) for them,
+  # and so opens files through the panel layout (shell.layout.openFile).
   tom_forge_shell:
     path: ../tom_forge_shell
   # Direct deps for the §6 config editor: ForgeDiagnostic/ForgeTextRange/

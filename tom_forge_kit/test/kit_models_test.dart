@@ -10,7 +10,11 @@ import 'package:tom_forge_kit/tom_forge_kit.dart';
 
 class _NoHost implements ForgeEditorHost {
   @override
-  Future<void> showEditor(ForgeEditor editor, {bool focus = true}) async {}
+  Future<void> showEditor(
+    ForgeEditor editor, {
+    bool focus = true,
+    Object? placement,
+  }) async {}
 
   @override
   Future<bool> closeEditor(ForgeEditor editor) async => true;
@@ -19,7 +23,8 @@ class _NoHost implements ForgeEditorHost {
   void bringToFront(ForgeEditor editor) {}
 
   @override
-  Future<ForgeEditor?> openEditorFor(Uri uri) async => null;
+  Future<ForgeEditor?> openEditorFor(Uri uri, {Object? placement}) async =>
+      null;
 }
 
 ForgeAction _action(

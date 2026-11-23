@@ -55,7 +55,11 @@ class _FakeEditorHost implements ForgeEditorHost {
   final DefaultKitState state;
 
   @override
-  Future<void> showEditor(ForgeEditor editor, {bool focus = true}) async {
+  Future<void> showEditor(
+    ForgeEditor editor, {
+    bool focus = true,
+    Object? placement,
+  }) async {
     state.addOpenEditor(editor);
     if (focus) state.setActiveEditor(editor);
   }
@@ -70,7 +74,7 @@ class _FakeEditorHost implements ForgeEditorHost {
   void bringToFront(ForgeEditor editor) => state.setActiveEditor(editor);
 
   @override
-  Future<ForgeEditor?> openEditorFor(Uri uri) async {
+  Future<ForgeEditor?> openEditorFor(Uri uri, {Object? placement}) async {
     final editor = _Editor(uri);
     await showEditor(editor);
     return editor;

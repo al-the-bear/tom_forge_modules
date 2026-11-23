@@ -23,13 +23,16 @@ dependencies:
   # combined Markdown and YAML file editors build on.
   tom_forge_code_editors:
     path: ../tom_forge_code_editors
-  # The panel shell, for its extras only: FileEditorsModule is a ForgeModule
-  # with activate(ForgeShellApi) (the panel shell's module registry takes only
-  # ForgeModule); it opens its editors in the panel layout
-  # (shell.layout.openEditor with a middle panel), offers them to Open With
-  # (ForgeEditorChoice) and takes the shell's plain-text editor
-  # (ForgePlainTextEditor of the shell's own module, TomForgeShellModule) for
-  # text files.
+  # The panel shell, for what the kit does not have: the shell's plain-text
+  # editor for text files (ForgePlainTextEditor) and the shell's own module
+  # it and the Markdown and YAML adapters integrate through
+  # (TomForgeShellModule, from shell.modules; the adapters take a
+  # ForgeModule); the hosts' editor builders and Open With alternatives take
+  # the shell's API (ForgeShellApi in ForgeFileEditorBuilder and
+  # ForgeFileEditorAlternative.build). FileEditorsModule is a ForgeModule
+  # (activate(ForgeShellApi)) for them, and so opens its editors in a middle
+  # panel (shell.layout.openEditor) and offers them to Open With with one
+  # (ForgeEditorChoice).
   tom_forge_shell:
     path: ../tom_forge_shell
   tom_editors_shared:

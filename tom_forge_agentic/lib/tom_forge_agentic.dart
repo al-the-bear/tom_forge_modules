@@ -6,8 +6,9 @@
 /// navigation/mutation tool surface, and the change-log + three-way review.
 /// The views and controllers themselves are `tom_agentic_ui`
 /// (`tom_ai/modules`), re-exported here; this package adds what needs the
-/// Forge shell: [AgentChatModule], the chat view and the queue and trail
-/// editors.
+/// Forge kit: [AgentChatModule] (a `ForgeKitModule`, registered by any
+/// application on the kit, the panel shell included), the chat view and the
+/// queue and trail editors.
 ///
 /// All non-UI logic — the provider/model API, prompt-queue/trail/profile
 /// models, and the placeholder engine — lives in `tom_core_agentic`, which

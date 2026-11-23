@@ -137,6 +137,7 @@ abstract class ForgeKitApi {
   bool redo();
 
   /// Opens [uri]: asks every module first (`ForgeKitModule.openUri`), then
-  /// the [editorHost]; answers whether something opened it.
-  Future<bool> openFile(Uri uri);
+  /// the [editorHost], with [placement] as its hint where the editor goes
+  /// (`ForgeEditorHost.openEditorFor`); answers whether something opened it.
+  Future<bool> openFile(Uri uri, {Object? placement});
 }

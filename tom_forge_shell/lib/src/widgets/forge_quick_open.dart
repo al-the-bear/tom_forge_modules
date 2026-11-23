@@ -294,7 +294,7 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
     for (final action in widget.shellApi.actionRegistry.allActions) {
       addAction(action);
     }
-    for (final module in widget.shellApi.modules.allModules) {
+    for (final module in widget.shellApi.modules.allKitModules) {
       for (final action in module.actions) {
         if (!commandsById.containsKey(action.id)) addAction(action);
       }

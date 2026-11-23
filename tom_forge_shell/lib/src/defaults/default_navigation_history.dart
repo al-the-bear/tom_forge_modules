@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:tom_forge_kit/tom_forge_kit.dart';
 
+import '../shell/forge_tab_editor_host.dart';
+
 import 'default_layout_controller.dart';
 import 'default_system_state.dart';
 
@@ -229,11 +231,9 @@ class DefaultNavigationHistory implements ForgeNavigationHistory {
   }
 }
 
-/// The panel shell's reading of a [ForgeNavigationLocation]'s placement.
+/// The panel shell's reading of a [ForgeNavigationLocation]'s placement:
+/// the hint [ForgeTabEditorHost] takes ([ForgeTabEditorHost.middlePanelIndexOf]).
 extension ForgeNavigationLocationPanel on ForgeNavigationLocation {
   /// The middle panel the editor was shown in, or null when unknown.
-  int? get middlePanelIndex {
-    final placement = this.placement;
-    return placement is int ? placement : null;
-  }
+  int? get middlePanelIndex => ForgeTabEditorHost.middlePanelIndexOf(placement);
 }

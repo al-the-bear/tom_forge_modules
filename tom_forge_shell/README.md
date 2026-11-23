@@ -14,6 +14,38 @@ panel shell's preferences (`ForgePreferencesService`, through a
 re-exports the kit for one release so its consumers keep compiling; a
 component or adapter takes the kit, not the shell.
 
+## Modules written against the kit
+
+The shell's registry takes a module written against the kit alone
+(`ForgeKitModule`) beside its `ForgeModule`s: `DefaultShellApi.registerModule`
+activates it with the shell's API (a `ForgeKitApi`) and registers its actions,
+shortcuts and shortcut menus (`DefaultModuleRegistry.register` takes it too,
+after `activate`). `modules.allModules` keeps answering the `ForgeModule`s;
+`modules.allKitModules` answers every module, and `modules.get<T>()` finds
+either. The shell takes a kit module's editors, views, actions, context-menu
+contributions, `openUri` and Open With choices (opened in the middle panel
+asked for by making it the active one first) wherever it takes a
+`ForgeModule`'s, and reads its extras:
+
+| Extra | Defined in | A kit-only module can offer it |
+| --- | --- | --- |
+| `ForgeKitStatusItemsExtra` (status items as data, `ForgeKitStatusItem`) | kit | yes; shown in the status bar while `isActive` holds |
+| `ForgeSettingsSectionExtra` (a `ForgeConfigPanel` of the configuration dialog) | shell | no: a section of the shell's dialog |
+| `ForgeExternalToolsExtra` (`ForgeExternalTool` rows of the Configuration panel) | shell | no: tools of the shell's Configuration panel and preferences |
+| `ForgeStatusItemsExtra` (`StatusBarItem`s over the shell's state) | shell | no: the shell's status bar items |
+
+`forgeModuleStatusItems`, `forgeModuleSettingsSections` and
+`forgeModuleExternalTools` read them (a `ForgeModule`'s from its members).
+
+## Placing editors
+
+`ForgeTabEditorHost` reads the kit's placement hint
+(`ForgeEditorHost.showEditor` / `openEditorFor` `placement:`,
+`ForgeKitApi.openFile` `placement:`) as the index of a middle panel, the value
+the shell records in `ForgeNavigationLocation.placement`; a hint that names no
+existing middle panel places the editor in the active one
+(`ForgeTabEditorHost.middlePanelIndexOf`).
+
 It holds its default services
 (`DefaultShellApi`), the scaffold (`ForgeShellScaffold`), panels, editor tab
 bar, menus, command palette, quick open, configuration, the built-in views

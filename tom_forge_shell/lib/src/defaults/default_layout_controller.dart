@@ -312,11 +312,16 @@ class DefaultLayoutController implements ForgeLayoutController {
     );
   }
 
-  /// Whether a module opened [uri] itself ([ForgeModule.openUri]) — asked
-  /// before anything reads the file as text.
+  /// Whether a module opened [uri] itself ([ForgeModule.openUri], a kit
+  /// module's [ForgeKitModule.openUri]) — asked before anything reads the
+  /// file as text. A kit module places what it opens through the editor
+  /// host, without the middle panel asked for here.
   bool _openedByModule(Uri uri, int? middlePanelIndex) {
-    for (final module in _moduleRegistry.allModules) {
-      if (module.openUri(uri, middlePanelIndex: middlePanelIndex)) return true;
+    for (final module in _moduleRegistry.allKitModules) {
+      final opened = module is ForgeModule
+          ? module.openUri(uri, middlePanelIndex: middlePanelIndex)
+          : module.openUri(uri);
+      if (opened) return true;
     }
     return false;
   }
@@ -503,8 +508,9 @@ class DefaultLayoutController implements ForgeLayoutController {
   @override
   Future<void> openFileWith(Uri uri, {int? middlePanelIndex}) async {
     final choices = <ForgeEditorChoice>[
-      for (final module in _moduleRegistry.allModules)
-        ...module.editorChoicesFor(uri),
+      for (final module in _moduleRegistry.allKitModules)
+        for (final choice in module.editorChoicesFor(uri))
+          _shellChoiceOf(choice),
       ...await _openEditorChoices(uri),
     ];
 
@@ -525,12 +531,33 @@ class DefaultLayoutController implements ForgeLayoutController {
     pendingEditorChoice.value = (uri, choices);
   }
 
+  /// [choice] as the shell's [ForgeEditorChoice]: a kit module's choice
+  /// opens the file in the middle panel asked for by making it the active
+  /// one first (its editor host shows a new editor there).
+  ForgeEditorChoice _shellChoiceOf(ForgeKitEditorChoice choice) {
+    if (choice is ForgeEditorChoice) return choice;
+    return ForgeEditorChoice(
+      id: choice.id,
+      label: choice.label,
+      description: choice.description,
+      icon: choice.icon,
+      open: (uri, {middlePanelIndex}) {
+        if (middlePanelIndex != null &&
+            middlePanelIndex >= 0 &&
+            middlePanelIndex < _middlePanels.value.length) {
+          setActiveMiddlePanelIndex(middlePanelIndex);
+        }
+        choice.open(uri);
+      },
+    );
+  }
+
   /// The editors of every module already on [uri] that accept it — by name,
   /// or on a look at its content — as choices that show that editor. An
   /// editor open on another file is not offered: it would show that file.
   Future<List<ForgeEditorChoice>> _openEditorChoices(Uri uri) async {
     final choices = <ForgeEditorChoice>[];
-    for (final module in _moduleRegistry.allModules) {
+    for (final module in _moduleRegistry.allKitModules) {
       for (final editor in module.editors) {
         if (editor.uri != uri) continue;
         var accepts = false;
@@ -896,7 +923,7 @@ class DefaultLayoutController implements ForgeLayoutController {
 
     // Phase 1: Check if any module editor explicitly accepts this URI.
     final inspectEditors = <ForgeEditor>[];
-    for (final module in _moduleRegistry.allModules) {
+    for (final module in _moduleRegistry.allKitModules) {
       for (final editor in module.editors) {
         final result = editor.canHandle(uri);
         if (result == FileHandlingResult.accept) {

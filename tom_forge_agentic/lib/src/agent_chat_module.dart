@@ -3,8 +3,6 @@ import 'dart:async';
 import 'package:tom_core_agentic/tom_core_agentic.dart';
 import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_forge_kit/tom_forge_kit.dart';
-import 'package:tom_forge_shell/tom_forge_shell.dart'
-    show ForgeModule, ForgeShellApi;
 import 'package:tom_agentic_ui/tom_agentic_ui.dart';
 
 import 'agent_chat_view.dart';
@@ -19,7 +17,13 @@ import 'trail/prompt_trail_editor.dart';
 /// the bottom panel, plus the [queueEditor] (Col 2) and [trailEditor] (Col 3)
 /// for the middle splits. On [activate] it restores the persisted binding and
 /// queue/trail state, then kicks off a port scan (19900–19909) so the picker is
-/// populated as soon as the shell is shown.
+/// populated as soon as the application is shown.
+///
+/// It is a [ForgeKitModule]: it needs nothing of a host beyond the kit, so
+/// any application registers it — the panel shell's registry too
+/// (`DefaultShellApi.registerModule`, or `DefaultModuleRegistry.register`
+/// after `activate`), which places its editors and view as the application
+/// lays them out.
 ///
 /// All controllers are injectable so tests (and hosts that want to share one
 /// connection across modules) can supply their own — e.g. a [sendController]
@@ -27,7 +31,7 @@ import 'trail/prompt_trail_editor.dart';
 /// keeps its sidecar (bridge choice, session id, trail, queue) in the
 /// workspace [TomFileSystem] passed as `fileSystem`, at the default location
 /// or the one `environment` (the host's process environment) names.
-class AgentChatModule extends ForgeModule {
+class AgentChatModule extends ForgeKitModule {
   AgentChatModule({
     required TomFileSystem fileSystem,
     Map<String, String> environment = const {},
@@ -133,7 +137,7 @@ class AgentChatModule extends ForgeModule {
   String get displayName => 'Agent Chat';
 
   @override
-  void activate(ForgeShellApi shell) {
+  void activate(ForgeKitApi api) {
     // Restore the persisted binding + queue/trail, then scan for live servers.
     // The scan runs asynchronously; the picker reflects progress via the
     // controller.

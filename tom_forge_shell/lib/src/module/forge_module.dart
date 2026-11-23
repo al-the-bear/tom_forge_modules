@@ -1,6 +1,8 @@
 import 'package:tom_forge_core/tom_forge_core.dart'
     show ForgeContextMenuContribution;
 import 'package:tom_forge_kit/tom_forge_kit.dart';
+import 'package:tom_forge_shared_ui/tom_forge_shared_ui.dart'
+    show ForgeFixedListenable;
 
 import '../components/forge_editor_choice.dart';
 import '../actions/status_bar_item.dart';
@@ -18,6 +20,12 @@ import 'forge_config_panel.dart';
 /// among its extras ([ForgeKitModuleExtras.extras]) as
 /// [ForgeStatusItemsExtra], [ForgeSettingsSectionExtra] and
 /// [ForgeExternalToolsExtra].
+///
+/// A module that needs nothing of the panel shell beyond registration and
+/// editor placement is a [ForgeKitModule] instead: the shell's registry takes
+/// it too (`DefaultShellApi.registerModule` activates it with the shell's
+/// API), and the shell reads its extras ([forgeModuleStatusItems],
+/// [forgeModuleSettingsSections], [forgeModuleExternalTools]).
 abstract class ForgeModule extends ForgeKitModule {
   ForgeModule() {
     ForgeModuleExtras.addResolver(forgeShellModuleExtras);
@@ -162,3 +170,65 @@ class ForgeExternalToolsExtra extends ForgeModuleExtra {
   /// The tools.
   List<ForgeExternalTool> get tools => value as List<ForgeExternalTool>;
 }
+
+/// The extras the shell reads from a module beyond its members: a
+/// [ForgeModule]'s own ([ForgeModuleExtrasProvider.ownExtras] — its members
+/// are read directly), any other module's [ForgeKitModuleExtras.extras].
+List<ForgeModuleExtra> _panelExtrasOf(ForgeKitModule module) {
+  if (module is! ForgeModule) return module.extras;
+  final Object provider = module;
+  return provider is ForgeModuleExtrasProvider
+      ? provider.ownExtras
+      : const <ForgeModuleExtra>[];
+}
+
+/// The status bar items [module] contributes to the panel shell: a
+/// [ForgeModule]'s [ForgeModule.statusBarItems], any other module's
+/// [ForgeStatusItemsExtra]s, and every module's [ForgeKitStatusItemsExtra]s
+/// (each item shown while its `isActive` holds for the shell's state).
+List<StatusBarItem> forgeModuleStatusItems(ForgeKitModule module) {
+  final extras = _panelExtrasOf(module);
+  return [
+    if (module is ForgeModule)
+      ...module.statusBarItems
+    else
+      for (final extra in extras.whereType<ForgeStatusItemsExtra>())
+        ...extra.items,
+    for (final extra in extras.whereType<ForgeKitStatusItemsExtra>())
+      for (final item in extra.items) forgeStatusBarItemOf(item),
+  ];
+}
+
+/// The settings sections [module] contributes to the configuration dialog:
+/// a [ForgeModule]'s [ForgeModule.configPanels], any other module's
+/// [ForgeSettingsSectionExtra]s.
+List<ForgeConfigPanel> forgeModuleSettingsSections(ForgeKitModule module) {
+  if (module is ForgeModule) return module.configPanels;
+  return [
+    for (final extra in module.extras.whereType<ForgeSettingsSectionExtra>())
+      extra.section,
+  ];
+}
+
+/// The external tools [module] brings to the Configuration panel: a
+/// [ForgeModule]'s [ForgeModule.externalTools], any other module's
+/// [ForgeExternalToolsExtra]s.
+List<ForgeExternalTool> forgeModuleExternalTools(ForgeKitModule module) {
+  if (module is ForgeModule) return module.externalTools;
+  return [
+    for (final extra in module.extras.whereType<ForgeExternalToolsExtra>())
+      ...extra.tools,
+  ];
+}
+
+/// The panel shell's [StatusBarItem] for a kit status item: shown while
+/// [ForgeKitStatusItem.isActive] holds for the shell's state.
+StatusBarItem forgeStatusBarItemOf(ForgeKitStatusItem item) => StatusBarItem(
+  text: ForgeFixedListenable<String>(item.text),
+  icon: item.icon,
+  alignment: item.alignment,
+  priority: item.priority,
+  onTap: item.onTap,
+  tooltip: item.tooltip,
+  isActive: item.isActive,
+);

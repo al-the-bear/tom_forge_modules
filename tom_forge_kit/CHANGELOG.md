@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- A layout-free placement hint: `ForgeEditorHost.showEditor` and
+  `openEditorFor` and `ForgeKitApi.openFile` take `placement:`, an opaque
+  value the application interprets (e.g. `ForgeNavigationLocation.placement`);
+  `DefaultKitApi.openFile` passes it to the editor host. Implementers of
+  `ForgeEditorHost` add the parameter.
+- `ForgeKitModuleRegistry.allKitModules`: every registered module, whatever
+  the host's module type; the context-menu controller and
+  `DefaultKitApi.openFile` iterate it.
+- `ForgeKitStatusItemsExtra`: a module's status items as data, the one
+  `ForgeModuleExtra` kind the kit defines.
 - The models the elements of `tom_forge_shared_ui` draw: `ForgeActionState`
   (with `forgeActionEnabled`), `ForgeActionBarModel` with
   `ForgeActionBarSection`, `ForgeMenuModel` with `ForgeMenuActionEntry` and

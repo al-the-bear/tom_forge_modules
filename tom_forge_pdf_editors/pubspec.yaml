@@ -18,12 +18,14 @@ dependencies:
   # The Forge kit: the editor contract, the kit API and its services.
   tom_forge_kit:
     path: ../tom_forge_kit
-  # The panel shell, for its extras only: PdfEditorsModule is a ForgeModule
-  # with activate(ForgeShellApi) (the panel shell's module registry takes only
-  # ForgeModule); it opens its editors in the panel layout
-  # (shell.layout.openEditor with a middle panel, the user's default editor of
-  # DefaultLayoutController), offers them to Open With (ForgeEditorChoice),
-  # and the host opens links outside (shell.environment.openExternal).
+  # The panel shell, for what the kit does not have: the window focus it
+  # checks the open files on (shell.systemState.onWindowFocusChanged), the
+  # host opening links outside (shell.environment.openExternal) and the
+  # user's default editor for .pdf as the layout keeps it
+  # (DefaultLayoutController.getFileTypeDefaultEditor). PdfEditorsModule is a
+  # ForgeModule (activate(ForgeShellApi)) for them, and so opens its editors
+  # in a middle panel (shell.layout.openEditor) and offers them to Open With
+  # with one (ForgeEditorChoice).
   tom_forge_shell:
     path: ../tom_forge_shell
   tom_editors_shared:
