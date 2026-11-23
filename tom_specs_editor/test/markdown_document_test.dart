@@ -191,7 +191,7 @@ void main() {
         final c = await _populated();
         final md = c.exportMarkdown('D00');
         // SOM §11: headings carry the section id as a headline comment, its
-        // HTML anchor (§11.2) and a readable title; content is plain markdown
+        // HTML anchor (SOM §11.2) and a readable title; content is plain markdown
         // text under the heading.
         expect(md, contains('<!-- docspec:'));
         expect(md, contains('# <!--[D00]--> <a id="D00"></a> Demo Document'));
