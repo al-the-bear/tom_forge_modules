@@ -190,12 +190,16 @@ void main() {
       () async {
         final c = await _populated();
         final md = c.exportMarkdown('D00');
-        // SOM §11: headings carry the section id as a headline comment plus a
-        // readable title; content is plain markdown text under the heading.
+        // SOM §11: headings carry the section id as a headline comment, its
+        // HTML anchor (§11.2) and a readable title; content is plain markdown
+        // text under the heading.
         expect(md, contains('<!-- docspec:'));
-        expect(md, contains('# <!--[D00]--> Demo Document'));
-        expect(md, contains('## <!--[D00-OVR]--> Overview'));
-        expect(md, contains('## <!--[D00-HDR]--> Header'));
+        expect(md, contains('# <!--[D00]--> <a id="D00"></a> Demo Document'));
+        expect(
+          md,
+          contains('## <!--[D00-OVR]--> <a id="D00-OVR"></a> Overview'),
+        );
+        expect(md, contains('## <!--[D00-HDR]--> <a id="D00-HDR"></a> Header'));
         // Empty fields (e.g. the reviewer form field) are not emitted (sparse).
         expect(md, isNot(contains('Reviewer')));
       },
