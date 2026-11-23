@@ -43,8 +43,7 @@ dependencies:
     path: ../tom_md_mermaid
   tom_md_docspecs:
     path: ../tom_md_docspecs
-  tom_doc_specs:
-    path: ../../tom_ai/ai_build/tom_doc_specs
+  tom_doc_specs: ^0.4.0
   shared_preferences: ^2.5.4
 
 dev_dependencies:
