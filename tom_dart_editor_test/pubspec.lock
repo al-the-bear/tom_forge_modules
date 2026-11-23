@@ -546,7 +546,7 @@ packages:
       path: "../../tom_ai/modules/tom_text_highlight"
       relative: true
     source: path
-    version: "0.1.0"
+    version: "0.2.0"
   tom_ui_controls:
     dependency: transitive
     description:
