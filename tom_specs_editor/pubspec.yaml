@@ -28,12 +28,16 @@ dependencies:
   tom_forge_shell:
     path: ../tom_forge_shell
   # The shell parts the app hands its shell (it is a desktop app of its own):
-  # the terminal, the code editors, the platform keychain and the desktop
-  # host (native file dialogs, shells, folders).
+  # the terminal, the code editor adapters, the platform keychain and the
+  # desktop host (native file dialogs, shells, folders).
   tom_forge_terminal:
     path: ../tom_forge_terminal
-  tom_forge_code_editors:
-    path: ../tom_forge_code_editors
+  tom_forge_md_editor:
+    path: ../tom_forge_md_editor
+  tom_forge_dart_editor:
+    path: ../tom_forge_dart_editor
+  tom_forge_yaml_editor:
+    path: ../tom_forge_yaml_editor
   tom_forge_platform_secrets:
     path: ../tom_forge_platform_secrets
   tom_forge_desktop_host:

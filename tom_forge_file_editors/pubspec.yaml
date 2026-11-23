@@ -21,13 +21,15 @@ dependencies:
     path: ../tom_forge_kit
   # The Markdown and YAML adapters (ForgeMdEditor, ForgeYamlEditor) the
   # combined Markdown and YAML file editors build on.
-  tom_forge_code_editors:
-    path: ../tom_forge_code_editors
+  tom_forge_md_editor:
+    path: ../tom_forge_md_editor
+  tom_forge_yaml_editor:
+    path: ../tom_forge_yaml_editor
   # The panel shell, for what the kit does not have: the shell's plain-text
   # editor for text files (ForgePlainTextEditor) and the shell's own module
   # it and the Markdown and YAML adapters integrate through
-  # (TomForgeShellModule, from shell.modules; the adapters take a
-  # ForgeModule); the hosts' editor builders and Open With alternatives take
+  # (TomForgeShellModule, from shell.modules, which hands the adapters the
+  # shell's API); the hosts' editor builders and Open With alternatives take
   # the shell's API (ForgeShellApi in ForgeFileEditorBuilder and
   # ForgeFileEditorAlternative.build). FileEditorsModule is a ForgeModule
   # (activate(ForgeShellApi)) for them, and so opens its editors in a middle
@@ -59,6 +61,10 @@ dependencies:
   tom_basics: ">=3.3.0"
 
 dev_dependencies:
+  # The Dart editor type flutter_test_config.dart registers beside the
+  # Markdown and YAML ones.
+  tom_forge_dart_editor:
+    path: ../tom_forge_dart_editor
   flutter_lints: ^6.0.0
   flutter_test:
     sdk: flutter

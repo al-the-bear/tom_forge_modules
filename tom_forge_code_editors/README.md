@@ -1,16 +1,20 @@
 # Tom Forge Code Editors
 
-Forge's code editors in the panel shell (`tom_forge_shell`): the adapters that
-make the Markdown (`tom_md_editor`), Dart (`tom_dart_editor`) and YAML
-(`tom_yaml_editor`) editors shell editors (`ForgeMdEditor`, `ForgeDartEditor`,
-`ForgeYamlEditor`), the Dart outline provider, and the editor types the layout
-controller opens `.md`/`.markdown`, `.dart` and `.yaml`/`.yml` files with.
+**Kept for one release.** The Markdown, Dart and YAML editor adapters are
+packages of their own on the Forge kit — `tom_forge_md_editor`,
+`tom_forge_dart_editor` and `tom_forge_yaml_editor` — and an application takes
+only the ones it uses. This package re-exports the three so its users keep
+compiling, with the shell-typed helpers it had:
 
-`forgeCodeEditorComponents` holds the three editor types as
-`ForgeShellComponents`. Extensions keep the typed helpers: where the Dart editor
-reads its analysis summaries (`layout.dartSummaryAssets`, on a
-`DefaultLayoutController`) and the shell module's `registerMdEditor` /
-`mdEditors` and their Dart and YAML twins.
+- `forgeCodeEditorComponents`: the three editor types as
+  `ForgeShellComponents` (new code: `ForgeShellComponents(editorTypes:
+  [forgeMarkdownEditorType, forgeDartEditorType, forgeYamlEditorType])`);
+- `dartSummaryAssets` on a `DefaultLayoutController`: where the Dart editors it
+  opens read their analysis summaries (new code:
+  `ForgeDartSummariesByHost.of(layout)` / `.set(layout, assets)` of
+  `tom_forge_dart_editor`);
+- `registerMdEditor` / `mdEditors` and their Dart and YAML twins on the shell's
+  module (new code: `registerEditor` and `editors.whereType<...>()`).
 
 Part of Tom Forge; the layers are in `tom_forge/_agent_guidelines/platform_architecture.md`.
 

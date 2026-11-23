@@ -46,6 +46,23 @@ The application interprets it (the panel shell: the index of a middle panel)
 and places the editor as it decides when it is null or one it does not
 understand. It names no panel, tab or window.
 
+## Editor types
+
+`ForgeKitEditorType` is one kind of editor an application opens files with by
+extension: an id (what the editor answers as `ForgeEditorOfType.editorTypeId`),
+a name and description for **Open With**, the extensions it opens by default,
+and a factory taking a `ForgeKitEditorRequest` — the file, its content, the
+module, the application's `ForgeKitApi`, its file system and an opaque `host`
+value (the panel shell: its layout controller). It names no panel, tab or
+window. The editor adapters export theirs (`forgeMarkdownEditorType` in
+`tom_forge_md_editor`, `forgeDartEditorType` in `tom_forge_dart_editor`,
+`forgeYamlEditorType` in `tom_forge_yaml_editor`); the panel shell takes them
+through `ForgeShellComponents.editorTypes`.
+
+An editor reaches the application through the API it is given, or the one its
+module was activated with: `forgeKitApiOf(module)` answers it for a module
+that implements `ForgeKitApiProvider` (the panel shell's own module does).
+
 ## `ForgeStateStore`
 
 Keyed documents the host persists — the workspace state, the layouts an

@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:tom_forge_core/tom_forge_core.dart';
 
-import 'package:tom_forge_shell/tom_forge_shell.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart';
 
 import 'forge_dart_editor.dart';
 

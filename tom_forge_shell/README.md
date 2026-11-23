@@ -65,8 +65,11 @@ and no `dart:io`, so it builds where those do not, the web included. They plug
 in through `ForgeShellComponents`:
 
 - a terminal-manager factory and the view of a terminal (`tom_forge_terminal`);
-- editor types the layout controller opens files with (`tom_forge_code_editors`:
-  Markdown, Dart, YAML);
+- editor types the layout controller opens files with: any of the kit's
+  `ForgeKitEditorType`s, such as the editor adapters' `forgeMarkdownEditorType`
+  (`tom_forge_md_editor`), `forgeDartEditorType` (`tom_forge_dart_editor`) and
+  `forgeYamlEditorType` (`tom_forge_yaml_editor`), or a `ForgeEditorType`
+  whose factory takes the shell's `ForgeEditorTypeRequest`;
 - a secret-storage factory (`tom_forge_platform_secrets`);
 - the file pickers (`ForgeFilePickers`: folder, files, save location) and the
   host environment (`ForgeHostEnvironment`: installed shells, folders outside

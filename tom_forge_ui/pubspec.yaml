@@ -20,6 +20,16 @@ dependencies:
     path: ../tom_forge_shell
   tom_forge_terminal:
     path: ../tom_forge_terminal
+  # The editor adapters whose editor types the desktop components hand a
+  # shell: Markdown, Dart, YAML.
+  tom_forge_md_editor:
+    path: ../tom_forge_md_editor
+  tom_forge_dart_editor:
+    path: ../tom_forge_dart_editor
+  tom_forge_yaml_editor:
+    path: ../tom_forge_yaml_editor
+  # Re-exported for one release, with the shell-typed helpers it keeps
+  # (dartSummaryAssets, registerMdEditor and its twins).
   tom_forge_code_editors:
     path: ../tom_forge_code_editors
   tom_forge_platform_secrets:

@@ -7,7 +7,7 @@ import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart';
 import 'package:tom_dart_editor/tom_dart_editor.dart';
 
-import 'package:tom_forge_shell/tom_forge_shell.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart';
 
 /// Where the Dart editor's analysis summaries are in the asset bundle: the
 /// SDK summary and the summary of the packages it resolves.
@@ -50,7 +50,8 @@ class ForgeDartEditor extends ForgeTextEditor implements ForgeEditorOfType {
   String get editorTypeId => 'dart';
 
   final DartCodeController controller;
-  final ForgeModule _module;
+  final ForgeKitModule _module;
+  final ForgeKitApi? _api;
   final _stateStreamController = StreamController<void>.broadcast();
   final List<CodeError> Function()? errorsProvider;
 
@@ -82,11 +83,13 @@ class ForgeDartEditor extends ForgeTextEditor implements ForgeEditorOfType {
 
   ForgeDartEditor({
     required this.controller,
-    required ForgeModule module,
+    required ForgeKitModule module,
+    ForgeKitApi? api,
     this.errorsProvider,
     ForgeTextEditorOptions options = const ForgeTextEditorOptions(),
     ForgeDartSummaryAssets summaries = ForgeDartSummaryAssets.root,
   }) : _module = module,
+       _api = api,
        _options = options,
        _analysisAdapter = SummaryBackedDartAnalysisAdapter(
          sdkSummaryAsset: summaries.sdkSummary,
@@ -124,14 +127,20 @@ class ForgeDartEditor extends ForgeTextEditor implements ForgeEditorOfType {
   @override
   ForgeComponentSizeHints get sizeHints => const ForgeComponentSizeHints();
 
-  ForgeModule get module => _module;
+  ForgeKitModule get module => _module;
+
+  /// The API of the application this editor runs in: the one it was given,
+  /// else the one its module was activated with ([forgeKitApiOf]); null
+  /// while there is none, and the editor then works on its own (no
+  /// application actions, settings or diagnostics).
+  ForgeKitApi? get kitApi => _api ?? forgeKitApiOf(_module);
 
   @override
   Widget buildMain(BuildContext context) {
-    if (_module case final TomForgeShellModule shellModule) {
+    if (kitApi case final api?) {
       _integration ??=
           ShellEditorIntegration(
-              shellApi: shellModule.shellApi,
+              shellApi: api,
               editorId: 'dart-editor-${uri.hashCode}',
               editorTypeId: 'dart',
             )
@@ -175,10 +184,7 @@ class ForgeDartEditor extends ForgeTextEditor implements ForgeEditorOfType {
 
   /// Builds [DartEditorSettings] from the editor-specific config map.
   DartEditorSettings _buildSettingsFromConfig() {
-    final shellApi = switch (_module) {
-      final TomForgeShellModule m => m.shellApi,
-      _ => null,
-    };
+    final shellApi = kitApi;
     final config =
         shellApi?.getEditorSpecificConfig('dart') ?? const <String, dynamic>{};
     if (config.isEmpty) return const DartEditorSettings(showToolbar: false);
@@ -534,8 +540,7 @@ class ForgeDartEditor extends ForgeTextEditor implements ForgeEditorOfType {
 
   /// Pushes current analysis errors to the diagnostic manager.
   void _updateDiagnostics() {
-    final module = _module;
-    final shell = module is TomForgeShellModule ? module.shellApi : null;
+    final shell = kitApi;
     if (shell == null) return;
 
     final fileUri = controller.uri;

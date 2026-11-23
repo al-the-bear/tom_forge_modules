@@ -39,11 +39,16 @@ dev_dependencies:
   tom_test_support:
     path: ../../tom_ai/basics/tom_test_support
   # The desktop components flutter_test_config.dart registers for every
-  # shell the suites make: terminal, code editors, keychain, desktop host.
+  # shell the suites make: terminal, the Markdown, Dart and YAML editor
+  # types, keychain, desktop host.
   tom_forge_terminal:
     path: ../tom_forge_terminal
-  tom_forge_code_editors:
-    path: ../tom_forge_code_editors
+  tom_forge_md_editor:
+    path: ../tom_forge_md_editor
+  tom_forge_dart_editor:
+    path: ../tom_forge_dart_editor
+  tom_forge_yaml_editor:
+    path: ../tom_forge_yaml_editor
   tom_forge_platform_secrets:
     path: ../tom_forge_platform_secrets
   tom_forge_desktop_host:

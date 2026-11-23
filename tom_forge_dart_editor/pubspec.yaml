@@ -1,0 +1,33 @@
+name: tom_forge_dart_editor
+description: >-
+  Forge's Dart editor adapter. The `.dart` editor type, `ForgeDartEditor` (the adapter that makes the Dart editor, tom_dart_editor, a Forge editor over the kit, without the shell) and the Dart outline provider.
+  License: BSD-3-Clause.
+publish_to: none
+version: 0.1.0
+repository: https://github.com/al-the-bear/tom_forge
+
+environment:
+  sdk: ^3.10.8
+  flutter: ">=1.17.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # The editor this package adapts.
+  tom_dart_editor:
+    path: ../tom_dart_editor
+  # The Forge kit: the editor contract, ForgeKitApi, the editor type, the
+  # action integration (ShellEditorIntegration). Never the shell (R9).
+  tom_forge_kit:
+    path: ../tom_forge_kit
+  # Diagnostics, text positions and options.
+  tom_forge_core:
+    path: ../tom_forge_core
+  # The editing actions and editor capabilities the adapter reports.
+  tom_editors_shared:
+    path: ../tom_editors_shared
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0

@@ -1430,13 +1430,6 @@ packages:
       relative: true
     source: path
     version: "0.1.0"
-  tom_forge_code_editors:
-    dependency: "direct main"
-    description:
-      path: "../tom_forge_code_editors"
-      relative: true
-    source: path
-    version: "0.1.0"
   tom_forge_core:
     dependency: "direct main"
     description:
@@ -1444,6 +1437,13 @@ packages:
       relative: true
     source: path
     version: "2.0.0"
+  tom_forge_dart_editor:
+    dependency: "direct main"
+    description:
+      path: "../tom_forge_dart_editor"
+      relative: true
+    source: path
+    version: "0.1.0"
   tom_forge_desktop_host:
     dependency: "direct main"
     description:
@@ -1455,6 +1455,13 @@ packages:
     dependency: "direct main"
     description:
       path: "../tom_forge_kit"
+      relative: true
+    source: path
+    version: "0.1.0"
+  tom_forge_md_editor:
+    dependency: "direct main"
+    description:
+      path: "../tom_forge_md_editor"
       relative: true
     source: path
     version: "0.1.0"
@@ -1490,6 +1497,13 @@ packages:
     dependency: "direct dev"
     description:
       path: "../tom_forge_ui_testing"
+      relative: true
+    source: path
+    version: "0.1.0"
+  tom_forge_yaml_editor:
+    dependency: "direct main"
+    description:
+      path: "../tom_forge_yaml_editor"
       relative: true
     source: path
     version: "0.1.0"

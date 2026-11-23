@@ -1,17 +1,20 @@
 # Tom Forge UI
 
 Forge's panel shell with everything a desktop Forge needs, as one library.
-`package:tom_forge_ui/tom_forge_ui.dart` re-exports five packages:
+`package:tom_forge_ui/tom_forge_ui.dart` re-exports these packages:
 
 | Package | What it is | Depends on |
 | --- | --- | --- |
 | `tom_forge_shell` | The shell core: `ForgeShellApi` and its default services, the scaffold, panels, tab bar, menus, command palette, configuration, the built-in views and the plain-text editor; builds for the web | Flutter, `tom_forge_core`, `tom_forge_shared_ui` (the theme tokens and the elements drawing the kit's models, which it re-exports), `tom_editors_shared` (webview-free), `tom_file_system`, `tom_file_session`, `shared_preferences` |
 | `tom_forge_terminal` | PTY-backed and process-backed terminals and the terminal view | the core, `flutter_pty`, the `xterm` fork |
-| `tom_forge_code_editors` | The Markdown, Dart and YAML editor adapters, the Dart outline provider, and the editor types the layout controller opens those files with | the core, `tom_md_editor`, `tom_dart_editor`, `tom_yaml_editor` |
+| `tom_forge_md_editor` | The Markdown editor adapter (`ForgeMdEditor`) and its editor type (`forgeMarkdownEditorType`, `.md` / `.markdown`) | `tom_forge_kit`, `tom_md_editor` |
+| `tom_forge_dart_editor` | The Dart editor adapter (`ForgeDartEditor`), its editor type (`forgeDartEditorType`, `.dart`), where its summaries are read (`ForgeDartSummariesByHost`) and the Dart outline provider | `tom_forge_kit`, `tom_dart_editor` |
+| `tom_forge_yaml_editor` | The YAML editor adapter (`ForgeYamlEditor`) and its editor type (`forgeYamlEditorType`, `.yaml` / `.yml`) | `tom_forge_kit`, `tom_yaml_editor` |
+| `tom_forge_code_editors` | For one release: the three adapters with the shell-typed helpers it had (`forgeCodeEditorComponents`, `DefaultLayoutController.dartSummaryAssets`, `TomForgeShellModule.registerMdEditor` and its twins) | the core, the three adapters |
 | `tom_forge_platform_secrets` | Secret storage in the platform keychain | the core, `flutter_secure_storage` |
 | `tom_forge_desktop_host` | The native file dialogs, the machine's shells and folders, the workspace folder above a picked folder, `.forge/` kept out of git, the workspace folder selector | the core, `file_picker`, `file_selector`, `dart:io` |
 
-The core builds without the other four, for the web too: without them a
+The core builds without the others, for the web too: without them a
 shell has no terminals, keeps secrets in memory, opens every file as plain
 text and picks no files or folders. They plug in as `ForgeShellComponents` —
 a terminal-manager factory, a terminal view, a secret-storage factory, editor
@@ -44,10 +47,11 @@ has.
 
 The umbrella is for consumers outside this repository. No package in
 `tom_forge` takes it (PL-7 of `tom_forge_app/test/platform_layering_test.dart`):
-a module takes `tom_forge_kit`, the shell parts it uses and `tom_forge_shell`
-for the panel shell's extras; `tom_forge_app`, the TomSpecs Editor and the test
-packages merge the parts' components themselves
-(`forgeTerminalComponents.mergedWith(forgeCodeEditorComponents)...`).
+a module takes `tom_forge_kit`, the editor adapters and shell parts it uses and
+`tom_forge_shell` for the panel shell's extras; `tom_forge_app`, the TomSpecs
+Editor and the test packages merge the parts' components themselves
+(`forgeTerminalComponents.mergedWith(ForgeShellComponents(editorTypes:
+[forgeMarkdownEditorType, forgeDartEditorType, forgeYamlEditorType]))...`).
 
 ## Context menus
 

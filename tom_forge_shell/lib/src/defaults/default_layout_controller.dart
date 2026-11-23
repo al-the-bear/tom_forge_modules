@@ -45,7 +45,7 @@ class DefaultLayoutController implements ForgeLayoutController {
 
   /// The editor types beyond plain text this controller opens files with
   /// ([ForgeShellComponents.editorTypes]).
-  final List<ForgeEditorType> editorTypes;
+  final List<ForgeKitEditorType> editorTypes;
 
   /// Late-bound diagnostic manager for emitting editor fallback diagnostics.
   ForgeDiagnosticManager? diagnosticManager;
@@ -79,7 +79,7 @@ class DefaultLayoutController implements ForgeLayoutController {
     double rightSize = 220,
     double bottomSize = 180,
     this.maxOpenEditors = 20,
-    List<ForgeEditorType>? editorTypes,
+    List<ForgeKitEditorType>? editorTypes,
   }) : editorTypes = List.unmodifiable(
          editorTypes ?? ForgeShellComponents.registered.editorTypes,
        ),
@@ -603,7 +603,7 @@ class DefaultLayoutController implements ForgeLayoutController {
   }
 
   /// The registered editor type [id], or null.
-  ForgeEditorType? _editorType(String? id) {
+  ForgeKitEditorType? _editorType(String? id) {
     if (id == null) return null;
     for (final type in editorTypes) {
       if (type.id == id) return type;
@@ -1019,6 +1019,7 @@ class DefaultLayoutController implements ForgeLayoutController {
           module: ownerModule,
           fileSystem: _fileSystem,
           layout: this,
+          api: forgeKitApiOf(ownerModule),
         ),
       );
     }

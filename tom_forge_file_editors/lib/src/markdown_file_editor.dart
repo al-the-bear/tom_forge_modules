@@ -4,11 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart'
     show StandardEditingActions;
 import 'package:tom_file_session/tom_file_session.dart';
-import 'package:tom_forge_code_editors/tom_forge_code_editors.dart';
+import 'package:tom_forge_md_editor/tom_forge_md_editor.dart';
 import 'package:tom_md_editor/tom_md_editor.dart';
 import 'package:tom_file_editors/tom_file_editors.dart'
     show ForgeSessionFile, ForgeSessionFileFrame;
-
 
 /// A Markdown file in Forge's Markdown editor, read and saved through its
 /// [ForgeFileSession]: the editor's controller keeps the one history (and

@@ -1,63 +1,14 @@
-import 'package:tom_dart_editor/tom_dart_editor.dart';
+import 'package:tom_forge_dart_editor/tom_forge_dart_editor.dart';
+import 'package:tom_forge_md_editor/tom_forge_md_editor.dart';
 import 'package:tom_forge_shell/tom_forge_shell.dart';
-import 'package:tom_md_editor/tom_md_editor.dart';
-import 'package:tom_yaml_editor/tom_yaml_editor.dart';
+import 'package:tom_forge_yaml_editor/tom_forge_yaml_editor.dart';
 
-import 'forge_dart_editor.dart';
-import 'forge_md_editor.dart';
-import 'forge_yaml_editor.dart';
-
-/// The Markdown editor type: `.md` and `.markdown` files in
-/// [ForgeMdEditor].
-final ForgeEditorType forgeMarkdownEditorType = ForgeEditorType(
-  id: 'md',
-  label: 'Markdown Editor',
-  description: 'Edit with rich markdown preview',
-  extensions: const ['md', 'markdown'],
-  create: (request) => ForgeMdEditor(
-    controller: MdEditorController(
-      initialMarkdown: request.content,
-      uri: request.uri,
-    ),
-    module: request.module,
-  ),
-);
-
-/// The Dart editor type: `.dart` files in [ForgeDartEditor], reading its
-/// analysis summaries where the layout controller's
-/// [ForgeDartSummariesOnLayout.dartSummaryAssets] says.
-final ForgeEditorType forgeDartEditorType = ForgeEditorType(
-  id: 'dart',
-  label: 'Dart Code Editor',
-  description: 'Edit with Dart syntax highlighting',
-  extensions: const ['dart'],
-  create: (request) => ForgeDartEditor(
-    controller: DartCodeController(
-      initialCode: request.content,
-      uri: request.uri,
-    ),
-    module: request.module,
-    summaries: _summaries[request.layout] ?? ForgeDartSummaryAssets.root,
-  ),
-);
-
-/// The YAML editor type: `.yaml` and `.yml` files in [ForgeYamlEditor].
-final ForgeEditorType forgeYamlEditorType = ForgeEditorType(
-  id: 'yaml',
-  label: 'YAML Editor',
-  description: 'Edit with YAML structure view',
-  extensions: const ['yaml', 'yml'],
-  create: (request) => ForgeYamlEditor(
-    controller: YamlEditorController(
-      initialYaml: request.content,
-      uri: request.uri,
-    ),
-    module: request.module,
-  ),
-);
-
-/// The code editor types, in the order **Open With** offers them, and as
+/// The code editor types, in the order **Open With** offers them, as
 /// [ForgeShellComponents] to register or give a shell.
+///
+/// Kept for one release: an application takes the types it uses from the
+/// adapter packages (`forgeMarkdownEditorType`, `forgeDartEditorType`,
+/// `forgeYamlEditorType`) as `ForgeShellComponents(editorTypes: [...])`.
 final ForgeShellComponents forgeCodeEditorComponents = ForgeShellComponents(
   editorTypes: [
     forgeMarkdownEditorType,
@@ -66,20 +17,24 @@ final ForgeShellComponents forgeCodeEditorComponents = ForgeShellComponents(
   ],
 );
 
-final Expando<ForgeDartSummaryAssets> _summaries = Expando('dartSummaryAssets');
-
 /// Where the Dart editors a layout controller opens read their analysis
 /// summaries: the running app's own assets ([ForgeDartSummaryAssets.root])
 /// unless the app is built on a package that carries them.
+///
+/// Kept for one release: [ForgeDartSummariesByHost] of
+/// `tom_forge_dart_editor`, keyed by the layout controller, says the same.
 extension ForgeDartSummariesOnLayout on DefaultLayoutController {
   ForgeDartSummaryAssets get dartSummaryAssets =>
-      _summaries[this] ?? ForgeDartSummaryAssets.root;
+      ForgeDartSummariesByHost.of(this);
 
   set dartSummaryAssets(ForgeDartSummaryAssets assets) =>
-      _summaries[this] = assets;
+      ForgeDartSummariesByHost.set(this, assets);
 }
 
 /// The code editors registered with the shell's own module, by type.
+///
+/// Kept for one release: `registerEditor` and `editors.whereType<...>()` do
+/// the same.
 extension ForgeCodeEditorsOnShellModule on TomForgeShellModule {
   /// Registers a [ForgeMdEditor] adapter and returns it.
   ForgeMdEditor registerMdEditor(ForgeMdEditor editor) =>

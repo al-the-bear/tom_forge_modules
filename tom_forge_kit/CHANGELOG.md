@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Editor types without layout: `ForgeKitEditorType` (an id, a name, the file
+  extensions it opens by default and a factory) and `ForgeKitEditorRequest`
+  (the file, its content, the module, the application's API, its file system
+  and an opaque host value). An editor adapter exports its type; the panel
+  shell takes them through its components. `ForgeKitApiProvider` and
+  `forgeKitApiOf`: the API a module was activated with, which an editor made
+  for it reaches the application through.
 - A layout-free placement hint: `ForgeEditorHost.showEditor` and
   `openEditorFor` and `ForgeKitApi.openFile` take `placement:`, an opaque
   value the application interprets (e.g. `ForgeNavigationLocation.placement`);

@@ -32,7 +32,7 @@ import '../shell/forge_shell_api.dart';
 /// module.activate(shellApi);
 /// print(module.supportedExtensions); // {dart, md, markdown, yaml, yml, txt}
 /// ```
-class TomForgeShellModule extends ForgeModule {
+class TomForgeShellModule extends ForgeModule implements ForgeKitApiProvider {
   final List<ForgeEditor> _editors = [];
   final List<ForgeAction> _actions = [];
   final List<ForgeShortcutBinding> _shortcuts = [];
@@ -48,6 +48,11 @@ class TomForgeShellModule extends ForgeModule {
     }
     return shell;
   }
+
+  /// The shell's API once activated: what the editor adapters created for
+  /// this module integrate with ([forgeKitApiOf]).
+  @override
+  ForgeKitApi? get activeKitApi => _shell;
 
   @override
   String get displayName => 'Tom Forge Editors';
@@ -89,7 +94,7 @@ class TomForgeShellModule extends ForgeModule {
 
   /// Registers an editor adapter with this module and returns it. The code
   /// editors' typed helpers (`registerMdEditor`, `mdEditors`, ...) are an
-  /// extension in `tom_forge_code_editors`.
+  /// extension in `tom_forge_code_editors`, kept for one release.
   E registerEditor<E extends ForgeEditor>(E editor) {
     _editors.add(editor);
     return editor;

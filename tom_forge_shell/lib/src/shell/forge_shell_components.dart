@@ -21,67 +21,57 @@ typedef ForgeSecretStorageFactory =
 /// Terminal tab.
 typedef ForgeTerminalViewBuilder = ForgeView Function(ForgeTerminal terminal);
 
-/// What an editor type gets to open one file: the file, its content, the
-/// module that owns the shell's own editors, the shell's file system and
-/// layout controller.
-class ForgeEditorTypeRequest {
+/// What an editor type gets to open one file in the panel shell: the kit's
+/// request ([ForgeKitEditorRequest]) with the module that owns the shell's
+/// own editors as a [ForgeModule] and the shell's layout controller, which is
+/// also the request's `host`.
+class ForgeEditorTypeRequest extends ForgeKitEditorRequest {
   const ForgeEditorTypeRequest({
-    required this.uri,
-    required this.content,
-    required this.module,
-    required this.fileSystem,
+    required super.uri,
+    required super.content,
+    required ForgeModule super.module,
+    required TomFileSystem super.fileSystem,
     required this.layout,
-  });
+    super.api,
+  }) : super(host: layout);
 
-  final Uri uri;
-  final String content;
-  final ForgeModule module;
-  final TomFileSystem fileSystem;
+  @override
+  ForgeModule get module => super.module as ForgeModule;
+
+  @override
+  TomFileSystem get fileSystem => super.fileSystem!;
+
   final ForgeLayoutController layout;
 }
 
 /// One of the editor types the layout controller opens files with by itself
-/// (after the modules' editors had their say): `'md'`, `'dart'`, `'yaml'`
-/// from `tom_forge_code_editors`, and the shell's own `'plaintext'`.
-class ForgeEditorType {
-  const ForgeEditorType({
-    required this.id,
-    required this.label,
-    required this.description,
-    required this.create,
-    this.extensions = const [],
-  });
-
-  /// The id an editor of this type answers as
-  /// [ForgeEditorOfType.editorTypeId],
-  /// and the file-type defaults name.
-  final String id;
-
-  /// The name **Open With** shows.
-  final String label;
-
-  /// What **Open With** says it is for.
-  final String description;
-
-  /// The file extensions (without the dot, lower case) this type opens by
-  /// default.
-  final List<String> extensions;
-
-  /// Makes an editor of this type for one file.
-  final ForgeEditor Function(ForgeEditorTypeRequest request) create;
+/// (after the modules' editors had their say), as the panel shell declares
+/// one: its factory takes the shell's [ForgeEditorTypeRequest]. The shell
+/// takes any [ForgeKitEditorType] (the Markdown, Dart and YAML adapters'
+/// `forgeMarkdownEditorType`, `forgeDartEditorType`, `forgeYamlEditorType`);
+/// its own `'plaintext'` is built in.
+class ForgeEditorType extends ForgeKitEditorType {
+  ForgeEditorType({
+    required super.id,
+    required super.label,
+    required super.description,
+    required ForgeEditor Function(ForgeEditorTypeRequest request) create,
+    super.extensions,
+  }) : super(create: (request) => create(request as ForgeEditorTypeRequest));
 }
 
 /// The parts a Forge shell is assembled from that the shell core does not
 /// carry itself: the terminal manager (and the view of a terminal), the
-/// secret storage, editor types beyond plain text, and the host's file
-/// pickers and environment.
+/// secret storage, editor types beyond plain text ([ForgeKitEditorType]s),
+/// and the host's file pickers and environment.
 ///
 /// The core works without any of them — no terminals
 /// ([ForgeNoTerminalManager]), secrets in memory ([DefaultSecretStorage]),
 /// files opened as plain text, no file pickers ([ForgeNoFilePickers]) and no
 /// host environment ([ForgeNoHostEnvironment]) — so it builds where the
 /// terminal, the editors or `dart:io` do not, the web included.
-/// `tom_forge_terminal`, `tom_forge_code_editors`,
+/// `tom_forge_terminal`, the editor adapters (`tom_forge_md_editor`,
+/// `tom_forge_dart_editor`, `tom_forge_yaml_editor`),
 /// `tom_forge_platform_secrets` and `tom_forge_desktop_host` provide them;
 /// `package:tom_forge_ui`'s `useForgeDesktopComponents()` registers all
 /// four as [registered], which
@@ -106,7 +96,7 @@ class ForgeShellComponents {
   final ForgeTerminalViewBuilder? terminalView;
 
   /// The editor types beyond plain text, in the order they are offered.
-  final List<ForgeEditorType> editorTypes;
+  final List<ForgeKitEditorType> editorTypes;
 
   /// The host's file pickers; null: none ([ForgeNoFilePickers]).
   final ForgeFilePickers? filePickers;

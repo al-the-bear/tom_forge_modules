@@ -1,5 +1,9 @@
 ## Unreleased
 
+* The code editors are three adapter packages on the kit, re-exported here:
+  `tom_forge_md_editor`, `tom_forge_dart_editor` and `tom_forge_yaml_editor`;
+  `forgeDesktopComponents` takes their editor types. `tom_forge_code_editors`
+  stays re-exported for one release, with the helpers it keeps.
 * The native file dialogs and the `dart:io` host pieces moved out of the core
   into `tom_forge_desktop_host` (re-exported here, part of
   `forgeDesktopComponents`): the core reaches them through the

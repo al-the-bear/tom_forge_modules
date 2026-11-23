@@ -4,9 +4,10 @@ import 'package:tom_forge_core/tom_forge_core.dart';
 
 import 'component_history_manager.dart';
 import 'forge_component.dart';
+import 'forge_kit_editor_type.dart' show ForgeKitEditorType;
 
 /// An editor of one of the shell's editor types: `'md'`, `'dart'`,
-/// `'yaml'`, `'plaintext'`, or the id of another [ForgeEditorType]. The shell
+/// `'yaml'`, `'plaintext'`, or the id of another [ForgeKitEditorType]. The shell
 /// keys the text settings, the action bar and **Open With** by it.
 abstract interface class ForgeEditorOfType {
   /// The id of the editor type this editor is.

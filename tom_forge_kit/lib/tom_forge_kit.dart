@@ -2,8 +2,9 @@
 /// what a module contributes, with no widgets and no layout of its own.
 ///
 /// - **Contracts:** components, editors and views ([ForgeComponent],
-///   [ForgeEditor], [ForgeView]), modules ([ForgeKitModule] with its
-///   [ForgeModuleExtra]s).
+///   [ForgeEditor], [ForgeView]), editor types an application opens files
+///   with by extension ([ForgeKitEditorType]), modules ([ForgeKitModule]
+///   with its [ForgeModuleExtra]s).
 /// - **Data:** actions and their state ([ForgeActionRegistry]), shortcuts
 ///   ([ForgeShortcutManager]), context-menu entries
 ///   ([ForgeContextMenuController], [ForgeContextMenuEntry]), status items
@@ -38,6 +39,7 @@ export 'src/components/forge_component.dart';
 export 'src/components/forge_editor.dart';
 export 'src/components/forge_editor_choice.dart';
 export 'src/components/forge_find_target.dart';
+export 'src/components/forge_kit_editor_type.dart';
 export 'src/components/forge_schema_editor.dart';
 export 'src/components/forge_surface_editor.dart';
 export 'src/components/forge_text_editor.dart';

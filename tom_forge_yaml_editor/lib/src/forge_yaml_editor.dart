@@ -14,7 +14,7 @@ import 'package:tom_editors_shared/tom_editors_shared.dart'
         StandardEditingActions;
 import 'package:tom_yaml_editor/tom_yaml_editor.dart';
 
-import 'package:tom_forge_shell/tom_forge_shell.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart';
 
 /// Adapter that wraps [YamlEditorController] + [YamlSchemaEditor] as a
 /// [ForgeSchemaEditor].
@@ -24,7 +24,8 @@ class ForgeYamlEditor extends ForgeSchemaEditor
   String get editorTypeId => 'yaml';
 
   final YamlEditorController controller;
-  final ForgeModule _module;
+  final ForgeKitModule _module;
+  final ForgeKitApi? _api;
   final _title = ValueNotifier<String>('YAML');
   final _titleExtension = ValueNotifier<String?>(null);
   final _stateStreamController = StreamController<void>.broadcast();
@@ -47,17 +48,20 @@ class ForgeYamlEditor extends ForgeSchemaEditor
 
   ForgeYamlEditor({
     required this.controller,
-    required ForgeModule module,
+    required ForgeKitModule module,
+    ForgeKitApi? api,
     ForgeTextEditorOptions options = const ForgeTextEditorOptions(),
     String? yamlSchemasPath,
   }) : _module = module,
+       _api = api,
        _options = options {
     // Resolve schemas path: constructor arg > editor config.
-    // Guard: shell may not be activated yet during tests.
+    // Guard: the module may not be activated yet (tests).
     String? configPath;
-    if (module case final TomForgeShellModule m when m.isActivated) {
+    final configApi = api ?? forgeKitApiOf(module);
+    if (configApi != null) {
       configPath =
-          m.shellApi.getEditorSpecificConfig('yaml')['yamlSchemasPath']
+          configApi.getEditorSpecificConfig('yaml')['yamlSchemasPath']
               as String?;
     }
     this.yamlSchemasPath = yamlSchemasPath ?? configPath;
@@ -88,14 +92,20 @@ class ForgeYamlEditor extends ForgeSchemaEditor
   @override
   ForgeComponentSizeHints get sizeHints => const ForgeComponentSizeHints();
 
-  ForgeModule get module => _module;
+  ForgeKitModule get module => _module;
+
+  /// The API of the application this editor runs in: the one it was given,
+  /// else the one its module was activated with ([forgeKitApiOf]); null
+  /// while there is none, and the editor then works on its own (no
+  /// application actions, settings or diagnostics).
+  ForgeKitApi? get kitApi => _api ?? forgeKitApiOf(_module);
 
   @override
   Widget buildMain(BuildContext context) {
-    if (_module case final TomForgeShellModule shellModule) {
+    if (kitApi case final api?) {
       _integration ??=
           ShellEditorIntegration(
-              shellApi: shellModule.shellApi,
+              shellApi: api,
               editorId: 'yaml-editor-${uri.hashCode}',
               editorTypeId: 'yaml',
             )
@@ -154,10 +164,8 @@ class ForgeYamlEditor extends ForgeSchemaEditor
 
   YamlEditorTheme _buildThemeFromOptions() {
     const base = YamlEditorTheme();
-    final config = switch (_module) {
-      final TomForgeShellModule m => m.shellApi.getEditorSpecificConfig('yaml'),
-      _ => const <String, dynamic>{},
-    };
+    final config =
+        kitApi?.getEditorSpecificConfig('yaml') ?? const <String, dynamic>{};
     return YamlEditorTheme(
       colors: base.colors,
       structureColors: base.structureColors,
@@ -321,8 +329,7 @@ class ForgeYamlEditor extends ForgeSchemaEditor
   /// Converts current validation/parse errors to [ForgeDiagnostic] and
   /// pushes them to the diagnostic manager via a named collection.
   void _updateDiagnostics() {
-    final module = _module;
-    final shell = module is TomForgeShellModule ? module.shellApi : null;
+    final shell = kitApi;
     if (shell == null) return;
 
     final fileUri = controller.uri;

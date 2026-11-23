@@ -20,12 +20,11 @@ dependencies:
   tom_forge_kit:
     path: ../tom_forge_kit
   # The YAML adapter (ForgeYamlEditor) the website config editor builds on.
-  tom_forge_code_editors:
-    path: ../tom_forge_code_editors
+  tom_forge_yaml_editor:
+    path: ../tom_forge_yaml_editor
   # The panel shell, for what the kit does not have: a settings section of the
   # configuration dialog (ForgeConfigPanel), the workspace root its config is
-  # found under (shell.systemState.workspaceRootPath), and a ForgeModule for
-  # its config editor's YAML adapter (ForgeYamlEditor takes one).
+  # found under (shell.systemState.workspaceRootPath).
   # WebsiteEditorModule is a ForgeModule (activate(ForgeShellApi)) for them,
   # and so opens files through the panel layout (shell.layout.openFile).
   tom_forge_shell:
@@ -46,6 +45,12 @@ dependencies:
   yaml: ^3.1.2
 
 dev_dependencies:
+  # The Markdown and Dart editor types flutter_test_config.dart registers
+  # beside the YAML one.
+  tom_forge_md_editor:
+    path: ../tom_forge_md_editor
+  tom_forge_dart_editor:
+    path: ../tom_forge_dart_editor
   flutter_test:
     sdk: flutter
   # The undo conformance harness and the shell test doubles.

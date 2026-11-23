@@ -2,8 +2,9 @@
 /// services and widgets, without the terminal, the code editors or the
 /// platform keychain.
 ///
-/// Those come as packages of their own (`tom_forge_terminal`,
-/// `tom_forge_code_editors`, `tom_forge_platform_secrets`) and plug into the
+/// Those come as packages of their own (`tom_forge_terminal`, the editor
+/// adapters `tom_forge_md_editor`, `tom_forge_dart_editor` and
+/// `tom_forge_yaml_editor`, `tom_forge_platform_secrets`) and plug into the
 /// shell through [ForgeShellComponents]; `package:tom_forge_ui` is all of
 /// them together, with `useForgeDesktopComponents()` registering them.
 library;
