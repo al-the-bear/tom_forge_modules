@@ -15,8 +15,20 @@ dependencies:
     sdk: flutter
   tom_website_editor_core:
     path: ../tom_website_editor_core
-  tom_forge_ui:
-    path: ../tom_forge_ui
+  # The Forge kit: the editor and view contracts, the kit API and its
+  # services.
+  tom_forge_kit:
+    path: ../tom_forge_kit
+  # The YAML adapter (ForgeYamlEditor) the website config editor builds on.
+  tom_forge_code_editors:
+    path: ../tom_forge_code_editors
+  # The panel shell, for its extras only: WebsiteEditorModule is a ForgeModule
+  # with activate(ForgeShellApi) (the panel shell's module registry takes only
+  # ForgeModule); it brings a settings section (ForgeConfigPanel), opens files
+  # through the panel layout (shell.layout.openFile) and reads the shell's
+  # workspace root (shell.systemState.workspaceRootPath).
+  tom_forge_shell:
+    path: ../tom_forge_shell
   # Direct deps for the §6 config editor: ForgeDiagnostic/ForgeTextRange/
   # FileHandlingResult come from tom_forge_core; the YAML controller the
   # WebsiteConfigEditor is built on comes from tom_yaml_editor.
@@ -39,6 +51,14 @@ dev_dependencies:
   tom_forge_ui_testing:
     path: ../tom_forge_ui_testing
   flutter_lints: ^6.0.0
+  # The desktop components flutter_test_config.dart registers for every
+  # shell the suites make: terminal, code editors (a dependency already), keychain, desktop host.
+  tom_forge_terminal:
+    path: ../tom_forge_terminal
+  tom_forge_platform_secrets:
+    path: ../tom_forge_platform_secrets
+  tom_forge_desktop_host:
+    path: ../tom_forge_desktop_host
 
 flutter:
   uses-material-design: true

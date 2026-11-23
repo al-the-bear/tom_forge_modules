@@ -3,7 +3,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart';
 
 import 'website_preview_controller.dart';
 

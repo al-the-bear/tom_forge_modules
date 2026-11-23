@@ -16,7 +16,14 @@ import 'package:tom_editors_shared/tom_editors_shared.dart'
     show StandardEditingActions;
 import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_forge_file_editors/tom_forge_file_editors.dart';
-import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart';
+import 'package:tom_forge_shell/tom_forge_shell.dart'
+    show
+        DefaultLayoutController,
+        DefaultModuleRegistry,
+        DefaultShellApi,
+        ForgePlainTextEditor,
+        TomForgeShellModule;
 import 'package:tom_yaml_editor/tom_yaml_editor.dart' show kYamlEditorDebug;
 
 const _undo = StandardEditingActions.undoActionId;

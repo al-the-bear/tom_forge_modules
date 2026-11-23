@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart'
     show StandardEditingActions;
 import 'package:tom_file_session/tom_file_session.dart';
-import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_forge_code_editors/tom_forge_code_editors.dart';
 import 'package:tom_yaml_editor/tom_yaml_editor.dart';
 import 'package:tom_file_editors/tom_file_editors.dart'
     show ForgeSessionFile, ForgeSessionFileFrame;

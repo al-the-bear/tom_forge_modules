@@ -1,6 +1,8 @@
 import 'dart:io';
 
-import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart';
+import 'package:tom_forge_shell/tom_forge_shell.dart'
+    show ForgeModule, ForgeShellApi;
 import 'package:tom_spec_engine/agent.dart' show AgentToolGroup;
 import 'package:tom_spec_engine/agent_runtime.dart' show ConversationalDriver;
 import 'package:tom_spec_engine/scripting.dart' show SpecFileFacade;

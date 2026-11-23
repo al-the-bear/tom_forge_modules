@@ -17,7 +17,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tom_forge_quests/tom_forge_quests.dart';
-import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart';
+import 'package:tom_forge_shell/tom_forge_shell.dart'
+    show
+        DefaultLayoutController,
+        DefaultModuleRegistry,
+        DefaultShellApi,
+        DefaultSystemState,
+        ForgeApplication,
+        ForgeShellScaffold,
+        MiddlePanelConfig,
+        PanelLayout;
 import 'package:tom_test_support/roots.dart';
 
 const _workspace = '/ws';

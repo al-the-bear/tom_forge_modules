@@ -2,7 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 import 'package:tom_file_session/tom_file_session.dart';
-import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_forge_shell/tom_forge_shell.dart'
+    show ForgeShellApi, ForgeShellComponents;
 import 'package:tom_office_editor/tom_office_editor.dart';
 
 import 'forge_office_trail.dart';

@@ -19,9 +19,11 @@ dependencies:
   # The module whose editors the subjects drive.
   tom_forge_file_editors:
     path: ../tom_forge_file_editors
-  # The shell types and Forge's undo conformance harness.
-  tom_forge_ui:
-    path: ../tom_forge_ui
+  # The panel shell's plain-text editor (ForgePlainTextEditor) a subject
+  # drives.
+  tom_forge_shell:
+    path: ../tom_forge_shell
+  # Forge's undo conformance harness.
   tom_forge_ui_testing:
     path: ../tom_forge_ui_testing
   # The file sessions the subjects save through.

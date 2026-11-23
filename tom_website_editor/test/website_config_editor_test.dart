@@ -6,7 +6,9 @@
 // diagnostics recompute on edit, and the save → reload hook.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
-import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart';
+import 'package:tom_forge_shell/tom_forge_shell.dart'
+    show ForgeModule, ForgeShellApi;
 import 'package:tom_website_editor/tom_website_editor.dart';
 import 'package:tom_yaml_editor/tom_yaml_editor.dart';
 

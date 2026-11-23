@@ -4,7 +4,18 @@ import 'package:tom_editors_shared/tom_editors_shared.dart'
     show StandardEditingActions;
 import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_forge_agentic/tom_forge_agentic.dart';
-import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart';
+import 'package:tom_forge_shell/tom_forge_shell.dart'
+    show
+        DefaultLayoutController,
+        DefaultModuleRegistry,
+        DefaultShellApi,
+        DefaultSystemState,
+        ForgeShellScaffold;
+import 'package:tom_forge_terminal/tom_forge_terminal.dart';
+import 'package:tom_forge_code_editors/tom_forge_code_editors.dart';
+import 'package:tom_forge_platform_secrets/tom_forge_platform_secrets.dart';
+import 'package:tom_forge_desktop_host/tom_forge_desktop_host.dart';
 
 import 'agent/agent_tools_module.dart';
 import 'agent/send_controller_conversational_driver.dart';
@@ -108,8 +119,12 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
       fileSystem: fileSystem,
       appName: 'TomSpecs Editor',
       navigatorKey: _navigatorKey,
-      // The terminal, the code editors and the keychain.
-      components: forgeDesktopComponents,
+      // The terminal, the code editors, the keychain and the desktop host
+      // (file dialogs, shells, folders), from the shell parts themselves.
+      components: forgeTerminalComponents
+          .mergedWith(forgeCodeEditorComponents)
+          .mergedWith(forgePlatformSecretComponents)
+          .mergedWith(forgeDesktopHostComponents),
     );
 
     // One shared model future + review store feeds the structure browser, the

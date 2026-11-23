@@ -1,4 +1,5 @@
-import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_forge_shell/tom_forge_shell.dart'
+    show ForgeExternalTool, ForgeToolCopy, ForgeToolState;
 import 'package:tom_office_editor/io.dart';
 import 'package:tom_office_editor/tom_office_editor.dart';
 

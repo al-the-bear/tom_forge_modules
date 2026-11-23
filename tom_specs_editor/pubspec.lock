@@ -1431,7 +1431,7 @@ packages:
     source: path
     version: "0.1.0"
   tom_forge_code_editors:
-    dependency: transitive
+    dependency: "direct main"
     description:
       path: "../tom_forge_code_editors"
       relative: true
@@ -1445,21 +1445,21 @@ packages:
     source: path
     version: "2.0.0"
   tom_forge_desktop_host:
-    dependency: transitive
+    dependency: "direct main"
     description:
       path: "../tom_forge_desktop_host"
       relative: true
     source: path
     version: "0.1.0"
   tom_forge_kit:
-    dependency: transitive
+    dependency: "direct main"
     description:
       path: "../tom_forge_kit"
       relative: true
     source: path
     version: "0.1.0"
   tom_forge_platform_secrets:
-    dependency: transitive
+    dependency: "direct main"
     description:
       path: "../tom_forge_platform_secrets"
       relative: true
@@ -1473,26 +1473,19 @@ packages:
     source: path
     version: "0.2.0"
   tom_forge_shell:
-    dependency: transitive
+    dependency: "direct main"
     description:
       path: "../tom_forge_shell"
       relative: true
     source: path
     version: "0.1.0"
   tom_forge_terminal:
-    dependency: transitive
+    dependency: "direct main"
     description:
       path: "../tom_forge_terminal"
       relative: true
     source: path
     version: "0.1.0"
-  tom_forge_ui:
-    dependency: "direct main"
-    description:
-      path: "../tom_forge_ui"
-      relative: true
-    source: path
-    version: "0.0.1"
   tom_forge_ui_testing:
     dependency: "direct dev"
     description:

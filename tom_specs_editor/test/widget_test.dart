@@ -9,7 +9,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_core_agentic/tom_core_agentic.dart';
 import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_forge_agentic/tom_forge_agentic.dart';
-import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_forge_shell/tom_forge_shell.dart'
+    show DefaultShellApi, DefaultSystemState, ForgeShellScaffold;
 
 import 'package:tom_specs_editor/src/apps/phase_overview.dart';
 import 'package:tom_specs_editor/src/apps/phase_surfaces.dart';

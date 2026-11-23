@@ -18,9 +18,16 @@ dependencies:
   # through the shell's file system.
   tom_file_system:
     path: ../../tom_ai/basics/tom_file_system
-  # The Forge shell contracts: modules, applications, views, dialogs.
-  tom_forge_ui:
-    path: ../tom_forge_ui
+  # The Forge kit: views, actions, dialogs, notifications, the file system.
+  tom_forge_kit:
+    path: ../tom_forge_kit
+  # The panel shell, for its extras only: ForgeModule with activate(ForgeShellApi)
+  # (the panel shell's module registry takes only ForgeModule), the quest
+  # applications (shell.applications, ForgeApplication and its factory and
+  # lifecycle) and their panel layouts (PanelLayout, PanelConfig,
+  # MiddlePanelConfig, PanelTabConfig).
+  tom_forge_shell:
+    path: ../tom_forge_shell
 
 dev_dependencies:
   flutter_test:
@@ -30,6 +37,16 @@ dev_dependencies:
   shared_preferences: ^2.2.0
   tom_test_support:
     path: ../../tom_ai/basics/tom_test_support
+  # The desktop components flutter_test_config.dart registers for every
+  # shell the suites make: terminal, code editors, keychain, desktop host.
+  tom_forge_terminal:
+    path: ../tom_forge_terminal
+  tom_forge_code_editors:
+    path: ../tom_forge_code_editors
+  tom_forge_platform_secrets:
+    path: ../tom_forge_platform_secrets
+  tom_forge_desktop_host:
+    path: ../tom_forge_desktop_host
 
 flutter:
   uses-material-design: true

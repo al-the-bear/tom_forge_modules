@@ -4,7 +4,9 @@ import 'package:tom_file_session/tom_file_session.dart';
 import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_forge_office_editors/tom_forge_office_editors.dart';
 import 'package:tom_forge_office_editors_testing/tom_forge_office_editors_testing.dart';
-import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart';
+import 'package:tom_forge_shell/tom_forge_shell.dart'
+    show DefaultModuleRegistry, DefaultShellApi;
 import 'package:tom_office_editor/testing.dart';
 import 'package:tom_office_editor/tom_office_editor.dart';
 import 'package:tom_office_editor/zetaoffice.dart';

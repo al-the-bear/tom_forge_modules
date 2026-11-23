@@ -15,7 +15,9 @@ import 'package:tom_editors_shared/tom_editors_shared.dart'
     show StandardEditingActions;
 import 'package:tom_forge_pdf_editors_testing/tom_forge_pdf_editors_testing.dart';
 import 'package:tom_forge_pdf_editors/tom_forge_pdf_editors.dart';
-import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart';
+import 'package:tom_forge_shell/tom_forge_shell.dart'
+    show DefaultLayoutController, DefaultSystemState;
 import 'package:tom_pdf_editor/pdfjs.dart';
 import 'package:tom_pdf_editor/tom_pdf_editor.dart';
 

@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart';
 import 'package:tom_file_session/tom_file_session.dart';
 import 'package:tom_forge_core/tom_forge_core.dart' show FileHandlingResult;
-import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart';
 import 'package:tom_file_editors/tom_file_editors.dart';
 
 import 'protected_clipboard.dart';

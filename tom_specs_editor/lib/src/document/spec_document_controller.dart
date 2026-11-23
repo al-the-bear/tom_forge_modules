@@ -5,8 +5,7 @@ import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart'
     show StandardEditingActions, forgeTypingPause;
 import 'package:tom_forge_agentic/tom_forge_agentic.dart';
-import 'package:tom_forge_ui/tom_forge_ui.dart'
-    show DefaultUndoManager, ShellEditorIntegration, UndoEntry;
+import 'package:tom_forge_kit/tom_forge_kit.dart';
 import 'package:tom_som_dart_runtime/tom_som_dart_runtime.dart'
     show
         SpecNodeCreator,

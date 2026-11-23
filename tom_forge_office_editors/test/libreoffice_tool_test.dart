@@ -10,7 +10,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tom_forge_office_editors/tom_forge_office_editors.dart';
-import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_forge_shell/tom_forge_shell.dart'
+    show
+        ForgeExternalTool,
+        ForgeExternalToolsSection,
+        ForgePreferencesService,
+        ForgeToolCopy,
+        ForgeToolState;
 import 'package:tom_office_editor/io.dart';
 import 'package:tom_office_editor/tom_office_editor.dart';
 

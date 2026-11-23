@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
-import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_forge_code_editors/tom_forge_code_editors.dart';
 
 import 'config/website_config_diagnostics.dart';
 

@@ -1,5 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart';
+import 'package:tom_forge_shell/tom_forge_shell.dart'
+    show
+        ForgeApplication,
+        ForgeModule,
+        ForgeShellApi,
+        MiddlePanelConfig,
+        MiddleTabConfig,
+        PanelConfig,
+        PanelLayout,
+        PanelTabConfig;
 
 import 'apps/phase_overview.dart';
 import 'apps/phase_surfaces.dart';

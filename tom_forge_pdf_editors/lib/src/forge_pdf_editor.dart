@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart'
     show EditorCapabilities, EditorStateSnapshot, StandardEditingActions;
 import 'package:tom_forge_core/tom_forge_core.dart' show FileHandlingResult;
-import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart';
 import 'package:tom_pdf_editor/tom_pdf_editor.dart';
 
 import 'forge_pdf_host.dart';

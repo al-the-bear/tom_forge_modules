@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart';
 
 /// The dedicated **config rail** (`tom_specs_editor_specification.md` §12, step
 /// 18 #3 / OE-16): a left-panel view that lists every config editor as a

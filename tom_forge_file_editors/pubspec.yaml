@@ -16,10 +16,22 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  # The shell, its modules, the plain-text editor and the Markdown and YAML
-  # adapters the combined editors build on.
-  tom_forge_ui:
-    path: ../tom_forge_ui
+  # The Forge kit: the editor contract, the kit API and its services.
+  tom_forge_kit:
+    path: ../tom_forge_kit
+  # The Markdown and YAML adapters (ForgeMdEditor, ForgeYamlEditor) the
+  # combined Markdown and YAML file editors build on.
+  tom_forge_code_editors:
+    path: ../tom_forge_code_editors
+  # The panel shell, for its extras only: FileEditorsModule is a ForgeModule
+  # with activate(ForgeShellApi) (the panel shell's module registry takes only
+  # ForgeModule); it opens its editors in the panel layout
+  # (shell.layout.openEditor with a middle panel), offers them to Open With
+  # (ForgeEditorChoice) and takes the shell's plain-text editor
+  # (ForgePlainTextEditor of the shell's own module, TomForgeShellModule) for
+  # text files.
+  tom_forge_shell:
+    path: ../tom_forge_shell
   tom_editors_shared:
     path: ../tom_editors_shared
   tom_forge_core:
@@ -52,3 +64,12 @@ dev_dependencies:
     path: ../tom_forge_ui_testing
   tom_forge_file_editors_testing:
     path: ../tom_forge_file_editors_testing
+  # The desktop components flutter_test_config.dart registers for every
+  # shell the suites make: terminal, code editors (a dependency already),
+  # keychain, desktop host.
+  tom_forge_terminal:
+    path: ../tom_forge_terminal
+  tom_forge_platform_secrets:
+    path: ../tom_forge_platform_secrets
+  tom_forge_desktop_host:
+    path: ../tom_forge_desktop_host

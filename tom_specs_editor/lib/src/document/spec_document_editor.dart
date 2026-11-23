@@ -10,7 +10,7 @@ import 'package:tom_editors_shared/tom_editors_shared.dart'
         ForgeEditorOwnsUndo,
         StandardEditingActions;
 import 'package:tom_forge_core/tom_forge_core.dart';
-import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart';
 
 import '../structure/review_controls.dart';
 import '../structure/review_store.dart';

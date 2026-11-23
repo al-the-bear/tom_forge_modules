@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart'
     show EditorCapabilities, EditorStateSnapshot, StandardEditingActions;
 import 'package:tom_forge_core/tom_forge_core.dart' show FileHandlingResult;
-import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart';
 import 'package:tom_office_editor/zetaoffice.dart';
 
 import 'forge_office_host.dart';

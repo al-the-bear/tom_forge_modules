@@ -15,9 +15,29 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.8
 
-  # Tom Forge shell: multi-app launcher, panels/layout, modules, editors.
-  tom_forge_ui:
-    path: ../tom_forge_ui
+  # The Forge kit: editors, views, actions, the kit API and its services.
+  tom_forge_kit:
+    path: ../tom_forge_kit
+  # The panel shell, for its extras and because the TomSpecs Editor is an app
+  # of its own: it makes its shell (DefaultShellApi, ForgeShellScaffold); its
+  # modules are ForgeModules with activate(ForgeShellApi) (the panel shell's
+  # module registry takes only ForgeModule); it brings three applications with
+  # their panel layouts (ForgeApplication, PanelLayout and its configs), a
+  # settings section (ForgeConfigPanel) and the shell's plain-text editor for
+  # raw config files (ForgePlainTextEditor).
+  tom_forge_shell:
+    path: ../tom_forge_shell
+  # The shell parts the app hands its shell (it is a desktop app of its own):
+  # the terminal, the code editors, the platform keychain and the desktop
+  # host (native file dialogs, shells, folders).
+  tom_forge_terminal:
+    path: ../tom_forge_terminal
+  tom_forge_code_editors:
+    path: ../tom_forge_code_editors
+  tom_forge_platform_secrets:
+    path: ../tom_forge_platform_secrets
+  tom_forge_desktop_host:
+    path: ../tom_forge_desktop_host
   # The local file system the raw-file editor saves through.
   tom_file_system:
     path: ../../tom_ai/basics/tom_file_system
@@ -96,7 +116,7 @@ dependencies:
 
   # Native file open/save dialogs for the `tom_specs_editor_specification.md`
   # §15.2 markdown export/import (OE-19 per-file IO). Already resolved
-  # transitively via tom_forge_ui; declared directly because the editor's
+  # transitively via tom_forge_desktop_host; declared directly because the editor's
   # markdown dialogs use it. The IO call sits behind a `MarkdownFileIo` seam so
   # the dialogs stay testable without the platform channel.
   file_picker: ^12.0.0

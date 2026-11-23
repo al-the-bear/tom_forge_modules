@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 import 'package:tom_file_session/tom_file_session.dart';
-import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_forge_shell/tom_forge_shell.dart' show ForgeShellApi;
 import 'package:tom_pdf_editor/tom_pdf_editor.dart';
 
 import 'forge_pdf_trail.dart';

@@ -27,9 +27,9 @@ on anything below the apps, and nothing depends on them.
 | 4 Shell core | `tom_forge_shell` | The panel shell, an application of the kit: `ForgeShellApi` (`ForgeKitApi` plus the panel layout), `ForgeModule` (the kit's module contract plus the shell's extras), the application contracts, `ForgeEditorHost` with tabs, the layout, the scaffold and its widgets, the built-in views and the plain-text editor; no terminal, no code editor, no keychain, no native file dialog and no `dart:io`, so it builds for the web. What a shell is assembled from beyond that comes in as `ForgeShellComponents` (terminal manager and view, secret storage, editor types, file pickers, host environment) |
 | 5 Shell parts | `tom_forge_terminal`, `tom_forge_code_editors`, `tom_forge_platform_secrets`, `tom_forge_desktop_host` | The parts that plug into the core: PTY and process terminals with the terminal view (`flutter_pty`, the `xterm` fork); the adapters that make the layer-2 Markdown, Dart and YAML editors shell editors, as editor types; secrets in the platform keychain (`flutter_secure_storage`); the desktop host — the native file dialogs (`file_picker`, `file_selector`), the machine's shells and folders, the workspace folder above a picked folder and `.forge/` kept out of git (`dart:io`) |
 | 5 Test support | `tom_forge_ui_testing` | The undo conformance harness and the shell's test doubles, built on `flutter_test` and the shell core; any package may take it as a dev_dependency, the shell's own suites included, so no product links the test framework |
-| 6 Shell umbrella | `tom_forge_ui` | The core with its parts as one library, and `useForgeDesktopComponents()` / `forgeDesktopComponents`, which register or hand a shell the terminal, the code editors and the keychain |
+| 6 Shell umbrella | `tom_forge_ui` | The core with its parts as one library, and `useForgeDesktopComponents()` / `forgeDesktopComponents`, which register or hand a shell the terminal, the code editors, the keychain and the desktop host — the full desktop for consumers outside this repository (Webwork); no package in `tom_forge` takes it (PL-7) |
 | 7 Shell services | `tom_forge_agentic` | The agent and chat UI for any module to use: the Forge chat module, the chat view and the prompt queue and trail editors, over the composer, queue, trail, connection, send and change-log views and controllers of `tom_ai/modules/tom_agentic_ui` (which needs no shell and is re-exported) |
-| 8 Modules | `tom_forge_file_editors`, `tom_forge_office_editors`, `tom_forge_pdf_editors`, `tom_forge_quests`, `tom_website_editor`, `tom_specs_editor` | Feature modules: each a `ForgeModule` with its editors, views, actions and applications (`tom_specs_editor` is also an app of its own) |
+| 8 Modules | `tom_forge_file_editors`, `tom_forge_office_editors`, `tom_forge_pdf_editors`, `tom_forge_quests`, `tom_website_editor`, `tom_specs_editor` | Feature modules: each a `ForgeModule` with its editors, views, actions and applications (`tom_specs_editor` is also an app of its own). Each takes the kit, the shell parts it uses (the code editors for the Markdown and YAML adapters) and the shell for the panel shell's extras its pubspec names; never the umbrella |
 | 9 Module test support | `tom_forge_file_editors_testing`, `tom_forge_office_editors_testing`, `tom_forge_pdf_editors_testing` | Each module's undo conformance subjects (how to drive its editors through the harness), for the module's own suite and an app's; taken only as dev_dependencies |
 | 10 Apps | `tom_forge_app` | Composition: `composeForgeSuite`, and Tom Forge's `main` |
 | Harness | `tom_dart_editor_test`, `tom_flow_editor_test`, `tom_forge_ui_test`, `tom_md_editor_test`, `tom_yaml_editor_test`, `tom_wpe_webview_test` | Companion apps and test beds |
@@ -55,15 +55,19 @@ What the layering buys:
   `flutter_secure_storage`, the file-picker plugins and `dart:io` — for the web
   too: without its parts it has no terminals, keeps secrets in memory, opens
   files as plain text and picks no files or folders. An app hands a shell its
-  parts (`components: forgeDesktopComponents`) or registers them once
-  (`useForgeDesktopComponents()`, also what a test package's
-  `flutter_test_config.dart` does).
+  parts (`components:`, the parts' `forgeTerminalComponents`,
+  `forgeCodeEditorComponents`, `forgePlatformSecretComponents` and
+  `forgeDesktopHostComponents` merged with `mergedWith`) or registers them
+  once (`ForgeShellComponents.register`, also what a test package's
+  `flutter_test_config.dart` does); an app outside this repository takes the
+  umbrella's `forgeDesktopComponents` / `useForgeDesktopComponents()`.
 - **The contracts are below the UI.** `tom_forge_core` holds the service
   contracts (clipboard, configuration, diagnostics, notifications, output,
   search, secrets, terminals, undo, virtual documents) and pure-Dart
   defaults, so a headless tool or a test uses them without Flutter.
-- **A module is added, not wired in.** Layer 8 depends on the shell, never the
-  shell on a module; an app decides which modules it composes.
+- **A module is added, not wired in.** Layer 8 depends on the kit (and on
+  the shell for what is the panel shell's), never the shell on a module; an
+  app decides which modules it composes.
 
 `tom_flow_editor` is a placeholder (the package template, unpublished): the
 flow editor is not built; the process editor and the prompt template editor
@@ -198,6 +202,22 @@ client then sits in layer 5 or 6, never in the shell.
 - **Dependencies point down the layer table.** A new package gets a row in
   the table above and in the layering test, which fails for a package it
   does not know.
+- **A module takes the kit and the parts it uses, never the umbrella.**
+  `tom_forge_ui` is the full desktop for consumers outside this repository;
+  no package in `tom_forge` depends on it or imports it (PL-7), test support
+  and harness packages included. A module depends on `tom_forge_kit`, on
+  `tom_forge_shared_ui` when it shows the kit's UI elements, and on a shell
+  part only when it uses it (`tom_forge_code_editors` for the Markdown, YAML
+  and Dart adapters, `tom_forge_terminal`, `tom_forge_platform_secrets`,
+  `tom_forge_desktop_host`), each with a pubspec comment why. It takes
+  `tom_forge_shell` only for the panel shell's extras — `ForgeModule` with
+  `activate(ForgeShellApi)` (the panel shell's module registry takes only
+  `ForgeModule`), the layout, applications, the status bar, panel views,
+  settings sections, external tools, the plain-text editor — and its pubspec
+  comment names exactly those; it imports the shell with a `show` list of
+  them and the kit for the rest. What a module needs beyond `ForgeKitApi`
+  without a shell goes through the module contract's hooks
+  (`ForgeModuleExtra`).
 - **Licence:** every package here is BSD-3-Clause. Forge links no copyleft:
   nothing in Forge depends on Webwork (an application on Forge, never a
   dependency of it); the shared UI Forge uses is the BSD-3 Tom UI modules

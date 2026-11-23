@@ -12,7 +12,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart'
     show StandardEditingActions;
 import 'package:tom_forge_office_editors/tom_forge_office_editors.dart';
-import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart';
+import 'package:tom_forge_shell/tom_forge_shell.dart'
+    show DefaultLayoutController, DefaultSystemState;
 import 'package:tom_office_editor/testing.dart';
 import 'package:tom_office_editor/tom_office_editor.dart';
 import 'package:tom_office_editor/zetaoffice.dart';

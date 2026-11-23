@@ -17,7 +17,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
-import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_forge_shell/tom_forge_shell.dart'
+    show DefaultModuleRegistry, DefaultShellApi, DefaultSystemState;
 import 'package:tom_website_editor/tom_website_editor.dart';
 
 const _validConfig = '''

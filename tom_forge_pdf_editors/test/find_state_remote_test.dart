@@ -12,7 +12,7 @@ import 'package:tom_editors_shared/tom_editors_shared.dart'
 import 'package:tom_file_session/tom_file_session.dart'
     show TomFileSystemBinaryFiles;
 import 'package:tom_forge_pdf_editors/tom_forge_pdf_editors.dart';
-import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart';
 import 'package:tom_pdf_editor/pdfjs.dart';
 import 'package:tom_pdf_editor/testing.dart';
 import 'package:tom_pdf_editor/tom_pdf_editor.dart';

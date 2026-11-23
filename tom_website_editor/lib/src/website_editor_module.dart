@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart';
+import 'package:tom_forge_shell/tom_forge_shell.dart'
+    show ForgeConfigPanel, ForgeModule, ForgeShellApi;
 import 'package:tom_yaml_editor/tom_yaml_editor.dart';
 
 import 'content/website_content_browser.dart';

@@ -19,9 +19,10 @@ dependencies:
   # The module whose editors the subjects drive.
   tom_forge_pdf_editors:
     path: ../tom_forge_pdf_editors
-  # The shell types and Forge's undo conformance harness.
-  tom_forge_ui:
-    path: ../tom_forge_ui
+  # The panel shell the subjects' editors run in (DefaultShellApi).
+  tom_forge_shell:
+    path: ../tom_forge_shell
+  # Forge's undo conformance harness.
   tom_forge_ui_testing:
     path: ../tom_forge_ui_testing
   # The PDF editors' own test doubles (package:tom_pdf_editor/testing.dart).

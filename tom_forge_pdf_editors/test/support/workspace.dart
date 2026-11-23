@@ -5,7 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_forge_pdf_editors_testing/tom_forge_pdf_editors_testing.dart';
 import 'package:tom_forge_pdf_editors/tom_forge_pdf_editors.dart';
-import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart';
+import 'package:tom_forge_shell/tom_forge_shell.dart'
+    show DefaultModuleRegistry, DefaultShellApi;
 import 'package:tom_pdf_editor/testing.dart';
 import 'package:tom_pdf_editor/tom_pdf_editor.dart';
 

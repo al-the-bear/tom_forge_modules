@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:tom_core_agentic/tom_core_agentic.dart';
 import 'package:tom_file_system/tom_file_system.dart';
-import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart';
+import 'package:tom_forge_shell/tom_forge_shell.dart'
+    show ForgeModule, ForgeShellApi;
 import 'package:tom_agentic_ui/tom_agentic_ui.dart';
 
 import 'agent_chat_view.dart';

@@ -6,7 +6,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_forge_pdf_editors/tom_forge_pdf_editors.dart';
-import 'package:tom_forge_ui/tom_forge_ui.dart' show ForgeEditor;
+import 'package:tom_forge_kit/tom_forge_kit.dart';
 import 'package:tom_pdf_editor/tom_pdf_editor.dart';
 
 import 'support/workspace.dart';

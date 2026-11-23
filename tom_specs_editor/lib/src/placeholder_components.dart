@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart';
 
 /// A lightweight panel placeholder rendered for shell regions whose real
 /// content is built in later steps (left navigator, bottom chat, right

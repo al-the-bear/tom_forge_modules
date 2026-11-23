@@ -1,4 +1,6 @@
-import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart';
+import 'package:tom_forge_shell/tom_forge_shell.dart'
+    show ForgeApplication, ForgeModule, ForgeShellApi;
 
 import 'quest_application.dart';
 import 'quest_catalogue.dart';

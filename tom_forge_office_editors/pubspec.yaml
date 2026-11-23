@@ -17,9 +17,20 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  # The shell and its modules.
-  tom_forge_ui:
-    path: ../tom_forge_ui
+  # The Forge kit: the editor contract, the kit API and its services.
+  tom_forge_kit:
+    path: ../tom_forge_kit
+  # The panel shell, for its extras only: OfficeEditorsModule is a ForgeModule
+  # with activate(ForgeShellApi) (the panel shell's module registry takes only
+  # ForgeModule); it opens its editors in the panel layout
+  # (shell.layout.openEditor with a middle panel, the user's default editor of
+  # DefaultLayoutController), offers them to Open With (ForgeEditorChoice),
+  # brings LibreOffice as an external tool of the Configuration panel
+  # (ForgeExternalTool, its path in ForgePreferencesService), picks files
+  # through the shell's registered file pickers (ForgeShellComponents) and
+  # the host opens links outside (shell.environment.openExternal).
+  tom_forge_shell:
+    path: ../tom_forge_shell
   tom_editors_shared:
     path: ../tom_editors_shared
   tom_forge_core:
@@ -45,3 +56,13 @@ dev_dependencies:
     path: ../tom_forge_ui_testing
   tom_forge_office_editors_testing:
     path: ../tom_forge_office_editors_testing
+  # The desktop components flutter_test_config.dart registers for every
+  # shell the suites make: terminal, code editors, keychain, desktop host.
+  tom_forge_terminal:
+    path: ../tom_forge_terminal
+  tom_forge_code_editors:
+    path: ../tom_forge_code_editors
+  tom_forge_platform_secrets:
+    path: ../tom_forge_platform_secrets
+  tom_forge_desktop_host:
+    path: ../tom_forge_desktop_host

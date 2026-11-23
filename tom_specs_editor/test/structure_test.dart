@@ -9,7 +9,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_file_system/io.dart';
-import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_forge_shell/tom_forge_shell.dart' show DefaultShellApi;
 
 import 'package:tom_specs_editor/src/spec_structure_module.dart';
 import 'package:tom_specs_editor/src/specs_shell_module.dart';

@@ -2,7 +2,16 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:tom_file_session/tom_file_session.dart' show TomBinaryFiles;
-import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart';
+import 'package:tom_forge_shell/tom_forge_shell.dart'
+    show
+        DefaultLayoutController,
+        ForgeEditorChoice,
+        ForgeExternalTool,
+        ForgeModule,
+        ForgePreferencesService,
+        ForgeShellApi,
+        ForgeShellComponents;
 import 'package:tom_office_editor/io.dart';
 import 'package:tom_office_editor/tom_office_editor.dart';
 import 'package:tom_office_editor/zetaoffice.dart';

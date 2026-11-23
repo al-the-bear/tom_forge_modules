@@ -14,7 +14,7 @@ offers *Keep mine* / *Take theirs*). Every editor saves its own file: it lists
 | YAML (`.yaml`, `.yml`) | `ForgeYamlFileEditor` — Forge's YAML editor (`tom_yaml_editor`), tree and source | the editor's controller |
 | todo file (`*.todo.yaml`) | `ForgeTodoFileEditor` — `tom_todo_ui`'s todo-file editor: the todos as rows with the details editor, the schema the file names checked, archive and delete to the siblings, *All files* over the shell's file system, the YAML source | the file session |
 | `.env` | `ForgeEnvFileEditor` — `tom_file_editors`' `.env` editor: a table, values hidden until shown | the file session |
-| any other text | `ForgePlainTextEditor` (`tom_forge_ui`) | the file session |
+| any other text | `ForgePlainTextEditor` (`tom_forge_shell`) | the file session |
 
 Every one passes Forge's undo conformance harness with no check skipped.
 

@@ -6,7 +6,9 @@ import 'package:tom_file_session/io.dart'
 import 'package:tom_file_session/tom_file_session.dart'
     show TomBinaryFiles, TomFileSystemBinaryFiles;
 import 'package:tom_file_system/tom_file_system.dart' show TomFileSystem;
-import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart';
+import 'package:tom_forge_shell/tom_forge_shell.dart'
+    show DefaultLayoutController, ForgeEditorChoice, ForgeModule, ForgeShellApi;
 import 'package:tom_pdf_editor/io.dart';
 import 'package:tom_pdf_editor/pdfium.dart';
 import 'package:tom_pdf_editor/pdfjs.dart';

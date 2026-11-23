@@ -42,6 +42,13 @@ suites do. A host that wants the shell where the terminal or the editors do
 not build depends on `tom_forge_shell` alone and registers only the parts it
 has.
 
+The umbrella is for consumers outside this repository. No package in
+`tom_forge` takes it (PL-7 of `tom_forge_app/test/platform_layering_test.dart`):
+a module takes `tom_forge_kit`, the shell parts it uses and `tom_forge_shell`
+for the panel shell's extras; `tom_forge_app`, the TomSpecs Editor and the test
+packages merge the parts' components themselves
+(`forgeTerminalComponents.mergedWith(forgeCodeEditorComponents)...`).
+
 ## Context menus
 
 The shell draws every module's context-menu contributions
