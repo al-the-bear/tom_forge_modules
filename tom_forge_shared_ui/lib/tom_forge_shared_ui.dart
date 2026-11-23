@@ -46,7 +46,8 @@ export 'src/action_bar/forge_action_item.dart';
 export 'src/command_list/forge_command_list.dart';
 export 'src/context_menu/forge_context_menu.dart';
 export 'src/editor_surface/forge_editor_surface.dart';
-export 'src/editor_surface/forge_session_file_frame.dart';
+export 'package:tom_file_session_ui/tom_file_session_ui.dart'
+    show ForgeSessionFileFrame;
 export 'src/forge_animations.dart';
 export 'src/forge_dimensions.dart';
 export 'src/forge_fixed_listenable.dart';

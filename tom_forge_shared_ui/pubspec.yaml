@@ -23,6 +23,10 @@ dependencies:
   # Readable colours (WCAG AA) the theme tokens are checked against.
   tom_ui_support:
     path: ../../tom_ai/modules/tom_ui_support
+  # ForgeSessionFileFrame, the state of a session file above its editor
+  # (re-exported; one implementation with tom_file_editors).
+  tom_file_session_ui:
+    path: ../../tom_ai/modules/tom_file_session_ui
 
 dev_dependencies:
   flutter_test:

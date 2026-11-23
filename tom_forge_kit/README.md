@@ -73,7 +73,8 @@ to its file module; nothing registers itself on import. The Markdown and YAML
 adapters export theirs (`forgeMarkdownFileKind`, `forgeYamlFileKind`).
 
 `ForgeSessionFile` binds an editor's controller, which keeps the one history,
-to its session, which carries the bytes: loaded once, `\n` line endings in the
+to its session, which carries the bytes (the kit re-exports it from
+`tom_file_session_ui`, the one implementation `tom_file_editors` uses too): loaded once, `\n` line endings in the
 editor and CRLF kept on save, a save that checks the disk first (`canSave`,
 `save`, `keepMine`, `takeTheirs`, `replaceWith`). `tom_forge_shared_ui`'s
 `ForgeSessionFileFrame` draws its state.

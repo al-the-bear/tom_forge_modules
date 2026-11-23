@@ -26,9 +26,6 @@ dependencies:
     path: ../tom_editors_shared
   tom_file_system:
     path: ../../tom_ai/basics/tom_file_system
-  # The per-file session the plain-text editor edits through.
-  tom_file_session:
-    path: ../../tom_ai/modules/tom_file_session
   shared_preferences: ^2.2.0
 
 dev_dependencies:

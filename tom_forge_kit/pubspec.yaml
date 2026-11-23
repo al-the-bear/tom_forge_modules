@@ -24,6 +24,10 @@ dependencies:
   # (ForgeFileKindRequest, ForgeSessionFile); pure Dart.
   tom_file_session:
     path: ../../tom_ai/modules/tom_file_session
+  # ForgeSessionFile, the binding of an editor to its session (re-exported;
+  # the package's frame widget is tom_forge_shared_ui's to re-export).
+  tom_file_session_ui:
+    path: ../../tom_ai/modules/tom_file_session_ui
   shared_preferences: ^2.2.0
 
 dev_dependencies:

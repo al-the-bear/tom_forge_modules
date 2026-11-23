@@ -61,7 +61,11 @@ export 'package:tom_file_session/tom_file_session.dart'
         ForgeFileSessionState,
         forgeReadOnlyAbove;
 export 'src/files/forge_file_kind.dart';
-export 'src/files/forge_session_file.dart';
+// The binding itself is tom_file_session_ui's (one implementation for
+// tom_file_editors and Forge); its frame widget is re-exported by
+// tom_forge_shared_ui, since the kit has no widgets of its own.
+export 'package:tom_file_session_ui/tom_file_session_ui.dart'
+    show ForgeSessionFile;
 
 // ── Kit ──
 export 'src/kit/default_kit_api.dart';
