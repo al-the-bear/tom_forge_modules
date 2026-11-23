@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- The models the elements of `tom_forge_shared_ui` draw: `ForgeActionState`
+  (with `forgeActionEnabled`), `ForgeActionBarModel` with
+  `ForgeActionBarSection`, `ForgeMenuModel` with `ForgeMenuActionEntry` and
+  `ForgeMenuSeparatorEntry` (and `forgeMenuTitle`), `ForgeCommandListModel`.
+  `ForgeKitStatusItem` gains an `icon`.
+- The routing to the active editor, shared by the panel shell and any editor
+  surface: `installForgeStandardEditingActions`, `forgeActionIdForKey`,
+  `forgeFindActionId` and `ForgeEditorStateSink`, which `DefaultKitState`
+  implements.
+
 ## 0.1.0
 
 - The layout-free part of `tom_forge_shell`, taken out of it with its history:

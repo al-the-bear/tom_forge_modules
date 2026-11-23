@@ -199,32 +199,8 @@ class DefaultShellApi implements ForgeShellApi {
   /// the binding table holds the undo keys (and every other editing key)
   /// before any editor opens: one table, routed by [executeAction] to the
   /// active editor. A key already bound is left as it is.
-  void _installStandardEditingActions() {
-    final keys = StandardEditingActions.defaultShortcuts;
-    for (final descriptor in StandardEditingActions.descriptors) {
-      final id = descriptor.id;
-      final key = keys[id];
-      final action = ForgeAction(
-        id: id,
-        label: descriptor.label,
-        icon: descriptor.icon,
-        execute: (_) async {
-          executeAction(id);
-          return null;
-        },
-        isEnabled: () => isActionEnabled(id),
-        isVisible: () => true,
-        defaultShortcut: key,
-      );
-      if (actionRegistry.getAction(id) == null) {
-        actionRegistry.registerAction(action);
-      }
-      final shortcut = action.defaultShortcut;
-      if (shortcut != null && shortcuts.getBinding(id) == null) {
-        shortcuts.rebind(action, shortcut);
-      }
-    }
-  }
+  void _installStandardEditingActions() =>
+      installForgeStandardEditingActions(this);
 
   /// The application whose contributions are bound now.
   ForgeApplication? _boundApplication;

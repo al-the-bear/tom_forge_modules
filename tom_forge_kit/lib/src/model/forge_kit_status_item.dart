@@ -1,8 +1,9 @@
+import 'package:flutter/widgets.dart' show IconData;
 import 'package:tom_forge_core/tom_forge_core.dart' show StatusBarAlignment;
 
 import '../kit/forge_kit_state.dart';
 
-/// A status item as data: what it says ([text], [tooltip]), where it sits
+/// A status item as data: what it says ([text], [icon], [tooltip]), where it sits
 /// ([alignment], [priority]), what a tap does ([onTap]) and when it applies
 /// ([isActive], asked with the current [ForgeKitState]).
 ///
@@ -11,6 +12,7 @@ import '../kit/forge_kit_state.dart';
 class ForgeKitStatusItem {
   const ForgeKitStatusItem({
     required this.text,
+    this.icon,
     this.tooltip,
     this.alignment = StatusBarAlignment.left,
     this.priority = 0,
@@ -20,6 +22,9 @@ class ForgeKitStatusItem {
 
   /// The text shown.
   final String text;
+
+  /// An icon before the text, or none.
+  final IconData? icon;
 
   final String? tooltip;
 

@@ -11,7 +11,7 @@ such application and is built on this package.
 | --- | --- | --- |
 | Core | `tom_forge_core` | Service contracts and their defaults (output, diagnostics, configuration, notifications, progress, search, undo), events, diagnostics |
 | **Kit** | `tom_forge_kit` | Components, editors and modules; actions, shortcuts, context-menu entries and status items as data; the kit API, the editor host port, the state-store port; the default services |
-| Look | `tom_forge_shared_ui` | Theme tokens and the shared widgets that draw the kit's data |
+| Look | `tom_forge_shared_ui` | Theme tokens and one rendering of the kit's models (no layout); an application may draw them itself |
 | Panel shell | `tom_forge_shell` | The scaffold, panels, editor tabs, menus, palette, configuration, views; re-exports the kit |
 
 ## `ForgeKitApi`
@@ -64,6 +64,33 @@ workspace state in the store the host gives it (`restore()` at the start,
 The kit runs on the web, iOS, Android and the desktop: nothing in it imports
 `dart:io`. `example/` is a minimal application over `DefaultKitApi` that is
 built for all four.
+
+## What an element draws
+
+Every UI element is a model here and a widget elsewhere: the kit says what
+an element shows, `tom_forge_shared_ui` draws it one way, and an application
+may draw it its own way or leave it out. The models are pure data, read from
+the kit at the moment they are built:
+
+| Model | What it holds |
+| --- | --- |
+| `ForgeActionState` | One action as an element shows it: label, icon, bound key (`⌘C`), group, whether it can run (`forgeActionEnabled`: a standard editing action by the active editor's state snapshot, any other by its own `isEnabled`) and whether it is shown |
+| `ForgeActionBarModel` | Which actions a bar shows: `ForgeActionBarSection`s of action ids; `resolve(api)` gives their states, unknown and invisible ones left out |
+| `ForgeMenuModel` | The visible actions of one `ForgeMenuLocation` (File, Edit, ...) by group, ordered by priority, with `ForgeMenuSeparatorEntry` between groups; `title` |
+| `ForgeCommandListModel` | Every visible action by label, narrowed by a query (label or id, any case) |
+| `ForgeKitStatusItem` | A status item: text, icon, tooltip, alignment, priority, tap, and `isActive(state)` |
+| `ForgeContextMenuEntry`, `ForgeQuickPickItem` | The context-menu entries `contextMenus.entriesFor` resolves; the items of `dialogs.showQuickPick` (from `tom_forge_core`) |
+
+## Routing to the active editor
+
+`installForgeStandardEditingActions(api)` registers the standard editing
+actions (cut, copy, paste, select all, undo, redo and the line actions) and
+binds their default keys once, so one binding table routes them through
+`executeAction` to the active editor; `forgeActionIdForKey(shortcuts, key)`
+names the action of a pressed key (the platform's alternate keys included);
+`forgeFindActionId` is Find. A widget showing an editor reports it to a state
+that is a `ForgeEditorStateSink` (`DefaultKitState` is one). The panel shell
+and `tom_forge_shared_ui`'s `ForgeEditorSurface` both route through these.
 
 ## Modules and their extras
 

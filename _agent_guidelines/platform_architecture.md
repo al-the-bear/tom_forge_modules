@@ -21,16 +21,17 @@ on anything below the apps, and nothing depends on them.
 | Layer | Packages | What it is |
 | ----- | -------- | ---------- |
 | 0 Foundation | `tom_forge_core`, `tom_website_editor_core`, `tom_dart_editor_bundler`, `tom_web_build_probe` | Pure Dart, no Flutter: the types and service contracts (`tom_forge_core`), the website model, the Dart editor's summary bundler tool, the web-compile probe the editor packages use in their tests |
-| 1 Editor kit and shared look | `tom_editors_shared`, `tom_forge_shared_ui` | Widgets and utilities every editor builds on: the text editor core, `TextUndoEntry` on `tom_undo`'s stack, the typing pause, and — re-exported from `tom_ai/modules/tom_ui_controls` — the tree view, validation markers, split panels, search box and inline controls (`tom_editors_shared`, no webview); the look the shell and the applications beside it share — `ForgeShellTheme`, `forgeThemeData`, `ForgeDimensions`, `ForgeAnimations`, the action bar (`ForgeActionBar`), the status bar (`ForgeStatusBar`, `ForgeStatusItem`), the input box, quick pick, error recovery dialog and focus indicator, the notification toasts and history, the context menu rendering — on Flutter, `tom_ui_support` and `tom_forge_core` only (`tom_forge_shared_ui`, re-exported by the shell core; Webwork takes it without the shell, PL-6) |
+| 1 Editor kit | `tom_editors_shared` | Widgets and utilities every editor builds on: the text editor core, `TextUndoEntry` on `tom_undo`'s stack, the typing pause, and — re-exported from `tom_ai/modules/tom_ui_controls` — the tree view, validation markers, split panels, search box and inline controls (no webview) |
 | 2 Editors and the Forge kit | `tom_md_editor`, `tom_yaml_editor`, `tom_dart_editor`, `tom_flow_editor`, `tom_forge_kit` | The editor components, each usable without the shell (`tom_dart_editor/doc/how_to_embed.md`, `tom_yaml_editor/doc/how_to_embed.md`); the Forge kit, layout-free and without widgets of its own: the component, editor and module contracts, actions and shortcuts, the routing of undo, redo, clipboard, find and save to the active editor, autosave, dialogs, outline, workspace state, decorations, the context menu controller, the host ports, `ForgeKitApi` (what a component sees), `ForgeEditorHost` (every placement of an editor is asked of the application) and `ForgeStateStore` (preferences and workspace state as keyed documents the host may supply), so any application layout builds on it (`tom_forge_kit/README.md`) |
-| 3 Shell core | `tom_forge_shell` | The panel shell, an application of the kit: `ForgeShellApi` (`ForgeKitApi` plus the panel layout), `ForgeModule` (the kit's module contract plus the shell's extras), the application contracts, `ForgeEditorHost` with tabs, the layout, the scaffold and its widgets, the built-in views and the plain-text editor; no terminal, no code editor, no keychain, no native file dialog and no `dart:io`, so it builds for the web. What a shell is assembled from beyond that comes in as `ForgeShellComponents` (terminal manager and view, secret storage, editor types, file pickers, host environment) |
-| 4 Shell parts | `tom_forge_terminal`, `tom_forge_code_editors`, `tom_forge_platform_secrets`, `tom_forge_desktop_host` | The parts that plug into the core: PTY and process terminals with the terminal view (`flutter_pty`, the `xterm` fork); the adapters that make the layer-2 Markdown, Dart and YAML editors shell editors, as editor types; secrets in the platform keychain (`flutter_secure_storage`); the desktop host — the native file dialogs (`file_picker`, `file_selector`), the machine's shells and folders, the workspace folder above a picked folder and `.forge/` kept out of git (`dart:io`) |
-| 4 Test support | `tom_forge_ui_testing` | The undo conformance harness and the shell's test doubles, built on `flutter_test` and the shell core; any package may take it as a dev_dependency, the shell's own suites included, so no product links the test framework |
-| 5 Shell umbrella | `tom_forge_ui` | The core with its parts as one library, and `useForgeDesktopComponents()` / `forgeDesktopComponents`, which register or hand a shell the terminal, the code editors and the keychain |
-| 6 Shell services | `tom_forge_agentic` | The agent and chat UI for any module to use: the Forge chat module, the chat view and the prompt queue and trail editors, over the composer, queue, trail, connection, send and change-log views and controllers of `tom_ai/modules/tom_agentic_ui` (which needs no shell and is re-exported) |
-| 7 Modules | `tom_forge_file_editors`, `tom_forge_office_editors`, `tom_forge_pdf_editors`, `tom_forge_quests`, `tom_website_editor`, `tom_specs_editor` | Feature modules: each a `ForgeModule` with its editors, views, actions and applications (`tom_specs_editor` is also an app of its own) |
-| 8 Module test support | `tom_forge_file_editors_testing`, `tom_forge_office_editors_testing`, `tom_forge_pdf_editors_testing` | Each module's undo conformance subjects (how to drive its editors through the harness), for the module's own suite and an app's; taken only as dev_dependencies |
-| 9 Apps | `tom_forge_app` | Composition: `composeForgeSuite`, and Tom Forge's `main` |
+| 3 Shared look | `tom_forge_shared_ui` | One rendering of the Forge kit's models, without a layout: the tokens (`ForgeShellTheme`, `forgeThemeData`, `ForgeDimensions`, `ForgeAnimations`) and the elements, each drawing a kit model and acting through `ForgeKitApi` — the action bar (`ForgeKitActionBar` over a `ForgeActionBarModel`), the status bar (`ForgeKitStatusBar` over `ForgeKitStatusItem`s), menus (`ForgeMenuButton` over a `ForgeMenuModel`), the command list (`ForgeCommandList` over a `ForgeCommandListModel`), the context menu (`ForgeContextMenuPresenter` over the kit's `ForgeContextMenuController`), the quick pick and input box of the kit's dialog manager (`ForgeDialogPresenter`, `ForgeDialogLayer`), the notification toasts and history (`ForgeNotificationLayer`), the focus indicator (`ForgeFocusIndicator.kit`), the error recovery dialog, and `ForgeEditorSurface`, which shows any `ForgeEditor` connected to the kit (its state, its keys, undo, redo, the clipboard and find). On Flutter, `tom_ui_support`, `tom_forge_core` and `tom_forge_kit` only (PL-6): an application uses an element, draws the model itself, or leaves it out; the shell core re-exports it, Webwork takes it without the shell |
+| 4 Shell core | `tom_forge_shell` | The panel shell, an application of the kit: `ForgeShellApi` (`ForgeKitApi` plus the panel layout), `ForgeModule` (the kit's module contract plus the shell's extras), the application contracts, `ForgeEditorHost` with tabs, the layout, the scaffold and its widgets, the built-in views and the plain-text editor; no terminal, no code editor, no keychain, no native file dialog and no `dart:io`, so it builds for the web. What a shell is assembled from beyond that comes in as `ForgeShellComponents` (terminal manager and view, secret storage, editor types, file pickers, host environment) |
+| 5 Shell parts | `tom_forge_terminal`, `tom_forge_code_editors`, `tom_forge_platform_secrets`, `tom_forge_desktop_host` | The parts that plug into the core: PTY and process terminals with the terminal view (`flutter_pty`, the `xterm` fork); the adapters that make the layer-2 Markdown, Dart and YAML editors shell editors, as editor types; secrets in the platform keychain (`flutter_secure_storage`); the desktop host — the native file dialogs (`file_picker`, `file_selector`), the machine's shells and folders, the workspace folder above a picked folder and `.forge/` kept out of git (`dart:io`) |
+| 5 Test support | `tom_forge_ui_testing` | The undo conformance harness and the shell's test doubles, built on `flutter_test` and the shell core; any package may take it as a dev_dependency, the shell's own suites included, so no product links the test framework |
+| 6 Shell umbrella | `tom_forge_ui` | The core with its parts as one library, and `useForgeDesktopComponents()` / `forgeDesktopComponents`, which register or hand a shell the terminal, the code editors and the keychain |
+| 7 Shell services | `tom_forge_agentic` | The agent and chat UI for any module to use: the Forge chat module, the chat view and the prompt queue and trail editors, over the composer, queue, trail, connection, send and change-log views and controllers of `tom_ai/modules/tom_agentic_ui` (which needs no shell and is re-exported) |
+| 8 Modules | `tom_forge_file_editors`, `tom_forge_office_editors`, `tom_forge_pdf_editors`, `tom_forge_quests`, `tom_website_editor`, `tom_specs_editor` | Feature modules: each a `ForgeModule` with its editors, views, actions and applications (`tom_specs_editor` is also an app of its own) |
+| 9 Module test support | `tom_forge_file_editors_testing`, `tom_forge_office_editors_testing`, `tom_forge_pdf_editors_testing` | Each module's undo conformance subjects (how to drive its editors through the harness), for the module's own suite and an app's; taken only as dev_dependencies |
+| 10 Apps | `tom_forge_app` | Composition: `composeForgeSuite`, and Tom Forge's `main` |
 | Harness | `tom_dart_editor_test`, `tom_flow_editor_test`, `tom_forge_ui_test`, `tom_md_editor_test`, `tom_yaml_editor_test`, `tom_wpe_webview_test` | Companion apps and test beds |
 
 What the layering buys:
@@ -39,6 +40,10 @@ What the layering buys:
   so every editor embeds in any Flutter app; the shell wraps it in an adapter
   (`ForgeMdEditor`, `ForgeYamlEditor`, `ForgeDartEditor` in
   `tom_forge_code_editors`).
+- **One look, any layout.** `tom_forge_shared_ui` draws the kit's models
+  and imposes no layout: an application places the elements it wants, draws
+  a model its own way, or leaves an element out; the kit never depends on
+  it.
 - **Any layout builds on the kit.** `tom_forge_kit` names no panel, tab or
   window: an application decides where an editor appears through
   `ForgeEditorHost`, and keeps its state where it decides through
@@ -57,7 +62,7 @@ What the layering buys:
   contracts (clipboard, configuration, diagnostics, notifications, output,
   search, secrets, terminals, undo, virtual documents) and pure-Dart
   defaults, so a headless tool or a test uses them without Flutter.
-- **A module is added, not wired in.** Layer 7 depends on the shell, never the
+- **A module is added, not wired in.** Layer 8 depends on the shell, never the
   shell on a module; an app decides which modules it composes.
 
 `tom_flow_editor` is a placeholder (the package template, unpublished): the
@@ -186,7 +191,7 @@ frame (`spec_quest_workbench.tom_forge.md`, part one). The quest
 applications driving the shared quest runtime — the VS Code extension's
 engine as a TypeScript process, one per open quest, over its protocol — is
 part two of that specification (todo `qavs_wwworkbench-1`); the runtime
-client then sits in layer 4 or 5, never in the shell.
+client then sits in layer 5 or 6, never in the shell.
 
 ## 3. Rules
 

@@ -7,6 +7,7 @@ import 'package:tom_forge_core/tom_forge_core.dart';
 import '../components/forge_component.dart';
 import '../components/forge_editor.dart';
 import '../components/forge_text_editor.dart';
+import 'forge_editor_routing.dart';
 import 'forge_kit_state.dart';
 
 /// A [ForgeKitState] its host feeds: the host reports the editors it shows
@@ -14,7 +15,7 @@ import 'forge_kit_state.dart';
 /// ([setActiveEditor], [setFocusedComponent]), and the diagnostics
 /// ([setDiagnostics]); the state derives the rest (the unsaved editors, the
 /// summary) and reports every change on its streams.
-class DefaultKitState implements ForgeKitState {
+class DefaultKitState implements ForgeKitState, ForgeEditorStateSink {
   ForgeComponent? _focusedComponent;
   ForgeEditor? _activeEditor;
   List<ForgeEditor> _openEditors = const [];
@@ -93,6 +94,7 @@ class DefaultKitState implements ForgeKitState {
   }
 
   /// [editor] is the one the user works in now; it takes the focus.
+  @override
   void setActiveEditor(ForgeEditor? editor) {
     _activeEditor = editor;
     if (editor != null) setFocusedComponent(editor);
@@ -100,6 +102,7 @@ class DefaultKitState implements ForgeKitState {
 
   /// [editor] is shown; its unsaved state is followed from now on. An editor
   /// already reported is left as it is.
+  @override
   void addOpenEditor(ForgeEditor editor) {
     if (_openEditors.contains(editor)) return;
     _openEditors = [..._openEditors, editor];
@@ -118,6 +121,7 @@ class DefaultKitState implements ForgeKitState {
 
   /// [editor] is closed. When it was the active one, the last opened editor
   /// becomes active.
+  @override
   void removeOpenEditor(ForgeEditor editor) {
     if (!_openEditors.contains(editor)) return;
     _openEditors = [

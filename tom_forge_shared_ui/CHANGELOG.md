@@ -1,7 +1,28 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 (unreleased)
 
+- The package draws the models of `tom_forge_kit` and depends on it; it
+  imposes no layout, and every element works without the panel shell.
+- Action bar: `ForgeKitActionBar(api:, model:)` over a
+  `ForgeActionBarModel`, following the kit's state and key bindings, and
+  `ForgeActionBar.kitGroups`; `ForgeActionBar(groups:)` is unchanged.
+- Status bar: `ForgeKitStatusBar` over `ForgeKitStatusItem`s (and
+  `.forApi`), filtered by the kit state and rebuilt on its changes, with the
+  progress inline.
+- Context menu: `showForgeKitContextMenu` and `ForgeContextMenuPresenter`
+  over the kit's `ForgeContextMenuController`.
+- Dialogs: `ForgeDialogPresenter` and `ForgeDialogLayer` draw the kit's
+  quick pick and input box (`api.dialogs`).
+- Notifications: `ForgeNotificationLayer` (toasts and history together),
+  `ForgeNotificationOverlay.forApi`, `ForgeNotificationPopup.forApi`,
+  `forgeNotificationManagerOf`.
+- Focus: `ForgeFocusIndicator.kit` follows the kit's focused component.
+- New: menus (`ForgeMenuButton`, `forgeMenuChildren`, `forgeMenuEntryKey`
+  over a `ForgeMenuModel`), the command list (`ForgeCommandList`,
+  `forgeCommandListEntryKey`), and `ForgeEditorSurface`, which shows any
+  `ForgeEditor` connected to the kit: its state, its keys, undo, redo, the
+  clipboard and find.
 - `ForgeContextMenuEntry`, `ForgeQuickPickItem` and `StatusBarAlignment` live
   in `tom_forge_core` now and are re-exported from where they were, so this
   package's users are unchanged.

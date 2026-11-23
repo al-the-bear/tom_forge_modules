@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 import 'package:tom_forge_core/tom_forge_core.dart'
     show DefaultNotificationManager, NotificationItem, NotificationSeverity;
+import 'package:tom_forge_kit/tom_forge_kit.dart' show ForgeKitApi;
+
+import 'forge_notification_overlay.dart' show forgeNotificationManagerOf;
 
 /// Popup panel anchored above the status bar, showing notification history.
 ///
@@ -16,6 +19,14 @@ class ForgeNotificationPopup extends StatefulWidget {
     required this.manager,
     required this.onClose,
   });
+
+  /// The history of the kit's notifications (`api.notifications`,
+  /// [forgeNotificationManagerOf]).
+  ForgeNotificationPopup.forApi({
+    super.key,
+    required ForgeKitApi api,
+    required this.onClose,
+  }) : manager = forgeNotificationManagerOf(api);
 
   @override
   State<ForgeNotificationPopup> createState() =>

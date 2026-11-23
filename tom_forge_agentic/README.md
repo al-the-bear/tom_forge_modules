@@ -50,6 +50,6 @@ In use by the TomSpecs editor (`tom_specs_editor`). What it exports:
   - Change log and review — `ChangeEntry`, `ChangeLog`, `ChangeLogPanel`,
     `ChangeReviewPanel`.
 
-It is layer 6 (shell services) of the platform architecture
+It is layer 7 (shell services) of the platform architecture
 (`../_agent_guidelines/platform_architecture.md`): it builds on the shell,
 and modules build on it.

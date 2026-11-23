@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:tom_forge_core/tom_forge_core.dart' show ForgeContextMenuEntry;
+import 'package:tom_forge_core/tom_forge_core.dart'
+    show ForgeContextMenuEntry, ForgeContextTarget;
+import 'package:tom_forge_kit/tom_forge_kit.dart'
+    show ForgeContextMenuController;
 
 // The entry is data and lives in tom_forge_core; re-exported here so this
 // library's users keep finding it where they did.
@@ -60,4 +63,81 @@ Future<void> showForgeContextMenuEntries(
   );
   if (chosen == null) return;
   await chosen.run();
+}
+
+/// Draws the kit's context menu for [target] at [globalPosition] and runs the
+/// chosen entry: the entries [controller] resolves at the target
+/// ([ForgeContextMenuController.entriesFor]), drawn by
+/// [showForgeContextMenuEntries]. Nothing is drawn when nothing applies at
+/// the target.
+Future<void> showForgeKitContextMenu(
+  BuildContext context, {
+  required ForgeContextMenuController controller,
+  required ForgeContextTarget target,
+  required Offset globalPosition,
+}) => showForgeContextMenuEntries(
+  context,
+  entries: controller.entriesFor(target),
+  globalPosition: globalPosition,
+);
+
+/// Makes [child]'s place the one that draws the kit's context menus: while
+/// it is in the tree it is [controller]'s presenter, so a view or an editor
+/// that calls `api.contextMenus.show(target, position)` gets the menu drawn
+/// by [showForgeKitContextMenu]. When it leaves the tree it unbinds itself
+/// (a presenter bound by someone else since is left alone).
+class ForgeContextMenuPresenter extends StatefulWidget {
+  const ForgeContextMenuPresenter({
+    super.key,
+    required this.controller,
+    required this.child,
+  });
+
+  final ForgeContextMenuController controller;
+  final Widget child;
+
+  @override
+  State<ForgeContextMenuPresenter> createState() =>
+      _ForgeContextMenuPresenterState();
+}
+
+class _ForgeContextMenuPresenterState extends State<ForgeContextMenuPresenter> {
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.presenter = _present;
+  }
+
+  @override
+  void didUpdateWidget(ForgeContextMenuPresenter oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.controller, widget.controller)) {
+      _unbind(oldWidget.controller);
+      widget.controller.presenter = _present;
+    }
+  }
+
+  @override
+  void dispose() {
+    _unbind(widget.controller);
+    super.dispose();
+  }
+
+  void _unbind(ForgeContextMenuController controller) {
+    // Tear-offs of one method of one object are equal, not identical.
+    if (controller.presenter == _present) controller.presenter = null;
+  }
+
+  Future<void> _present(ForgeContextTarget target, Offset globalPosition) {
+    if (!mounted) return Future.value();
+    return showForgeKitContextMenu(
+      context,
+      controller: widget.controller,
+      target: target,
+      globalPosition: globalPosition,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

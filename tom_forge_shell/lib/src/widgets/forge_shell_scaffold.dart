@@ -83,7 +83,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   static bool debugEnabled = false;
   static const Duration _layoutPersistDebounce = Duration(milliseconds: 500);
 
-  static const String _actionEditorFind = 'editor.find';
+  static const String _actionEditorFind = forgeFindActionId;
   static const String _actionEditReplace = 'edit.replace';
   static const String _actionEditFormatDocument = 'edit.formatDocument';
   static const String _actionForgeCut = 'forge.edit.cut';
@@ -167,6 +167,13 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   bool _showFindReplaceBar = false;
   bool _showReplaceFields = false;
   Widget? _dialogOverlay;
+
+  /// Draws the kit's quick pick and input box into [_dialogOverlay].
+  late final ForgeDialogPresenter _dialogPresenter = ForgeDialogPresenter(
+    show: (overlay) {
+      if (mounted) setState(() => _dialogOverlay = overlay);
+    },
+  );
   late final ForgePreferencesService _preferences;
   final TextEditingController _findQueryController = TextEditingController();
   final TextEditingController _replaceValueController = TextEditingController();
@@ -198,8 +205,6 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
 
   /// Tracks the last revision timestamp per URI to throttle revision creation.
   final Map<Uri, DateTime> _lastRevisionTime = {};
-
-  bool _notificationPopupVisible = false;
 
   /// Stable view instances for terminal sections, keyed by terminal identity:
   /// made by the shell's terminal view builder
@@ -588,9 +593,6 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     _listenForLayoutChanges();
     _listenForChordCompletions();
     _listenForMenuSelections();
-    widget.notificationManager.popupVisible.addListener(
-      _onNotificationPopupChanged,
-    );
   }
 
   @override
@@ -647,14 +649,6 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
         _onActiveEditorChanged,
       );
 
-      // Notification popup listener.
-      oldWidget.notificationManager.popupVisible.removeListener(
-        _onNotificationPopupChanged,
-      );
-      widget.notificationManager.popupVisible.addListener(
-        _onNotificationPopupChanged,
-      );
-
       // Dialog callbacks (depend on shell.dialogs).
       _wireDialogCallbacks();
 
@@ -678,6 +672,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     if (identical(widget.shell.contextMenus.presenter, _presentContextMenu)) {
       widget.shell.contextMenus.presenter = null;
     }
+    _dialogPresenter.detach();
     _autoSaveTimer?.cancel();
     _saveSubscription?.cancel();
     _editorChangeSubscription?.cancel();
@@ -707,9 +702,6 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     _configPanelVisible.dispose();
     _configSectionTarget.dispose();
     _preferences.removeListener(_onPreferencesChanged);
-    widget.notificationManager.popupVisible.removeListener(
-      _onNotificationPopupChanged,
-    );
     _saveAllEditorStates();
     _saveLayoutState();
     _saveWorkspaceState();
@@ -740,54 +732,15 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     }
   }
 
-  /// Wires [DefaultDialogManager] callbacks to actual widget-layer UI.
+  /// Wires [DefaultDialogManager] callbacks to actual widget-layer UI: the
+  /// quick pick and the input box are drawn by the shared
+  /// [ForgeDialogPresenter] into the scaffold's dialog slot; the file
+  /// dialogs by the shell's pickers.
   void _wireDialogCallbacks() {
     final dialogs = widget.shell.dialogs;
     if (dialogs is! DefaultDialogManager) return;
 
-    dialogs.onQuickPick =
-        <T>(
-          List<ForgeQuickPickItem<T>> items, {
-          String? placeholder,
-          bool canSelectMany = false,
-        }) {
-          final completer = Completer<T?>();
-          setState(() {
-            _dialogOverlay = ForgeQuickPickOverlay<T>(
-              items: items,
-              placeholder: placeholder,
-              canSelectMany: canSelectMany,
-              completer: completer,
-            );
-          });
-          completer.future.whenComplete(() {
-            if (mounted) setState(() => _dialogOverlay = null);
-          });
-          return completer.future;
-        };
-
-    dialogs.onInputBox =
-        ({
-          String? prompt,
-          String? value,
-          String? placeholder,
-          String? Function(String)? validateInput,
-        }) {
-          final completer = Completer<String?>();
-          setState(() {
-            _dialogOverlay = ForgeInputBoxOverlay(
-              prompt: prompt,
-              value: value,
-              placeholder: placeholder,
-              validateInput: validateInput,
-              completer: completer,
-            );
-          });
-          completer.future.whenComplete(() {
-            if (mounted) setState(() => _dialogOverlay = null);
-          });
-          return completer.future;
-        };
+    _dialogPresenter.attach(dialogs);
 
     dialogs.onOpenDialog =
         ({
@@ -917,15 +870,6 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
           // crashing the scaffold. Existing sections remain as-is.
         }
       }
-    }
-  }
-
-  void _onNotificationPopupChanged() {
-    if (mounted) {
-      setState(() {
-        _notificationPopupVisible =
-            widget.notificationManager.popupVisible.value;
-      });
     }
   }
 
@@ -2331,14 +2275,10 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
       }
     }
 
-    final boundActionId =
-        widget.shell.shortcuts.allBindings
-            .where((binding) => !binding.isChord)
-            .where((binding) => binding.key == shortcutKey)
-            .firstOrNull
-            ?.action
-            .id ??
-        _alternateActionFor(shortcutKey);
+    final boundActionId = forgeActionIdForKey(
+      widget.shell.shortcuts,
+      shortcutKey,
+    );
 
     // Detect Shift+PrimaryModifier+<key> to open a shortcut menu — unless the
     // key is bound to an action: Shift+Primary+Z redoes, Shift+Primary+K
@@ -2375,20 +2315,6 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     return widget.shell.executeAction(actionId)
         ? KeyEventResult.handled
         : KeyEventResult.ignored;
-  }
-
-  /// The action a platform alternate key stands for
-  /// ([StandardEditingActions.alternateShortcuts]: Ctrl+Y redoes on Windows
-  /// and Linux), or null.
-  String? _alternateActionFor(ForgeShortcutKey key) {
-    for (final entry in StandardEditingActions.alternateShortcuts.entries) {
-      for (final alternate in entry.value) {
-        if (alternate == key) {
-          return entry.key;
-        }
-      }
-    }
-    return null;
   }
 
   /// Whether the primary focus is a text field outside the editor area.
@@ -2505,46 +2431,39 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
             child: Material(
               child: Stack(
                 children: [
-                  Column(
-                    children: [
-                      _buildTitleBar(context),
-                      // On macOS desktop, the menu is in the native menu bar;
-                      // a full-screen application shows none in the window.
-                      if (!_usePlatformMenu &&
-                          !(_application?.isFullScreen ?? false))
-                        ForgeMenuBar(
-                          shellApi: widget.shell,
-                          onCommandPalette: _toggleCommandPalette,
-                          onSettings: _openSettings,
-                          currentThemeMode: _preferences.themeMode,
-                          onThemeModeChanged: (mode) {
-                            _preferences.themeMode = mode;
-                          },
-                          highContrast: _preferences.highContrast,
-                          onHighContrastChanged: (value) {
-                            _preferences.highContrast = value;
-                          },
+                  // The kit's notifications over the shell: the toasts, and
+                  // the history above the status bar while it is open.
+                  ForgeNotificationLayer(
+                    manager: widget.notificationManager,
+                    child: Column(
+                      children: [
+                        _buildTitleBar(context),
+                        // On macOS desktop, the menu is in the native menu bar;
+                        // a full-screen application shows none in the window.
+                        if (!_usePlatformMenu &&
+                            !(_application?.isFullScreen ?? false))
+                          ForgeMenuBar(
+                            shellApi: widget.shell,
+                            onCommandPalette: _toggleCommandPalette,
+                            onSettings: _openSettings,
+                            currentThemeMode: _preferences.themeMode,
+                            onThemeModeChanged: (mode) {
+                              _preferences.themeMode = mode;
+                            },
+                            highContrast: _preferences.highContrast,
+                            onHighContrastChanged: (value) {
+                              _preferences.highContrast = value;
+                            },
+                          ),
+                        Expanded(child: _buildContentArea(context)),
+                        ForgeStatusBarWidget(
+                          controller: widget.statusBarController,
+                          systemState: widget.systemState,
+                          progressManager: widget.shell.progress,
                         ),
-                      Expanded(child: _buildContentArea(context)),
-                      ForgeStatusBarWidget(
-                        controller: widget.statusBarController,
-                        systemState: widget.systemState,
-                        progressManager: widget.shell.progress,
-                      ),
-                    ],
-                  ),
-                  ForgeNotificationOverlay(manager: widget.notificationManager),
-                  // Notification popup anchored above the status bar.
-                  if (_notificationPopupVisible)
-                    Positioned(
-                      bottom: ForgeDimensions.statusBarHeight + 4,
-                      right: 12,
-                      child: ForgeNotificationPopup(
-                        manager: widget.notificationManager,
-                        onClose: () => widget
-                            .notificationManager.popupVisible.value = false,
-                      ),
+                      ],
                     ),
+                  ),
                   // Shortcut menu overlay (concept §11.4).
                   ForgeShortcutMenuPopup(
                     shortcutManager: widget.shell.shortcuts,
@@ -3423,39 +3342,12 @@ the field, not the document.
       actionIds = _defaultActionBarActions;
     }
 
-    // Map the action ids to the shared bar's items.
-    final items = <ForgeActionItem>[];
-    final isStandardAction = StandardEditingActions.standardActionIds.contains;
-    final snapshot = activeEditor?.stateSnapshot;
-    for (final actionId in actionIds) {
-      // Find the action in the registry for icon/label/shortcut metadata.
-      final action = widget.shell.actionRegistry.getAction(actionId);
-      if (action == null) continue;
-
-      // Standard editing actions derive enablement from the editor's
-      // state snapshot; other actions use the registry's isEnabled().
-      final bool isEnabled;
-      if (isStandardAction(actionId) && snapshot != null) {
-        final rule = StandardEditingActions.enablementRule(actionId);
-        isEnabled = rule(snapshot);
-      } else {
-        isEnabled = action.isEnabled();
-      }
-
-      items.add(
-        ForgeActionItem(
-          id: actionId,
-          icon: action.icon ?? Icons.extension,
-          label: action.label,
-          shortcut: widget.shell.shortcuts.getBinding(actionId)?.displayString,
-          enabled: ForgeFixedListenable<bool>(isEnabled),
-          onInvoke: () => widget.shell.executeAction(actionId),
-        ),
-      );
-    }
-
-    return ForgeActionBar(
-      groups: [ForgeActionGroup(id: 'forge.actionBar', items: items)],
+    // The shared bar draws the kit's actions: label, icon, key and
+    // enablement (a standard editing action by the active editor's state
+    // snapshot, any other by its own isEnabled) from the registry.
+    return ForgeKitActionBar(
+      api: widget.shell,
+      model: ForgeActionBarModel.of(actionIds),
     );
   }
 

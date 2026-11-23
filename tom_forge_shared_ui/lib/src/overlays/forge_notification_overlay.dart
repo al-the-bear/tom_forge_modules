@@ -2,15 +2,34 @@ import 'package:flutter/material.dart';
 
 import 'package:tom_forge_core/tom_forge_core.dart'
     show DefaultNotificationManager, NotificationItem, NotificationSeverity;
+import 'package:tom_forge_kit/tom_forge_kit.dart' show ForgeKitApi;
+
+/// The notification manager of [api] the toasts and the history read:
+/// `api.notifications`, which must be a [DefaultNotificationManager] (the
+/// kit's default and the panel shell's); an [ArgumentError] otherwise.
+DefaultNotificationManager forgeNotificationManagerOf(ForgeKitApi api) {
+  final manager = api.notifications;
+  if (manager is DefaultNotificationManager) return manager;
+  throw ArgumentError.value(
+    manager,
+    'api.notifications',
+    'is no DefaultNotificationManager: it has no notifications to draw',
+  );
+}
 
 /// Notification toast overlay positioned in the top-right.
 ///
 /// Reads from [DefaultNotificationManager] and auto-dismisses
-/// notifications after 4 seconds.
+/// notifications after 4 seconds. A child of a [Stack] (it is [Positioned]).
 class ForgeNotificationOverlay extends StatefulWidget {
   final DefaultNotificationManager manager;
 
   const ForgeNotificationOverlay({super.key, required this.manager});
+
+  /// The toasts of the kit's notifications (`api.notifications`,
+  /// [forgeNotificationManagerOf]).
+  ForgeNotificationOverlay.forApi({super.key, required ForgeKitApi api})
+    : manager = forgeNotificationManagerOf(api);
 
   @override
   State<ForgeNotificationOverlay> createState() =>

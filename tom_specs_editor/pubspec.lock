@@ -1471,7 +1471,7 @@ packages:
       path: "../tom_forge_shared_ui"
       relative: true
     source: path
-    version: "0.1.0"
+    version: "0.2.0"
   tom_forge_shell:
     dependency: transitive
     description:

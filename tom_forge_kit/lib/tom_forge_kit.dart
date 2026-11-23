@@ -7,7 +7,14 @@
 /// - **Data:** actions and their state ([ForgeActionRegistry]), shortcuts
 ///   ([ForgeShortcutManager]), context-menu entries
 ///   ([ForgeContextMenuController], [ForgeContextMenuEntry]), status items
-///   ([ForgeKitStatusItem]), quick pick items, notifications.
+///   ([ForgeKitStatusItem]), quick pick items, notifications; what an
+///   element draws of them — the state of an action ([ForgeActionState]),
+///   an action bar ([ForgeActionBarModel]), a menu ([ForgeMenuModel]), the
+///   command list ([ForgeCommandListModel]).
+/// - **Routing to the active editor:** the standard editing actions and
+///   their keys ([installForgeStandardEditingActions]), the action of a key
+///   ([forgeActionIdForKey]), Find ([forgeFindActionId]), the state an editor
+///   surface reports to ([ForgeEditorStateSink]).
 /// - **The API a component sees:** [ForgeKitApi] over a [ForgeKitState];
 ///   where editors appear is the application's [ForgeEditorHost]; what is
 ///   persisted goes through a [ForgeStateStore] ([ForgeMemoryStateStore],
@@ -43,6 +50,7 @@ export 'src/kit/default_kit_state.dart';
 export 'src/kit/forge_coalesced_state_writer.dart';
 export 'src/kit/forge_context_menu_controller.dart';
 export 'src/kit/forge_editor_host.dart';
+export 'src/kit/forge_editor_routing.dart';
 export 'src/kit/forge_file_state_store.dart';
 export 'src/kit/forge_host_ports.dart';
 export 'src/kit/forge_kit_api.dart';
@@ -56,7 +64,11 @@ export 'src/kit/forge_state_store.dart';
 // tom_forge_shared_ui draws).
 export 'package:tom_forge_core/tom_forge_core.dart'
     show ForgeContextMenuEntry, ForgeQuickPickItem, StatusBarAlignment;
+export 'src/model/forge_action_bar_model.dart';
+export 'src/model/forge_action_state.dart';
+export 'src/model/forge_command_list_model.dart';
 export 'src/model/forge_kit_status_item.dart';
+export 'src/model/forge_menu_model.dart';
 
 // ── Module ──
 export 'src/module/forge_kit_module.dart';

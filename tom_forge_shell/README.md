@@ -19,11 +19,14 @@ It holds its default services
 bar, menus, command palette, quick open, configuration, the built-in views
 (explorer, outline, output, problems, revisions, search) and the plain-text
 editor. Its look — `ForgeShellTheme`, `forgeThemeData`, `ForgeDimensions`,
-`ForgeAnimations`, the action bar and the status bar widgets, the input
-box, quick pick, error recovery dialog and focus indicator, the notification
-toasts and history, the context menu rendering — is
-`tom_forge_shared_ui`, which it re-exports, so the
-applications beside the shell share it without depending on the shell.
+`ForgeAnimations` and the elements that draw the kit's models — is
+`tom_forge_shared_ui`, which it re-exports, so the applications beside the
+shell share it without depending on the shell. The scaffold draws its title
+action bar with `ForgeKitActionBar` over a `ForgeActionBarModel`, its status
+bar with `ForgeKitStatusBar`, the kit's quick pick and input box with
+`ForgeDialogPresenter`, the notifications with `ForgeNotificationLayer` and
+the context menu with `showForgeKitContextMenu`; its key routing takes the
+kit's (`installForgeStandardEditingActions`, `forgeActionIdForKey`).
 
 It carries no terminal, no code editor, no keychain, no native file dialog
 and no `dart:io`, so it builds where those do not, the web included. They plug

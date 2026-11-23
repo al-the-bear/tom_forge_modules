@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart';
 
 import '../forge_dimensions.dart';
+import '../forge_fixed_listenable.dart';
 import 'forge_action_item.dart';
 
 /// A row of icon buttons in groups — Forge's title-bar action bar, and any
@@ -11,6 +15,9 @@ import 'forge_action_item.dart';
 /// those that do not fit move into an overflow menu (a `more` button at the
 /// end), in order; an unbounded row shows them all. An empty bar takes no
 /// space.
+///
+/// It draws [ForgeActionItem]s the caller builds; [ForgeKitActionBar] draws
+/// the kit's actions with it ([kitGroups]).
 class ForgeActionBar extends StatelessWidget {
   const ForgeActionBar({
     super.key,
@@ -18,6 +25,7 @@ class ForgeActionBar extends StatelessWidget {
     this.iconSize = ForgeDimensions.iconToolbar,
   });
 
+  /// The groups drawn.
   final List<ForgeActionGroup> groups;
   final double iconSize;
 
@@ -28,6 +36,30 @@ class ForgeActionBar extends StatelessWidget {
   static const double dividerExtent = 9;
 
   static const double _padding = 4;
+
+  /// The groups of the kit's [model] in [api] now, as the bar draws them:
+  /// an action shows its icon (a puzzle piece when it has none), is enabled
+  /// by [forgeActionEnabled], and runs through `api.executeAction`.
+  static List<ForgeActionGroup> kitGroups(
+    ForgeKitApi api,
+    ForgeActionBarModel model,
+  ) => [
+    for (final (section, states) in model.resolve(api))
+      ForgeActionGroup(
+        id: section.id,
+        items: [
+          for (final state in states)
+            ForgeActionItem(
+              id: state.id,
+              icon: state.icon ?? Icons.extension,
+              label: state.label,
+              shortcut: state.shortcut,
+              enabled: ForgeFixedListenable<bool>(state.enabled),
+              onInvoke: () => api.executeAction(state.id),
+            ),
+        ],
+      ),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -147,6 +179,108 @@ class ForgeActionBar extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// The action bar over the kit: the actions a [ForgeActionBarModel] names,
+/// as [api]'s action registry and shortcut table have them
+/// ([ForgeActionState]: label, icon, key, whether it can run), drawn by a
+/// [ForgeActionBar]; a button runs its action through
+/// [ForgeKitApi.executeAction].
+///
+/// It is kept current: rebuilt when the focus, the open editors, the active
+/// editor's state, its unsaved state or the key bindings change.
+class ForgeKitActionBar extends StatefulWidget {
+  const ForgeKitActionBar({
+    super.key,
+    required this.api,
+    required this.model,
+    this.iconSize = ForgeDimensions.iconToolbar,
+  });
+
+  final ForgeKitApi api;
+
+  /// Which actions the bar shows.
+  final ForgeActionBarModel model;
+
+  final double iconSize;
+
+  @override
+  State<ForgeKitActionBar> createState() => _ForgeKitActionBarState();
+}
+
+class _ForgeKitActionBarState extends State<ForgeKitActionBar> {
+  final List<StreamSubscription<void>> _subscriptions = [];
+  StreamSubscription<void>? _editorSubscription;
+  ForgeEditor? _editor;
+  Listenable? _bindings;
+
+  @override
+  void initState() {
+    super.initState();
+    _subscribe();
+  }
+
+  @override
+  void didUpdateWidget(ForgeKitActionBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.api, widget.api)) {
+      _unsubscribe();
+      _subscribe();
+    } else {
+      _followEditor();
+    }
+  }
+
+  @override
+  void dispose() {
+    _unsubscribe();
+    super.dispose();
+  }
+
+  void _subscribe() {
+    final state = widget.api.state;
+    _subscriptions
+      ..add(state.onFocusChanged.listen((_) => _changed()))
+      ..add(state.onEditorsChanged.listen((_) => _changed()))
+      ..add(state.onDirtyStateChanged.listen((_) => _changed()));
+    _bindings = widget.api.shortcuts.onBindingsChanged..addListener(_changed);
+    _followEditor();
+  }
+
+  void _unsubscribe() {
+    for (final subscription in _subscriptions) {
+      subscription.cancel();
+    }
+    _subscriptions.clear();
+    _bindings?.removeListener(_changed);
+    _bindings = null;
+    _editorSubscription?.cancel();
+    _editorSubscription = null;
+    _editor = null;
+  }
+
+  /// Follows the active editor's state (what it can undo, copy, ...).
+  void _followEditor() {
+    final editor = widget.api.state.activeEditor;
+    if (identical(editor, _editor)) return;
+    _editorSubscription?.cancel();
+    _editor = editor;
+    _editorSubscription = editor?.onStateChanged.listen((_) => _changed());
+  }
+
+  void _changed() {
+    if (!mounted) return;
+    _followEditor();
+    setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ForgeActionBar(
+      groups: ForgeActionBar.kitGroups(widget.api, widget.model),
+      iconSize: widget.iconSize,
     );
   }
 }

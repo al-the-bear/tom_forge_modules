@@ -1,7 +1,13 @@
 # Tom Forge Shared UI
 
 The look Forge's shell and the applications beside it share, without the
-shell itself:
+shell and without a layout: one rendering of the models of `tom_forge_kit`.
+Each element takes its data from the kit and acts through its `ForgeKitApi`;
+it works without the panel shell (over a bare `DefaultKitApi`). An
+application uses an element, draws the kit's model its own way, or leaves the
+element out.
+
+## Tokens
 
 - **`ForgeShellTheme`**: the shell's colour tokens as a `ThemeExtension`
   (panel surface and divider, active tab, drop zones, section header, status
@@ -15,57 +21,60 @@ shell itself:
   sizes.
 - **`ForgeAnimations`**: transition durations and curves, all zero and
   linear while `reduceMotion` is set.
-- **`ForgeActionBar`**: a row of icon buttons in `ForgeActionGroup`s of
-  `ForgeActionItem`s (id, icon, label, shortcut text, an enabled
-  `ValueListenable<bool>`, `onInvoke`). Each button follows its enablement,
-  groups are divided, and the buttons a narrow row cannot hold move into an
-  overflow menu. Forge's title-bar action bar is one (the shell maps its
-  action ids, the action and shortcut registries and the editors'
-  enablement onto items); Webwork's icon bar is meant to be another.
-- **`ForgeStatusBar`**: the status bar over `ForgeStatusItem`s — text or
-  icon, alignment and priority, an optional `visible` listenable (the bar
-  rebuilds when it changes), a colour, emphasis, or a widget of its own
-  (`builder`, e.g. a countdown chip) — with an optional `rebuild` listenable
-  and progress message. Forge's `StatusBarItem` is a `ForgeStatusItem` with
-  an `isActive(ForgeSystemState)` filter; Forge's status bar controllers
-  stay in the shell, which reads them from its module and application
-  registries and hands the active items to this bar.
-- **The shell's overlays and dialogs**: `ForgeInputBoxOverlay` (a text
-  prompt at the top of the window, with validation; Enter answers the text,
-  Escape or a click outside answers null), `ForgeQuickPickOverlay<T>` over
-  `ForgeQuickPickItem<T>`s (a filtered pick list driven by the keyboard),
-  `ForgeErrorRecoveryDialog` (retry, cancel and optionally overwrite, as
-  `ErrorRecoveryAction`), and `ForgeFocusIndicator` (a focus ring for
-  keyboard focus only, in the theme's `focusRing`). The overlays answer
-  through a `Completer`; Forge's dialog manager shows them over the shell, an
-  application in an `OverlayEntry` of its own.
-- **Notifications**: `ForgeNotificationOverlay` (the toasts, top right: a
-  severity icon, the message, a close button and the notification's actions;
-  one without actions leaves after the manager's 4 s, a chosen action answers
-  the caller and removes the toast) and `ForgeNotificationPopup` (the
-  history, newest first, with severity icons, age and *Clear all*), both over
-  `tom_forge_core`'s `DefaultNotificationManager`. The package re-exports
-  `DefaultNotificationManager`, `NotificationItem` and `NotificationSeverity`
-  for them. An application beside Forge shows its own toasts the way Forge
-  does, and Webwork's entries mirrored into Forge's manager show the same.
-- **Context menus**: `ForgeContextMenuEntry` (id, label, enabled, the
-  reason a disabled entry shows, group, `run`), `forgeContextMenuItems` (the
-  entries as popup-menu items: in order, a divider where the group changes,
-  a disabled entry's reason as its tooltip), `forgeContextMenuEntryKey`
-  (`forge-context-menu:<id>`) and `showForgeContextMenuEntries(context,
-  entries:, globalPosition:)`, which draws the entries at a position and runs
-  the chosen one (nothing for no entries). Forge's `showForgeContextMenu`
-  resolves a target's entries with its controller and draws them with it, so
-  a Webwork menu (the Explorer row menu) looks and behaves the same.
-- **`ForgeFixedListenable`**: a listenable whose value never changes, for an
-  item whose state is known when it is built.
 
-It depends on Flutter, `tom_ui_support` and `tom_forge_core` (pure Dart: the
-notification manager) only: no terminal, no editors, no
-webview, no native plugin, so it builds for every Flutter platform, the web
-included. `tom_forge_shell` depends on it and re-exports it, so code that
-imports `package:tom_forge_shell` or `package:tom_forge_ui` sees the same
-names; Webwork takes it without the shell.
+## Elements over the kit's models
+
+| Element | Kit model | Widget |
+| --- | --- | --- |
+| Action bar | `ForgeActionBarModel` (action ids in sections), each action a `ForgeActionState` from the action registry and shortcut table | `ForgeKitActionBar(api:, model:)`: icon buttons, divided groups, an overflow menu; follows the focus, the open editors, the active editor's state and the key bindings; runs `api.executeAction` |
+| Status bar | `ForgeKitStatusItem`s, shown while `isActive(api.state)` | `ForgeKitStatusBar` (`.forApi(api:, items:)`): rebuilt on the kit state's changes, with the inline progress of `api.progress`; `moreItems` adds items an application draws its own way |
+| Context menu | `ForgeContextMenuEntry`s of `api.contextMenus.entriesFor(target)` | `ForgeContextMenuPresenter` binds itself as the controller's `presenter` while in the tree, so `api.contextMenus.show(target, position)` draws there; `showForgeKitContextMenu` draws one directly |
+| Quick pick, input box | `api.dialogs.showQuickPick` (`ForgeQuickPickItem`s), `api.dialogs.showInputBox` | `ForgeDialogPresenter` binds a `DefaultDialogManager` and hands each request to its `show` as a `ForgeQuickPickOverlay` / `ForgeInputBoxOverlay`; `ForgeDialogLayer` places them over a child |
+| Notifications | `api.notifications` (the kit's `DefaultNotificationManager`) | `ForgeNotificationLayer` (`.forApi`): the toasts (`ForgeNotificationOverlay`) and, while `popupVisible`, the history (`ForgeNotificationPopup`); `forgeNotificationManagerOf(api)` |
+| Focus indicator | `api.state.focusedComponent` | `ForgeFocusIndicator.kit(state:, component:)`: the ring while the component has the kit's focus |
+| Menus | `ForgeMenuModel.of(api, location)`: the actions of a `ForgeMenuLocation` by group, with separators | `ForgeMenuButton(api:, location:)` (a menu anchor, no menu bar imposed); `forgeMenuChildren(api, model)` for an application's own `MenuBar` |
+| Command list | `ForgeCommandListModel.of(api, query:)` | `ForgeCommandList(api:, onRun:)`: a filter field and the matching actions with their keys; arrows, Enter or a click run one through `api.executeAction` — a body a palette, a dialog or a side area hosts |
+| Editor | any `ForgeEditor` | `ForgeEditorSurface(api:, editor:)`, below |
+
+The earlier constructors stay: `ForgeActionBar(groups:)` over
+`ForgeActionGroup`s of `ForgeActionItem`s, `ForgeStatusBar` over
+`ForgeStatusItem`s (visibility listenable, colour, emphasis, a widget of its
+own), `ForgeFocusIndicator` for keyboard focus, `ForgeNotificationOverlay` /
+`ForgeNotificationPopup` over a manager, `showForgeContextMenuEntries`, and
+the overlays answering through a `Completer`; `ForgeErrorRecoveryDialog`
+(retry, cancel and optionally overwrite) and `ForgeFixedListenable`.
+
+## `ForgeEditorSurface`
+
+Shows a `ForgeEditor` (its `buildMain`) connected to the kit, the way the
+panel shell connects the editors of its tabs, without a layout:
+
+- **State.** The editor is reported open to `api.state` while the surface is
+  in the tree, and active (the editor the kit's actions go to) when the focus
+  enters it — for a state that is a `ForgeEditorStateSink`, as
+  `DefaultKitState` is.
+- **Undo, redo, clipboard.** The kit's standard editing actions and keys are
+  installed when missing (`installForgeStandardEditingActions`); a key the
+  editor leaves unhandled is looked up in the kit's binding table
+  (`forgeActionIdForKey`) and run by `api.executeAction`, so undo, redo, cut,
+  copy, paste and select all reach the editor by key, by `api.undo()` /
+  `api.redo()` and by action id alike, through its `EditorActionProvider`.
+  The editor uses the kit's clipboard (`api.clipboard`).
+- **Find.** Unless another owner registered Find (`forgeFindActionId`), the
+  active surface registers it (primary modifier + F when free): a find field
+  above the editor searches a `ForgeFindTarget` through its own search, a
+  `ForgeTextEditor` through `findAll`; Enter and Shift+Enter move between the
+  matches, Escape closes it. `ForgeEditorSurfaceState.openFind` /
+  `closeFind` drive it from outside.
+
+## Dependencies
+
+It depends on Flutter, `tom_ui_support`, `tom_forge_core` and
+`tom_forge_kit` only (the platform architecture's layer 3, the guard's
+PL-6): no shell, no terminal, no editors, no webview. The kit brings the
+`shared_preferences` plugin. `tom_forge_shell` depends on it and re-exports
+it, so code that imports `package:tom_forge_shell` or `package:tom_forge_ui`
+sees the same names; Webwork takes it without the shell.
 
 ## Usage
 
@@ -114,6 +123,33 @@ ForgeStatusBar(
       alignment: StatusBarAlignment.right,
     ),
   ],
+);
+
+// Over the kit (`api` a ForgeKitApi, e.g. a DefaultKitApi): the elements
+// read the kit's models and act through it.
+ForgeDialogLayer(
+  dialogs: api.dialogs,
+  child: ForgeNotificationLayer.forApi(
+    api: api,
+    child: ForgeContextMenuPresenter(
+      controller: api.contextMenus,
+      child: Column(
+        children: [
+          Row(
+            children: [
+              ForgeMenuButton(api: api, location: ForgeMenuLocation.file),
+              ForgeKitActionBar(
+                api: api,
+                model: ForgeActionBarModel.of(['file.save', 'forge.edit.undo']),
+              ),
+            ],
+          ),
+          Expanded(child: ForgeEditorSurface(api: api, editor: editor)),
+          ForgeKitStatusBar.forApi(api: api, items: statusItems),
+        ],
+      ),
+    ),
+  ),
 );
 ```
 
