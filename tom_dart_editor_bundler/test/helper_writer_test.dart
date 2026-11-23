@@ -7,6 +7,8 @@ import 'package:path/path.dart' as p;
 import 'package:tom_dart_editor_bundler/tom_dart_editor_bundler.dart';
 import 'package:test/test.dart';
 
+import 'support/package_root.dart';
+
 /// The two fully-specified scopes from spec §6.3 (an sdk-only scope and a
 /// package scope with implicit imports + allowed prefixes). Pinning these two
 /// reproduces the worked example in the spec verbatim.
@@ -32,7 +34,7 @@ BundlerConfig _goldenConfig() => const BundlerConfig(
 /// The exact source the golden config must produce — mirrors spec §6.3.
 const String _goldenSource = '''
 // GENERATED — do not edit. Produced by tom_dart_editor_bundler.
-import 'package:tom_dart_editor/tom_dart_editor.dart';
+import 'package:tom_dart_analysis/tom_dart_analysis.dart';
 
 abstract final class SummaryScopes {
   static const dartPlain = 'dart-plain';
@@ -61,11 +63,11 @@ abstract final class SummaryScopes {
 }
 ''';
 
-/// Minimal stub of the `tom_dart_editor` API surface the generated helper
-/// targets (`SummaryScopeAsset` + `SummaryScopeRegistry`). The real types land
-/// in `tom_dart_editor` in a later plan item; this fixture lets us prove the
-/// generated source *analyzes clean against the documented contract* now.
-const String _tomDartEditorStub = '''
+/// Minimal stub of the `tom_dart_analysis` API surface the generated helper
+/// targets (`SummaryScopeAsset` + `SummaryScopeRegistry`). The real types are
+/// in `tom_dart_analysis`; this fixture proves the generated source *analyzes
+/// clean against the documented contract* without the analyzer.
+const String _tomDartAnalysisStub = '''
 /// Test stub mirroring the spec §6.4 descriptor + registry surface.
 class SummaryScopeAsset {
   final String name;
@@ -117,7 +119,7 @@ void main() {
   group('writeScopeInitHelper', () {
     test('writes the file at generatedHelper relative to baseDir', () {
       final base = Directory(p.join(
-        Directory.current.path,
+        bundlerPackageRoot,
         'ztmp',
         'helper_writer_test',
         DateTime.now().microsecondsSinceEpoch.toString(),
@@ -141,7 +143,7 @@ void main() {
   group('generated helper analyzes clean against the documented API', () {
     test('dart analyze reports no issues for the emitted source', () async {
       final pkg = Directory(p.join(
-        Directory.current.path,
+        bundlerPackageRoot,
         'ztmp',
         'helper_writer_test',
         'consumer-${DateTime.now().microsecondsSinceEpoch}',
@@ -149,17 +151,18 @@ void main() {
         ..createSync(recursive: true);
       addTearDown(() => pkg.deleteSync(recursive: true));
 
-      // A self-contained package literally named `tom_dart_editor` so the
-      // generated `import 'package:tom_dart_editor/...'` resolves to the stub.
+      // A self-contained package literally named `tom_dart_analysis` so the
+      // generated `import 'package:tom_dart_analysis/...'` resolves to the
+      // stub.
       File(p.join(pkg.path, 'pubspec.yaml')).writeAsStringSync('''
-name: tom_dart_editor
+name: tom_dart_analysis
 environment:
   sdk: ^3.0.0
 ''');
       final libDir = Directory(p.join(pkg.path, 'lib'))
         ..createSync(recursive: true);
-      File(p.join(libDir.path, 'tom_dart_editor.dart'))
-          .writeAsStringSync(_tomDartEditorStub);
+      File(p.join(libDir.path, 'tom_dart_analysis.dart'))
+          .writeAsStringSync(_tomDartAnalysisStub);
 
       // Emit the helper into the stub package at its configured location.
       writeScopeInitHelper(config: _goldenConfig(), baseDir: pkg.path);

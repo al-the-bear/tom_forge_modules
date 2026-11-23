@@ -1,9 +1,6 @@
 include: package:flutter_lints/flutter.yaml
 
 analyzer:
-  errors:
-    # Required for analyzer internal imports (summary-based analysis)
-    implementation_imports: ignore
   exclude:
     - build/**
 

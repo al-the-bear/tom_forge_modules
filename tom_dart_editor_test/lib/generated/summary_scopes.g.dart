@@ -1,5 +1,5 @@
 // GENERATED — do not edit. Produced by tom_dart_editor_bundler.
-import 'package:tom_dart_editor/tom_dart_editor.dart';
+import 'package:tom_dart_analysis/tom_dart_analysis.dart';
 
 abstract final class SummaryScopes {
   static const dartEditor = 'dart-editor';

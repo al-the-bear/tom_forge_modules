@@ -14,6 +14,8 @@ import 'package:tom_analyzer_shared/tom_analyzer_shared.dart'
 import 'package:tom_dart_editor_bundler/tom_dart_editor_bundler.dart';
 import 'package:test/test.dart';
 
+import 'support/package_root.dart';
+
 /// Builds a self-contained fixture under the project's `ztmp/` (never `/tmp`):
 ///
 ///   `<root>/buildkit.yaml`           — a 2-scope dart-editor-bundler config
@@ -25,7 +27,7 @@ import 'package:test/test.dart';
 Directory _writeFixture() {
   final base = Directory(
     p.join(
-      Directory.current.path,
+      bundlerPackageRoot,
       'ztmp',
       'bundle_generator_test',
       DateTime.now().microsecondsSinceEpoch.toString(),
@@ -139,7 +141,7 @@ void main() {
       addTearDown(() => base.deleteSync(recursive: true));
 
       final loaded = loadBundlerConfig(
-        projectDir: Directory.current.path,
+        projectDir: bundlerPackageRoot,
         configPath: p.join(base.path, 'buildkit.yaml'),
       );
       expect(loaded.baseDir, p.normalize(base.absolute.path));
@@ -148,7 +150,7 @@ void main() {
     test('throws a descriptive error when the config is missing', () {
       final missing = Directory(
         p.join(
-          Directory.current.path,
+          bundlerPackageRoot,
           'ztmp',
           'bundle_generator_test',
           'absent-${DateTime.now().microsecondsSinceEpoch}',

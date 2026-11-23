@@ -14,7 +14,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tom_dart_editor/tom_dart_editor.dart';
+import 'package:tom_dart_analysis/tom_dart_analysis.dart';
 import 'package:tom_specs_editor/generated/summary_scopes.g.dart';
 
 const _sdk = 'assets/summaries/sdk_summary.sum';

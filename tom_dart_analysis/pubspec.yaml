@@ -1,0 +1,41 @@
+name: tom_dart_analysis
+description: >-
+  The Dart analysis of the Dart editor (tom_dart_editor): the summary-backed
+  analyzer (diagnostics and completion over pre-built SDK and package
+  summaries), the named summary scopes, the editors with that analysis built
+  in, and the analyzer-based highlighter with its semantic pass. A plugin of
+  the editor. License: BSD-3-Clause.
+version: 0.1.0
+publish_to: none
+repository: https://github.com/al-the-bear/tom_forge
+
+environment:
+  sdk: ^3.0.0
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # The editor this package is a plugin of: the widget, its seams
+  # (highlighter, errors, completions) and its types.
+  tom_dart_editor:
+    path: ../tom_dart_editor
+  # The history host the self-managed editor reports to.
+  tom_editors_shared:
+    path: ../tom_editors_shared
+
+  # Dart analyzer for code analysis and syntax highlighting
+  # Note: Uses some internal APIs for summary-based analysis (mobile/web support).
+  # For desktop-only usage, consider using AnalysisContextCollection (public API).
+  analyzer: ^14.5.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  # Path joins for building the SDK-summary fixture in registry tests.
+  path: ^1.9.0
+
+flutter:
+  # This package does not include any assets: an application carries its
+  # SDK and package summaries (tom_dart_editor_bundler builds them).

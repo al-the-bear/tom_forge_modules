@@ -2,6 +2,8 @@
 
 A full-featured Dart code editor for Flutter with syntax highlighting, real-time code analysis, intelligent completions, and error display — **without requiring a Dart SDK on the target device**.
 
+The editor (`DartCodeEditor`, `DartCodeController`, the theme and settings) is `tom_dart_editor`; the analysis — the summary-backed editors (`SimpleSummaryBackedDartCodeEditor`, `SummaryBackedDartCodeEditor`), the summaries and the semantic highlighter — is its plugin package `tom_dart_analysis` (`import 'package:tom_dart_analysis/tom_dart_analysis.dart';`). Without it the editor highlights lexically and shows the diagnostics and completions its host gives it.
+
 ---
 
 ## Key Features
@@ -26,7 +28,7 @@ Traditional Dart analysis requires a complete Dart SDK installation. `tom_dart_e
 
 These bundles contain serialized element models built at compile time. At runtime, the analyzer deserializes these models to provide full analysis without SDK access.
 
-See [package_summary_generation.md](package_summary_generation.md) for build instructions.
+See [package_summary_generation.md](../../tom_dart_analysis/doc/package_summary_generation.md) for build instructions.
 
 ---
 
@@ -446,5 +448,5 @@ void main() {
 
 ## Related Documentation
 
-- [Package Summary Generation](package_summary_generation.md) — Building `.sum` files
-- [Summary Scopes](summary_scopes.md) — Named per-surface summary scopes and the `tom_dart_editor_bundler` tool that produces them
+- [Package Summary Generation](../../tom_dart_analysis/doc/package_summary_generation.md) — Building `.sum` files
+- [Summary Scopes](../../tom_dart_analysis/doc/summary_scopes.md) — Named per-surface summary scopes and the `tom_dart_editor_bundler` tool that produces them

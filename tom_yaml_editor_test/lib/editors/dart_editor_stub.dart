@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:tom_dart_analysis/tom_dart_analysis.dart';
 import 'package:tom_dart_editor/tom_dart_editor.dart';
 import 'package:tom_yaml_editor/tom_yaml_editor.dart';
 

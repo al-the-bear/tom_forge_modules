@@ -93,6 +93,6 @@ Output:
 Status:
   Generates the `.sum` asset set and the generated-helper Dart file
   (`SummaryScopes` registrar). The helper registers every declared scope via
-  `tom_dart_editor`'s SummaryScopeRegistry (added in a later plan item).
+  `tom_dart_analysis`'s SummaryScopeRegistry.
 ''',
 );

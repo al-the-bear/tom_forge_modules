@@ -176,40 +176,4 @@ void main() {
       expect(host.stack, ['xy'], reason: 'the host clears its own history');
     });
   });
-
-  group('DS the self-managed editor as a document field', () {
-    testWidgets('DS-1: with a history host, a new initialCode (the document '
-        'undone) is shown, and the field\'s typing goes to the host', (
-      tester,
-    ) async {
-      final host = _Host();
-      Widget field(String code) => MaterialApp(
-        home: Scaffold(
-          body: SimpleSummaryBackedDartCodeEditor(
-            initialCode: code,
-            scope: 'does-not-exist',
-            settings: const DartEditorSettings(showToolbar: false),
-            historyHost: host,
-          ),
-        ),
-      );
-      await tester.pumpWidget(field('a'));
-      final editable = find.byType(EditableText).first;
-      final controller = tester.widget<EditableText>(editable).controller;
-      controller.value = const TextEditingValue(
-        text: 'ab',
-        selection: TextSelection.collapsed(offset: 2),
-      );
-      await tester.pump();
-      expect(host.reported.last, 'ab');
-      await tester.pumpWidget(field('ab')); // the document took the typing
-      expect(tester.widget<EditableText>(editable).controller.text, 'ab');
-
-      await tester.pumpWidget(field('a')); // the document went back
-      await tester.pump();
-      expect(tester.widget<EditableText>(editable).controller.text, 'a');
-      expect(host.reported, ['ab'], reason: 'showing is not an edit');
-      await tester.pump(const Duration(seconds: 2));
-    });
-  });
 }

@@ -1,6 +1,7 @@
 # Generating Summary Files for Dart Analysis
 
-This document explains how the `.sum` summary files `tom_dart_editor` needs
+This document explains how the `.sum` summary files `tom_dart_analysis` (the
+analysis of the Dart editor, `tom_dart_editor`) needs
 for SDK-free Dart analysis are built, and where the Forge apps get theirs.
 
 ---
@@ -135,7 +136,7 @@ Two workarounds in `analyzer_with_packages.dart` compensate for SDK limitations:
 
 | File | Role |
 |------|------|
-| `tom_dart_editor/lib/src/analyzer_with_packages.dart` | Consumer-side driver factory, `PackageSummaryUriResolver` |
+| `tom_dart_analysis/lib/src/analyzer_with_packages.dart` | Consumer-side driver factory, `PackageSummaryUriResolver` |
 | `tom_dart_editor_bundler/` | The build: config, SDK summary, grouped bundles, stamps, scope helper |
 | `tom_dart_editor_test/buildkit.yaml` | The Forge apps' pair, the `dart-editor` scope |
 | `tom_dart_editor_test/test/shipped_summaries_test.dart` | What the shipped pair resolves, and that the copies match |

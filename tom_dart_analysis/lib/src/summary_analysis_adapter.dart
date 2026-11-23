@@ -11,9 +11,9 @@ import 'package:analyzer/src/file_system/file_system.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/services.dart' show rootBundle;
 
+import 'package:tom_dart_editor/tom_dart_editor.dart';
+
 import 'analyzer_with_packages.dart';
-import 'completion_provider.dart';
-import 'dart_code_editor.dart';
 import 'summary_scope_registry.dart';
 
 /// Summary-backed analyzer/completion adapter for [DartCodeEditor].

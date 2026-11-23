@@ -1,7 +1,12 @@
-/// A Flutter widget for editing and analyzing Dart code.
+/// A Flutter widget for editing Dart code.
 ///
 /// Provides syntax highlighting, code completion, error display, and
 /// comprehensive theming support. Can be embedded in any Flutter application.
+/// The editor has no analyzer of its own: it highlights with the light,
+/// lexical [DartLightHighlighter], and takes diagnostics ([DartCodeEditor.errors])
+/// and completions ([DartCodeEditor.onCompletionRequest]) from its host.
+/// `tom_dart_analysis` brings the summary-backed analysis and the semantic
+/// highlighter.
 ///
 /// ## Basic Usage
 ///
@@ -22,7 +27,8 @@
 ///
 /// ## Features
 ///
-/// - Syntax highlighting with AST-based semantic analysis
+/// - Lexical syntax highlighting; a pluggable highlighter
+///   ([DartCodeEditor.highlighter])
 /// - Rainbow bracket matching
 /// - Code completion with customizable providers
 /// - Error/warning display with tooltips
@@ -30,7 +36,7 @@
 /// - Auto-indentation
 /// - Dark and light themes
 /// - Fully customizable theming
-library tom_dart_editor; // comment tom_dart_editor _editor    
+library tom_dart_editor;
 
 // Core editor widget and controller
 export 'src/dart_code_editor.dart'
@@ -60,39 +66,30 @@ export 'src/editor_theme.dart'
 export 'src/completion_provider.dart'
     show CompletionItem, CompletionKind, MemberInfo;
 
-// Syntax highlighting (for advanced use)
-export 'src/syntax_highlighter.dart'
+// Highlighting: the light highlighter, the kinds and their token classes.
+export 'src/dart_light_highlighter.dart'
     show
-        DartSyntaxHighlighter,
+        DartLightHighlighter,
+        dartCodeBlockHighlighter,
+        registerDartCodeBlockHighlighting,
+        unregisterDartCodeBlockHighlighting;
+export 'src/highlight_types.dart'
+    show
         DartHighlightTheme,
-        HighlightToken,
+        DartHighlightToken,
         HighlightType,
         BracketPair,
-        HighlightedTextBuilder;
+        HighlightedTextBuilder,
+        dartHighlightClass,
+        dartBracketClassPrefix,
+        dartBracketDepthOfClass,
+        bracketPairsOf;
 
-// Analyzer integration (uses internal analyzer APIs)
-export 'src/analyzer_with_packages.dart'
+// The highlighter interface the editor takes (`DartCodeEditor.highlighter`).
+export 'package:tom_text_highlight/tom_text_highlight.dart'
     show
-        AnalysisDriverWithPackages,
-        createAnalysisDriverWithPackages,
-        ParsedSummaryModel,
-        buildAnalysisDriver;
-
-// Shared, name-keyed summary-scope registry
-export 'src/summary_scope_registry.dart'
-    show
-        SummaryScopeAsset,
-        SummaryScope,
-        SummaryScopeRegistry,
-        SummaryAssetBytesLoader;
-
-// Reusable summary-backed analyzer/completion adapter
-export 'src/summary_analysis_adapter.dart'
-    show SummaryBackedDartAnalysisAdapter;
-
-// High-level editor wrapper with built-in summary-backed analysis
-export 'src/summary_backed_dart_editor.dart' show SummaryBackedDartCodeEditor;
-
-// Easy one-liner embed widget (internal controller)
-export 'src/simple_summary_backed_dart_editor.dart'
-    show SimpleSummaryBackedDartCodeEditor;
+        SyntaxHighlighter,
+        HighlightSpan,
+        TokenHighlighter,
+        HighlightToken,
+        HighlightTheme;

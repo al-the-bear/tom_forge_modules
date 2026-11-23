@@ -2,14 +2,18 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
-import 'dart_code_editor.dart';
+import 'package:tom_dart_editor/tom_dart_editor.dart';
+
 import 'summary_analysis_adapter.dart';
 import 'summary_scope_registry.dart';
+import 'syntax_highlighter.dart';
 
 /// High-level Dart editor widget with built-in summary-backed analysis.
 ///
-/// This wrapper keeps analyzer integration inside `tom_dart_editor` so host
-/// applications only provide configuration and regular editor callbacks.
+/// This wrapper keeps analyzer integration inside `tom_dart_analysis` so host
+/// applications only provide configuration and regular editor callbacks: it
+/// gives the `tom_dart_editor` [DartCodeEditor] the analysis's diagnostics,
+/// its completions and the semantic [DartSyntaxHighlighter].
 class SummaryBackedDartCodeEditor extends StatefulWidget {
   final DartCodeController controller;
 
@@ -37,6 +41,10 @@ class SummaryBackedDartCodeEditor extends StatefulWidget {
   final Duration analysisDebounce;
   final ValueChanged<List<CodeError>>? onErrorsChanged;
 
+  /// The highlighter; null: the analyzer-based [DartSyntaxHighlighter] with
+  /// its semantic pass (one per editor).
+  final SyntaxHighlighter? highlighter;
+
   const SummaryBackedDartCodeEditor({
     super.key,
     required this.controller,
@@ -55,6 +63,7 @@ class SummaryBackedDartCodeEditor extends StatefulWidget {
     this.onSettingsChanged,
     this.analysisDebounce = const Duration(milliseconds: 500),
     this.onErrorsChanged,
+    this.highlighter,
   });
 
   @override
@@ -65,6 +74,7 @@ class SummaryBackedDartCodeEditor extends StatefulWidget {
 class _SummaryBackedDartCodeEditorState
     extends State<SummaryBackedDartCodeEditor> {
   late SummaryBackedDartAnalysisAdapter _adapter;
+  late final SyntaxHighlighter _semanticHighlighter = DartSyntaxHighlighter();
   List<CodeError> _errors = const [];
   Timer? _debounceTimer;
 
@@ -168,6 +178,7 @@ class _SummaryBackedDartCodeEditorState
       settings: widget.settings,
       onSettingsChanged: widget.onSettingsChanged,
       onCompletionRequest: _adapter.completions,
+      highlighter: widget.highlighter ?? _semanticHighlighter,
       onChanged: (code) {
         widget.onChanged?.call(code);
         _scheduleAnalysis();

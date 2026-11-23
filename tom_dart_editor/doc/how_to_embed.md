@@ -1,14 +1,39 @@
 # How to Embed `tom_dart_editor`
 
-This package now provides a one-liner embed widget for the common case:
+The editor alone highlights Dart with its light, lexical highlighter and shows
+the diagnostics and completions its host gives it; it has no analyzer. The
+analysis is the plugin package `tom_dart_analysis`.
+
+## The editor alone
+
+```dart
+import 'package:tom_dart_editor/tom_dart_editor.dart';
+
+final controller = DartCodeController(initialCode: 'void main() {}');
+
+DartCodeEditor(
+  controller: controller,
+  theme: DartEditorTheme.dark(),
+  // Optional: diagnostics and completions of your own.
+  errors: errors,
+  onCompletionRequest: (code, offset, prefix) async => const [],
+)
+```
+
+## Adding analysis (`tom_dart_analysis`)
+
+Take `tom_dart_analysis` beside the editor. It plugs into the editor's seams
+— `highlighter:` (the semantic `DartSyntaxHighlighter`), `errors:` and
+`onCompletionRequest:` (`SummaryBackedDartAnalysisAdapter`) — and has two
+editors with all of it wired:
 
 - `SimpleSummaryBackedDartCodeEditor` (internal controller)
 - `SummaryBackedDartCodeEditor` (external controller)
 
-## Minimal embed (one-liner)
+### Minimal embed (one-liner)
 
 ```dart
-import 'package:tom_dart_editor/tom_dart_editor.dart';
+import 'package:tom_dart_analysis/tom_dart_analysis.dart';
 
 SimpleSummaryBackedDartCodeEditor(
   initialCode: 'void main() { print("Hello"); }',
@@ -17,7 +42,21 @@ SimpleSummaryBackedDartCodeEditor(
 )
 ```
 
-## Minimal with imports from bundled summaries
+### Your own editor with the analysis plugged in
+
+```dart
+final adapter = SummaryBackedDartAnalysisAdapter.scope(SummaryScopes.dartEditor);
+final highlighter = DartSyntaxHighlighter(); // keep one per editor
+
+DartCodeEditor(
+  controller: controller,
+  highlighter: highlighter,
+  errors: errors, // await adapter.analyzeCode(controller.userCode)
+  onCompletionRequest: adapter.completions,
+)
+```
+
+### Minimal with imports from bundled summaries
 
 ```dart
 SimpleSummaryBackedDartCodeEditor(
@@ -33,7 +72,7 @@ SimpleSummaryBackedDartCodeEditor(
 )
 ```
 
-## Capture code and errors
+### Capture code and errors
 
 ```dart
 SimpleSummaryBackedDartCodeEditor(
@@ -49,16 +88,16 @@ SimpleSummaryBackedDartCodeEditor(
 )
 ```
 
-## When to use which widget
+### When to use which widget
 
 - Use `SimpleSummaryBackedDartCodeEditor` for easiest embedding.
 - Use `SummaryBackedDartCodeEditor` if you need to manage your own `DartCodeController`.
 
-## Summaries by scope
+### Summaries by scope
 
 The summaries are built by `tom_dart_editor_bundler` from a
 `dart-editor-bundler:` block in the app's `buildkit.yaml`
-([Generating Summary Files](package_summary_generation.md)). It writes the
+([Generating Summary Files](../../tom_dart_analysis/doc/package_summary_generation.md)). It writes the
 shared `assets/summaries/sdk_summary.sum`, one
 `assets/summaries/<scope>/packages.sum` per scope, and
 `lib/generated/summary_scopes.g.dart`, which registers every scope in a
@@ -78,9 +117,9 @@ SimpleSummaryBackedDartCodeEditor(
 ```
 
 Editors of one scope share one parsed bundle. See
-**[Summary Scopes](summary_scopes.md)**.
+**[Summary Scopes](../../tom_dart_analysis/doc/summary_scopes.md)**.
 
-## Required assets
+### Required assets
 
 The scope folders are asset directories in the app's `pubspec.yaml`
 (directory entries are not recursive):

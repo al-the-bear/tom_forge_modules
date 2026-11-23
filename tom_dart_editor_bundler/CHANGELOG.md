@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- The generated scope-init helper imports
+  `package:tom_dart_analysis/tom_dart_analysis.dart`, where the summary-scope
+  registry now is (the Dart editor's analysis plugin); a consumer app takes
+  `tom_dart_analysis` and runs the bundler again (or changes the helper's
+  import line).
+
 ## 0.1.1
 
 - Runs again: on tom_build_base 2.30.0–2.39.1 a run reached no executor and

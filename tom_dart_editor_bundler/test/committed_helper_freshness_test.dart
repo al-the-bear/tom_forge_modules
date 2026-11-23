@@ -23,14 +23,16 @@ import 'package:path/path.dart' as p;
 import 'package:tom_dart_editor_bundler/tom_dart_editor_bundler.dart';
 import 'package:test/test.dart';
 
+import 'support/package_root.dart';
+
 /// Sibling package dirs whose `buildkit.yaml` declares a bundler config.
 List<Directory> _consumerDirs() {
-  final siblings = Directory(p.dirname(Directory.current.absolute.path));
+  final siblings = Directory(p.dirname(bundlerPackageRoot));
   if (!siblings.existsSync()) return const [];
   final found = <Directory>[];
   for (final entry in siblings.listSync(followLinks: false)) {
     if (entry is! Directory) continue;
-    if (p.equals(entry.path, Directory.current.absolute.path)) continue;
+    if (p.equals(entry.path, bundlerPackageRoot)) continue;
     final config = File(p.join(entry.path, TomBundlerFiles.buildkit));
     if (!config.existsSync()) continue;
     if (!config.readAsStringSync().contains(kBundlerConfigKey)) continue;

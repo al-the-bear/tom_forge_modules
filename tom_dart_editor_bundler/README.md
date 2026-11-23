@@ -1,8 +1,9 @@
 # tom_dart_editor_bundler
 
 CLI tool that builds the analyzer summary (`.sum`) bundles and the generated
-scope-init helper consumed by the [`tom_dart_editor`](../tom_dart_editor)
-embedded code editor.
+scope-init helper consumed by the analysis of the
+[`tom_dart_editor`](../tom_dart_editor) embedded code editor,
+[`tom_dart_analysis`](../tom_dart_analysis).
 
 A consuming Flutter app declares its **summary scopes** in a
 `dart-editor-bundler` block inside its `buildkit.yaml`. The bundler reads that
@@ -12,7 +13,8 @@ block and emits, into the app's `assets/`:
 - **one grouped package bundle per non-`sdk-only` scope**
   (`<out-dir>/<name>/packages.sum`), and
 - **a generated `SummaryScopes` helper** (`<generated-helper>`) that registers
-  every scope with `tom_dart_editor`'s `SummaryScopeRegistry` at app startup.
+  every scope with `tom_dart_analysis`'s `SummaryScopeRegistry` at app
+  startup.
 
 A *summary scope* is a named, analyzable surface — the SDK plus an optional set
 of packages — that a code field is analysed against. Authoring a snippet of
@@ -157,7 +159,7 @@ idempotent `initialize()` that registers every scope:
 
 ```dart
 // GENERATED — do not edit. Produced by tom_dart_editor_bundler.
-import 'package:tom_dart_editor/tom_dart_editor.dart';
+import 'package:tom_dart_analysis/tom_dart_analysis.dart';
 
 abstract final class SummaryScopes {
   static const dartPlain = 'dart-plain';
@@ -277,4 +279,4 @@ ten `d4rt-flutter` code fields cost one Flutter summary parse, not ten.
 ## Design references
 
 - Summary-scopes specification:
-  [`tom_dart_editor/doc/summary_scopes.md`](../tom_dart_editor/doc/summary_scopes.md)
+  [`tom_dart_analysis/doc/summary_scopes.md`](../tom_dart_analysis/doc/summary_scopes.md)

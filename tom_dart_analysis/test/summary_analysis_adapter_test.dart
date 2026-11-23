@@ -9,7 +9,7 @@ import 'package:analyzer/file_system/memory_file_system.dart';
 import 'package:analyzer/file_system/physical_file_system.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
-import 'package:tom_dart_editor/tom_dart_editor.dart';
+import 'package:tom_dart_analysis/tom_dart_analysis.dart';
 
 /// Resolves the Dart SDK path inside the `flutter test` environment so we can
 /// build a real SDK summary fixture once (mirrors the registry test helper).
@@ -182,7 +182,7 @@ void main() {
       }
       final root = workspace == null
           ? p.join(Directory.current.path, '.dart_tool', 'test_tmp')
-          : p.join(workspace.path, 'ztmp', 'tom_dart_editor_test');
+          : p.join(workspace.path, 'ztmp', 'tom_dart_analysis_test');
       final directory = Directory(p.join(root, name));
       if (directory.existsSync()) directory.deleteSync(recursive: true);
       directory.createSync(recursive: true);
@@ -276,7 +276,8 @@ void main() {
       // present in every Flutter web app ever built. So this grep is not an
       // incomplete web check; it is a different check. The rule below is about
       // analysed source staying in memory (D-D33-9), which is confidentiality.
-      // The web build is measured for real in `web_build_test.dart`.
+      // The web build is measured for real in tom_dart_editor's
+      // `web_build_test.dart` (the companion app runs this analysis).
       final offenders = <String>[];
       var scanned = 0;
       for (final entity in Directory('lib').listSync(recursive: true)) {
@@ -294,7 +295,7 @@ void main() {
       // a moved `lib/`, a renamed extension, a wrong working directory. The
       // floor is deliberately well below the real count so it tracks a broken
       // scan, not the package's size.
-      expect(scanned, greaterThanOrEqualTo(8),
+      expect(scanned, greaterThanOrEqualTo(5),
           reason: 'only $scanned library sources were scanned — the scan is '
               'broken, so an empty offender list means nothing');
       expect(offenders, isEmpty,

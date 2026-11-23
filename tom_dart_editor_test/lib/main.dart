@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tom_dart_analysis/tom_dart_analysis.dart';
 import 'package:tom_dart_editor/tom_dart_editor.dart';
 
 import 'generated/summary_scopes.g.dart';

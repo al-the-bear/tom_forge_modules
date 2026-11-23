@@ -1,11 +1,12 @@
 # How to Embed `tom_yaml_editor` with `tom_dart_editor`
 
-This guide shows the simplest way to use Dart code editing inside YAML fields (for example keys ending in `-dart`).
+This guide shows the simplest way to use Dart code editing inside YAML fields (for example keys ending in `-dart`). The summary-backed editor used here is in the Dart editor's analysis plugin, `tom_dart_analysis`; take both packages.
 
 ## 1) Register a Dart suffix editor
 
 ```dart
 import 'package:flutter/material.dart';
+import 'package:tom_dart_analysis/tom_dart_analysis.dart';
 import 'package:tom_dart_editor/tom_dart_editor.dart';
 import 'package:tom_yaml_editor/tom_yaml_editor.dart';
 
@@ -85,7 +86,7 @@ script-dart: |
 ## 3) Asset requirements
 
 Dart analyzer-backed editing requires the summary pair in the host app, as
-`tom_dart_editor_bundler` lays it out (`tom_dart_editor/doc/package_summary_generation.md`;
+`tom_dart_editor_bundler` lays it out (`tom_dart_analysis/doc/package_summary_generation.md`;
 the Forge apps copy the pair built in `tom_dart_editor_test`):
 
 - `assets/summaries/sdk_summary.sum`

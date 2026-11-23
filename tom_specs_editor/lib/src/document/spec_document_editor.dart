@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:tom_dart_analysis/tom_dart_analysis.dart';
 import 'package:tom_dart_editor/tom_dart_editor.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart'
     show

@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart';
+import 'package:tom_dart_analysis/tom_dart_analysis.dart';
 import 'package:tom_dart_editor/tom_dart_editor.dart';
 
 import 'package:tom_forge_kit/tom_forge_kit.dart';
@@ -74,6 +75,9 @@ class ForgeDartEditor extends ForgeTextEditor implements ForgeEditorOfType {
 
   /// Summary-backed analysis adapter for autocompletion and diagnostics.
   final SummaryBackedDartAnalysisAdapter _analysisAdapter;
+
+  /// The analyzer-based highlighter with its semantic pass (one per editor).
+  final _highlighter = DartSyntaxHighlighter();
   final _analysisErrors = ValueNotifier<List<CodeError>>(const []);
   Timer? _analysisDebounce;
   ForgeDiagnosticCollection? _diagnosticCollection;
@@ -163,6 +167,7 @@ class ForgeDartEditor extends ForgeTextEditor implements ForgeEditorOfType {
           settings: settings,
           errors: errors,
           onCompletionRequest: _analysisAdapter.completions,
+          highlighter: _highlighter,
           onCursorChanged: _onCursorOffset,
           onSelectionChanged: _onSelectionRange,
           onVisibleRangeChanged: _onVisibleRangeLines,

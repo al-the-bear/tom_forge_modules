@@ -60,9 +60,9 @@ void main() {
     registerWebBuildTest(
       id: 'WONECODEPRPC18-dart_editor',
       appDirectory: '../tom_dart_editor_test',
-      because: 'This package is the one that carries the summary-backed '
-          'AnalysisDriver, so its web build is the D33 §3.6 case that matters '
-          'most.',
+      because: 'The companion app runs this editor with its analysis plugin '
+          '(tom_dart_analysis), the summary-backed AnalysisDriver, so its web '
+          'build is the D33 §3.6 case that matters most.',
     );
 
     // ── Why the build above is allowed to pass ───────────────────────────

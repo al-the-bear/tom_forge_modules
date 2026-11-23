@@ -19,7 +19,7 @@
 #   dart run ../tom_dart_editor_bundler/bin/dart_editor_bundler.dart \
 #     --config buildkit.yaml --verbose
 # then copy assets/summaries/ to the two apps (see
-# tom_dart_editor/doc/package_summary_generation.md).
+# tom_dart_analysis/doc/package_summary_generation.md).
 dart-editor-bundler:
   out-dir: assets/summaries
   generated-helper: lib/generated/summary_scopes.g.dart

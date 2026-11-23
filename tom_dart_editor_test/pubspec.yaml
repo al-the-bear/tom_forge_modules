@@ -1,5 +1,5 @@
 name: tom_dart_editor_test
-description: Test application for the tom_dart_editor Flutter library.
+description: Test application for the tom_dart_editor Flutter library and its analysis (tom_dart_analysis).
 publish_to: 'none'
 
 version: 0.1.0
@@ -14,6 +14,10 @@ dependencies:
   # The editor library
   tom_dart_editor:
     path: ../tom_dart_editor
+  # Its analysis: the summary-backed editor and the scope registry the
+  # generated helper registers with.
+  tom_dart_analysis:
+    path: ../tom_dart_analysis
   
   # Additional dependencies for the test app
   analyzer: ^14.5.0

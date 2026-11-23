@@ -504,6 +504,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.3.1"
+  tom_dart_analysis:
+    dependency: "direct main"
+    description:
+      path: "../tom_dart_analysis"
+      relative: true
+    source: path
+    version: "0.1.0"
   tom_dart_editor:
     dependency: "direct main"
     description:

@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- The analysis comes from the Dart editor's plugin `tom_dart_analysis`
+  (`SummaryBackedDartAnalysisAdapter`, and `DartSyntaxHighlighter`, given to
+  the editor as its highlighter), so Forge's Dart editing is as before:
+  summary-backed diagnostics and completions, semantic highlighting.
+
 ## 0.1.0
 
 - `ForgeDartEditor` and its editor type `forgeDartEditorType`, moved out of

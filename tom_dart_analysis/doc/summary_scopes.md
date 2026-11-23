@@ -1,6 +1,7 @@
 # Summary Scopes & the `tom_dart_editor_bundler`
 
-`tom_dart_editor` does **SDK-free** static analysis inside code-typed fields by
+`tom_dart_analysis`, the Dart editor's (`tom_dart_editor`) analysis plugin, does
+**SDK-free** static analysis inside code-typed fields by
 loading pre-built `.sum` bundles at runtime (see
 [`package_summary_generation.md`](package_summary_generation.md) for what a
 `.sum` is and how one is built). This document describes **summary scopes**: how
@@ -216,14 +217,14 @@ same Dart SDK on `PATH`.
 The tool writes the `generated-helper` Dart file
 (`generateScopeInitHelper` / `writeScopeInitHelper`, `helper_writer.dart`); the
 app imports it and calls it **once** at startup. It registers every declared
-bundle with `tom_dart_editor`'s scope registry; registration parses the `.sum`
+bundle with `tom_dart_analysis`'s scope registry; registration parses the `.sum`
 bytes and releases the buffers (§2.1). Each bundle yields a camelCase `const`
 (`d4rt-flutter` → `d4rtFlutter`); `allowed-package-prefixes` /
 `include-all-package-completions` are emitted only when declared.
 
 ```dart
 // GENERATED — do not edit. Produced by tom_dart_editor_bundler.
-import 'package:tom_dart_editor/tom_dart_editor.dart';
+import 'package:tom_dart_analysis/tom_dart_analysis.dart';
 
 abstract final class SummaryScopes {
   static const dartPlain = 'dart-plain';
@@ -248,9 +249,9 @@ abstract final class SummaryScopes {
 
 ---
 
-## 4. API in `tom_dart_editor`
+## 4. API in `tom_dart_analysis`
 
-Shipped in `tom_dart_editor` (`lib/src/summary_scope_registry.dart`):
+Shipped in `tom_dart_analysis` (`lib/src/summary_scope_registry.dart`):
 
 - **`SummaryScopeAsset`** — the immutable descriptor (`name`, `sdkSummaryAsset`,
   nullable `packageSummaryAsset`, `implicitImports`, `allowedPackagePrefixes`,
@@ -350,7 +351,7 @@ and `<name>/packages.sum` produced non-empty, SDK summary idempotent, a Flutter
 scope's SDK summary holding `dart:ui`, a summary another analyzer wrote or an
 unstamped one rebuilt, a run against an app on another analyzer refused); helper
 codegen (camelCase constants, asset paths, `register(...)` calls; the emitted
-file analyzes clean); the registry in `tom_dart_editor` (`register` idempotent,
+file analyzes clean); the registry in `tom_dart_analysis` (`register` idempotent,
 two editors of one scope share a single parsed store, byte buffers released after
 parse, unregistered scope → graceful fallback); the generated scopes of
 `tom_specs_editor` analysing Flutter code with `dart:ui` types and plain Dart

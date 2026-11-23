@@ -15,9 +15,12 @@ dependencies:
   tom_yaml_editor:
     path: ../tom_yaml_editor
 
-  # Real Dart editor used by the -dart embedded editor
+  # Real Dart editor used by the -dart embedded editor, with its
+  # summary-backed analysis.
   tom_dart_editor:
     path: ../tom_dart_editor
+  tom_dart_analysis:
+    path: ../tom_dart_analysis
 
   analyzer: ^14.5.0
   path: ^1.9.0

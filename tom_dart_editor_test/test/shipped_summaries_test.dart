@@ -4,7 +4,7 @@
 /// readable by the analyzer the editor runs on and resolves real code (the
 /// SDK, a package, Flutter and the `dart:ui` types Flutter re-exports), and
 /// every app ships the same pair
-/// (`tom_dart_editor/doc/package_summary_generation.md`). A pair written by
+/// (`tom_dart_analysis/doc/package_summary_generation.md`). A pair written by
 /// another analyzer fails here.
 @Timeout(Duration(minutes: 4))
 library;
@@ -13,7 +13,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tom_dart_editor/tom_dart_editor.dart';
+import 'package:tom_dart_analysis/tom_dart_analysis.dart';
 import 'package:tom_dart_editor_test/generated/summary_scopes.g.dart';
 
 const _sdk = 'assets/summaries/sdk_summary.sum';

@@ -13,11 +13,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart';
+import 'package:tom_text_highlight/tom_text_highlight.dart';
 
+import 'dart_light_highlighter.dart';
 import 'dart_text_context.dart';
 import 'editor_theme.dart';
 import 'editor_trail.dart';
-import 'syntax_highlighter.dart';
+import 'highlight_types.dart';
 import 'completion_provider.dart';
 import 'editor_diagnostics_utils.dart';
 
@@ -333,10 +335,15 @@ class CodeError {
   bool get isInfo => severity.toUpperCase() == 'INFO';
 }
 
+/// One highlighted run of the text: `[start, end)` in [style], of the token
+/// class [type] (null when the highlighter named none).
+typedef _HighlightRun = ({int start, int end, String? type, TextStyle style});
+
 /// Custom TextEditingController that applies syntax highlighting.
 class _HighlightingTextController extends TextEditingController {
   final _SyntaxTheme _syntaxTheme;
-  List<HighlightToken> _tokens = [];
+  SyntaxHighlighter _highlighter;
+  List<_HighlightRun> _tokens = [];
   List<BracketPair> _bracketPairs = [];
   bool _needsRetokenize = true;
   int? _cursorBracketOffset;
@@ -344,9 +351,18 @@ class _HighlightingTextController extends TextEditingController {
 
   _HighlightingTextController({
     required DartEditorTheme theme,
+    required SyntaxHighlighter highlighter,
     String? initialText,
   })  : _syntaxTheme = _SyntaxTheme(theme),
+        _highlighter = highlighter,
         super(text: initialText);
+
+  /// The highlighter; a new one highlights the text again.
+  set highlighter(SyntaxHighlighter value) {
+    if (identical(value, _highlighter)) return;
+    _highlighter = value;
+    _needsRetokenize = true;
+  }
 
   List<BracketPair> get bracketPairs {
     _retokenizeIfNeeded();
@@ -398,10 +414,56 @@ class _HighlightingTextController extends TextEditingController {
 
   void _retokenizeIfNeeded() {
     if (_needsRetokenize) {
-      _tokens = DartSyntaxHighlighter.tokenize(text);
-      _bracketPairs = DartSyntaxHighlighter.extractBracketPairs(text);
+      _tokens = _highlight(text);
+      _bracketPairs = bracketPairsOf(text, [
+        for (final run in _tokens)
+          if (run.type case final type?) HighlightToken(run.start, run.end, type),
+      ]);
       _needsRetokenize = false;
     }
+  }
+
+  /// The runs of [source], in order: a [TokenHighlighter]'s tokens styled by
+  /// the editor theme's token classes (a class it does not style stays
+  /// plain), another highlighter's spans in the theme's style of their class,
+  /// else in their own.
+  List<_HighlightRun> _highlight(String source) {
+    if (source.isEmpty) return const [];
+    final List<_HighlightRun> runs;
+    try {
+      final highlighter = _highlighter;
+      if (highlighter is TokenHighlighter) {
+        runs = [
+          for (final token in highlighter.tokenize(source))
+            if (_syntaxTheme.styleForClass(token.type) case final style?)
+              (
+                start: token.start,
+                end: token.end,
+                type: token.type,
+                style: style,
+              ),
+        ];
+      } else {
+        runs = [
+          for (final span in highlighter.highlight(source))
+            (
+              start: span.start,
+              end: span.end,
+              type: span.type,
+              style: (span.type == null
+                      ? null
+                      : _syntaxTheme.styleForClass(span.type!)) ??
+                  span.style,
+            ),
+        ];
+      }
+    } catch (e) {
+      debugPrint('Highlighting failed: $e');
+      return const [];
+    }
+    // Stable: a highlighter's own order stands among runs that start together.
+    mergeSort(runs, compare: (a, b) => a.start.compareTo(b.start));
+    return runs;
   }
 
   @override
@@ -430,9 +492,10 @@ class _HighlightingTextController extends TextEditingController {
     var lastEnd = 0;
 
     for (final token in _tokens) {
-      if (token.offset >= text.length) continue;
+      if (token.start >= text.length) continue;
       final tokenEnd = token.end.clamp(0, text.length);
-      final tokenStart = token.offset.clamp(0, text.length);
+      // A run overlapping the one before starts where that one ended.
+      final tokenStart = math.max(token.start.clamp(0, text.length), lastEnd);
 
       if (tokenStart > lastEnd) {
         spans.add(
@@ -444,10 +507,10 @@ class _HighlightingTextController extends TextEditingController {
       }
 
       if (tokenEnd > tokenStart) {
-        var tokenStyle = _syntaxTheme.styleFor(token.type);
+        var tokenStyle = token.style;
 
         if (_matchingBracketOffset != null &&
-            token.offset == _matchingBracketOffset) {
+            token.start == _matchingBracketOffset) {
           tokenStyle = tokenStyle.copyWith(
             backgroundColor: _syntaxTheme.matchingBracketBackground,
           );
@@ -461,7 +524,7 @@ class _HighlightingTextController extends TextEditingController {
         );
       }
 
-      lastEnd = tokenEnd;
+      lastEnd = math.max(lastEnd, tokenEnd);
     }
 
     if (lastEnd < text.length) {
@@ -517,7 +580,22 @@ class _SyntaxTheme {
 
   _SyntaxTheme(this.theme) {
     _baseStyle = theme.font.baseStyle;
+    _classes = HighlightTheme({
+      for (final type in HighlightType.values)
+        if (dartHighlightClass(type) case final cls?) cls: styleFor(type),
+      // highlight.js classes other highlighters yield.
+      'built_in': styleFor(HighlightType.builtInKeyword),
+      'literal': styleFor(HighlightType.boolLiteral),
+      'subst': styleFor(HighlightType.variable),
+    });
   }
+
+  /// The editor theme's styles of the token classes.
+  late final HighlightTheme _classes;
+
+  /// The style of the token class [type] (or its nearest dotted prefix);
+  /// null when the theme styles neither.
+  TextStyle? styleForClass(String type) => _classes.styleFor(type);
 
   TextStyle get plainStyle => _baseStyle.copyWith(color: theme.syntax.plain);
 
@@ -846,6 +924,15 @@ class DartCodeEditor extends StatefulWidget {
   /// execution.
   final bool handleShortcuts;
 
+  /// The highlighter of the code, styled by [theme]: a
+  /// `tom_text_highlight` [SyntaxHighlighter] (a [TokenHighlighter]'s token
+  /// classes, or another's span types, are looked up in the theme; see
+  /// [dartHighlightClass]). Null: the light, lexical [DartLightHighlighter].
+  /// `tom_dart_analysis`'s `DartSyntaxHighlighter` adds the analyzer's
+  /// semantic pass. Pass the same instance on every build: a new one
+  /// highlights the code again.
+  final SyntaxHighlighter? highlighter;
+
   DartCodeEditor({
     super.key,
     required this.controller,
@@ -862,6 +949,7 @@ class DartCodeEditor extends StatefulWidget {
     this.onSettingsChanged,
     this.integration,
     this.handleShortcuts = true,
+    this.highlighter,
     DartEditorTheme? theme,
   }) : theme = theme ?? DartEditorTheme.dark();
 
@@ -871,6 +959,11 @@ class DartCodeEditor extends StatefulWidget {
 
 class _DartCodeEditorState extends State<DartCodeEditor> {
   late _HighlightingTextController _textController;
+
+  /// The highlighter when the widget names none.
+  late final SyntaxHighlighter _lightHighlighter = DartLightHighlighter();
+
+  SyntaxHighlighter get _highlighter => widget.highlighter ?? _lightHighlighter;
   late final ScrollController _scrollController;
   late final ScrollController _gutterScrollController;
   late final FocusNode _focusNode;
@@ -925,6 +1018,7 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
     _settings = widget.settings;
     _textController = _HighlightingTextController(
       theme: widget.theme,
+      highlighter: _highlighter,
       initialText: widget.controller.userCode,
     );
     _scrollController = ScrollController();
@@ -1158,11 +1252,15 @@ class _DartCodeEditorState extends State<DartCodeEditor> {
         _textController.dispose();
         _textController = _HighlightingTextController(
           theme: widget.theme,
+          highlighter: _highlighter,
           initialText: currentText,
         );
         _textController.selection = currentSelection;
         _textController.addListener(_onSelectionChanged);
       });
+    } else if (!identical(widget.highlighter, oldWidget.highlighter)) {
+      // Another highlighter: the code is highlighted again on the next build.
+      _textController.highlighter = _highlighter;
     }
   }
 

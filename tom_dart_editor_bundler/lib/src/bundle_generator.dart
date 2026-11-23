@@ -1,7 +1,7 @@
 /// tom_dart_editor_bundler — config → `.sum` asset set generator (plan item 5).
 ///
 /// Turns a parsed [BundlerConfig] into the on-disk asset tree the
-/// `tom_dart_editor` runtime loads. Where each file goes is [SummaryAssetLayout]'s
+/// `tom_dart_analysis` runtime loads. Where each file goes is [SummaryAssetLayout]'s
 /// to say — the same declaration the generated scope-init helper derives its
 /// asset keys from, so the tree written here is the tree the app asks for.
 ///

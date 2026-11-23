@@ -58,12 +58,15 @@ dependencies:
   tom_forge_agentic:
     path: ../tom_forge_agentic
 
-  # Summary-backed Dart code editor for code-typed (`@ContentType('code*')`)
-  # spec fields (`tom_specs_editor_specification.md` §13 l / B1). Provides
-  # SDK-free analysis via the pre-generated `assets/summaries/**.sum` bundles
-  # that tom_dart_editor_bundler produces from this package's buildkit.yaml.
+  # Dart code editor for code-typed (`@ContentType('code*')`) spec fields
+  # (`tom_specs_editor_specification.md` §13 l / B1), with its summary-backed
+  # analysis (tom_dart_analysis): SDK-free analysis via the pre-generated
+  # `assets/summaries/**.sum` bundles that tom_dart_editor_bundler produces
+  # from this package's buildkit.yaml.
   tom_dart_editor:
     path: ../tom_dart_editor
+  tom_dart_analysis:
+    path: ../tom_dart_analysis
 
   # Rich markdown renderer (tables/math/mermaid/embedded media) for content
   # previews where the lightweight inline renderer is insufficient
@@ -83,7 +86,7 @@ dependencies:
   # context)`). The layout seam (`_LayoutField`) still renders a read-only
   # source preview, but only because the render is unwritten — **not** because
   # the dependency is un-takeable: `tom_d4rt_flutter` (tom_d4rt ^1.230),
-  # `tom_d4rt` and `tom_dart_editor` are all on the analyzer-14 line.
+  # `tom_d4rt` and `tom_dart_analysis` are all on the analyzer-14 line.
   #
   # What remains, if you are here to do it: add `tom_d4rt_flutter`, fill the
   # single marked drop-in point in `_LayoutField`

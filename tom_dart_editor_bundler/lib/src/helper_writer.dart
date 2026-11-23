@@ -3,11 +3,11 @@
 /// Emits the `generated-helper` Dart file the consuming app imports and calls
 /// once at startup: an `abstract final class SummaryScopes` exposing a `const`
 /// name per bundle plus an idempotent `initialize()` that registers every
-/// bundle with `tom_dart_editor`'s `SummaryScopeRegistry`.
+/// bundle with `tom_dart_analysis`'s `SummaryScopeRegistry` (the Dart editor's
+/// analysis, a plugin of `tom_dart_editor`).
 ///
 /// The generated source references `SummaryScopeAsset` / `SummaryScopeRegistry`
-/// from `package:tom_dart_editor/tom_dart_editor.dart` (added in a later plan
-/// item). This module owns only the *text generation* and file write; it does
+/// from `package:tom_dart_analysis/tom_dart_analysis.dart`. This module owns only the *text generation* and file write; it does
 /// not depend on those types itself.
 library;
 
@@ -39,7 +39,7 @@ String generateScopeInitHelper(BundlerConfig config) {
   final buf = StringBuffer();
   buf.writeln(
       '// GENERATED — do not edit. Produced by tom_dart_editor_bundler.');
-  buf.writeln("import 'package:tom_dart_editor/tom_dart_editor.dart';");
+  buf.writeln("import 'package:tom_dart_analysis/tom_dart_analysis.dart';");
   buf.writeln();
   buf.writeln('abstract final class SummaryScopes {');
   for (final bundle in config.bundles) {

@@ -2,7 +2,8 @@ import 'package:flutter/widgets.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart'
     show forgeCaretAtChange;
 
-import 'dart_code_editor.dart';
+import 'package:tom_dart_editor/tom_dart_editor.dart';
+
 import 'summary_backed_dart_editor.dart';
 
 /// Easy-to-embed Dart editor with built-in summary-backed analysis.
@@ -43,6 +44,10 @@ class SimpleSummaryBackedDartCodeEditor extends StatefulWidget {
   /// The document's history, when the code is a field of a larger document.
   final DartCodeHistoryHost? historyHost;
 
+  /// The highlighter; null: the analyzer-based [DartSyntaxHighlighter]
+  /// (see [SummaryBackedDartCodeEditor.highlighter]).
+  final SyntaxHighlighter? highlighter;
+
   const SimpleSummaryBackedDartCodeEditor({
     super.key,
     this.initialCode = '',
@@ -66,6 +71,7 @@ class SimpleSummaryBackedDartCodeEditor extends StatefulWidget {
     this.analysisDebounce = const Duration(milliseconds: 500),
     this.onErrorsChanged,
     this.historyHost,
+    this.highlighter,
   });
 
   @override
@@ -96,7 +102,8 @@ class _SimpleSummaryBackedDartCodeEditorState
       if (_controller.historyHost != null) {
         _controller.showCode(
           widget.initialCode,
-          selection: forgeCaretAtChange(_controller.userCode, widget.initialCode),
+          selection:
+              forgeCaretAtChange(_controller.userCode, widget.initialCode),
         );
       } else {
         _controller.replaceCode(widget.initialCode);
@@ -135,6 +142,7 @@ class _SimpleSummaryBackedDartCodeEditorState
       analysisDebounce: widget.analysisDebounce,
       onErrorsChanged: widget.onErrorsChanged,
       onChanged: widget.onChanged,
+      highlighter: widget.highlighter,
     );
   }
 
