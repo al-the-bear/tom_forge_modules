@@ -1416,6 +1416,13 @@ packages:
       relative: true
     source: path
     version: "1.10.0"
+  tom_file_session_ui:
+    dependency: transitive
+    description:
+      path: "../../tom_ai/modules/tom_file_session_ui"
+      relative: true
+    source: path
+    version: "0.1.0"
   tom_file_system:
     dependency: "direct main"
     description:
