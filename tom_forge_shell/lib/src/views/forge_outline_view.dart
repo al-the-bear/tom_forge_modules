@@ -3,11 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart';
 
-import '../components/forge_component.dart';
-import '../components/forge_view.dart';
-import '../defaults/default_outline_manager.dart';
-import '../services/forge_outline_manager.dart';
 import '../shell/forge_system_state.dart';
 
 /// Outline view showing symbol tree for the active editor.

@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:tom_forge_core/tom_forge_core.dart' show StatusBarAlignment;
 
-/// Where a status item sits in the status bar.
-enum StatusBarAlignment { left, center, right }
+// Where a status item sits is data and lives in tom_forge_core; re-exported
+// here so this library's users keep finding it where they did.
+export 'package:tom_forge_core/tom_forge_core.dart' show StatusBarAlignment;
 
 /// Builds a status item's content in place of its icon and text — a chip, a
 /// countdown, a coloured indicator. [foreground] is the colour the bar draws

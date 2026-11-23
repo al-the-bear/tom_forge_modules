@@ -3,11 +3,8 @@ import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart' as shared;
+import 'package:tom_forge_kit/tom_forge_kit.dart';
 
-import '../actions/forge_action.dart';
-import '../actions/forge_shortcut_binding.dart';
-import '../components/forge_editor.dart';
-import '../components/forge_view.dart';
 import '../module/forge_module.dart';
 import '../shell/forge_shell_api.dart';
 

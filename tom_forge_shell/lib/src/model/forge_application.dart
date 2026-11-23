@@ -2,12 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:tom_forge_core/tom_forge_core.dart'
     show ForgeContextMenuContribution;
+import 'package:tom_forge_kit/tom_forge_kit.dart';
 
-import '../actions/forge_action.dart';
-import '../actions/forge_shortcut_binding.dart';
 import '../actions/status_bar_item.dart';
-import '../components/forge_editor.dart';
-import '../components/forge_view.dart';
 
 /// Configuration for a side/bottom panel.
 class PanelConfig {

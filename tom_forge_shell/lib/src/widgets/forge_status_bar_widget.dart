@@ -3,10 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../actions/status_bar_item.dart';
-import '../services/forge_progress_manager.dart';
 import '../shell/forge_status_bar_controller.dart';
 import '../shell/forge_system_state.dart';
 import 'package:tom_forge_shared_ui/tom_forge_shared_ui.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart';
 
 /// The shell's status bar: the adapter between the shell and the shared
 /// [ForgeStatusBar].

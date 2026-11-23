@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_forge_shared_ui/tom_forge_shared_ui.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart';
 
-import '../shell/forge_context_menu_controller.dart';
 
 /// Draws the context menu for [target] at [globalPosition] and runs the
 /// chosen entry: the entries [controller] resolves at the target, drawn by

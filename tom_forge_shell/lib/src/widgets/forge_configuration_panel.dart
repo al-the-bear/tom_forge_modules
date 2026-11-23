@@ -4,9 +4,8 @@ import 'package:tom_editors_shared/text_types.dart'
     show ForgeTextSettings;
 import 'package:tom_forge_core/tom_forge_core.dart'
   show AutoSaveConfig, DefaultConfigManager, ForgeConfig, ForgeSearchConfig;
+import 'package:tom_forge_kit/tom_forge_kit.dart';
 
-import '../actions/forge_action.dart';
-import '../actions/forge_shortcut_binding.dart';
 import '../module/forge_config_panel.dart';
 import '../services/forge_preferences_service.dart';
 import '../shell/forge_shell_api.dart';

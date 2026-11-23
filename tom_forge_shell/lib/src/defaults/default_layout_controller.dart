@@ -4,16 +4,13 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_file_system/tom_file_system.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart';
 
+import '../components/forge_editor_choice.dart';
 import '../adapters/forge_plain_text_editor.dart';
 import '../adapters/tom_forge_shell_module.dart';
-import '../components/forge_component.dart';
-import '../components/forge_editor.dart';
-import '../components/forge_editor_choice.dart';
-import '../components/forge_text_editor.dart';
 import '../model/forge_application.dart';
 import '../module/forge_module.dart';
-import '../services/forge_navigation_history.dart';
 import '../shell/forge_layout_controller.dart';
 import '../shell/forge_module_registry.dart';
 import '../shell/forge_shell_components.dart';

@@ -2,11 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart';
 
-import '../components/forge_component.dart';
-import '../components/forge_view.dart';
 import '../defaults/default_system_state.dart';
-import '../services/forge_search_manager.dart';
 import '../shell/forge_layout_controller.dart';
 
 /// Search view with query input, toggle options, and results grouped by file.

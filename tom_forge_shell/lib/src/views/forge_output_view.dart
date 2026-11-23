@@ -2,11 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart';
 
-import '../components/forge_component.dart';
-import '../components/forge_view.dart';
-import '../defaults/default_output_manager.dart';
-import '../services/forge_output_channel_manager.dart';
 
 /// Output view with channel dropdown and monospace log display.
 ///

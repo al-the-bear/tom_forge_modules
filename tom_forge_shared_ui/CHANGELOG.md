@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- `ForgeContextMenuEntry`, `ForgeQuickPickItem` and `StatusBarAlignment` live
+  in `tom_forge_core` now and are re-exported from where they were, so this
+  package's users are unchanged.
+
 ## 0.1.0
 
 - `ForgeActionBar` over `ForgeActionGroup` / `ForgeActionItem`: groups,

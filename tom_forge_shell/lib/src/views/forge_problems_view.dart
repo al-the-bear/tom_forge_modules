@@ -4,9 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart';
 
-import '../components/forge_component.dart';
-import '../components/forge_view.dart';
 import '../shell/forge_layout_controller.dart';
 
 /// Problems panel showing diagnostics grouped by file.

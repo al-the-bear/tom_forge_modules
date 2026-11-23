@@ -6,57 +6,29 @@ import 'package:tom_editors_shared/text_types.dart'
 
 import '../model/forge_application.dart';
 import '../model/forge_config.dart';
-import '../actions/forge_action.dart';
-import '../components/forge_editor.dart';
-import '../services/forge_action_registry.dart';
-import '../services/forge_clipboard.dart';
-import '../services/forge_config_manager.dart';
-import '../services/forge_dialog_manager.dart';
-import '../services/forge_diagnostic_manager.dart';
 import '../services/forge_environment.dart';
-import '../services/forge_file_decoration_manager.dart';
-import '../services/forge_module_storage.dart';
-import '../services/forge_notification_manager.dart';
-import '../services/forge_outline_manager.dart';
-import '../services/forge_output_channel_manager.dart';
-import '../services/forge_progress_manager.dart';
-import '../services/forge_search_manager.dart';
 import '../services/forge_secret_storage.dart';
-import '../services/forge_shortcut_manager.dart';
 import '../services/forge_terminal_manager.dart';
-import '../services/forge_undo_manager.dart';
 import '../services/forge_virtual_document_manager.dart';
-import '../services/forge_workspace_state_manager.dart';
-import '../shell/forge_context_menu_controller.dart';
 import '../shell/forge_layout_controller.dart';
-import '../services/forge_navigation_history.dart';
 import '../shell/forge_module_registry.dart';
 import '../shell/forge_shell_components.dart';
 import '../shell/forge_shell_api.dart';
 import '../shell/forge_status_bar_controller.dart';
 import '../shell/forge_system_state.dart';
-import 'default_clipboard.dart';
-import 'default_action_registry.dart';
-import 'default_config_manager.dart';
-import 'default_diagnostic_manager.dart';
-import 'default_dialog_manager.dart';
 import 'package:tom_forge_core/tom_forge_core.dart'
     show DefaultExecutionMonitor, ForgeExecutionMonitor;
 import 'package:tom_file_system/tom_file_system.dart'
     show TomFileSystem, TomMemoryFileSystem;
+import 'package:tom_forge_kit/tom_forge_kit.dart';
 import 'default_layout_controller.dart';
 import 'default_navigation_history.dart';
 import 'default_module_registry.dart';
-import 'default_notification_manager.dart';
-import 'default_outline_manager.dart';
-import 'default_output_manager.dart';
-import 'default_progress_manager.dart';
-import 'default_search_manager.dart';
 import 'default_status_bar_controller.dart';
 import 'default_system_state.dart';
-import 'default_undo_manager.dart';
-import 'default_workspace_state_manager.dart';
 import 'stub_services.dart';
+import '../shell/forge_tab_editor_host.dart';
+import '../services/forge_preferences_service.dart';
 
 /// Default implementation of [ForgeShellApi].
 ///
@@ -65,6 +37,23 @@ import 'stub_services.dart';
 class DefaultShellApi implements ForgeShellApi {
   @override
   final ForgeSystemState systemState;
+
+  @override
+  ForgeSystemState get state => systemState;
+
+  /// Editors are tabs of the middle panels ([ForgeTabEditorHost] over
+  /// [layout]) unless the host gave an editor host of its own.
+  @override
+  final ForgeEditorHost editorHost;
+
+  /// Where the preferences are kept: the store the host gave, else the
+  /// shared_preferences store of [ForgePreferencesService.instance]. The
+  /// scaffold reads its preferences from it
+  /// ([ForgePreferencesService.forStore]) unless it is given a service.
+  /// The workspace state keeps its own default, the `.forge/` files of the
+  /// workspace ([DefaultWorkspaceStateManager]).
+  @override
+  final ForgeStateStore stateStore;
 
   @override
   final ForgeApplicationRegistry applications;
@@ -185,14 +174,21 @@ class DefaultShellApi implements ForgeShellApi {
     ForgeWorkspaceStateManager? workspaceState,
     ForgeContextMenuController? contextMenus,
     ForgeShellComponents? components,
+    ForgeEditorHost? editorHost,
+    ForgeStateStore? stateStore,
   }) : components = components ?? ForgeShellComponents.registered,
+       editorHost =
+           editorHost ??
+           ForgeTabEditorHost(layout: layout, systemState: systemState),
+       stateStore = stateStore ?? ForgePreferencesService.instance.stateStore,
        workspaceState = workspaceState ?? DefaultWorkspaceStateManager(),
        contextMenus =
            contextMenus ??
            ForgeContextMenuController(
              modules: modules,
              actions: actionRegistry,
-             applications: applications,
+             moreContributions: () =>
+                 applications.active?.contributions.contextMenus ?? const [],
            ) {
     _installStandardEditingActions();
     applications.listenable.addListener(_bindActiveContributions);
@@ -294,6 +290,7 @@ class DefaultShellApi implements ForgeShellApi {
   /// [fileSystemSeed] populates the in-memory file system.
   /// [appName] is used as the application config name.
   /// [navigatorKey] enables dialog routing.
+  /// [stateStore] keeps the preferences (default: shared_preferences).
   factory DefaultShellApi.withDefaults({
     required Map<String, String> fileSystemSeed,
     required String appName,
@@ -301,6 +298,7 @@ class DefaultShellApi implements ForgeShellApi {
     ForgeConfig initialConfig = const ForgeConfig(),
     int maxOpenEditors = 20,
     ForgeShellComponents? components,
+    ForgeStateStore? stateStore,
   }) {
     final memFs = TomMemoryFileSystem(seed: fileSystemSeed);
     return DefaultShellApi.withDefaultsAndFileSystem(
@@ -310,6 +308,7 @@ class DefaultShellApi implements ForgeShellApi {
       initialConfig: initialConfig,
       maxOpenEditors: maxOpenEditors,
       components: components,
+      stateStore: stateStore,
     );
   }
 
@@ -319,6 +318,7 @@ class DefaultShellApi implements ForgeShellApi {
   /// [fileSystem] is the file system to use.
   /// [appName] is used as the application config name.
   /// [navigatorKey] enables dialog routing.
+  /// [stateStore] keeps the preferences (default: shared_preferences).
   factory DefaultShellApi.withDefaultsAndFileSystem({
     required TomFileSystem fileSystem,
     required String appName,
@@ -328,6 +328,7 @@ class DefaultShellApi implements ForgeShellApi {
     ForgeConfig initialConfig = const ForgeConfig(),
     int maxOpenEditors = 20,
     ForgeShellComponents? components,
+    ForgeStateStore? stateStore,
   }) {
     // The terminal manager, the secret storage, the terminal view and the
     // editor types beyond plain text: the ones given, else the registered.
@@ -431,6 +432,7 @@ class DefaultShellApi implements ForgeShellApi {
       shortcuts: shortcutManager,
       workspaceState: workspaceState,
       components: parts,
+      stateStore: stateStore,
     );
   }
 
@@ -573,6 +575,22 @@ class DefaultShellApi implements ForgeShellApi {
     }
     final action = actionRegistry.getAction(actionId);
     return action?.isEnabled() ?? false;
+  }
+
+  @override
+  bool undo() => executeAction(StandardEditingActions.undoActionId);
+
+  @override
+  bool redo() => executeAction(StandardEditingActions.redoActionId);
+
+  /// Opens [uri]: asks every module first ([ForgeModule.openUri]), then the
+  /// [editorHost]; answers whether something opened it.
+  @override
+  Future<bool> openFile(Uri uri) async {
+    for (final module in modules.allModules) {
+      if (module.openUri(uri)) return true;
+    }
+    return await editorHost.openEditorFor(uri) != null;
   }
 
   @override

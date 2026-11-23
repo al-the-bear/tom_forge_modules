@@ -1,6 +1,20 @@
 # Tom Forge Shell
 
-Forge's panel shell core: `ForgeShellApi` and its default services
+Forge's panel shell core, an application of the layout-free kit
+`tom_forge_kit`: the component, editor and module contracts, actions and
+shortcuts, the routing to the active editor, autosave, the default services,
+`ForgeKitApi`, the `ForgeEditorHost` port and the `ForgeStateStore` port are
+the kit's. The shell adds the panel layout: `ForgeShellApi` (`ForgeKitApi` plus
+the layout, applications, navigation history, status bar, modules and
+terminals), `ForgeModule` (the kit's module contract plus the status bar
+items, settings sections and external tools the shell reads, also offered as
+module extras), `ForgeTabEditorHost` (`ForgeEditorHost` with tabs) and the
+panel shell's preferences (`ForgePreferencesService`, through a
+`ForgeStateStore`, by default shared_preferences with the keys as before). It
+re-exports the kit for one release so its consumers keep compiling; a
+component or adapter takes the kit, not the shell.
+
+It holds its default services
 (`DefaultShellApi`), the scaffold (`ForgeShellScaffold`), panels, editor tab
 bar, menus, command palette, quick open, configuration, the built-in views
 (explorer, outline, output, problems, revisions, search) and the plain-text

@@ -7,9 +7,8 @@ import 'package:flutter/services.dart';
 import 'package:tom_forge_core/tom_forge_core.dart'
     show ForgeSearchConfig, forgeLoadGitignores;
 import 'package:tom_file_system/tom_file_system.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart';
 
-import '../actions/forge_action.dart';
-import '../actions/forge_shortcut_binding.dart';
 import '../defaults/default_shell_api.dart';
 
 /// Operating modes for the unified quick-open search bar.

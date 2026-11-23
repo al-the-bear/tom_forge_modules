@@ -1,16 +1,3 @@
-/// An item in a quick pick dialog.
-class ForgeQuickPickItem<T> {
-  final String label;
-  final String? description;
-  final String? detail;
-  final T value;
-  final bool picked;
-
-  const ForgeQuickPickItem({
-    required this.label,
-    this.description,
-    this.detail,
-    required this.value,
-    this.picked = false,
-  });
-}
+// The quick pick item is data and lives in tom_forge_core; re-exported here
+// so this library's users keep finding it where they did.
+export 'package:tom_forge_core/tom_forge_core.dart' show ForgeQuickPickItem;

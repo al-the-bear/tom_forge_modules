@@ -1348,7 +1348,7 @@ packages:
       path: "../../tom_ai/core/tom_core_server"
       relative: true
     source: path
-    version: "1.5.0"
+    version: "1.5.1"
   tom_crypto:
     dependency: transitive
     description:
@@ -1448,6 +1448,13 @@ packages:
     dependency: transitive
     description:
       path: "../tom_forge_desktop_host"
+      relative: true
+    source: path
+    version: "0.1.0"
+  tom_forge_kit:
+    dependency: transitive
+    description:
+      path: "../tom_forge_kit"
       relative: true
     source: path
     version: "0.1.0"

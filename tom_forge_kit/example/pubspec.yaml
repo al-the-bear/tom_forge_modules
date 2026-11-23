@@ -1,0 +1,26 @@
+name: tom_forge_kit_example
+description: >-
+  A minimal app over tom_forge_kit: one window without editors that builds a DefaultKitApi over a memory state store and lists its actions; building it for the web, iOS, Android and macOS shows the kit builds on each.
+publish_to: none
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.10.8
+
+dependencies:
+  flutter:
+    sdk: flutter
+  tom_forge_kit:
+    path: ..
+  tom_forge_core:
+    path: ../../tom_forge_core
+  tom_file_system:
+    path: ../../../tom_ai/basics/tom_file_system
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

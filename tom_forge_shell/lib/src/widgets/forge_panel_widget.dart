@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../components/forge_view.dart';
 import '../model/forge_application.dart';
 import 'package:tom_forge_shared_ui/tom_forge_shared_ui.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart';
 import 'forge_drag_data.dart';
 
 /// Position of vertical icon strip on side panels.

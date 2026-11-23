@@ -1,5 +1,9 @@
 ## Unreleased
 
+- `ForgeContextMenuEntry`, `ForgeQuickPickItem` and `StatusBarAlignment`
+  moved here from `tom_forge_shared_ui`: plain data that `tom_forge_kit`'s
+  models and `tom_forge_shared_ui`'s widgets share, so neither depends on the
+  other for it. `tom_forge_shared_ui` re-exports them where they were.
 - `ForgeMenuLocation` is gone: nothing used it, and the menu locations Forge's
   shell and editors place actions in are `tom_editors_shared`'s
   `ForgeMenuLocation` (re-exported by `tom_forge_ui`), declared once with

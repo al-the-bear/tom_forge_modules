@@ -4,10 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_editors_shared/text_types.dart'
     show ForgeTextContext;
+import 'package:tom_forge_kit/tom_forge_kit.dart';
 
-import '../components/forge_component.dart';
-import '../components/forge_editor.dart';
-import '../components/forge_text_editor.dart';
 import '../model/forge_application.dart';
 import '../shell/forge_system_state.dart';
 

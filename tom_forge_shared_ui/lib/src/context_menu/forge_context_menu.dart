@@ -1,33 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:tom_forge_core/tom_forge_core.dart' show ForgeContextMenuEntry;
 
-/// One entry of a context menu: in Forge a module contribution resolved
-/// against its action, or an item the target brought of its own; in an
-/// application beside Forge, any entry it builds.
-class ForgeContextMenuEntry {
-  const ForgeContextMenuEntry({
-    required this.id,
-    required this.label,
-    required this.enabled,
-    required this.run,
-    this.unavailableReason,
-    this.group,
-  });
-
-  /// The action id of a contribution, or the item's own id.
-  final String id;
-
-  final String label;
-
-  final bool enabled;
-
-  /// Shown as the disabled entry's tooltip.
-  final String? unavailableReason;
-
-  /// A divider is drawn where it changes.
-  final String? group;
-
-  final Future<void> Function() run;
-}
+// The entry is data and lives in tom_forge_core; re-exported here so this
+// library's users keep finding it where they did.
+export 'package:tom_forge_core/tom_forge_core.dart' show ForgeContextMenuEntry;
 
 /// The widget key of the menu entry for [id] — a contributed action's id or a
 /// target item's own id: `forge-context-menu:<id>`.

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../components/forge_editor_choice.dart';
 
+
 /// The **Open With** choice: the editors offered for a file
 /// (`DefaultLayoutController.openFileWith`), each with its name and what it
 /// is for; picking one opens the file in it.

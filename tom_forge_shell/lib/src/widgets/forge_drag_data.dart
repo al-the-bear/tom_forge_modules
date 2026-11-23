@@ -1,9 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart';
 
-import '../components/forge_component.dart';
-import '../components/forge_editor.dart';
-import '../components/forge_view.dart';
 
 /// Position within a drop zone overlay where the editor can be dropped.
 enum DropPosition {

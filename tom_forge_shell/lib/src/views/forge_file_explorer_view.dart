@@ -6,12 +6,9 @@ import 'package:flutter/services.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_forge_shared_ui/tom_forge_shared_ui.dart';
 import 'package:tom_file_system/tom_file_system.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart';
 
-import '../components/forge_component.dart';
-import '../components/forge_view.dart';
 import '../defaults/default_system_state.dart';
-import '../defaults/stub_services.dart';
-import '../shell/forge_context_menu_controller.dart';
 import '../shell/forge_layout_controller.dart';
 
 /// File explorer tree view.

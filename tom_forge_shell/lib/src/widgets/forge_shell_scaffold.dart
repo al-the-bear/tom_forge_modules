@@ -9,32 +9,18 @@ import 'package:tom_editors_shared/text_types.dart'
     show StandardEditingActions;
 import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_forge_shared_ui/tom_forge_shared_ui.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart';
+import '../components/forge_editor_choice.dart';
 
 import '../adapters/tom_forge_shell_module.dart';
-import '../components/forge_component.dart';
-import '../components/forge_editor.dart';
-import '../components/forge_editor_choice.dart';
-import '../components/forge_find_target.dart';
-import '../components/forge_surface_editor.dart';
-import '../components/forge_text_editor.dart';
-import '../components/forge_view.dart';
 import '../defaults/default_layout_controller.dart';
-import '../defaults/default_dialog_manager.dart';
 import '../defaults/default_shell_api.dart';
-import '../defaults/stub_services.dart';
-import '../services/forge_accessibility.dart';
 import '../defaults/default_system_state.dart';
-import '../defaults/editor_save.dart';
 import '../model/forge_application.dart';
 import '../services/forge_preferences_service.dart';
-import '../services/forge_dialog_manager.dart';
-import '../shell/forge_context_menu_controller.dart';
 import '../shell/forge_layout_controller.dart';
 import '../shell/forge_shell_components.dart';
 import '../shell/forge_status_bar_controller.dart';
-import '../actions/forge_action.dart';
-import '../actions/forge_shortcut_binding.dart';
-import '../services/forge_shortcut_manager.dart';
 import 'forge_configuration_panel.dart';
 import 'forge_context_menu.dart';
 import 'forge_quick_open.dart';
@@ -577,8 +563,11 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     if (_application != null) _noteApplication(_application!);
     _attachApplications(widget.shell);
     _followBusyBadges(widget.shell.applications.all.toSet());
+    // The preferences of the shell's store: the shared_preferences
+    // singleton unless the host gave the shell a store of its own.
     _preferences =
-        widget.preferencesService ?? ForgePreferencesService.instance;
+        widget.preferencesService ??
+        ForgePreferencesService.forStore(widget.shell.stateStore);
     _preferences.addListener(_onPreferencesChanged);
     _findQueryController.addListener(_onFindQueryChanged);
     widget.systemState.activeEditorListenable.addListener(

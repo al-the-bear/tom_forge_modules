@@ -1,7 +1,6 @@
 import 'package:tom_forge_core/tom_forge_core.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart';
 
-import '../components/forge_component.dart';
-import '../components/forge_editor.dart';
 
 /// Layout control — open/close panels, focus components, open files.
 abstract class ForgeLayoutController {

@@ -1,9 +1,6 @@
 import 'package:flutter/foundation.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart';
 
-import '../components/component_history_manager.dart';
-import '../components/forge_editor.dart';
-import '../components/forge_text_editor.dart';
-import '../services/forge_navigation_history.dart';
 import 'default_layout_controller.dart';
 import 'default_system_state.dart';
 
@@ -166,7 +163,7 @@ class DefaultNavigationHistory implements ForgeNavigationHistory {
       line: caret?.line,
       column: caret?.column,
       applicationId: appId,
-      middlePanelIndex: panel < 0 ? null : panel,
+      placement: panel < 0 ? null : panel,
     );
   }
 
@@ -229,5 +226,14 @@ class DefaultNavigationHistory implements ForgeNavigationHistory {
         _back.isNotEmpty || (editorHistory?.canGoBack.value ?? false);
     _canGoForward.value =
         _forward.isNotEmpty || (editorHistory?.canGoForward.value ?? false);
+  }
+}
+
+/// The panel shell's reading of a [ForgeNavigationLocation]'s placement.
+extension ForgeNavigationLocationPanel on ForgeNavigationLocation {
+  /// The middle panel the editor was shown in, or null when unknown.
+  int? get middlePanelIndex {
+    final placement = this.placement;
+    return placement is int ? placement : null;
   }
 }

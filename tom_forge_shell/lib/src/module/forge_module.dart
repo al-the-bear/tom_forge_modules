@@ -1,23 +1,30 @@
 import 'package:tom_forge_core/tom_forge_core.dart'
     show ForgeContextMenuContribution;
+import 'package:tom_forge_kit/tom_forge_kit.dart';
 
-import '../actions/forge_action.dart';
-import '../actions/forge_shortcut_binding.dart';
-import '../actions/forge_shortcut_menu.dart';
-import '../actions/status_bar_item.dart';
-import '../components/forge_editor.dart';
 import '../components/forge_editor_choice.dart';
-import '../components/forge_view.dart';
+import '../actions/status_bar_item.dart';
 import '../shell/forge_shell_api.dart';
 import '../tools/forge_external_tool.dart';
 import 'forge_config_panel.dart';
 
-/// Registration interface for shell modules.
+/// Registration interface for shell modules: the kit's [ForgeKitModule]
+/// with what the panel shell offers beyond it.
 ///
 /// Each module provides editors, views, actions, and shortcuts.
 /// Modules are activated when the shell starts and deactivated on shutdown.
-abstract class ForgeModule {
+/// What it contributes to the shell alone — [statusBarItems],
+/// [configPanels], [externalTools] — a reader typed on [ForgeKitModule] finds
+/// among its extras ([ForgeKitModuleExtras.extras]) as
+/// [ForgeStatusItemsExtra], [ForgeSettingsSectionExtra] and
+/// [ForgeExternalToolsExtra].
+abstract class ForgeModule extends ForgeKitModule {
+  ForgeModule() {
+    ForgeModuleExtras.addResolver(forgeShellModuleExtras);
+  }
+
   /// Display name for the module.
+  @override
   String get displayName;
 
   /// Called when the module is activated.
@@ -26,21 +33,27 @@ abstract class ForgeModule {
   /// `shell.applications.add` and registers a factory per kind it can open at
   /// run time (and recreate at the next start) with
   /// `shell.applications.registerFactory`.
+  @override
   void activate(ForgeShellApi shell);
 
   /// Called when the module is deactivated (shutdown).
+  @override
   void deactivate();
 
   /// All editors this module provides.
+  @override
   List<ForgeEditor> get editors;
 
   /// All views this module provides.
+  @override
   List<ForgeView> get views;
 
   /// Actions this module contributes to menus and command palette.
+  @override
   List<ForgeAction> get actions;
 
   /// Shortcut bindings this module contributes.
+  @override
   List<ForgeShortcutBinding> get shortcuts;
 
   /// Context-menu contributions: where this module's actions are drawn as
@@ -55,9 +68,11 @@ abstract class ForgeModule {
   /// why it cannot run there; the shell resolves the action, draws the entry
   /// enabled or disabled with the reason as its tooltip, and runs the action
   /// with the target under [ForgeContextTarget.parameterKey].
+  @override
   List<ForgeContextMenuContribution> get contextMenus => [];
 
   /// Custom shortcut menus activated by `Shift+Cmd/Ctrl+<key>`.
+  @override
   List<ForgeShortcutMenu> get shortcutMenus => [];
 
   /// Status bar items this module contributes.
@@ -84,6 +99,7 @@ abstract class ForgeModule {
   /// the editor-routing path starts with, and a module that opens it creates
   /// its own editor per document and hands it to `layout.openEditor`. The
   /// default claims nothing, so every other file takes the usual path.
+  @override
   bool openUri(Uri uri, {int? middlePanelIndex}) => false;
 
   /// The editors this module has for [uri], as **Open With** offers them
@@ -91,5 +107,58 @@ abstract class ForgeModule {
   /// module's and lets the user pick when there is more than one. A module
   /// that opens files of a kind names its editor for them, and any other it
   /// offers for this file; the default offers none.
+  @override
   List<ForgeEditorChoice> editorChoicesFor(Uri uri) => const [];
+}
+
+/// The shell's contributions of [module] as [ForgeModuleExtra]s: its status
+/// items, each settings section and its external tools — the resolver
+/// [ForgeModule] registers with [ForgeModuleExtras]; null for a module that
+/// is not a [ForgeModule].
+List<ForgeModuleExtra>? forgeShellModuleExtras(ForgeKitModule module) {
+  if (module is! ForgeModule) return null;
+  final statusItems = module.statusBarItems;
+  final tools = module.externalTools;
+  return [
+    if (statusItems.isNotEmpty) ForgeStatusItemsExtra(statusItems),
+    for (final panel in module.configPanels) ForgeSettingsSectionExtra(panel),
+    if (tools.isNotEmpty) ForgeExternalToolsExtra(tools),
+  ];
+}
+
+/// A module's status bar items ([ForgeModule.statusBarItems]) as an extra.
+class ForgeStatusItemsExtra extends ForgeModuleExtra {
+  const ForgeStatusItemsExtra(List<StatusBarItem> items)
+    : super(kind: kindId, value: items);
+
+  /// The kind of this extra.
+  static const kindId = 'forge.shell.statusItems';
+
+  /// The items.
+  List<StatusBarItem> get items => value as List<StatusBarItem>;
+}
+
+/// One settings section of a module ([ForgeModule.configPanels]) as an
+/// extra.
+class ForgeSettingsSectionExtra extends ForgeModuleExtra {
+  const ForgeSettingsSectionExtra(ForgeConfigPanel section)
+    : super(kind: kindId, value: section);
+
+  /// The kind of this extra.
+  static const kindId = 'forge.shell.settingsSection';
+
+  /// The section.
+  ForgeConfigPanel get section => value as ForgeConfigPanel;
+}
+
+/// A module's external tools ([ForgeModule.externalTools]) as an extra.
+class ForgeExternalToolsExtra extends ForgeModuleExtra {
+  const ForgeExternalToolsExtra(List<ForgeExternalTool> tools)
+    : super(kind: kindId, value: tools);
+
+  /// The kind of this extra.
+  static const kindId = 'forge.shell.externalTools';
+
+  /// The tools.
+  List<ForgeExternalTool> get tools => value as List<ForgeExternalTool>;
 }
