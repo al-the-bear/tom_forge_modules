@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:code_text_field/code_text_field.dart';
-import 'package:highlight/languages/all.dart' as all_languages;
+import 'package:tom_text_highlight/tom_text_highlight.dart';
 
 import '../../debug/md_editor_debug.dart';
 import '../../theme/md_editor_theme.dart';
@@ -28,18 +28,15 @@ class MdCodeBlockOverlay extends StatefulWidget {
 }
 
 class _MdCodeBlockOverlayState extends State<MdCodeBlockOverlay> {
-  late CodeController _codeController;
+  late _MdCodeController _codeController;
   late TextEditingController _langController;
 
   @override
   void initState() {
     super.initState();
-    final normalized = MdCodeHighlighting.normalizeLanguage(widget.language);
-    _codeController = CodeController(
+    _codeController = _MdCodeController(
       text: widget.code,
-      language: normalized == null
-          ? null
-          : all_languages.allLanguages[normalized],
+      language: MdCodeHighlighting.normalizeLanguage(widget.language),
     );
     _langController = TextEditingController(text: widget.language ?? '');
     _langController.addListener(_onChanged);
@@ -54,10 +51,9 @@ class _MdCodeBlockOverlayState extends State<MdCodeBlockOverlay> {
   }
 
   void _onChanged() {
-    final normalized = MdCodeHighlighting.normalizeLanguage(_langController.text);
-    _codeController.language = normalized == null
-        ? null
-        : all_languages.allLanguages[normalized];
+    _codeController.highlightLanguage = MdCodeHighlighting.normalizeLanguage(
+      _langController.text,
+    );
     if (mounted) setState(() {});
   }
 
@@ -110,10 +106,7 @@ class _MdCodeBlockOverlayState extends State<MdCodeBlockOverlay> {
                   horizontal: 8,
                   vertical: 4,
                 ),
-                labelStyle: TextStyle(
-                  color: basic.textSecondary,
-                  fontSize: 12,
-                ),
+                labelStyle: TextStyle(color: basic.textSecondary, fontSize: 12),
               ),
               style: TextStyle(fontSize: 13, color: basic.text),
             ),
@@ -172,10 +165,7 @@ class _MdCodeBlockOverlayState extends State<MdCodeBlockOverlay> {
             child: const Text('Cancel'),
           ),
           const SizedBox(width: 8),
-          FilledButton(
-            onPressed: _save,
-            child: const Text('Save'),
-          ),
+          FilledButton(onPressed: _save, child: const Text('Save')),
         ],
       ),
     );
@@ -183,14 +173,49 @@ class _MdCodeBlockOverlayState extends State<MdCodeBlockOverlay> {
 
   void _save() {
     try {
-      final lang =
-          _langController.text.trim().isEmpty
-              ? null
-              : _langController.text.trim();
+      final lang = _langController.text.trim().isEmpty
+          ? null
+          : _langController.text.trim();
       widget.onSave(_codeController.text, lang);
       Navigator.of(context).pop();
     } catch (e, st) {
       MdEditorDebug.logger.error('Error saving code block', e, st);
     }
+  }
+}
+
+/// The overlay's code controller: `code_text_field`'s editing behaviour,
+/// with the highlighting of `tom_text_highlight` styled by the enclosing
+/// [CodeTheme] in place of a `highlight` language mode (the controller's own
+/// `language` stays null).
+class _MdCodeController extends CodeController {
+  _MdCodeController({super.text, String? language})
+    : highlightLanguage = language;
+
+  /// The language the code is highlighted as; null or one
+  /// `tom_text_highlight` does not highlight shows it plain.
+  String? highlightLanguage;
+
+  @override
+  TextSpan buildTextSpan({
+    required BuildContext context,
+    TextStyle? style,
+    bool? withComposing,
+  }) {
+    final highlighter = highlighterForLanguage(
+      highlightLanguage,
+      theme: HighlightTheme(CodeTheme.of(context)?.styles ?? const {}),
+    );
+    if (highlighter == null) {
+      return super.buildTextSpan(
+        context: context,
+        style: style,
+        withComposing: withComposing,
+      );
+    }
+    return TextSpan(
+      style: style,
+      children: highlightedInlineSpans(text, highlighter.highlight(text)),
+    );
   }
 }

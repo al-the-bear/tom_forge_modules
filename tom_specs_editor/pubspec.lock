@@ -1592,6 +1592,13 @@ packages:
       relative: true
     source: path
     version: "0.0.1"
+  tom_text_highlight:
+    dependency: transitive
+    description:
+      path: "../../tom_ai/modules/tom_text_highlight"
+      relative: true
+    source: path
+    version: "0.1.0"
   tom_todo_model:
     dependency: transitive
     description:

@@ -17,7 +17,7 @@ split panels, search box and inline control widgets.
 | **Validation** (from `tom_ui_controls`) | `ValidationError`, `ValidationBadge`, `ValidationTooltip`, `ErrorPropagator` | Severity-based errors that propagate up the tree, with badge and tooltip widgets |
 | **Layout and search** (from `tom_ui_controls`) | `SplitPanel`, `DraggableSeparator`, `SearchBox` | Split panes with a draggable separator; a search and replace box |
 | **Undo/Redo** | `TextUndoEntry` | A text change with its before and after selection, kept on `tom_undo`'s `TomUndoStack` — the one undo stack the workspace's editors share |
-| **Text Editor** | `TextEditorCore`, `SyntaxHighlighter`, `TextMarker`, `TextEditorTheme` | Line-numbered text editor with pluggable syntax highlighting and marker overlays |
+| **Text Editor** | `TextEditorCore`, `TextMarker`, `TextEditorTheme`; `SyntaxHighlighter` and `HighlightSpan` re-exported from `tom_text_highlight` for one release | Line-numbered text editor with pluggable syntax highlighting and marker overlays |
 | **Controls** (from `tom_ui_controls`) | `CollapseToggle`, `ActionButton`, `NodeActionRow` | Compact widgets for tree-row inline actions (expand, add, delete, etc.) |
 
 ## Getting Started

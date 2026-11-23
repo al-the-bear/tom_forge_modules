@@ -25,7 +25,10 @@ export 'package:tom_ui_controls/tom_ui_controls.dart';
 // Inline Controls
 
 // Text Editor
-export 'src/text_editor/syntax_highlighter.dart';
+// The highlighter interface lives in tom_text_highlight (tom_ai/modules);
+// re-exported here for one release so existing imports keep working.
+export 'package:tom_text_highlight/tom_text_highlight.dart'
+    show SyntaxHighlighter, HighlightSpan;
 export 'src/text_editor/text_marker.dart';
 export 'src/text_editor/text_editor_core.dart';
 export 'src/text_editor/text_editor_theme.dart';

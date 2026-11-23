@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:tom_text_highlight/tom_text_highlight.dart';
 
 /// Custom [TextEditingController] that provides markdown syntax highlighting
-/// by overriding [buildTextSpan].
+/// by overriding [buildTextSpan], through the one highlighter interface
+/// ([SyntaxHighlighter], `tom_text_highlight`).
 ///
-/// Highlights headings, bold, italic, inline code, links, list markers,
-/// and block indicators using colors derived from the provided theme.
+/// By default it highlights headings, bold, italic, inline code, links, list
+/// markers, and block indicators using colors derived from the provided theme
+/// ([MdRawSyntaxHighlighter]); [highlighter] replaces that.
 class MdSyntaxHighlightController extends TextEditingController {
   MdSyntaxHighlightController({
     super.text,
@@ -18,7 +21,20 @@ class MdSyntaxHighlightController extends TextEditingController {
     required this.fontFamily,
     required this.fontSize,
     required this.lineHeight,
-  });
+    SyntaxHighlighter? highlighter,
+  }) {
+    this.highlighter =
+        highlighter ??
+        MdRawSyntaxHighlighter(
+          headingColor: headingColor,
+          boldColor: boldColor,
+          italicColor: italicColor,
+          codeColor: codeColor,
+          linkColor: linkColor,
+          listMarkerColor: listMarkerColor,
+          fontFamily: fontFamily,
+        );
+  }
 
   final Color headingColor;
   final Color boldColor;
@@ -31,49 +47,8 @@ class MdSyntaxHighlightController extends TextEditingController {
   final double fontSize;
   final double lineHeight;
 
-  /// Ordered list of syntax rules, matched from first to last.
-  static final List<_SyntaxRule> _rules = [
-    // Headings: lines starting with # markers
-    _SyntaxRule(
-      RegExp(r'^#{1,6}\s+.*$', multiLine: true),
-      _RuleType.heading,
-    ),
-    // Bold: **text** or __text__
-    _SyntaxRule(
-      RegExp(r'(\*\*|__)(.+?)(\*\*|__)'),
-      _RuleType.bold,
-    ),
-    // Italic: *text* or _text_ (not inside bold)
-    _SyntaxRule(
-      RegExp(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)|(?<!_)_(?!_)(.+?)(?<!_)_(?!_)'),
-      _RuleType.italic,
-    ),
-    // Inline code: `code`
-    _SyntaxRule(
-      RegExp(r'`[^`]+`'),
-      _RuleType.code,
-    ),
-    // Links: [text](url)
-    _SyntaxRule(
-      RegExp(r'\[([^\]]+)\]\([^)]+\)'),
-      _RuleType.link,
-    ),
-    // List markers: -, *, +, or numbered (1.)
-    _SyntaxRule(
-      RegExp(r'^(\s*)([-*+]|\d+\.)\s', multiLine: true),
-      _RuleType.listMarker,
-    ),
-    // Code block fences
-    _SyntaxRule(
-      RegExp(r'^```.*$', multiLine: true),
-      _RuleType.code,
-    ),
-    // Blockquote markers
-    _SyntaxRule(
-      RegExp(r'^>\s', multiLine: true),
-      _RuleType.listMarker,
-    ),
-  ];
+  /// The highlighting of the text.
+  late final SyntaxHighlighter highlighter;
 
   @override
   TextSpan buildTextSpan({
@@ -92,21 +67,77 @@ class MdSyntaxHighlightController extends TextEditingController {
     if (source.isEmpty) {
       return TextSpan(style: baseStyle, text: '');
     }
+    final spans = highlighter.highlight(source);
+    if (spans.isEmpty) {
+      return TextSpan(style: baseStyle, text: source);
+    }
+    return TextSpan(
+      style: baseStyle,
+      children: highlightedInlineSpans(source, spans),
+    );
+  }
+}
 
+/// The Markdown raw editor's own highlighting rules: headings, bold, italic,
+/// inline code, links, list markers, code fences and block quote markers,
+/// the first match winning where they overlap.
+class MdRawSyntaxHighlighter extends SyntaxHighlighter {
+  MdRawSyntaxHighlighter({
+    required this.headingColor,
+    required this.boldColor,
+    required this.italicColor,
+    required this.codeColor,
+    required this.linkColor,
+    required this.listMarkerColor,
+    required this.fontFamily,
+  });
+
+  final Color headingColor;
+  final Color boldColor;
+  final Color italicColor;
+  final Color codeColor;
+  final Color linkColor;
+  final Color listMarkerColor;
+  final String fontFamily;
+
+  /// Ordered list of syntax rules, matched from first to last.
+  static final List<_SyntaxRule> _rules = [
+    // Headings: lines starting with # markers
+    _SyntaxRule(RegExp(r'^#{1,6}\s+.*$', multiLine: true), _RuleType.heading),
+    // Bold: **text** or __text__
+    _SyntaxRule(RegExp(r'(\*\*|__)(.+?)(\*\*|__)'), _RuleType.bold),
+    // Italic: *text* or _text_ (not inside bold)
+    _SyntaxRule(
+      RegExp(
+        r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)|(?<!_)_(?!_)(.+?)(?<!_)_(?!_)',
+      ),
+      _RuleType.italic,
+    ),
+    // Inline code: `code`
+    _SyntaxRule(RegExp(r'`[^`]+`'), _RuleType.code),
+    // Links: [text](url)
+    _SyntaxRule(RegExp(r'\[([^\]]+)\]\([^)]+\)'), _RuleType.link),
+    // List markers: -, *, +, or numbered (1.)
+    _SyntaxRule(
+      RegExp(r'^(\s*)([-*+]|\d+\.)\s', multiLine: true),
+      _RuleType.listMarker,
+    ),
+    // Code block fences
+    _SyntaxRule(RegExp(r'^```.*$', multiLine: true), _RuleType.code),
+    // Blockquote markers
+    _SyntaxRule(RegExp(r'^>\s', multiLine: true), _RuleType.listMarker),
+  ];
+
+  @override
+  List<HighlightSpan> highlight(String source) {
     // Collect all matches with their style types
     final highlights = <_Highlight>[];
     for (final rule in _rules) {
       for (final match in rule.pattern.allMatches(source)) {
-        highlights.add(_Highlight(
-          start: match.start,
-          end: match.end,
-          type: rule.type,
-        ));
+        highlights.add(
+          _Highlight(start: match.start, end: match.end, type: rule.type),
+        );
       }
-    }
-
-    if (highlights.isEmpty) {
-      return TextSpan(style: baseStyle, text: source);
     }
 
     // Sort by start position, then by length (longer matches first)
@@ -116,61 +147,45 @@ class MdSyntaxHighlightController extends TextEditingController {
     });
 
     // Remove overlapping highlights (first match wins)
-    final filtered = <_Highlight>[];
+    final spans = <HighlightSpan>[];
     var lastEnd = 0;
     for (final h in highlights) {
       if (h.start >= lastEnd) {
-        filtered.add(h);
+        spans.add(
+          HighlightSpan(
+            start: h.start,
+            end: h.end,
+            style: _styleFor(h.type),
+            type: h.type.name,
+          ),
+        );
         lastEnd = h.end;
       }
     }
-
-    // Build spans
-    final spans = <TextSpan>[];
-    var pos = 0;
-    for (final h in filtered) {
-      if (h.start > pos) {
-        spans.add(TextSpan(text: source.substring(pos, h.start)));
-      }
-      spans.add(TextSpan(
-        text: source.substring(h.start, h.end),
-        style: _styleFor(h.type),
-      ));
-      pos = h.end;
-    }
-    if (pos < source.length) {
-      spans.add(TextSpan(text: source.substring(pos)));
-    }
-
-    return TextSpan(style: baseStyle, children: spans);
+    return spans;
   }
 
   TextStyle _styleFor(_RuleType type) {
     return switch (type) {
       _RuleType.heading => TextStyle(
-          color: headingColor,
-          fontWeight: FontWeight.w700,
-        ),
+        color: headingColor,
+        fontWeight: FontWeight.w700,
+      ),
       _RuleType.bold => TextStyle(
-          color: boldColor,
-          fontWeight: FontWeight.w700,
-        ),
+        color: boldColor,
+        fontWeight: FontWeight.w700,
+      ),
       _RuleType.italic => TextStyle(
-          color: italicColor,
-          fontStyle: FontStyle.italic,
-        ),
-      _RuleType.code => TextStyle(
-          color: codeColor,
-          fontFamily: fontFamily,
-        ),
+        color: italicColor,
+        fontStyle: FontStyle.italic,
+      ),
+      _RuleType.code => TextStyle(color: codeColor, fontFamily: fontFamily),
       _RuleType.link => TextStyle(
-          color: linkColor,
-          decoration: TextDecoration.underline,
-          decorationColor: linkColor,
-        ),
-      _RuleType.listMarker => TextStyle(
-          color: listMarkerColor,
-        ),
+        color: linkColor,
+        decoration: TextDecoration.underline,
+        decorationColor: linkColor,
+      ),
+      _RuleType.listMarker => TextStyle(color: listMarkerColor),
     };
   }
 }

@@ -17,6 +17,10 @@ dependencies:
     path: ../../tom_ai/modules/tom_ui_controls
   tom_undo:
     path: ../../tom_ai/basics/tom_undo
+  # The highlighter interface (SyntaxHighlighter, HighlightSpan), re-exported
+  # from the barrel for one release.
+  tom_text_highlight:
+    path: ../../tom_ai/modules/tom_text_highlight
   flutter:
     sdk: flutter
   tom_forge_core:

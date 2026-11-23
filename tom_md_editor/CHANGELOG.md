@@ -1,5 +1,11 @@
 ## Unreleased
 
+* Code blocks are highlighted through `tom_text_highlight` (YAML, Markdown,
+  JSON, shell, `.env`) in the same theme colours; a block in another
+  language is plain. The overlay's `code_text_field` controller highlights
+  through it too, and the raw editor's `MdSyntaxHighlightController` takes a
+  `SyntaxHighlighter` (default `MdRawSyntaxHighlighter`, its own rules). No
+  direct dependency on `highlight` or `flutter_highlight` any more.
 * Plugin packages: Mermaid (`tom_md_mermaid`), math (`tom_md_math`), DocSpecs
   schemas (`tom_md_docspecs`), reviews (`tom_md_review`) and the HTTP document
   provider (`tom_md_http`) moved out of the core, which depends on none of

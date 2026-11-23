@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:tom_text_highlight/tom_text_highlight.dart';
 
 import '../text_editing/forge_editor_integration.dart';
 import '../text_editing/history/forge_editor_owns_undo.dart';
 import '../text_editing/standard_editing_actions.dart';
-import 'syntax_highlighter.dart';
 import 'text_editor_theme.dart';
 import 'text_marker.dart';
 

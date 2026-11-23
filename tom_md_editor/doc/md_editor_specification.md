@@ -281,44 +281,30 @@ If the user types headline markers (`#`, `##`, etc.) in the text:
 
 #### Supported Languages (Built-in Syntax Highlighting)
 
+Code blocks are highlighted by the highlighters of `tom_text_highlight`. A
+block in another language is shown plain, in the code font.
+
 | Language | Alias(es) |
 |----------|-----------|
-| Dart | `dart` |
-| JavaScript | `js`, `javascript` |
-| TypeScript | `ts`, `typescript` |
-| Python | `py`, `python` |
-| Java | `java` |
-| Kotlin | `kt`, `kotlin` |
-| Swift | `swift` |
-| C | `c` |
-| C++ | `cpp`, `c++` |
-| C# | `cs`, `csharp` |
-| Go | `go`, `golang` |
-| Rust | `rs`, `rust` |
-| Ruby | `rb`, `ruby` |
-| PHP | `php` |
-| SQL | `sql` |
-| HTML | `html` |
-| CSS | `css` |
-| SCSS | `scss`, `sass` |
-| JSON | `json` |
 | YAML | `yaml`, `yml` |
-| XML | `xml` |
 | Markdown | `md`, `markdown` |
+| JSON | `json`, `jsonc` |
 | Shell | `sh`, `bash`, `zsh`, `shell` |
-| PowerShell | `ps`, `powershell` |
-| Dockerfile | `dockerfile` |
-| Plain text | `text`, `plaintext` |
+| `.env` | `env`, `dotenv`, `.env` |
 
 #### Syntax Highlighting Implementation
 
-Syntax highlighting is provided by two packages:
+Syntax highlighting goes through the one highlighter interface of
+`tom_text_highlight` (`SyntaxHighlighter`, `HighlightSpan`):
 
 | Package | Usage |
 |---------|-------|
-| `flutter_highlight` | Preview panel code block rendering |
-| `code_text_field` | Inline editor with live syntax highlighting |
-| `highlight` | Language mode definitions (shared by both) |
+| `tom_text_highlight` | The highlighters (YAML, Markdown, JSON, shell, `.env`) for the preview's code blocks and the overlay |
+| `code_text_field` | Inline editor of the code-block overlay; its controller highlights through `tom_text_highlight` |
+
+The raw editor's `MdSyntaxHighlightController` takes a `SyntaxHighlighter`
+too; its default is `MdRawSyntaxHighlighter`, the raw editor's own Markdown
+rules.
 
 The `MdCodeHighlighting` utility class provides shared functionality:
 
@@ -327,8 +313,13 @@ class MdCodeHighlighting {
   /// Normalize language alias to canonical form.
   static String normalizeLanguage(String? language);
 
-  /// Build syntax highlighting theme from editor theme.
+  /// Build syntax highlighting theme from editor theme: highlight.js-style
+  /// token classes to styles.
   static Map<String, TextStyle> buildTheme(MdBasicTheme theme);
+
+  /// The tom_text_highlight highlighter for a language, styled by
+  /// buildTheme; null for a language it does not highlight.
+  static TokenHighlighter? highlighterFor(String? language, MdBasicTheme basic);
 }
 ```
 
@@ -346,10 +337,11 @@ The built-in `MdCodeBlockOverlay` provides:
 - **Theme-aware styling** — Colors match the editor's dark/light theme
 
 ```dart
-// Internal implementation using code_text_field
-CodeController(
+// Internal implementation using code_text_field: a CodeController whose
+// buildTextSpan highlights through tom_text_highlight
+_MdCodeController(
   text: initialCode,
-  language: highlight.getMode(language),
+  language: MdCodeHighlighting.normalizeLanguage(language),
 )
 
 // Wrapped in CodeTheme for proper token styling

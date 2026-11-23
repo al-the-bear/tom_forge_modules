@@ -3,11 +3,12 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_highlight/flutter_highlight.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:tom_editors_shared/tom_editors_shared.dart';
+import 'package:tom_text_highlight/tom_text_highlight.dart'
+    show highlightedInlineSpans;
 
 import 'local_file_image.dart';
 
@@ -1603,27 +1604,34 @@ class _CodeBlockWidgetState extends State<_CodeBlockWidget> {
   bool _hovering = false;
 
   Widget _buildCodeText() {
-    final normalizedLanguage = MdCodeHighlighting.normalizeLanguage(
-      widget.language,
+    final highlighter = widget.enableSyntaxHighlighting
+        ? MdCodeHighlighting.highlighterFor(widget.language, widget.theme)
+        : null;
+    if (highlighter == null) {
+      // Highlighting off, no language, or one tom_text_highlight does not
+      // highlight: the code is shown plain.
+      return SelectableText(widget.code, style: widget.theme.codeStyle);
+    }
+
+    // Drawn as highlight views draw code: tabs as eight spaces, the theme's
+    // root colour under the code style, the spans of the highlighter.
+    final root = MdCodeHighlighting.buildTheme(widget.theme)['root'];
+    final source = widget.code.replaceAll('\t', ' ' * 8);
+    return Container(
+      color: root?.backgroundColor ?? const Color(0xffffffff),
+      child: RichText(
+        text: TextSpan(
+          style: TextStyle(
+            fontFamily: 'monospace',
+            color: root?.color ?? const Color(0xff000000),
+          ).merge(widget.theme.codeStyle),
+          children: highlightedInlineSpans(
+            source,
+            highlighter.highlight(source),
+          ),
+        ),
+      ),
     );
-    if (!widget.enableSyntaxHighlighting || normalizedLanguage == null) {
-      return SelectableText(widget.code, style: widget.theme.codeStyle);
-    }
-
-    final syntaxTheme = MdCodeHighlighting.buildTheme(widget.theme);
-
-    try {
-      return HighlightView(
-        widget.code,
-        language: normalizedLanguage,
-        theme: syntaxTheme,
-        padding: EdgeInsets.zero,
-        textStyle: widget.theme.codeStyle,
-      );
-    } catch (_) {
-      // Graceful fallback when a language key is unknown.
-      return SelectableText(widget.code, style: widget.theme.codeStyle);
-    }
   }
 
   @override

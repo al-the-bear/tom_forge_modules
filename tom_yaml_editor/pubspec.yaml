@@ -20,6 +20,9 @@ dependencies:
   # Shared editor foundation (undo, validation, tree, text editor)
   tom_editors_shared:
     path: ../tom_editors_shared
+  # The shared YAML tokenizer YamlSyntaxHighlighter styles.
+  tom_text_highlight:
+    path: ../../tom_ai/modules/tom_text_highlight
   # The undo stack the controller keeps its edit operations on.
   tom_forge_core:
     path: ../tom_forge_core

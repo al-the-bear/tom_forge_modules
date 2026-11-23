@@ -18,14 +18,16 @@ dependencies:
   flutter:
     sdk: flutter
   markdown: ^7.2.2
-  flutter_highlight: ^0.7.0
+  # The code-block overlay's editor; highlighted through tom_text_highlight.
   code_text_field: ^1.1.0
-  highlight: ^0.7.0
   flutter_markdown: ^0.7.6
   flutter_svg: ^2.2.4
   path: ^1.9.0
   tom_editors_shared:
     path: ../tom_editors_shared
+  # Code-block highlighting (preview and overlay).
+  tom_text_highlight:
+    path: ../../tom_ai/modules/tom_text_highlight
   # The undo stack the controller keeps its edit operations on.
   tom_forge_core:
     path: ../tom_forge_core
