@@ -1600,6 +1600,13 @@ packages:
       relative: true
     source: path
     version: "0.0.1"
+  tom_terminal_view:
+    dependency: transitive
+    description:
+      path: "../tom_terminal_view"
+      relative: true
+    source: path
+    version: "0.1.0"
   tom_text_highlight:
     dependency: transitive
     description:

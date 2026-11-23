@@ -1,5 +1,5 @@
 import 'package:tom_file_system/io.dart' show TomLocalFileSystem;
-import 'package:tom_forge_shell/tom_forge_shell.dart';
+import 'package:tom_forge_shell/tom_forge_shell.dart' show ForgeShellComponents;
 
 import 'default_terminal_manager.dart';
 import 'forge_terminal_view.dart';

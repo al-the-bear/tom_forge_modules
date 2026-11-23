@@ -1,16 +1,12 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
-import 'dart:typed_data';
 
-import 'package:flutter_pty/flutter_pty.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
-import 'package:xterm/xterm.dart';
+import 'package:tom_terminal_view/tom_terminal_view.dart';
 
 /// PTY-backed terminal manager for desktop platforms.
 ///
-/// Creates [PtyTerminal] instances that spawn real pseudo-terminal sessions
-/// using [flutter_pty] and render via [xterm]'s [Terminal] model.
+/// Creates [PtyTerminal] instances, each a shell in a pseudo-terminal
+/// ([TomTerminalSession] of `tom_terminal_view`).
 class PtyTerminalManager implements ForgeTerminalManager {
   final List<PtyTerminal> _terminals = [];
   PtyTerminal? _activeTerminal;
@@ -98,27 +94,22 @@ class PtyTerminalManager implements ForgeTerminalManager {
   }
 }
 
-/// A full PTY-backed terminal using [flutter_pty] and [xterm].
+/// A full PTY-backed terminal: Forge's [ForgeTerminal] over a
+/// [TomTerminalSession] (`tom_terminal_view`).
 ///
 /// Spawns a real pseudo-terminal session (bash/zsh/cmd) with full ANSI/VT100
-/// support, interactive commands, job control, and proper TTY emulation.
+/// support, interactive commands, job control, and proper TTY emulation; the
+/// terminal's [outputChannel] gets its opening, exit and closing.
 class PtyTerminal implements ForgeTerminal {
   @override
   final String name;
 
-  /// The xterm [Terminal] model that drives the [TerminalView] widget.
-  ///
-  /// Use this in the view layer to render a fully-featured terminal emulator.
-  final Terminal terminalModel;
+  /// The shell's session, which a [TomTerminalView] shows.
+  late final TomTerminalSession session;
 
   final ForgeOutputChannel? outputChannel;
   final void Function(PtyTerminal) _onDispose;
 
-  final StreamController<String> _outputController =
-      StreamController<String>.broadcast();
-  StreamSubscription<Uint8List>? _ptyOutputSub;
-
-  late final Pty _pty;
   bool _isDisposed = false;
 
   PtyTerminal({
@@ -127,69 +118,26 @@ class PtyTerminal implements ForgeTerminal {
     String? cwd,
     this.outputChannel,
     required void Function(PtyTerminal) onDispose,
-  })  : _onDispose = onDispose,
-        terminalModel = Terminal(maxLines: 10000) {
-    final shell = shellPath ?? _defaultShell();
-
-    _pty = Pty.start(
-      shell,
-      workingDirectory: cwd,
-      columns: 80,
-      rows: 25,
+  }) : _onDispose = onDispose {
+    session = TomTerminalSession(
+      options: TomTerminalOptions(shell: shellPath, workingDirectory: cwd),
+      onExit: (code) =>
+          outputChannel?.appendLine('Terminal process exited with code $code'),
     );
-
     // Log lifecycle event: terminal opened.
-    outputChannel?.appendLine('New terminal opened using $shell');
-
-    // Wire PTY output → xterm Terminal model + onOutput stream.
-    _ptyOutputSub = _pty.output.listen((data) {
-      if (_isDisposed) return;
-      final text = utf8.decode(data, allowMalformed: true);
-      terminalModel.write(text);
-      // Mirror to onOutput stream only (not output channel).
-      if (!_outputController.isClosed) {
-        _outputController.add(text);
-      }
-    });
-
-    // Wire xterm Terminal user input → PTY stdin.
-    terminalModel.onOutput = (data) {
-      if (_isDisposed) return;
-      _pty.write(Uint8List.fromList(utf8.encode(data)));
-    };
-
-    // Wire xterm Terminal resize → PTY resize.
-    terminalModel.onResize = (width, height, pixelWidth, pixelHeight) {
-      if (_isDisposed) return;
-      _pty.resize(height, width);
-    };
-
-    // Handle PTY process exit.
-    _pty.exitCode.then((code) {
-      if (!_isDisposed && !_outputController.isClosed) {
-        final exitMsg = '\r\n[Process exited with code $code]\r\n';
-        terminalModel.write(exitMsg);
-        _outputController.add(exitMsg);
-      }
-      outputChannel?.appendLine('Terminal process exited with code $code');
-    });
+    outputChannel?.appendLine('New terminal opened using ${session.shell}');
   }
 
-  static String _defaultShell() {
-    if (Platform.isWindows) {
-      return Platform.environment['COMSPEC'] ?? 'cmd.exe';
-    }
-    return Platform.environment['SHELL'] ?? '/bin/bash';
-  }
+  /// The xterm [Terminal] model of [session], which drives the view.
+  Terminal get terminalModel => session.terminal;
 
   @override
-  Stream<String> get onOutput => _outputController.stream;
+  Stream<String> get onOutput => session.output;
 
   @override
   void sendText(String text, {bool addNewLine = true}) {
     if (_isDisposed) return;
-    final data = addNewLine ? '$text\n' : text;
-    _pty.write(Uint8List.fromList(utf8.encode(data)));
+    session.sendText(text, addNewLine: addNewLine);
   }
 
   @override
@@ -211,9 +159,7 @@ class PtyTerminal implements ForgeTerminal {
     if (_isDisposed) return;
     _isDisposed = true;
     outputChannel?.appendLine('Terminal closed');
-    _ptyOutputSub?.cancel();
-    _pty.kill();
-    _outputController.close();
+    session.close();
     _onDispose(this);
   }
 }
