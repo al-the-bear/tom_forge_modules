@@ -71,6 +71,11 @@ dependencies:
   # content here; short labels stay lightweight.
   tom_md_editor:
     path: ../tom_md_editor
+  # Its math and Mermaid plugins: the rich preview renders both.
+  tom_md_math:
+    path: ../tom_md_math
+  tom_md_mermaid:
+    path: ../tom_md_mermaid
 
   # NOT YET A DEPENDENCY, AND NOTHING PREVENTS IT
   # (`tom_specs_editor_specification.md` §13 k). Live Flutter-layout rendering

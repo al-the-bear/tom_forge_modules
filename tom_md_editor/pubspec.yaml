@@ -1,7 +1,9 @@
 name: tom_md_editor
 description: >-
   Flutter markdown editor widget with graphical preview, section-based
-  navigation, schema validation, and comprehensive theming support.
+  navigation and comprehensive theming support; diagrams, math, DocSpecs
+  schemas and reviews come as plugin packages (tom_md_mermaid, tom_md_math,
+  tom_md_docspecs, tom_md_review).
 version: 0.1.0
 publish_to: none
 repository: https://github.com/al-the-bear/tom_forge
@@ -20,22 +22,10 @@ dependencies:
   code_text_field: ^1.1.0
   highlight: ^0.7.0
   flutter_markdown: ^0.7.6
-  flutter_math_fork: ^0.7.2
   flutter_svg: ^2.2.4
-  http: ^1.2.0
-  tom_doc_scanner:
-    path: ../../tom_ai/ai_build/tom_doc_scanner
-  tom_doc_specs:
-    path: ../../tom_ai/ai_build/tom_doc_specs
-  # The TomSpecs runtime that decides review marks and numbers comments.
-  tom_som_dart_runtime:
-    path: ../../tom_ai/ai_build/tom_som_dart_runtime
   path: ^1.9.0
   tom_editors_shared:
     path: ../tom_editors_shared
-  # The Mermaid plugin's renderer: MermaidWebView with the mermaid.js asset.
-  tom_mermaid_view:
-    path: ../../tom_ai/modules/tom_mermaid_view
   # The undo stack the controller keeps its edit operations on.
   tom_forge_core:
     path: ../tom_forge_core

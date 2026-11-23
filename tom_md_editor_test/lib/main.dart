@@ -6,7 +6,10 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:path/path.dart' as path;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tom_doc_specs/tom_doc_specs.dart';
+import 'package:tom_md_docspecs/tom_md_docspecs.dart';
 import 'package:tom_md_editor/tom_md_editor.dart';
+import 'package:tom_md_math/tom_md_math.dart';
+import 'package:tom_md_mermaid/tom_md_mermaid.dart';
 
 /// SharedPreferences key for the schema folder path.
 const _kSchemaFolderPath = 'schema_folder_path';
@@ -248,6 +251,11 @@ class _MdEditorDemoPageState extends State<MdEditorDemoPage> {
   bool _showTree = true;
   PrefixCaseStyle _prefixCaseStyle = PrefixCaseStyle.uppercase;
   DocSpecSchema? _schema;
+
+  /// The Markdown plugins the demo shows: math and Mermaid in the preview
+  /// (DocSpecs schemas are on the controller, `setSchema`).
+  final List<MdContentPlugin> _plugins = [mdMathPlugin(), mdMermaidPlugin()];
+
   String? _schemaFolderPath;
 
   @override
@@ -402,6 +410,7 @@ class _MdEditorDemoPageState extends State<MdEditorDemoPage> {
         controller: _controller,
         theme: theme,
         settings: settings,
+        plugins: _plugins,
         onLinkTap: (url) {
           ScaffoldMessenger.of(
             context,

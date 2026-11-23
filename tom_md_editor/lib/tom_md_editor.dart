@@ -18,7 +18,6 @@ export 'src/models/md_section.dart';
 // Providers
 export 'src/providers/asset_document_provider.dart';
 export 'src/providers/file_document_provider.dart';
-export 'src/providers/http_document_provider.dart';
 export 'src/providers/md_document_provider.dart';
 
 // Registries
@@ -30,8 +29,6 @@ export 'src/registries/md_language_renderer_registry.dart';
 export 'src/plugins/md_content_plugin.dart';
 export 'src/plugins/md_code_plugin.dart';
 export 'src/plugins/md_default_plugins.dart';
-export 'src/plugins/md_math_plugin.dart';
-export 'src/plugins/md_mermaid_plugin.dart';
 export 'src/plugins/md_table_plugin.dart';
 
 // Events
@@ -46,11 +43,8 @@ export 'src/theme/md_editor_theme.dart';
 // Controller
 export 'src/controller/md_editor_controller.dart';
 
-// Reviews: guarded line edits, CriticMarkup decisions and comments
-export 'src/review/md_line_edit.dart';
-export 'src/review/md_local_author.dart';
-export 'src/review/md_review_comments.dart';
-export 'src/review/md_review_marks.dart';
+// Guarded line edits (what a review's edits are made of)
+export 'src/controller/md_line_edit.dart';
 
 // Browsing: links into the workspace, history, following a growing file
 export 'src/browser/md_browser_navigator.dart';
@@ -71,27 +65,11 @@ export 'src/widgets/status_bar/md_editor_status_bar.dart';
 
 // Overlays
 export 'src/widgets/overlays/md_code_block_overlay.dart';
-
-// Schema Widgets
-export 'src/widgets/schema/md_char_counter.dart';
-export 'src/widgets/schema/md_for_each_sync_banner.dart';
-export 'src/widgets/schema/md_form_editor.dart';
-export 'src/widgets/schema/md_quick_fix_menu.dart';
-export 'src/widgets/schema/md_schema_info_panel.dart';
-export 'src/widgets/schema/md_schema_picker.dart';
-export 'src/widgets/schema/md_validation_prompt_banner.dart';
-
-// Validation
-export 'src/validation/md_schema_validator.dart';
-export 'src/validation/schema_section_helper.dart';
-export 'src/validation/schema_template_helper.dart';
-export 'src/widgets/overlays/md_math_overlay.dart';
-export 'src/widgets/overlays/md_mermaid_overlay.dart';
 export 'src/widgets/overlays/md_table_overlay.dart';
 
-// Renderers
-export 'src/widgets/renderers/md_math_renderer.dart';
-export 'src/widgets/renderers/md_mermaid_renderer.dart';
+// Schema support: the extension point a schema plugin (tom_md_docspecs)
+// implements
+export 'src/schema/md_schema_support.dart';
 
 // Syntax Highlighting
 export 'src/widgets/raw_editor/md_syntax_highlight_controller.dart';

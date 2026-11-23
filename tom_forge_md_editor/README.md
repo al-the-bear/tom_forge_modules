@@ -8,6 +8,15 @@ and the docspec validation as diagnostics.
 It is a package of its own so an application takes the adapters it uses and
 nothing of the others' editors.
 
+## The Markdown plugins
+
+The adapter runs the editor with all of its plugin packages, so Forge's
+Markdown editor has every feature: Mermaid diagrams (`tom_md_mermaid`) and
+math (`tom_md_math`) in the preview (`forgeMdContentPlugins()`, each used while
+the editor settings `enableMermaid` / `enableMath` are on), DocSpecs schemas
+(`tom_md_docspecs`) and reviews (`tom_md_review`) on the controller, whose
+extensions (`MdDocSpecsEditing`, `MdReviewEditing`) the package exports.
+
 ## How it reaches the application
 
 The adapter takes a `ForgeKitModule` and, optionally, the `ForgeKitApi` of the

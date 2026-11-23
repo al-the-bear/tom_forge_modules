@@ -1,0 +1,30 @@
+name: tom_md_mermaid
+description: >-
+  Mermaid diagrams for the Markdown editor (tom_md_editor): a plugin that draws
+  ```mermaid fences with mermaid.js in a webview (tom_mermaid_view) and edits
+  them. License: BSD-3-Clause.
+version: 0.1.0
+publish_to: none
+repository: https://github.com/al-the-bear/tom_forge
+
+environment:
+  sdk: ^3.11.0
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # The editor this package is a plugin of (MdContentPlugin).
+  tom_md_editor:
+    path: ../tom_md_editor
+  # The renderer: MermaidWebView with the mermaid.js asset.
+  tom_mermaid_view:
+    path: ../../tom_ai/modules/tom_mermaid_view
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

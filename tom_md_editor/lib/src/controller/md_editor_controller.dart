@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show TextSelection;
-import 'package:tom_doc_specs/tom_doc_specs.dart' as specs;
 import 'package:tom_editors_shared/tom_editors_shared.dart';
 
 import '../debug/md_editor_debug.dart';
@@ -12,12 +11,8 @@ import '../models/md_parser.dart';
 import '../models/md_search_result.dart';
 import '../models/md_section.dart';
 import '../providers/md_document_provider.dart';
-import '../review/md_line_edit.dart';
-import '../review/md_review_comments.dart';
-import '../review/md_review_marks.dart';
-import '../validation/md_schema_validator.dart';
-import '../validation/schema_section_helper.dart';
-import '../validation/schema_template_helper.dart';
+import '../schema/md_schema_support.dart';
+import 'md_line_edit.dart';
 
 /// Controller for the markdown editor.
 ///
@@ -164,28 +159,30 @@ class MdEditorController extends ChangeNotifier {
   /// Schema ID detected from document.
   String? get schemaId => _document.schemaId;
 
-  /// The currently loaded schema, if any.
-  specs.DocSpecSchema? get schema => _schemaValidator.schema;
-
   /// Event handlers for intercepting operations.
   MdEditorEventHandlers? eventHandlers;
 
-  /// Schema validator for document structure validation.
-  final MdSchemaValidator _schemaValidator = MdSchemaValidator();
+  /// The document schema the editor works with ([MdSchemaSupport]), set by a
+  /// schema plugin (`tom_md_docspecs`); null without one.
+  MdSchemaSupport? get schemaSupport => _schemaSupport;
+  MdSchemaSupport? _schemaSupport;
 
-  /// Set a schema for document validation.
+  /// Whether a schema is attached.
+  bool get hasSchema => _schemaSupport != null;
+
+  /// Attach [support] for document validation and the schema's features.
   ///
   /// Once set, validation runs automatically on every content change
   /// and fires [MdEditorEventHandlers.onValidationChanged].
-  void setSchema(specs.DocSpecSchema schema) {
-    _schemaValidator.setSchema(schema);
+  void setSchemaSupport(MdSchemaSupport support) {
+    _schemaSupport = support;
     _runSchemaValidation();
     notifyListeners();
   }
 
   /// Clear the schema, removing all validation errors.
   void clearSchema() {
-    _schemaValidator.clearSchema();
+    _schemaSupport = null;
     _validationErrors.clear();
     eventHandlers?.onValidationChanged?.call(
       ValidationChangedEvent(errors: const []),
@@ -290,11 +287,11 @@ class MdEditorController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── Reviews ──
+  // ── Guarded line edits ──
   //
-  // A review edits the document in place: a guarded line edit, a decided
-  // CriticMarkup mark, a comment added or edited. Each is guarded by the text
-  // the reader was shown and is one history entry; a refusal changes nothing.
+  // An edit of lines guarded by the text the reader was shown (a review's
+  // edits are made of these, `tom_md_review`): one history entry; a refusal
+  // changes nothing.
 
   /// Applies [edit] — lines `startLine..endLine` replaced while they still
   /// hold what was shown — as one history entry.
@@ -303,90 +300,6 @@ class MdEditorController extends ChangeNotifier {
     final result = mdApplyLineEdit(_markdown, edit);
     if (result case MdLineEditApplied(:final text)) applyEdit(text);
     return result;
-  }
-
-  /// Decides the [occurrence]-th mark written [markup] in the block on lines
-  /// `startLine..endLine` (which must still hold [expected]), through the
-  /// TomSpecs runtime; one history entry.
-  MdLineEditResult decideReviewMark({
-    required int startLine,
-    required int endLine,
-    required String expected,
-    required String markup,
-    required int occurrence,
-    required MdMarkDecision decision,
-  }) {
-    flush();
-    final result = mdReviewMarkEdit(
-      _markdown,
-      startLine: startLine,
-      endLine: endLine,
-      expected: expected,
-      markup: markup,
-      occurrence: occurrence,
-      decision: decision,
-    );
-    if (result case MdLineEditApplied(:final text)) applyEdit(text);
-    return result;
-  }
-
-  /// Accepts or rejects every change mark of the document (highlights and
-  /// comments stay) as one history entry; answers how many were decided.
-  int decideAllReviewChanges(MdMarkDecision decision) {
-    flush();
-    final result = mdDecideAllChanges(_markdown, decision);
-    if (result.decided > 0) applyEdit(result.text);
-    return result.decided;
-  }
-
-  /// The id the next review comment gets ([mdNextCommentId]); [runtimeNext]
-  /// is the number a caller read from the loaded SOM document.
-  String nextReviewCommentId({int? runtimeNext}) =>
-      mdNextCommentId(_markdown, runtimeNext: runtimeNext);
-
-  /// Adds a review comment with [text] by [author] after the block on lines
-  /// `blockStart..blockEnd`, with the next free id; one history entry. Null
-  /// when [text] holds no comment.
-  MdLineEditResult? addReviewComment({
-    required int blockStart,
-    required int blockEnd,
-    required String text,
-    String? author,
-    int? runtimeNext,
-  }) {
-    flush();
-    final edit = mdAddCommentEdit(
-      _markdown.split('\n'),
-      blockStart: blockStart,
-      blockEnd: blockEnd,
-      text: text,
-      nextId: nextReviewCommentId(runtimeNext: runtimeNext),
-      author: author,
-    );
-    return edit == null ? null : applyLineEdit(edit);
-  }
-
-  /// Rewrites the comment block starting at [line] with [text]; an empty
-  /// [text] removes it. Null when there is no comment there or nothing
-  /// changes.
-  MdLineEditResult? editReviewComment({
-    required int line,
-    required String text,
-    String? author,
-    int? runtimeNext,
-  }) {
-    flush();
-    final lines = _markdown.split('\n');
-    final comment = mdCommentAt(lines, line);
-    if (comment == null) return null;
-    final edit = mdEditCommentEdit(
-      lines,
-      comment,
-      text: text,
-      nextId: nextReviewCommentId(runtimeNext: runtimeNext),
-      author: author,
-    );
-    return edit == null ? null : applyLineEdit(edit);
   }
 
   /// How many edits the history keeps (`ForgeTextSettings.maxUndoHistory`).
@@ -1034,125 +947,26 @@ class MdEditorController extends ChangeNotifier {
   /// Find section by ID.
   MdSection? findSectionById(String id) => _document.findById(id);
 
-  // ── Schema helpers ──
-
-  /// Get a [SchemaSectionHelper] for the current schema.
-  ///
-  /// Returns `null` if no schema is loaded.
-  SchemaSectionHelper? get schemaHelper {
-    final s = schema;
-    return s != null ? SchemaSectionHelper(s) : null;
-  }
-
-  /// Get a [SchemaTemplateHelper] for the current schema.
-  ///
-  /// Returns `null` if no schema is loaded.
-  SchemaTemplateHelper? get templateHelper {
-    final s = schema;
-    return s != null ? SchemaTemplateHelper(s) : null;
-  }
-
   /// Find the parent of a section.
   MdSection? findParent(MdSection target) => _findParent(target);
 
   /// Find the index of a section among its siblings.
   int findIndex(MdSection target) => _findIndex(target);
 
-  // ── P1.3: Auto-scaffold ──
+  // ── Structural edits ──
 
-  /// Scaffold all missing required sections into the document.
-  ///
-  /// Uses the schema's document structure to identify required sections
-  /// that are missing, then inserts them with template content.
-  /// Returns the number of sections created.
-  Future<int> scaffoldMissingSections() async {
-    final helper = schemaHelper;
-    final tmpl = templateHelper;
-    if (helper == null || tmpl == null) return 0;
-
-    final missing = helper.getMissingSections(_document);
-    if (missing.isEmpty) return 0;
-
+  /// Changes the section tree as one history entry: [edit] changes
+  /// [document]'s sections in place and answers whether it changed anything;
+  /// the markdown is then written from the tree. What a plugin's structural
+  /// edits go through (a schema's scaffolding, `tom_md_docspecs`).
+  bool editStructure(
+    String description,
+    bool Function(MdDocument document) edit,
+  ) {
     final oldMd = _markdown;
-    var created = 0;
-
-    // Insert top-level missing sections first.
-    for (final info in missing.where((m) => m.isTopLevel)) {
-      final headline = _formatSectionName(info.sectionName);
-      final template = tmpl.generateTemplate(info.sectionType);
-      final section = MdSection(
-        headline: headline,
-        level: 1,
-        id: tmpl.generateSuggestedId(info.sectionType),
-        text: template,
-      );
-      _document.sections.add(section);
-      created++;
-    }
-
-    // Insert subsection missing sections.
-    for (final info in missing.where((m) => !m.isTopLevel)) {
-      if (info.parentSection == null) continue;
-      final headline = _formatSectionName(info.sectionName);
-      final template = tmpl.generateTemplate(info.sectionType);
-      final parentLevel = info.parentSection!.level;
-      final section = MdSection(
-        headline: headline,
-        level: parentLevel + 1,
-        id: tmpl.generateSuggestedId(info.sectionType),
-        text: template,
-      );
-      info.parentSection!.subsections.add(section);
-      created++;
-    }
-
-    if (created > 0) {
-      _rebuildMarkdown();
-      _pushUndoWithStates(
-        oldMd,
-        _markdown,
-        'Scaffold $created missing sections',
-      );
-      notifyListeners();
-    }
-
-    return created;
-  }
-
-  /// Insert a single missing section matching [typeName].
-  ///
-  /// Finds the first missing section whose type matches [typeName] and
-  /// scaffolds it into the document. Returns `true` if a section was created.
-  Future<bool> scaffoldSectionByType(String typeName) async {
-    final helper = schemaHelper;
-    final tmpl = templateHelper;
-    if (helper == null || tmpl == null) return false;
-
-    final missing = helper.getMissingSections(_document);
-    final match = missing.where((m) => m.sectionType == typeName);
-    if (match.isEmpty) return false;
-
-    final info = match.first;
-    final oldMd = _markdown;
-    final headline = _formatSectionName(info.sectionName);
-    final template = tmpl.generateTemplate(info.sectionType);
-    final section = MdSection(
-      headline: headline,
-      level: info.isTopLevel ? 1 : (info.parentSection!.level + 1),
-      id: tmpl.generateSuggestedId(info.sectionType),
-      text: template,
-    );
-
-    if (info.isTopLevel) {
-      _document.sections.add(section);
-    } else if (info.parentSection != null) {
-      info.parentSection!.subsections.add(section);
-    } else {
-      return false;
-    }
-
+    if (!edit(_document)) return false;
     _rebuildMarkdown();
-    _pushUndoWithStates(oldMd, _markdown, 'Insert $typeName section');
+    _pushUndoWithStates(oldMd, _markdown, description);
     notifyListeners();
     return true;
   }
@@ -1170,137 +984,6 @@ class MdEditorController extends ChangeNotifier {
       }
       return false;
     }).toList();
-  }
-
-  // ── For-each sync ──
-
-  /// Compute the sync state for all for-each linked sections.
-  ///
-  /// Returns a [ForEachSyncResult] describing which sections need to be
-  /// created (missing from registry) and which are orphaned (registry entry
-  /// removed). Does NOT modify the document — callers decide what to apply.
-  ForEachSyncResult computeForEachSync() {
-    final helper = schemaHelper;
-    final tmpl = templateHelper;
-    if (helper == null || tmpl == null) {
-      return const ForEachSyncResult(missing: [], orphaned: []);
-    }
-
-    final missing = <ForEachMissing>[];
-    final orphaned = <ForEachOrphaned>[];
-
-    for (final entry in (schema?.document.sections ?? {}).entries) {
-      final sectionDef = entry.value;
-      if (sectionDef.forEach == null) continue;
-
-      final sectionName = entry.key;
-      final forEach = sectionDef.forEach!;
-      final registryIds =
-          helper.getRegistryIds(_document, sectionName);
-
-      // Find the parent section for this for-each group.
-      final parentSections = _document.sections.where((s) {
-        final typeName =
-            helper.getSectionTypeName(s, document: _document);
-        return typeName == sectionDef.sectionType;
-      });
-      if (parentSections.isEmpty) continue;
-      final parent = parentSections.first;
-
-      // Get existing child IDs.
-      final existingIds = <String>{};
-      for (final child in parent.subsections) {
-        if (child.id != null) existingIds.add(child.id!);
-      }
-
-      // Missing: registry IDs not in existing children.
-      for (final id in registryIds) {
-        if (!existingIds.contains(id)) {
-          missing.add(ForEachMissing(
-            sectionName: sectionName,
-            registryId: id,
-            parentSection: parent,
-            sectionType: forEach.sectionType,
-          ));
-        }
-      }
-
-      // Orphaned: existing children not in registry.
-      final registryIdSet = registryIds.toSet();
-      for (final child in parent.subsections) {
-        if (child.id != null && !registryIdSet.contains(child.id!)) {
-          orphaned.add(ForEachOrphaned(
-            sectionName: sectionName,
-            sectionId: child.id!,
-            section: child,
-            parentSection: parent,
-          ));
-        }
-      }
-    }
-
-    return ForEachSyncResult(missing: missing, orphaned: orphaned);
-  }
-
-  /// Create sections for missing for-each entries.
-  ///
-  /// Returns the number of sections created.
-  Future<int> syncForEachMissing(List<ForEachMissing> entries) async {
-    final tmpl = templateHelper;
-    if (tmpl == null || entries.isEmpty) return 0;
-
-    final oldMd = _markdown;
-    var created = 0;
-
-    for (final entry in entries) {
-      final template = tmpl.generateTemplate(entry.sectionType);
-      final headline = _formatSectionName(entry.registryId);
-      final section = MdSection(
-        headline: headline,
-        level: entry.parentSection.level + 1,
-        id: entry.registryId,
-        text: template,
-      );
-      entry.parentSection.subsections.add(section);
-      created++;
-    }
-
-    if (created > 0) {
-      _rebuildMarkdown();
-      _pushUndoWithStates(
-        oldMd,
-        _markdown,
-        'Sync: create $created for-each sections',
-      );
-      notifyListeners();
-    }
-    return created;
-  }
-
-  /// Remove orphaned for-each sections.
-  ///
-  /// Returns the number of sections removed.
-  Future<int> removeForEachOrphaned(List<ForEachOrphaned> entries) async {
-    if (entries.isEmpty) return 0;
-
-    final oldMd = _markdown;
-    var removed = 0;
-
-    for (final entry in entries) {
-      entry.parentSection.subsections.remove(entry.section);
-      removed++;
-    }
-
-    if (removed > 0) {
-      _rebuildMarkdown();
-      _pushUndoWithStates(
-        oldMd,
-        _markdown,
-        'Sync: remove $removed orphaned sections',
-      );
-      notifyListeners();
-    }
-    return removed;
   }
 
   // ── Private helpers ──
@@ -1324,11 +1007,12 @@ class MdEditorController extends ChangeNotifier {
 
   /// Run schema validation against the current document.
   void _runSchemaValidation() {
-    if (!_schemaValidator.hasSchema) return;
+    final support = _schemaSupport;
+    if (support == null) return;
     try {
       _validationErrors
         ..clear()
-        ..addAll(_schemaValidator.validate(_document));
+        ..addAll(support.validate(_document));
       eventHandlers?.onValidationChanged?.call(
         ValidationChangedEvent(errors: validationErrors),
       );
@@ -1438,13 +1122,6 @@ class MdEditorController extends ChangeNotifier {
   }
 
   /// Format a section name from kebab-case to title case.
-  String _formatSectionName(String name) {
-    return name
-        .split('-')
-        .map((w) => w.isEmpty ? '' : '${w[0].toUpperCase()}${w.substring(1)}')
-        .join(' ');
-  }
-
   /// Export the document as a JSON map for serialization.
   ///
   /// Structure: `{ title, sections: [ { id, headline, level, text, subsections } ] }`
@@ -1484,50 +1161,4 @@ class MdEditorController extends ChangeNotifier {
     }
     return buf.toString().trimRight();
   }
-}
-
-// ── For-each sync data classes ──
-
-/// Result of a for-each sync analysis.
-class ForEachSyncResult {
-  /// Entries that exist in the registry but have no corresponding section.
-  final List<ForEachMissing> missing;
-
-  /// Sections that exist but have no corresponding registry entry.
-  final List<ForEachOrphaned> orphaned;
-
-  const ForEachSyncResult({required this.missing, required this.orphaned});
-
-  /// Whether everything is in sync.
-  bool get isSynced => missing.isEmpty && orphaned.isEmpty;
-}
-
-/// A registry entry with no corresponding detail section.
-class ForEachMissing {
-  final String sectionName;
-  final String registryId;
-  final MdSection parentSection;
-  final String sectionType;
-
-  const ForEachMissing({
-    required this.sectionName,
-    required this.registryId,
-    required this.parentSection,
-    required this.sectionType,
-  });
-}
-
-/// A detail section with no corresponding registry entry.
-class ForEachOrphaned {
-  final String sectionName;
-  final String sectionId;
-  final MdSection section;
-  final MdSection parentSection;
-
-  const ForEachOrphaned({
-    required this.sectionName,
-    required this.sectionId,
-    required this.section,
-    required this.parentSection,
-  });
 }

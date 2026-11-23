@@ -11,9 +11,6 @@ import '../../models/md_section.dart';
 import '../../plugins/md_content_plugin.dart';
 import '../../settings/md_editor_settings.dart';
 import '../../theme/md_editor_theme.dart';
-import '../../validation/schema_section_helper.dart';
-import '../../validation/schema_template_helper.dart';
-import '../schema/md_char_counter.dart';
 import 'md_syntax_highlight_controller.dart';
 
 /// Raw text editor panel for editing markdown source.
@@ -850,35 +847,19 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
     return MdConstants.headlineMarkerPattern.hasMatch(selected.text);
   }
 
-  /// Build a compact character counter for the selected section.
+  /// What the schema shows for the selected section in the title bar (a
+  /// character counter, [MdSchemaSupport.buildRawEditorStatus]).
   Widget _buildCharCounter(MdSection section) {
-    final schema = widget.controller.schema;
-    if (schema == null || !widget.settings.showCharCounter) {
-      return const SizedBox.shrink();
-    }
-
-    final helper = SchemaSectionHelper(schema);
-    final tmpl = SchemaTemplateHelper(schema);
-    final typeName = helper.getSectionTypeName(
-      section,
-      document: widget.controller.document,
-    );
-    if (typeName == null) return const SizedBox.shrink();
-
-    final constraints = tmpl.getTextConstraints(typeName);
-    if (constraints.min == null &&
-        constraints.max == null &&
-        !constraints.required) {
-      return const SizedBox.shrink();
-    }
-
-    return MdCharCounter(
-      currentLength: section.text.length,
-      minLength: constraints.min,
-      maxLength: constraints.max,
-      textRequired: constraints.required,
-      theme: widget.theme,
-    );
+    final schema = widget.controller.schemaSupport;
+    if (schema == null) return const SizedBox.shrink();
+    return schema.buildRawEditorStatus(
+          context,
+          widget.controller,
+          section,
+          widget.theme,
+          widget.settings,
+        ) ??
+        const SizedBox.shrink();
   }
 
   Widget _buildTitleBar(MdBasicTheme basic, MdSection? selected) {
@@ -1179,16 +1160,11 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
     final label = isSubsection ? 'Subsection' : 'Section';
 
     // Collect prefix suggestions from schema section types.
-    final schema = widget.controller.schema;
-    final prefixSuggestions = <String>[];
-    if (schema != null) {
-      for (final entry in schema.sectionTypes.entries) {
-        final prefix = entry.value.prefix;
-        if (prefix != null && prefix.isNotEmpty) {
-          prefixSuggestions.add(prefix);
-        }
-      }
-    }
+    final prefixSuggestions = [
+      ...?widget.controller.schemaSupport?.idPrefixes().where(
+        (prefix) => prefix.isNotEmpty,
+      ),
+    ];
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -1350,17 +1326,15 @@ class _MdRawTextEditorState extends State<MdRawTextEditor> {
   void _showLanguagePicker(Offset position, MdBasicTheme basic) {
     // Determine schema-allowed languages for the selected section.
     List<String> schemaLanguages = const [];
-    final schema = widget.controller.schema;
+    final schema = widget.controller.schemaSupport;
     final selected = widget.controller.selectedSection;
     if (schema != null && selected != null) {
-      final sectionHelper = SchemaSectionHelper(schema);
-      final typeName = sectionHelper.getSectionTypeName(
+      final typeName = schema.sectionTypeName(
         selected,
-        document: widget.controller.document,
+        widget.controller.document,
       );
       if (typeName != null) {
-        final tmplHelper = SchemaTemplateHelper(schema);
-        schemaLanguages = tmplHelper.getCodeLanguages(typeName);
+        schemaLanguages = schema.codeLanguages(typeName);
       }
     }
     final hasSchemaFilter = schemaLanguages.isNotEmpty;

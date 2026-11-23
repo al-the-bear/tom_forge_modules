@@ -5,10 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_highlight/flutter_highlight.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
-import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:markdown/markdown.dart' as md;
-import 'package:tom_doc_specs/tom_doc_specs.dart' as specs;
 import 'package:tom_editors_shared/tom_editors_shared.dart';
 
 import 'local_file_image.dart';
@@ -23,12 +21,8 @@ import '../../plugins/md_default_plugins.dart';
 import '../../settings/md_editor_settings.dart';
 import '../../theme/md_editor_theme.dart';
 import '../../utils/md_code_highlighting.dart';
-import '../../validation/schema_section_helper.dart';
-import '../../validation/schema_template_helper.dart';
 import '../dialogs/edit_section_dialog.dart';
 import '../overlays/md_code_block_overlay.dart';
-import '../schema/md_form_editor.dart';
-import '../schema/md_validation_prompt_banner.dart';
 
 /// Preview panel that renders markdown as formatted content.
 ///
@@ -40,6 +34,7 @@ class MdPreviewPanel extends StatefulWidget {
     required this.theme,
     required this.settings,
     this.pluginRegistry,
+    this.plugins = const [],
     this.onSectionTap,
     this.onEditSection,
     this.onLinkTap,
@@ -49,9 +44,13 @@ class MdPreviewPanel extends StatefulWidget {
   final MdEditorTheme theme;
   final MdEditorSettings settings;
 
-  /// Registry of content editor plugins. If null, a default registry with
-  /// built-in plugins is created based on [settings].
+  /// Registry of content editor plugins. If null, the default registry is
+  /// created from [settings] with [plugins] ([createDefaultPluginRegistry]).
   final MdPluginRegistry? pluginRegistry;
+
+  /// Plugins added to the default registry when [pluginRegistry] is null
+  /// (e.g. `mdMermaidPlugin()`, `mdMathPlugin()`); none by default.
+  final List<MdContentPlugin> plugins;
 
   final ValueChanged<MdSection>? onSectionTap;
   final ValueChanged<MdSection>? onEditSection;
@@ -84,7 +83,10 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
     super.initState();
     _registry =
         widget.pluginRegistry ??
-        createDefaultPluginRegistry(settings: widget.settings);
+        createDefaultPluginRegistry(
+          settings: widget.settings,
+          plugins: widget.plugins,
+        );
     widget.controller.addListener(_onChanged);
     if (widget.settings.followTail) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _toEnd());
@@ -98,10 +100,14 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
       oldWidget.controller.removeListener(_onChanged);
       widget.controller.addListener(_onChanged);
     }
-    if (widget.pluginRegistry != oldWidget.pluginRegistry) {
+    if (widget.pluginRegistry != oldWidget.pluginRegistry ||
+        !identical(widget.plugins, oldWidget.plugins)) {
       _registry =
           widget.pluginRegistry ??
-          createDefaultPluginRegistry(settings: widget.settings);
+          createDefaultPluginRegistry(
+            settings: widget.settings,
+            plugins: widget.plugins,
+          );
     }
   }
 
@@ -256,72 +262,27 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
   }
 
   /// Build schema context bar shown above the preview when a section
-  /// is selected and schema is active.
-  ///
-  /// Integrates: form editor (P2), tag selector (P3.2),
-  /// character counter (P4.3), validation prompts (P6.3).
+  /// is selected and a schema is attached: what the schema shows for it
+  /// ([MdSchemaSupport.buildPreviewContext], e.g. validation prompts).
   Widget _buildSchemaContextBar(MdBasicTheme basic) {
     final section = widget.controller.selectedSection;
-    final schema = widget.controller.schema;
+    final schema = widget.controller.schemaSupport;
     if (section == null || schema == null) return const SizedBox.shrink();
 
-    final helper = SchemaSectionHelper(schema);
-    final tmpl = SchemaTemplateHelper(schema);
-    final typeName = helper.getSectionTypeName(
+    final typeName = schema.sectionTypeName(
       section,
-      document: widget.controller.document,
+      widget.controller.document,
     );
     if (typeName == null) return const SizedBox.shrink();
 
-    final typeDef = schema.sectionTypes[typeName];
-    if (typeDef == null) return const SizedBox.shrink();
-
-    final editorTheme = widget.theme;
-    final widgets = <Widget>[];
-
-    // Validation prompt banner (P6.3).
-    if (widget.settings.showValidationPrompts) {
-      // Find parent section ID for ${parent.id} interpolation.
-      String? parentId;
-      for (final topLevel in widget.controller.document.sections) {
-        if (topLevel == section) break;
-        for (final child in topLevel.subsections) {
-          if (child == section) {
-            parentId = topLevel.id;
-            break;
-          }
-        }
-        if (parentId != null) break;
-      }
-
-      final prompt = tmpl.getDocumentValidationPrompt(
-        typeName: typeName,
-        sectionId: section.id,
-        parentSectionId: parentId,
-      );
-      if (prompt != null) {
-        widgets.add(
-          MdValidationPromptBanner(
-            prompt: prompt,
-            sectionId: section.id,
-            sectionText: section.text,
-            sectionLineNumber: section.sourceLineStart,
-            sectionTags: section.commentMetadata['tags'],
-            sectionFields: section.commentMetadata.isEmpty
-                ? null
-                : section.commentMetadata,
-            parentId: parentId,
-            theme: editorTheme,
-          ),
-        );
-      }
-    }
-
-    // Character counter (P4.3) — moved to raw editor title bar.
-
-    // Form editor (P2) — now rendered inline in the markdown preview.
-    // See _preprocessFormSections() and _CodeBlockBuilder.
-
+    final widgets = schema.buildPreviewContext(
+      context,
+      widget.controller,
+      section,
+      typeName,
+      widget.theme,
+      widget.settings,
+    );
     if (widgets.isEmpty) return const SizedBox.shrink();
 
     return Container(
@@ -351,7 +312,7 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
 
       // Replace form section body text with synthetic fenced blocks
       // BEFORE other preprocessors run (form text looks like list items).
-      final formSections = <_FormSectionData>[];
+      final formSections = <_FormSection>[];
       if (widget.settings.enableFormEditor && !widget.settings.readOnly) {
         processed = _preprocessFormSections(processed, formSections);
       }
@@ -400,7 +361,8 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
               selectable: false,
               extensionSet:
                   md.ExtensionSet(md.ExtensionSet.gitHubWeb.blockSyntaxes, [
-                    if (widget.settings.enableMath) _InlineMathSyntax(),
+                    for (final plugin in _registry.all)
+                      ...plugin.inlineSyntaxes,
                     ...md.ExtensionSet.gitHubWeb.inlineSyntaxes,
                   ]),
               styleSheet: _buildStyleSheet(basic),
@@ -437,7 +399,8 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
                   editorTheme: widget.theme,
                   controller: widget.controller,
                 ),
-                'math-inline': _InlineMathBuilder(theme: basic),
+                for (final plugin in _registry.all)
+                  ...plugin.inlineBuilders(basic),
                 for (final level in [1, 2, 3, 4, 5, 6])
                   'h$level': _HeadingBuilder(
                     level: level,
@@ -827,14 +790,13 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
       final idController = TextEditingController(text: section.id ?? '');
 
       // Build context-sensitive allowed section types.
-      final schema = widget.controller.schema;
+      final schema = widget.controller.schemaSupport;
       final hasSchema = schema != null;
       var allowedSectionTypes = <SectionTypeInfo>[];
       List<String> schemaFields = const [];
 
       if (schema != null) {
-        final schemaHelper = widget.controller.schemaHelper;
-        final tmpl = SchemaTemplateHelper(schema);
+        final document = widget.controller.document;
 
         // Find parent section to get allowed child types.
         final parent = _findParentSection(section);
@@ -843,12 +805,7 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
         // If parent is the document title (no schema type), treat children
         // as effectively top-level sections for schema purposes.
         final parentHasSchemaType =
-            parent != null &&
-            schemaHelper?.getSectionTypeName(
-                  parent,
-                  document: widget.controller.document,
-                ) !=
-                null;
+            parent != null && schema.sectionTypeName(parent, document) != null;
 
         String applyPrefixCase(String value) {
           switch (widget.settings.prefixCaseStyle) {
@@ -862,53 +819,27 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
           }
         }
 
-        if (parent != null && parentHasSchemaType) {
-          // Child of a schema-typed section - get allowed subsection types.
-          final allowed = schemaHelper?.getAllowedSubsections(
-            parent,
-            document: widget.controller.document,
-          );
-          if (allowed != null && allowed.isNotEmpty) {
-            allowedSectionTypes = allowed.map((sub) {
-              final prefix = applyPrefixCase(
-                sub.typeDef?.prefix ?? sub.typeName,
-              );
-              final patternInfo = tmpl.getIdPatternInfo(sub.typeName);
-              return (
-                typeName: sub.typeName,
-                prefix: prefix,
-                idPattern: patternInfo?.pattern,
-                idPatternErrorMessage: patternInfo?.errorMessage,
-              );
-            }).toList();
-          }
-        } else {
-          // Top-level section OR child of untyped section (e.g., document title)
-          // - get allowed top-level types from document structure.
-          final topLevel = schemaHelper?.getAllowedTopLevelSections() ?? [];
-          allowedSectionTypes = topLevel.map((top) {
-            final prefix = applyPrefixCase(
-              top.typeDef?.prefix ?? top.sectionType,
-            );
-            final patternInfo = tmpl.getIdPatternInfo(top.sectionType);
-            return (
-              typeName: top.sectionType,
-              prefix: prefix,
-              idPattern: patternInfo?.pattern,
-              idPatternErrorMessage: patternInfo?.errorMessage,
-            );
-          }).toList();
-        }
+        // A child of a schema-typed section takes its allowed subsection
+        // types; a top-level section or a child of an untyped section (e.g.
+        // the document title) the allowed top-level types.
+        final types = parent != null && parentHasSchemaType
+            ? schema.allowedSubsections(parent, document)
+            : schema.allowedTopLevelSections();
+        allowedSectionTypes = types
+            .map(
+              (type) => (
+                typeName: type.typeName,
+                prefix: applyPrefixCase(type.prefix ?? type.typeName),
+                idPattern: type.idPattern,
+                idPatternErrorMessage: type.idPatternErrorMessage,
+              ),
+            )
+            .toList();
 
         // Get required fields for current section type.
-        if (schemaHelper != null) {
-          final typeName = schemaHelper.getSectionTypeName(
-            section,
-            document: widget.controller.document,
-          );
-          if (typeName != null) {
-            schemaFields = tmpl.getRequiredFields(typeName);
-          }
+        final typeName = schema.sectionTypeName(section, document);
+        if (typeName != null) {
+          schemaFields = schema.requiredFields(typeName);
         }
       }
 
@@ -1019,19 +950,7 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
     // Build tag insertion item if the section's type has allowed-tags.
     final tagItems = <ContextMenuButtonItem>[];
     if (section != null && !widget.settings.readOnly) {
-      final schema = widget.controller.schema;
-      var allowedTags = <String>[];
-      if (schema != null) {
-        final helper = SchemaSectionHelper(schema);
-        final tmpl = SchemaTemplateHelper(schema);
-        final typeName = helper.getSectionTypeName(
-          section,
-          document: widget.controller.document,
-        );
-        if (typeName != null) {
-          allowedTags = tmpl.getAllowedTags(typeName);
-        }
-      }
+      final allowedTags = _getAllowedTagsForSection(section);
       // Check heading comment metadata for existing tags.
       final existingTagStr = section.commentMetadata['tags'] ?? '';
       final existingTags = existingTagStr.isNotEmpty
@@ -1108,12 +1027,11 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
       const PopupMenuItem(value: 'add_child', child: Text('Add Subsection')),
     ];
 
-    final schema = widget.controller.schema;
+    final schema = widget.controller.schemaSupport;
     if (schema != null) {
-      final helper = SchemaSectionHelper(schema);
-      final allowed = helper.getAllowedSubsections(
+      final allowed = schema.allowedSubsections(
         section,
-        document: widget.controller.document,
+        widget.controller.document,
       );
 
       if (allowed.isNotEmpty) {
@@ -1233,13 +1151,12 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
   }
 
   void _addTypedSubsection(MdSection section, String typeName) {
-    final schema = widget.controller.schema;
+    final schema = widget.controller.schemaSupport;
     if (schema == null) return;
 
-    final helper = SchemaSectionHelper(schema);
-    final allowed = helper.getAllowedSubsections(
+    final allowed = schema.allowedSubsections(
       section,
-      document: widget.controller.document,
+      widget.controller.document,
     );
     final sub = allowed.where((s) => s.typeName == typeName).firstOrNull;
     if (sub == null) return;
@@ -1275,17 +1192,15 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
 
   /// Get allowed tags for a section from the schema.
   List<String> _getAllowedTagsForSection(MdSection section) {
-    final schema = widget.controller.schema;
+    final schema = widget.controller.schemaSupport;
     if (schema == null) return const [];
 
-    final helper = SchemaSectionHelper(schema);
-    final tmpl = SchemaTemplateHelper(schema);
-    final typeName = helper.getSectionTypeName(
+    final typeName = schema.sectionTypeName(
       section,
-      document: widget.controller.document,
+      widget.controller.document,
     );
     if (typeName == null) return const [];
-    return tmpl.getAllowedTags(typeName);
+    return schema.allowedTags(typeName);
   }
 
   void _toggleTaskItem(int index) {
@@ -1317,32 +1232,20 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
   /// because form text is serialised as list items (`- Field: value`).
   String _preprocessFormSections(
     String markdown,
-    List<_FormSectionData> formSections,
+    List<_FormSection> formSections,
   ) {
-    final schema = widget.controller.schema;
+    final schema = widget.controller.schemaSupport;
     if (schema == null) return markdown;
 
     final doc = widget.controller.document;
-    final helper = SchemaSectionHelper(schema);
-    final tmpl = SchemaTemplateHelper(schema);
 
     // Collect form sections in document order.
     void collect(MdSection section) {
-      final typeName = helper.getSectionTypeName(section, document: doc);
-      if (typeName != null && section.text.isNotEmpty) {
-        final formType = tmpl.getFormType(typeName);
-        if (formType != null) {
-          formSections.add(
-            _FormSectionData(
-              formType: formType,
-              section: section,
-              typeName: typeName,
-              customTags: schema.customTags,
-              requiredFields: tmpl.getRequiredFields(typeName),
-              textPatternCheck: schema.sectionTypes[typeName]?.patternCheckText,
-            ),
-          );
-        }
+      final typeName = schema.sectionTypeName(section, doc);
+      if (typeName != null &&
+          section.text.isNotEmpty &&
+          schema.hasSectionForm(typeName)) {
+        formSections.add((section: section, typeName: typeName));
       }
       for (final sub in section.subsections) {
         collect(sub);
@@ -1507,27 +1410,10 @@ class _MdPreviewPanelState extends State<MdPreviewPanel> {
 
 // ── Custom markdown builders ──
 
-/// Data collected during form-section preprocessing.
-///
-/// One entry per form section whose body text has been replaced with a
-/// synthetic `formfield-N` fenced code block.
-class _FormSectionData {
-  _FormSectionData({
-    required this.formType,
-    required this.section,
-    required this.typeName,
-    required this.customTags,
-    required this.requiredFields,
-    this.textPatternCheck,
-  });
-
-  final specs.FormTypeDef formType;
-  final MdSection section;
-  final String typeName;
-  final Map<String, dynamic> customTags;
-  final List<String> requiredFields;
-  final specs.PatternCheckDef? textPatternCheck;
-}
+/// A form section found during form-section preprocessing: its body text
+/// has been replaced with a synthetic `formfield-N` fenced code block, which
+/// the schema's form ([MdSchemaSupport.buildSectionForm]) renders.
+typedef _FormSection = ({MdSection section, String typeName});
 
 /// Renders code blocks, delegating to plugins for recognized languages.
 class _CodeBlockBuilder extends MarkdownElementBuilder {
@@ -1558,7 +1444,7 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
   )
   onPluginEdit;
   final void Function(int blockIndex, String newBlock) onListReorder;
-  final List<_FormSectionData> formSections;
+  final List<_FormSection> formSections;
   final MdEditorTheme editorTheme;
   final MdEditorController controller;
 
@@ -1594,28 +1480,16 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
     if (blockLanguage != null && blockLanguage.startsWith('formfield-')) {
       final formIdx =
           int.tryParse(blockLanguage.substring('formfield-'.length)) ?? 0;
-      if (formIdx < formSections.length) {
+      final schema = controller.schemaSupport;
+      if (formIdx < formSections.length && schema != null) {
         final data = formSections[formIdx];
-        final currentValues = MdFormEditor.parseFormContent(data.section.text);
-        // Detect whether original text uses list-prefix format (e.g., "- Field: value").
-        final useListPrefix = data.section.text.trimLeft().startsWith('- ');
-        return MdFormEditor(
-          formType: data.formType,
-          currentValues: currentValues,
-          customTags: data.customTags,
-          requiredFields: data.requiredFields,
-          textPatternCheck: data.textPatternCheck,
-          theme: editorTheme,
-          useListPrefix: useListPrefix,
-          onChanged: (values) {
-            final newText = MdFormEditor.serializeFormContent(
-              values,
-              data.formType,
-              useListPrefix: useListPrefix,
-            );
-            controller.updateSectionText(data.section, newText);
-          },
+        final form = schema.buildSectionForm(
+          controller,
+          data.section,
+          data.typeName,
+          editorTheme,
         );
+        if (form != null) return form;
       }
     }
 
@@ -1819,52 +1693,6 @@ class _CodeBlockWidgetState extends State<_CodeBlockWidget> {
 }
 
 /// Renders task list checkboxes as interactive widgets.
-
-// ── Inline math syntax ──
-
-/// Matches `$...$` but not `$$`.
-class _InlineMathSyntax extends md.InlineSyntax {
-  _InlineMathSyntax() : super(r'\$([^\$]+?)\$');
-
-  @override
-  bool onMatch(md.InlineParser parser, Match match) {
-    final expression = match.group(1)!;
-    final el = md.Element.text('math-inline', expression);
-    parser.addNode(el);
-    return true;
-  }
-}
-
-// ── Math builders ──
-
-class _InlineMathBuilder extends MarkdownElementBuilder {
-  _InlineMathBuilder({required this.theme});
-
-  final MdBasicTheme theme;
-
-  @override
-  Widget? visitElementAfterWithContext(
-    BuildContext context,
-    md.Element element,
-    TextStyle? preferredStyle,
-    TextStyle? parentStyle,
-  ) {
-    final expression = element.textContent;
-    return Math.tex(
-      expression,
-      mathStyle: MathStyle.text,
-      textStyle: TextStyle(fontSize: theme.baseFontSize, color: theme.text),
-      onErrorFallback: (err) => Text(
-        '\$$expression\$',
-        style: TextStyle(
-          color: theme.error,
-          fontFamily: theme.monoFontFamily,
-          fontSize: theme.baseFontSize,
-        ),
-      ),
-    );
-  }
-}
 
 // ── Heading builder for click-to-select ──
 

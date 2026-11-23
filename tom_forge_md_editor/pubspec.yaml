@@ -16,6 +16,17 @@ dependencies:
   # The editor this package adapts.
   tom_md_editor:
     path: ../tom_md_editor
+  # The editor's plugin packages, so Forge's Markdown editor has every
+  # feature: Mermaid diagrams and math in the preview, DocSpecs schemas and
+  # reviews on the controller.
+  tom_md_mermaid:
+    path: ../tom_md_mermaid
+  tom_md_math:
+    path: ../tom_md_math
+  tom_md_docspecs:
+    path: ../tom_md_docspecs
+  tom_md_review:
+    path: ../tom_md_review
   # The Forge kit: the editor contract, ForgeKitApi, the editor type, the
   # action integration (ShellEditorIntegration). Never the shell (R9).
   tom_forge_kit:

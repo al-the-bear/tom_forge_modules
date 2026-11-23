@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart'
+    show MarkdownElementBuilder;
+import 'package:markdown/markdown.dart' as md;
 
+import '../settings/md_editor_settings.dart';
 import '../theme/md_editor_theme.dart';
 
 /// Describes how to preprocess non-fenced markdown content into fenced code
@@ -43,6 +47,12 @@ class MdPreprocessor {
 /// - How to **edit** its content ([openEditor])
 /// - How to **insert** new content ([insertTemplate])
 /// - How to **wrap** edited content back into markdown ([wrapForMarkdown])
+/// - Optionally, inline Markdown it renders inside paragraphs
+///   ([inlineSyntaxes] with their [inlineBuilders]), and whether the editor
+///   settings switch it off ([isEnabledBy])
+///
+/// The plugin packages (`tom_md_mermaid`, `tom_md_math`) are plugins of this
+/// kind; the core registers none of them ([createDefaultPluginRegistry]).
 ///
 /// Example:
 /// ```dart
@@ -129,6 +139,18 @@ abstract class MdContentPlugin {
   /// For preprocessed content: the original markdown pattern
   /// (e.g., `$$\ncontent\n$$` for math, raw table for tables).
   String wrapForMarkdown(String content);
+
+  /// Whether the plugin is used under [settings] when the default registry
+  /// is built ([createDefaultPluginRegistry]). Default: always.
+  bool isEnabledBy(MdEditorSettings settings) => true;
+
+  /// Inline syntaxes the preview parses with, e.g. `$…$` math. Each turns
+  /// its match into an element whose tag [inlineBuilders] renders.
+  List<md.InlineSyntax> get inlineSyntaxes => const [];
+
+  /// The builders of the elements [inlineSyntaxes] produce, by element tag.
+  Map<String, MarkdownElementBuilder> inlineBuilders(MdBasicTheme theme) =>
+      const {};
 }
 
 /// Registry of content editor plugins.

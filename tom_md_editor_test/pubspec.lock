@@ -648,10 +648,31 @@ packages:
       relative: true
     source: path
     version: "2.0.0"
+  tom_md_docspecs:
+    dependency: "direct main"
+    description:
+      path: "../tom_md_docspecs"
+      relative: true
+    source: path
+    version: "0.1.0"
   tom_md_editor:
     dependency: "direct main"
     description:
       path: "../tom_md_editor"
+      relative: true
+    source: path
+    version: "0.1.0"
+  tom_md_math:
+    dependency: "direct main"
+    description:
+      path: "../tom_md_math"
+      relative: true
+    source: path
+    version: "0.1.0"
+  tom_md_mermaid:
+    dependency: "direct main"
+    description:
+      path: "../tom_md_mermaid"
       relative: true
     source: path
     version: "0.1.0"
@@ -662,13 +683,6 @@ packages:
       relative: true
     source: path
     version: "0.1.0"
-  tom_som_dart_runtime:
-    dependency: transitive
-    description:
-      path: "../../tom_ai/ai_build/tom_som_dart_runtime"
-      relative: true
-    source: path
-    version: "1.12.2"
   tom_ui_controls:
     dependency: transitive
     description:

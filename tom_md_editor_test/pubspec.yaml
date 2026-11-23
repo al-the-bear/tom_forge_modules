@@ -36,6 +36,13 @@ dependencies:
   path: ^1.8.0
   tom_md_editor:
     path: ../tom_md_editor
+  # The editor's plugins the demo shows: math, Mermaid, DocSpecs schemas.
+  tom_md_math:
+    path: ../tom_md_math
+  tom_md_mermaid:
+    path: ../tom_md_mermaid
+  tom_md_docspecs:
+    path: ../tom_md_docspecs
   tom_doc_specs:
     path: ../../tom_ai/ai_build/tom_doc_specs
   shared_preferences: ^2.5.4

@@ -19,8 +19,6 @@ import '../settings/md_editor_settings.dart';
 import '../theme/md_editor_theme.dart';
 import 'preview/md_preview_panel.dart';
 import 'raw_editor/md_raw_text_editor.dart';
-import 'schema/md_for_each_sync_banner.dart';
-import 'schema/md_schema_info_panel.dart';
 import 'status_bar/md_editor_status_bar.dart';
 import 'toolbar/md_editor_toolbar.dart';
 import 'tree/md_search_panel.dart';
@@ -68,6 +66,7 @@ class MdEditor extends StatefulWidget {
     this.languageRenderers,
     this.contentRenderers,
     this.pluginRegistry,
+    this.plugins = const [],
   }) : assert(
          markdown == null || controller == null,
          'Provide either markdown or controller, not both.',
@@ -151,9 +150,16 @@ class MdEditor extends StatefulWidget {
 
   /// Registry of content editor plugins for the preview panel.
   ///
-  /// If null, a default registry with built-in plugins (table, math,
-  /// mermaid, code) is created based on [settings].
+  /// If null, the default registry is created from [settings]: the core
+  /// plugins (table, code) and [plugins] ([createDefaultPluginRegistry]).
   final MdPluginRegistry? pluginRegistry;
+
+  /// Plugins added to the default registry when [pluginRegistry] is null,
+  /// e.g. `mdMermaidPlugin()` (`tom_md_mermaid`) and `mdMathPlugin()`
+  /// (`tom_md_math`); each is used while the settings enable it
+  /// ([MdContentPlugin.isEnabledBy]). None by default: the editor then shows
+  /// diagrams and math as their Markdown source.
+  final List<MdContentPlugin> plugins;
 
   @override
   State<MdEditor> createState() => _MdEditorState();
@@ -189,7 +195,10 @@ class _MdEditorState extends State<MdEditor> {
     _settings = _resolveSettings();
     _rawPosition = _settings.rawEditorPosition;
     _pluginRegistry = widget.pluginRegistry ??
-        createDefaultPluginRegistry(settings: _settings);
+        createDefaultPluginRegistry(
+          settings: _settings,
+          plugins: widget.plugins,
+        );
     _initController();
     _controller.addListener(_onControllerChanged);
     _setupIntegration();
@@ -206,8 +215,17 @@ class _MdEditorState extends State<MdEditor> {
     if (widget.settings != oldWidget.settings || widget.readOnly != oldWidget.readOnly) {
       _settings = _resolveSettings();
       if (widget.pluginRegistry == null) {
-        _pluginRegistry = createDefaultPluginRegistry(settings: _settings);
+        _pluginRegistry = createDefaultPluginRegistry(
+          settings: _settings,
+          plugins: widget.plugins,
+        );
       }
+    } else if (widget.pluginRegistry == null &&
+        !identical(widget.plugins, oldWidget.plugins)) {
+      _pluginRegistry = createDefaultPluginRegistry(
+        settings: _settings,
+        plugins: widget.plugins,
+      );
     }
     if (widget.pluginRegistry != oldWidget.pluginRegistry &&
         widget.pluginRegistry != null) {
@@ -499,14 +517,18 @@ class _MdEditorState extends State<MdEditor> {
   }
 
   Widget _buildTreePanel() {
+    final schema = _controller.schemaSupport;
+    final header = schema?.buildOutlineHeader(context, _controller, _theme);
+    final footer = schema?.buildOutlineFooter(
+      context,
+      _controller,
+      _theme,
+      _settings,
+    );
     return Column(
       children: [
-        // For-each sync banner (P6.1) — shown above the tree.
-        if (_controller.schema != null)
-          MdForEachSyncBanner(
-            controller: _controller,
-            theme: _theme,
-          ),
+        // What the schema shows above the outline (e.g. for-each sync).
+        ?header,
         Expanded(
           child: MdTreeView(
             controller: _controller,
@@ -518,9 +540,8 @@ class _MdEditorState extends State<MdEditor> {
             },
           ),
         ),
-        // Schema info panel (P5.1) — shown below the tree.
-        if (_settings.showSchemaInfoPanel && _controller.schema != null)
-          MdSchemaInfoPanel(schema: _controller.schema!, theme: _theme),
+        // What the schema shows below the outline (e.g. its info panel).
+        ?footer,
       ],
     );
   }

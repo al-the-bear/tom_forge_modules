@@ -1,0 +1,36 @@
+name: tom_md_docspecs
+description: >-
+  DocSpecs schemas for the Markdown editor (tom_md_editor): validation, typed
+  sections, templates, forms and the schema's panels through tom_doc_specs and
+  tom_doc_scanner. License: BSD-3-Clause.
+version: 0.1.0
+publish_to: none
+repository: https://github.com/al-the-bear/tom_forge
+
+environment:
+  sdk: ^3.11.0
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # The editor whose schema support (MdSchemaSupport) this package
+  # implements.
+  tom_md_editor:
+    path: ../tom_md_editor
+  # ValidationError and the editor kit's widgets.
+  tom_editors_shared:
+    path: ../tom_editors_shared
+  # The schema model, and the scanner that validates a document against it.
+  tom_doc_specs:
+    path: ../../tom_ai/ai_build/tom_doc_specs
+  tom_doc_scanner:
+    path: ../../tom_ai/ai_build/tom_doc_scanner
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

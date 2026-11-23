@@ -8,6 +8,18 @@ The editor displays formatted markdown in the main panel without showing raw mar
 
 Integration with `tom_doc_scanner` and `tom_doc_specs` provides document structure parsing and schema-based validation, including automatic generation of required section structures from schemas.
 
+**Core and plugin packages.** `tom_md_editor` is the core: the editor, the preview, the outline, the raw editor, the plugin registry and the extension points. Every feature with a heavy dependency is a plugin package beside it, which the core does not depend on and an application adds when it wants the feature (`doc/how_to_embed.md`):
+
+| Package | Feature | Entry point |
+| ------- | ------- | ----------- |
+| `tom_md_mermaid` | Mermaid diagrams (§ Mermaid; `tom_mermaid_view`) | `mdMermaidPlugin()`, a content plugin |
+| `tom_md_math` | LaTeX math, display and inline (`flutter_math_fork`) | `mdMathPlugin()`, a content plugin |
+| `tom_md_docspecs` | DocSpecs schemas: validation, typed sections, forms, scaffolding, the schema panels (§9; `tom_doc_specs`, `tom_doc_scanner`) | `controller.setSchema(schema)`, schema support |
+| `tom_md_review` | Reviews: CriticMarkup marks and review comments (§11; `tom_som_dart_runtime`) | the `MdReviewEditing` extension on the controller |
+| `tom_md_http` | A document on a web server (§ Document Provider; `http`) | `HttpDocumentProvider` |
+
+Without them the editor shows the document as Markdown: a Mermaid fence is a code block, math its LaTeX source, review markup its text, and no schema is validated.
+
 ---
 
 ## Terminology
@@ -536,7 +548,7 @@ Mermaid diagrams are rendered as interactive visualizations:
 
 ### 9. Schema Validation and Scaffolding
 
-Integration with `tom_doc_specs` for document validation. The editor provides UI controls for picking schemas and generating skeleton documents.
+Integration with `tom_doc_specs` for document validation, in the plugin package `tom_md_docspecs`: `controller.setSchema(schema)` attaches a schema as the controller's schema support (`MdSchemaSupport`, the core's extension point), and every schema feature below comes from it. The editor provides UI controls for picking schemas and generating skeleton documents.
 
 **Schema Declaration:**
 
@@ -1065,7 +1077,11 @@ All built-in plugins use `MdOverlayButton` for their hover edit buttons, ensurin
 
 A document is reviewed in place, the way the VS Code extension's Markdown
 Browser does it; a review round on a SOM Markdown spec gives the same file in
-both (`test/fixtures/review_round/`, written by the extension's own code).
+both (`tom_md_review/test/fixtures/review_round/`, written by the extension's
+own code). The guarded line edits are the core's (`applyLineEdit`); marks and
+comments are the plugin package `tom_md_review` (its `MdReviewEditing`
+extension gives the controller `decideReviewMark`, `decideAllReviewChanges`,
+`addReviewComment`, `editReviewComment` and `nextReviewCommentId`).
 
 - **Guarded line edits** — `MdLineEdit` replaces lines `startLine..endLine`
   (0-based, end exclusive) only while they still hold `expected`, the text
@@ -1982,7 +1998,7 @@ FileDocumentProvider(
   watch: true,  // Auto-reload on external changes
 )
 
-// Network
+// Network (package tom_md_http)
 HttpDocumentProvider(
   url: 'https://api.example.com/docs/123',
   headers: {'Authorization': 'Bearer ...'},

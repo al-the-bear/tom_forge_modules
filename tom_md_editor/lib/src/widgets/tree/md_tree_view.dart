@@ -4,12 +4,10 @@ import 'package:tom_editors_shared/tom_editors_shared.dart';
 import '../../controller/md_editor_controller.dart';
 import '../../debug/md_editor_debug.dart';
 import '../../models/md_section.dart';
+import '../../schema/md_schema_support.dart';
 import '../../settings/md_editor_settings.dart';
 import '../../theme/md_editor_theme.dart';
-import '../../validation/schema_section_helper.dart';
-import '../../validation/schema_template_helper.dart';
 import '../dialogs/edit_section_dialog.dart';
-import '../schema/md_quick_fix_menu.dart';
 
 /// Tree view panel showing section hierarchy with drag-drop reordering.
 class MdTreeView extends StatefulWidget {
@@ -181,21 +179,14 @@ class _MdTreeViewState extends State<MdTreeView> {
 
     // Build schema type tooltip (P5.3).
     String? typeTooltip;
-    if (widget.settings.showSectionTypeTooltips &&
-        widget.controller.schema != null) {
-      final helper = SchemaSectionHelper(
-        widget.controller.schema!,
-      );
-      final typeName = helper.getSectionTypeName(
+    final schema = widget.controller.schemaSupport;
+    if (widget.settings.showSectionTypeTooltips && schema != null) {
+      final typeName = schema.sectionTypeName(
         section,
-        document: widget.controller.document,
+        widget.controller.document,
       );
       if (typeName != null) {
-        final typeDef = helper.schema.sectionTypes[typeName];
-        final parts = <String>[typeName];
-        if (typeDef?.description != null) parts.add(typeDef!.description!);
-        if (typeDef?.format != null) parts.add('Format: ${typeDef!.format}');
-        typeTooltip = parts.join(' — ');
+        typeTooltip = schema.sectionTypeTooltip(typeName);
       }
     }
 
@@ -304,22 +295,18 @@ class _MdTreeViewState extends State<MdTreeView> {
       onWillAcceptWithDetails: (details) {
         if (identical(details.data, section)) return false;
         // Position-aware drag-drop validation.
-        if (widget.settings.enablePositionAwareDragDrop &&
-            widget.controller.schema != null) {
-          final helper = SchemaSectionHelper(
-            widget.controller.schema!,
-          );
+        final schema = widget.controller.schemaSupport;
+        if (widget.settings.enablePositionAwareDragDrop && schema != null) {
           final parent = _findParentSection(section);
           final siblings =
               parent?.subsections ?? widget.controller.document.sections;
           final idx = siblings.indexOf(section);
-          final dropInfo = helper.isValidDropTarget(
+          return schema.isValidDrop(
             draggedSection: details.data,
             targetParent: parent,
             targetIndex: idx + 1,
             document: widget.controller.document,
           );
-          return dropInfo.isValid;
         }
         return true;
       },
@@ -430,14 +417,11 @@ class _MdTreeViewState extends State<MdTreeView> {
 
       // Build section type tooltip info.
       String? sectionTypeLabel;
-      if (widget.settings.showSectionTypeTooltips &&
-          widget.controller.schema != null) {
-        final helper = SchemaSectionHelper(
-          widget.controller.schema!,
-        );
-        sectionTypeLabel = helper.getSectionTypeName(
+      final schema = widget.controller.schemaSupport;
+      if (widget.settings.showSectionTypeTooltips && schema != null) {
+        sectionTypeLabel = schema.sectionTypeName(
           section,
-          document: widget.controller.document,
+          widget.controller.document,
         );
       }
 
@@ -532,18 +516,20 @@ class _MdTreeViewState extends State<MdTreeView> {
       ),
     ];
 
-    final schema = widget.controller.schema;
+    final schema = widget.controller.schemaSupport;
     if (schema != null) {
-      final helper = SchemaSectionHelper(schema);
-      final allowed = helper.getAvailableSubsections(
+      final allowed = schema.availableSubsections(
         section,
-        document: widget.controller.document,
+        widget.controller.document,
       );
 
       if (allowed.isNotEmpty) {
         items.add(const PopupMenuDivider());
         for (final sub in allowed) {
-          final countInfo = _buildCountLabel(helper, sub.typeName);
+          final countInfo = schema.countLabel(
+            sub.typeName,
+            widget.controller.document,
+          );
           items.add(
             PopupMenuItem(
               value: 'add_typed_child:${sub.typeName}',
@@ -580,23 +566,14 @@ class _MdTreeViewState extends State<MdTreeView> {
     return items;
   }
 
-  /// Build count label for a subsection type (e.g., "2/5" for 2 of max 5).
-  String _buildCountLabel(SchemaSectionHelper helper, String typeName) {
-    final typeDef = helper.schema.sectionTypes[typeName];
-    if (typeDef?.maxCountInDocument == null) return '';
-    final count =
-        helper.countSectionsOfType(typeName, widget.controller.document);
-    return '($count/${typeDef!.maxCountInDocument})';
-  }
-
   /// Build schema-aware menu items for "Add Section Above/Below" at top level.
   List<PopupMenuEntry<String>> _buildTopLevelTypeItems(String prefix) {
-    final schema = widget.controller.schema;
+    final schema = widget.controller.schemaSupport;
     if (schema == null) return const [];
 
-    final helper = SchemaSectionHelper(schema);
-    final available =
-        helper.getAvailableTopLevelSections(widget.controller.document);
+    final available = schema.availableTopLevelSections(
+      widget.controller.document,
+    );
 
     if (available.isEmpty) return const [];
 
@@ -604,15 +581,10 @@ class _MdTreeViewState extends State<MdTreeView> {
       const PopupMenuDivider(),
     ];
     for (final entry in available) {
-      final capitalName = entry.name
-          .replaceAll('-', ' ')
-          .split(' ')
-          .map(
-              (w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
-          .join(' ');
+      final capitalName = entry.capitalizedName;
       items.add(
         PopupMenuItem(
-          value: '${prefix}_typed:${entry.sectionType}:${entry.name}',
+          value: '${prefix}_typed:${entry.typeName}:${entry.name ?? entry.typeName}',
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -646,48 +618,23 @@ class _MdTreeViewState extends State<MdTreeView> {
 
   /// Stores quick-fix actions from the last context menu build, so
   /// [_handleContextAction] can execute the selected fix by index.
-  List<QuickFixAction> _lastQuickFixes = const [];
+  List<MdSchemaAction> _lastQuickFixes = const [];
 
   /// Build quick-fix menu items for a section's validation errors.
   List<PopupMenuEntry<String>> _buildQuickFixItems(MdSection section) {
     if (!widget.settings.enableQuickFixes) return const [];
+    final schema = widget.controller.schemaSupport;
+    if (schema == null) return const [];
 
     final errors = _getValidationErrorsForSection(section);
     if (errors.isEmpty) return const [];
 
-    final fixes = <QuickFixAction>[];
-    for (final error in errors) {
-      fixes.addAll(QuickFixAnalyzer.getFixesForError(
-        error,
-        onInsertSection: (typeName) => () {
-          widget.controller.scaffoldSectionByType(typeName);
-        },
-        onNavigateToSection: (sectionId) => () {
-          final target = widget.controller.findSectionById(sectionId);
-          if (target != null) {
-            widget.controller.selectSection(target);
-          }
-        },
-        onRenameId: (sectionId) => () {
-          final target = widget.controller.findSectionById(sectionId);
-          if (target != null) {
-            _showEditDialog(target);
-          }
-        },
-        onDeleteSection: (sectionId) => () {
-          final target = widget.controller.findSectionById(sectionId);
-          if (target != null) {
-            widget.controller.deleteSection(target);
-          }
-        },
-        onMoveSection: (sectionId) => () {
-          final target = widget.controller.findSectionById(sectionId);
-          if (target != null) {
-            widget.controller.moveSectionUp(target);
-          }
-        },
-      ));
-    }
+    final fixes = schema.quickFixes(
+      widget.controller,
+      section,
+      errors,
+      onRename: _showEditDialog,
+    );
     if (fixes.isEmpty) return const [];
     _lastQuickFixes = fixes;
 
@@ -881,31 +828,29 @@ class _MdTreeViewState extends State<MdTreeView> {
 
   /// Insert a typed subsection based on schema definition.
   ///
-  /// Uses [SchemaTemplateHelper] to pre-fill template content and
+  /// Uses the schema ([MdSchemaSupport.template]) to pre-fill template content and
   /// suggested IDs based on the section type definition.
   Future<void> _addTypedSubsection(
     MdSection parentSection,
     String typeName,
   ) async {
-    final schema = widget.controller.schema;
+    final schema = widget.controller.schemaSupport;
     if (schema == null) return;
 
-    final tmpl = SchemaTemplateHelper(schema);
-    final suggestedId = tmpl.generateSuggestedId(typeName);
+    final suggestedId = schema.suggestedId(typeName);
     final capitalName = typeName
         .replaceAll('-', ' ')
         .split(' ')
         .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
         .join(' ');
 
-    final idPattern = tmpl.getIdPattern(typeName);
+    final idPattern = schema.idPattern(typeName);
 
     // Collect registry IDs for autocomplete suggestions.
-    final schemaHelper = widget.controller.schemaHelper;
-    final registryIds = schemaHelper != null
-        ? schemaHelper.getRegistryIds(
-            widget.controller.document, typeName)
-        : <String>[];
+    final registryIds = schema.registryIds(
+      widget.controller.document,
+      typeName,
+    );
 
     final result = await _showNewSectionDialog(
       isSubsection: true,
@@ -917,7 +862,7 @@ class _MdTreeViewState extends State<MdTreeView> {
     if (result == null) return;
 
     // Generate template content for the new section.
-    final template = tmpl.generateTemplate(typeName);
+    final template = schema.template(typeName);
 
     await widget.controller.insertSection(
       parent: parentSection,
@@ -936,25 +881,23 @@ class _MdTreeViewState extends State<MdTreeView> {
     String sectionName, {
     required bool above,
   }) async {
-    final schema = widget.controller.schema;
+    final schema = widget.controller.schemaSupport;
     if (schema == null) return;
 
-    final tmpl = SchemaTemplateHelper(schema);
-    final suggestedId = tmpl.generateSuggestedId(typeName);
+    final suggestedId = schema.suggestedId(typeName);
     final capitalName = sectionName
         .replaceAll('-', ' ')
         .split(' ')
         .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
         .join(' ');
 
-    final idPattern = tmpl.getIdPattern(typeName);
+    final idPattern = schema.idPattern(typeName);
 
     // Collect registry IDs for autocomplete suggestions.
-    final schemaHelper = widget.controller.schemaHelper;
-    final registryIds = schemaHelper != null
-        ? schemaHelper.getRegistryIds(
-            widget.controller.document, typeName)
-        : <String>[];
+    final registryIds = schema.registryIds(
+      widget.controller.document,
+      typeName,
+    );
 
     final result = await _showNewSectionDialog(
       defaultHeadline: capitalName,
@@ -964,7 +907,7 @@ class _MdTreeViewState extends State<MdTreeView> {
     );
     if (result == null) return;
 
-    final template = tmpl.generateTemplate(typeName);
+    final template = schema.template(typeName);
     final siblings = widget.controller.document.sections;
     final idx = siblings.indexOf(referenceSection);
 
@@ -991,17 +934,15 @@ class _MdTreeViewState extends State<MdTreeView> {
 
   /// Get allowed tags for a section from the schema.
   List<String> _getAllowedTagsForSection(MdSection section) {
-    final schema = widget.controller.schema;
+    final schema = widget.controller.schemaSupport;
     if (schema == null) return const [];
 
-    final helper = SchemaSectionHelper(schema);
-    final tmpl = SchemaTemplateHelper(schema);
-    final typeName = helper.getSectionTypeName(
+    final typeName = schema.sectionTypeName(
       section,
-      document: widget.controller.document,
+      widget.controller.document,
     );
     if (typeName == null) return const [];
-    return tmpl.getAllowedTags(typeName);
+    return schema.allowedTags(typeName);
   }
 
   /// Show a dialog to create a new section with headline and ID.
@@ -1122,59 +1063,36 @@ class _MdTreeViewState extends State<MdTreeView> {
     final idController = TextEditingController(text: section.id ?? '');
 
     // Build context-sensitive allowed section types.
-    final schema = widget.controller.schema;
+    final schema = widget.controller.schemaSupport;
     final hasSchema = schema != null;
     var allowedSectionTypes = <SectionTypeInfo>[];
     List<String> schemaFields = const [];
 
     if (schema != null) {
-      final schemaHelper = widget.controller.schemaHelper;
-      final tmpl = SchemaTemplateHelper(schema);
+      final document = widget.controller.document;
 
-      // Find parent section to get allowed child types.
+      // A child of another section takes its allowed subsection types; a
+      // top-level section the allowed top-level types of the document
+      // structure.
       final parent = _findParentSection(section);
-      if (parent != null) {
-        // Child of another section - get allowed subsection types.
-        final allowed = schemaHelper?.getAllowedSubsections(
-          parent,
-          document: widget.controller.document,
-        );
-        if (allowed != null) {
-          allowedSectionTypes = allowed.map((sub) {
-            final prefix = sub.typeDef?.prefix ?? sub.typeName;
-            final patternInfo = tmpl.getIdPatternInfo(sub.typeName);
-            return (
-              typeName: sub.typeName,
-              prefix: prefix,
-              idPattern: patternInfo?.pattern,
-              idPatternErrorMessage: patternInfo?.errorMessage,
-            );
-          }).toList();
-        }
-      } else {
-        // Top-level section - get allowed top-level types from document structure.
-        final topLevel = schemaHelper?.getAllowedTopLevelSections() ?? [];
-        allowedSectionTypes = topLevel.map((top) {
-          final prefix = top.typeDef?.prefix ?? top.sectionType;
-          final patternInfo = tmpl.getIdPatternInfo(top.sectionType);
-          return (
-            typeName: top.sectionType,
-            prefix: prefix,
-            idPattern: patternInfo?.pattern,
-            idPatternErrorMessage: patternInfo?.errorMessage,
-          );
-        }).toList();
-      }
+      final types = parent != null
+          ? schema.allowedSubsections(parent, document)
+          : schema.allowedTopLevelSections();
+      allowedSectionTypes = types
+          .map(
+            (type) => (
+              typeName: type.typeName,
+              prefix: type.prefix ?? type.typeName,
+              idPattern: type.idPattern,
+              idPatternErrorMessage: type.idPatternErrorMessage,
+            ),
+          )
+          .toList();
 
       // Get required fields for current section type.
-      if (schemaHelper != null) {
-        final typeName = schemaHelper.getSectionTypeName(
-          section,
-          document: widget.controller.document,
-        );
-        if (typeName != null) {
-          schemaFields = tmpl.getRequiredFields(typeName);
-        }
+      final typeName = schema.sectionTypeName(section, document);
+      if (typeName != null) {
+        schemaFields = schema.requiredFields(typeName);
       }
     }
 

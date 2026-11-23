@@ -5,9 +5,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart';
+import 'package:tom_md_docspecs/tom_md_docspecs.dart';
 import 'package:tom_md_editor/tom_md_editor.dart';
 
 import 'package:tom_forge_kit/tom_forge_kit.dart';
+
+import 'md_plugins.dart';
 
 /// Adapter that wraps [MdEditorController] as a [ForgeTextEditor].
 class ForgeMdEditor extends ForgeTextEditor implements ForgeEditorOfType {
@@ -133,8 +136,13 @@ class ForgeMdEditor extends ForgeTextEditor implements ForgeEditorOfType {
       integration: _integration,
       theme: theme,
       settings: settings,
+      plugins: _plugins,
     );
   }
+
+  /// The content plugins the editor runs with ([forgeMdContentPlugins]),
+  /// one list for the editor's life so its plugin registry is built once.
+  final List<MdContentPlugin> _plugins = forgeMdContentPlugins();
 
   /// Builds an [MdEditorTheme] applying current [_options] to the base theme.
   MdEditorTheme _buildThemeFromOptions() {

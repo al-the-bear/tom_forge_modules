@@ -1,13 +1,13 @@
 /// Browsing in tom_md_editor (wonecmpc24): links resolved into the
 /// workspace, back/forward history with the reading position, a navigator
-/// over a controller, following the end of a growing file (live trail), and
-/// mermaid fences rendered as diagrams in the preview.
+/// over a controller, and following the end of a growing file (live trail).
+/// A mermaid fence drawn as a diagram is the Mermaid plugin's
+/// (`tom_md_mermaid`, BR-8).
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
-import 'package:tom_mermaid_view/tom_mermaid_view.dart' show MermaidWebView;
 import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_md_editor/tom_md_editor.dart';
 
@@ -195,26 +195,5 @@ void main() {
       expect(position().pixels, position().maxScrollExtent);
       expect(find.byKey(const ValueKey('md-follow-tail')), findsNothing);
     });
-  });
-
-  testWidgets('BR-8: a mermaid fence is drawn as a diagram', (tester) async {
-    final c = MdEditorController(
-      initialMarkdown: '# D\n\n```mermaid\nflowchart TD\n  A-->B\n```\n',
-    );
-    addTearDown(c.dispose);
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: MdPreviewPanel(
-            controller: c,
-            theme: MdEditorTheme.light(),
-            settings: const MdEditorSettings(readOnly: true),
-          ),
-        ),
-      ),
-    );
-    await tester.pump();
-    final view = tester.widget<MermaidWebView>(find.byType(MermaidWebView));
-    expect(view.source.trim(), 'flowchart TD\n  A-->B');
   });
 }

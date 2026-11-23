@@ -1,9 +1,10 @@
 # Tom Markdown Editor
 
 A Flutter Markdown editor and reader: a rendered view with section navigation,
-a raw editor, search and replace, code blocks, tables, math and mermaid
-diagrams, DocSpecs schema validation — and in-place document reviews and
-workspace browsing.
+a raw editor, search and replace, code blocks and tables, guarded in-place
+edits and workspace browsing. Diagrams, math, DocSpecs schemas, reviews and
+documents on a web server come as plugin packages, which the editor does not
+depend on.
 
 ## Features
 
@@ -11,34 +12,45 @@ workspace browsing.
   (`MdEditorController`) with one history: typing is one undo entry per
   gesture, every other operation one entry, dirty measured against the saved
   text.
-- **Reviews** — guarded in-place line edits, CriticMarkup marks accepted or
-  rejected and review comments added with ids and author, through the
-  TomSpecs Dart runtime (`tom_som_dart_runtime`), giving the same file as the
-  VS Code extension's Markdown Browser.
+- **Guarded line edits** — `applyLineEdit` replaces lines only while they
+  still hold what the reader was shown, so a file changed since is refused,
+  never overwritten.
 - **Browsing** — links resolved into the workspace (`MdLinkResolver`), back
   and forward with the reading position (`MdBrowserNavigator`), and following
   the end of a growing file such as a live trail (`followTail`,
   `MdFileFollower`).
-- **Diagrams and math** — mermaid fences drawn by mermaid.js, LaTeX math.
+- **Extension points** — content plugins (`MdContentPlugin`: a fenced or
+  preprocessed block, inline syntax), document providers
+  (`MdDocumentProvider`) and a document schema (`MdSchemaSupport`).
+
+## Plugins
+
+Each heavy feature is its own package; add the ones you want:
+
+| Package | What it brings | How to add it |
+| ------- | -------------- | ------------- |
+| `tom_md_mermaid` | Mermaid diagrams drawn by mermaid.js in a webview | `MdEditor(plugins: [mdMermaidPlugin()])` |
+| `tom_md_math` | LaTeX math, `$$…$$` and `$…$` | `MdEditor(plugins: [mdMathPlugin()])` |
+| `tom_md_docspecs` | DocSpecs schemas: validation, typed sections, forms, scaffolding | `controller.setSchema(schema)` |
+| `tom_md_review` | CriticMarkup marks and review comments, as the VS Code Markdown Browser writes them | `controller.addReviewComment(...)` (import the package) |
+| `tom_md_http` | A document on a web server (GET to open, PUT to save) | `MdEditor(documentProvider: HttpDocumentProvider(url: ...))` |
+
+Without them the editor shows the document as Markdown: a Mermaid fence is a
+code block, math its LaTeX source, review markup its text.
 
 ## Usage
 
 ```dart
 final controller = MdEditorController(initialMarkdown: '# Notes\n');
 
-MdEditor(controller: controller);
-
-// A review comment after the paragraph on line 2, by this machine's user.
-controller.addReviewComment(
-  blockStart: 2,
-  blockEnd: 3,
-  text: 'Is this still true?',
-  author: mdLocalCommentAuthor(),
+MdEditor(
+  controller: controller,
+  plugins: [mdMermaidPlugin(), mdMathPlugin()],
 );
 ```
 
-`doc/md_editor_specification.md` describes every feature; §11 is reviews,
-§12 browsing.
+`doc/how_to_embed.md` shows each plugin in an application;
+`doc/md_editor_specification.md` describes every feature.
 
 ## License
 

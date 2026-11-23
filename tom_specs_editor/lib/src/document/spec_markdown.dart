@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:tom_md_editor/tom_md_editor.dart';
+import 'package:tom_md_math/tom_md_math.dart';
+import 'package:tom_md_mermaid/tom_md_mermaid.dart';
 
 /// Inline markdown renderer used for every label, help text and content preview
 /// in the document editor (`tom_specs_editor_specification.md` §13,
@@ -217,8 +219,8 @@ class _RichMarkdownState extends State<_RichMarkdown> {
         // tables/math/mermaid render whenever the content uses them.
         pluginRegistry: MdPluginRegistry([
           MdTablePlugin(),
-          MdMathPlugin(),
-          MdMermaidPlugin(),
+          mdMathPlugin(),
+          mdMermaidPlugin(),
           MdCodePlugin(),
         ]),
       ),

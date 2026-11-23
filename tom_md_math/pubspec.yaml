@@ -1,0 +1,31 @@
+name: tom_md_math
+description: >-
+  LaTeX math for the Markdown editor (tom_md_editor): a plugin that renders and
+  edits display and inline math with flutter_math_fork. License: BSD-3-Clause.
+version: 0.1.0
+publish_to: none
+repository: https://github.com/al-the-bear/tom_forge
+
+environment:
+  sdk: ^3.11.0
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # The editor this package is a plugin of (MdContentPlugin).
+  tom_md_editor:
+    path: ../tom_md_editor
+  # The math renderer.
+  flutter_math_fork: ^0.7.2
+  # Inline math: the preview's inline syntax and its element builder.
+  flutter_markdown: ^0.7.6
+  markdown: ^7.2.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
