@@ -1398,9 +1398,10 @@ packages:
   tom_doc_specs:
     dependency: transitive
     description:
-      path: "../../tom_ai/ai_build/tom_doc_specs"
-      relative: true
-    source: path
+      name: tom_doc_specs
+      sha256: "1252a03b40712d28e6083dde108903c6c66b907f02680313ffe26ea459946aee"
+      url: "https://pub.dev"
+    source: hosted
     version: "0.4.0"
   tom_editors_shared:
     dependency: "direct main"
@@ -1598,7 +1599,7 @@ packages:
       path: "../../tom_ai/modules/tom_text_highlight"
       relative: true
     source: path
-    version: "0.1.0"
+    version: "0.2.0"
   tom_todo_model:
     dependency: transitive
     description:
