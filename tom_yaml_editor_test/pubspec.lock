@@ -377,7 +377,7 @@ packages:
       path: "../../tom_ai/modules/tom_file_session_ui"
       relative: true
     source: path
-    version: "0.1.0"
+    version: "0.1.1"
   tom_file_system:
     dependency: transitive
     description:
