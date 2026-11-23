@@ -284,6 +284,34 @@ void main() {
       await tester.pump(const Duration(seconds: 30));
     });
 
+    testWidgets('FPDFJS-DIRTY-1: the dirty marker follows pdf.js\'s '
+        'modified state: undoing one of two edits stays dirty, undoing both '
+        'reads clean (officeproto31hg)', (tester) async {
+      final w = Workspace();
+      final a = w.add('/docs/a.pdf');
+      w.module.editorChoicesFor(a)[1].open(a);
+      final js = w.editorOf(a)! as ForgePdfJsEditor;
+      await w.show(tester, js);
+      final page = w.pages.single;
+      expect(js.isDirty.value, isFalse);
+      page
+        ..add('ink A')
+        ..add('ink B');
+      await tester.pumpAndSettle();
+      expect(js.isDirty.value, isTrue);
+      js.executeAction(_undo);
+      await tester.pumpAndSettle();
+      expect(page.annotations, ['ink A']);
+      expect(js.isDirty.value, isTrue, reason: 'edit A is still stored');
+      js.executeAction(_undo);
+      await tester.pumpAndSettle();
+      expect(page.annotations, isEmpty);
+      expect(js.isDirty.value, isFalse, reason: 'the storage is empty');
+      js.executeAction(_redo);
+      await tester.pumpAndSettle();
+      expect(js.isDirty.value, isTrue);
+    });
+
     testWidgets('FPDFJS-REOPEN-1: replaceContent answers false; closing the '
         'editor closes the page and the next open starts anew', (tester) async {
       final w = Workspace();

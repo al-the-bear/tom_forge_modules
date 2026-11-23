@@ -59,9 +59,10 @@ const forgePdfEditorSkips = <ForgeUndoCheck, String>{
 /// The checks the pdf.js editor skips, with the reason.
 const forgePdfJsEditorSkips = <ForgeUndoCheck, String>{
   ForgeUndoCheck.dirtyFollowsSavedState:
-      'pdf.js\'s annotationStorage stays modified after undoing back to the '
-      'saved state; it has no saved marker. Decided after the comparison '
-      '(officeproto24)',
+      'Forge reopens the document after a save, so pdf.js\'s history starts '
+      'again and nothing can be undone past the save. Undoing back to the '
+      'saved state does read clean (pdf.js resets its modified state when '
+      'the last edit since the open is removed; officeproto31hg)',
   ForgeUndoCheck.caretAfterUndoAndRedo:
       'not applicable: annotations have no caret',
   ForgeUndoCheck.typingUndoneWithinPause:
@@ -202,6 +203,12 @@ class ScriptedPdfJsPage extends FakePdfJsChannel {
   final _undo = <String>[];
   final _redo = <String>[];
 
+  /// The annotations made since the open (or the last save), as pdf.js's
+  /// `annotationStorage` holds them: an edit sets `modified`, and removing
+  /// the last value of the storage (undo of the only edit since the open)
+  /// resets it.
+  final _storage = <String>[];
+
   @override
   Future<void> load(Uri page) async {
     await super.load(page);
@@ -213,18 +220,26 @@ class ScriptedPdfJsPage extends FakePdfJsChannel {
     await super.call(function, args);
     switch (function) {
       case 'open':
+        // A (re)open starts with an empty storage and a new history, as
+        // pdf.js does for a new document.
+        _storage.clear();
+        _undo.clear();
+        _redo.clear();
         send({'type': 'loaded', 'pageCount': 1, 'ms': 1});
         send({'type': 'textLayer', 'value': true});
       case 'undo':
         if (_undo.isEmpty) return;
-        _redo.add(annotations.removeLast());
+        final a = annotations.removeLast();
+        _redo.add(a);
         _undo.removeLast();
+        _storage.remove(a);
         _history();
       case 'redo':
         if (_redo.isEmpty) return;
         final a = _redo.removeLast();
         annotations.add(a);
         _undo.add(a);
+        _storage.add(a);
         _history();
     }
   }
@@ -233,6 +248,16 @@ class ScriptedPdfJsPage extends FakePdfJsChannel {
   void add(String text) {
     annotations.add(text);
     _undo.add(text);
+    _redo.clear();
+    _storage.add(text);
+    _history();
+  }
+
+  /// The document was saved and reopened from the new file, as Forge does
+  /// after a save: the storage is empty, the history starts again.
+  void savedAndReopened() {
+    _storage.clear();
+    _undo.clear();
     _redo.clear();
     _history();
   }
@@ -243,7 +268,7 @@ class ScriptedPdfJsPage extends FakePdfJsChannel {
       'canUndo': _undo.isNotEmpty,
       'canRedo': _redo.isNotEmpty,
     });
-    send({'type': 'modified', 'value': true});
+    send({'type': 'modified', 'value': _storage.isNotEmpty});
   }
 }
 
@@ -267,6 +292,10 @@ class ForgePdfJsEditorSubject extends ForgeUndoSubject {
 
   @override
   String textOf(WidgetTester tester) => page.annotations.join();
+
+  /// A save: Forge writes the file and reopens it (`TomPdfJsController.save`).
+  @override
+  Future<void> saved() async => page.savedAndReopened();
 
   @override
   void dispose() => unawaited(editor.close());

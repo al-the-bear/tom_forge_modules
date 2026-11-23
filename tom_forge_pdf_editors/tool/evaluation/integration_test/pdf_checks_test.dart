@@ -425,9 +425,10 @@ void main() {
             true;
 
         // ---------------------------------------------------- engine checks
-        // The fake (ScriptedPdfJsPage) models pdf.js's history and reports
-        // `modified: true` after every change, undo included: it does not
-        // clear when undo returns to the saved state.
+        // The fake (ScriptedPdfJsPage) models pdf.js's history and its
+        // annotation storage: an edit sets `modified`, an undo that removes
+        // the last edit since the open (or the save, after which Forge
+        // reopens) resets it.
         results['engine_checks'] = await _measure('$route engine', () async {
           final path = EvalConfig.copy('pdf-text.pdf', 'checks-$route.pdf');
           final (c, view) = await open(path);
@@ -449,8 +450,10 @@ void main() {
             () => !c.isDirty,
             timeout: const Duration(seconds: 3),
           );
-          checks['undo back to the saved state: still dirty (the storage stays modified)'] =
-              _check(true, c.isDirty);
+          checks['undo back to the saved state: clean'] = _check(
+            false,
+            c.isDirty,
+          );
           await ink(c, view, 0.7);
           await within(tester, () => !c.canRedo);
           checks['a new edit after undo ends the redo'] = _check(
@@ -465,7 +468,57 @@ void main() {
             what: '$route saved and reopened',
           );
           checks['a save clears dirty'] = _check(false, c.isDirty);
+          // Forge reopens after a save: pdf.js's history starts again.
+          checks['after the save: nothing to undo (reopened)'] = _check(
+            false,
+            c.canUndo,
+          );
           await close(c);
+          // Two edits after the save, undone one by one (officeproto31hg):
+          // the saved file opened again, as the save's reopen leaves it (an
+          // empty storage, a new history).
+          final (c2, view2) = await open(path, textLayer: false);
+          // How many values pdf.js's annotation storage holds.
+          Future<Object?> storage() => js(
+            view2,
+            'forgeBridge.test.document?.annotationStorage.size ?? null',
+          );
+          Future<void> settle() async {
+            await idle(tester, const Duration(milliseconds: 1500));
+            await c2.checkModified();
+            await idle(tester, const Duration(milliseconds: 500));
+          }
+
+          await ink(c2, view2, 0.4);
+          await within(tester, () => c2.isDirty && c2.canUndo);
+          await settle();
+          final afterA = await storage();
+          await ink(c2, view2, 0.8);
+          await settle();
+          final afterB = await storage();
+          await c2.undo();
+          await within(tester, () => c2.canRedo);
+          await settle();
+          checks['after the save, two edits, one undone: dirty'] = {
+            ..._check(true, c2.isDirty),
+            'storage_size_after_edit_a': afterA,
+            'storage_size_after_edit_b': afterB,
+            'storage_size_after_undo_b': await storage(),
+          };
+          checks['after the save, two edits, one undone: undo enabled'] =
+              _check(true, c2.canUndo);
+          await c2.undo();
+          await within(tester, () => !c2.canUndo);
+          await settle();
+          checks['after the save, both edits undone: nothing to undo'] = _check(
+            false,
+            c2.canUndo,
+          );
+          checks['after the save, both edits undone: clean'] = {
+            ..._check(false, c2.isDirty),
+            'storage_size_after_undo_a': await storage(),
+          };
+          await close(c2);
           return _engineChecks(
             checks,
             'ink strokes drawn through the bridge\'s pointer events',

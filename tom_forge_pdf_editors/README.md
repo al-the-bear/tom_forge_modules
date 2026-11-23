@@ -81,7 +81,7 @@ conformance is decided after the comparison, `officeproto24`):
 
 | Check | `ForgePdfEditor` (PDFium) | `ForgePdfJsEditor` |
 | --- | --- | --- |
-| `dirtyFollowsSavedState` | **runs** | skipped: pdf.js's `annotationStorage` stays modified after undoing back to the saved state (no saved marker) |
+| `dirtyFollowsSavedState` | **runs** | skipped: Forge reopens the document after a save, so pdf.js's history starts again and nothing can be undone past the save. Undoing back to the saved state does read clean (`FPDFJS-DIRTY-1`) |
 | `caretAfterUndoAndRedo` | skipped: not applicable, annotations have no caret | skipped: not applicable |
 | `typingUndoneWithinPause` | skipped: not applicable, nothing is typed into the document (a note's text is one step) | skipped: not applicable, pdf.js groups its own editing |
 | `noRedoAfterTyping` | **runs** | **runs** |
