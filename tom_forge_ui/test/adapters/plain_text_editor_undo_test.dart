@@ -46,6 +46,8 @@ void main() {
     expect(editor.executeAction(StandardEditingActions.undoActionId), isTrue);
     await tester.pump();
     expect(editor.session.text, 'one');
+    // The source shows the session's text in the next frame.
+    await tester.pump();
     expect(find.text('one'), findsOneWidget);
 
     expect(editor.executeAction(StandardEditingActions.redoActionId), isTrue);

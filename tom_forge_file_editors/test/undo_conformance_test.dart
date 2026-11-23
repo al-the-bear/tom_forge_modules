@@ -13,7 +13,9 @@ import 'package:tom_forge_file_editors_testing/tom_forge_file_editors_testing.da
 import 'package:tom_forge_file_editors/tom_forge_file_editors.dart';
 import 'package:tom_forge_ui_testing/tom_forge_ui_testing.dart';
 import 'package:tom_forge_shell/tom_forge_shell.dart'
-    show DefaultShellApi, ForgePlainTextEditor, TomForgeShellModule;
+    show DefaultShellApi, TomForgeShellModule;
+import 'package:tom_forge_plain_text_editor/tom_forge_plain_text_editor.dart'
+    show ForgePlainTextEditor;
 
 TomForgeShellModule _module() => TomForgeShellModule()
   ..activate(

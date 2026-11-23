@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- `forgeMarkdownEditorType` carries the editor's own actions
+  (`ForgeKitEditorType.actionDescriptors`: `MdEditorActions.descriptors`, now
+  the editor package's), which the panel shell lists before an editor is
+  open.
 - The Markdown file kind `forgeMarkdownFileKind` (a `ForgeKitFileKind`) and its editor
   `ForgeMarkdownFileEditor`, moved here from `tom_forge_file_editors`: the editor
   over a `ForgeFileSession`, bound through the kit's `ForgeSessionFile` and

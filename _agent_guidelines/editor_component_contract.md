@@ -20,7 +20,7 @@ An editor component works without the shell.
 | Shell-free | The package does not depend on `tom_forge_ui`; the shell wraps the component in an adapter | `platform_layering_test.dart` PL-2 |
 | One history per document | Edits go on the controller's `TomUndoStack` (`tom_undo`; text edits as `TextUndoEntry` from `tom_editors_shared`); typing is grouped by `forgeTypingPause`; the text field's own undo is off (`ForgeEditorOwnsUndo`); dirty is measured against a `ForgeSavedMarker` — the history contract, `tom_forge_ui/_agent_guidelines/editor_history_contract.md` | the conformance runs of its shell editor (§2) |
 | Actions by id | The component's actions have `<source>.<action>` ids (`md.toggleBold`, `dart.triggerCompletion`, `yaml.addKey`: the action sets in `tom_editors_shared/lib/src/text_editing/*_editor_actions.dart`); a host learns them as `EditorActionDescriptor`s (`ForgeEditorIntegration.actionDescriptors`) and runs them by id (`executeAction`) | — |
-| Integration, not reach-through | A host drives the component through a `ForgeEditorIntegration` (`tom_editors_shared`: text context, action descriptors, `ForgeTextSettings`, text and selection listeners, focus); the standalone integrations are `MdStandaloneIntegration` and `DartStandaloneIntegration` (on `BaseStandaloneIntegration`) and `YamlStandaloneIntegration`, the shell's is `ShellEditorIntegration` | — |
+| Integration, not reach-through | A host drives the component through a `ForgeEditorIntegration` (`tom_editors_shared`: text context, action descriptors, `ForgeTextSettings`, text and selection listeners, focus); the standalone integrations are the editors' own, with their action sets: `MdStandaloneIntegration` and `MdEditorActions` (`tom_md_editor`), `DartStandaloneIntegration` and `DartEditorActions` (`tom_dart_editor`), both on `BaseStandaloneIntegration`, and `YamlStandaloneIntegration` and `YamlEditorActions` (`tom_yaml_editor`); the shell's is `ShellEditorIntegration` | — |
 | Settings injected | Font, line height, tab size, word wrap, line numbers and history depth come from `ForgeTextSettings`, not constants | — |
 | Debug trail | A `*_trail.dart` file in `lib/src/` with a top-level `bool` switch `k…Debug`, off by default ([debug_mode.md](debug_mode.md)) | EC-4 |
 | Runs on the web | `test/web_build_test.dart` compiles the component for the web through `tom_web_build_probe` | EC-4 |
@@ -69,7 +69,8 @@ their runs is in the contract test (EC-1, EC-2):
 
 | Document editor | Package | Conformance run |
 | --------------- | ------- | --------------- |
-| `ForgeMdEditor`, `ForgeDartEditor`, `ForgeYamlEditor`, `ForgePlainTextEditor` | `tom_forge_ui` | `tom_forge_ui/test/undo/adapters_undo_conformance_test.dart` |
+| `ForgeMdEditor`, `ForgeDartEditor`, `ForgeYamlEditor` | `tom_forge_ui` | `tom_forge_ui/test/undo/adapters_undo_conformance_test.dart` |
+| `ForgePlainTextEditor` | `tom_forge_plain_text_editor` | `tom_forge_plain_text_editor/test/undo_conformance_test.dart` (and in `tom_forge_ui`'s run beside the other adapters) |
 | `ForgeMarkdownFileEditor`, `ForgeYamlFileEditor`, `ForgeEnvFileEditor`, `ForgeTodoFileEditor` | `tom_forge_file_editors` | `tom_forge_file_editors/test/undo_conformance_test.dart` |
 | `WebsiteConfigEditor` | `tom_website_editor` | `tom_website_editor/test/website_config_editor_undo_conformance_test.dart` |
 | `SpecFileEditor` | `tom_specs_editor` | `tom_specs_editor/test/spec_file_editor_undo_conformance_test.dart` |

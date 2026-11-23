@@ -25,8 +25,9 @@ import 'package:tom_forge_shell/tom_forge_shell.dart'
         DefaultModuleRegistry,
         DefaultShellApi,
         ForgeModule,
-        ForgePlainTextEditor,
         TomForgeShellModule;
+import 'package:tom_forge_plain_text_editor/tom_forge_plain_text_editor.dart'
+    show ForgePlainTextEditor;
 
 const _undo = StandardEditingActions.undoActionId;
 const _redo = StandardEditingActions.redoActionId;

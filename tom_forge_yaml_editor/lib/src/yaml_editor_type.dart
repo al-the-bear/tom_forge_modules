@@ -12,6 +12,7 @@ final ForgeKitEditorType forgeYamlEditorType = ForgeKitEditorType(
   label: 'YAML Editor',
   description: 'Edit with YAML structure view',
   extensions: const ['yaml', 'yml'],
+  actionDescriptors: YamlEditorActions.descriptors,
   create: (request) => ForgeYamlEditor(
     controller: YamlEditorController(
       initialYaml: request.content,

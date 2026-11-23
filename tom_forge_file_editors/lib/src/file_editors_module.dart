@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:tom_forge_kit/tom_forge_kit.dart';
 import 'package:tom_forge_shell/tom_forge_shell.dart'
-    show
-        ForgeEditorChoice,
-        ForgeModule,
-        ForgePlainTextEditor,
-        ForgeShellApi,
-        TomForgeShellModule;
+    show ForgeEditorChoice, ForgeModule, ForgeShellApi, TomForgeShellModule;
+import 'package:tom_forge_plain_text_editor/tom_forge_plain_text_editor.dart'
+    show ForgePlainTextEditor;
 
 import 'env_file_editor.dart';
 import 'file_kind.dart';

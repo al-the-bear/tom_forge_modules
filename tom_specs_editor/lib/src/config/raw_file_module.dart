@@ -1,7 +1,9 @@
 import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_forge_kit/tom_forge_kit.dart';
 import 'package:tom_forge_shell/tom_forge_shell.dart'
-    show ForgeModule, ForgePlainTextEditor, ForgeShellApi;
+    show ForgeModule, ForgeShellApi;
+import 'package:tom_forge_plain_text_editor/tom_forge_plain_text_editor.dart'
+    show ForgePlainTextEditor;
 
 /// Opens the backing YAML/markdown file for a config editor
 /// (`tom_specs_editor_specification.md` §12, E2).

@@ -28,6 +28,10 @@ dependencies:
     path: ../tom_forge_dart_editor
   tom_forge_yaml_editor:
     path: ../tom_forge_yaml_editor
+  # The plain-text editor the shell falls back to, re-exported
+  # (ForgePlainTextEditor).
+  tom_forge_plain_text_editor:
+    path: ../tom_forge_plain_text_editor
   # Re-exported for one release, with the shell-typed helpers it keeps
   # (dartSummaryAssets, registerMdEditor and its twins).
   tom_forge_code_editors:

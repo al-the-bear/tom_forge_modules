@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- `forgeDartEditorType` carries the editor's own actions
+  (`ForgeKitEditorType.actionDescriptors`: `DartEditorActions.descriptors`, now
+  the editor package's), which the panel shell lists before an editor is
+  open.
 - The analysis comes from the Dart editor's plugin `tom_dart_analysis`
   (`SummaryBackedDartAnalysisAdapter`, and `DartSyntaxHighlighter`, given to
   the editor as its highlighter), so Forge's Dart editing is as before:

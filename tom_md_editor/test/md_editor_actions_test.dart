@@ -1,6 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tom_editors_shared/tom_editors_shared.dart';
+import 'package:tom_md_editor/tom_md_editor.dart';
 
 void main() {
   group('MdEditorActions', () {
@@ -30,7 +30,11 @@ void main() {
           MdEditorActions.searchActionId,
         ];
         for (final id in ids) {
-          expect(id, startsWith('md.'), reason: 'Action $id should start with md.');
+          expect(
+            id,
+            startsWith('md.'),
+            reason: 'Action $id should start with md.',
+          );
         }
       });
     });
@@ -183,17 +187,23 @@ void main() {
         expect(action.showInContextMenu, true);
       });
 
-      test('contextMenuActions returns only actions with showInContextMenu', () {
-        final actions = MdEditorActions.contextMenuActions();
-        expect(actions.length, greaterThanOrEqualTo(2));
-        for (final action in actions) {
-          expect(action.showInContextMenu, true,
-              reason: '${action.id} should have showInContextMenu=true');
-        }
-        final ids = actions.map((a) => a.id).toSet();
-        expect(ids, contains(MdEditorActions.insertTableActionId));
-        expect(ids, contains(MdEditorActions.insertLinkActionId));
-      });
+      test(
+        'contextMenuActions returns only actions with showInContextMenu',
+        () {
+          final actions = MdEditorActions.contextMenuActions();
+          expect(actions.length, greaterThanOrEqualTo(2));
+          for (final action in actions) {
+            expect(
+              action.showInContextMenu,
+              true,
+              reason: '${action.id} should have showInContextMenu=true',
+            );
+          }
+          final ids = actions.map((a) => a.id).toSet();
+          expect(ids, contains(MdEditorActions.insertTableActionId));
+          expect(ids, contains(MdEditorActions.insertLinkActionId));
+        },
+      );
     });
 
     group('shortcut maps', () {

@@ -49,8 +49,10 @@ existing middle panel places the editor in the active one
 It holds its default services
 (`DefaultShellApi`), the scaffold (`ForgeShellScaffold`), panels, editor tab
 bar, menus, command palette, quick open, configuration, the built-in views
-(explorer, outline, output, problems, revisions, search) and the plain-text
-editor. Its look — `ForgeShellTheme`, `forgeThemeData`, `ForgeDimensions`,
+(explorer, outline, output, problems, revisions, search), and opens a file no
+editor type takes in the plain-text editor, `ForgePlainTextEditor` of the
+adapter `tom_forge_plain_text_editor` (which it depends on and does not
+re-export). Its look — `ForgeShellTheme`, `forgeThemeData`, `ForgeDimensions`,
 `ForgeAnimations` and the elements that draw the kit's models — is
 `tom_forge_shared_ui`, which it re-exports, so the applications beside the
 shell share it without depending on the shell. The scaffold draws its title

@@ -5,8 +5,10 @@ import 'package:flutter/widgets.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart' as shared;
 import 'package:tom_forge_kit/tom_forge_kit.dart';
 
+import '../defaults/default_layout_controller.dart';
 import '../module/forge_module.dart';
 import '../shell/forge_shell_api.dart';
+import '../shell/forge_shell_components.dart';
 
 /// The built-in shell module that registers the editor adapters for
 /// known file types (Dart, Markdown, YAML) and provides the forge-level
@@ -336,18 +338,23 @@ class TomForgeShellModule extends ForgeModule implements ForgeKitApiProvider {
 
   // ── Editor descriptor actions ──
 
-  /// Builds placeholder actions for all editor-type descriptors (Standard
-  /// editing, Dart, Markdown, YAML) so their shortcuts are visible in the
-  /// Shortcut Editor from application start.
+  /// Builds placeholder actions for the standard editing actions and the
+  /// actions of every editor type the shell opens files with
+  /// ([ForgeKitEditorType.actionDescriptors]: the Dart, Markdown and YAML
+  /// editors' when the application takes their types) so their shortcuts
+  /// are visible in the Shortcut Editor from application start. The shell
+  /// names no editor: the types bring their actions.
   ///
   /// When an editor opens, [ShellEditorIntegration._registerWithShell]
   /// overwrites these placeholders with the real editor actions.
   void _buildEditorDescriptorActions() {
+    final layout = shellApi.layout;
+    final editorTypes = layout is DefaultLayoutController
+        ? layout.editorTypes
+        : ForgeShellComponents.registered.editorTypes;
     final allDescriptors = [
       ...shared.StandardEditingActions.descriptors,
-      ...shared.DartEditorActions.descriptors,
-      ...shared.MdEditorActions.descriptors,
-      ...shared.YamlEditorActions.descriptors,
+      for (final type in editorTypes) ...type.actionDescriptors,
     ];
 
     for (final desc in allDescriptors) {

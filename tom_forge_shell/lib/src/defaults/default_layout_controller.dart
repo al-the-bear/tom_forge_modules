@@ -5,9 +5,10 @@ import 'package:flutter/foundation.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_forge_kit/tom_forge_kit.dart';
+import 'package:tom_forge_plain_text_editor/tom_forge_plain_text_editor.dart'
+    show ForgePlainTextEditor;
 
 import '../components/forge_editor_choice.dart';
-import '../adapters/forge_plain_text_editor.dart';
 import '../adapters/tom_forge_shell_module.dart';
 import '../model/forge_application.dart';
 import '../module/forge_module.dart';
@@ -1002,12 +1003,14 @@ class DefaultLayoutController implements ForgeLayoutController {
           fileSystem: _fileSystem,
           uri: uri,
           module: ownerModule,
+          api: forgeKitApiOf(ownerModule),
         );
       }
       return ForgePlainTextEditor.fromContent(
         content: content,
         uri: uri,
         module: ownerModule,
+        api: forgeKitApiOf(ownerModule),
       );
     }
     final type = _editorType(editorTypeId);

@@ -12,6 +12,7 @@ final ForgeKitEditorType forgeMarkdownEditorType = ForgeKitEditorType(
   label: 'Markdown Editor',
   description: 'Edit with rich markdown preview',
   extensions: const ['md', 'markdown'],
+  actionDescriptors: MdEditorActions.descriptors,
   create: (request) => ForgeMdEditor(
     controller: MdEditorController(
       initialMarkdown: request.content,

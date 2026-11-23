@@ -4,8 +4,9 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tom_forge_shell/tom_forge_shell.dart'
-    show DefaultShellApi, ForgePlainTextEditor;
+import 'package:tom_forge_shell/tom_forge_shell.dart' show DefaultShellApi;
+import 'package:tom_forge_plain_text_editor/tom_forge_plain_text_editor.dart'
+    show ForgePlainTextEditor;
 import 'package:tom_specs_editor/src/config/raw_file_module.dart';
 
 void main() {

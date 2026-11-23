@@ -10,7 +10,6 @@ import 'package:tom_editors_shared/tom_editors_shared.dart'
         EditorStateSnapshot,
         TextEditingContextImpl,
         ValidationSeverity,
-        YamlEditorActions,
         StandardEditingActions;
 import 'package:tom_yaml_editor/tom_yaml_editor.dart';
 

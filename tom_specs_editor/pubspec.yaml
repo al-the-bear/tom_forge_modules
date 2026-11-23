@@ -23,10 +23,12 @@ dependencies:
   # modules there (its own are ForgeModules with activate(ForgeShellApi),
   # AgentChatModule a ForgeKitModule); it brings three applications with
   # their panel layouts (ForgeApplication, PanelLayout and its configs), a
-  # settings section (ForgeConfigPanel) and the shell's plain-text editor for
-  # raw config files (ForgePlainTextEditor).
+  # settings section (ForgeConfigPanel).
   tom_forge_shell:
     path: ../tom_forge_shell
+  # The plain-text editor raw config files open in (ForgePlainTextEditor).
+  tom_forge_plain_text_editor:
+    path: ../tom_forge_plain_text_editor
   # The shell parts the app hands its shell (it is a desktop app of its own):
   # the terminal, the code editor adapters, the platform keychain and the
   # desktop host (native file dialogs, shells, folders).

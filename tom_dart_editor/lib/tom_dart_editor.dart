@@ -49,6 +49,10 @@ export 'src/dart_code_editor.dart'
 
 // Forge editor integration
 export 'src/dart_text_context.dart' show DartTextContext;
+// The Dart editor's own actions (ids, keys, descriptors) and its standalone
+// integration.
+export 'src/dart_editor_actions.dart';
+export 'src/dart_standalone_integration.dart';
 export 'src/editor_trail.dart' show kDartEditorDebug, trailEvent;
 
 // Theme system

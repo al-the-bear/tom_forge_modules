@@ -7,6 +7,8 @@ import '../controller/md_editor_controller.dart';
 import '../debug/md_editor_debug.dart';
 import '../events/md_events.dart';
 import '../integration/editor_trail.dart';
+import '../integration/md_editor_actions.dart';
+import '../integration/md_standalone_integration.dart';
 import '../integration/md_text_context.dart';
 import '../models/md_section.dart';
 import '../plugins/md_content_plugin.dart';

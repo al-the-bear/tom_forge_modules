@@ -1,0 +1,49 @@
+name: tom_forge_plain_text_editor
+description: >-
+  Forge's plain-text editor adapter. `ForgePlainTextEditor` makes the text file editor of tom_file_editors (`TomTextFileEditor`) a Forge text editor over the kit, without the shell: any file Forge has no other editor for, read and saved through a file session.
+  License: BSD-3-Clause.
+publish_to: none
+version: 0.1.0
+repository: https://github.com/al-the-bear/tom_forge
+
+environment:
+  sdk: ^3.10.8
+  flutter: ">=1.17.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # The editor this package adapts (TomTextFileEditor, its host interface,
+  # and the highlighter interface it re-exports).
+  tom_file_editors:
+    path: ../../tom_ai/modules/tom_file_editors
+  # The Forge kit: the editor contract, ForgeKitApi, the file session, the
+  # action integration (ShellEditorIntegration). Never the shell (R9).
+  tom_forge_kit:
+    path: ../tom_forge_kit
+  # The frame the editor shows the state of its file in
+  # (ForgeSessionFileFrame).
+  tom_forge_shared_ui:
+    path: ../tom_forge_shared_ui
+  # Text positions, ranges, options and decorations.
+  tom_forge_core:
+    path: ../tom_forge_core
+  # The editing actions, the key map, the undo depth, the typing pause and the
+  # document adapter the editor reports through.
+  tom_editors_shared:
+    path: ../tom_editors_shared
+  # The file system an editor for a file (ForgePlainTextEditor.forFile) or
+  # for text in memory (ForgePlainTextEditor.fromContent) opens its session
+  # in.
+  tom_file_system:
+    path: ../../tom_ai/basics/tom_file_system
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  # Test support only: Forge's undo conformance harness and the shell its
+  # suites run the editor in (it brings the panel shell to the suites, never
+  # to the adapter).
+  tom_forge_ui_testing:
+    path: ../tom_forge_ui_testing

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- `ForgeKitEditorType.actionDescriptors`: the editor's own actions as its
+  package declares them, so an application lists them (the panel shell: in
+  its shortcut editor) before an editor of the type is open, without naming
+  the editor. Empty by default.
 - File kinds: `ForgeKitFileKind` (an id, a label and icon for Open With, the
   extensions and a factory taking a `ForgeFileKindRequest`: the session, the
   module, the application's API) and `ForgeFileKindRegistry`, which the

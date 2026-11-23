@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tom_editors_shared/tom_editors_shared.dart';
+import 'package:tom_yaml_editor/tom_yaml_editor.dart';
 
 void main() {
   group('YamlEditorActions', () {
@@ -15,30 +15,30 @@ void main() {
 
     group('shortcuts', () {
       test('addKey uses Ctrl+N', () {
-        final shortcut = YamlEditorActions.addKeyShortcut;
+        const shortcut = YamlEditorActions.addKeyShortcut;
         expect(shortcut.primaryModifier, isTrue);
         expect(shortcut.key.keyLabel, 'N');
       });
 
       test('removeKey uses Ctrl+Delete', () {
-        final shortcut = YamlEditorActions.removeKeyShortcut;
+        const shortcut = YamlEditorActions.removeKeyShortcut;
         expect(shortcut.primaryModifier, isTrue);
       });
 
       test('toggleTextMode uses Ctrl+T', () {
-        final shortcut = YamlEditorActions.toggleTextModeShortcut;
+        const shortcut = YamlEditorActions.toggleTextModeShortcut;
         expect(shortcut.primaryModifier, isTrue);
         expect(shortcut.key.keyLabel, 'T');
       });
 
       test('save uses Ctrl+S', () {
-        final shortcut = YamlEditorActions.saveShortcut;
+        const shortcut = YamlEditorActions.saveShortcut;
         expect(shortcut.primaryModifier, isTrue);
         expect(shortcut.key.keyLabel, 'S');
       });
 
       test('search uses Ctrl+F', () {
-        final shortcut = YamlEditorActions.searchShortcut;
+        const shortcut = YamlEditorActions.searchShortcut;
         expect(shortcut.primaryModifier, isTrue);
         expect(shortcut.key.keyLabel, 'F');
       });
@@ -78,7 +78,8 @@ void main() {
       });
 
       test('showInContextMenu can be overridden', () {
-        final action = YamlEditorActions.toggleTextMode(showInContextMenu: true);
+        final action =
+            YamlEditorActions.toggleTextMode(showInContextMenu: true);
         expect(action.showInContextMenu, isTrue);
       });
 

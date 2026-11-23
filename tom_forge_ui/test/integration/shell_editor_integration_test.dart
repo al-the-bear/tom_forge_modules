@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart' as shared;
 import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_md_editor/tom_md_editor.dart' show MdEditorActions;
 
 void main() {
   group('ShellEditorIntegration', () {
@@ -22,7 +23,7 @@ void main() {
         editorId: 'md-editor-1',
         editorTypeId: 'md',
       )..descriptors = [
-          ...shared.MdEditorActions.descriptors,
+          ...MdEditorActions.descriptors,
           ...shared.StandardEditingActions.descriptors,
         ];
       final action = shared.ForgeAction.editing(

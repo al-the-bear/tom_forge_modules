@@ -17,6 +17,7 @@ import 'editors/editor_registry.dart';
 import 'inspector/inspector_dialog.dart';
 import 'inspector/inspector_layouts.dart';
 import 'inspector/subtree_inspector.dart';
+import 'integration/yaml_editor_actions.dart';
 import 'integration/yaml_standalone_integration.dart';
 import 'model/yaml_document_model.dart';
 import 'model/yaml_edit_operation.dart';

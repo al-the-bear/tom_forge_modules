@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/services.dart';
-
-import '../forge_bridge/editor_action_descriptor.dart';
-import '../forge_bridge/forge_action.dart';
-import '../forge_bridge/forge_shortcut_key.dart';
+import 'package:tom_editors_shared/text_types.dart'
+    show ActionContext, EditorActionDescriptor, ForgeAction, ForgeShortcutKey;
 
 /// Constants and factory methods for Dart editor-specific actions.
 ///
@@ -29,19 +27,21 @@ class DartEditorActions {
   // ── Keyboard shortcuts ─────────────────────────────────────────────────
 
   /// Primary shortcut for trigger completion: Ctrl+Space.
-  static final ForgeShortcutKey triggerCompletionShortcut = ForgeShortcutKey(
+  static const ForgeShortcutKey triggerCompletionShortcut = ForgeShortcutKey(
     key: LogicalKeyboardKey.space,
     primaryModifier: true,
   );
 
   /// Alternative: Alt+Space (common on Linux/Windows).
-  static final ForgeShortcutKey triggerCompletionAltShortcut1 = ForgeShortcutKey(
+  static const ForgeShortcutKey triggerCompletionAltShortcut1 =
+      ForgeShortcutKey(
     key: LogicalKeyboardKey.space,
     alt: true,
   );
 
   /// Alternative: Ctrl+I (IntelliJ-style).
-  static final ForgeShortcutKey triggerCompletionAltShortcut2 = ForgeShortcutKey(
+  static const ForgeShortcutKey triggerCompletionAltShortcut2 =
+      ForgeShortcutKey(
     key: LogicalKeyboardKey.keyI,
     primaryModifier: true,
   );
@@ -106,7 +106,7 @@ class DartEditorActions {
           suggestedShortcut: triggerCompletionShortcut,
           suggestedAlternatives: triggerCompletionAltShortcuts,
         ),
-        EditorActionDescriptor(
+        const EditorActionDescriptor(
           id: openReferenceActionId,
           label: 'Open Reference',
           icon: Icons.menu_book,

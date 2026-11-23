@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tom_dart_editor/tom_dart_editor.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart';
 
 void main() {
@@ -25,20 +26,20 @@ void main() {
 
     group('shortcuts', () {
       test('triggerCompletion uses Ctrl+Space', () {
-        final shortcut = DartEditorActions.triggerCompletionShortcut;
+        const shortcut = DartEditorActions.triggerCompletionShortcut;
         expect(shortcut.key, LogicalKeyboardKey.space);
         expect(shortcut.primaryModifier, true);
       });
 
       test('triggerCompletion alt1 uses Alt+Space', () {
-        final shortcut = DartEditorActions.triggerCompletionAltShortcut1;
+        const shortcut = DartEditorActions.triggerCompletionAltShortcut1;
         expect(shortcut.key, LogicalKeyboardKey.space);
         expect(shortcut.alt, true);
         expect(shortcut.primaryModifier, false);
       });
 
       test('triggerCompletion alt2 uses Ctrl+I', () {
-        final shortcut = DartEditorActions.triggerCompletionAltShortcut2;
+        const shortcut = DartEditorActions.triggerCompletionAltShortcut2;
         expect(shortcut.key, LogicalKeyboardKey.keyI);
         expect(shortcut.primaryModifier, true);
       });
@@ -102,12 +103,10 @@ void main() {
         final shortcuts = DartEditorActions.defaultShortcuts;
         expect(shortcuts.length, 1);
         expect(
-            shortcuts
-                .containsKey(DartEditorActions.triggerCompletionActionId),
+            shortcuts.containsKey(DartEditorActions.triggerCompletionActionId),
             true);
         // openReference has no default shortcut
-        expect(
-            shortcuts.containsKey(DartEditorActions.openReferenceActionId),
+        expect(shortcuts.containsKey(DartEditorActions.openReferenceActionId),
             false);
       });
     });
@@ -116,14 +115,13 @@ void main() {
       test('only triggerCompletion has alternative shortcuts', () {
         final alts = DartEditorActions.alternativeShortcuts;
         expect(alts.length, 1);
-        expect(
-            alts.containsKey(DartEditorActions.triggerCompletionActionId),
+        expect(alts.containsKey(DartEditorActions.triggerCompletionActionId),
             true);
       });
 
       test('triggerCompletion has 2 alternative shortcuts', () {
-        final alts = DartEditorActions.alternativeShortcuts[
-            DartEditorActions.triggerCompletionActionId]!;
+        final alts = DartEditorActions
+            .alternativeShortcuts[DartEditorActions.triggerCompletionActionId]!;
         expect(alts.length, 2);
       });
     });
@@ -143,8 +141,8 @@ void main() {
       });
 
       test('openReference descriptor', () {
-        final desc = DartEditorActions.descriptors.firstWhere(
-            (d) => d.id == DartEditorActions.openReferenceActionId);
+        final desc = DartEditorActions.descriptors
+            .firstWhere((d) => d.id == DartEditorActions.openReferenceActionId);
         expect(desc.label, 'Open Reference');
         expect(desc.category, 'Dart Editor');
       });

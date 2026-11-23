@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart';
+import 'package:tom_md_editor/tom_md_editor.dart';
 
 void main() {
   group('MdStandaloneIntegration', () {
@@ -63,8 +64,10 @@ void main() {
         // Verify auto-tracking is off by checking undo not available
         // after a text change
         controller.text = 'hello';
-        expect(integration.isActionEnabled(StandardEditingActions.undoActionId),
-            false);
+        expect(
+          integration.isActionEnabled(StandardEditingActions.undoActionId),
+          false,
+        );
       });
     });
 
@@ -99,7 +102,9 @@ void main() {
         expect(actionIds.contains(StandardEditingActions.copyActionId), true);
         expect(actionIds.contains(StandardEditingActions.pasteActionId), true);
         expect(
-            actionIds.contains(StandardEditingActions.selectAllActionId), true);
+          actionIds.contains(StandardEditingActions.selectAllActionId),
+          true,
+        );
         expect(actionIds.contains(StandardEditingActions.undoActionId), true);
         expect(actionIds.contains(StandardEditingActions.redoActionId), true);
       });
@@ -120,7 +125,8 @@ void main() {
         );
 
         final result = integration.executeAction(
-            MdEditorActions.toggleBoldActionId);
+          MdEditorActions.toggleBoldActionId,
+        );
         expect(result, true);
         expect(invoked, true);
       });
@@ -138,10 +144,7 @@ void main() {
           isEnabled: () => true,
         );
 
-        expect(
-          integration.isActionEnabled(MdEditorActions.saveActionId),
-          true,
-        );
+        expect(integration.isActionEnabled(MdEditorActions.saveActionId), true);
       });
 
       test('can override standard undo/redo handlers', () {
@@ -188,18 +191,15 @@ void main() {
 
         // Standard actions should be present
         final actionIds = map.values.toSet();
+        expect(actionIds.contains(StandardEditingActions.undoActionId), true);
+        expect(actionIds.contains(StandardEditingActions.redoActionId), true);
+        expect(actionIds.contains(StandardEditingActions.cutActionId), true);
+        expect(actionIds.contains(StandardEditingActions.copyActionId), true);
+        expect(actionIds.contains(StandardEditingActions.pasteActionId), true);
         expect(
-            actionIds.contains(StandardEditingActions.undoActionId), true);
-        expect(
-            actionIds.contains(StandardEditingActions.redoActionId), true);
-        expect(
-            actionIds.contains(StandardEditingActions.cutActionId), true);
-        expect(
-            actionIds.contains(StandardEditingActions.copyActionId), true);
-        expect(
-            actionIds.contains(StandardEditingActions.pasteActionId), true);
-        expect(
-            actionIds.contains(StandardEditingActions.selectAllActionId), true);
+          actionIds.contains(StandardEditingActions.selectAllActionId),
+          true,
+        );
       });
 
       test('includes redo shortcut', () {

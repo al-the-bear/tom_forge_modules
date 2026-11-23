@@ -1,9 +1,11 @@
+import 'package:tom_editors_shared/tom_editors_shared.dart'
+    show
+        BaseStandaloneIntegration,
+        EditorActionDescriptor,
+        ForgeTextSettings,
+        StandardEditingActions;
 
-import '../../forge_bridge/editor_action_descriptor.dart';
-import '../dart_editor_actions.dart';
-import '../standard_editing_actions.dart';
-import '../forge_text_settings.dart';
-import 'base_standalone_integration.dart';
+import 'dart_editor_actions.dart';
 
 /// Debug flag for DartStandaloneIntegration.
 bool kDartStandaloneIntegrationDebug = false;

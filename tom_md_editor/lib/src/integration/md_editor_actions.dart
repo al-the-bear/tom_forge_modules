@@ -1,8 +1,6 @@
 import 'package:flutter/services.dart';
-
-import '../forge_bridge/editor_action_descriptor.dart';
-import '../forge_bridge/forge_action.dart';
-import '../forge_bridge/forge_shortcut_key.dart';
+import 'package:tom_editors_shared/text_types.dart'
+    show EditorActionDescriptor, ForgeAction, ForgeShortcutKey;
 
 /// Constants and factory methods for markdown editor-specific actions.
 ///
@@ -249,16 +247,16 @@ class MdEditorActions {
 
   /// Returns a map of primary shortcuts (action ID to shortcut key).
   static Map<String, ForgeShortcutKey> get primaryShortcuts => {
-        toggleBoldActionId: toggleBoldShortcut,
-        toggleItalicActionId: toggleItalicShortcut,
-        toggleCodeActionId: toggleCodeShortcut,
-        insertLinkActionId: insertLinkShortcut,
-        insertTableActionId: insertTableShortcut,
-        insertHeadingActionId: insertHeadingShortcut,
-        toggleListActionId: toggleListShortcut,
-        saveActionId: saveShortcut,
-        searchActionId: searchShortcut,
-      };
+    toggleBoldActionId: toggleBoldShortcut,
+    toggleItalicActionId: toggleItalicShortcut,
+    toggleCodeActionId: toggleCodeShortcut,
+    insertLinkActionId: insertLinkShortcut,
+    insertTableActionId: insertTableShortcut,
+    insertHeadingActionId: insertHeadingShortcut,
+    toggleListActionId: toggleListShortcut,
+    saveActionId: saveShortcut,
+    searchActionId: searchShortcut,
+  };
 
   /// Returns an empty map — no alternative shortcuts are defined for
   /// markdown actions at this time.
@@ -273,9 +271,9 @@ class MdEditorActions {
   /// Call this to get the default set; individual actions can be customized
   /// by calling the factory methods with `showInContextMenu` overrides.
   static List<ForgeAction> contextMenuActions() => [
-        insertTable(),
-        insertLink(),
-      ];
+    insertTable(),
+    insertLink(),
+  ];
 
   /// Returns action descriptors for implemented Markdown editor-specific
   /// actions.

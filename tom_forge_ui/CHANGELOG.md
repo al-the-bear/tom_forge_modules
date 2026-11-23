@@ -1,5 +1,8 @@
 ## Unreleased
 
+* The plain-text editor is the adapter package `tom_forge_plain_text_editor`
+  (`ForgePlainTextEditor` over `tom_file_editors`' text file editor),
+  re-exported here; the shell no longer exports it.
 * The code editors are three adapter packages on the kit, re-exported here:
   `tom_forge_md_editor`, `tom_forge_dart_editor` and `tom_forge_yaml_editor`;
   `forgeDesktopComponents` takes their editor types. `tom_forge_code_editors`

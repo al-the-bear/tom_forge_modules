@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tom_editors_shared/tom_editors_shared.dart';
 import 'package:tom_md_editor/tom_md_editor.dart';
 
 void main() {

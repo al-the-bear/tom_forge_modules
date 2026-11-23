@@ -24,7 +24,6 @@ export 'src/shell/forge_tab_editor_host.dart';
 export 'src/actions/status_bar_item.dart';
 
 // ── Adapters ──
-export 'src/adapters/forge_plain_text_editor.dart';
 export 'src/adapters/tom_forge_shell_module.dart';
 
 // ── Components ──

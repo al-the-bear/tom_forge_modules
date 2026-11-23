@@ -16,6 +16,8 @@ import 'package:tom_editors_shared/tom_editors_shared.dart';
 import 'package:tom_text_highlight/tom_text_highlight.dart';
 
 import 'dart_light_highlighter.dart';
+import 'dart_editor_actions.dart';
+import 'dart_standalone_integration.dart';
 import 'dart_text_context.dart';
 import 'editor_theme.dart';
 import 'editor_trail.dart';

@@ -1,5 +1,8 @@
 ## Unreleased
 
+* The Markdown editor's own actions are this package's: `MdEditorActions`,
+  `MdStandaloneIntegration` and `MdEditorDefaults` moved here from
+  `tom_editors_shared` and are exported by `tom_md_editor.dart`.
 * Code blocks are highlighted through `tom_text_highlight` (YAML, Markdown,
   JSON, shell, `.env`) in the same theme colours; a block in another
   language is plain. The overlay's `code_text_field` controller highlights

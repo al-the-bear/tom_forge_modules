@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The Dart editor's own actions are this package's: `DartEditorActions`,
+  `DartStandaloneIntegration` and `DartEditorDefaults` moved here from
+  `tom_editors_shared` and are exported by `tom_dart_editor.dart`.
 - The editor has no analyzer: `tom_dart_editor` no longer depends on
   `analyzer`. The summary-backed analysis (`SummaryBackedDartAnalysisAdapter`,
   `AnalysisDriverWithPackages`, `createAnalysisDriverWithPackages`,

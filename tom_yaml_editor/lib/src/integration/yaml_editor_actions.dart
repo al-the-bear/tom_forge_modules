@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/services.dart';
-
-import '../forge_bridge/editor_action_descriptor.dart';
-import '../forge_bridge/forge_action.dart';
-import '../forge_bridge/forge_shortcut_key.dart';
+import 'package:tom_editors_shared/text_types.dart'
+    show ActionContext, EditorActionDescriptor, ForgeAction, ForgeShortcutKey;
 
 /// Constants and factory methods for YAML editor-specific actions.
 ///
@@ -40,31 +38,31 @@ class YamlEditorActions {
   // ── Keyboard shortcuts ─────────────────────────────────────────────────
 
   /// Add key: Cmd+N / Ctrl+N.
-  static final ForgeShortcutKey addKeyShortcut = ForgeShortcutKey(
+  static const ForgeShortcutKey addKeyShortcut = ForgeShortcutKey(
     key: LogicalKeyboardKey.keyN,
     primaryModifier: true,
   );
 
   /// Remove key: Cmd+Delete / Ctrl+Delete.
-  static final ForgeShortcutKey removeKeyShortcut = ForgeShortcutKey(
+  static const ForgeShortcutKey removeKeyShortcut = ForgeShortcutKey(
     key: LogicalKeyboardKey.delete,
     primaryModifier: true,
   );
 
   /// Toggle text mode: Cmd+T / Ctrl+T.
-  static final ForgeShortcutKey toggleTextModeShortcut = ForgeShortcutKey(
+  static const ForgeShortcutKey toggleTextModeShortcut = ForgeShortcutKey(
     key: LogicalKeyboardKey.keyT,
     primaryModifier: true,
   );
 
   /// Save: Cmd+S / Ctrl+S.
-  static final ForgeShortcutKey saveShortcut = ForgeShortcutKey(
+  static const ForgeShortcutKey saveShortcut = ForgeShortcutKey(
     key: LogicalKeyboardKey.keyS,
     primaryModifier: true,
   );
 
   /// Search: Cmd+F / Ctrl+F.
-  static final ForgeShortcutKey searchShortcut = ForgeShortcutKey(
+  static const ForgeShortcutKey searchShortcut = ForgeShortcutKey(
     key: LogicalKeyboardKey.keyF,
     primaryModifier: true,
   );
@@ -184,7 +182,7 @@ class YamlEditorActions {
   /// Save and Find are handled by the shell-level `forge.saveAll` and
   /// `forge.focusSearch` actions.
   static List<EditorActionDescriptor> get descriptors => [
-        EditorActionDescriptor(
+        const EditorActionDescriptor(
           id: toggleTextModeActionId,
           label: 'Toggle Text Mode',
           icon: Icons.text_fields,

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- `forgeYamlEditorType` carries the editor's own actions
+  (`ForgeKitEditorType.actionDescriptors`: `YamlEditorActions.descriptors`, now
+  the editor package's), which the panel shell lists before an editor is
+  open.
 - The YAML file kind `forgeYamlFileKind` (a `ForgeKitFileKind`) and its editor
   `ForgeYamlFileEditor`, moved here from `tom_forge_file_editors`: the editor
   over a `ForgeFileSession`, bound through the kit's `ForgeSessionFile` and

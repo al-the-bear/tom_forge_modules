@@ -1,3 +1,5 @@
+import 'package:tom_editors_shared/tom_editors_shared.dart'
+    show EditorActionDescriptor;
 import 'package:tom_file_system/tom_file_system.dart' show TomFileSystem;
 
 import '../kit/forge_kit_api.dart';
@@ -60,6 +62,7 @@ class ForgeKitEditorType {
     required this.create,
     this.description = '',
     this.extensions = const [],
+    this.actionDescriptors = const [],
   });
 
   /// The id an editor of this type answers as
@@ -78,6 +81,13 @@ class ForgeKitEditorType {
 
   /// Makes an editor of this type for one file.
   final ForgeEditor Function(ForgeKitEditorRequest request) create;
+
+  /// The actions of the editor's own (beyond the standard editing actions),
+  /// as the editor declares them: an application lists them — their names
+  /// and suggested keys in its shortcut editor, say — before an editor of
+  /// this type is open. The editor package owns them (e.g.
+  /// `MdEditorActions.descriptors`); empty by default.
+  final List<EditorActionDescriptor> actionDescriptors;
 
   /// Whether this type opens [uri] by default (its extension is one of
   /// [extensions], any case).

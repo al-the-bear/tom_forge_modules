@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tom_dart_editor/tom_dart_editor.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart';
 
 void main() {
@@ -121,14 +122,14 @@ void main() {
         );
 
         expect(
-          integration.isActionEnabled(
-              DartEditorActions.triggerCompletionActionId),
+          integration
+              .isActionEnabled(DartEditorActions.triggerCompletionActionId),
           false,
         );
         enabled = true;
         expect(
-          integration.isActionEnabled(
-              DartEditorActions.triggerCompletionActionId),
+          integration
+              .isActionEnabled(DartEditorActions.triggerCompletionActionId),
           true,
         );
       });
@@ -202,8 +203,8 @@ void main() {
 
         // Alternative shortcuts for triggerCompletion should be present
         final triggerCompletionEntries = map.entries
-            .where((e) =>
-                e.value == DartEditorActions.triggerCompletionActionId)
+            .where(
+                (e) => e.value == DartEditorActions.triggerCompletionActionId)
             .toList();
 
         // At least the alternatives should be present
@@ -213,7 +214,8 @@ void main() {
             greaterThanOrEqualTo(2)); // 2 alt shortcuts
       });
 
-      test('takes a key once: an alternate on a bound key keeps the bound '
+      test(
+          'takes a key once: an alternate on a bound key keeps the bound '
           'action', () {
         final integration = DartStandaloneIntegration(
           controller: controller,
@@ -250,7 +252,7 @@ void main() {
       });
 
       test('defaultSettings has all expected values', () {
-        final settings = DartEditorDefaults.defaultSettings;
+        const settings = DartEditorDefaults.defaultSettings;
         expect(settings.fontFamily, 'JetBrains Mono');
         expect(settings.fontSize, 13.0);
         expect(settings.lineHeight, 1.5);

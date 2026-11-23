@@ -53,19 +53,11 @@ export 'src/text_editing/history/forge_undo_depth.dart';
 export 'src/text_editing/editor_shortcut_map.dart';
 export 'src/text_editing/forge_text_field.dart';
 export 'src/text_editing/integrations/base_standalone_integration.dart';
-export 'src/text_editing/integrations/dart_standalone_integration.dart';
 
-// Dart Editor Actions
-export 'src/text_editing/dart_editor_actions.dart';
-
-// Markdown Editor Actions
-export 'src/text_editing/md_editor_actions.dart';
-
-// Markdown Standalone Integration
-export 'src/text_editing/integrations/md_standalone_integration.dart';
-
-// YAML Editor Actions
-export 'src/text_editing/yaml_editor_actions.dart';
+// The editor-specific action sets and standalone integrations are their
+// editors': MdEditorActions and MdStandaloneIntegration in tom_md_editor,
+// DartEditorActions and DartStandaloneIntegration in tom_dart_editor,
+// YamlEditorActions in tom_yaml_editor.
 
 // Mermaid diagrams (MermaidWebView) are in package:tom_mermaid_view
 // (tom_ai/modules), with the mermaid.js asset and the webview.

@@ -14,6 +14,7 @@ final ForgeKitEditorType forgeDartEditorType = ForgeKitEditorType(
   label: 'Dart Code Editor',
   description: 'Edit with Dart syntax highlighting',
   extensions: const ['dart'],
+  actionDescriptors: DartEditorActions.descriptors,
   create: (request) => ForgeDartEditor(
     controller: DartCodeController(
       initialCode: request.content,

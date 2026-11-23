@@ -76,4 +76,8 @@ export 'src/widgets/raw_editor/md_syntax_highlight_controller.dart';
 
 // Integration
 export 'src/integration/editor_trail.dart';
+// The Markdown editor's own actions (ids, keys, descriptors) and its
+// standalone integration.
+export 'src/integration/md_editor_actions.dart';
+export 'src/integration/md_standalone_integration.dart';
 export 'src/integration/md_text_context.dart';

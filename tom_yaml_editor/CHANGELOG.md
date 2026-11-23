@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `YamlEditorActions` (the YAML editor's own actions) moved here from
+  `tom_editors_shared`; exported by `tom_yaml_editor.dart`.
 - **Breaking:** text mode and the subtree inspector draw through
   `tom_file_editors`' `TomTextSource` instead of `tom_editors_shared`'s
   removed `TextEditorCore`. `SchemaMarkerGenerator.generate` answers

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tom_editors_shared/tom_editors_shared.dart';
+import '../integration/md_standalone_integration.dart' show MdEditorDefaults;
 
 /// Comprehensive basic theme for the markdown editor.
 ///

@@ -5,6 +5,7 @@ import 'package:tom_editors_shared/tom_editors_shared.dart';
 
 import '../yaml_editor_controller.dart';
 import '../yaml_editor_theme.dart';
+import 'yaml_editor_actions.dart';
 
 /// Debug flag for YamlStandaloneIntegration.
 bool kYamlStandaloneIntegrationDebug = false;
