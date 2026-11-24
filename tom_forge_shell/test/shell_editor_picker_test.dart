@@ -114,15 +114,30 @@ void main() {
     );
 
     final answer = await picker.choicesFor(file);
-    expect([for (final c in answer.choices) c.id], ['browser', 'md']);
+    expect(
+      [for (final c in answer.choices) c.id],
+      ['browser', 'md', 'plaintext'],
+    );
     expect(answer.choices, everyElement(isA<ForgeEditorChoice>()));
+    final mdChoice = answer.choices[1];
+    final plainChoice = answer.choices[2];
+    expect(plainChoice.label, 'Plain text');
+
+    // Plain text is offered for text, not for content known to be binary.
+    expect(
+      forgePlainTextOpens(ForgeContentItem(file.uri, contentType: 'text/x-a')),
+      isTrue,
+    );
+    expect(forgePlainTextOpens(ForgeContentItem(file.uri)), isTrue);
+    expect(
+      forgePlainTextOpens(
+        ForgeContentItem(file.uri, contentType: 'application/pdf'),
+      ),
+      isFalse,
+    );
 
     // By extension: the shell's file-type defaults and its preferences.
-    picker.setDefault(
-      file,
-      answer.choices.last,
-      scope: ForgeEditorDefaultScope.extension,
-    );
+    picker.setDefault(file, mdChoice, scope: ForgeEditorDefaultScope.extension);
     expect(shell.getFileTypeDefaults(), {'.md': 'md'});
     expect(preferences.fileTypeDefaultEditors, {'.md': 'md'});
     expect((await picker.choicesFor(file)).defaultChoice?.id, 'md');
@@ -133,13 +148,19 @@ void main() {
     expect((await picker.choicesFor(file)).defaultChoice?.id, 'browser');
 
     // Opening once leaves the default.
-    final md = answer.choices.last as ForgeEditorChoice;
+    final md = mdChoice as ForgeEditorChoice;
     md.open(file.uri, middlePanelIndex: 0);
     await pumpEventQueue();
     expect(
       shell.systemState.openEditors.whereType<_TypeEditor>().single.uri,
       file.uri,
     );
+    picker.openOnce(file, plainChoice);
+    await pumpEventQueue();
+    final plain = shell.systemState.openEditors.where(
+      (e) => forgeEditorTypeIdOf(e) == DefaultLayoutController.plainTextTypeId,
+    );
+    expect(plain.single.uri, file.uri);
     picker.openOnce(file, answer.choices.first);
     expect(module.opened, ['/a.md']);
     expect((await picker.choicesFor(file)).defaultChoice?.id, 'browser');

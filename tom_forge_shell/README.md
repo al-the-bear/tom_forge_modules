@@ -101,6 +101,16 @@ bar with `ForgeKitStatusBar`, the kit's quick pick and input box with
 the context menu with `showForgeKitContextMenu`; its key routing takes the
 kit's (`installForgeStandardEditingActions`, `forgeActionIdForKey`).
 
+**Choosing the editor.** `DefaultShellApi.editorPicker` is a
+`ForgeShellEditorPicker`: the modules' choices, the editor types, the shell's
+own plain-text editor (`Plain text`, for any file of no known binary content
+type, `forgePlainTextOpens`) and the editors open on the file. The editor
+tab's context menu has **Open With ▸** for a file with more than one editor
+(`forgeOpenWithMenuEntry`: an editor opens it once in that tab's panel; **Set
+default for .ext ▸** moves the default), as the file explorer's row menu has;
+the configuration's **File Types** section lists every default, follows one
+moved from the menu and resets it.
+
 It carries no terminal, no code editor, no keychain, no native file dialog
 and no `dart:io`, so it builds where those do not, the web included. They plug
 in through `ForgeShellComponents`:

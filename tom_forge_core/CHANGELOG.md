@@ -1,5 +1,9 @@
 ## Unreleased
 
+- `ForgeContextMenuEntry.children` (a submenu: choosing the entry shows its
+  children instead of running it, `hasChildren`) and `checked` (a checkable
+  entry, drawn with a checkmark when true; null: not checkable). Both are
+  optional; existing entries are unchanged.
 - `ForgeContextMenuEntry`, `ForgeQuickPickItem` and `StatusBarAlignment`
   moved here from `tom_forge_shared_ui`: plain data that `tom_forge_kit`'s
   models and `tom_forge_shared_ui`'s widgets share, so neither depends on the

@@ -1,6 +1,6 @@
 /// The context menu rendering in the shared package: entries in order,
 /// dividers between groups, the disabled reason, the chosen entry runs,
-/// nothing for no entries.
+/// nothing for no entries; checkmarks and submenus.
 library;
 
 import 'package:flutter/gestures.dart' show kSecondaryButton;
@@ -121,5 +121,66 @@ void main() {
   testWidgets('FCM-4: nothing is drawn for no entries', (tester) async {
     await open(tester, const []);
     expect(find.byType(PopupMenuItem<ForgeContextMenuEntry>), findsNothing);
+  });
+  testWidgets('FCM-5: a submenu entry opens its children beside it; the '
+      'chosen child runs, the submenu entry does not', (tester) async {
+    final sub = ForgeContextMenuEntry(
+      id: 'openWith',
+      label: 'Open With',
+      enabled: true,
+      run: () async => ran.add('openWith'),
+      children: [
+        ForgeContextMenuEntry(
+          id: 'md',
+          label: 'Markdown',
+          enabled: true,
+          checked: true,
+          run: () async => ran.add('md'),
+        ),
+        ForgeContextMenuEntry(
+          id: 'text',
+          label: 'Plain text',
+          enabled: true,
+          checked: false,
+          run: () async => ran.add('text'),
+        ),
+      ],
+    );
+    await open(tester, [entry('copy'), sub]);
+    expect(find.byIcon(Icons.arrow_right), findsOneWidget);
+    expect(find.text('Markdown'), findsNothing);
+    final row = tester.getRect(
+      find.byKey(forgeContextMenuEntryKey('openWith')),
+    );
+
+    await tester.tap(find.byKey(forgeContextMenuEntryKey('openWith')));
+    await tester.pumpAndSettle();
+    expect(find.text('Label copy'), findsNothing, reason: 'parent closed');
+    expect(find.text('Markdown'), findsOneWidget);
+    // Beside the row it was chosen from: on its right, where there is room.
+    final child = tester.getRect(find.byKey(forgeContextMenuEntryKey('md')));
+    expect(child.left, closeTo(row.right, 16));
+    expect(child.top, closeTo(row.top, 24));
+    // The checkmark on the checked entry only.
+    expect(find.byKey(forgeContextMenuCheckKey('md')), findsOneWidget);
+    expect(find.byKey(forgeContextMenuCheckKey('text')), findsNothing);
+    expect(find.byIcon(Icons.check), findsOneWidget);
+
+    await tester.tap(find.text('Plain text'));
+    await tester.pumpAndSettle();
+    expect(ran, ['text']);
+    expect(find.text('Markdown'), findsNothing, reason: 'submenu closed');
+  });
+
+  test('FCM-6: an entry neither checkable nor a submenu is drawn as its '
+      'label alone', () {
+    final items = forgeContextMenuItems([entry('a'), entry('b', reason: 'r')]);
+    final plain = items.first as PopupMenuItem<ForgeContextMenuEntry>;
+    expect(plain.child, isA<Text>());
+    expect(plain.onTap, isNull);
+    final disabled = items.last as PopupMenuItem<ForgeContextMenuEntry>;
+    expect((disabled.child! as Tooltip).child, isA<Text>());
+    expect(entry('a').hasChildren, isFalse);
+    expect(entry('a').checked, isNull);
   });
 }

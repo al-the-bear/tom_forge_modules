@@ -2505,6 +2505,14 @@ class _FileTypesSettingsSectionState extends State<_FileTypesSettingsSection> {
   late String _defaultEditor;
   final TextEditingController _newExtController = TextEditingController();
 
+  /// The names of the editors the mappings name beyond [_editorTypeIds]
+  /// (a module's editor made the default from **Open With ▸**), from the
+  /// shell's editor picker.
+  final Map<String, String> _editorLabels = {};
+
+  /// Set while [_save] writes, so its own changes are not read back.
+  bool _saving = false;
+
   @override
   void initState() {
     super.initState();
@@ -2516,15 +2524,82 @@ class _FileTypesSettingsSectionState extends State<_FileTypesSettingsSection> {
     _defaultEditor = _mappings.remove('*') ??
         widget.preferencesService.fileTypeDefaultEditors['*'] ??
         'plaintext';
+    widget.preferencesService.addListener(_onPreferencesChanged);
+    _loadEditorLabels();
   }
 
   @override
   void dispose() {
+    widget.preferencesService.removeListener(_onPreferencesChanged);
     _newExtController.dispose();
     super.dispose();
   }
 
+  /// A default set elsewhere while the section is shown (the checkmark of
+  /// **Open With ▸ Set default for**) shows here at once.
+  void _onPreferencesChanged() {
+    if (_saving || !mounted) return;
+    final stored = widget.preferencesService.fileTypeDefaultEditors;
+    final next = Map<String, String>.from(_mappings);
+    var defaultEditor = _defaultEditor;
+    for (final entry in stored.entries) {
+      if (entry.key == '*') {
+        defaultEditor = entry.value;
+      } else {
+        next[entry.key] = entry.value;
+      }
+    }
+    final unchanged = next.length == _mappings.length &&
+        next.entries.every((e) => _mappings[e.key] == e.value);
+    if (defaultEditor == _defaultEditor && unchanged) return;
+    setState(() {
+      _mappings = next;
+      _defaultEditor = defaultEditor;
+    });
+    _loadEditorLabels();
+  }
+
+  /// Looks up the names of the editors the mappings name that the section
+  /// does not know, from the shell's editor picker.
+  Future<void> _loadEditorLabels() async {
+    final picker = widget.shellApi?.editorPicker;
+    if (picker == null) return;
+    final unknown = {
+      for (final entry in _mappings.entries)
+        if (!_editorTypeIds.contains(entry.value) &&
+            !_editorLabels.containsKey(entry.value))
+          entry.key: entry.value,
+    };
+    if (unknown.isEmpty) return;
+    final found = <String, String>{};
+    for (final extension in unknown.keys) {
+      final choices = await picker.choicesFor(
+        ForgeContentItem(Uri.file('/forge-file-type$extension')),
+      );
+      for (final choice in choices.choices) {
+        found[choice.id] = choice.label;
+      }
+    }
+    if (!mounted || found.isEmpty) return;
+    setState(() => _editorLabels.addAll(found));
+  }
+
+  /// The editors a row's choice offers: the section's own, and the one the
+  /// row names when it is another.
+  List<String> _editorIdsWith(String id) =>
+      _editorTypeIds.contains(id) ? _editorTypeIds : [..._editorTypeIds, id];
+
   void _save() {
+    _saving = true;
+    try {
+      _write();
+    } finally {
+      _saving = false;
+    }
+    widget.onChanged?.call();
+  }
+
+  void _write() {
     final previousPreferenceKeys =
         widget.preferencesService.fileTypeDefaultEditors.keys.toSet();
     final previousShellKeys =
@@ -2547,7 +2622,6 @@ class _FileTypesSettingsSectionState extends State<_FileTypesSettingsSection> {
     widget.preferencesService.setFileTypeDefaultEditor('*', _defaultEditor);
     widget.shellApi?.setFileTypeDefault('*', _defaultEditor);
     widget.preferencesService.save();
-    widget.onChanged?.call();
   }
 
   String _editorTitle(String id) {
@@ -2556,7 +2630,7 @@ class _FileTypesSettingsSectionState extends State<_FileTypesSettingsSection> {
       'dart' => 'Dart',
       'yaml' => 'YAML',
       'plaintext' => 'Plain Text',
-      _ => id,
+      _ => _editorLabels[id] ?? id,
     };
   }
 
@@ -2633,28 +2707,33 @@ class _FileTypesSettingsSectionState extends State<_FileTypesSettingsSection> {
                   const Icon(Icons.arrow_forward, size: 14),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: DropdownButtonFormField<String>(
-                      key: Key('file-type-editor-${entry.key}'),
-                      initialValue: _editorTypeIds.contains(entry.value)
-                          ? entry.value
-                          : _editorTypeIds.first,
-                      decoration: const InputDecoration(
-                        border: OutlineInputBorder(),
-                        contentPadding:
-                            EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                        isDense: true,
+                    // Keyed by the value too: a default set elsewhere
+                    // rebuilds the choice showing it.
+                    child: KeyedSubtree(
+                      key: ValueKey(
+                        'file-type-value-${entry.key}=${entry.value}',
                       ),
-                      style: const TextStyle(fontSize: 12),
-                      items: _editorTypeIds
-                          .map((id) => DropdownMenuItem(
-                              value: id, child: Text(_editorTitle(id))))
-                          .toList(),
-                      onChanged: (value) {
-                        if (value != null) {
-                          setState(() => _mappings[entry.key] = value);
-                          _save();
-                        }
-                      },
+                      child: DropdownButtonFormField<String>(
+                        key: Key('file-type-editor-${entry.key}'),
+                        initialValue: entry.value,
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                          contentPadding:
+                              EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                          isDense: true,
+                        ),
+                        style: const TextStyle(fontSize: 12),
+                        items: _editorIdsWith(entry.value)
+                            .map((id) => DropdownMenuItem(
+                                value: id, child: Text(_editorTitle(id))))
+                            .toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setState(() => _mappings[entry.key] = value);
+                            _save();
+                          }
+                        },
+                      ),
                     ),
                   ),
                   const SizedBox(width: 4),

@@ -37,6 +37,11 @@ class ForgeFileExplorerView extends ForgeView {
   /// own entries. Null draws the explorer's entries alone.
   final ForgeContextMenuController? contextMenus;
 
+  /// The editor picker a file row's **Open With ▸** submenu is built from
+  /// ([forgeOpenWithMenuEntry]): drawn when the file has more than one
+  /// editor. Null draws no submenu.
+  final ForgeEditorPicker? editorPicker;
+
   final _title = ValueNotifier<String>('Explorer');
   final _titleExtension = ValueNotifier<String?>(null);
 
@@ -47,11 +52,14 @@ class ForgeFileExplorerView extends ForgeView {
     this.selection,
     this.fileDecorationManager,
     this.contextMenus,
+    this.editorPicker,
   });
 
   /// The view over [api] showing [rootUri]: its file system, opening files
   /// through the application's [ForgeFileNavigator] ([forgeOpenFileAtOf]),
-  /// with the modules' context-menu entries ([ForgeKitApi.contextMenus]).
+  /// with the modules' context-menu entries ([ForgeKitApi.contextMenus]) and
+  /// the **Open With ▸** submenu of its editor picker
+  /// ([ForgeKitApi.editorPicker]).
   /// It keeps its selection to itself and draws no decorations, as Tom
   /// Forge's explorer does; give [selection] and [fileDecorationManager] to
   /// the constructor for those.
@@ -63,6 +71,7 @@ class ForgeFileExplorerView extends ForgeView {
     openFile: forgeOpenFileAtOf(api),
     rootUri: rootUri,
     contextMenus: api.contextMenus,
+    editorPicker: api.editorPicker,
   );
 
   @override
@@ -87,6 +96,7 @@ class ForgeFileExplorerView extends ForgeView {
       selection: selection,
       fileDecorationManager: fileDecorationManager,
       contextMenus: contextMenus,
+      editorPicker: editorPicker,
     );
   }
 
@@ -101,6 +111,7 @@ class _FileExplorerContent extends StatefulWidget {
   final ForgeExplorerSelection? selection;
   final DefaultFileDecorationManager? fileDecorationManager;
   final ForgeContextMenuController? contextMenus;
+  final ForgeEditorPicker? editorPicker;
 
   const _FileExplorerContent({
     required this.fileSystem,
@@ -109,6 +120,7 @@ class _FileExplorerContent extends StatefulWidget {
     this.selection,
     this.fileDecorationManager,
     this.contextMenus,
+    this.editorPicker,
   });
 
   @override
@@ -314,7 +326,9 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
             // delay — matching the instant expand/collapse users expect.
             onDoubleTap: isDirectory ? null : () => widget.openFile(entryUri),
             onSecondaryTapDown: (details) {
-              _showContextMenu(context, details.globalPosition, entry);
+              unawaited(
+                _showContextMenu(context, details.globalPosition, entry),
+              );
             },
             child: Container(
               color: isSelected
@@ -406,11 +420,11 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
     );
   }
 
-  void _showContextMenu(
+  Future<void> _showContextMenu(
     BuildContext context,
     Offset position,
     TomFileEntry entry,
-  ) {
+  ) async {
     final isDirectory = _isDirectoryEntry(entry);
     final entryUri = entry.uri;
     final path = _absolutePath(entry);
@@ -426,7 +440,15 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
           ),
         ) ??
         const <ForgeContextMenuEntry>[];
-    showMenu<Object>(
+    // Open With ▸ for a file with more than one editor.
+    final picker = widget.editorPicker;
+    ForgeContextMenuEntry? openWith;
+    if (!isDirectory && picker != null) {
+      final choices = await picker.choicesFor(ForgeContentItem(entryUri));
+      openWith = forgeOpenWithMenuEntry(picker, choices);
+      if (!context.mounted) return;
+    }
+    final value = await showMenu<Object>(
       context: context,
       position: RelativeRect.fromLTRB(
         position.dx,
@@ -437,6 +459,7 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
       items: [
         if (!isDirectory)
           const PopupMenuItem(value: 'open', child: Text('Open')),
+        if (openWith != null) ...forgeContextMenuItems([openWith]),
         const PopupMenuItem(value: 'rename', child: Text('Rename...')),
         const PopupMenuItem(value: 'delete', child: Text('Delete')),
         const PopupMenuDivider(),
@@ -447,25 +470,32 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
           ...forgeContextMenuItems(contributed),
         ],
       ],
-    ).then((value) {
-      if (value == null || !mounted) return;
-      if (value is ForgeContextMenuEntry) {
-        value.run();
-        return;
+    );
+    if (value == null || !mounted) return;
+    if (value is ForgeContextMenuEntry) {
+      if (!value.hasChildren) {
+        await value.run();
+      } else if (context.mounted) {
+        await runForgeContextMenuEntry(
+          context,
+          value,
+          globalPosition: position,
+        );
       }
-      switch (value) {
-        case 'open':
-          widget.openFile(entryUri);
-        case 'rename':
-          _showRenameDialog(entry);
-        case 'delete':
-          _showDeleteConfirmation(entry);
-        case 'newFile':
-          _showNewFileDialog(isDirectory ? path : _parentPath(path));
-        case 'newFolder':
-          _showNewFolderDialog(isDirectory ? path : _parentPath(path));
-      }
-    });
+      return;
+    }
+    switch (value) {
+      case 'open':
+        widget.openFile(entryUri);
+      case 'rename':
+        _showRenameDialog(entry);
+      case 'delete':
+        _showDeleteConfirmation(entry);
+      case 'newFile':
+        _showNewFileDialog(isDirectory ? path : _parentPath(path));
+      case 'newFolder':
+        _showNewFolderDialog(isDirectory ? path : _parentPath(path));
+    }
   }
 
   Future<void> _showRenameDialog(TomFileEntry entry) async {

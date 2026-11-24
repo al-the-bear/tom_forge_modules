@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import 'package:tom_forge_shared_ui/tom_forge_shared_ui.dart';
 import 'package:tom_forge_kit/tom_forge_kit.dart';
+import '../components/forge_editor_choice.dart';
 import 'forge_drag_data.dart';
 
 /// Callback for when a tab is dropped onto this tab bar from another panel.
@@ -46,6 +47,12 @@ class ForgeEditorTabBar extends StatefulWidget {
   /// Index of the panel this tab bar belongs to (for drag identity).
   final int panelIndex;
 
+  /// The editor picker the tab menu's **Open With ▸** submenu is built from
+  /// ([forgeOpenWithMenuEntry]): drawn when the tab's file has more than one
+  /// editor, an editor chosen opening in this tab bar's panel. Null draws no
+  /// submenu.
+  final ForgeEditorPicker? editorPicker;
+
   const ForgeEditorTabBar({
     super.key,
     required this.editors,
@@ -58,6 +65,7 @@ class ForgeEditorTabBar extends StatefulWidget {
     this.onCloseMultiple,
     this.onEditActionBar,
     this.panelIndex = 0,
+    this.editorPicker,
   });
 
   @override
@@ -413,7 +421,23 @@ class _ForgeEditorTabBarState extends State<ForgeEditorTabBar> {
     final hasOthers = editors.length > 1;
     final hasToRight = editorIndex >= 0 && editorIndex < editors.length - 1;
 
-    final selected = await showMenu<String>(
+    // Open With ▸ for a file with more than one editor; an editor chosen
+    // opens in this panel.
+    final picker = widget.editorPicker;
+    ForgeContextMenuEntry? openWith;
+    if (picker != null) {
+      final choices = await picker.choicesFor(ForgeContentItem(editor.uri));
+      if (!mounted) return;
+      openWith = forgeOpenWithMenuEntry(
+        picker,
+        choices,
+        open: (choice) => choice is ForgeEditorChoice
+            ? choice.open(editor.uri, middlePanelIndex: widget.panelIndex)
+            : picker.openOnce(choices.item, choice),
+      );
+    }
+
+    final selected = await showMenu<Object>(
       context: context,
       position: RelativeRect.fromRect(
         Rect.fromLTWH(globalPosition.dx, globalPosition.dy, 1, 1),
@@ -439,6 +463,10 @@ class _ForgeEditorTabBarState extends State<ForgeEditorTabBar> {
           value: 'closeAll',
           child: Text('Close All'),
         ),
+        if (openWith != null) ...[
+          const PopupMenuDivider(),
+          ...forgeContextMenuItems([openWith]),
+        ],
         const PopupMenuDivider(),
         const PopupMenuItem<String>(
           value: 'editActionBar',
@@ -448,6 +476,14 @@ class _ForgeEditorTabBarState extends State<ForgeEditorTabBar> {
     );
 
     if (!mounted || selected == null) return;
+    if (selected is ForgeContextMenuEntry) {
+      await runForgeContextMenuEntry(
+        context,
+        selected,
+        globalPosition: globalPosition,
+      );
+      return;
+    }
 
     switch (selected) {
       case 'close':

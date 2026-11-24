@@ -59,10 +59,23 @@ Two ways an editor's units reach it:
    `contextTargetAt` for those units, or the shell's menu and the body's
    would both open.
 
-`forgeContextMenuItems(entries)` and `showForgeContextMenu(...)` in
-`src/widgets/forge_context_menu.dart` are the one rendering; every entry has
-the key `forge-context-menu:<id>` (`forgeContextMenuEntryKey`), which tests
-find.
+`forgeContextMenuItems(entries)` and `showForgeContextMenuEntries(...)` in
+`tom_forge_shared_ui` (`src/context_menu/forge_context_menu.dart`; the shell's
+`showForgeContextMenu` draws through them) are the one rendering; every entry
+has the key `forge-context-menu:<id>` (`forgeContextMenuEntryKey`), which
+tests find.
+
+- **Submenus and checkmarks.** An entry with `children` is a submenu: drawn
+  with an arrow, choosing it opens its children beside its row (a surface
+  that draws its own `showMenu` with `forgeContextMenuItems` among its items
+  hands a chosen entry to `runForgeContextMenuEntry`). An entry with
+  `checked` non-null is checkable: a checkmark when true (key
+  `forge-context-menu-check:<id>`, `forgeContextMenuCheckKey`), its room when
+  false. Entries with neither are drawn as before.
+- **Open With ▸.** The editors of a file come from the kit's editor picker
+  (`api.editorPicker`); `forgeOpenWithMenuEntry(picker, choices)` (kit) is the
+  submenu, null below two editors. The file explorer puts it after Open, the
+  editor tab after Close All. Do not build another editor list for a menu.
 
 ## Do not
 

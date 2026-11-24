@@ -374,6 +374,91 @@ void main() {
     api.dispose();
   });
 
+  test('the Open With menu entry: the editors to open once, the default '
+      'checked, and Set default for the extension or content type', () async {
+    final api = makeApi();
+    await api.restore();
+    final picker = api.editorPicker;
+    final file = ForgeContentItem(readme);
+
+    // One editor: nothing to choose.
+    expect(
+      forgeOpenWithMenuEntry(
+        picker,
+        await picker.choicesFor(ForgeContentItem(Uri.file('/conf/a.yaml'))),
+      ),
+      isNull,
+    );
+
+    var entry = forgeOpenWithMenuEntry(picker, await picker.choicesFor(file))!;
+    expect(entry.id, forgeOpenWithMenuId);
+    expect(entry.label, 'Open With');
+    expect(entry.hasChildren, isTrue);
+    expect(
+      [for (final c in entry.children) c.id],
+      [
+        forgeOpenWithChoiceMenuId('mdBrowser'),
+        forgeOpenWithChoiceMenuId('md'),
+        forgeOpenWithSetDefaultMenuId,
+      ],
+    );
+    expect(
+      [for (final c in entry.children) c.label],
+      ['mdBrowser', 'Markdown editor', 'Set default for .md'],
+    );
+    expect([for (final c in entry.children) c.checked], [false, false, null]);
+    var setDefault = entry.children.last;
+    expect(
+      [for (final c in setDefault.children) c.id],
+      [
+        forgeOpenWithDefaultMenuId('mdBrowser'),
+        forgeOpenWithDefaultMenuId('md'),
+      ],
+    );
+
+    // A click on an editor opens the file once; the default stays unset.
+    await entry.children.first.run();
+    expect(module.opened, [('mdBrowser', readme)]);
+    expect(api.getFileTypeDefaults(), isEmpty);
+
+    // A click in Set default moves the checkmark and opens nothing.
+    await setDefault.children.last.run();
+    expect(api.getFileTypeDefaults(), {'.md': 'md'});
+    expect(module.opened, hasLength(1));
+    expect(host.shown, isEmpty);
+    entry = forgeOpenWithMenuEntry(picker, await picker.choicesFor(file))!;
+    expect(entry.children[1].label, 'Markdown editor (default for .md)');
+    expect(entry.children[1].checked, isTrue);
+    setDefault = entry.children.last;
+    expect([for (final c in setDefault.children) c.checked], [false, true]);
+
+    // Content: the default by its content type.
+    final content = ForgeContentItem(section, contentType: 'text/markdown');
+    final byType = forgeOpenWithMenuEntry(
+      picker,
+      await picker.choicesFor(content),
+    )!;
+    expect(byType.children.last.label, 'Set default for text/markdown');
+    await byType.children.last.children.first.run();
+    expect(
+      (await picker.choicesFor(content)).defaultScope,
+      ForgeEditorDefaultScope.contentType,
+    );
+    expect(api.getFileTypeDefaults(), {'.md': 'md'});
+
+    // An application's own open (the panel shell: in a given panel).
+    final opened = <String>[];
+    final custom = forgeOpenWithMenuEntry(
+      picker,
+      await picker.choicesFor(file),
+      open: (choice) => opened.add(choice.id),
+    )!;
+    await custom.children.first.run();
+    expect(opened, ['mdBrowser']);
+    expect(module.opened, hasLength(1));
+    api.dispose();
+  });
+
   test('content types match by family and ignore parameters', () {
     expect(forgeContentTypeAccepted(['text/*'], 'text/plain'), isTrue);
     expect(forgeContentTypeAccepted(['*/*'], 'image/png'), isTrue);

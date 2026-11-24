@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **Open With ▸** as data: `forgeOpenWithMenuEntry(picker, choices)` builds
+  the context-menu entry for an item with more than one editor (null
+  otherwise) — the editors, each opening the item once (`openOnce`, or the
+  application's `open:`), the default checked and labelled `(default for
+  .md)`, and an inner **Set default for .md ▸** (or the content type) whose
+  checked entry is the default and whose others make themselves the default
+  without opening anything. Ids `forgeOpenWithMenuId`,
+  `forgeOpenWithSetDefaultMenuId`, `forgeOpenWithChoiceMenuId`,
+  `forgeOpenWithDefaultMenuId`; `forgeOpenWithDefaultScope`.
 - Choosing the editor: `ForgeEditorPicker` (`ForgeKitApi.editorPicker`) —
   for a `ForgeContentItem` (a URI with an optional content type) the editors
   of every module and editor type, by extension and by content type, with the

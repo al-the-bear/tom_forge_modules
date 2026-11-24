@@ -86,8 +86,12 @@ The pure-Dart model behind the shell's context menus
   its registry and runs it with the target under
   `ForgeContextTarget.parameterKey`.
 
-The drawing lives in `tom_forge_ui` (`ForgeContextMenuController`,
-`ForgeContextTargetProvider`).
+A resolved entry is a `ForgeContextMenuEntry` (`src/types/forge_context_menu_entry.dart`):
+id, label, enabled, reason, group and `run`; `children` makes it a submenu
+(choosing it shows them), `checked` a checkable entry.
+
+The drawing lives in `tom_forge_shared_ui` (`forgeContextMenuItems`,
+`showForgeContextMenuEntries`) and `tom_forge_kit` (`ForgeContextMenuController`).
 
 ## License
 

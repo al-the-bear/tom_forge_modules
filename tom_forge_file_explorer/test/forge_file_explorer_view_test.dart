@@ -2,7 +2,9 @@
 // contributed by its module with its placement hint, listing the workspace's
 // files, opening one through the kit (at its position when the application
 // is a ForgeFileNavigator, else through ForgeKitApi.openFile), and sharing
-// its selection with a state that is a ForgeExplorerSelection.
+// its selection with a state that is a ForgeExplorerSelection; a file with
+// more than one editor has Open With ▸ in its context menu, built from the
+// kit's editor picker.
 
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/gestures.dart' show kDoubleTapTimeout, kSecondaryButton;
@@ -11,6 +13,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_forge_file_explorer/tom_forge_file_explorer.dart';
 import 'package:tom_forge_kit/tom_forge_kit.dart';
+import 'package:tom_forge_shared_ui/tom_forge_shared_ui.dart'
+    show forgeContextMenuCheckKey, forgeContextMenuEntryKey;
 
 /// An editor host that is no layout: it records what it is asked to open.
 class _Host implements ForgeEditorHost {
@@ -72,6 +76,48 @@ class _NavigatingApi extends DefaultKitApi implements ForgeFileNavigator {
   @override
   void openFileAt(Uri uri, {int? line, int? column}) =>
       positions.add((uri, line, column));
+}
+
+/// A module offering two editors for Markdown files, recording what they
+/// open.
+class _MarkdownEditorsModule extends ForgeKitModule {
+  final opened = <(String, Uri)>[];
+
+  ForgeKitEditorChoice _choice(String id, String label) => ForgeKitEditorChoice(
+    id: id,
+    label: label,
+    icon: Icons.description,
+    open: (uri) => opened.add((id, uri)),
+  );
+
+  @override
+  List<ForgeKitEditorChoice> editorChoicesFor(Uri uri) => [
+    if (uri.path.endsWith('.md')) ...[
+      _choice('md', 'Markdown editor'),
+      _choice('browser', 'MD Browser'),
+    ],
+  ];
+
+  @override
+  String get displayName => 'Markdown editors';
+
+  @override
+  void activate(ForgeKitApi api) {}
+
+  @override
+  void deactivate() {}
+
+  @override
+  List<ForgeEditor> get editors => const [];
+
+  @override
+  List<ForgeView> get views => const [];
+
+  @override
+  List<ForgeAction> get actions => const [];
+
+  @override
+  List<ForgeShortcutBinding> get shortcuts => const [];
 }
 
 final _source = Uri.file('/w/lib/a.dart');
@@ -203,5 +249,119 @@ void main() {
     await _doubleTap(tester, find.text('README.md'));
     expect(api.positions, [(_readme, null, null)]);
     expect(host.opened, isEmpty);
+  });
+  testWidgets('Open With ▸ for a file with more than one editor: open once, '
+      'set the default, the checkmark moves and is kept', (tester) async {
+    final store = ForgeMemoryStateStore();
+    final files = _files();
+    var editors = _MarkdownEditorsModule();
+    DefaultKitApi makeApi() {
+      final api = DefaultKitApi(
+        editorHost: _Host(),
+        fileSystem: files,
+        stateStore: store,
+      );
+      api.registerModule(editors);
+      api.registerModule(forgeFileExplorerModule(rootUri: Uri.directory('/w')));
+      return api;
+    }
+
+    final api = makeApi();
+    await api.restore();
+    final view = forgeContributedViewById(api.modules, forgeExplorerViewId)!;
+    expect(
+      (view as ForgeFileExplorerView).editorPicker,
+      same(api.editorPicker),
+    );
+    await _show(tester, view);
+
+    Future<void> openMenu(String name) async {
+      await tester.tap(find.text(name), buttons: kSecondaryButton);
+      await tester.pumpAndSettle();
+    }
+
+    final openWith = find.byKey(forgeContextMenuEntryKey(forgeOpenWithMenuId));
+    final setDefault = find.byKey(
+      forgeContextMenuEntryKey(forgeOpenWithSetDefaultMenuId),
+    );
+
+    // A file with one editor or none: no submenu.
+    await tester.tap(find.text('lib'));
+    await tester.pumpAndSettle();
+    await openMenu('a.dart');
+    expect(find.text('Open'), findsOneWidget);
+    expect(openWith, findsNothing);
+    await tester.tapAt(const Offset(5, 5));
+    await tester.pumpAndSettle();
+
+    // README.md: the editors; a click opens it once, the default unset.
+    await openMenu('README.md');
+    expect(openWith, findsOneWidget);
+    await tester.tap(openWith);
+    await tester.pumpAndSettle();
+    expect(find.text('Markdown editor'), findsOneWidget);
+    expect(find.text('MD Browser'), findsOneWidget);
+    expect(find.text('Set default for .md'), findsOneWidget);
+    expect(find.byIcon(Icons.check), findsNothing);
+    await tester.tap(find.text('MD Browser'));
+    await tester.pumpAndSettle();
+    expect(editors.opened, [('browser', _readme)]);
+    expect(api.getFileTypeDefaults(), isEmpty);
+
+    // Set default for .md ▸ MD Browser: the default moves, nothing opens.
+    await openMenu('README.md');
+    await tester.tap(openWith);
+    await tester.pumpAndSettle();
+    await tester.tap(setDefault);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(
+        forgeContextMenuEntryKey(forgeOpenWithDefaultMenuId('browser')),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(api.getFileTypeDefaults(), {'.md': 'browser'});
+    expect(editors.opened, hasLength(1));
+
+    // The editors list marks the default; the inner submenu checks it.
+    await openMenu('README.md');
+    await tester.tap(openWith);
+    await tester.pumpAndSettle();
+    expect(find.text('MD Browser (default for .md)'), findsOneWidget);
+    expect(
+      find.byKey(
+        forgeContextMenuCheckKey(forgeOpenWithChoiceMenuId('browser')),
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(setDefault);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(
+        forgeContextMenuCheckKey(forgeOpenWithDefaultMenuId('browser')),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(forgeContextMenuCheckKey(forgeOpenWithDefaultMenuId('md'))),
+      findsNothing,
+    );
+    await tester.tapAt(const Offset(5, 5));
+    await tester.pumpAndSettle();
+
+    // Kept: an application over the same store has the default.
+    await api.flushed();
+    api.dispose();
+    editors = _MarkdownEditorsModule();
+    final again = makeApi();
+    await again.restore();
+    expect(again.getFileTypeDefaults(), {'.md': 'browser'});
+    expect(
+      (await again.editorPicker.choicesFor(
+        ForgeContentItem(_readme),
+      )).defaultChoice?.id,
+      'browser',
+    );
+    again.dispose();
   });
 }

@@ -2,6 +2,14 @@
 
 ## 0.2.0 (unreleased)
 
+- Context menu: submenus and checkmarks. `forgeContextMenuItems` draws a
+  submenu entry (`ForgeContextMenuEntry.children`) with an arrow and a
+  checkable one (`checked`) with a checkmark or its room
+  (`forgeContextMenuCheckKey`); other entries are drawn as before.
+  `showForgeContextMenuEntries` opens a chosen submenu beside its row (right
+  of the menu, or left of it near the right edge);
+  `runForgeContextMenuEntry` does the same for a surface that draws its own
+  menu with `forgeContextMenuItems` among its items.
 - `ForgeSessionFileFrame`: the state of a file an editor reads and saves
   through the kit's `ForgeSessionFile`, drawn above the editor (re-exported
   from `tom_file_session_ui`, one implementation with `tom_file_editors`).

@@ -17,9 +17,10 @@ import 'default_shell_api.dart';
 /// - **Choices:** every module's (by URI and by content type), the editor
 ///   types of the layout controller ([DefaultLayoutController.editorTypes],
 ///   opened with [DefaultLayoutController.openFileInEditorType]), then the
-///   editors already open on the file that accept it
-///   ([DefaultLayoutController.openEditorChoicesFor]) — the ones
-///   `openFileWith` offers, plus the editor types.
+///   shell's own plain-text editor (for a file of no known binary content
+///   type, [forgePlainTextOpens]), then the editors already open on the file
+///   that accept it ([DefaultLayoutController.openEditorChoicesFor]) — the
+///   ones `openFileWith` offers, plus the editor types and plain text.
 /// - **Defaults:** by extension, the shell's file-type defaults
 ///   ([DefaultShellApi.getFileTypeDefaults], what `openFileWith` and the
 ///   editor routing follow), written to the shell and to its preferences
@@ -70,8 +71,51 @@ class ForgeShellEditorPicker extends ForgeEditorPicker {
       _layout?.shellChoiceOf(choice) ?? choice;
 
   @override
-  Future<List<ForgeKitEditorChoice>> moreChoices(ForgeContentItem item) async =>
-      await _layout?.openEditorChoicesFor(item.uri) ?? const [];
+  Future<List<ForgeKitEditorChoice>> moreChoices(ForgeContentItem item) async {
+    final layout = _layout;
+    if (layout == null) return const [];
+    return [
+      if (forgePlainTextOpens(item)) _plainTextChoice(layout),
+      ...await layout.openEditorChoicesFor(item.uri),
+    ];
+  }
+
+  /// The layout controller's own plain-text editor
+  /// ([DefaultLayoutController.plainTextTypeId], the editor a file nobody
+  /// else takes opens in) as a choice of its own.
+  ForgeEditorChoice _plainTextChoice(DefaultLayoutController layout) =>
+      ForgeEditorChoice(
+        id: DefaultLayoutController.plainTextTypeId,
+        label: 'Plain text',
+        description: 'Basic text editing',
+        icon: Icons.notes,
+        open: (uri, {middlePanelIndex}) => unawaited(
+          layout.openFileInEditorType(
+            uri,
+            DefaultLayoutController.plainTextTypeId,
+            middlePanelIndex: middlePanelIndex,
+          ),
+        ),
+      );
+}
+
+/// Whether the plain-text editor is offered for [item]: for any file whose
+/// content type is not known, and for a textual content type (`text/*`,
+/// JSON, XML, YAML, JavaScript and their `+json` / `+xml` kinds); not for a
+/// content type known to be binary (`application/pdf`, `image/png`).
+bool forgePlainTextOpens(ForgeContentItem item) {
+  final type = forgeNormalizeContentType(item.contentType);
+  if (type == null) return true;
+  return type.startsWith('text/') ||
+      type.endsWith('+json') ||
+      type.endsWith('+xml') ||
+      const {
+        'application/json',
+        'application/xml',
+        'application/yaml',
+        'application/x-yaml',
+        'application/javascript',
+      }.contains(type);
 }
 
 /// The shell's defaults: by extension its file-type defaults (kept in the

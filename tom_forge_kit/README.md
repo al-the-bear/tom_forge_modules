@@ -93,6 +93,16 @@ it decides.
   under `forge.files.contentTypeDefaults` (`text/markdown` → editor id), both
   JSON maps. `defaultsChanged` notifies.
 
+**The menu.** `forgeOpenWithMenuEntry(picker, choices)` is the **Open With ▸**
+context-menu entry as data (`ForgeContextMenuEntry` with `children`), null
+when the item has fewer than two editors: the editors, a click opening the
+item once (`openOnce`, or the application's `open:`, e.g. in a given panel),
+the default checked and labelled `(default for .md)`; then **Set default for
+.md ▸** (the content type when the default is kept by it), whose checked entry
+is the default and whose others move the default there without opening
+anything. `tom_forge_shared_ui` draws its submenus; the file explorer and the
+panel shell's editor tabs offer it.
+
 `DefaultKitApi` offers the registered modules' choices and its `editorTypes`
 (an editor type's choice reads the file from the file system, makes the
 editor and shows it through the editor host; `openWithEditorType` does it

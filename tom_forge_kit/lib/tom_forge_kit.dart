@@ -27,7 +27,8 @@
 /// - **Choosing the editor:** the editors of a content item (a URI with its
 ///   content type, [ForgeContentItem]) from every module and editor type, the
 ///   default per content type and per extension, open once and set the
-///   default ([ForgeEditorPicker], [ForgeKitApi.editorPicker]).
+///   default ([ForgeEditorPicker], [ForgeKitApi.editorPicker]), and the
+///   **Open With ▸** context-menu entry over it ([forgeOpenWithMenuEntry]).
 /// - **Files:** the kinds of file a module opens over a [ForgeFileSession]
 ///   ([ForgeKitFileKind], kept in a [ForgeFileKindRegistry] the application
 ///   fills) and the binding of an editor's controller to its session
@@ -89,6 +90,7 @@ export 'src/kit/forge_kit_api.dart';
 export 'src/kit/forge_kit_modules_host.dart';
 export 'src/kit/forge_kit_state.dart';
 export 'src/kit/forge_memory_state_store.dart';
+export 'src/kit/forge_open_with_menu.dart';
 export 'src/kit/forge_shared_preferences_state_store.dart';
 export 'src/kit/forge_state_store.dart';
 export 'src/kit/forge_view_state_ports.dart';

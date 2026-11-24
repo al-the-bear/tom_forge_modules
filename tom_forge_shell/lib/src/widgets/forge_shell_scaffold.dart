@@ -4092,6 +4092,7 @@ the field, not the document.
                 editors: editors,
                 activeEditor: currentEditor,
                 panelIndex: panelIndex,
+                editorPicker: widget.shell.editorPicker,
                 onSelect: (editor) {
                   setState(() {
                     _layout.setActiveMiddlePanelIndex(panelIndex);
