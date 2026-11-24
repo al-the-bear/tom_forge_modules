@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:tom_forge_kit/tom_forge_kit.dart';
 
-
 /// Output view with channel dropdown and monospace log display.
 ///
 /// Takes [ForgeOutputChannelManager] and shows the active channel's output.
@@ -29,9 +28,8 @@ class ForgeOutputView extends ForgeView {
   IconData get icon => Icons.terminal;
 
   @override
-  ForgeComponentSizeHints get sizeHints => const ForgeComponentSizeHints(
-        preferredSize: Size(400, 200),
-      );
+  ForgeComponentSizeHints get sizeHints =>
+      const ForgeComponentSizeHints(preferredSize: Size(400, 200));
 
   @override
   Widget buildMain(BuildContext context) {
@@ -109,11 +107,10 @@ class _OutputContentState extends State<_OutputContent> {
         child: Text(
           'No output channels',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context)
-                    .colorScheme
-                    .onSurface
-                    .withValues(alpha: 0.4),
-              ),
+            color: Theme.of(
+              context,
+            ).colorScheme.onSurface.withValues(alpha: 0.4),
+          ),
         ),
       );
     }
@@ -135,7 +132,9 @@ class _OutputContentState extends State<_OutputContent> {
   }
 
   Widget _buildToolbar(
-      BuildContext context, List<ForgeOutputChannel> channels) {
+    BuildContext context,
+    List<ForgeOutputChannel> channels,
+  ) {
     final theme = Theme.of(context);
     return Container(
       height: 32,
@@ -215,12 +214,10 @@ class _OutputContentState extends State<_OutputContent> {
     );
   }
 
-  Widget _buildOutputText(
-      BuildContext context, ForgeOutputChannel? channel) {
+  Widget _buildOutputText(BuildContext context, ForgeOutputChannel? channel) {
     if (channel == null) return const SizedBox.expand();
 
-    final contents =
-        channel is DefaultOutputChannel ? channel.contents : '';
+    final contents = channel is DefaultOutputChannel ? channel.contents : '';
 
     return Container(
       width: double.infinity,
@@ -233,10 +230,7 @@ class _OutputContentState extends State<_OutputContent> {
           child: SelectableText(
             contents,
             textAlign: TextAlign.left,
-            style: const TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 12,
-            ),
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
           ),
         ),
       ),

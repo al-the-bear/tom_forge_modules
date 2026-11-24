@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Contributed views: `ForgeViewPlacementHint` (a stable id, a
+  `ForgeViewRole` — navigation, details, messages —, a group with its icon,
+  an order; no panel, tab or window), handed over per view in a
+  `ForgeViewContributionsExtra`; `forgeContributedViews` answers the
+  registered modules' views with their hints, `forgeContributedViewById`
+  finds one. `ForgeActiveEditorListenable` (implemented by `DefaultKitState`)
+  and `ForgeRevisionRestorer`, the two ports the Revisions view needs.
 - `ForgeKitEditorType.actionDescriptors`: the editor's own actions as its
   package declares them, so an application lists them (the panel shell: in
   its shortcut editor) before an editor of the type is open, without naming

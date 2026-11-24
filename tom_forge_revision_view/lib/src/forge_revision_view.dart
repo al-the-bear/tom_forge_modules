@@ -4,19 +4,22 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:tom_forge_kit/tom_forge_kit.dart';
 
-import '../defaults/default_shell_api.dart';
-import '../defaults/default_system_state.dart';
-import '../shell/forge_layout_controller.dart';
+/// Opens a resource in the application, wherever it places editors.
+typedef ForgeRevisionOpener = void Function(Uri uri);
 
-/// Panel view showing revision history (backup saves) for the active file.
+/// View showing revision history (backup saves) for the active file.
 ///
 /// Displays a timestamped list of saved revisions; clicking one opens it
-/// as a read-only editor for comparison.
+/// as a read-only editor for comparison ([openFile] with the revision's
+/// `?revision=` URI). With a [restorer] a revision can replace the file.
+/// It needs only the kit: the workspace state's revisions and the state of
+/// any application ([ForgeKitState]); [forgeRevisionViewModule] contributes
+/// it.
 class ForgeRevisionView extends ForgeView {
   final ForgeWorkspaceStateManager workspaceState;
-  final DefaultSystemState systemState;
-  final ForgeLayoutController layoutController;
-  final DefaultShellApi? shellApi;
+  final ForgeKitState systemState;
+  final ForgeRevisionOpener openFile;
+  final ForgeRevisionRestorer? restorer;
   final Stream<Uri>? onDidSave;
 
   final _title = ValueNotifier<String>('Revisions');
@@ -25,10 +28,23 @@ class ForgeRevisionView extends ForgeView {
   ForgeRevisionView({
     required this.workspaceState,
     required this.systemState,
-    required this.layoutController,
-    this.shellApi,
+    required this.openFile,
+    this.restorer,
     this.onDidSave,
   });
+
+  /// The view over [api]: its workspace state and state, revisions opened
+  /// with [ForgeKitApi.openFile], restored when the API is a
+  /// [ForgeRevisionRestorer], reloaded when its file system saves.
+  factory ForgeRevisionView.forApi(ForgeKitApi api) => ForgeRevisionView(
+    workspaceState: api.workspaceState,
+    systemState: api.state,
+    openFile: (uri) => api.openFile(uri),
+    restorer: api is ForgeRevisionRestorer
+        ? api as ForgeRevisionRestorer
+        : null,
+    onDidSave: api.fileSystem.onDidSave,
+  );
 
   @override
   ValueListenable<String> get title => _title;
@@ -40,17 +56,16 @@ class ForgeRevisionView extends ForgeView {
   IconData get icon => Icons.history;
 
   @override
-  ForgeComponentSizeHints get sizeHints => const ForgeComponentSizeHints(
-        preferredSize: Size(220, 200),
-      );
+  ForgeComponentSizeHints get sizeHints =>
+      const ForgeComponentSizeHints(preferredSize: Size(220, 200));
 
   @override
   Widget buildMain(BuildContext context) {
     return _RevisionContent(
       workspaceState: workspaceState,
       systemState: systemState,
-      layoutController: layoutController,
-      shellApi: shellApi,
+      openFile: openFile,
+      restorer: restorer,
       onDidSave: onDidSave,
     );
   }
@@ -61,16 +76,16 @@ class ForgeRevisionView extends ForgeView {
 
 class _RevisionContent extends StatefulWidget {
   final ForgeWorkspaceStateManager workspaceState;
-  final DefaultSystemState systemState;
-  final ForgeLayoutController layoutController;
-  final DefaultShellApi? shellApi;
+  final ForgeKitState systemState;
+  final ForgeRevisionOpener openFile;
+  final ForgeRevisionRestorer? restorer;
   final Stream<Uri>? onDidSave;
 
   const _RevisionContent({
     required this.workspaceState,
     required this.systemState,
-    required this.layoutController,
-    this.shellApi,
+    required this.openFile,
+    this.restorer,
     this.onDidSave,
   });
 
@@ -84,10 +99,24 @@ class _RevisionContentState extends State<_RevisionContent> {
   bool _loading = false;
   StreamSubscription<Uri>? _saveSubscription;
 
+  /// The active editor's listenable, when the state has one; otherwise the
+  /// focus and editor streams are followed.
+  ValueListenable<ForgeEditor?>? _activeEditor;
+  final List<StreamSubscription<Object?>> _stateSubscriptions = [];
+
   @override
   void initState() {
     super.initState();
-    widget.systemState.activeEditorListenable.addListener(_onActiveEditorChanged);
+    final state = widget.systemState;
+    if (state is ForgeActiveEditorListenable) {
+      _activeEditor =
+          (state as ForgeActiveEditorListenable).activeEditorListenable
+            ..addListener(_onActiveEditorChanged);
+    } else {
+      _stateSubscriptions
+        ..add(state.onFocusChanged.listen((_) => _onActiveEditorChanged()))
+        ..add(state.onEditorsChanged.listen((_) => _onActiveEditorChanged()));
+    }
     _saveSubscription = widget.onDidSave?.listen(_onFileSaved);
     _onActiveEditorChanged();
   }
@@ -95,7 +124,10 @@ class _RevisionContentState extends State<_RevisionContent> {
   @override
   void dispose() {
     _saveSubscription?.cancel();
-    widget.systemState.activeEditorListenable.removeListener(_onActiveEditorChanged);
+    _activeEditor?.removeListener(_onActiveEditorChanged);
+    for (final subscription in _stateSubscriptions) {
+      subscription.cancel();
+    }
     super.dispose();
   }
 
@@ -158,17 +190,15 @@ class _RevisionContentState extends State<_RevisionContent> {
     if (content == null || !mounted) return;
 
     // Open via a virtual revision URI so it gets a read-only editor.
-    final revisionUri = Uri.parse(
-      '${uri.toString()}?revision=$revisionId',
-    );
-    widget.layoutController.openFile(revisionUri);
+    final revisionUri = Uri.parse('${uri.toString()}?revision=$revisionId');
+    widget.openFile(revisionUri);
   }
 
   Future<void> _restoreRevision(String revisionId) async {
     final uri = _currentUri;
-    final api = widget.shellApi;
-    if (uri == null || api == null) return;
-    await api.restoreFileFromRevision(uri, revisionId);
+    final restorer = widget.restorer;
+    if (uri == null || restorer == null) return;
+    await restorer.restoreFileFromRevision(uri, revisionId);
     if (mounted) _loadRevisions();
   }
 
@@ -283,8 +313,9 @@ class _RevisionContentState extends State<_RevisionContent> {
                         child: Icon(
                           Icons.file_download,
                           size: 14,
-                          color: theme.colorScheme.onSurface
-                              .withValues(alpha: 0.5),
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.5,
+                          ),
                         ),
                       ),
                     ),

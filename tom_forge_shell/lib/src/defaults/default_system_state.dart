@@ -2,8 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
-import 'package:tom_editors_shared/text_types.dart'
-    show ForgeTextContext;
+import 'package:tom_editors_shared/text_types.dart' show ForgeTextContext;
 import 'package:tom_forge_kit/tom_forge_kit.dart';
 
 import '../model/forge_application.dart';
@@ -14,7 +13,11 @@ import '../shell/forge_system_state.dart';
 /// Uses [ValueNotifier] for mutable state and
 /// [StreamController.broadcast] for all event streams.
 /// Exposes setter methods for internal shell use.
-class DefaultSystemState implements ForgeSystemState, ForgeApplicationRegistry {
+class DefaultSystemState
+    implements
+        ForgeSystemState,
+        ForgeApplicationRegistry,
+        ForgeActiveEditorListenable {
   static bool debugEnabled = false;
 
   final _focusedComponent = ValueNotifier<ForgeComponent?>(null);
@@ -108,6 +111,7 @@ class DefaultSystemState implements ForgeSystemState, ForgeApplicationRegistry {
   @override
   ForgeEditor? get activeEditor => _activeEditor.value;
 
+  @override
   ValueListenable<ForgeEditor?> get activeEditorListenable => _activeEditor;
 
   @override

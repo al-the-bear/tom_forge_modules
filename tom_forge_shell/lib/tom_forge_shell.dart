@@ -38,6 +38,7 @@ export 'src/module/forge_config_panel.dart';
 export 'src/module/forge_module.dart';
 
 // ── Shell ──
+export 'src/shell/forge_contributed_panels.dart';
 export 'src/shell/forge_layout_controller.dart';
 export 'src/shell/forge_module_registry.dart';
 export 'src/shell/forge_shell_api.dart';
@@ -84,11 +85,12 @@ export 'src/widgets/forge_shortcut_menu_popup.dart';
 export 'src/widgets/forge_status_bar_widget.dart';
 
 // ── Views ──
+// The views still in the shell; the Outline, Output and Revisions views are
+// packages of their own on the kit (tom_forge_outline_view,
+// tom_forge_output_view, tom_forge_revision_view), contributed through the
+// module registry and placed by their hints (forgeContributedPanelTabs).
 export 'src/views/forge_file_explorer_view.dart';
-export 'src/views/forge_outline_view.dart';
-export 'src/views/forge_output_view.dart';
 export 'src/views/forge_problems_view.dart';
-export 'src/views/forge_revision_view.dart';
 export 'src/views/forge_search_view.dart';
 
 // ── Theme ──

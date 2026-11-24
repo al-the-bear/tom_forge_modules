@@ -5,23 +5,20 @@ import 'package:flutter/material.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_forge_kit/tom_forge_kit.dart';
 
-import '../shell/forge_system_state.dart';
-
 /// Outline view showing symbol tree for the active editor.
 ///
-/// Updates when the active editor changes. Shows "No outline available"
-/// when no provider matches.
+/// Updates when the active editor changes and when an outline provider
+/// reports a change. Shows "No outline available" when no provider matches.
+/// It needs only the kit: the outline manager and the state of any
+/// application ([ForgeKitState]); [forgeOutlineViewModule] contributes it.
 class ForgeOutlineView extends ForgeView {
   final DefaultOutlineManager outlineManager;
-  final ForgeSystemState systemState;
+  final ForgeKitState systemState;
 
   final _title = ValueNotifier<String>('Outline');
   final _titleExtension = ValueNotifier<String?>(null);
 
-  ForgeOutlineView({
-    required this.outlineManager,
-    required this.systemState,
-  });
+  ForgeOutlineView({required this.outlineManager, required this.systemState});
 
   @override
   ValueListenable<String> get title => _title;
@@ -33,9 +30,8 @@ class ForgeOutlineView extends ForgeView {
   IconData get icon => Icons.account_tree;
 
   @override
-  ForgeComponentSizeHints get sizeHints => const ForgeComponentSizeHints(
-        preferredSize: Size(220, 400),
-      );
+  ForgeComponentSizeHints get sizeHints =>
+      const ForgeComponentSizeHints(preferredSize: Size(220, 400));
 
   @override
   Widget buildMain(BuildContext context) {
@@ -51,7 +47,7 @@ class ForgeOutlineView extends ForgeView {
 
 class _OutlineContent extends StatefulWidget {
   final DefaultOutlineManager outlineManager;
-  final ForgeSystemState systemState;
+  final ForgeKitState systemState;
 
   const _OutlineContent({
     required this.outlineManager,
@@ -72,13 +68,16 @@ class _OutlineContentState extends State<_OutlineContent> {
   void initState() {
     super.initState();
     _loadOutline();
-    _editorSubscription =
-        widget.systemState.onEditorsChanged.listen((_) => _loadOutline());
-    _focusSubscription =
-      widget.systemState.onFocusChanged.listen((_) => _loadOutline());
+    _editorSubscription = widget.systemState.onEditorsChanged.listen(
+      (_) => _loadOutline(),
+    );
+    _focusSubscription = widget.systemState.onFocusChanged.listen(
+      (_) => _loadOutline(),
+    );
     // Listen for outline provider content changes.
-    _outlineChangeSubscription =
-        widget.outlineManager.onDidChange.listen((_) => _loadOutline());
+    _outlineChangeSubscription = widget.outlineManager.onDidChange.listen(
+      (_) => _loadOutline(),
+    );
   }
 
   @override
@@ -111,20 +110,17 @@ class _OutlineContentState extends State<_OutlineContent> {
         child: Text(
           'No outline available',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context)
-                    .colorScheme
-                    .onSurface
-                    .withValues(alpha: 0.4),
-              ),
+            color: Theme.of(
+              context,
+            ).colorScheme.onSurface.withValues(alpha: 0.4),
+          ),
         ),
       );
     }
 
     return ListView(
       padding: const EdgeInsets.symmetric(vertical: 2),
-      children: [
-        for (final item in _items) _buildItem(context, item, 0),
-      ],
+      children: [for (final item in _items) _buildItem(context, item, 0)],
     );
   }
 
@@ -134,12 +130,14 @@ class _OutlineContentState extends State<_OutlineContent> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding:
-              EdgeInsets.only(left: 8.0 + depth * 16.0, top: 2, bottom: 2),
+          padding: EdgeInsets.only(left: 8.0 + depth * 16.0, top: 2, bottom: 2),
           child: Row(
             children: [
-              Icon(_iconForKind(item.kind), size: 14,
-                  color: theme.colorScheme.primary),
+              Icon(
+                _iconForKind(item.kind),
+                size: 14,
+                color: theme.colorScheme.primary,
+              ),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(

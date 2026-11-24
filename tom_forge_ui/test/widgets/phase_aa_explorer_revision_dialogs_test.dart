@@ -433,8 +433,8 @@ class _PhaseAAHarness {
     final revisionView = ForgeRevisionView(
       workspaceState: shell.workspaceState,
       systemState: systemState,
-      layoutController: shell.layout,
-      shellApi: shell,
+      openFile: shell.layout.openFile,
+      restorer: shell,
       onDidSave: fileSystem.onDidSave,
     );
 

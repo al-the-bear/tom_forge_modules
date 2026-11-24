@@ -142,9 +142,34 @@ and `tom_forge_shared_ui`'s `ForgeEditorSurface` both route through these.
 `ForgeKitModule` is the module contract without layout. What an application
 offers beyond it (the panel shell's settings sections, status items, external
 tools) a module hands over as `ForgeModuleExtra`s, which the application
-reads as it decides (`module.extras`). The kit defines one kind,
-`ForgeKitStatusItemsExtra` (status items as `ForgeKitStatusItem` data); the
-others are the application's.
+reads as it decides (`module.extras`). The kit defines two kinds,
+`ForgeKitStatusItemsExtra` (status items as `ForgeKitStatusItem` data) and
+`ForgeViewContributionsExtra` (where the module's views go); the others are
+the application's.
+
+## Contributed views
+
+A module lists its views in `ForgeKitModule.views` and gives each a
+**placement hint** (`ForgeViewPlacementHint`) in a
+`ForgeViewContributionsExtra`: a stable id (`forge.view.outline`), what the
+view is for (`ForgeViewRole.navigation` — finding and choosing what to work
+on —, `details` — about what the user works on now —, `messages` — what the
+application reports), the group it is shown with (with the group's icon)
+and an order. Like an editor's placement hint it names no panel, tab or
+window: the application maps it to its layout (the panel shell: navigation
+left, details right, messages bottom, a tab per group), or places the view
+as it likes, or leaves it out. `forgeContributedViews(registry)` answers every
+view of every registered module with its hint (null when the module gives
+none), and `forgeContributedViewById(registry, id)` finds one. The views
+that are packages of their own export their module (`forgeOutlineViewModule()`
+in `tom_forge_outline_view`, `forgeOutputViewModule()` in
+`tom_forge_output_view`, `forgeRevisionViewModule()` in
+`tom_forge_revision_view`).
+
+Two small ports serve such views: `ForgeActiveEditorListenable` (a state that
+reports every change of its active editor; `DefaultKitState` and the panel
+shell's state are ones) and `ForgeRevisionRestorer` (an API that restores a
+file from a saved revision; the panel shell's is one).
 
 A module that needs nothing of a host beyond this contract is a
 `ForgeKitModule` and runs in any application on the kit: `DefaultKitApi`

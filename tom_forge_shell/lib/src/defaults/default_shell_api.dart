@@ -34,7 +34,7 @@ import '../services/forge_preferences_service.dart';
 ///
 /// Aggregates all default service implementations and provides them
 /// as a single API surface for module activation.
-class DefaultShellApi implements ForgeShellApi {
+class DefaultShellApi implements ForgeShellApi, ForgeRevisionRestorer {
   @override
   final ForgeSystemState systemState;
 
@@ -688,6 +688,7 @@ class DefaultShellApi implements ForgeShellApi {
   /// Writes the revision content to the file system and re-opens the file
   /// in the editor. The replaced content is itself snapshotted as a revision
   /// before overwriting, enabling non-destructive restore.
+  @override
   Future<bool> restoreFileFromRevision(Uri fileUri, String revisionId) async {
     if (!workspaceState.isInitialized) return false;
     final content = await workspaceState.readRevision(fileUri, revisionId);

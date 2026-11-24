@@ -7,6 +7,7 @@ import 'package:tom_forge_core/tom_forge_core.dart';
 import '../components/forge_component.dart';
 import '../components/forge_editor.dart';
 import '../components/forge_text_editor.dart';
+import 'forge_active_editor.dart';
 import 'forge_editor_routing.dart';
 import 'forge_kit_state.dart';
 
@@ -15,9 +16,17 @@ import 'forge_kit_state.dart';
 /// ([setActiveEditor], [setFocusedComponent]), and the diagnostics
 /// ([setDiagnostics]); the state derives the rest (the unsaved editors, the
 /// summary) and reports every change on its streams.
-class DefaultKitState implements ForgeKitState, ForgeEditorStateSink {
+class DefaultKitState
+    implements
+        ForgeKitState,
+        ForgeEditorStateSink,
+        ForgeActiveEditorListenable {
   ForgeComponent? _focusedComponent;
-  ForgeEditor? _activeEditor;
+  final ValueNotifier<ForgeEditor?> _activeEditorNotifier = ValueNotifier(null);
+  ForgeEditor? get _activeEditor => _activeEditorNotifier.value;
+  set _activeEditor(ForgeEditor? editor) =>
+      _activeEditorNotifier.value = editor;
+
   List<ForgeEditor> _openEditors = const [];
   List<ForgeEditor> _dirtyEditors = const [];
   List<ForgeDiagnostic> _diagnostics = const [];
@@ -39,6 +48,10 @@ class DefaultKitState implements ForgeKitState, ForgeEditorStateSink {
 
   @override
   ForgeEditor? get activeEditor => _activeEditor;
+
+  @override
+  ValueListenable<ForgeEditor?> get activeEditorListenable =>
+      _activeEditorNotifier;
 
   @override
   List<ForgeEditor> get dirtyEditors => _dirtyEditors;
@@ -187,5 +200,6 @@ class DefaultKitState implements ForgeKitState, ForgeEditorStateSink {
     _onDirtyStateChanged.close();
     _onDiagnosticsChanged.close();
     _onEditorsChanged.close();
+    _activeEditorNotifier.dispose();
   }
 }

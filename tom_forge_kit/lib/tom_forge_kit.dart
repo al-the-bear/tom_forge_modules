@@ -4,7 +4,9 @@
 /// - **Contracts:** components, editors and views ([ForgeComponent],
 ///   [ForgeEditor], [ForgeView]), editor types an application opens files
 ///   with by extension ([ForgeKitEditorType]), modules ([ForgeKitModule]
-///   with its [ForgeModuleExtra]s).
+///   with its [ForgeModuleExtra]s), and the views modules contribute with a
+///   layout-free placement hint ([ForgeViewPlacementHint],
+///   [forgeContributedViews]).
 /// - **Data:** actions and their state ([ForgeActionRegistry]), shortcuts
 ///   ([ForgeShortcutManager]), context-menu entries
 ///   ([ForgeContextMenuController], [ForgeContextMenuEntry]), status items
@@ -70,6 +72,7 @@ export 'package:tom_file_session_ui/tom_file_session_ui.dart'
 // ── Kit ──
 export 'src/kit/default_kit_api.dart';
 export 'src/kit/default_kit_state.dart';
+export 'src/kit/forge_active_editor.dart';
 export 'src/kit/forge_coalesced_state_writer.dart';
 export 'src/kit/forge_context_menu_controller.dart';
 export 'src/kit/forge_editor_host.dart';
@@ -96,6 +99,7 @@ export 'src/model/forge_menu_model.dart';
 // ── Module ──
 export 'src/module/forge_kit_module.dart';
 export 'src/module/forge_kit_module_registry.dart';
+export 'src/module/forge_view_placement.dart';
 
 // ── Providers ──
 export 'src/providers/modified_file_decoration_provider.dart';
@@ -116,6 +120,7 @@ export 'src/services/forge_notification_manager.dart';
 export 'src/services/forge_outline_manager.dart';
 export 'src/services/forge_output_channel_manager.dart';
 export 'src/services/forge_progress_manager.dart';
+export 'src/services/forge_revision_restorer.dart';
 export 'src/services/forge_search_manager.dart';
 export 'src/services/forge_shortcut_manager.dart';
 export 'src/services/forge_undo_manager.dart';

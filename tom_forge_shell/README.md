@@ -30,12 +30,26 @@ asked for by making it the active one first) wherever it takes a
 | Extra | Defined in | A kit-only module can offer it |
 | --- | --- | --- |
 | `ForgeKitStatusItemsExtra` (status items as data, `ForgeKitStatusItem`) | kit | yes; shown in the status bar while `isActive` holds |
+| `ForgeViewContributionsExtra` (its views' layout-free placement hints, `ForgeViewPlacementHint`) | kit | yes; the panels are laid out from them (below) |
 | `ForgeSettingsSectionExtra` (a `ForgeConfigPanel` of the configuration dialog) | shell | no: a section of the shell's dialog |
 | `ForgeExternalToolsExtra` (`ForgeExternalTool` rows of the Configuration panel) | shell | no: tools of the shell's Configuration panel and preferences |
 | `ForgeStatusItemsExtra` (`StatusBarItem`s over the shell's state) | shell | no: the shell's status bar items |
 
 `forgeModuleStatusItems`, `forgeModuleSettingsSections` and
 `forgeModuleExternalTools` read them (a `ForgeModule`'s from its members).
+
+## Placing contributed views
+
+The shell names no view. `forgeContributedPanelTabs(modules, location)` makes
+the tabs of a side or bottom panel from the views the registered modules
+contribute with a placement hint: a hint's role maps to a panel
+(`forgePanelLocationOf`: navigation left, details right, messages bottom),
+each hint group is a tab titled by the group with the group's icon, and tabs
+and sections follow the hints' order. `forgeContributedPanelLayout(modules)`
+is a whole panel layout from them; with no view contributed its panels are
+empty and the shell still starts. An application lays its panels out from
+these tabs and adds its own beside them (Tom Forge adds the website editor's
+tabs and the Terminal tab).
 
 ## Placing editors
 
@@ -48,8 +62,10 @@ existing middle panel places the editor in the active one
 
 It holds its default services
 (`DefaultShellApi`), the scaffold (`ForgeShellScaffold`), panels, editor tab
-bar, menus, command palette, quick open, configuration, the built-in views
-(explorer, outline, output, problems, revisions, search), and opens a file no
+bar, menus, command palette, quick open, configuration, the views not yet
+in packages of their own (explorer, problems, search; the outline, output and
+revisions views are `tom_forge_outline_view`, `tom_forge_output_view` and
+`tom_forge_revision_view`, which it does not depend on), and opens a file no
 editor type takes in the plain-text editor, `ForgePlainTextEditor` of the
 adapter `tom_forge_plain_text_editor` (which it depends on and does not
 re-export). Its look — `ForgeShellTheme`, `forgeThemeData`, `ForgeDimensions`,
