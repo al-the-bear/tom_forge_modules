@@ -6,23 +6,24 @@ import 'package:flutter/services.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_forge_kit/tom_forge_kit.dart';
 
-import '../shell/forge_layout_controller.dart';
-
 /// Problems panel showing diagnostics grouped by file.
 ///
 /// Severity icon, message, and source location. Clicking a diagnostic
-/// navigates to the file at the diagnostic position.
+/// opens the file at the diagnostic position ([openFile]).
+///
+/// A kit component: it takes the diagnostics of [diagnosticManager] and
+/// opens files through [openFile], so any application on the kit shows it
+/// ([ForgeProblemsView.forApi]).
 class ForgeProblemsView extends ForgeView {
   final ForgeDiagnosticManager diagnosticManager;
-  final ForgeLayoutController layoutController;
+
+  /// Opens the file of a diagnostic at its position.
+  final ForgeOpenFileAt openFile;
 
   final _title = ValueNotifier<String>('Problems');
   final _titleExtension = ValueNotifier<String?>(null);
 
-  ForgeProblemsView({
-    required this.diagnosticManager,
-    required this.layoutController,
-  }) {
+  ForgeProblemsView({required this.diagnosticManager, required this.openFile}) {
     // Keep the title extension in sync with diagnostic count.
     if (diagnosticManager is DefaultDiagnosticManager) {
       final dm = diagnosticManager as DefaultDiagnosticManager;
@@ -30,6 +31,13 @@ class ForgeProblemsView extends ForgeView {
       _updateTitleExtension();
     }
   }
+
+  /// The view over [api]: its diagnostics, opening a diagnostic through the
+  /// application's [ForgeFileNavigator] ([forgeOpenFileAtOf]).
+  factory ForgeProblemsView.forApi(ForgeKitApi api) => ForgeProblemsView(
+    diagnosticManager: api.diagnostics,
+    openFile: forgeOpenFileAtOf(api),
+  );
 
   void _updateTitleExtension() {
     final count = diagnosticManager.all.length;
@@ -53,7 +61,7 @@ class ForgeProblemsView extends ForgeView {
   Widget buildMain(BuildContext context) {
     return _ProblemsContent(
       diagnosticManager: diagnosticManager,
-      layoutController: layoutController,
+      openFile: openFile,
     );
   }
 
@@ -66,11 +74,11 @@ enum _SeverityFilter { all, errors, warnings }
 
 class _ProblemsContent extends StatefulWidget {
   final ForgeDiagnosticManager diagnosticManager;
-  final ForgeLayoutController layoutController;
+  final ForgeOpenFileAt openFile;
 
   const _ProblemsContent({
     required this.diagnosticManager,
-    required this.layoutController,
+    required this.openFile,
   });
 
   @override
@@ -757,7 +765,7 @@ class _ProblemsContentState extends State<_ProblemsContent> {
                 ..clear()
                 ..add(diag);
             });
-            widget.layoutController.openFile(
+            widget.openFile(
               diag.uri,
               line: diag.range.start.line,
               column: diag.range.start.column,

@@ -2,9 +2,9 @@ name: tom_forge_ui
 description: >-
   Tom Forge UI: Forge's panel shell (tom_forge_shell) with the terminal
   (tom_forge_terminal), the code editors (tom_forge_code_editors), the
-  platform keychain (tom_forge_platform_secrets) and the views that are
-  packages of their own (Outline, Output, Revisions), re-exported as one
-  library.
+  platform keychain (tom_forge_platform_secrets) and the views, packages of
+  their own (Explorer, Search, Problems, Outline, Output, Revisions),
+  re-exported as one library.
 publish_to: none
 version: 0.0.1
 homepage:
@@ -30,8 +30,14 @@ dependencies:
     path: ../tom_forge_dart_editor
   tom_forge_yaml_editor:
     path: ../tom_forge_yaml_editor
-  # The views that are packages of their own on the kit, re-exported with
-  # their modules (forgeDesktopViewModules).
+  # The views, packages of their own on the kit, re-exported with their
+  # modules (forgeDesktopViewModules).
+  tom_forge_file_explorer:
+    path: ../tom_forge_file_explorer
+  tom_forge_search_view:
+    path: ../tom_forge_search_view
+  tom_forge_problems_view:
+    path: ../tom_forge_problems_view
   tom_forge_outline_view:
     path: ../tom_forge_outline_view
   tom_forge_output_view:

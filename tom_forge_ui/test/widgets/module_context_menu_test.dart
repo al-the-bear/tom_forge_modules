@@ -239,9 +239,9 @@ class _FakeModule extends ForgeModule {
   _FakeModule(ForgeShellApi shell)
       : explorer = ForgeFileExplorerView(
           fileSystem: shell.fileSystem,
-          layoutController: shell.layout,
+          openFile: forgeOpenFileAtOf(shell),
           rootUri: Uri.file(_workspace),
-          systemState: shell.systemState as DefaultSystemState,
+          selection: shell.systemState as DefaultSystemState,
           contextMenus: shell.contextMenus,
         );
 

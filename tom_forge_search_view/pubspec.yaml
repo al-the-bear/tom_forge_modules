@@ -1,0 +1,31 @@
+name: tom_forge_search_view
+description: >-
+  Forge's Search view as a kit component: workspace-wide text search with results grouped by file (ForgeSearchView), a match opened at its position through the kit, contributed to any application on the kit by forgeSearchViewModule with a layout-free placement hint.
+  License: BSD-3-Clause.
+publish_to: none
+version: 0.1.0
+repository: https://github.com/al-the-bear/tom_forge
+
+environment:
+  sdk: ^3.10.8
+  flutter: ">=1.17.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # The Forge kit: the view and module contracts, ForgeKitApi and its
+  # search manager, the placement hint, the file navigator. Never the shell
+  # (R9).
+  tom_forge_kit:
+    path: ../tom_forge_kit
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  # The in-memory file system the tests run a bare DefaultKitApi over.
+  tom_file_system:
+    path: ../../tom_ai/basics/tom_file_system
+
+flutter:
+  uses-material-design: true

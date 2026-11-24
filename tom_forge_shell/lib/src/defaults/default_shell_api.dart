@@ -34,7 +34,8 @@ import '../services/forge_preferences_service.dart';
 ///
 /// Aggregates all default service implementations and provides them
 /// as a single API surface for module activation.
-class DefaultShellApi implements ForgeShellApi, ForgeRevisionRestorer {
+class DefaultShellApi
+    implements ForgeShellApi, ForgeRevisionRestorer, ForgeFileNavigator {
   @override
   final ForgeSystemState systemState;
 
@@ -570,6 +571,13 @@ class DefaultShellApi implements ForgeShellApi, ForgeRevisionRestorer {
     }
     return await editorHost.openEditorFor(uri, placement: placement) != null;
   }
+
+  /// Opens [uri] as the layout opens what the user picks
+  /// ([ForgeLayoutController.openFile]: the active middle panel, the
+  /// navigation history, the editor moved to [line] and [column]).
+  @override
+  void openFileAt(Uri uri, {int? line, int? column}) =>
+      layout.openFile(uri, line: line, column: column);
 
   /// Activates [module] with this API and registers it (its actions,
   /// shortcuts and shortcut menus) in [modules]: a [ForgeModule] or a module

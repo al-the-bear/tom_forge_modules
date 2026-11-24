@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- View ports for the file explorer, Search and Problems views:
+  `ForgeFileNavigator` (open a file at a line and column; implemented by
+  the panel shell's API) with `ForgeOpenFileAt` and `forgeOpenFileAtOf`
+  (falls back to `ForgeKitApi.openFile`); `ForgeExplorerSelection`,
+  `ForgeSearchQueryState` and `ForgeWorkspaceRoot` (implemented by the
+  panel shell's state).
 - Contributed views: `ForgeViewPlacementHint` (a stable id, a
   `ForgeViewRole` — navigation, details, messages —, a group with its icon,
   an order; no panel, tab or window), handed over per view in a

@@ -8,7 +8,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
-import 'package:tom_forge_ui/tom_forge_ui.dart';
+import 'package:tom_forge_problems_view/tom_forge_problems_view.dart';
 
 ForgeTextRange _range(int line) => ForgeTextRange(
   start: ForgeTextPosition(line: line, column: 0),
@@ -20,13 +20,7 @@ void main() {
     'PROBLEMS-NARROW-1: the toolbar and the rows fit from 120 px to 800 px, '
     'with three-digit counts',
     (tester) async {
-      final shell = DefaultShellApi.withDefaults(
-        fileSystemSeed: const {'/a.dart': ''},
-        appName: 'Problems',
-        navigatorKey: GlobalKey<NavigatorState>(),
-      );
-      addTearDown(shell.dispose);
-      final diagnostics = shell.diagnostics as DefaultDiagnosticManager;
+      final diagnostics = DefaultDiagnosticManager();
       final uri = Uri.file('/a.dart');
       diagnostics.createCollection('narrow').set(uri, [
         for (var i = 0; i < 345; i++)
@@ -39,8 +33,8 @@ void main() {
           ),
       ]);
       final view = ForgeProblemsView(
-        diagnosticManager: shell.diagnostics,
-        layoutController: shell.layout,
+        diagnosticManager: diagnostics,
+        openFile: (uri, {line, column}) {},
       );
       await tester.binding.setSurfaceSize(const Size(1000, 600));
       addTearDown(() => tester.binding.setSurfaceSize(null));

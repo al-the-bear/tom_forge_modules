@@ -5,9 +5,10 @@
 /// adapters (`tom_forge_md_editor`, `tom_forge_dart_editor`,
 /// `tom_forge_yaml_editor`, with `tom_forge_code_editors`' helpers for one
 /// release), `tom_forge_platform_secrets`, `tom_forge_desktop_host` and the
-/// view packages (`tom_forge_outline_view`, `tom_forge_output_view`,
-/// `tom_forge_revision_view`, whose modules [forgeDesktopViewModules]
-/// makes).
+/// view packages (`tom_forge_file_explorer`, `tom_forge_search_view`,
+/// `tom_forge_problems_view`, `tom_forge_outline_view`,
+/// `tom_forge_output_view`, `tom_forge_revision_view`, whose modules
+/// [forgeDesktopViewModules] makes).
 /// Shells take the
 /// terminal, the code editors and the keychain once
 /// [useForgeDesktopComponents] has registered them (or when given
@@ -19,12 +20,15 @@ library;
 export 'package:tom_forge_code_editors/tom_forge_code_editors.dart';
 export 'package:tom_forge_dart_editor/tom_forge_dart_editor.dart';
 export 'package:tom_forge_desktop_host/tom_forge_desktop_host.dart';
+export 'package:tom_forge_file_explorer/tom_forge_file_explorer.dart';
 export 'package:tom_forge_md_editor/tom_forge_md_editor.dart';
 export 'package:tom_forge_outline_view/tom_forge_outline_view.dart';
 export 'package:tom_forge_output_view/tom_forge_output_view.dart';
 export 'package:tom_forge_plain_text_editor/tom_forge_plain_text_editor.dart';
 export 'package:tom_forge_platform_secrets/tom_forge_platform_secrets.dart';
+export 'package:tom_forge_problems_view/tom_forge_problems_view.dart';
 export 'package:tom_forge_revision_view/tom_forge_revision_view.dart';
+export 'package:tom_forge_search_view/tom_forge_search_view.dart';
 export 'package:tom_forge_shell/tom_forge_shell.dart';
 export 'package:tom_forge_terminal/tom_forge_terminal.dart';
 export 'package:tom_forge_yaml_editor/tom_forge_yaml_editor.dart';

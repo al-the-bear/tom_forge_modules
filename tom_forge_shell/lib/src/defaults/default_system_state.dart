@@ -17,7 +17,10 @@ class DefaultSystemState
     implements
         ForgeSystemState,
         ForgeApplicationRegistry,
-        ForgeActiveEditorListenable {
+        ForgeActiveEditorListenable,
+        ForgeExplorerSelection,
+        ForgeSearchQueryState,
+        ForgeWorkspaceRoot {
   static bool debugEnabled = false;
 
   final _focusedComponent = ValueNotifier<ForgeComponent?>(null);
@@ -132,6 +135,7 @@ class DefaultSystemState
   @override
   List<Uri> get selectedExplorerItems => _selectedExplorerItems.value;
 
+  @override
   ValueListenable<List<Uri>> get selectedExplorerItemsListenable =>
       _selectedExplorerItems;
 
@@ -294,18 +298,22 @@ class DefaultSystemState
     );
   }
 
+  @override
   void setSelectedExplorerItems(List<Uri> items) {
     _selectedExplorerItems.value = items;
   }
 
+  @override
   void setHoveredExplorerItem(Uri? item) {
     _hoveredExplorerItem.value = item;
   }
 
+  @override
   void setSearchQuery(String query) {
     _searchQuery.value = query;
   }
 
+  @override
   void setSearchActive(bool active) {
     _isSearchActive.value = active;
   }

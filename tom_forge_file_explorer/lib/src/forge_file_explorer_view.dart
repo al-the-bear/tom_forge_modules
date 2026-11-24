@@ -8,19 +8,27 @@ import 'package:tom_forge_shared_ui/tom_forge_shared_ui.dart';
 import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_forge_kit/tom_forge_kit.dart';
 
-import '../defaults/default_system_state.dart';
-import '../shell/forge_layout_controller.dart';
-
 /// File explorer tree view.
 ///
 /// Lists files from [TomFileSystem], with collapsible directories
-/// and clickable files that open via [ForgeLayoutController].
+/// and clickable files that open through [openFile].
 /// Supports selection, hover, rename, delete, and file decoration rendering.
+///
+/// A kit component: it reads and changes files through [fileSystem], opens
+/// them through [openFile], shares its selection with [selection] when
+/// given (the application reveals a file through it) and draws the
+/// decorations of [fileDecorationManager] when given, so any application on
+/// the kit shows it ([ForgeFileExplorerView.forApi]).
 class ForgeFileExplorerView extends ForgeView {
   final TomFileSystem fileSystem;
-  final ForgeLayoutController layoutController;
+
+  /// Opens a file the user picks (double tap, Open, a file just created).
+  final ForgeOpenFileAt openFile;
   final Uri rootUri;
-  final DefaultSystemState? systemState;
+
+  /// Where the selection and the hovered row are kept (the application's
+  /// state), or null: the explorer keeps its selection to itself.
+  final ForgeExplorerSelection? selection;
   final DefaultFileDecorationManager? fileDecorationManager;
 
   /// Module context-menu contributions for the rows
@@ -34,12 +42,28 @@ class ForgeFileExplorerView extends ForgeView {
 
   ForgeFileExplorerView({
     required this.fileSystem,
-    required this.layoutController,
+    required this.openFile,
     required this.rootUri,
-    this.systemState,
+    this.selection,
     this.fileDecorationManager,
     this.contextMenus,
   });
+
+  /// The view over [api] showing [rootUri]: its file system, opening files
+  /// through the application's [ForgeFileNavigator] ([forgeOpenFileAtOf]),
+  /// with the modules' context-menu entries ([ForgeKitApi.contextMenus]).
+  /// It keeps its selection to itself and draws no decorations, as Tom
+  /// Forge's explorer does; give [selection] and [fileDecorationManager] to
+  /// the constructor for those.
+  factory ForgeFileExplorerView.forApi(
+    ForgeKitApi api, {
+    required Uri rootUri,
+  }) => ForgeFileExplorerView(
+    fileSystem: api.fileSystem,
+    openFile: forgeOpenFileAtOf(api),
+    rootUri: rootUri,
+    contextMenus: api.contextMenus,
+  );
 
   @override
   ValueListenable<String> get title => _title;
@@ -51,17 +75,16 @@ class ForgeFileExplorerView extends ForgeView {
   IconData get icon => Icons.folder_outlined;
 
   @override
-  ForgeComponentSizeHints get sizeHints => const ForgeComponentSizeHints(
-        preferredSize: Size(250, 400),
-      );
+  ForgeComponentSizeHints get sizeHints =>
+      const ForgeComponentSizeHints(preferredSize: Size(250, 400));
 
   @override
   Widget buildMain(BuildContext context) {
     return _FileExplorerContent(
       fileSystem: fileSystem,
-      layoutController: layoutController,
+      openFile: openFile,
       rootUri: rootUri,
-      systemState: systemState,
+      selection: selection,
       fileDecorationManager: fileDecorationManager,
       contextMenus: contextMenus,
     );
@@ -73,17 +96,17 @@ class ForgeFileExplorerView extends ForgeView {
 
 class _FileExplorerContent extends StatefulWidget {
   final TomFileSystem fileSystem;
-  final ForgeLayoutController layoutController;
+  final ForgeOpenFileAt openFile;
   final Uri rootUri;
-  final DefaultSystemState? systemState;
+  final ForgeExplorerSelection? selection;
   final DefaultFileDecorationManager? fileDecorationManager;
   final ForgeContextMenuController? contextMenus;
 
   const _FileExplorerContent({
     required this.fileSystem,
-    required this.layoutController,
+    required this.openFile,
     required this.rootUri,
-    this.systemState,
+    this.selection,
     this.fileDecorationManager,
     this.contextMenus,
   });
@@ -106,19 +129,22 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
   void initState() {
     super.initState();
     _loadEntries();
-    // Listen for reveal-in-explorer triggers from system state.
-    widget.systemState?.selectedExplorerItemsListenable
-        .addListener(_onSystemStateChanged);
+    // Listen for reveal-in-explorer triggers from the shared selection.
+    widget.selection?.selectedExplorerItemsListenable.addListener(
+      _onSystemStateChanged,
+    );
     // Listen for decoration changes to refresh display.
-    _decorationSubscription =
-        widget.fileDecorationManager?.onDidChange.listen(_onDecorationChanged);
+    _decorationSubscription = widget.fileDecorationManager?.onDidChange.listen(
+      _onDecorationChanged,
+    );
   }
 
   @override
   void dispose() {
     _decorationSubscription?.cancel();
-    widget.systemState?.selectedExplorerItemsListenable
-        .removeListener(_onSystemStateChanged);
+    widget.selection?.selectedExplorerItemsListenable.removeListener(
+      _onSystemStateChanged,
+    );
     super.dispose();
   }
 
@@ -128,7 +154,7 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
   }
 
   void _onSystemStateChanged() {
-    final items = widget.systemState?.selectedExplorerItems ?? [];
+    final items = widget.selection?.selectedExplorerItems ?? [];
     if (items.isNotEmpty && items.first != _selectedUri) {
       _revealUri(items.first);
     }
@@ -189,8 +215,7 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
 
     setState(() => _loadingDirectories.add(directoryPath));
     try {
-      final entries =
-          await widget.fileSystem.list(Uri.file(directoryPath));
+      final entries = await widget.fileSystem.list(Uri.file(directoryPath));
       if (mounted) {
         setState(() {
           _directoryChildren[directoryPath] = _sortEntries(entries);
@@ -228,10 +253,7 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(12),
-          child: Text(
-            _errorMessage!,
-            textAlign: TextAlign.center,
-          ),
+          child: Text(_errorMessage!, textAlign: TextAlign.center),
         ),
       );
     }
@@ -269,19 +291,19 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
         MouseRegion(
           onEnter: (_) {
             setState(() => _hoveredUri = entryUri);
-            widget.systemState?.setHoveredExplorerItem(entryUri);
+            widget.selection?.setHoveredExplorerItem(entryUri);
           },
           onExit: (_) {
             if (_hoveredUri == entryUri) {
               setState(() => _hoveredUri = null);
-              widget.systemState?.setHoveredExplorerItem(null);
+              widget.selection?.setHoveredExplorerItem(null);
             }
           },
           child: InkWell(
             key: ValueKey<String>('forge-explorer-entry:$path'),
             onTap: () async {
               setState(() => _selectedUri = entryUri);
-              widget.systemState?.setSelectedExplorerItems([entryUri]);
+              widget.selection?.setSelectedExplorerItems([entryUri]);
               if (isDirectory) {
                 await _toggleDirectory(path, isExpanded);
               }
@@ -290,9 +312,7 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
             // null for directories lets their single-tap toggle fire
             // immediately, instead of waiting out the double-tap disambiguation
             // delay — matching the instant expand/collapse users expect.
-            onDoubleTap: isDirectory
-                ? null
-                : () => widget.layoutController.openFile(entryUri),
+            onDoubleTap: isDirectory ? null : () => widget.openFile(entryUri),
             onSecondaryTapDown: (details) {
               _showContextMenu(context, details.globalPosition, entry);
             },
@@ -300,10 +320,13 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
               color: isSelected
                   ? theme.colorScheme.primary.withValues(alpha: 0.15)
                   : isHovered
-                      ? theme.colorScheme.onSurface.withValues(alpha: 0.05)
-                      : null,
-              padding:
-                  EdgeInsets.only(left: 8.0 + depth * 16.0, top: 2, bottom: 2),
+                  ? theme.colorScheme.onSurface.withValues(alpha: 0.05)
+                  : null,
+              padding: EdgeInsets.only(
+                left: 8.0 + depth * 16.0,
+                top: 2,
+                bottom: 2,
+              ),
               child: Row(
                 children: [
                   if (isDirectory)
@@ -319,11 +342,12 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
                   Icon(
                     isDirectory
                         ? (isExpanded
-                            ? Icons.folder_open_outlined
-                            : Icons.folder_outlined)
+                              ? Icons.folder_open_outlined
+                              : Icons.folder_outlined)
                         : _iconForExtension(name),
                     size: 16,
-                    color: decoration?.color ??
+                    color:
+                        decoration?.color ??
                         (isDirectory
                             ? Colors.amber
                             : theme.colorScheme.onSurface),
@@ -344,7 +368,9 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
                       child: Container(
                         margin: const EdgeInsets.only(right: 4),
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 4, vertical: 1),
+                          horizontal: 4,
+                          vertical: 1,
+                        ),
                         decoration: BoxDecoration(
                           color: (decoration.color ?? theme.colorScheme.primary)
                               .withValues(alpha: 0.2),
@@ -390,17 +416,24 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
     final path = _absolutePath(entry);
     // The row as a context target, for the modules' contributions: drawn
     // after the explorer's own entries, each enabled by its predicate.
-    final contributed = widget.contextMenus?.entriesFor(ForgeContextTarget(
-          kind: isDirectory
-              ? ForgeContextTarget.explorerDirectoryKind
-              : ForgeContextTarget.explorerFileKind,
-          data: entryUri,
-        )) ??
+    final contributed =
+        widget.contextMenus?.entriesFor(
+          ForgeContextTarget(
+            kind: isDirectory
+                ? ForgeContextTarget.explorerDirectoryKind
+                : ForgeContextTarget.explorerFileKind,
+            data: entryUri,
+          ),
+        ) ??
         const <ForgeContextMenuEntry>[];
     showMenu<Object>(
       context: context,
       position: RelativeRect.fromLTRB(
-          position.dx, position.dy, position.dx, position.dy),
+        position.dx,
+        position.dy,
+        position.dx,
+        position.dy,
+      ),
       items: [
         if (!isDirectory)
           const PopupMenuItem(value: 'open', child: Text('Open')),
@@ -422,7 +455,7 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
       }
       switch (value) {
         case 'open':
-          widget.layoutController.openFile(entryUri);
+          widget.openFile(entryUri);
         case 'rename':
           _showRenameDialog(entry);
         case 'delete':
@@ -448,12 +481,16 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
       ),
     );
 
-    if (newName == null || newName.isEmpty || newName == name || !mounted) return;
+    if (newName == null || newName.isEmpty || newName == name || !mounted) {
+      return;
+    }
 
     try {
       final parentDir = _parentPath(_absolutePath(entry));
       final newPath = '$parentDir/$newName';
-      await forgeApplyWorkspaceEdit(widget.fileSystem, ForgeWorkspaceEdit(
+      await forgeApplyWorkspaceEdit(
+        widget.fileSystem,
+        ForgeWorkspaceEdit(
           fileOperations: [
             ForgeRenameFileOperation(
               oldUri: entry.uri,
@@ -469,9 +506,9 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Rename failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Rename failed: $e')));
       }
     }
   }
@@ -485,11 +522,13 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
         content: Text('Delete "$name"? This cannot be undone.'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
           TextButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: const Text('Delete')),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete'),
+          ),
         ],
       ),
     );
@@ -505,9 +544,9 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Delete failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Delete failed: $e')));
       }
     }
   }
@@ -532,12 +571,12 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
       } else {
         await _loadEntries();
       }
-      widget.layoutController.openFile(uri);
+      widget.openFile(uri);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Create file failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Create file failed: $e')));
       }
     }
   }
@@ -555,8 +594,10 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
     if (name == null || name.isEmpty || !mounted) return;
 
     try {
-      await widget.fileSystem
-          .create(Uri.file('$parentDir/$name'), directory: true);
+      await widget.fileSystem.create(
+        Uri.file('$parentDir/$name'),
+        directory: true,
+      );
       if (_directoryChildren.containsKey(parentDir)) {
         await _loadDirectoryChildren(parentDir);
       } else {
@@ -564,9 +605,9 @@ class _FileExplorerContentState extends State<_FileExplorerContent> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Create folder failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Create folder failed: $e')));
       }
     }
   }
@@ -652,8 +693,9 @@ class _TextPromptDialog extends StatefulWidget {
 }
 
 class _TextPromptDialogState extends State<_TextPromptDialog> {
-  late final TextEditingController _controller =
-      TextEditingController(text: widget.initialValue);
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.initialValue,
+  );
   final _focusNode = FocusNode();
 
   @override
@@ -698,10 +740,7 @@ class _TextPromptDialogState extends State<_TextPromptDialog> {
           controller: _controller,
           focusNode: _focusNode,
           autofocus: true,
-          decoration: InputDecoration(
-            hintText: widget.hintText,
-            isDense: true,
-          ),
+          decoration: InputDecoration(hintText: widget.hintText, isDense: true),
           onSubmitted: (_) => _submit(),
         ),
       ),
@@ -710,10 +749,7 @@ class _TextPromptDialogState extends State<_TextPromptDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
-        TextButton(
-          onPressed: _submit,
-          child: Text(widget.confirmLabel),
-        ),
+        TextButton(onPressed: _submit, child: Text(widget.confirmLabel)),
       ],
     );
   }

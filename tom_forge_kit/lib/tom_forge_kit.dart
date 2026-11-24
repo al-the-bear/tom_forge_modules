@@ -84,6 +84,7 @@ export 'src/kit/forge_kit_state.dart';
 export 'src/kit/forge_memory_state_store.dart';
 export 'src/kit/forge_shared_preferences_state_store.dart';
 export 'src/kit/forge_state_store.dart';
+export 'src/kit/forge_view_state_ports.dart';
 
 // ── Model ──
 // Data the kit's models use, from tom_forge_core (pure Dart, also what
@@ -113,6 +114,7 @@ export 'src/services/forge_diagnostic_manager.dart';
 export 'src/services/forge_dialog_manager.dart';
 export 'src/services/forge_disposable.dart';
 export 'src/services/forge_file_decoration_manager.dart';
+export 'src/services/forge_file_navigator.dart';
 export 'src/services/forge_kit_preferences.dart';
 export 'src/services/forge_module_storage.dart';
 export 'src/services/forge_navigation_history.dart';

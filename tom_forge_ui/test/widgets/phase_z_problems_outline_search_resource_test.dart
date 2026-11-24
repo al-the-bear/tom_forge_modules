@@ -598,8 +598,8 @@ class _PhaseZHarness {
     if (includeSearch) {
       final searchView = ForgeSearchView(
         searchManager: searchManagerOverride ?? shell.search,
-        layoutController: shell.layout,
-        systemState: shell.systemState as DefaultSystemState,
+        openFile: forgeOpenFileAtOf(shell),
+        searchState: shell.systemState as DefaultSystemState,
         workspaceRoot: workspaceRoot,
       );
       sectionViews.add(searchView);
@@ -640,7 +640,7 @@ class _PhaseZHarness {
     if (includeProblems) {
       final problemsView = ForgeProblemsView(
         diagnosticManager: shell.diagnostics,
-        layoutController: shell.layout,
+        openFile: forgeOpenFileAtOf(shell),
       );
       sectionViews.add(problemsView);
       bottomTabs.add(

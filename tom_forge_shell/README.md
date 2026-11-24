@@ -62,10 +62,13 @@ existing middle panel places the editor in the active one
 
 It holds its default services
 (`DefaultShellApi`), the scaffold (`ForgeShellScaffold`), panels, editor tab
-bar, menus, command palette, quick open, configuration, the views not yet
-in packages of their own (explorer, problems, search; the outline, output and
-revisions views are `tom_forge_outline_view`, `tom_forge_output_view` and
-`tom_forge_revision_view`, which it does not depend on), and opens a file no
+bar, menus, command palette, quick open, configuration (the views are
+packages of their own — `tom_forge_file_explorer`, `tom_forge_search_view`,
+`tom_forge_problems_view`, `tom_forge_outline_view`, `tom_forge_output_view`,
+`tom_forge_revision_view` — which it does not depend on; its API and state
+are the kit's view ports `ForgeFileNavigator`, `ForgeExplorerSelection`,
+`ForgeSearchQueryState`, `ForgeWorkspaceRoot`, `ForgeActiveEditorListenable`
+and `ForgeRevisionRestorer`), and opens a file no
 editor type takes in the plain-text editor, `ForgePlainTextEditor` of the
 adapter `tom_forge_plain_text_editor` (which it depends on and does not
 re-export). Its look — `ForgeShellTheme`, `forgeThemeData`, `ForgeDimensions`,

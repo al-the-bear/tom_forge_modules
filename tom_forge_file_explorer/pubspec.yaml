@@ -1,0 +1,38 @@
+name: tom_forge_file_explorer
+description: >-
+  Forge's file explorer as a kit component: the workspace's file tree with open, rename, new file and folder, delete and the modules' context-menu entries (ForgeFileExplorerView), files opened through the kit, contributed to any application on the kit by forgeFileExplorerModule with a layout-free placement hint.
+  License: BSD-3-Clause.
+publish_to: none
+version: 0.1.0
+repository: https://github.com/al-the-bear/tom_forge
+
+environment:
+  sdk: ^3.10.8
+  flutter: ">=1.17.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # The Forge kit: the view and module contracts, ForgeKitApi, the context
+  # menu controller, decorations, the placement hint, the file navigator and
+  # the explorer selection. Never the shell (R9).
+  tom_forge_kit:
+    path: ../tom_forge_kit
+  # The context-menu and workspace-edit types (ForgeContextTarget,
+  # ForgeWorkspaceEdit).
+  tom_forge_core:
+    path: ../tom_forge_core
+  # The shared look: the context menu presenter, the theme tokens.
+  tom_forge_shared_ui:
+    path: ../tom_forge_shared_ui
+  # The file tree it lists and changes (TomFileSystem, TomFileEntry).
+  tom_file_system:
+    path: ../../tom_ai/basics/tom_file_system
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

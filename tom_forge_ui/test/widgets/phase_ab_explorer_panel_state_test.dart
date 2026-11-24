@@ -406,9 +406,9 @@ class _PhaseABExplorerHarness {
 
     final explorerView = ForgeFileExplorerView(
       fileSystem: fileSystem,
-      layoutController: shell.layout,
+      openFile: forgeOpenFileAtOf(shell),
       rootUri: Uri.file(workspaceRoot),
-      systemState: systemState,
+      selection: systemState,
       fileDecorationManager:
           shell.fileDecorations as DefaultFileDecorationManager,
     );

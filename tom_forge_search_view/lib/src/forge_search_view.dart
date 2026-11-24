@@ -4,18 +4,23 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:tom_forge_kit/tom_forge_kit.dart';
 
-import '../defaults/default_system_state.dart';
-import '../shell/forge_layout_controller.dart';
-
 /// Search view with query input, toggle options, and results grouped by file.
 ///
 /// Uses streaming search for progressive results: files appear as they are
 /// found rather than waiting for the entire search to complete. Clicking a
-/// match opens the file at the match location.
+/// match opens the file at the match location ([openFile]).
+///
+/// A kit component: it searches with [searchManager], opens files through
+/// [openFile] and records its query in [searchState] when given, so any
+/// application on the kit shows it ([ForgeSearchView.forApi]).
 class ForgeSearchView extends ForgeView {
   final ForgeSearchManager searchManager;
-  final ForgeLayoutController layoutController;
-  final DefaultSystemState? systemState;
+
+  /// Opens the file of a match at its position.
+  final ForgeOpenFileAt openFile;
+
+  /// Where the query is recorded (the application's state), or null.
+  final ForgeSearchQueryState? searchState;
 
   /// Workspace root path for displaying relative file paths.
   final String? workspaceRoot;
@@ -25,10 +30,32 @@ class ForgeSearchView extends ForgeView {
 
   ForgeSearchView({
     required this.searchManager,
-    required this.layoutController,
-    this.systemState,
+    required this.openFile,
+    this.searchState,
     this.workspaceRoot,
   });
+
+  /// The view over [api]: its search manager, opening a match through the
+  /// application's [ForgeFileNavigator] ([forgeOpenFileAtOf]), recording the
+  /// query in its state when that is a [ForgeSearchQueryState], with paths
+  /// relative to [workspaceRoot] (default: the state's [ForgeWorkspaceRoot]).
+  factory ForgeSearchView.forApi(ForgeKitApi api, {String? workspaceRoot}) {
+    final state = api.state;
+    return ForgeSearchView(
+      searchManager: api.search,
+      openFile: forgeOpenFileAtOf(api),
+      searchState: switch (state) {
+        final ForgeSearchQueryState queryState => queryState,
+        _ => null,
+      },
+      workspaceRoot:
+          workspaceRoot ??
+          switch (state) {
+            final ForgeWorkspaceRoot root => root.workspaceRootPath,
+            _ => null,
+          },
+    );
+  }
 
   @override
   ValueListenable<String> get title => _title;
@@ -40,16 +67,15 @@ class ForgeSearchView extends ForgeView {
   IconData get icon => Icons.search;
 
   @override
-  ForgeComponentSizeHints get sizeHints => const ForgeComponentSizeHints(
-        preferredSize: Size(400, 300),
-      );
+  ForgeComponentSizeHints get sizeHints =>
+      const ForgeComponentSizeHints(preferredSize: Size(400, 300));
 
   @override
   Widget buildMain(BuildContext context) {
     return _SearchContent(
       searchManager: searchManager,
-      layoutController: layoutController,
-      systemState: systemState,
+      openFile: openFile,
+      searchState: searchState,
       workspaceRoot: workspaceRoot,
     );
   }
@@ -60,14 +86,14 @@ class ForgeSearchView extends ForgeView {
 
 class _SearchContent extends StatefulWidget {
   final ForgeSearchManager searchManager;
-  final ForgeLayoutController layoutController;
-  final DefaultSystemState? systemState;
+  final ForgeOpenFileAt openFile;
+  final ForgeSearchQueryState? searchState;
   final String? workspaceRoot;
 
   const _SearchContent({
     required this.searchManager,
-    required this.layoutController,
-    this.systemState,
+    required this.openFile,
+    this.searchState,
     this.workspaceRoot,
   });
 
@@ -123,8 +149,8 @@ class _SearchContentState extends State<_SearchContent> {
     final query = _queryController.text;
 
     // Sync with system state.
-    widget.systemState?.setSearchQuery(query);
-    widget.systemState?.setSearchActive(query.isNotEmpty);
+    widget.searchState?.setSearchQuery(query);
+    widget.searchState?.setSearchActive(query.isNotEmpty);
 
     // Cancel any in-progress search.
     _cancelSearch();
@@ -199,7 +225,11 @@ class _SearchContentState extends State<_SearchContent> {
     }
     // Fallback: show full path segments.
     return uri.pathSegments.isNotEmpty
-        ? uri.pathSegments.skip(uri.pathSegments.length > 3 ? uri.pathSegments.length - 3 : 0).join('/')
+        ? uri.pathSegments
+              .skip(
+                uri.pathSegments.length > 3 ? uri.pathSegments.length - 3 : 0,
+              )
+              .join('/')
         : uri.path;
   }
 
@@ -221,8 +251,10 @@ class _SearchContentState extends State<_SearchContent> {
                       decoration: const InputDecoration(
                         hintText: 'Search',
                         isDense: true,
-                        contentPadding:
-                            EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 6,
+                        ),
                         border: OutlineInputBorder(),
                       ),
                       style: theme.textTheme.bodySmall,
@@ -230,18 +262,36 @@ class _SearchContentState extends State<_SearchContent> {
                     ),
                   ),
                   const SizedBox(width: 4),
-                  _buildToggle('Aa', _isCaseSensitive, () {
-                    setState(() => _isCaseSensitive = !_isCaseSensitive);
-                    _doSearch();
-                  }, key: _caseToggleKey, tooltip: 'Match Case'),
-                  _buildToggle('W', _isWordMatch, () {
-                    setState(() => _isWordMatch = !_isWordMatch);
-                    _doSearch();
-                  }, key: _wordToggleKey, tooltip: 'Match Whole Word'),
-                  _buildToggle('.*', _isRegExp, () {
-                    setState(() => _isRegExp = !_isRegExp);
-                    _doSearch();
-                  }, key: _regexToggleKey, tooltip: 'Use Regular Expression'),
+                  _buildToggle(
+                    'Aa',
+                    _isCaseSensitive,
+                    () {
+                      setState(() => _isCaseSensitive = !_isCaseSensitive);
+                      _doSearch();
+                    },
+                    key: _caseToggleKey,
+                    tooltip: 'Match Case',
+                  ),
+                  _buildToggle(
+                    'W',
+                    _isWordMatch,
+                    () {
+                      setState(() => _isWordMatch = !_isWordMatch);
+                      _doSearch();
+                    },
+                    key: _wordToggleKey,
+                    tooltip: 'Match Whole Word',
+                  ),
+                  _buildToggle(
+                    '.*',
+                    _isRegExp,
+                    () {
+                      setState(() => _isRegExp = !_isRegExp);
+                      _doSearch();
+                    },
+                    key: _regexToggleKey,
+                    tooltip: 'Use Regular Expression',
+                  ),
                 ],
               ),
               if (_results.isNotEmpty || _isSearching || _searchError != null)
@@ -254,12 +304,14 @@ class _SearchContentState extends State<_SearchContent> {
                           _searchError != null
                               ? 'Error: $_searchError'
                               : _isSearching
-                                  ? '$_totalMatchCount matches in ${_results.length} files (searching...)'
-                                  : '$_totalMatchCount matches in ${_results.length} files',
+                              ? '$_totalMatchCount matches in ${_results.length} files (searching...)'
+                              : '$_totalMatchCount matches in ${_results.length} files',
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: _searchError != null
                                 ? theme.colorScheme.error
-                                : theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                                : theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.5,
+                                  ),
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -290,8 +342,7 @@ class _SearchContentState extends State<_SearchContent> {
             ],
           ),
         ),
-        if (_isSearching)
-          const LinearProgressIndicator(),
+        if (_isSearching) const LinearProgressIndicator(),
         Expanded(child: _buildResults(context)),
       ],
     );
@@ -347,15 +398,12 @@ class _SearchContentState extends State<_SearchContent> {
     if (_results.isEmpty) {
       return Center(
         child: Text(
-          _queryController.text.isEmpty
-              ? 'Type to search'
-              : 'No results found',
+          _queryController.text.isEmpty ? 'Type to search' : 'No results found',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context)
-                    .colorScheme
-                    .onSurface
-                    .withValues(alpha: 0.4),
-              ),
+            color: Theme.of(
+              context,
+            ).colorScheme.onSurface.withValues(alpha: 0.4),
+          ),
         ),
       );
     }
@@ -420,12 +468,11 @@ class _SearchContentState extends State<_SearchContent> {
     );
   }
 
-  Widget _buildMatch(
-      BuildContext context, Uri uri, ForgeSearchMatch match) {
+  Widget _buildMatch(BuildContext context, Uri uri, ForgeSearchMatch match) {
     final theme = Theme.of(context);
     final query = _queryController.text;
     return InkWell(
-      onTap: () => widget.layoutController.openFile(
+      onTap: () => widget.openFile(
         uri,
         line: match.range.start.line,
         column: match.range.start.column,
@@ -443,11 +490,7 @@ class _SearchContentState extends State<_SearchContent> {
               ),
             ),
             Expanded(
-              child: _buildHighlightedText(
-                match.lineText,
-                query,
-                theme,
-              ),
+              child: _buildHighlightedText(match.lineText, query, theme),
             ),
           ],
         ),
@@ -455,8 +498,7 @@ class _SearchContentState extends State<_SearchContent> {
     );
   }
 
-  Widget _buildHighlightedText(
-      String text, String query, ThemeData theme) {
+  Widget _buildHighlightedText(String text, String query, ThemeData theme) {
     if (query.isEmpty) {
       return Text(
         text,
@@ -479,15 +521,16 @@ class _SearchContentState extends State<_SearchContent> {
       if (idx > start) {
         spans.add(TextSpan(text: text.substring(start, idx)));
       }
-      spans.add(TextSpan(
-        text: text.substring(idx, idx + query.length),
-        style: TextStyle(
-          fontWeight: FontWeight.bold,
-          backgroundColor:
-              theme.colorScheme.primary.withValues(alpha: 0.2),
-          color: theme.colorScheme.primary,
+      spans.add(
+        TextSpan(
+          text: text.substring(idx, idx + query.length),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.2),
+            color: theme.colorScheme.primary,
+          ),
         ),
-      ));
+      );
       start = idx + query.length;
     }
 

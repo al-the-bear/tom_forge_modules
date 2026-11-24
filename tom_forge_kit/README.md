@@ -161,15 +161,30 @@ left, details right, messages bottom, a tab per group), or places the view
 as it likes, or leaves it out. `forgeContributedViews(registry)` answers every
 view of every registered module with its hint (null when the module gives
 none), and `forgeContributedViewById(registry, id)` finds one. The views
-that are packages of their own export their module (`forgeOutlineViewModule()`
+that are packages of their own export their module (`forgeFileExplorerModule()`
+in `tom_forge_file_explorer`, `forgeSearchViewModule()` in
+`tom_forge_search_view`, `forgeProblemsViewModule()` in
+`tom_forge_problems_view`, `forgeOutlineViewModule()`
 in `tom_forge_outline_view`, `forgeOutputViewModule()` in
 `tom_forge_output_view`, `forgeRevisionViewModule()` in
 `tom_forge_revision_view`).
 
-Two small ports serve such views: `ForgeActiveEditorListenable` (a state that
-reports every change of its active editor; `DefaultKitState` and the panel
-shell's state are ones) and `ForgeRevisionRestorer` (an API that restores a
-file from a saved revision; the panel shell's is one).
+Small ports serve such views; a view asks whether the application's API or
+state is one and does without otherwise:
+
+- `ForgeActiveEditorListenable` (a state that reports every change of its
+  active editor; `DefaultKitState` and the panel shell's state are ones);
+- `ForgeRevisionRestorer` (an API that restores a file from a saved
+  revision; the panel shell's is one);
+- `ForgeFileNavigator` (an API that opens a file at a line and column, the
+  way the application opens what the user picks; the panel shell's is one):
+  `forgeOpenFileAtOf(api)` answers a `ForgeOpenFileAt` that uses it, else
+  `ForgeKitApi.openFile`;
+- `ForgeExplorerSelection` (a state that keeps the file explorer's selection
+  and hovered row, through which the application reveals a file),
+  `ForgeSearchQueryState` (a state that records the Search view's query) and
+  `ForgeWorkspaceRoot` (a state that knows the workspace folder); the panel
+  shell's state is all three.
 
 A module that needs nothing of a host beyond this contract is a
 `ForgeKitModule` and runs in any application on the kit: `DefaultKitApi`

@@ -37,8 +37,9 @@ Rules the shell applies when it draws a target:
 `shell.contextMenus` is a `ForgeContextMenuController`:
 
 - `entriesFor(target)` — the resolved entries (`ForgeContextMenuEntry`), for a
-  surface that draws its own menu and appends the contributions. The shell's
-  `ForgeFileExplorerView` does this for its rows (`contextMenus:` parameter;
+  surface that draws its own menu and appends the contributions. The file
+  explorer (`ForgeFileExplorerView`, `tom_forge_file_explorer`) does this for
+  its rows (`contextMenus:` parameter;
   kinds `ForgeContextTarget.explorerFileKind` / `explorerDirectoryKind`, data
   the row's `Uri`).
 - `show(target, position)` — asks the scaffold to draw the menu. Returns

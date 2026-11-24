@@ -5,7 +5,7 @@ Forge's panel shell with everything a desktop Forge needs, as one library.
 
 | Package | What it is | Depends on |
 | --- | --- | --- |
-| `tom_forge_shell` | The shell core: `ForgeShellApi` and its default services, the scaffold, panels, tab bar, menus, command palette, configuration, the built-in views, and the plain-text editor as its fallback; builds for the web | Flutter, `tom_forge_core`, `tom_forge_shared_ui` (the theme tokens and the elements drawing the kit's models, which it re-exports), `tom_editors_shared` (webview-free), `tom_file_system`, `tom_file_session`, `tom_forge_plain_text_editor`, `shared_preferences` |
+| `tom_forge_shell` | The shell core: `ForgeShellApi` and its default services, the scaffold, panels, tab bar, menus, command palette, configuration, and the plain-text editor as its fallback (the views are packages of their own, re-exported here); builds for the web | Flutter, `tom_forge_core`, `tom_forge_shared_ui` (the theme tokens and the elements drawing the kit's models, which it re-exports), `tom_editors_shared` (webview-free), `tom_file_system`, `tom_file_session`, `tom_forge_plain_text_editor`, `shared_preferences` |
 | `tom_forge_plain_text_editor` | The plain-text editor adapter (`ForgePlainTextEditor`, over `tom_file_editors`' `TomTextFileEditor`) the shell opens every file no editor type takes in | `tom_forge_kit`, `tom_forge_shared_ui`, `tom_file_editors` |
 | `tom_forge_terminal` | PTY-backed and process-backed terminals and the terminal view, the Forge adapter of `tom_terminal_view` | `tom_forge_kit`, the core's `ForgeShellComponents`, `tom_terminal_view` (the shell in a pseudo-terminal and the xterm widget: `flutter_pty`, the `xterm` fork) |
 | `tom_forge_md_editor` | The Markdown editor adapter (`ForgeMdEditor`) and its editor type (`forgeMarkdownEditorType`, `.md` / `.markdown`) | `tom_forge_kit`, `tom_md_editor` |
@@ -66,7 +66,7 @@ position)` has the mounted `ForgeShellScaffold` draw them. An editor says what
 is under the pointer by implementing `ForgeContextTargetProvider`
 (`contextTargetAt`, asked on a secondary tap in the editor area before the
 generic Cut/Copy/Paste menu), or reports a unit it already handles the
-right-click for through `show`. The built-in `ForgeFileExplorerView` appends
+right-click for through `show`. The file explorer (`ForgeFileExplorerView`, `tom_forge_file_explorer`) appends
 the contributions for `ForgeContextTarget.explorerFileKind` /
 `explorerDirectoryKind` to its row menu when given `contextMenus:`. Entries
 carry the key `forge-context-menu:<id>`. Guideline:
