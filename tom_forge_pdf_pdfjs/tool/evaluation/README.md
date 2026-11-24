@@ -41,6 +41,26 @@ them anyway (see *A locked screen* below).
 
 `--dart-define=EVAL_ONLY=pdfjs-components` (or a comma-separated list of
 routes) runs some routes only, when the harness itself is being worked on.
+For the PDFium route three more defines narrow a run:
+
+- `EVAL_MEASURES=open` (comma-separated: `open`, `fidelity`, `search`,
+  `scrolling`, `annotations`, `forms`) takes only those measures; the pdf.js
+  routes take every measure;
+- `EVAL_OPEN_ROUNDS=10` opens the samples that often, one after the other on
+  the same engine (round 2 on recorded as `<sample> round <n>`);
+- `EVAL_TRAIL=true` switches the editor's trail on (`kPdfEditorDebug`): the
+  `[PE]` lines of the view's renders and cancels and of the PDFium engine.
+
+For example, ten opens of every sample with the trail, into a scratch
+folder:
+
+```bash
+flutter test integration_test/pdf_routes_test.dart -d macos \
+  --dart-define=EVAL_ONLY=pdfium --dart-define=EVAL_MEASURES=open \
+  --dart-define=EVAL_OPEN_ROUNDS=10 --dart-define=EVAL_TRAIL=true \
+  --dart-define=EVAL_SAMPLES=<samples/files> \
+  --dart-define=EVAL_RESULTS=<scratch>/results --dart-define=EVAL_WORK=<scratch>/work
+```
 
 ### The checks
 
@@ -170,4 +190,14 @@ package's test `PDFJS-VENDOR-1` fails when a file is missing.
 | `pdf_checks_test`: engine checks, every route | no mismatch | no mismatch | match |
 | `pdf_checks_test`: feature and dialog checklists | as committed | the same, except the search's match count | match: the count is read as soon as it is above 0, while the find still runs |
 | PDFium open, search, annotations, forms, fidelity | as committed | the same; first page 1.2–2.2× slower | match; the slower first pages are the debug build |
-| PDFium `pdf-encrypted` (and once `pdf-form`): page 1 drawn | timed out in committed runs 1 and 3 | timed out | the same intermittent wait, older than the split |
+| PDFium `pdf-encrypted` (and once `pdf-form`): page 1 drawn | timed out in committed runs 1 and 3 | timed out | the same intermittent wait, older than the split; fixed since (below) |
+
+**PDFium's page 1 that was never drawn.** The wait for the first page of a
+PDFium open timed out now and then (mostly `pdf-encrypted`, once each
+`pdf-form` and `pdf-long`), with the document open. The cause was a render
+dropped without a cancel: the PDFium worker kept a cancel that reached it
+after its render had run, and every page view counted its render tickets
+from 1, so the next document's render with that ticket was answered `null`
+and the view never asked again. Fixed in `tom_pdf_pdfium` (a cancel no longer
+outlives its render) and `tom_pdf_editor` (tickets unique per isolate, a
+render dropped without a cancel asked for again); see their changelogs.

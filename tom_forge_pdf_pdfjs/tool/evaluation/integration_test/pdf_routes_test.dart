@@ -38,6 +38,21 @@ import 'package:tom_pdf_pdfium/tom_pdf_pdfium.dart';
 const _only = String.fromEnvironment('EVAL_ONLY');
 bool _runs(String route) => _only.isEmpty || _only.split(',').contains(route);
 
+/// `EVAL_MEASURES` (comma-separated: open, fidelity, search, scrolling,
+/// annotations, forms) takes only those measures of the PDFium route; empty
+/// takes all. The pdf.js routes take every measure.
+const _measures = String.fromEnvironment('EVAL_MEASURES');
+bool _takes(String measure) =>
+    _measures.isEmpty || _measures.split(',').contains(measure);
+
+/// `EVAL_OPEN_ROUNDS`: how often the PDFium route opens the samples (default
+/// once); round 2 on is recorded as `<sample> round <n>`.
+const _openRounds = int.fromEnvironment('EVAL_OPEN_ROUNDS', defaultValue: 1);
+
+/// `EVAL_TRAIL=true` switches the PDF editor's trail on (`kPdfEditorDebug`):
+/// the view's and the PDFium engine's `[PE]` lines in the output.
+const _trail = bool.fromEnvironment('EVAL_TRAIL');
+
 /// The samples every route opens, in order (the first open of a route is
 /// its cold start).
 const _openSamples = [
@@ -235,67 +250,73 @@ void main() {
         },
       };
       PdfiumViewFinder.tester = tester;
+      if (_trail) kPdfEditorDebug = true;
 
       // ---------------------------------------------------------------- open
       TomPdfEngine? hold;
       final opens = <String, Object?>{};
       final memory = <String, Object?>{};
-      for (final (i, sample) in _openSamples.indexed) {
-        opens[sample] = await _measure('pdfium open $sample', () async {
-          final c = TomPdfEditorController(
-            EvalPdfHost(EvalConfig.sample(sample)),
-          );
-          await tester.pumpWidget(PdfiumEvalApp(controller: c));
-          final w = Stopwatch()..start();
-          final opening = c.open();
-          await waitFor(
-            tester,
-            () =>
-                c.state == TomPdfEditorState.open ||
-                c.state == TomPdfEditorState.password ||
-                c.state == TomPdfEditorState.failed,
-            what: 'pdfium: $sample opened',
-          );
-          if (c.state == TomPdfEditorState.password) {
-            await c.answerPassword(evalEncryptedPassword);
+      for (var round = 1; round <= _openRounds; round++) {
+        for (final (j, sample) in _openSamples.indexed) {
+          final i = round == 1 ? j : -1; // -1: neither cold nor the first
+          final name = round == 1 ? sample : '$sample round $round';
+          opens[name] = await _measure('pdfium open $name', () async {
+            final c = TomPdfEditorController(
+              EvalPdfHost(EvalConfig.sample(sample)),
+            );
+            await tester.pumpWidget(PdfiumEvalApp(controller: c));
+            final w = Stopwatch()..start();
+            final opening = c.open();
             await waitFor(
               tester,
-              () => c.state != TomPdfEditorState.password,
-              what: 'pdfium: $sample unlocked',
+              () =>
+                  c.state == TomPdfEditorState.open ||
+                  c.state == TomPdfEditorState.password ||
+                  c.state == TomPdfEditorState.failed,
+              what: 'pdfium: $sample opened',
             );
-          }
-          await opening;
-          final openMs = _ms(w);
-          if (c.state != TomPdfEditorState.open) {
-            final failure = c.failure;
+            if (c.state == TomPdfEditorState.password) {
+              await c.answerPassword(evalEncryptedPassword);
+              await waitFor(
+                tester,
+                () => c.state != TomPdfEditorState.password,
+                what: 'pdfium: $sample unlocked',
+              );
+            }
+            await opening;
+            final openMs = _ms(w);
+            if (c.state != TomPdfEditorState.open) {
+              final failure = c.failure;
+              await c.close();
+              return {'opened': false, 'failure': failure};
+            }
+            await waitFor(
+              tester,
+              () => PdfiumViewFinder.drawn(0),
+              what: 'pdfium: $sample page 1 drawn',
+            );
+            final first = _ms(w);
+            if (i == 0) {
+              // The engine stays up from here: the later opens are warm.
+              hold = await PdfiumEngine.acquire(library.path!);
+            }
+            final r = {
+              'opened': true,
+              'pages': c.info!.pageCount,
+              'encrypted': c.info!.encrypted,
+              'start': i == 0 ? 'cold (the engine started)' : 'warm',
+              'open_ms': openMs,
+              'first_page_ms': first,
+            };
+            if (round == 1 &&
+                (sample == 'pdf-long.pdf' || sample == 'pdf-huge.pdf')) {
+              memory['$sample after open'] = memorySample();
+            }
+            await tester.pumpWidget(const SizedBox());
             await c.close();
-            return {'opened': false, 'failure': failure};
-          }
-          await waitFor(
-            tester,
-            () => PdfiumViewFinder.drawn(0),
-            what: 'pdfium: $sample page 1 drawn',
-          );
-          final first = _ms(w);
-          if (i == 0) {
-            // The engine stays up from here: the later opens are warm.
-            hold = await PdfiumEngine.acquire(library.path!);
-          }
-          final r = {
-            'opened': true,
-            'pages': c.info!.pageCount,
-            'encrypted': c.info!.encrypted,
-            'start': i == 0 ? 'cold (the engine started)' : 'warm',
-            'open_ms': openMs,
-            'first_page_ms': first,
-          };
-          if (sample == 'pdf-long.pdf' || sample == 'pdf-huge.pdf') {
-            memory['$sample after open'] = memorySample();
-          }
-          await tester.pumpWidget(const SizedBox());
-          await c.close();
-          return r;
-        });
+            return r;
+          });
+        }
       }
       opens['pdf-text.pdf second open'] = await _measure(
         'pdfium second open',
@@ -325,311 +346,321 @@ void main() {
       results['open'] = opens;
 
       // ------------------------------------------------------------ fidelity
-      results['fidelity'] = await _measure('pdfium fidelity', () async {
-        final engine = await PdfiumEngine.acquire(library.path!);
-        final pages = <String, List<Map<String, Object?>>>{};
-        try {
-          for (final MapEntry(key: sample, value: list)
-              in evalFidelityPages.entries) {
-            final password = sample == 'pdf-encrypted.pdf'
-                ? evalEncryptedPassword
-                : null;
-            final opened = await engine.open(
-              EvalConfig.sample(sample),
-              password: password,
-            );
-            final info = opened.info!;
-            pages[sample] = [];
-            for (final page in list) {
-              final size = info.pages[page];
-              final w = (size.width * evalFidelityScale).round();
-              final h = (size.height * evalFidelityScale).round();
-              final tile = await engine.render(
-                info.handle,
-                page,
-                scale: evalFidelityScale,
-                x: 0,
-                y: 0,
-                pxW: w,
-                pxH: h,
+      if (_takes('fidelity')) {
+        results['fidelity'] = await _measure('pdfium fidelity', () async {
+          final engine = await PdfiumEngine.acquire(library.path!);
+          final pages = <String, List<Map<String, Object?>>>{};
+          try {
+            for (final MapEntry(key: sample, value: list)
+                in evalFidelityPages.entries) {
+              final password = sample == 'pdf-encrypted.pdf'
+                  ? evalEncryptedPassword
+                  : null;
+              final opened = await engine.open(
+                EvalConfig.sample(sample),
+                password: password,
               );
-              final key = '${sample.replaceAll('.pdf', '')}-p${page + 1}';
-              final png = '${EvalConfig.work}/pdfium-$key.png';
-              File(png).writeAsBytesSync(await bgraToPng(tile!.bgra, w, h));
-              _pdfiumPages[key] = png;
-              pages[sample]!.add(
-                compare('pdfium', sample, page, png, password: password),
-              );
+              final info = opened.info!;
+              pages[sample] = [];
+              for (final page in list) {
+                final size = info.pages[page];
+                final w = (size.width * evalFidelityScale).round();
+                final h = (size.height * evalFidelityScale).round();
+                final tile = await engine.render(
+                  info.handle,
+                  page,
+                  scale: evalFidelityScale,
+                  x: 0,
+                  y: 0,
+                  pxW: w,
+                  pxH: h,
+                );
+                final key = '${sample.replaceAll('.pdf', '')}-p${page + 1}';
+                final png = '${EvalConfig.work}/pdfium-$key.png';
+                File(png).writeAsBytesSync(await bgraToPng(tile!.bgra, w, h));
+                _pdfiumPages[key] = png;
+                pages[sample]!.add(
+                  compare('pdfium', sample, page, png, password: password),
+                );
+              }
+              await engine.close(info.handle);
             }
-            await engine.close(info.handle);
+          } finally {
+            await engine.release();
           }
-        } finally {
-          await engine.release();
-        }
-        return {
-          'scale_px_per_pt': evalFidelityScale,
-          'method':
-              'every page rendered by the route and by PDFKit (macOS '
-              'Preview\'s renderer) at the same pixel size; the share of '
-              'pixels whose largest channel differs by more than 40 of 255 '
-              'and that no pixel within one pixel of the other image matches '
-              '(both ways: a glyph placed one pixel apart is no difference, '
-              'missing content is). '
-              'Verdicts are automatic: identical < 0.5 %, minor < 5 %, major '
-              'otherwise; the human verdict is the report\'s.',
-          'file_verdict_vs_preview': fileVerdicts(pages, 'preview'),
-          'pages': pages,
-        };
-      });
-
-      // -------------------------------------------------------------- search
-      final searches = <String, Object?>{};
-      for (final MapEntry(key: sample, value: term)
-          in evalSearchTerms.entries) {
-        searches[sample] = await _measure('pdfium search $sample', () async {
-          final c = TomPdfEditorController(
-            EvalPdfHost(EvalConfig.sample(sample)),
-          );
-          await tester.pumpWidget(PdfiumEvalApp(controller: c));
-          await c.open();
-          await tester.pump();
-          final w = Stopwatch()..start();
-          c.find(term);
-          int? firstHit;
-          await waitFor(
-            tester,
-            () {
-              if (firstHit == null && c.hits.isNotEmpty) firstHit = _ms(w);
-              return !c.searching;
-            },
-            what: 'pdfium: search $sample',
-            timeout: const Duration(minutes: 5),
-          );
-          final whole = _ms(w);
-          final r = {
-            'term': term,
-            'pages': c.info!.pageCount,
-            'hits': c.hits.length,
-            'first_hit_ms': firstHit,
-            'whole_document_ms': whole,
-            'case_sensitive': false,
+          return {
+            'scale_px_per_pt': evalFidelityScale,
+            'method':
+                'every page rendered by the route and by PDFKit (macOS '
+                'Preview\'s renderer) at the same pixel size; the share of '
+                'pixels whose largest channel differs by more than 40 of 255 '
+                'and that no pixel within one pixel of the other image matches '
+                '(both ways: a glyph placed one pixel apart is no difference, '
+                'missing content is). '
+                'Verdicts are automatic: identical < 0.5 %, minor < 5 %, major '
+                'otherwise; the human verdict is the report\'s.',
+            'file_verdict_vs_preview': fileVerdicts(pages, 'preview'),
+            'pages': pages,
           };
-          await tester.pumpWidget(const SizedBox());
-          await c.close();
-          return r;
         });
       }
-      results['search'] = searches;
 
-      // ------------------------------------------- scrolling, zoom, memory
-      results['scrolling'] = _lockedFrames(
-        await _measure('pdfium scrolling', () async {
-          final out = <String, Object?>{};
-          for (final (sample, pagesThrough, seconds) in [
-            ('pdf-long.pdf', 200, 10),
-            ('pdf-huge.pdf', 50, 10),
-          ]) {
+      // -------------------------------------------------------------- search
+      if (_takes('search')) {
+        final searches = <String, Object?>{};
+        for (final MapEntry(key: sample, value: term)
+            in evalSearchTerms.entries) {
+          searches[sample] = await _measure('pdfium search $sample', () async {
             final c = TomPdfEditorController(
               EvalPdfHost(EvalConfig.sample(sample)),
             );
             await tester.pumpWidget(PdfiumEvalApp(controller: c));
             await c.open();
+            await tester.pump();
+            final w = Stopwatch()..start();
+            c.find(term);
+            int? firstHit;
             await waitFor(
               tester,
-              () => PdfiumViewFinder.drawn(0),
-              what: 'pdfium: $sample drawn',
+              () {
+                if (firstHit == null && c.hits.isNotEmpty) firstHit = _ms(w);
+                return !c.searching;
+              },
+              what: 'pdfium: search $sample',
+              timeout: const Duration(minutes: 5),
             );
-            final v = PdfiumViewFinder.view;
-            final target = v.layout.pageTop(pagesThrough);
-            final timings = await frames(() async {
-              unawaited(
-                v.vertical.animateTo(
-                  target,
-                  duration: Duration(seconds: seconds),
-                  curve: Curves.linear,
-                ),
-              );
-              await idle(tester, Duration(seconds: seconds));
-            });
-            out[sample] = {
-              'scripted':
-                  'animated scroll through $pagesThrough pages in '
-                  '$seconds s at fit width',
-              ...frameStats(timings),
+            final whole = _ms(w);
+            final r = {
+              'term': term,
+              'pages': c.info!.pageCount,
+              'hits': c.hits.length,
+              'first_hit_ms': firstHit,
+              'whole_document_ms': whole,
+              'case_sensitive': false,
             };
-            memory['$sample after scrolling'] = memorySample();
-            if (sample == 'pdf-long.pdf') {
-              // Zoom 50 % → 400 % with the zoom bar, page by page.
-              c.restoreView(
-                const PdfViewPosition(page: 0, offset: 0, zoom: 50),
-              );
-              await tester.pumpWidget(PdfiumEvalApp(controller: c));
-              await idle(tester, const Duration(seconds: 1));
-              var taps = 0;
-              final zoomTimings = await frames(() async {
-                while (PdfiumViewFinder.view.widget.zoom < 400 && taps < 20) {
-                  await tester.tap(find.byTooltip('Zoom in'));
-                  taps++;
-                  await idle(tester, const Duration(milliseconds: 400));
-                }
-                await idle(tester, const Duration(seconds: 1));
-              });
-              out['zoom 50 % to 400 % (pdf-long)'] = {
-                'scripted':
-                    'the zoom bar\'s Zoom in, $taps steps, 400 ms apart',
-                'reached_zoom': PdfiumViewFinder.view.widget.zoom,
-                ...frameStats(zoomTimings),
-              };
-            }
             await tester.pumpWidget(const SizedBox());
             await c.close();
-          }
-          return out;
-        }),
-      );
-      results['memory'] = {
-        ...memory,
-        'after ten minutes of editing': notMeasured(
-          'a PDF route has no editing session of that length: its edits are '
-          'annotations and form fields, measured below',
-        ),
-      };
+            return r;
+          });
+        }
+        results['search'] = searches;
+      }
+
+      // ------------------------------------------- scrolling, zoom, memory
+      if (_takes('scrolling')) {
+        results['scrolling'] = _lockedFrames(
+          await _measure('pdfium scrolling', () async {
+            final out = <String, Object?>{};
+            for (final (sample, pagesThrough, seconds) in [
+              ('pdf-long.pdf', 200, 10),
+              ('pdf-huge.pdf', 50, 10),
+            ]) {
+              final c = TomPdfEditorController(
+                EvalPdfHost(EvalConfig.sample(sample)),
+              );
+              await tester.pumpWidget(PdfiumEvalApp(controller: c));
+              await c.open();
+              await waitFor(
+                tester,
+                () => PdfiumViewFinder.drawn(0),
+                what: 'pdfium: $sample drawn',
+              );
+              final v = PdfiumViewFinder.view;
+              final target = v.layout.pageTop(pagesThrough);
+              final timings = await frames(() async {
+                unawaited(
+                  v.vertical.animateTo(
+                    target,
+                    duration: Duration(seconds: seconds),
+                    curve: Curves.linear,
+                  ),
+                );
+                await idle(tester, Duration(seconds: seconds));
+              });
+              out[sample] = {
+                'scripted':
+                    'animated scroll through $pagesThrough pages in '
+                    '$seconds s at fit width',
+                ...frameStats(timings),
+              };
+              memory['$sample after scrolling'] = memorySample();
+              if (sample == 'pdf-long.pdf') {
+                // Zoom 50 % → 400 % with the zoom bar, page by page.
+                c.restoreView(
+                  const PdfViewPosition(page: 0, offset: 0, zoom: 50),
+                );
+                await tester.pumpWidget(PdfiumEvalApp(controller: c));
+                await idle(tester, const Duration(seconds: 1));
+                var taps = 0;
+                final zoomTimings = await frames(() async {
+                  while (PdfiumViewFinder.view.widget.zoom < 400 && taps < 20) {
+                    await tester.tap(find.byTooltip('Zoom in'));
+                    taps++;
+                    await idle(tester, const Duration(milliseconds: 400));
+                  }
+                  await idle(tester, const Duration(seconds: 1));
+                });
+                out['zoom 50 % to 400 % (pdf-long)'] = {
+                  'scripted':
+                      'the zoom bar\'s Zoom in, $taps steps, 400 ms apart',
+                  'reached_zoom': PdfiumViewFinder.view.widget.zoom,
+                  ...frameStats(zoomTimings),
+                };
+              }
+              await tester.pumpWidget(const SizedBox());
+              await c.close();
+            }
+            return out;
+          }),
+        );
+        results['memory'] = {
+          ...memory,
+          'after ten minutes of editing': notMeasured(
+            'a PDF route has no editing session of that length: its edits are '
+            'annotations and form fields, measured below',
+          ),
+        };
+      }
 
       // --------------------------------------------------------- annotations
-      results['annotations'] = await _measure('pdfium annotations', () async {
-        final path = EvalConfig.copy('pdf-text.pdf', 'pdfium-annot.pdf');
-        final original = File(path).readAsBytesSync();
-        final c = TomPdfEditorController(EvalPdfHost(path));
-        await tester.pumpWidget(PdfiumEvalApp(controller: c));
-        await c.open();
-        await tester.pump();
-        // Highlight: a word selected (the first hit of a search), then the
-        // highlight command, as the Highlight tool does on a selection.
-        c.find('Chain');
-        await waitFor(tester, () => !c.searching, what: 'search for a word');
-        final hit = c.hits.first;
-        final r = hit.rects.first;
-        c.hideFind();
-        await c.selectAround(
-          hit.page,
-          (r.left + r.right) / 2,
-          (r.top + r.bottom) / 2,
-          line: false,
-        );
-        final highlighted = await c.highlightSelection();
-        final note = await c.addNote(0, 60, 60, 'PDFium note');
-        final ink = await c.addInk(0, [
-          [
-            for (var i = 0; i <= 10; i++)
-              (x: 100.0 + i * 20, y: 700.0 + (i.isEven ? 8 : -8)),
-          ],
-        ]);
-        await tester.pump();
-        final w = Stopwatch()..start();
-        await c.save();
-        final saveMs = _ms(w);
-        final saved = File(path).readAsBytesSync();
-        final prefix =
-            saved.length > original.length &&
-            _same(saved.sublist(0, original.length), original);
-        final engine = c.engine!;
-        final read = await engine.annotations(c.info!.handle, 0);
-        await tester.pumpWidget(const SizedBox());
-        await c.close();
-        // pdf-annot's own annotations as PDFium reads them.
-        final reader = await PdfiumEngine.acquire(library.path!);
-        final annot = (await reader.open(
-          EvalConfig.sample('pdf-annot.pdf'),
-        )).info!;
-        final existing = {
-          for (final a in await reader.annotations(annot.handle, 0))
-            _subtype(a.subtype),
-        }.toList()..sort();
-        await reader.close(annot.handle);
-        await reader.release();
-        return {
-          'kinds_offered': [
-            for (final t in PdfAnnotationTool.values)
-              if (t != PdfAnnotationTool.select) t.name,
-          ],
-          'made': {
-            'highlight': highlighted,
-            'note': note != null,
-            'ink': ink != null,
-          },
-          'saved': {
-            'save_ms': saveMs,
-            'incremental': prefix,
-            'bytes_before': original.length,
-            'bytes_after': saved.length,
-          },
-          'read_back': {
-            'pdfium_after_reopen': [for (final a in read) _subtype(a.subtype)]
-              ..sort(),
-            'preview_pdfkit': pdfKitAnnotations(path),
-            'chrome': notMeasured(
-              'Chrome\'s PDF viewer draws nothing in headless Chrome (a '
-              'screenshot of pdf-annot.pdf came back blank), so its view '
-              'cannot be read automatically; it is a checklist item for a '
-              'person (open evaluation work file pdfium-annot.pdf in Chrome)',
-            ),
-            'pdfjs': 'measured by the pdf.js runs (annotations.reads_pdfium)',
-          },
-          'existing_in_pdf_annot_page_1': existing,
-          'existing_in_pdf_annot_preview': pdfKitAnnotations(
+      if (_takes('annotations')) {
+        results['annotations'] = await _measure('pdfium annotations', () async {
+          final path = EvalConfig.copy('pdf-text.pdf', 'pdfium-annot.pdf');
+          final original = File(path).readAsBytesSync();
+          final c = TomPdfEditorController(EvalPdfHost(path));
+          await tester.pumpWidget(PdfiumEvalApp(controller: c));
+          await c.open();
+          await tester.pump();
+          // Highlight: a word selected (the first hit of a search), then the
+          // highlight command, as the Highlight tool does on a selection.
+          c.find('Chain');
+          await waitFor(tester, () => !c.searching, what: 'search for a word');
+          final hit = c.hits.first;
+          final r = hit.rects.first;
+          c.hideFind();
+          await c.selectAround(
+            hit.page,
+            (r.left + r.right) / 2,
+            (r.top + r.bottom) / 2,
+            line: false,
+          );
+          final highlighted = await c.highlightSelection();
+          final note = await c.addNote(0, 60, 60, 'PDFium note');
+          final ink = await c.addInk(0, [
+            [
+              for (var i = 0; i <= 10; i++)
+                (x: 100.0 + i * 20, y: 700.0 + (i.isEven ? 8 : -8)),
+            ],
+          ]);
+          await tester.pump();
+          final w = Stopwatch()..start();
+          await c.save();
+          final saveMs = _ms(w);
+          final saved = File(path).readAsBytesSync();
+          final prefix =
+              saved.length > original.length &&
+              _same(saved.sublist(0, original.length), original);
+          final engine = c.engine!;
+          final read = await engine.annotations(c.info!.handle, 0);
+          await tester.pumpWidget(const SizedBox());
+          await c.close();
+          // pdf-annot's own annotations as PDFium reads them.
+          final reader = await PdfiumEngine.acquire(library.path!);
+          final annot = (await reader.open(
             EvalConfig.sample('pdf-annot.pdf'),
-          ).where((a) => a.startsWith('0:')).toList(),
-        };
-      });
+          )).info!;
+          final existing = {
+            for (final a in await reader.annotations(annot.handle, 0))
+              _subtype(a.subtype),
+          }.toList()..sort();
+          await reader.close(annot.handle);
+          await reader.release();
+          return {
+            'kinds_offered': [
+              for (final t in PdfAnnotationTool.values)
+                if (t != PdfAnnotationTool.select) t.name,
+            ],
+            'made': {
+              'highlight': highlighted,
+              'note': note != null,
+              'ink': ink != null,
+            },
+            'saved': {
+              'save_ms': saveMs,
+              'incremental': prefix,
+              'bytes_before': original.length,
+              'bytes_after': saved.length,
+            },
+            'read_back': {
+              'pdfium_after_reopen': [for (final a in read) _subtype(a.subtype)]
+                ..sort(),
+              'preview_pdfkit': pdfKitAnnotations(path),
+              'chrome': notMeasured(
+                'Chrome\'s PDF viewer draws nothing in headless Chrome (a '
+                'screenshot of pdf-annot.pdf came back blank), so its view '
+                'cannot be read automatically; it is a checklist item for a '
+                'person (open evaluation work file pdfium-annot.pdf in Chrome)',
+              ),
+              'pdfjs': 'measured by the pdf.js runs (annotations.reads_pdfium)',
+            },
+            'existing_in_pdf_annot_page_1': existing,
+            'existing_in_pdf_annot_preview': pdfKitAnnotations(
+              EvalConfig.sample('pdf-annot.pdf'),
+            ).where((a) => a.startsWith('0:')).toList(),
+          };
+        });
+      }
 
       // --------------------------------------------------------------- forms
-      results['forms'] = await _measure('pdfium forms', () async {
-        final path = EvalConfig.copy('pdf-form.pdf', 'pdfium-form.pdf');
-        final original = File(path).readAsBytesSync();
-        final c = TomPdfEditorController(EvalPdfHost(path));
-        await tester.pumpWidget(PdfiumEvalApp(controller: c));
-        await c.open();
-        await tester.pump();
-        final engine = c.engine!;
-        final fields = await engine.formFields(c.info!.handle, 0);
-        final text = fields.firstWhere((f) => f.name == 'Text1');
-        final box = fields.firstWhere((f) => f.type == PdfFieldType.checkbox);
-        double cx(PdfFormField f) => (f.rect.left + f.rect.right) / 2;
-        double cy(PdfFormField f) => (f.rect.top + f.rect.bottom) / 2;
-        await c.formClick(0, cx(text), cy(text));
-        await c.formKey(PdfFormKey.selectAll);
-        await c.formText('PDFium 42');
-        await c.formClick(0, cx(box), cy(box));
-        await c.releaseFormFocus();
-        await c.save();
-        final saved = File(path).readAsBytesSync();
-        final now = await c.engine!.formFields(c.info!.handle, 0);
-        await tester.pumpWidget(const SizedBox());
-        await c.close();
-        return {
-          'fields_on_page_1': {
-            for (final t in PdfFieldType.values)
-              t.name: fields.where((f) => f.type == t).length,
-          },
-          'filled': {
-            'Text1': 'PDFium 42',
-            box.name: 'ticked',
-            'combo_and_list_boxes': notMeasured(
-              'the PDFium editor fills text fields, checkboxes and radio '
-              'buttons; combo and list boxes are left out (DPPF-4)',
-            ),
-          },
-          'incremental': _same(saved.sublist(0, original.length), original),
-          'pdfium_after_reopen': {
-            'Text1': now.firstWhere((f) => f.name == 'Text1').value,
-            box.name: now.firstWhere((f) => f.name == box.name).checked,
-          },
-          'preview_pdfkit': pdfKitFields(path)
-              .where((f) => f.startsWith('Text1') || f.startsWith(box.name))
-              .toList(),
-          'pdfjs': 'measured by the pdf.js runs (forms.reads_pdfium)',
-        };
-      });
+      if (_takes('forms')) {
+        results['forms'] = await _measure('pdfium forms', () async {
+          final path = EvalConfig.copy('pdf-form.pdf', 'pdfium-form.pdf');
+          final original = File(path).readAsBytesSync();
+          final c = TomPdfEditorController(EvalPdfHost(path));
+          await tester.pumpWidget(PdfiumEvalApp(controller: c));
+          await c.open();
+          await tester.pump();
+          final engine = c.engine!;
+          final fields = await engine.formFields(c.info!.handle, 0);
+          final text = fields.firstWhere((f) => f.name == 'Text1');
+          final box = fields.firstWhere((f) => f.type == PdfFieldType.checkbox);
+          double cx(PdfFormField f) => (f.rect.left + f.rect.right) / 2;
+          double cy(PdfFormField f) => (f.rect.top + f.rect.bottom) / 2;
+          await c.formClick(0, cx(text), cy(text));
+          await c.formKey(PdfFormKey.selectAll);
+          await c.formText('PDFium 42');
+          await c.formClick(0, cx(box), cy(box));
+          await c.releaseFormFocus();
+          await c.save();
+          final saved = File(path).readAsBytesSync();
+          final now = await c.engine!.formFields(c.info!.handle, 0);
+          await tester.pumpWidget(const SizedBox());
+          await c.close();
+          return {
+            'fields_on_page_1': {
+              for (final t in PdfFieldType.values)
+                t.name: fields.where((f) => f.type == t).length,
+            },
+            'filled': {
+              'Text1': 'PDFium 42',
+              box.name: 'ticked',
+              'combo_and_list_boxes': notMeasured(
+                'the PDFium editor fills text fields, checkboxes and radio '
+                'buttons; combo and list boxes are left out (DPPF-4)',
+              ),
+            },
+            'incremental': _same(saved.sublist(0, original.length), original),
+            'pdfium_after_reopen': {
+              'Text1': now.firstWhere((f) => f.name == 'Text1').value,
+              box.name: now.firstWhere((f) => f.name == box.name).checked,
+            },
+            'preview_pdfkit': pdfKitFields(path)
+                .where((f) => f.startsWith('Text1') || f.startsWith(box.name))
+                .toList(),
+            'pdfjs': 'measured by the pdf.js runs (forms.reads_pdfium)',
+          };
+        });
+      }
 
       results['crash_isolation'] =
           'in-process: measured in processes of their own by run_evaluation.py '
