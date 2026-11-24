@@ -13,6 +13,7 @@ class ForgeEditorChoice extends ForgeKitEditorChoice {
     required super.icon,
     required this.open,
     super.description,
+    super.contentTypes,
   }) : super.base();
 
   /// Opens the file in this editor, in the middle panel [middlePanelIndex]

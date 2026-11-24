@@ -194,7 +194,11 @@ void main() {
       await current.flushed();
       final after = await _stored();
 
-      expect(after.keys.toSet(), before.keys.toSet());
+      // The keys added since: the default editors by content type, kept
+      // as a JSON map like the ones by extension.
+      const added = {'forge.files.contentTypeDefaults'};
+      expect(after.keys.toSet().difference(added), before.keys.toSet());
+      expect(after['forge.files.contentTypeDefaults'], '{}');
       for (final key in before.keys) {
         expect(after[key], before[key], reason: key);
         expect(

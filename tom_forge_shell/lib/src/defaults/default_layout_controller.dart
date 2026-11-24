@@ -176,7 +176,9 @@ class DefaultLayoutController implements ForgeLayoutController {
         left: _leftPanel.value,
         right: _rightPanel.value,
         bottom: _bottomPanel.value,
-        middle: [for (final group in _middlePanels.value) [...group]],
+        middle: [
+          for (final group in _middlePanels.value) [...group],
+        ],
         activeMiddle: _activeMiddlePanelIndex.value,
       );
     }
@@ -511,8 +513,8 @@ class DefaultLayoutController implements ForgeLayoutController {
     final choices = <ForgeEditorChoice>[
       for (final module in _moduleRegistry.allKitModules)
         for (final choice in module.editorChoicesFor(uri))
-          _shellChoiceOf(choice),
-      ...await _openEditorChoices(uri),
+          shellChoiceOf(choice),
+      ...await openEditorChoicesFor(uri),
     ];
 
     final preferredTypeId =
@@ -535,13 +537,14 @@ class DefaultLayoutController implements ForgeLayoutController {
   /// [choice] as the shell's [ForgeEditorChoice]: a kit module's choice
   /// opens the file in the middle panel asked for by making it the active
   /// one first (its editor host shows a new editor there).
-  ForgeEditorChoice _shellChoiceOf(ForgeKitEditorChoice choice) {
+  ForgeEditorChoice shellChoiceOf(ForgeKitEditorChoice choice) {
     if (choice is ForgeEditorChoice) return choice;
     return ForgeEditorChoice(
       id: choice.id,
       label: choice.label,
       description: choice.description,
       icon: choice.icon,
+      contentTypes: choice.contentTypes,
       open: (uri, {middlePanelIndex}) {
         if (middlePanelIndex != null &&
             middlePanelIndex >= 0 &&
@@ -556,7 +559,7 @@ class DefaultLayoutController implements ForgeLayoutController {
   /// The editors of every module already on [uri] that accept it — by name,
   /// or on a look at its content — as choices that show that editor. An
   /// editor open on another file is not offered: it would show that file.
-  Future<List<ForgeEditorChoice>> _openEditorChoices(Uri uri) async {
+  Future<List<ForgeEditorChoice>> openEditorChoicesFor(Uri uri) async {
     final choices = <ForgeEditorChoice>[];
     for (final module in _moduleRegistry.allKitModules) {
       for (final editor in module.editors) {
@@ -590,6 +593,47 @@ class DefaultLayoutController implements ForgeLayoutController {
       }
     }
     return choices;
+  }
+
+  /// Opens [uri] in an editor of the type [editorTypeId] (one of
+  /// [editorTypes], or the shell's plain text), in the middle panel
+  /// [middlePanelIndex] (null: the active one): the editor of that type
+  /// already open on [uri] when there is one, else a new one. Answers the
+  /// editor; null when the type is unknown or the content cannot be read.
+  Future<ForgeEditor?> openFileInEditorType(
+    Uri uri,
+    String editorTypeId, {
+    int? middlePanelIndex,
+  }) async {
+    for (final editor in _systemState.openEditors) {
+      if (editor.uri == uri && forgeEditorTypeIdOf(editor) == editorTypeId) {
+        openEditor(editor, uri, middlePanelIndex: middlePanelIndex);
+        return editor;
+      }
+    }
+    final ownerModule =
+        _moduleRegistry.allModules
+            .whereType<TomForgeShellModule>()
+            .firstOrNull ??
+        _moduleRegistry.allModules.firstOrNull;
+    if (ownerModule == null) return null;
+    final String? content;
+    try {
+      content = await _resolveContent(uri);
+    } catch (error) {
+      _reportOpenFailure(uri, error);
+      return null;
+    }
+    if (content == null) return null;
+    final editor = _createBuiltInEditor(
+      editorTypeId: editorTypeId,
+      uri: uri,
+      content: content,
+      ownerModule: ownerModule,
+    );
+    if (editor == null) return null;
+    openEditor(editor, uri, middlePanelIndex: middlePanelIndex);
+    return editor;
   }
 
   /// The name and purpose of one of the shell's own editor types.

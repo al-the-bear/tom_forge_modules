@@ -49,15 +49,56 @@ understand. It names no panel, tab or window.
 ## Editor types
 
 `ForgeKitEditorType` is one kind of editor an application opens files with by
-extension: an id (what the editor answers as `ForgeEditorOfType.editorTypeId`),
-a name and description for **Open With**, the extensions it opens by default,
-and a factory taking a `ForgeKitEditorRequest` — the file, its content, the
+extension or content type: an id (what the editor answers as `ForgeEditorOfType.editorTypeId`),
+a name, description and optional icon for **Open With**, the extensions and
+the content types (MIME types, `text/*` for a family) it opens by default, and
+a factory taking a `ForgeKitEditorRequest` — the file, its content, the
 module, the application's `ForgeKitApi`, its file system and an opaque `host`
 value (the panel shell: its layout controller). It names no panel, tab or
 window. The editor adapters export theirs (`forgeMarkdownEditorType` in
 `tom_forge_md_editor`, `forgeDartEditorType` in `tom_forge_dart_editor`,
 `forgeYamlEditorType` in `tom_forge_yaml_editor`); the panel shell takes them
 through `ForgeShellComponents.editorTypes`.
+
+## Choosing the editor
+
+`ForgeEditorPicker` (`ForgeKitApi.editorPicker`) is the model behind **Open
+With**, with no widget, panel, tab or window in it: an application draws it as
+it decides.
+
+- **The item.** A `ForgeContentItem` is a URI with an optional content type
+  (MIME, normalized: lower case, no parameters): a file, or content that is
+  not one (a Webwork section, whose kind is its body type).
+- **The choices.** `choicesFor(item)` gathers, each id once, the first kept:
+  every module's (`ForgeKitModule.editorChoicesForContent`: by default the
+  `editorChoicesFor(uri)` choices followed by the `contentTypeEditorChoices`
+  whose `ForgeKitEditorChoice.contentTypes` accept the item's type), every
+  editor type that opens the item by extension or content type, and the
+  host's own (the panel shell: the editors already open on the file). When
+  nothing takes the item, the application's `fallback` choice is the only one
+  (`isFallback`). The answer, `ForgeEditorChoices`, marks the default
+  (`defaultChoice`, `isDefault`, `defaultScope`, `storedDefaultId`) and names
+  the editor it opens in without asking (`preferred`).
+- **Opening.** `openOnce(item, choice)` opens the item in the choice and
+  leaves the default; `open(item)` opens it in the default, else the only or
+  first choice.
+- **Defaults.** Looked up by content type first when the item has one and a
+  default is set for it, else by extension. `setDefault(item, choice)` and
+  `clearDefault(item)` write by content type when the item has one, else by
+  extension, or by the `ForgeEditorDefaultScope` given. They are kept in a
+  `ForgeEditorDefaults`; `ForgeKitPreferences` is one: by extension under
+  `forge.files.typeDefaults` (the file-type defaults as they always were,
+  `.md` → editor id, so existing defaults keep working and
+  `ForgeKitApi.setFileTypeDefault` writes the same map), by content type
+  under `forge.files.contentTypeDefaults` (`text/markdown` → editor id), both
+  JSON maps. `defaultsChanged` notifies.
+
+`DefaultKitApi` offers the registered modules' choices and its `editorTypes`
+(an editor type's choice reads the file from the file system, makes the
+editor and shows it through the editor host; `openWithEditorType` does it
+directly), with `fallbackEditor` as the fallback. The panel shell's
+`DefaultShellApi` answers a `ForgeShellEditorPicker`, whose choices are its
+own `ForgeEditorChoice`s.
 
 ## File kinds
 

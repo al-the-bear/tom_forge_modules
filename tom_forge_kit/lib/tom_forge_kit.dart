@@ -24,6 +24,10 @@
 ///   [ForgeSharedPreferencesStateStore], [ForgeFileStateStore]), written
 ///   once per gesture and never before the start's restore
 ///   ([ForgeCoalescedStateWriter]).
+/// - **Choosing the editor:** the editors of a content item (a URI with its
+///   content type, [ForgeContentItem]) from every module and editor type, the
+///   default per content type and per extension, open once and set the
+///   default ([ForgeEditorPicker], [ForgeKitApi.editorPicker]).
 /// - **Files:** the kinds of file a module opens over a [ForgeFileSession]
 ///   ([ForgeKitFileKind], kept in a [ForgeFileKindRegistry] the application
 ///   fills) and the binding of an editor's controller to its session
@@ -62,6 +66,7 @@ export 'package:tom_file_session/tom_file_session.dart'
         ForgeFileSession,
         ForgeFileSessionState,
         forgeReadOnlyAbove;
+export 'src/files/forge_content_item.dart';
 export 'src/files/forge_file_kind.dart';
 // The binding itself is tom_file_session_ui's (one implementation for
 // tom_file_editors and Forge); its frame widget is re-exported by
@@ -76,6 +81,7 @@ export 'src/kit/forge_active_editor.dart';
 export 'src/kit/forge_coalesced_state_writer.dart';
 export 'src/kit/forge_context_menu_controller.dart';
 export 'src/kit/forge_editor_host.dart';
+export 'src/kit/forge_editor_picker.dart';
 export 'src/kit/forge_editor_routing.dart';
 export 'src/kit/forge_file_state_store.dart';
 export 'src/kit/forge_host_ports.dart';

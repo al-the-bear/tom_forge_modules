@@ -29,6 +29,7 @@ import 'default_system_state.dart';
 import 'stub_services.dart';
 import '../shell/forge_tab_editor_host.dart';
 import '../services/forge_preferences_service.dart';
+import 'forge_shell_editor_picker.dart';
 
 /// Default implementation of [ForgeShellApi].
 ///
@@ -656,6 +657,12 @@ class DefaultShellApi
   ) {
     _editorSpecificConfig[editorTypeId] = Map<String, dynamic>.from(config);
   }
+
+  /// The editor picker over this shell ([ForgeShellEditorPicker]): the
+  /// modules' and editor types' choices for a content item, the defaults by
+  /// extension (these file-type defaults) and by content type.
+  @override
+  late final ForgeEditorPicker editorPicker = ForgeShellEditorPicker(this);
 
   @override
   Map<String, String> getFileTypeDefaults() {

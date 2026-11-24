@@ -57,6 +57,8 @@ class ForgeEditorType extends ForgeKitEditorType {
     required super.description,
     required ForgeEditor Function(ForgeEditorTypeRequest request) create,
     super.extensions,
+    super.contentTypes,
+    super.icon,
   }) : super(create: (request) => create(request as ForgeEditorTypeRequest));
 }
 

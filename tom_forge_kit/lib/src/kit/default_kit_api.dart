@@ -1,10 +1,19 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart' show IconData;
 import 'package:tom_editors_shared/text_types.dart'
     show ForgeTextSettings, StandardEditingActions;
 import 'package:tom_file_system/tom_file_system.dart' show TomFileSystem;
 import 'package:tom_forge_core/tom_forge_core.dart' show ForgeConfig;
 
 import '../actions/forge_action.dart';
+import '../actions/forge_shortcut_binding.dart';
+import '../components/forge_editor.dart';
+import '../components/forge_editor_choice.dart';
+import '../components/forge_kit_editor_type.dart';
+import '../components/forge_view.dart';
 import '../defaults/default_action_registry.dart';
 import '../defaults/default_clipboard.dart';
 import '../defaults/default_config_manager.dart';
@@ -39,6 +48,7 @@ import '../services/forge_workspace_state_manager.dart';
 import 'default_kit_state.dart';
 import 'forge_context_menu_controller.dart';
 import 'forge_editor_host.dart';
+import 'forge_editor_picker.dart';
 import 'forge_kit_api.dart';
 import 'forge_kit_modules_host.dart';
 import 'forge_state_store.dart';
@@ -66,6 +76,12 @@ import 'forge_state_store.dart';
 /// activated with this API), and calls [dispose] when it shuts down;
 /// [flushed] waits for the writes. Writes are coalesced: one per key per
 /// microtask, the last value stored.
+///
+/// **Choosing the editor.** [editorPicker] offers, for a content item, the
+/// choices of the registered modules and of [editorTypes] (an editor type's
+/// choice reads the file from [fileSystem], makes the editor and shows it
+/// through [editorHost]); the defaults are the [preferences]' (by extension
+/// and by content type).
 class DefaultKitApi implements ForgeKitApi, ForgeKitModulesHost {
   DefaultKitApi({
     required this.editorHost,
@@ -78,7 +94,10 @@ class DefaultKitApi implements ForgeKitApi, ForgeKitModulesHost {
     ForgeModuleStorage? storage,
     ForgeDialogManager? dialogs,
     ForgeClipboard? clipboard,
-  }) : state = state ?? DefaultKitState(),
+    List<ForgeKitEditorType> editorTypes = const [],
+    ForgeKitEditorChoice? fallbackEditor,
+  }) : editorTypes = List.unmodifiable(editorTypes),
+       state = state ?? DefaultKitState(),
        _givenStore = stateStore,
        _ownsPreferences = preferences == null,
        preferences = preferences ?? ForgeKitPreferences(stateStore: stateStore),
@@ -102,7 +121,21 @@ class DefaultKitApi implements ForgeKitApi, ForgeKitModulesHost {
       actions: actionRegistry,
     );
     _diagnostics.allNotifier.addListener(_mirrorDiagnostics);
+    editorPicker = ForgeEditorPicker(
+      modules: () => modules.allKitModules,
+      defaults: this.preferences,
+      editorTypes: () => this.editorTypes,
+      choiceForType: _choiceForType,
+      fallback: fallbackEditor,
+    );
   }
+
+  /// The editor types this API opens files with when the user picks one
+  /// ([editorPicker]); none by default.
+  final List<ForgeKitEditorType> editorTypes;
+
+  @override
+  late final ForgeEditorPicker editorPicker;
 
   @override
   final DefaultKitState state;
@@ -265,6 +298,64 @@ class DefaultKitApi implements ForgeKitApi, ForgeKitModulesHost {
     return await editorHost.openEditorFor(uri, placement: placement) != null;
   }
 
+  /// Opens [uri] in a new editor of [type]: reads it as text from
+  /// [fileSystem], makes the editor (owned by an application-level module of
+  /// the kit's) and shows it through [editorHost]; answers the editor.
+  Future<ForgeEditor> openWithEditorType(
+    Uri uri,
+    ForgeKitEditorType type,
+  ) async {
+    final content = utf8.decode(
+      (await fileSystem.read(uri)).bytes,
+      allowMalformed: true,
+    );
+    final editor = type.create(
+      ForgeKitEditorRequest(
+        uri: uri,
+        content: content,
+        module: _editorTypeOwner,
+        api: this,
+        fileSystem: fileSystem,
+      ),
+    );
+    await editorHost.showEditor(editor);
+    return editor;
+  }
+
+  late final ForgeKitModule _editorTypeOwner = _KitEditorTypeOwner();
+
+  ForgeKitEditorChoice _choiceForType(ForgeKitEditorType type) =>
+      ForgeKitEditorChoice(
+        id: type.id,
+        label: type.label,
+        description: type.description.isEmpty ? null : type.description,
+        icon: type.icon ?? _editorTypeIcon,
+        contentTypes: type.contentTypes,
+        open: (uri) => unawaited(
+          openWithEditorType(uri, type).then<void>(
+            (_) {},
+            onError: (Object error, StackTrace stackTrace) {
+              FlutterError.reportError(
+                FlutterErrorDetails(
+                  exception: error,
+                  stack: stackTrace,
+                  library: 'tom_forge_kit',
+                  context: ErrorDescription(
+                    'while opening $uri with editor type ${type.id}',
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+
+  /// Material's `description` icon, for an editor type without one.
+  static const IconData _editorTypeIcon = IconData(
+    0xe1bf,
+    fontFamily: 'MaterialIcons',
+  );
+
   // ── Restore ──
 
   /// The start's restore: reads the [preferences], applies their shortcut
@@ -383,4 +474,29 @@ class DefaultKitApi implements ForgeKitApi, ForgeKitModulesHost {
 
 class _SettingsChanged extends ChangeNotifier {
   void fire() => notifyListeners();
+}
+
+/// The module the editors [DefaultKitApi.openWithEditorType] makes belong
+/// to: the application itself, contributing nothing.
+class _KitEditorTypeOwner extends ForgeKitModule {
+  @override
+  String get displayName => 'Application';
+
+  @override
+  void activate(ForgeKitApi api) {}
+
+  @override
+  void deactivate() {}
+
+  @override
+  List<ForgeEditor> get editors => const [];
+
+  @override
+  List<ForgeView> get views => const [];
+
+  @override
+  List<ForgeAction> get actions => const [];
+
+  @override
+  List<ForgeShortcutBinding> get shortcuts => const [];
 }

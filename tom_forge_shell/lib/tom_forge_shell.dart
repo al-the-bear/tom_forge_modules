@@ -64,6 +64,7 @@ export 'src/defaults/default_layout_controller.dart';
 export 'src/defaults/default_module_registry.dart';
 export 'src/defaults/default_navigation_history.dart';
 export 'src/defaults/default_shell_api.dart';
+export 'src/defaults/forge_shell_editor_picker.dart';
 export 'src/defaults/default_status_bar_controller.dart';
 export 'src/defaults/default_system_state.dart';
 export 'src/defaults/shell_autosave_controller.dart';

@@ -7,6 +7,7 @@ import '../actions/forge_shortcut_menu.dart';
 import '../components/forge_editor.dart';
 import '../components/forge_editor_choice.dart';
 import '../components/forge_view.dart';
+import '../files/forge_content_item.dart';
 import '../kit/forge_kit_api.dart';
 import '../model/forge_kit_status_item.dart';
 
@@ -69,6 +70,30 @@ abstract class ForgeKitModule {
   /// The editors this module has for [uri], as an **Open With** choice
   /// offers them. The default offers none.
   List<ForgeKitEditorChoice> editorChoicesFor(Uri uri) => const [];
+
+  /// The editors this module has for content of a type, whatever its URI:
+  /// each names the content types it opens
+  /// ([ForgeKitEditorChoice.contentTypes]), and the editor picker offers it
+  /// for an item of one of them (`text/markdown`, `application/pdf`, a
+  /// Webwork section's body type, ...). The default declares none.
+  List<ForgeKitEditorChoice> get contentTypeEditorChoices => const [];
+
+  /// The editors this module has for [item], as the editor picker
+  /// (`ForgeEditorPicker`) gathers them: by default those for its URI
+  /// ([editorChoicesFor]) followed by the [contentTypeEditorChoices] that
+  /// accept its content type. A module that decides on both together
+  /// overrides it.
+  List<ForgeKitEditorChoice> editorChoicesForContent(ForgeContentItem item) {
+    final byUri = editorChoicesFor(item.uri);
+    final byType = item.contentType == null
+        ? const <ForgeKitEditorChoice>[]
+        : [
+            for (final choice in contentTypeEditorChoices)
+              if (choice.acceptsContentType(item.contentType)) choice,
+          ];
+    if (byType.isEmpty) return byUri;
+    return [...byUri, ...byType];
+  }
 }
 
 /// One contribution of a module beyond the [ForgeKitModule] contract: a

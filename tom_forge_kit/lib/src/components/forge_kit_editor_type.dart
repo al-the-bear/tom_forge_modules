@@ -1,7 +1,9 @@
+import 'package:flutter/widgets.dart' show IconData;
 import 'package:tom_editors_shared/tom_editors_shared.dart'
     show EditorActionDescriptor;
 import 'package:tom_file_system/tom_file_system.dart' show TomFileSystem;
 
+import '../files/forge_content_item.dart';
 import '../kit/forge_kit_api.dart';
 import '../module/forge_kit_module.dart';
 import 'forge_editor.dart';
@@ -48,8 +50,9 @@ class ForgeKitEditorRequest {
 }
 
 /// One kind of editor an application opens files with by itself, by file
-/// extension: an id, a name, the extensions it opens by default and the
-/// factory that makes an editor for one file.
+/// extension or content type: an id, a name, the extensions and content
+/// types (MIME types) it opens by default and the factory that makes an
+/// editor for one file.
 ///
 /// It names no panel, tab or window. An editor package exports its type
 /// (e.g. `forgeYamlEditorType`); the application decides which types it
@@ -62,6 +65,8 @@ class ForgeKitEditorType {
     required this.create,
     this.description = '',
     this.extensions = const [],
+    this.contentTypes = const [],
+    this.icon,
     this.actionDescriptors = const [],
   });
 
@@ -78,6 +83,14 @@ class ForgeKitEditorType {
   /// The file extensions (without the dot, lower case) this type opens by
   /// default.
   final List<String> extensions;
+
+  /// The content types (MIME types, e.g. `text/markdown`, or a family as
+  /// `text/*`) this type opens; empty by default.
+  final List<String> contentTypes;
+
+  /// The icon an editor choice of this type shows; null: the application's
+  /// default.
+  final IconData? icon;
 
   /// Makes an editor of this type for one file.
   final ForgeEditor Function(ForgeKitEditorRequest request) create;
@@ -97,6 +110,11 @@ class ForgeKitEditorType {
     if (dot < 0) return false;
     return extensions.contains(name.substring(dot + 1).toLowerCase());
   }
+
+  /// Whether this type opens content of [contentType] (one of
+  /// [contentTypes] names it, parameters and case ignored).
+  bool opensContentType(String? contentType) =>
+      forgeContentTypeAccepted(contentTypes, contentType);
 
   @override
   String toString() => 'ForgeKitEditorType($id)';

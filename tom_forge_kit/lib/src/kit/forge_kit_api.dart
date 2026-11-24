@@ -20,6 +20,7 @@ import '../services/forge_undo_manager.dart';
 import '../services/forge_workspace_state_manager.dart';
 import 'forge_context_menu_controller.dart';
 import 'forge_editor_host.dart';
+import 'forge_editor_picker.dart';
 import 'forge_kit_state.dart';
 import 'forge_state_store.dart';
 
@@ -127,6 +128,12 @@ abstract class ForgeKitApi {
 
   /// Clears a preferred default editor id for a file extension.
   void clearFileTypeDefault(String extension);
+
+  /// The editors a content item (a file, or content of a type) can be
+  /// opened in, the default per content type and per extension, open once
+  /// and set the default: the model behind **Open With**, without any
+  /// layout.
+  ForgeEditorPicker get editorPicker;
 
   /// Undoes the last change of the active editor; false when there is
   /// nothing to undo.

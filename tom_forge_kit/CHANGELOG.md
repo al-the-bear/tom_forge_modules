@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+- Choosing the editor: `ForgeEditorPicker` (`ForgeKitApi.editorPicker`) —
+  for a `ForgeContentItem` (a URI with an optional content type) the editors
+  of every module and editor type, by extension and by content type, with the
+  default marked (`ForgeEditorChoices`); `openOnce`, `open`, `setDefault` /
+  `setDefaultId` / `clearDefault` per content type or per extension
+  (`ForgeEditorDefaultScope`), kept in a `ForgeEditorDefaults`, and an
+  application-supplied `fallback` choice for content nobody takes.
+  `ForgeKitEditorChoice.contentTypes` and `ForgeKitEditorType.contentTypes`
+  (and `icon`) declare the content types an editor opens;
+  `ForgeKitModule.contentTypeEditorChoices` and `editorChoicesForContent`
+  let a module offer editors by content type. `ForgeKitPreferences`
+  implements `ForgeEditorDefaults`: content-type defaults under the new key
+  `forge.files.contentTypeDefaults`, extension defaults under
+  `forge.files.typeDefaults` as before. `DefaultKitApi` takes `editorTypes`
+  and `fallbackEditor` and opens a type with `openWithEditorType`. Helpers
+  `forgeNormalizeContentType`, `forgeContentTypeAccepted`,
+  `forgeExtensionOf`.
 - Quick open as a contribution: `ForgeQuickOpenExtra` (a builder taking a
   `ForgeQuickOpenRequest` — the API, the `ForgeQuickOpenMode` (all,
   actions, chord), the search field the application hosts, the chord

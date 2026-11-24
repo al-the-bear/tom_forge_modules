@@ -8,13 +8,15 @@ import 'package:tom_editors_shared/text_types.dart'
 import 'package:tom_forge_core/tom_forge_core.dart' show ForgeSearchConfig;
 
 import '../actions/forge_shortcut_binding.dart';
+import '../files/forge_content_item.dart';
 import '../kit/forge_coalesced_state_writer.dart';
+import '../kit/forge_editor_picker.dart';
 import '../kit/forge_shared_preferences_state_store.dart';
 import '../kit/forge_state_store.dart';
 
 /// The preferences every Forge application keeps, whatever its layout: the
 /// text settings and editor-specific configuration per editor type, the
-/// default editor per file type, the shortcut and chord overrides and the
+/// default editor per file type and per content type, the shortcut and chord overrides and the
 /// deleted bindings, the search configuration and the external tools' paths.
 ///
 /// Read and written **only** through [stateStore] (default: a
@@ -37,7 +39,8 @@ import '../kit/forge_state_store.dart';
 /// through the same store and rule: it reads them in its [load] between
 /// [beginRestore] and [finishRestore] and writes them with
 /// [writePreference] / [persistPreference].
-class ForgeKitPreferences extends ChangeNotifier {
+class ForgeKitPreferences extends ChangeNotifier
+    implements ForgeEditorDefaults {
   /// Preferences over [stateStore] (default: shared_preferences).
   ForgeKitPreferences({ForgeStateStore? stateStore})
     : stateStore = stateStore ?? ForgeSharedPreferencesStateStore() {
@@ -48,6 +51,7 @@ class ForgeKitPreferences extends ChangeNotifier {
 
   static const _keyEditorTextSettings = 'forge.editor.textSettings';
   static const _keyFileTypeDefaults = 'forge.files.typeDefaults';
+  static const _keyContentTypeDefaults = 'forge.files.contentTypeDefaults';
   static const _keyShortcutOverrides = 'forge.shortcuts.overrides';
   static const _keyChordOverrides = 'forge.shortcuts.chordOverrides';
   static const _keyDeletedBindings = 'forge.shortcuts.deletedBindings';
@@ -76,6 +80,7 @@ class ForgeKitPreferences extends ChangeNotifier {
   final Map<String, ForgeTextSettings> _editorTextSettings =
       <String, ForgeTextSettings>{};
   final Map<String, String> _fileTypeDefaultEditors = <String, String>{};
+  final Map<String, String> _contentTypeDefaultEditors = <String, String>{};
   final Map<String, ForgeShortcutKey> _shortcutOverrides =
       <String, ForgeShortcutKey>{};
   final Map<String, ForgeChordKey> _chordOverrides = <String, ForgeChordKey>{};
@@ -217,6 +222,9 @@ class ForgeKitPreferences extends ChangeNotifier {
     _fileTypeDefaultEditors
       ..clear()
       ..addAll(_loadFileTypeDefaults());
+    _contentTypeDefaultEditors
+      ..clear()
+      ..addAll(_loadContentTypeDefaults());
     _shortcutOverrides
       ..clear()
       ..addAll(_loadShortcutOverrides());
@@ -238,6 +246,7 @@ class ForgeKitPreferences extends ChangeNotifier {
     await Future.wait([
       _saveEditorTextSettings(),
       _saveFileTypeDefaults(),
+      _saveContentTypeDefaults(),
       _saveShortcutOverrides(),
       _saveChordOverrides(),
       _saveDeletedBindings(),
@@ -309,11 +318,14 @@ class ForgeKitPreferences extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Preferred default editor ids keyed by file extension (for example: .md).
+  /// Preferred default editor ids keyed by file extension (for example: .md),
+  /// stored under `forge.files.typeDefaults`.
+  @override
   Map<String, String> get fileTypeDefaultEditors =>
       Map<String, String>.unmodifiable(_fileTypeDefaultEditors);
 
   /// Sets preferred editor id for a file extension.
+  @override
   void setFileTypeDefaultEditor(String extension, String editorTypeId) {
     final normalized = _normalizeExtension(extension);
     if (normalized.isEmpty) {
@@ -328,6 +340,7 @@ class ForgeKitPreferences extends ChangeNotifier {
   }
 
   /// Clears preferred editor id for a file extension.
+  @override
   void clearFileTypeDefaultEditor(String extension) {
     final normalized = _normalizeExtension(extension);
     if (normalized.isEmpty) {
@@ -335,6 +348,35 @@ class ForgeKitPreferences extends ChangeNotifier {
     }
     if (_fileTypeDefaultEditors.remove(normalized) != null) {
       _persist(_saveFileTypeDefaults);
+      notifyListeners();
+    }
+  }
+
+  /// Preferred default editor ids keyed by content type (for example:
+  /// `text/markdown`), stored under `forge.files.contentTypeDefaults`.
+  @override
+  Map<String, String> get contentTypeDefaultEditors =>
+      Map<String, String>.unmodifiable(_contentTypeDefaultEditors);
+
+  /// Sets the preferred editor id for a content type (lower case, without
+  /// parameters).
+  @override
+  void setContentTypeDefaultEditor(String contentType, String editorTypeId) {
+    final normalized = forgeNormalizeContentType(contentType);
+    if (normalized == null) return;
+    if (_contentTypeDefaultEditors[normalized] == editorTypeId) return;
+    _contentTypeDefaultEditors[normalized] = editorTypeId;
+    _persist(_saveContentTypeDefaults);
+    notifyListeners();
+  }
+
+  /// Clears the preferred editor id for a content type.
+  @override
+  void clearContentTypeDefaultEditor(String contentType) {
+    final normalized = forgeNormalizeContentType(contentType);
+    if (normalized == null) return;
+    if (_contentTypeDefaultEditors.remove(normalized) != null) {
+      _persist(_saveContentTypeDefaults);
       notifyListeners();
     }
   }
@@ -554,6 +596,34 @@ class ForgeKitPreferences extends ChangeNotifier {
     await writePreference(
       _keyFileTypeDefaults,
       jsonEncode(_fileTypeDefaultEditors),
+    );
+  }
+
+  Map<String, String> _loadContentTypeDefaults() {
+    final jsonStr = storedJson(_keyContentTypeDefaults);
+    if (jsonStr == null || jsonStr.trim().isEmpty) {
+      return <String, String>{};
+    }
+    try {
+      final decoded = jsonDecode(jsonStr);
+      if (decoded is! Map) {
+        return <String, String>{};
+      }
+      final result = <String, String>{};
+      for (final MapEntry(:key, :value) in decoded.entries) {
+        final type = key is String ? forgeNormalizeContentType(key) : null;
+        if (type != null && value is String) result[type] = value;
+      }
+      return result;
+    } catch (_) {
+      return <String, String>{};
+    }
+  }
+
+  Future<void> _saveContentTypeDefaults() async {
+    await writePreference(
+      _keyContentTypeDefaults,
+      jsonEncode(_contentTypeDefaultEditors),
     );
   }
 
