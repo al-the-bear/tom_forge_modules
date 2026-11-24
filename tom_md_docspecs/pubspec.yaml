@@ -22,7 +22,7 @@ dependencies:
   tom_editors_shared:
     path: ../tom_editors_shared
   # The schema model, and the scanner that validates a document against it.
-  tom_doc_specs: ^0.4.0
+  tom_doc_specs: ^0.4.1
   tom_doc_scanner: ^0.3.0
 
 dev_dependencies:
