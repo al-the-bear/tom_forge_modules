@@ -1,5 +1,13 @@
 ## Unreleased
 
+* The views, quick open and the command palette are packages of their own on
+  the kit (`tom_forge_file_explorer`, `tom_forge_search_view`,
+  `tom_forge_problems_view`, `tom_forge_outline_view`,
+  `tom_forge_output_view`, `tom_forge_revision_view`, `tom_forge_quick_open`,
+  `tom_forge_command_palette`), re-exported here; `forgeDesktopViewModules()`
+  makes their modules and the terminal's (`forgeTerminalModule()`, which
+  places the terminal tab). `ForgeCommandPalette` takes `api:` (a
+  `ForgeKitApi`) instead of `shellApi:`.
 * The plain-text editor is the adapter package `tom_forge_plain_text_editor`
   (`ForgePlainTextEditor` over `tom_file_editors`' text file editor),
   re-exported here; the shell no longer exports it.

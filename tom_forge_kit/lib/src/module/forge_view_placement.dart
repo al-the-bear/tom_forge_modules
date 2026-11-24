@@ -130,3 +130,33 @@ ForgeView? forgeContributedViewById(
   }
   return null;
 }
+
+/// Where an application shows its terminals — one section per open
+/// terminal, made at run time — as a [ForgeModuleExtra] a terminal module
+/// contributes: [hint]'s role says where (the panel shell: messages, the
+/// bottom panel), its group titles the tab and its group icon is the tab's.
+/// An application without terminals ignores the kind; with none contributed
+/// it shows no terminal tab.
+class ForgeTerminalSectionsExtra extends ForgeModuleExtra {
+  const ForgeTerminalSectionsExtra(ForgeViewPlacementHint hint)
+    : super(kind: kindId, value: hint);
+
+  /// The kind of this extra.
+  static const kindId = 'forge.kit.terminalSections';
+
+  /// Where the terminals go.
+  ForgeViewPlacementHint get hint => value as ForgeViewPlacementHint;
+}
+
+/// The placement of the terminals the first module of [registry] that
+/// contributes one gives ([ForgeTerminalSectionsExtra]), or null.
+ForgeViewPlacementHint? forgeTerminalSectionsHint(
+  ForgeKitModuleRegistry registry,
+) {
+  for (final module in registry.allKitModules) {
+    for (final extra in module.extras.whereType<ForgeTerminalSectionsExtra>()) {
+      return extra.hint;
+    }
+  }
+  return null;
+}

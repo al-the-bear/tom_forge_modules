@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tom_forge_core/tom_forge_core.dart' show FileHandlingResult;
-import 'package:tom_forge_shell/src/widgets/forge_quick_open.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 import 'package:tom_forge_ui_testing/tom_forge_ui_testing.dart';
 
@@ -395,6 +394,8 @@ class _PhaseSHarness {
     final registry = shell.modules as DefaultModuleRegistry;
     registry.register(shellModule);
     registry.register(module);
+    // Quick open, a package of its own: the overlay the scaffold shows.
+    shell.registerModule(forgeQuickOpenModule());
 
     final application = ForgeApplication(
       id: 'phase-s-harness',
@@ -425,6 +426,7 @@ class _PhaseSHarness {
           tabs: [
             const PanelTabConfig(
               title: 'Terminal',
+              terminalSections: true,
               icon: Icons.terminal,
               sections: [],
             ),

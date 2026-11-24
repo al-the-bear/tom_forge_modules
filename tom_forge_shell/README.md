@@ -49,7 +49,26 @@ and sections follow the hints' order. `forgeContributedPanelLayout(modules)`
 is a whole panel layout from them; with no view contributed its panels are
 empty and the shell still starts. An application lays its panels out from
 these tabs and adds its own beside them (Tom Forge adds the website editor's
-tabs and the Terminal tab).
+tabs and the terminal tab).
+
+## Quick open, the command palette and the terminal tab
+
+The shell names neither quick open nor the command palette: when the user
+opens one (F1, ⌘⇧P, ⌘P, a chord, typing in the title bar's search field),
+the scaffold asks the registry for the overlay a module contributes
+(`forgeQuickOpenBuilderFor`, a kit `ForgeQuickOpenExtra`) and shows it below
+the search field with a `ForgeQuickOpenRequest` (the field's controller and
+focus node, the chord pending, opening a file, the help and the settings).
+Without a contribution nothing opens. `tom_forge_quick_open`
+(`forgeQuickOpenModule()`) and `tom_forge_command_palette`
+(`forgeCommandPaletteModule()`, a lower priority) contribute one each.
+
+The tab that holds the terminals is a `PanelTabConfig` with
+`terminalSections`: the scaffold keeps one section per open terminal in it
+and offers New Terminal on it. `forgeContributedTerminalTab(modules)` makes it
+from the placement a terminal module contributes (a kit
+`ForgeTerminalSectionsExtra`; `tom_forge_terminal`'s `forgeTerminalModule()`),
+null when none does.
 
 ## Placing editors
 
@@ -62,10 +81,11 @@ existing middle panel places the editor in the active one
 
 It holds its default services
 (`DefaultShellApi`), the scaffold (`ForgeShellScaffold`), panels, editor tab
-bar, menus, command palette, quick open, configuration (the views are
-packages of their own — `tom_forge_file_explorer`, `tom_forge_search_view`,
-`tom_forge_problems_view`, `tom_forge_outline_view`, `tom_forge_output_view`,
-`tom_forge_revision_view` — which it does not depend on; its API and state
+bar, menus, configuration (the views, quick open and the command palette
+are packages of their own — `tom_forge_file_explorer`,
+`tom_forge_search_view`, `tom_forge_problems_view`, `tom_forge_outline_view`,
+`tom_forge_output_view`, `tom_forge_revision_view`, `tom_forge_quick_open`,
+`tom_forge_command_palette` — which it does not depend on; its API and state
 are the kit's view ports `ForgeFileNavigator`, `ForgeExplorerSelection`,
 `ForgeSearchQueryState`, `ForgeWorkspaceRoot`, `ForgeActiveEditorListenable`
 and `ForgeRevisionRestorer`), and opens a file no

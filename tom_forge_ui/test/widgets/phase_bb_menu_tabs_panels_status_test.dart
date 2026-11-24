@@ -631,6 +631,7 @@ class _PhaseBBHarness {
           tabs: [
             PanelTabConfig(
               title: 'Terminal',
+              terminalSections: true,
               icon: Icons.terminal,
               sections: [],
             ),

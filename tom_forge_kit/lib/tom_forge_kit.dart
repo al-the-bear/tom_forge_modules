@@ -80,6 +80,7 @@ export 'src/kit/forge_editor_routing.dart';
 export 'src/kit/forge_file_state_store.dart';
 export 'src/kit/forge_host_ports.dart';
 export 'src/kit/forge_kit_api.dart';
+export 'src/kit/forge_kit_modules_host.dart';
 export 'src/kit/forge_kit_state.dart';
 export 'src/kit/forge_memory_state_store.dart';
 export 'src/kit/forge_shared_preferences_state_store.dart';
@@ -100,6 +101,7 @@ export 'src/model/forge_menu_model.dart';
 // ── Module ──
 export 'src/module/forge_kit_module.dart';
 export 'src/module/forge_kit_module_registry.dart';
+export 'src/module/forge_quick_open_contribution.dart';
 export 'src/module/forge_view_placement.dart';
 
 // ── Providers ──

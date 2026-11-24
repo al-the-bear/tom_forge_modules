@@ -162,7 +162,7 @@ class _PhaseDHarness {
     return MaterialApp(
       home: Scaffold(
         body: ForgeCommandPalette(
-          shellApi: shell,
+          api: shell,
           onDismiss: () {},
         ),
       ),

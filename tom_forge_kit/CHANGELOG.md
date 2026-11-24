@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Quick open as a contribution: `ForgeQuickOpenExtra` (a builder taking a
+  `ForgeQuickOpenRequest` — the API, the `ForgeQuickOpenMode` (all,
+  actions, chord), the search field the application hosts, the chord
+  pending, what to do on open file, help and settings — with the modes it
+  shows and a priority), found with `forgeQuickOpenBuilderFor`;
+  `ForgeKitModulesHost` (`DefaultKitApi` is one) and `forgeKitModulesOf`,
+  the registered modules of an API; `ForgeTerminalSectionsExtra` and
+  `forgeTerminalSectionsHint`, where an application shows its terminals.
 - View ports for the file explorer, Search and Problems views:
   `ForgeFileNavigator` (open a file at a line and column; implemented by
   the panel shell's API) with `ForgeOpenFileAt` and `forgeOpenFileAtOf`

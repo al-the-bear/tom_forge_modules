@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart' show Icons;
 import 'package:tom_forge_core/tom_forge_core.dart' show ForgePanelLocation;
 import 'package:tom_forge_kit/tom_forge_kit.dart';
 
@@ -60,6 +61,26 @@ List<PanelTabConfig> forgeContributedPanelTabs(
         sections: [for (final entry in entries) entry.view],
       ),
   ];
+}
+
+/// The tab of the shell's terminals ([PanelTabConfig.terminalSections]),
+/// made from the placement a module of [registry] contributes for them
+/// ([forgeTerminalSectionsHint]; `tom_forge_terminal`'s module gives one):
+/// titled by its group (else its id), with its group icon (else a terminal
+/// icon), no sections yet (the scaffold adds one per open terminal). Null
+/// when no module contributes a placement: the shell shows no terminal tab.
+/// An application puts it in the panel the hint's role maps to
+/// ([forgePanelLocationOf]); the scaffold keeps the terminals of the bottom
+/// panel's.
+PanelTabConfig? forgeContributedTerminalTab(ForgeKitModuleRegistry registry) {
+  final hint = forgeTerminalSectionsHint(registry);
+  if (hint == null) return null;
+  return PanelTabConfig(
+    title: hint.group ?? hint.id,
+    icon: hint.groupIcon ?? Icons.terminal,
+    sections: [],
+    terminalSections: true,
+  );
 }
 
 /// A panel layout made from the contributed views alone

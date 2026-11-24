@@ -3,8 +3,8 @@ description: >-
   Tom Forge UI: Forge's panel shell (tom_forge_shell) with the terminal
   (tom_forge_terminal), the code editors (tom_forge_code_editors), the
   platform keychain (tom_forge_platform_secrets) and the views, packages of
-  their own (Explorer, Search, Problems, Outline, Output, Revisions),
-  re-exported as one library.
+  their own (Explorer, Search, Problems, Outline, Output, Revisions, quick
+  open, the command palette), re-exported as one library.
 publish_to: none
 version: 0.0.1
 homepage:
@@ -44,6 +44,10 @@ dependencies:
     path: ../tom_forge_output_view
   tom_forge_revision_view:
     path: ../tom_forge_revision_view
+  tom_forge_quick_open:
+    path: ../tom_forge_quick_open
+  tom_forge_command_palette:
+    path: ../tom_forge_command_palette
   # The plain-text editor the shell falls back to, re-exported
   # (ForgePlainTextEditor).
   tom_forge_plain_text_editor:

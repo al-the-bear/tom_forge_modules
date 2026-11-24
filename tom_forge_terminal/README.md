@@ -19,6 +19,14 @@ for the terminal contracts and the shell only for `ForgeShellComponents`.
 takes when it is made or which `ForgeShellComponents.register` registers
 (`tom_forge_ui`'s `useForgeDesktopComponents()` does).
 
+`forgeTerminalModule()` is a `ForgeKitModule` that tells the application where
+the terminals go: it hands over the placement hint `forgeTerminalViewPlacement`
+(id `forge.view.terminal`, messages, group `Terminal` with `Icons.code`, order
+100) as a `ForgeTerminalSectionsExtra`. The panel shell makes its terminal tab
+from it (`forgeContributedTerminalTab`, a tab with `terminalSections`) and
+shows one section per open terminal there; without the module it shows no
+terminal tab.
+
 Part of Tom Forge; the layers are in `tom_forge/_agent_guidelines/platform_architecture.md`.
 
 ## License

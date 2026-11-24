@@ -256,7 +256,7 @@ void main() {
             body: Stack(
               children: [
                 ForgeCommandPalette(
-                  shellApi: shell,
+                  api: shell,
                   onDismiss: () {},
                 ),
               ],

@@ -1,10 +1,14 @@
 // The panel shell names no view: its panels are laid out from the views the
 // registered modules contribute, each placed by its layout-free hint
-// (forgeContributedPanelTabs), and a shell with no views starts. (The
-// scaffold disposes the shell when it is torn down.)
+// (forgeContributedPanelTabs), quick open and the command palette are the
+// overlay a module contributes (ForgeQuickOpenExtra), the terminal tab is
+// made from a contributed placement (forgeContributedTerminalTab), and a
+// shell with none of them starts. (The scaffold disposes the shell when it
+// is torn down.)
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tom_forge_core/tom_forge_core.dart' show ForgePanelLocation;
@@ -78,6 +82,50 @@ class _ViewsModule extends ForgeKitModule implements ForgeModuleExtrasProvider {
   ];
 }
 
+/// A module that contributes a quick-open overlay showing its mode and
+/// query, and the terminals' placement.
+class _OverlayModule extends ForgeKitModule
+    implements ForgeModuleExtrasProvider {
+  final requests = <ForgeQuickOpenRequest>[];
+
+  @override
+  String get displayName => 'Overlay';
+
+  @override
+  void activate(ForgeKitApi api) {}
+
+  @override
+  void deactivate() {}
+
+  @override
+  List<ForgeEditor> get editors => const [];
+
+  @override
+  List<ForgeView> get views => const [];
+
+  @override
+  List<ForgeAction> get actions => const [];
+
+  @override
+  List<ForgeShortcutBinding> get shortcuts => const [];
+
+  @override
+  List<ForgeModuleExtra> get ownExtras => [
+    ForgeQuickOpenExtra((key, request) {
+      requests.add(request);
+      return Text('overlay ${request.mode.name}', key: key);
+    }, modes: const {ForgeQuickOpenMode.all, ForgeQuickOpenMode.actions}),
+    const ForgeTerminalSectionsExtra(
+      ForgeViewPlacementHint(
+        id: 'test.terminals',
+        role: ForgeViewRole.messages,
+        group: 'Consoles',
+        groupIcon: Icons.code,
+      ),
+    ),
+  ];
+}
+
 /// A second module type: the registry keeps one module per type.
 class _MoreViewsModule extends _ViewsModule {
   _MoreViewsModule(super.displayName, super.contributions);
@@ -113,6 +161,11 @@ void main() {
     shell.registerModule(TomForgeShellModule());
 
     expect(forgeContributedViews(shell.modules), isEmpty);
+    // No quick open, no command palette, no terminal placement either.
+    for (final mode in ForgeQuickOpenMode.values) {
+      expect(forgeQuickOpenBuilderFor(shell.modules, mode), isNull);
+    }
+    expect(forgeContributedTerminalTab(shell.modules), isNull);
     final layout = forgeContributedPanelLayout(shell.modules);
     expect(layout.leftPanel.tabs, isEmpty);
     expect(layout.rightPanel.tabs, isEmpty);
@@ -127,6 +180,60 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.byType(ForgeShellScaffold), findsOneWidget);
     expect(shell.applications.active?.id, 'empty');
+
+    // The quick-open and palette shortcuts and typing in the title bar's
+    // search field open nothing.
+    await tester.sendKeyEvent(LogicalKeyboardKey.f1);
+    await tester.pumpAndSettle();
+    expect(shell.executeAction('forge.commandPalette'), isTrue);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'abc');
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.textContaining('Type an action'), findsNothing);
+  });
+
+  testWidgets('the scaffold shows the quick-open overlay a module contributes '
+      'and makes the terminal tab from its placement', (tester) async {
+    await _largeSurface(tester);
+    final shell = _shell();
+    shell.registerModule(TomForgeShellModule());
+    final overlay = _OverlayModule();
+    shell.registerModule(overlay);
+
+    expect(
+      forgeQuickOpenBuilderFor(shell.modules, ForgeQuickOpenMode.chord),
+      isNull,
+    );
+    final terminalTab = forgeContributedTerminalTab(shell.modules)!;
+    expect(terminalTab.title, 'Consoles');
+    expect(terminalTab.icon, Icons.code);
+    expect(terminalTab.terminalSections, isTrue);
+
+    shell.applications.add(
+      ForgeApplication(
+        id: 'overlay',
+        title: 'Overlay',
+        layout: PanelLayout(
+          bottomPanel: PanelConfig(tabs: [terminalTab]),
+          middlePanels: const [MiddlePanelConfig()],
+        ),
+      ),
+    );
+    await tester.pumpWidget(_scaffold(shell));
+    await tester.pumpAndSettle();
+    expect(find.text('overlay all'), findsNothing);
+
+    expect(shell.executeAction('forge.commandPalette'), isTrue);
+    await tester.pumpAndSettle();
+    expect(find.text('overlay all'), findsOneWidget);
+    expect(overlay.requests.last.api, same(shell));
+    expect(overlay.requests.last.mode, ForgeQuickOpenMode.all);
+
+    overlay.requests.last.onDismiss();
+    await tester.pumpAndSettle();
+    expect(find.text('overlay all'), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('the panels are laid out from the contributed views by their '

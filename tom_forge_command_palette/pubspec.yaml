@@ -1,0 +1,34 @@
+name: tom_forge_command_palette
+description: >-
+  Forge's command palette as a kit component: a searchable list of the application's actions with their shortcuts (ForgeCommandPalette), contributed to any application on the kit by forgeCommandPaletteModule as the overlay it shows when it has no quick open.
+  License: BSD-3-Clause.
+publish_to: none
+version: 0.1.0
+repository: https://github.com/al-the-bear/tom_forge
+
+environment:
+  sdk: ^3.10.8
+  flutter: ">=1.17.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # The Forge kit: ForgeKitApi (actions, shortcuts, modules), the module
+  # contract and the quick-open contribution. Never the shell (R9).
+  tom_forge_kit:
+    path: ../tom_forge_kit
+  # ForgePanelLocation, the side panels its Toggle Left / Right Panel
+  # commands name.
+  tom_forge_core:
+    path: ../tom_forge_core
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  # The in-memory file system the tests run a bare DefaultKitApi over.
+  tom_file_system:
+    path: ../../tom_ai/basics/tom_file_system
+
+flutter:
+  uses-material-design: true

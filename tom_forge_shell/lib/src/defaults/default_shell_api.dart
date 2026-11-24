@@ -35,7 +35,11 @@ import '../services/forge_preferences_service.dart';
 /// Aggregates all default service implementations and provides them
 /// as a single API surface for module activation.
 class DefaultShellApi
-    implements ForgeShellApi, ForgeRevisionRestorer, ForgeFileNavigator {
+    implements
+        ForgeShellApi,
+        ForgeRevisionRestorer,
+        ForgeFileNavigator,
+        ForgeKitModulesHost {
   @override
   final ForgeSystemState systemState;
 

@@ -447,6 +447,7 @@ class _PhaseTHarness {
           tabs: [
             const PanelTabConfig(
               title: 'Terminal',
+              terminalSections: true,
               icon: Icons.terminal,
               sections: [],
             ),

@@ -9,20 +9,6 @@ import 'package:tom_forge_core/tom_forge_core.dart'
 import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_forge_kit/tom_forge_kit.dart';
 
-import '../defaults/default_shell_api.dart';
-
-/// Operating modes for the unified quick-open search bar.
-enum QuickOpenMode {
-  /// Search across files, actions, and configuration settings.
-  all,
-
-  /// Search only actions / commands (triggered by Ctrl+P).
-  actions,
-
-  /// Show chord second-key completions (triggered by chord system).
-  chord,
-}
-
 /// Result item types for display categorization.
 enum _ResultType { openEditor, file, action, setting }
 
@@ -55,20 +41,27 @@ class _QuickOpenItem {
 /// title bar.
 ///
 /// Operates in three modes:
-/// - [QuickOpenMode.all]: searches files, actions, and settings
-/// - [QuickOpenMode.actions]: searches only actions (Ctrl+P)
-/// - [QuickOpenMode.chord]: shows chord second-key options
+/// - [ForgeQuickOpenMode.all]: searches open editors, files, actions, and
+///   settings
+/// - [ForgeQuickOpenMode.actions]: searches only actions (Ctrl+P)
+/// - [ForgeQuickOpenMode.chord]: shows chord second-key options
+///
+/// It works on the kit alone: the actions of [api]'s action registry and of
+/// its modules ([forgeKitModulesOf]), the open editors of its state, the
+/// files of its file system under the workspace folder (the state's
+/// [ForgeWorkspaceRoot], else the file system's root).
 class ForgeQuickOpen extends StatefulWidget {
   static bool debugEnabled = false;
 
-  final DefaultShellApi shellApi;
-  final QuickOpenMode mode;
+  /// The application's API.
+  final ForgeKitApi api;
+  final ForgeQuickOpenMode mode;
   final VoidCallback onDismiss;
 
   /// Initial query text (e.g. from the title bar text field).
   final String initialQuery;
 
-  /// Chord state when [mode] is [QuickOpenMode.chord].
+  /// Chord state when [mode] is [ForgeQuickOpenMode.chord].
   final ForgeShortcutKey? chordFirstKey;
   final List<ForgeShortcutBinding> chordCompletions;
 
@@ -95,8 +88,8 @@ class ForgeQuickOpen extends StatefulWidget {
 
   const ForgeQuickOpen({
     super.key,
-    required this.shellApi,
-    this.mode = QuickOpenMode.all,
+    required this.api,
+    this.mode = ForgeQuickOpenMode.all,
     required this.onDismiss,
     this.initialQuery = '',
     this.chordFirstKey,
@@ -109,6 +102,30 @@ class ForgeQuickOpen extends StatefulWidget {
     this.searchConfig = const ForgeSearchConfig(),
     this.configSectionTarget,
   });
+
+  /// The quick open an application asks for with [request] (what
+  /// [forgeQuickOpenModule] contributes): files open through the request's
+  /// `onOpenFile`, else `ForgeKitApi.openFile`.
+  factory ForgeQuickOpen.fromRequest(
+    ForgeQuickOpenRequest request, {
+    Key? key,
+  }) => ForgeQuickOpen(
+    key: key,
+    api: request.api,
+    mode: request.mode,
+    onDismiss: request.onDismiss,
+    initialQuery: request.initialQuery,
+    chordFirstKey: request.chordFirstKey,
+    chordCompletions: request.chordCompletions,
+    searchController: request.searchController,
+    searchFocusNode: request.searchFocusNode,
+    searchConfig: request.searchConfig,
+    onOpenFile:
+        request.onOpenFile ?? (uri) => unawaited(request.api.openFile(uri)),
+    onOpenHelp: request.onOpenHelp,
+    onOpenSettings: request.onOpenSettings,
+    configSectionTarget: request.configSectionTarget,
+  );
 
   @override
   State<ForgeQuickOpen> createState() => _ForgeQuickOpenState();
@@ -142,6 +159,15 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
     super.dispose();
   }
 
+  /// The workspace folder files are searched in and shown relative to:
+  /// the state's [ForgeWorkspaceRoot], else the file system's root.
+  String get _workspaceRootPath {
+    return switch (widget.api.state) {
+      final ForgeWorkspaceRoot root => root.workspaceRootPath,
+      _ => widget.api.fileSystem.root.toFilePath(),
+    };
+  }
+
   KeyEventResult _onSearchFieldKeyEvent(FocusNode node, KeyEvent event) {
     return handleKeyEvent(event);
   }
@@ -149,7 +175,7 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
   void _onSearchChanged() {
     _searchDebounce?.cancel();
     final query = widget.searchController.text;
-    if (widget.mode == QuickOpenMode.chord) {
+    if (widget.mode == ForgeQuickOpenMode.chord) {
       // Instant filter for chord completions.
       _buildResults(query);
     } else {
@@ -162,11 +188,11 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
 
   void _buildResults(String query) {
     switch (widget.mode) {
-      case QuickOpenMode.all:
+      case ForgeQuickOpenMode.all:
         _buildAllResults(query);
-      case QuickOpenMode.actions:
+      case ForgeQuickOpenMode.actions:
         _buildActionResults(query);
-      case QuickOpenMode.chord:
+      case ForgeQuickOpenMode.chord:
         _buildChordResults(query);
     }
   }
@@ -242,13 +268,13 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
         icon: binding.action.icon ?? Icons.keyboard,
         type: _ResultType.action,
         onExecute: () {
-          final shellApi = widget.shellApi;
+          final api = widget.api;
           final actionId = binding.action.id;
           widget.onDismiss();
           // Defer to next frame so the dismiss completes before the
           // action runs (avoids crash when the action re-opens the palette).
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            shellApi.executeAction(actionId);
+            api.executeAction(actionId);
           });
         },
       ));
@@ -266,7 +292,7 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
     final commandsById = <String, _QuickOpenItem>{};
 
     void addAction(ForgeAction action) {
-      final binding = widget.shellApi.shortcuts.getBinding(action.id);
+      final binding = widget.api.shortcuts.getBinding(action.id);
       final shortcutText = binding?.displayString ?? _formatShortcut(action.defaultShortcut);
       commandsById[action.id] = _QuickOpenItem(
         id: action.id,
@@ -276,14 +302,14 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
         type: _ResultType.action,
         onExecute: () {
           // Capture references before dismiss (which may dispose this State).
-          final shellApi = widget.shellApi;
+          final api = widget.api;
           final actionId = action.id;
           final actionFallback = action.execute;
           widget.onDismiss();
           // Defer to next frame so the dismiss completes before the
           // action runs (avoids crash when the action re-opens the palette).
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!shellApi.executeAction(actionId)) {
+            if (!api.executeAction(actionId)) {
               actionFallback({});
             }
           });
@@ -291,10 +317,12 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
       );
     }
 
-    for (final action in widget.shellApi.actionRegistry.allActions) {
+    for (final action in widget.api.actionRegistry.allActions) {
       addAction(action);
     }
-    for (final module in widget.shellApi.modules.allKitModules) {
+    for (final module
+        in forgeKitModulesOf(widget.api)?.allKitModules ??
+            const <ForgeKitModule>[]) {
       for (final action in module.actions) {
         if (!commandsById.containsKey(action.id)) addAction(action);
       }
@@ -388,27 +416,27 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
       icon: icon,
       type: _ResultType.setting,
       onExecute: () {
-        final shellApi = widget.shellApi;
+        final api = widget.api;
         // Tell the config panel which accordion section to expand.
         widget.configSectionTarget?.value = sectionIndex;
         widget.onDismiss();
         // Defer to next frame so the dismiss completes before opening
         // settings (mirrors the action execution pattern).
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          shellApi.executeAction('forge.openSettings');
+          api.executeAction('forge.openSettings');
         });
       },
     );
   }
 
   List<_QuickOpenItem> _getOpenEditorItems(String query) {
-    final editors = widget.shellApi.systemState.openEditors;
+    final editors = widget.api.state.openEditors;
     final items = <_QuickOpenItem>[];
     for (final editor in editors) {
       final title = editor.title.value;
       final uriStr = editor.uri.toFilePath();
       // Show relative path from workspace root when possible.
-      final wsRoot = widget.shellApi.systemState.workspaceRootPath;
+      final wsRoot = _workspaceRootPath;
       final detail = uriStr.startsWith(wsRoot)
           ? uriStr.substring(wsRoot.length)
           : uriStr;
@@ -442,7 +470,7 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
 
   Future<void> _searchFiles(String query) async {
     try {
-      final workspaceRoot = widget.shellApi.systemState.workspaceRootPath;
+      final workspaceRoot = _workspaceRootPath;
       final config = widget.searchConfig;
       final rootUri = Uri.file(workspaceRoot.endsWith('/')
           ? workspaceRoot
@@ -451,7 +479,7 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
       // The .gitignore rules of the workspace, read through its file system.
       final gitIgnore = config.excludeGitIgnored
           ? await forgeLoadGitignores(
-              widget.shellApi.fileSystem,
+              widget.api.fileSystem,
               root: rootUri,
             )
           : null;
@@ -480,7 +508,7 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
 
       // The folders still to read, breadth first; a folder that is excluded
       // or git-ignored is never read, so its files are never listed.
-      final fileSystem = widget.shellApi.fileSystem;
+      final fileSystem = widget.api.fileSystem;
       final folders = <Uri>[rootUri];
       while (folders.isNotEmpty && count < config.maxFileResults) {
         final List<TomFileEntry> entries;
@@ -713,7 +741,7 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
     }
 
     // In chord mode, match the pressed key against chord second-keys.
-    if (widget.mode == QuickOpenMode.chord) {
+    if (widget.mode == ForgeQuickOpenMode.chord) {
       final pressedKey = ForgeShortcutKey(
         key: event.logicalKey,
         primaryModifier: HardwareKeyboard.instance.isControlPressed ||
@@ -773,7 +801,7 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (widget.mode == QuickOpenMode.all) _buildSearchOptions(isDark),
+          if (widget.mode == ForgeQuickOpenMode.all) _buildSearchOptions(isDark),
           Flexible(
             child: _results.isEmpty
                 ? _buildEmpty(isDark)
@@ -786,9 +814,9 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
 
   Widget _buildEmpty(bool isDark) {
     final label = switch (widget.mode) {
-      QuickOpenMode.all => 'No matching editors, files, actions, or settings',
-      QuickOpenMode.actions => 'No matching actions',
-      QuickOpenMode.chord => 'No matching shortcuts',
+      ForgeQuickOpenMode.all => 'No matching editors, files, actions, or settings',
+      ForgeQuickOpenMode.actions => 'No matching actions',
+      ForgeQuickOpenMode.chord => 'No matching shortcuts',
     };
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -804,7 +832,7 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
 
   Widget _buildResultList(bool isDark, ThemeData theme) {
     // Group results by type when in 'all' mode.
-    final grouped = widget.mode == QuickOpenMode.all;
+    final grouped = widget.mode == ForgeQuickOpenMode.all;
 
     if (!grouped) {
       return _buildFlatList(isDark, theme);

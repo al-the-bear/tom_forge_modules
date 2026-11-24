@@ -1,6 +1,6 @@
 name: tom_forge_shell
 description: >-
-  Forge's panel shell: the shell API and its default services, the scaffold, panels, tab bar, menus, palette, configuration, views and the plain-text editor it falls back to (tom_forge_plain_text_editor's), without the terminal, the code editors or the platform keychain, which plug in through ForgeShellComponents.
+  Forge's panel shell: the shell API and its default services, the scaffold, panels, tab bar, menus, configuration and the plain-text editor it falls back to (the views, quick open and the command palette are packages of their own on the kit) (tom_forge_plain_text_editor's), without the terminal, the code editors or the platform keychain, which plug in through ForgeShellComponents.
   License: BSD-3-Clause.
 publish_to: none
 version: 0.1.0

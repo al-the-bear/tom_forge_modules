@@ -42,7 +42,7 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: ForgeCommandPalette(
-            shellApi: shell,
+            api: shell,
             onDismiss: () {},
           ),
         ),

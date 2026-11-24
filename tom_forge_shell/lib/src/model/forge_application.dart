@@ -20,10 +20,17 @@ class PanelTabConfig {
   final IconData icon;
   final List<ForgeView> sections;
 
+  /// Whether the tab holds the shell's terminals, one section per open
+  /// terminal, kept in step with the terminal manager by the scaffold (which
+  /// also offers New Terminal on it). Its sections are then the shell's:
+  /// give it a growable empty list.
+  final bool terminalSections;
+
   const PanelTabConfig({
     required this.title,
     required this.icon,
     this.sections = const [],
+    this.terminalSections = false,
   });
 }
 

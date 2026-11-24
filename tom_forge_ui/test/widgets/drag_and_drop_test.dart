@@ -309,6 +309,7 @@ Widget _buildBottomPanelWithTabs() {
           tabs: [
             PanelTabConfig(
               title: 'Terminal',
+              terminalSections: true,
               icon: Icons.terminal,
               sections: [_StubView('Terminal', Icons.terminal)],
             ),

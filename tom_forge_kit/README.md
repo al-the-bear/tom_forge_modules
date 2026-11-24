@@ -12,7 +12,7 @@ such application and is built on this package.
 | Core | `tom_forge_core` | Service contracts and their defaults (output, diagnostics, configuration, notifications, progress, search, undo), events, diagnostics |
 | **Kit** | `tom_forge_kit` | Components, editors and modules; actions, shortcuts, context-menu entries and status items as data; the kit API, the editor host port, the state-store port; the default services |
 | Look | `tom_forge_shared_ui` | Theme tokens and one rendering of the kit's models (no layout); an application may draw them itself |
-| Panel shell | `tom_forge_shell` | The scaffold, panels, editor tabs, menus, palette, configuration, views; re-exports the kit |
+| Panel shell | `tom_forge_shell` | The scaffold, panels, editor tabs, menus, configuration; the views, quick open and the command palette it shows are packages of their own on the kit; re-exports the kit |
 
 ## `ForgeKitApi`
 

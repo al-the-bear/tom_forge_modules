@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_forge_ui/tom_forge_ui.dart';
 import 'package:tom_forge_ui_testing/tom_forge_ui_testing.dart';
-import 'package:tom_forge_shell/src/widgets/forge_quick_open.dart';
 
 import 'support/shell_test_utils.dart';
 
@@ -248,6 +247,8 @@ class _PhaseFHarness {
     final registry = shell.modules as DefaultModuleRegistry;
     registry.register(shellModule);
     registry.register(module);
+    // Quick open, a package of its own: the overlay the scaffold shows.
+    shell.registerModule(forgeQuickOpenModule());
 
     final application = ForgeApplication(
       id: 'phase-f-harness',
@@ -278,6 +279,7 @@ class _PhaseFHarness {
           tabs: [
             const PanelTabConfig(
               title: 'Terminal',
+              terminalSections: true,
               icon: Icons.terminal,
               sections: [],
             ),

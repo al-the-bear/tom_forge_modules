@@ -353,6 +353,7 @@ class _PhaseQHarness {
           tabs: [
             const PanelTabConfig(
               title: 'Terminal',
+              terminalSections: true,
               icon: Icons.terminal,
               sections: [],
             ),

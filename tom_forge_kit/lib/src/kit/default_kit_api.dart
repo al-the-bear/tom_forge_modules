@@ -40,6 +40,7 @@ import 'default_kit_state.dart';
 import 'forge_context_menu_controller.dart';
 import 'forge_editor_host.dart';
 import 'forge_kit_api.dart';
+import 'forge_kit_modules_host.dart';
 import 'forge_state_store.dart';
 
 /// The [ForgeKitApi] of a host that is not the panel shell: the kit's and
@@ -65,7 +66,7 @@ import 'forge_state_store.dart';
 /// activated with this API), and calls [dispose] when it shuts down;
 /// [flushed] waits for the writes. Writes are coalesced: one per key per
 /// microtask, the last value stored.
-class DefaultKitApi implements ForgeKitApi {
+class DefaultKitApi implements ForgeKitApi, ForgeKitModulesHost {
   DefaultKitApi({
     required this.editorHost,
     required this.fileSystem,
@@ -124,6 +125,7 @@ class DefaultKitApi implements ForgeKitApi {
   final TomFileSystem fileSystem;
 
   /// The modules registered with [registerModule].
+  @override
   late final DefaultKitModuleRegistry<ForgeKitModule> modules;
 
   final DefaultOutputChannelManager _output = DefaultOutputChannelManager();

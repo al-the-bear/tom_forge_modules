@@ -1,25 +1,45 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
-import 'package:tom_forge_core/tom_forge_core.dart';
+import 'package:tom_forge_core/tom_forge_core.dart' show ForgePanelLocation;
 import 'package:tom_forge_kit/tom_forge_kit.dart';
-
-import '../defaults/default_shell_api.dart';
 
 /// A VS Code-style command palette overlay.
 ///
-/// Shows a searchable list of available commands/actions.
+/// Shows a searchable list of available commands/actions: those of [api]'s
+/// action registry and of its modules ([forgeKitModulesOf]), with their
+/// shortcuts, and the palette's own (close, toggle the left and right
+/// panel). It works on the kit alone.
 class ForgeCommandPalette extends StatefulWidget {
   static bool debugEnabled = false;
 
-  final DefaultShellApi shellApi;
+  /// The application's API.
+  final ForgeKitApi api;
   final VoidCallback onDismiss;
+
+  /// Shows or hides a side panel (Toggle Left / Right Panel); null runs the
+  /// application's `forge.toggleLeftPanel` / `forge.toggleRightPanel`
+  /// actions instead.
+  final void Function(ForgePanelLocation location)? onTogglePanel;
 
   const ForgeCommandPalette({
     super.key,
-    required this.shellApi,
+    required this.api,
     required this.onDismiss,
+    this.onTogglePanel,
   });
+
+  /// The command palette an application asks for with [request] (what
+  /// [forgeCommandPaletteModule] contributes, for the all and actions
+  /// modes).
+  factory ForgeCommandPalette.fromRequest(
+    ForgeQuickOpenRequest request, {
+    Key? key,
+  }) => ForgeCommandPalette(
+    key: key,
+    api: request.api,
+    onDismiss: request.onDismiss,
+  );
 
   @override
   State<ForgeCommandPalette> createState() => _ForgeCommandPaletteState();
@@ -50,7 +70,7 @@ class _ForgeCommandPaletteState extends State<ForgeCommandPalette> {
       final commandsById = <String, _CommandItem>{};
 
       void putAction(ForgeAction action) {
-        final binding = widget.shellApi.shortcuts.getBinding(action.id);
+        final binding = widget.api.shortcuts.getBinding(action.id);
         final shortcutText = binding != null
             ? binding.displayString
             : _formatShortcut(action.defaultShortcut);
@@ -60,22 +80,24 @@ class _ForgeCommandPaletteState extends State<ForgeCommandPalette> {
           shortcut: shortcutText,
           icon: action.icon ?? Icons.play_arrow,
           onExecute: () {
-            if (!widget.shellApi.executeAction(action.id)) {
+            if (!widget.api.executeAction(action.id)) {
               action.execute({});
             }
           },
         );
       }
 
-      for (final action in widget.shellApi.actionRegistry.allActions) {
+      for (final action in widget.api.actionRegistry.allActions) {
         putAction(action);
       }
 
       // Include module actions that may not yet be in registry.
-      for (final module in widget.shellApi.modules.allKitModules) {
+      for (final module
+          in forgeKitModulesOf(widget.api)?.allKitModules ??
+              const <ForgeKitModule>[]) {
         for (final action in module.actions) {
           commandsById.putIfAbsent(action.id, () {
-            final binding = widget.shellApi.shortcuts.getBinding(action.id);
+            final binding = widget.api.shortcuts.getBinding(action.id);
             final shortcutText = binding != null
                 ? binding.displayString
                 : _formatShortcut(action.defaultShortcut);
@@ -85,7 +107,7 @@ class _ForgeCommandPaletteState extends State<ForgeCommandPalette> {
               shortcut: shortcutText,
               icon: action.icon ?? Icons.play_arrow,
               onExecute: () {
-                if (!widget.shellApi.executeAction(action.id)) {
+                if (!widget.api.executeAction(action.id)) {
                   action.execute({});
                 }
               },
@@ -110,7 +132,7 @@ class _ForgeCommandPaletteState extends State<ForgeCommandPalette> {
           shortcut: _primaryLabel(LogicalKeyboardKey.keyL),
           icon: Icons.view_sidebar,
           onExecute: () {
-            widget.shellApi.layout.togglePanel(ForgePanelLocation.left);
+            _togglePanel(ForgePanelLocation.left, 'forge.toggleLeftPanel');
             widget.onDismiss();
           },
         ),
@@ -120,7 +142,7 @@ class _ForgeCommandPaletteState extends State<ForgeCommandPalette> {
           shortcut: _primaryLabel(LogicalKeyboardKey.keyR),
           icon: Icons.view_sidebar_outlined,
           onExecute: () {
-            widget.shellApi.layout.togglePanel(ForgePanelLocation.right);
+            _togglePanel(ForgePanelLocation.right, 'forge.toggleRightPanel');
             widget.onDismiss();
           },
         ),
@@ -135,6 +157,15 @@ class _ForgeCommandPaletteState extends State<ForgeCommandPalette> {
       debugPrint('[ForgeCommandPalette] build list failed: $error');
       debugPrint('$stackTrace');
       rethrow;
+    }
+  }
+
+  void _togglePanel(ForgePanelLocation location, String actionId) {
+    final toggle = widget.onTogglePanel;
+    if (toggle != null) {
+      toggle(location);
+    } else {
+      widget.api.executeAction(actionId);
     }
   }
 

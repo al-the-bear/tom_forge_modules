@@ -24,7 +24,6 @@ import '../shell/forge_shell_components.dart';
 import '../shell/forge_status_bar_controller.dart';
 import 'forge_configuration_panel.dart';
 import 'forge_context_menu.dart';
-import 'forge_quick_open.dart';
 import 'forge_drag_data.dart';
 import 'forge_drop_zone_overlay.dart';
 import 'forge_editor_tab_bar.dart';
@@ -106,7 +105,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
 
   DefaultLayoutController get _layout => widget.layoutController;
   bool _showCommandPalette = false;
-  QuickOpenMode? _quickOpenMode;
+  ForgeQuickOpenMode? _quickOpenMode;
   final TextEditingController _quickOpenSearchController =
       TextEditingController();
   final FocusNode _quickOpenFocusNode = FocusNode();
@@ -151,10 +150,10 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
 
     // Ctrl+P (or Cmd+P) toggles the actions-only quick open.
     if (hasPrimary && !hasShift && key == LogicalKeyboardKey.keyP) {
-      if (_quickOpenMode == QuickOpenMode.actions) {
+      if (_quickOpenMode == ForgeQuickOpenMode.actions) {
         _closeQuickOpen();
       } else {
-        _openQuickOpen(QuickOpenMode.actions);
+        _openQuickOpen(ForgeQuickOpenMode.actions);
       }
       return KeyEventResult.handled;
     }
@@ -816,11 +815,13 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     _subscribeToEditorStateChanges();
   }
 
-  /// Finds the Terminal tab in the bottom panel configuration.
+  /// The bottom-panel tab that holds the terminals
+  /// ([PanelTabConfig.terminalSections]; `forgeContributedTerminalTab` makes
+  /// it from the placement a terminal module contributes), or null.
   PanelTabConfig? get _terminalTab {
     final tabs = _panels.bottomPanel.tabs;
     for (final tab in tabs) {
-      if (tab.title == 'Terminal') return tab;
+      if (tab.terminalSections) return tab;
     }
     return null;
   }
@@ -865,6 +866,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
             title: tab.title,
             icon: tab.icon,
             sections: nextSections,
+            terminalSections: true,
           );
         } on UnsupportedError {
           // If the tabs list itself is immutable, skip syncing instead of
@@ -2817,10 +2819,10 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     return {
       _ActionPaletteIntent: CallbackAction<_ActionPaletteIntent>(
         onInvoke: (_) {
-          if (_quickOpenMode == QuickOpenMode.actions) {
+          if (_quickOpenMode == ForgeQuickOpenMode.actions) {
             _closeQuickOpen();
           } else {
-            _openQuickOpen(QuickOpenMode.actions);
+            _openQuickOpen(ForgeQuickOpenMode.actions);
           }
           return null;
         },
@@ -2899,11 +2901,17 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     };
   }
 
+  /// The quick-open overlay a registered module contributes for [mode]
+  /// (`ForgeQuickOpenExtra`), or null: the shell has none of its own, and
+  /// without one quick open and the command palette do not open.
+  ForgeQuickOpenBuilder? _quickOpenBuilderFor(ForgeQuickOpenMode mode) =>
+      forgeQuickOpenBuilderFor(widget.shell.modules, mode);
+
   void _toggleCommandPalette() {
     if (_quickOpenMode != null) {
       _closeQuickOpen();
     } else {
-      _openQuickOpen(QuickOpenMode.all);
+      _openQuickOpen(ForgeQuickOpenMode.all);
     }
   }
 
@@ -2911,15 +2919,17 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   /// field while the palette is not already visible.
   void _onSearchFieldChanged() {
     if (_quickOpenMode != null) return;
+    if (_quickOpenBuilderFor(ForgeQuickOpenMode.all) == null) return;
     if (_quickOpenSearchController.text.isNotEmpty) {
       setState(() {
         _showCommandPalette = true;
-        _quickOpenMode = QuickOpenMode.all;
+        _quickOpenMode = ForgeQuickOpenMode.all;
       });
     }
   }
 
-  void _openQuickOpen(QuickOpenMode mode) {
+  void _openQuickOpen(ForgeQuickOpenMode mode) {
+    if (_quickOpenBuilderFor(mode) == null) return;
     setState(() {
       _showCommandPalette = true;
       _quickOpenMode = mode;
@@ -2927,7 +2937,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     });
     _quickOpenFocusNode.requestFocus();
     ForgeAccessibility.announceAssertive(
-      mode == QuickOpenMode.actions
+      mode == ForgeQuickOpenMode.actions
           ? 'Action palette opened'
           : 'Quick open search opened',
     );
@@ -2937,6 +2947,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     ForgeShortcutKey firstKey,
     List<ForgeShortcutBinding> completions,
   ) {
+    if (_quickOpenBuilderFor(ForgeQuickOpenMode.chord) == null) return;
     // Cancel the auto-close timer — the UI now owns the chord lifecycle.
     final shortcuts = widget.shell.shortcuts;
     if (shortcuts is DefaultShortcutManager) {
@@ -2944,7 +2955,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     }
     setState(() {
       _showCommandPalette = true;
-      _quickOpenMode = QuickOpenMode.chord;
+      _quickOpenMode = ForgeQuickOpenMode.chord;
       _chordFirstKeyForQuickOpen = firstKey;
       _chordCompletionsForQuickOpen = completions;
       _quickOpenSearchController.clear();
@@ -3032,6 +3043,9 @@ the field, not the document.
 ''';
 
   Widget _buildQuickOpenOverlay() {
+    final mode = _quickOpenMode!;
+    final builder = _quickOpenBuilderFor(mode);
+    if (builder == null) return const SizedBox.shrink();
     // Position the dropdown below the search bar.
     return GestureDetector(
       onTap: _closeQuickOpen,
@@ -3049,21 +3063,23 @@ the field, not the document.
                   onTap: () {}, // Prevent dismiss when tapping dropdown.
                   child: SizedBox(
                     width: 400,
-                    child: ForgeQuickOpen(
-                      key: _quickOpenWidgetKey,
-                      shellApi: widget.shell,
-                      mode: _quickOpenMode!,
-                      onDismiss: _closeQuickOpen,
-                      initialQuery: _quickOpenSearchController.text,
-                      chordFirstKey: _chordFirstKeyForQuickOpen,
-                      chordCompletions: _chordCompletionsForQuickOpen,
-                      searchController: _quickOpenSearchController,
-                      searchFocusNode: _quickOpenFocusNode,
-                      searchConfig: _preferences.searchConfig,
-                      onOpenFile: (uri) => _layout.openFile(uri),
-                      onOpenHelp: _openHelpDocument,
-                      onOpenSettings: _openSettings,
-                      configSectionTarget: _configSectionTarget,
+                    child: builder(
+                      _quickOpenWidgetKey,
+                      ForgeQuickOpenRequest(
+                        api: widget.shell,
+                        mode: mode,
+                        onDismiss: _closeQuickOpen,
+                        initialQuery: _quickOpenSearchController.text,
+                        chordFirstKey: _chordFirstKeyForQuickOpen,
+                        chordCompletions: _chordCompletionsForQuickOpen,
+                        searchController: _quickOpenSearchController,
+                        searchFocusNode: _quickOpenFocusNode,
+                        searchConfig: _preferences.searchConfig,
+                        onOpenFile: (uri) => _layout.openFile(uri),
+                        onOpenHelp: _openHelpDocument,
+                        onOpenSettings: _openSettings,
+                        configSectionTarget: _configSectionTarget,
+                      ),
                     ),
                   ),
                 ),
@@ -3165,9 +3181,9 @@ the field, not the document.
                                     color: theme.colorScheme.onSurface,
                                   ),
                                   decoration: InputDecoration(
-                                    hintText: _quickOpenMode == QuickOpenMode.actions
+                                    hintText: _quickOpenMode == ForgeQuickOpenMode.actions
                                         ? 'Type an action...'
-                                        : _quickOpenMode == QuickOpenMode.chord
+                                        : _quickOpenMode == ForgeQuickOpenMode.chord
                                             ? 'Search shortcuts or press key...'
                                             : 'Search files, actions, and settings',
                                     // The theme's muted text colour: a
@@ -4660,7 +4676,7 @@ the field, not the document.
     final items = <PopupMenuEntry<String>>[];
 
     // Terminal tabs have create action.
-    if (tab.title == 'Terminal') {
+    if (tab.terminalSections) {
       items.add(const PopupMenuItem(
         value: 'new_terminal',
         child: Row(

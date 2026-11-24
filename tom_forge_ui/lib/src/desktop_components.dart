@@ -1,3 +1,4 @@
+import 'package:tom_forge_command_palette/tom_forge_command_palette.dart';
 import 'package:tom_forge_dart_editor/tom_forge_dart_editor.dart';
 import 'package:tom_forge_desktop_host/tom_forge_desktop_host.dart';
 import 'package:tom_forge_file_explorer/tom_forge_file_explorer.dart';
@@ -6,6 +7,7 @@ import 'package:tom_forge_outline_view/tom_forge_outline_view.dart';
 import 'package:tom_forge_output_view/tom_forge_output_view.dart';
 import 'package:tom_forge_platform_secrets/tom_forge_platform_secrets.dart';
 import 'package:tom_forge_problems_view/tom_forge_problems_view.dart';
+import 'package:tom_forge_quick_open/tom_forge_quick_open.dart';
 import 'package:tom_forge_revision_view/tom_forge_revision_view.dart';
 import 'package:tom_forge_search_view/tom_forge_search_view.dart';
 import 'package:tom_forge_shell/tom_forge_shell.dart';
@@ -36,9 +38,12 @@ void useForgeDesktopComponents() =>
     ForgeShellComponents.register(forgeDesktopComponents);
 
 /// The modules of the views, packages of their own — Explorer, Problems,
-/// Search, Outline, Output, Revisions — new for one shell: each made at
+/// Search, Outline, Output, Revisions, then quick open, the command palette
+/// and the terminals' placement — new for one shell: each view made at
 /// activation from the shell's API and placed by its hint
-/// (`forgeContributedPanelTabs`). The file explorer and the Search view show
+/// (`forgeContributedPanelTabs`), the overlay the shell shows for quick open
+/// asked of the registry (quick open over the palette), the terminal tab
+/// made from the terminal module's placement (`forgeContributedTerminalTab`). The file explorer and the Search view show
 /// [workspaceRootUri] (default: the shell state's workspace folder). A host
 /// registers them (`DefaultShellApi.registerModule`) and lays its panels out
 /// from the registry; the shell itself names none of them.
@@ -49,4 +54,7 @@ List<ForgeKitModule> forgeDesktopViewModules({Uri? workspaceRootUri}) => [
   forgeOutlineViewModule(),
   forgeOutputViewModule(),
   forgeRevisionViewModule(),
+  forgeQuickOpenModule(),
+  forgeCommandPaletteModule(),
+  forgeTerminalModule(),
 ];
