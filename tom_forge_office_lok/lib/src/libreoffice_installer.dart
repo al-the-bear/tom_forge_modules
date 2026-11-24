@@ -146,6 +146,41 @@ List<String> forgeElevatedPowerShellArguments(
   ];
 }
 
+/// The text of the log an elevated PowerShell wrote ([bytes]): Windows
+/// PowerShell's `*>` writes UTF-16 LE with a byte-order mark, PowerShell 7
+/// UTF-8. A byte-order mark decides (UTF-16 LE / BE, UTF-8); without one,
+/// UTF-16 LE when the second byte is 0 (ASCII text in UTF-16), else UTF-8;
+/// a malformed byte is replaced, never thrown.
+String forgeDecodeInstallLog(List<int> bytes) {
+  String utf16(int start, {required bool little}) {
+    final units = <int>[
+      for (var i = start; i + 1 < bytes.length; i += 2)
+        little
+            ? bytes[i] | (bytes[i + 1] << 8)
+            : (bytes[i] << 8) | bytes[i + 1],
+    ];
+    return String.fromCharCodes(units);
+  }
+
+  if (bytes.length >= 2 && bytes[0] == 0xff && bytes[1] == 0xfe) {
+    return utf16(2, little: true);
+  }
+  if (bytes.length >= 2 && bytes[0] == 0xfe && bytes[1] == 0xff) {
+    return utf16(2, little: false);
+  }
+  const utf8Lenient = Utf8Decoder(allowMalformed: true);
+  if (bytes.length >= 3 &&
+      bytes[0] == 0xef &&
+      bytes[1] == 0xbb &&
+      bytes[2] == 0xbf) {
+    return utf8Lenient.convert(bytes.sublist(3));
+  }
+  if (bytes.length >= 2 && bytes[1] == 0 && bytes[0] != 0) {
+    return utf16(0, little: true);
+  }
+  return utf8Lenient.convert(bytes);
+}
+
 /// The files under [root] matching [pattern] (`/`-separated segments, `*`
 /// within a segment), sorted.
 List<String> forgeInstallGlob(Directory root, String pattern) {
@@ -253,17 +288,23 @@ class ForgeLibreOfficeInstaller {
   }
 
   bool _exists(String path) =>
-      (_executableExists ?? (p) => File(p).existsSync())(path);
+      (_executableExists ??
+      (p) => installExecutableExists(p, windows: _windows))(path);
 
   /// [name]'s full path on [searchPath] (on Windows also with `.exe`,
-  /// `.cmd`, `.bat`), or [name] itself when it is not there.
+  /// `.cmd`, `.bat`, app execution aliases such as `winget.exe` included),
+  /// or [name] itself when it is not there.
   String resolve(String name) {
     if (name.contains('/') || name.contains(r'\')) return name;
     final separator = _windows ? ';' : ':';
     final names = _windows
         ? [name, '$name.exe', '$name.cmd', '$name.bat']
         : [name];
-    for (final dir in searchPath.split(separator)) {
+    for (var dir in searchPath.split(separator)) {
+      // `C:\Windows\System32\WindowsPowerShell\v1.0\` ends with one.
+      while (dir.length > 1 && dir.endsWith(_windows ? r'\' : '/')) {
+        dir = dir.substring(0, dir.length - 1);
+      }
       if (dir.isEmpty) continue;
       for (final n in names) {
         final candidate = _windows ? '$dir\\$n' : '$dir/$n';
@@ -381,6 +422,10 @@ class _InstallJob {
       );
       _process = process;
       if (_cancelled) process.kill();
+      // Nothing is typed into an install: a command that asks (an agreement,
+      // a debconf question on the teletype frontend) reads end-of-input and
+      // takes its default instead of waiting for ever.
+      unawaited(process.stdin.close().catchError((Object _) {}));
       const decoder = Utf8Decoder(allowMalformed: true);
       final out = process.stdout
           .transform(decoder)
@@ -394,7 +439,11 @@ class _InstallJob {
       await Future.wait([out, err]).catchError((_) => const <void>[]);
       _process = null;
       if (log != null && log.existsSync()) {
-        controller.add(log.readAsStringSync());
+        try {
+          controller.add(forgeDecodeInstallLog(log.readAsBytesSync()));
+        } on FileSystemException catch (e) {
+          controller.add('The log ${log.path} could not be read: $e\n');
+        }
       }
       return code;
     } finally {

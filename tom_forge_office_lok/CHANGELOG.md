@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- The install runner, checked on bigbeast and legiondary01: executables are
+  found through `installExecutableExists` (winget's alias), PATH folders lose
+  a trailing backslash, each command's input is closed so a prompt ends
+  instead of hanging, and the elevated Chocolatey log is decoded by its
+  byte-order mark (`forgeDecodeInstallLog`, UTF-16 from Windows PowerShell);
+  a log read error no longer replaces the exit code.
 - LibreOffice's install help (`TomLibreOfficeInstallHelp`, DPLD-3) in the
   missing-LibreOffice panel (missing, too old, unusable; *Choose
   LibreOffice…* and the alternative route kept) and in the External Tools row

@@ -219,8 +219,67 @@ void main() {
         '--id',
         'TheDocumentFoundation.LibreOffice',
         '-e',
+        '--accept-package-agreements',
+        '--accept-source-agreements',
       ]);
       expect(winget.environment, {'PATH': _path});
+      // Nothing is typed into it: a question reads end-of-input.
+      expect(winget.stdinClosed, isTrue);
+    });
+
+    test('winget is found as its app execution alias; a PATH folder ending '
+        'in a backslash gives no doubled one', () {
+      const apps = r'C:\Users\a\AppData\Local\Microsoft\WindowsApps';
+      const shell = r'C:\Windows\System32\WindowsPowerShell\v1.0\';
+      final installer = ForgeLibreOfficeInstaller(
+        environment: const {'Path': '$shell;$apps'},
+        platform: TomToolPlatform.windows,
+        executableExists: const {
+          '$apps\\winget.exe',
+          '${shell}powershell.exe',
+        }.contains,
+      );
+      expect(installer.resolve('winget'), '$apps\\winget.exe');
+      expect(installer.resolve('powershell'), '${shell}powershell.exe');
+      expect(installer.routeAvailability['windows-winget'], isTrue);
+      expect(installer.routeAvailability['windows-choco'], isFalse);
+    });
+
+    test('Chocolatey\'s log as Windows PowerShell writes it (UTF-16 LE with '
+        'a byte-order mark) is read back; the exit code stays', () async {
+      final starter = FakeInstallStarter(
+        onStart: (p) {
+          final encoded = RegExp(
+            r'-EncodedCommand ([A-Za-z0-9+/=]+)',
+          ).firstMatch(p.arguments.last)!.group(1)!;
+          final bytes = base64Decode(encoded);
+          final inner = String.fromCharCodes([
+            for (var i = 0; i < bytes.length; i += 2)
+              bytes[i] | (bytes[i + 1] << 8),
+          ]);
+          final log = RegExp(r"\*> '([^']+)'").firstMatch(inner)!.group(1)!;
+          const text = 'The install of libreoffice-fresh was successful.\r\n';
+          File(log).writeAsBytesSync([
+            0xff,
+            0xfe,
+            for (final unit in text.codeUnits) ...[unit & 0xff, unit >> 8],
+          ]);
+          p.exit(0);
+        },
+      );
+      final installer = forgeOfficeTestInstaller(
+        starter: starter,
+        platform: TomToolPlatform.windows,
+        executables: const {},
+      );
+      final (output, result) = await _drain(
+        installer.run(_route('windows-choco')),
+      );
+      expect(result.ok, isTrue, reason: '$result');
+      expect(
+        output,
+        contains('The install of libreoffice-fresh was successful.'),
+      );
     });
 
     test('Chocolatey in an elevated PowerShell (Start-Process -Verb RunAs), '
@@ -384,6 +443,29 @@ void main() {
       expect(result.message, contains('nothing was installed'));
       expect(starter.started, isEmpty);
     });
+  });
+
+  test('FOFF-INSTALL-7: an install log is read in the encoding it was '
+      'written in', () {
+    List<int> utf16le(String s, {bool bom = true}) => [
+      if (bom) ...[0xff, 0xfe],
+      for (final u in s.codeUnits) ...[u & 0xff, u >> 8],
+    ];
+    expect(forgeDecodeInstallLog(utf16le('Größe ok')), 'Größe ok');
+    expect(forgeDecodeInstallLog(utf16le('ok', bom: false)), 'ok');
+    expect(
+      forgeDecodeInstallLog([0xfe, 0xff, 0, 0x6f, 0, 0x6b]),
+      'ok',
+      reason: 'UTF-16 BE',
+    );
+    expect(
+      forgeDecodeInstallLog([0xef, 0xbb, 0xbf, ...utf8.encode('Größe')]),
+      'Größe',
+    );
+    expect(forgeDecodeInstallLog(utf8.encode('plain')), 'plain');
+    // A byte that is no UTF-8 is replaced, not thrown.
+    expect(forgeDecodeInstallLog([0x53, 0xfc, 0x21]), 'S\ufffd!');
+    expect(forgeDecodeInstallLog(const []), '');
   });
 
   test('FOFF-INSTALL-6: PATH gets Homebrew\'s folders on macOS only; route '

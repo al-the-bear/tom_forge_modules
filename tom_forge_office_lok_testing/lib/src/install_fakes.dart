@@ -51,8 +51,13 @@ class FakeInstallProcess implements Process {
   @override
   Stream<List<int>> get stderr => _stderr.stream;
 
+  /// Whether its standard input was closed (nothing is typed into an
+  /// install).
+  bool get stdinClosed => _stdinClosed;
+  var _stdinClosed = false;
+
   @override
-  IOSink get stdin => IOSink(StreamController<List<int>>().sink);
+  late final IOSink stdin = IOSink(_StdinConsumer(this));
 
   @override
   Future<int> get exitCode => _exit.future;
@@ -69,6 +74,19 @@ class FakeInstallProcess implements Process {
 
   @override
   String toString() => '$executable ${arguments.join(' ')}';
+}
+
+/// [FakeInstallProcess.stdin]'s consumer: records the close.
+class _StdinConsumer implements StreamConsumer<List<int>> {
+  _StdinConsumer(this.process);
+
+  final FakeInstallProcess process;
+
+  @override
+  Future<void> addStream(Stream<List<int>> stream) => stream.drain<void>();
+
+  @override
+  Future<void> close() async => process._stdinClosed = true;
 }
 
 /// The install runner's process starter for tests
