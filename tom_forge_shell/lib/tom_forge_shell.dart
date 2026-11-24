@@ -49,7 +49,6 @@ export 'src/shell/forge_system_state.dart';
 export 'src/services/forge_environment.dart';
 export 'src/services/forge_preferences_service.dart';
 export 'src/tools/external_tools_trail.dart' show kForgeExternalToolsDebug;
-export 'src/tools/forge_external_tool.dart';
 export 'src/tools/forge_external_tools_section.dart';
 export 'src/services/forge_secret_storage.dart';
 export 'src/services/forge_terminal_manager.dart';

@@ -40,10 +40,12 @@ flag lets the compiler eliminate all dead code.
 | Quest applications (`tom_forge_quests`) | `lib/src/quests_trail.dart` | `kForgeQuestsDebug` |
 | PDF editor (`tom_ai/modules/tom_pdf_editor`) | `lib/src/pdf_editor_trail.dart` | `kPdfEditorDebug` (switchable at run time) |
 | Office editor (`tom_ai/modules/tom_office_editor`) | `lib/src/office_editor_trail.dart` | `kOfficeEditorDebug` (switchable at run time), prefix `[OE]` |
-| ZetaOffice view (`tom_ai/modules/tom_office_editor`) | `lib/src/zetaoffice/trail.dart` | `kZetaOfficeDebug` (switchable at run time), prefix `[ZO]` |
+| ZetaOffice view (`tom_ai/modules/tom_office_zetaoffice`) | `lib/src/trail.dart` | `kZetaOfficeDebug` (switchable at run time), prefix `[ZO]` |
 | External Tools section (`tom_forge_ui`) | `lib/src/tools/external_tools_trail.dart` | `kForgeExternalToolsDebug` (switchable at run time), prefix `[FT]` |
-| PDF editors in Forge (`tom_forge_pdf_editors`) | `lib/src/forge_pdf_trail.dart` | `kForgePdfDebug` (switchable at run time) |
-| Office editors in Forge (`tom_forge_office_editors`) | `lib/src/forge_office_trail.dart` | `kForgeOfficeDebug` (switchable at run time), prefix `[FO]` |
+| PDFium editor in Forge (`tom_forge_pdf_pdfium`) | `lib/src/forge_pdf_trail.dart` | `kForgePdfiumDebug` (switchable at run time), prefix `[FP]` |
+| pdf.js editor in Forge (`tom_forge_pdf_pdfjs`) | `lib/src/forge_pdfjs_trail.dart` | `kForgePdfJsDebug` (switchable at run time), prefix `[FPJ]` |
+| LibreOfficeKit editor in Forge (`tom_forge_office_lok`) | `lib/src/forge_office_trail.dart` | `kForgeOfficeDebug` (switchable at run time), prefix `[FO]` |
+| ZetaOffice editor in Forge (`tom_forge_office_zetaoffice`) | `lib/src/forge_zetaoffice_trail.dart` | `kForgeZetaOfficeDebug` (switchable at run time), prefix `[FZO]` |
 
 `tom_forge_app/test/editor_component_contract_test.dart` (EC-4) checks that
 every editor component has such a trail with its switch off.
@@ -52,8 +54,8 @@ Each component owns its own flag. Flags are **independent** — you can enable
 just the YAML editor trail without activating the Dart editor trail.
 
 A built app switches the run-time flags on from its command line:
-`tom_forge_app --trail=pdf <file.pdf>` sets `kForgePdfDebug` and
-`kPdfEditorDebug` (`ForgeLaunch`, `tom_forge_app/lib/src/forge_launch.dart`).
+`tom_forge_app --trail=pdf <file.pdf>` sets `kForgePdfiumDebug`,
+`kForgePdfJsDebug` and `kPdfEditorDebug` (`ForgeLaunch`, `tom_forge_app/lib/src/forge_launch.dart`).
 A release build prints nothing to stdout; read its trail with
 `/usr/bin/log show --predicate 'process == "tom_forge_app"'` (in zsh, `log`
 is a builtin).
@@ -144,9 +146,11 @@ Each component uses a two-letter prefix inside `[XX …]`. Current components:
 | `DE`   | Dart Editor *(reserved, not yet implemented)* |
 | `PE`   | PDF Editor (`tom_pdf_editor`; `PE:js` its pdf.js view) |
 | `OE`   | Office Editor (`tom_office_editor`) |
-| `ZO`   | ZetaOffice view (`tom_office_editor`) |
-| `FP`   | PDF editors in Forge (`tom_forge_pdf_editors`) |
-| `FO`   | Office editors in Forge (`tom_forge_office_editors`) |
+| `ZO`   | ZetaOffice view (`tom_office_zetaoffice`) |
+| `FP`   | PDFium editor in Forge (`tom_forge_pdf_pdfium`) |
+| `FPJ`  | pdf.js editor in Forge (`tom_forge_pdf_pdfjs`) |
+| `FO`   | LibreOfficeKit editor in Forge (`tom_forge_office_lok`) |
+| `FZO`  | ZetaOffice editor in Forge (`tom_forge_office_zetaoffice`) |
 | `FT`   | External Tools section (`tom_forge_ui`) |
 
 Filter in terminal:

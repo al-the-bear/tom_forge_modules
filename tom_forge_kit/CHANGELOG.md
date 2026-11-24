@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **External tools** in the kit: `ForgeExternalTool`, `ForgeToolCopy`,
+  `ForgeToolState` (from `tom_forge_shell`, which re-exports them with the
+  kit) and the extra `ForgeExternalToolsExtra` (`forge.kit.externalTools`),
+  so a kit module contributes the rows of the panel shell's *External Tools*
+  section without the shell.
 - **Open With ▸** as data: `forgeOpenWithMenuEntry(picker, choices)` builds
   the context-menu entry for an item with more than one editor (null
   otherwise) — the editors, each opening the item once (`openOnce`, or the

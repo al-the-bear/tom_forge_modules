@@ -193,10 +193,14 @@ and `tom_forge_shared_ui`'s `ForgeEditorSurface` both route through these.
 `ForgeKitModule` is the module contract without layout. What an application
 offers beyond it (the panel shell's settings sections, status items, external
 tools) a module hands over as `ForgeModuleExtra`s, which the application
-reads as it decides (`module.extras`). The kit defines two kinds,
-`ForgeKitStatusItemsExtra` (status items as `ForgeKitStatusItem` data) and
-`ForgeViewContributionsExtra` (where the module's views go); the others are
-the application's.
+reads as it decides (`module.extras`). The kit defines these kinds:
+`ForgeKitStatusItemsExtra` (status items as `ForgeKitStatusItem` data),
+`ForgeViewContributionsExtra` (where the module's views go) and
+`ForgeExternalToolsExtra` (the external tools the module uses, LibreOffice
+for one: `ForgeExternalTool` descriptors with their detection, `check` and
+`autoDetect` answering `ForgeToolCopy`s, and the path setting
+`forge.tools.<id>.path`, which the panel shell shows as rows of its *External
+Tools* section); the others are the application's.
 
 ## Contributed views
 

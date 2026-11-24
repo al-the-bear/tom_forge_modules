@@ -7,7 +7,6 @@ import 'package:tom_forge_kit/tom_forge_kit.dart';
 import '../services/forge_preferences_service.dart';
 import '../shell/forge_shell_components.dart';
 import 'external_tools_trail.dart';
-import 'forge_external_tool.dart';
 
 /// The Configuration panel's *External Tools* section: one row per tool the
 /// modules registered ([ForgeExternalTool]), ordered by

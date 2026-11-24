@@ -10,7 +10,6 @@ import '../module/forge_config_panel.dart';
 import '../services/forge_preferences_service.dart';
 import '../shell/forge_shell_api.dart';
 import '../shell/forge_shell_components.dart';
-import '../tools/forge_external_tool.dart';
 import '../tools/forge_external_tools_section.dart';
 
 /// In-panel configuration view shown when the config cog is clicked.

@@ -1,8 +1,0 @@
-# Local-development override: tom_doc_specs (reached via tom_md_editor) declares
-# its tom_doc_scanner dependency as hosted for publishing; unify it with
-# tom_md_editor's own direct path dependency on the same workspace checkout so
-# version solving sees one source. Same mechanism as tom_som_dart_v0's
-# generated overrides file.
-dependency_overrides:
-  tom_doc_scanner:
-    path: ../../tom_ai/ai_build/tom_doc_scanner

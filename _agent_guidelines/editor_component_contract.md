@@ -75,8 +75,10 @@ their runs is in the contract test (EC-1, EC-2):
 | `WebsiteConfigEditor` | `tom_website_editor` | `tom_website_editor/test/website_config_editor_undo_conformance_test.dart` |
 | `SpecFileEditor` | `tom_specs_editor` | `tom_specs_editor/test/spec_file_editor_undo_conformance_test.dart` |
 | `SpecDocumentEditor` | `tom_specs_editor` | covered by `SpecFileEditor`'s run, which adds only the file load, `getContent` and `replaceContent` to it |
-| `ForgePdfEditor`, `ForgePdfJsEditor` | `tom_forge_pdf_editors` | `tom_forge_pdf_editors/test/undo_conformance_test.dart` (skips with reasons in its README) |
-| `ForgeOfficeEditor`, `ForgeZetaOfficeEditor` | `tom_forge_office_editors` | `tom_forge_office_editors/test/undo_conformance_test.dart` (skips with reasons in its README) |
+| `ForgePdfEditor` | `tom_forge_pdf_pdfium` | `tom_forge_pdf_pdfium/test/undo_conformance_test.dart` (skips with reasons in its README) |
+| `ForgePdfJsEditor` | `tom_forge_pdf_pdfjs` | `tom_forge_pdf_pdfjs/test/undo_conformance_test.dart` (skips with reasons in its README) |
+| `ForgeOfficeEditor` | `tom_forge_office_lok` | `tom_forge_office_lok/test/undo_conformance_test.dart` (skips with reasons in its README) |
+| `ForgeZetaOfficeEditor` | `tom_forge_office_zetaoffice` | `tom_forge_office_zetaoffice/test/undo_conformance_test.dart` (skips with reasons in its README) |
 
 Test doubles in `tom_forge_ui_testing` (`ForgeTestTextEditor`) are
 not part of the register.

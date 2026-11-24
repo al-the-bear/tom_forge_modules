@@ -1,0 +1,47 @@
+name: tom_forge_office_lok_testing
+description: >-
+  Test support for tom_forge_office_lok: the LibreOfficeKit editor as an undo
+  subject, with the checks it skips, a scripted LibreOffice helper, a tile
+  decoder that needs no real time, the module in a panel shell over a memory
+  file system, and the shell's External Tools section, for Forge's undo
+  conformance harness (tom_forge_ui_testing) and the adapter's suites.
+  Test-only: suites take it as a dev_dependency; nothing a product links
+  depends on it. License: BSD-3-Clause.
+publish_to: none
+version: 0.1.0
+repository: https://github.com/al-the-bear/tom_forge
+
+environment:
+  sdk: ^3.11.0
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_test:
+    sdk: flutter
+  # The adapter whose editor and module the test bed drives.
+  tom_forge_office_lok:
+    path: ../tom_forge_office_lok
+  # The kit types the test bed names (ForgeEditor, ForgeExternalTool).
+  tom_forge_kit:
+    path: ../tom_forge_kit
+  # The panel shell the module runs in (DefaultShellApi), and its External
+  # Tools section with its preferences.
+  tom_forge_shell:
+    path: ../tom_forge_shell
+  # Forge's undo conformance harness.
+  tom_forge_ui_testing:
+    path: ../tom_forge_ui_testing
+  # The office editor's own test doubles (package:tom_office_editor/testing.dart).
+  tom_office_editor:
+    path: ../../tom_ai/modules/tom_office_editor
+  tom_office_protocol:
+    path: ../../tom_ai/modules/tom_office_protocol
+  tom_file_session:
+    path: ../../tom_ai/modules/tom_file_session
+  tom_file_system:
+    path: ../../tom_ai/basics/tom_file_system
+
+dev_dependencies:
+  flutter_lints: ^6.0.0

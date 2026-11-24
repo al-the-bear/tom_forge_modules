@@ -7,7 +7,6 @@ import 'package:tom_forge_shared_ui/tom_forge_shared_ui.dart'
 import '../components/forge_editor_choice.dart';
 import '../actions/status_bar_item.dart';
 import '../shell/forge_shell_api.dart';
-import '../tools/forge_external_tool.dart';
 import 'forge_config_panel.dart';
 
 /// Registration interface for shell modules: the kit's [ForgeKitModule]
@@ -18,7 +17,7 @@ import 'forge_config_panel.dart';
 /// What it contributes to the shell alone — [statusBarItems],
 /// [configPanels], [externalTools] — a reader typed on [ForgeKitModule] finds
 /// among its extras ([ForgeKitModuleExtras.extras]) as
-/// [ForgeStatusItemsExtra], [ForgeSettingsSectionExtra] and
+/// [ForgeStatusItemsExtra], [ForgeSettingsSectionExtra] and the kit's
 /// [ForgeExternalToolsExtra].
 ///
 /// A module that needs nothing of the panel shell beyond registration and
@@ -157,18 +156,6 @@ class ForgeSettingsSectionExtra extends ForgeModuleExtra {
 
   /// The section.
   ForgeConfigPanel get section => value as ForgeConfigPanel;
-}
-
-/// A module's external tools ([ForgeModule.externalTools]) as an extra.
-class ForgeExternalToolsExtra extends ForgeModuleExtra {
-  const ForgeExternalToolsExtra(List<ForgeExternalTool> tools)
-    : super(kind: kindId, value: tools);
-
-  /// The kind of this extra.
-  static const kindId = 'forge.shell.externalTools';
-
-  /// The tools.
-  List<ForgeExternalTool> get tools => value as List<ForgeExternalTool>;
 }
 
 /// The extras the shell reads from a module beyond its members: a

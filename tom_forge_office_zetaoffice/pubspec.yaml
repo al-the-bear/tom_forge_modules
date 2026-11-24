@@ -1,0 +1,57 @@
+name: tom_forge_office_zetaoffice
+description: >-
+  Forge's ZetaOffice office adapter: ZetaOffice (LibreOffice compiled to
+  WebAssembly) in a webview (tom_office_zetaoffice) as a Forge editor over
+  the kit, without the shell. A kit module that offers it under Open With
+  (the comparison route beside the LibreOfficeKit adapter's default) and
+  opens an office file itself when the file-type default names it, with its
+  host over the kit's files and notices. License: BSD-3-Clause.
+publish_to: none
+version: 0.1.0
+repository: https://github.com/al-the-bear/tom_forge
+
+environment:
+  sdk: ^3.11.0
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # The editor this package adapts: the ZetaOffice route (the webview, the
+  # cache of ZetaOffice's files, the local server).
+  tom_office_zetaoffice:
+    path: ../../tom_ai/modules/tom_office_zetaoffice
+  # The host interface the ZetaOffice route runs on (TomOfficeEditorHost),
+  # shared with the native route; tom_office_zetaoffice depends on it too.
+  tom_office_editor:
+    path: ../../tom_ai/modules/tom_office_editor
+  # The binary save rules the host hands the editor (TomBinaryFiles,
+  # TomBinaryFileAccess).
+  tom_file_session:
+    path: ../../tom_ai/modules/tom_file_session
+  # The Forge kit: the editor and module contracts, ForgeKitApi, the editor
+  # host and picker. Never the shell (R9).
+  tom_forge_kit:
+    path: ../tom_forge_kit
+  tom_forge_core:
+    path: ../tom_forge_core
+  # The editing actions and editor capabilities the adapter reports.
+  tom_editors_shared:
+    path: ../tom_editors_shared
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter
+  # Test support only: Forge's undo conformance harness and this adapter's
+  # test bed (scripted page, undo subject, a panel shell over a memory file
+  # system); they bring the shell to the suites, never to the adapter.
+  tom_forge_ui_testing:
+    path: ../tom_forge_ui_testing
+  tom_forge_office_zetaoffice_testing:
+    path: ../tom_forge_office_zetaoffice_testing
+  # The two routes together, as Forge composes them: the LibreOfficeKit
+  # adapter's test bed (and so the adapter), for the suite that checks Open
+  # With across both.
+  tom_forge_office_lok_testing:
+    path: ../tom_forge_office_lok_testing

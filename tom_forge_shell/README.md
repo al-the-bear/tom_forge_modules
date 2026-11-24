@@ -31,8 +31,8 @@ asked for by making it the active one first) wherever it takes a
 | --- | --- | --- |
 | `ForgeKitStatusItemsExtra` (status items as data, `ForgeKitStatusItem`) | kit | yes; shown in the status bar while `isActive` holds |
 | `ForgeViewContributionsExtra` (its views' layout-free placement hints, `ForgeViewPlacementHint`) | kit | yes; the panels are laid out from them (below) |
+| `ForgeExternalToolsExtra` (`ForgeExternalTool` descriptors, rows of the Configuration panel's *External Tools* section) | kit | yes; a row each, its path setting `forge.tools.<id>.path` in the preferences |
 | `ForgeSettingsSectionExtra` (a `ForgeConfigPanel` of the configuration dialog) | shell | no: a section of the shell's dialog |
-| `ForgeExternalToolsExtra` (`ForgeExternalTool` rows of the Configuration panel) | shell | no: tools of the shell's Configuration panel and preferences |
 | `ForgeStatusItemsExtra` (`StatusBarItem`s over the shell's state) | shell | no: the shell's status bar items |
 
 `forgeModuleStatusItems`, `forgeModuleSettingsSections` and

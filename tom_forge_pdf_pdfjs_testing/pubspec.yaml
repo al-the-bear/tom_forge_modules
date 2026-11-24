@@ -1,0 +1,42 @@
+name: tom_forge_pdf_pdfjs_testing
+description: >-
+  Test support for tom_forge_pdf_pdfjs: the pdf.js editor as an undo subject,
+  with the checks it skips, a scripted pdf.js page standing in for the
+  webview and a bare kit without a shell, for Forge's undo conformance
+  harness (tom_forge_ui_testing). Test-only: suites take it as a
+  dev_dependency; nothing a product links depends on it.
+  License: BSD-3-Clause.
+publish_to: none
+version: 0.1.0
+repository: https://github.com/al-the-bear/tom_forge
+
+environment:
+  sdk: ^3.11.0
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_test:
+    sdk: flutter
+  # The adapter whose editor the subject drives.
+  tom_forge_pdf_pdfjs:
+    path: ../tom_forge_pdf_pdfjs
+  # The bare kit the subjects' editors run in (DefaultKitApi).
+  tom_forge_kit:
+    path: ../tom_forge_kit
+  # Forge's undo conformance harness.
+  tom_forge_ui_testing:
+    path: ../tom_forge_ui_testing
+  # The in-memory files of the subject (package:tom_pdf_editor/testing.dart)
+  # and the pdf.js view's fake channel (package:tom_pdf_pdfjs/testing.dart).
+  tom_pdf_editor:
+    path: ../../tom_ai/modules/tom_pdf_editor
+  tom_pdf_pdfjs:
+    path: ../../tom_ai/modules/tom_pdf_pdfjs
+  # The bare kit's in-memory file system.
+  tom_file_system:
+    path: ../../tom_ai/basics/tom_file_system
+
+dev_dependencies:
+  flutter_lints: ^6.0.0

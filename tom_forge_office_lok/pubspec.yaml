@@ -1,0 +1,49 @@
+name: tom_forge_office_lok
+description: >-
+  Forge's LibreOfficeKit office adapter: the native office editor
+  (tom_office_editor, the installed LibreOffice in a helper process) as a
+  Forge editor over the kit, without the shell. A kit module that opens
+  office files itself (the default office editor), its host over the kit's
+  files and notices, the binaries layer's helper and the LibreOffice path
+  setting, and LibreOffice's row in External Tools. No webview.
+  License: BSD-3-Clause.
+publish_to: none
+version: 0.1.0
+repository: https://github.com/al-the-bear/tom_forge
+
+environment:
+  sdk: ^3.11.0
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # The editor this package adapts: the native route (LibreOfficeKit helper,
+  # detection, the ribbon and dialogs). Never the ZetaOffice route (R6).
+  tom_office_editor:
+    path: ../../tom_ai/modules/tom_office_editor
+  # The binary save rules the host hands the editor (TomBinaryFiles).
+  tom_file_session:
+    path: ../../tom_ai/modules/tom_file_session
+  # The Forge kit: the editor and module contracts, ForgeKitApi, the editor
+  # host and picker, the preferences, the host ports (file pickers) and the
+  # External Tools descriptor and extra. Never the shell (R9).
+  tom_forge_kit:
+    path: ../tom_forge_kit
+  tom_forge_core:
+    path: ../tom_forge_core
+  # The editing actions and editor capabilities the adapter reports.
+  tom_editors_shared:
+    path: ../tom_editors_shared
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter
+  # Test support only: Forge's undo conformance harness and this adapter's
+  # test bed (scripted helper, undo subject, a panel shell over a memory
+  # file system); they bring the shell to the suites, never to the adapter.
+  tom_forge_ui_testing:
+    path: ../tom_forge_ui_testing
+  tom_forge_office_lok_testing:
+    path: ../tom_forge_office_lok_testing

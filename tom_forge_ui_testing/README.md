@@ -30,7 +30,8 @@ import 'package:tom_forge_ui_testing/tom_forge_ui_testing.dart';
 
 A module's undo subjects, which other packages' suites drive too, are in a
 test-support package of their own that takes this one as a dependency
-(`tom_forge_file_editors_testing`, `tom_forge_pdf_editors_testing`); the
+(`tom_forge_file_editors_testing`, `tom_forge_pdf_pdfium_testing`,
+`tom_forge_pdf_pdfjs_testing`); the
 module itself takes both only as dev_dependencies. So are an editor
 adapter's file kind subjects (`tom_forge_md_editor_testing`,
 `tom_forge_yaml_editor_testing`).

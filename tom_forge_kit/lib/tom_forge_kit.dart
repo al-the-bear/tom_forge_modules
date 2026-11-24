@@ -138,6 +138,10 @@ export 'src/services/forge_shortcut_manager.dart';
 export 'src/services/forge_undo_manager.dart';
 export 'src/services/forge_workspace_state_manager.dart';
 
+// ── Tools ──
+// External tools a module uses (descriptors of its rows, as an extra).
+export 'src/tools/forge_external_tool.dart';
+
 // ── Defaults ──
 export 'src/defaults/default_action_registry.dart';
 export 'src/defaults/default_clipboard.dart';
