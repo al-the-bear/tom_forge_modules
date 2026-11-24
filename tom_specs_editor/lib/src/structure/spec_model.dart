@@ -42,6 +42,7 @@ export 'package:tom_som_dart_runtime/tom_som_dart_runtime.dart'
         multiParagraphChip,
         followUpKindChips,
         kindChips,
+        linkChips,
         noArtifactChips,
         oneOfChips,
         projectionChip,

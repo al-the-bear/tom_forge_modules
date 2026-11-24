@@ -423,6 +423,12 @@ class _ClassNodeState extends State<_ClassNode> {
               widget.owningField?.followUpKind ?? cls.followUpKind,
               widget.owningField?.noArtifact ?? cls.noArtifact,
             ),
+            // Links between places stated on this use of the type (a
+            // `@SameAs` copy, a `@DerivedFrom`), then those the class states
+            // itself (a `@SyncedWith`).
+            if (widget.owningField != null)
+              ..._paint(linkChips(widget.owningField!)),
+            ..._paint(linkChips(cls)),
           ],
           doc: widget.docOverride ?? cls.doc ?? cls.help,
           store: widget.store,
