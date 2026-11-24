@@ -133,3 +133,39 @@ images, copies, the drive logs); it is deleted at the start of a run.
   print panel; the checks record that they are offered.
 - **Memory after ten minutes of editing:** a PDF route has no editing session
   of that length; its edits are annotations and form fields.
+
+## Re-run after the split (2026-11-24)
+
+After the harness moved into this package, both test files were run again on
+mbp with `flutter test integration_test/<file> -d macos` (a debug build, one
+run, results into a scratch folder), the screen unlocked and the window
+floating in front, under a load average of 30–70 from other work on the
+machine. They were compared with the committed results (`summary.yaml`, the
+medians of three profile runs; `run-1.yaml` per route; the checks in
+`pdf-checks-officeproto31hc.yaml` and, for pdf.js's engine checks,
+`pdf-checks-officeproto31hg.yaml`).
+
+**Every pdf.js open timed out at first, with the screen unlocked.** The cause
+was not the harness: `tom_pdf_pdfjs/third_party/pdfjs/6.5.438/build/`
+(`pdf.mjs`, `pdf.worker.mjs`, …) was missing from the package. The
+package's `.gitignore` line `build/` also ignores that folder, so it was never
+committed and was lost when the repositories became independent clones. The
+page loaded, `pdf.mjs` answered 404 and pdf.js never started. With the folder
+put back, both files pass.
+
+| Measure | Earlier | Now | Verdict |
+| --- | --- | --- | --- |
+| pdf.js open, every sample, every mode | all open; first page 0.4–2.2 s, pdf-huge 6.3–10.7 s | all open; first page 0.3–1.9 s, pdf-huge 7.8–8.8 s | match (within the run-to-run band) |
+| pdf.js search | 135 / 444 hits; pdf-long 21–25 s | 135 / 444 hits; pdf-long 16–19 s | match |
+| pdf.js text layer, fidelity verdicts (vs Preview, vs PDFium) | per file as in `run-1.yaml` | identical verdicts in every mode | match |
+| pdf.js annotations (highlight, ink, free text; read back by PDFium and Preview; PDFium's file read) | all made, saved incrementally, read back | the same | match |
+| pdf.js forms (text, checkbox, combo, list; read back) | all filled and read back | the same | match |
+| pdf.js crash isolation | truncated file fails, corrupt opens, killed process reported, reload reopens | the same | match |
+| pdf.js scrolling jank (pdf-long, pdf-huge) | 0.5–15.9 % | 0.3–15.7 % | match |
+| pdf.js zoom jank | 28.8–35.6 % | 35.1–49.2 % | higher: the run shared the machine with a load average of 30–70 |
+| pdf.js memory, total | 0.7–2.4 GB | 0.85–2.4 GB; the app process 100–200 MB more | the app's part: a debug build (`flutter test`) against profile builds |
+| pdf.js asset size | 14,529,995 B | 14,530,236 B | match (the bridge grew by 241 B) |
+| `pdf_checks_test`: engine checks, every route | no mismatch | no mismatch | match |
+| `pdf_checks_test`: feature and dialog checklists | as committed | the same, except the search's match count | match: the count is read as soon as it is above 0, while the find still runs |
+| PDFium open, search, annotations, forms, fidelity | as committed | the same; first page 1.2–2.2× slower | match; the slower first pages are the debug build |
+| PDFium `pdf-encrypted` (and once `pdf-form`): page 1 drawn | timed out in committed runs 1 and 3 | timed out | the same intermittent wait, older than the split |

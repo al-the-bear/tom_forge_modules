@@ -117,3 +117,25 @@ Written to `evaluation/results/` in the idea's folder:
 - **Password-protected office files:** the sample set has none.
 - **Shortcuts and focus inside a Forge tab (ZetaOffice):** WebKit takes the keys
   first; a person checks them.
+
+## Re-run after the split (2026-11-24)
+
+After the harness moved into this package, `office_routes_test.dart` was run
+again on mbp with `flutter test integration_test/office_routes_test.dart -d
+macos` (a debug build, `EVAL_RUN=1`, results into a scratch folder), the
+screen unlocked and the window floating in front, under a load average of
+40–115 from other work on the machine, and compared with the committed
+`lok/run-1.yaml`, `zetaoffice/run-1.yaml` and `summary-office.yaml`.
+
+The ZetaOffice engine checks need the page probe: with `EVAL_MEASURES=open,engine`
+they are recorded as *the page got no animation frames (?)*, because the
+probe (`page`) was not selected and every measure through the page is then
+skipped. Select it with them: `EVAL_MEASURES=open,page,engine`.
+
+| Measure | Earlier | Now | Verdict |
+| --- | --- | --- | --- |
+| ZetaOffice open, 9 files | all open; 11.1–16.4 s (cold 12.7 s) | all open; 9.0–14.5 s (cold 9.0 s) | match |
+| ZetaOffice page probe | visible, cross-origin isolated, 62 frames/s | visible, cross-origin isolated, 61 frames/s | match |
+| ZetaOffice engine checks (8) | no mismatch | no mismatch | match |
+| LibreOfficeKit open, 9 files | all open; 2.6–4.1 s | all open; 2.5–4.0 s | match |
+| LibreOfficeKit engine checks (9) | no mismatch | no mismatch | match |
