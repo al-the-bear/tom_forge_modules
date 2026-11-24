@@ -56,6 +56,10 @@ just the YAML editor trail without activating the Dart editor trail.
 A built app switches the run-time flags on from its command line:
 `tom_forge_app --trail=pdf <file.pdf>` sets `kForgePdfiumDebug`,
 `kForgePdfJsDebug` and `kPdfEditorDebug` (`ForgeLaunch`, `tom_forge_app/lib/src/forge_launch.dart`).
+The two examples take the same option for the YAML editor they show:
+`--trail=yaml` sets `kYamlEditorDebug`, `--trail=kit` the kit's
+`kShellEditorIntegrationDebug` (`KitLaunch` in `tom_forge_single_window_example`,
+`LiteLaunch` in `tom_forge_lite_example`).
 A release build prints nothing to stdout; read its trail with
 `/usr/bin/log show --predicate 'process == "tom_forge_app"'` (in zsh, `log`
 is a builtin).

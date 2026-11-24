@@ -40,7 +40,7 @@ them.
 | 7 Shell services | `tom_forge_agentic` | The agent and chat UI for any module to use: the Forge chat module (a `ForgeKitModule`: it takes the kit, not the shell), the chat view and the prompt queue and trail editors, over the composer, queue, trail, connection, send and change-log views and controllers of `tom_ai/modules/tom_agentic_ui` (which needs no shell and is re-exported) |
 | 8 Modules | `tom_forge_file_editors`, `tom_forge_quests`, `tom_website_editor`, `tom_specs_editor` | Feature modules: each a module with its editors, views, actions and applications (`tom_specs_editor` is also an app of its own). Each takes the kit, the editor adapters and shell parts it uses and the shell only for what its pubspec names that the kit does not have — then it is a `ForgeModule`; never the umbrella. `tom_forge_file_editors` keeps the `.env`, todo-file and plain-text editors and takes no editor adapter: the Markdown and YAML kinds reach it only from the registry the application fills (PL-9), so an application that wants `.env` files takes no webview and no math library |
 | 9 Module and adapter test support | `tom_forge_file_editors_testing`, `tom_forge_md_editor_testing`, `tom_forge_yaml_editor_testing`, `tom_forge_office_lok_testing`, `tom_forge_office_zetaoffice_testing`, `tom_forge_pdf_pdfium_testing`, `tom_forge_pdf_pdfjs_testing` | Each module's undo conformance subjects (how to drive its editors through the harness), and the Markdown and YAML file kinds' (`ForgeMarkdownFileSubject`, `ForgeYamlFileSubject`), for the package's own suite and an app's; above the harness they build on, taken only as dev_dependencies |
-| 10 Apps | `tom_forge_app` | Composition: `composeForgeSuite`, and Tom Forge's `main` |
+| 10 Apps | `tom_forge_app`, `tom_forge_single_window_example`, `tom_forge_lite_example` | Composition: `composeForgeSuite` (its module list, all by default), and Tom Forge's `main`; the single-window example (one YAML editor on the kit and the shared look, its own `ForgeEditorHost`, no panel shell) and the light panel shell example (the shell, the file explorer and the YAML editor) |
 | Harness | `tom_dart_editor_test`, `tom_flow_editor_test`, `tom_forge_ui_test`, `tom_md_editor_test`, `tom_yaml_editor_test`, `tom_wpe_webview_test` | Companion apps and test beds |
 
 What the layering buys:
@@ -194,7 +194,12 @@ views by their hints, with the website editor's tabs and the terminal tab
 from the terminal module's placement added), each extension's modules, the
 file editors module (with the file kinds of `forgeSuiteFileKinds`), then each
 extension's applications, and restores the
-applications open at the last exit. A host adds to Tom Forge only through
+applications open at the last exit. Its `modules` (`ForgeSuiteModule`, by
+default `ForgeSuiteModule.all`, Tom Forge as `tom_forge_app` builds it) name
+the modules registered beside the shell, app and file editors modules: a
+module left out is not constructed, Open With lists only the editors of the
+modules there are, and LibreOfficeKit has no ZetaOffice route without
+ZetaOffice. A host adds to Tom Forge only through
 `ForgeSuiteExtension`: modules, applications, file-editor builders that
 replace Forge's editor for a kind of file (keyed by the kind's id), and file-editor alternatives for
 Open With. Webforge (`app_webwork/tom_webwork_webforge`) is such a host.

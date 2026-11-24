@@ -1,0 +1,5 @@
+.dart_tool/
+build/
+testlog/
+# Application package: its pubspec.lock is tracked, as tom_forge_app's.
+!/pubspec.lock

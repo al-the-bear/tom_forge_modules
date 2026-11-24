@@ -1,0 +1,56 @@
+name: tom_forge_lite_example
+description: >-
+  The light panel shell example: Forge's panel shell (tom_forge_shell) with the
+  file explorer (tom_forge_file_explorer) on the left and the YAML editor
+  (tom_forge_yaml_editor) in the middle, and nothing else: no terminal,
+  webview, analyzer, office or PDF editor, no keychain.
+  License: BSD-3-Clause.
+publish_to: none
+version: 0.1.0
+
+environment:
+  sdk: ^3.10.8
+  flutter: ">=1.17.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # The panel shell: the shell API, the scaffold, panels, tabs, menus and the
+  # settings UI (it re-exports the kit).
+  tom_forge_shell:
+    path: ../tom_forge_shell
+  # The layout-free kit the shell, the view and the editor are written
+  # against (ForgeKitModule, ForgeKitEditorType).
+  tom_forge_kit:
+    path: ../tom_forge_kit
+  # The panel locations the view hints map to (ForgePanelLocation).
+  tom_forge_core:
+    path: ../tom_forge_core
+  # The theme (forgeThemeData).
+  tom_forge_shared_ui:
+    path: ../tom_forge_shared_ui
+  # The file explorer view, contributed by its module and placed by its hint.
+  tom_forge_file_explorer:
+    path: ../tom_forge_file_explorer
+  # The YAML editor type (.yaml, .yml) the shell opens files with.
+  tom_forge_yaml_editor:
+    path: ../tom_forge_yaml_editor
+  # The YAML editor itself: its debug trail switch (kYamlEditorDebug).
+  tom_yaml_editor:
+    path: ../tom_yaml_editor
+  # The workspace folder on disk (TomLocalFileSystem).
+  tom_file_system:
+    path: ../../tom_ai/basics/tom_file_system
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+  # The standard editing action ids the tests run through the shell.
+  tom_editors_shared:
+    path: ../tom_editors_shared
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
