@@ -2505,10 +2505,14 @@ class _FileTypesSettingsSectionState extends State<_FileTypesSettingsSection> {
   late String _defaultEditor;
   final TextEditingController _newExtController = TextEditingController();
 
-  /// The names of the editors the mappings name beyond [_editorTypeIds]
-  /// (a module's editor made the default from **Open With ▸**), from the
-  /// shell's editor picker.
+  /// The names of the editors the shell's editor picker offers beyond
+  /// [_editorTypeIds] (a module's editor, e.g. one made the default from
+  /// **Open With ▸**).
   final Map<String, String> _editorLabels = {};
+
+  /// The editors the shell's editor picker offers per extension, in the
+  /// picker's order.
+  final Map<String, List<String>> _pickerChoices = {};
 
   /// Set while [_save] writes, so its own changes are not read back.
   bool _saving = false;
@@ -2559,35 +2563,49 @@ class _FileTypesSettingsSectionState extends State<_FileTypesSettingsSection> {
     _loadEditorLabels();
   }
 
-  /// Looks up the names of the editors the mappings name that the section
-  /// does not know, from the shell's editor picker.
+  /// Asks the shell's editor picker which editors each mapped extension
+  /// has (a sample file of that extension), for the rows' choices and the
+  /// names of the editors the section does not know.
   Future<void> _loadEditorLabels() async {
     final picker = widget.shellApi?.editorPicker;
     if (picker == null) return;
-    final unknown = {
-      for (final entry in _mappings.entries)
-        if (!_editorTypeIds.contains(entry.value) &&
-            !_editorLabels.containsKey(entry.value))
-          entry.key: entry.value,
-    };
-    if (unknown.isEmpty) return;
-    final found = <String, String>{};
-    for (final extension in unknown.keys) {
+    final missing = [
+      for (final extension in _mappings.keys)
+        if (!_pickerChoices.containsKey(extension)) extension,
+    ];
+    if (missing.isEmpty) return;
+    final foundChoices = <String, List<String>>{};
+    final foundLabels = <String, String>{};
+    for (final extension in missing) {
       final choices = await picker.choicesFor(
         ForgeContentItem(Uri.file('/forge-file-type$extension')),
       );
+      foundChoices[extension] = [
+        for (final choice in choices.choices) choice.id,
+      ];
       for (final choice in choices.choices) {
-        found[choice.id] = choice.label;
+        foundLabels[choice.id] = choice.label;
       }
     }
-    if (!mounted || found.isEmpty) return;
-    setState(() => _editorLabels.addAll(found));
+    if (!mounted) return;
+    setState(() {
+      _pickerChoices.addAll(foundChoices);
+      _editorLabels.addAll(foundLabels);
+    });
   }
 
-  /// The editors a row's choice offers: the section's own, and the one the
-  /// row names when it is another.
-  List<String> _editorIdsWith(String id) =>
-      _editorTypeIds.contains(id) ? _editorTypeIds : [..._editorTypeIds, id];
+  /// The editors the row of [extension] offers: the ones the editor picker
+  /// knows for it, the section's own, and the one the row names when it is
+  /// none of them.
+  List<String> _editorIdsFor(String extension, String id) {
+    final ids = <String>[
+      ...?_pickerChoices[extension],
+      for (final own in _editorTypeIds)
+        if (!(_pickerChoices[extension]?.contains(own) ?? false)) own,
+    ];
+    if (!ids.contains(id)) ids.add(id);
+    return ids;
+  }
 
   void _save() {
     _saving = true;
@@ -2644,6 +2662,7 @@ class _FileTypesSettingsSectionState extends State<_FileTypesSettingsSection> {
       _newExtController.clear();
     });
     _save();
+    _loadEditorLabels();
   }
 
   void _removeExtension(String ext) {
@@ -2723,7 +2742,7 @@ class _FileTypesSettingsSectionState extends State<_FileTypesSettingsSection> {
                           isDense: true,
                         ),
                         style: const TextStyle(fontSize: 12),
-                        items: _editorIdsWith(entry.value)
+                        items: _editorIdsFor(entry.key, entry.value)
                             .map((id) => DropdownMenuItem(
                                 value: id, child: Text(_editorTitle(id))))
                             .toList(),

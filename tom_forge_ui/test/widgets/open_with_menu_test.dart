@@ -6,7 +6,9 @@
 /// on an editor opens the file in it once and leaves the default; the inner
 /// **Set default for .md ▸** moves the checkmark, which is stored, read by a
 /// new shell over the same state, and listed in the configuration's file-type
-/// defaults, where it is reset.
+/// defaults, where it is reset. The configuration's File Types choices
+/// offer every editor the editor picker knows, a module's included
+/// (forgerestruct13a).
 library;
 
 import 'dart:convert';
@@ -249,6 +251,60 @@ void main() {
       isNull,
     );
   });
+
+  testWidgets('OPENWITH-4: a File Types choice offers a module\'s editor '
+      'for the extension; choosing it sets the default', (tester) async {
+    suppressOverflowErrorsForTest();
+    await prepareLargeSurface(tester);
+    final harness = _Harness.create(
+      ForgeMemoryStateStore(),
+      extraModule: _PreviewModule(),
+    );
+    // Loaded, as the application loads them at start.
+    await harness.preferences.load();
+    harness.shell.setFileTypeDefault('.md', 'md');
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ForgeConfigurationPanel(
+            preferencesService: harness.preferences,
+            shellApi: harness.shell,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('File Types').first);
+    await tester.pumpAndSettle();
+
+    final mdEditor = find.byKey(const Key('file-type-editor-.md'));
+    await tester.tap(mdEditor);
+    await tester.pumpAndSettle();
+    expect(find.text('Markdown preview'), findsWidgets);
+    await tester.tap(find.text('Markdown preview').last);
+    await tester.pumpAndSettle();
+
+    expect(harness.shell.getFileTypeDefaults()['.md'], _PreviewModule.id);
+    expect(
+      harness.preferences.fileTypeDefaultEditors['.md'],
+      _PreviewModule.id,
+    );
+    expect(
+      find.descendant(of: mdEditor, matching: find.text('Markdown preview')),
+      findsOneWidget,
+    );
+    expect(
+      (await harness.shell.editorPicker.choicesFor(
+        ForgeContentItem(Uri.file(_notesMd)),
+      )).defaultChoice?.id,
+      _PreviewModule.id,
+    );
+
+    // A .dart row has no module editor: its choices stay the section's own.
+    await tester.tap(find.byKey(const Key('file-type-editor-.dart')));
+    await tester.pumpAndSettle();
+    expect(find.text('Markdown preview'), findsOneWidget);
+  });
 }
 
 class _Harness {
@@ -262,7 +318,10 @@ class _Harness {
   ForgePreferencesService get preferences =>
       ForgePreferencesService.forStore(store);
 
-  static _Harness create(ForgeMemoryStateStore store) {
+  static _Harness create(
+    ForgeMemoryStateStore store, {
+    ForgeModule? extraModule,
+  }) {
     final shell = DefaultShellApi.withDefaults(
       fileSystemSeed: const {_notesMd: '# Notes\n', _notesTxt: 'notes\n'},
       appName: 'openwith',
@@ -283,6 +342,9 @@ class _Harness {
     (shell.systemState as DefaultSystemState).setWorkspaceRootPath(_workspace);
     final module = _ExplorerModule(shell);
     (shell.modules as DefaultModuleRegistry).register(module);
+    if (extraModule != null) {
+      (shell.modules as DefaultModuleRegistry).register(extraModule);
+    }
     shell.applications.add(
       ForgeApplication(
         id: 'openwith',
@@ -349,6 +411,43 @@ class _ExplorerModule extends ForgeModule {
 
   @override
   List<ForgeView> get views => [explorer];
+
+  @override
+  List<ForgeShortcutBinding> get shortcuts => const [];
+
+  @override
+  List<ForgeAction> get actions => const [];
+}
+
+/// A module with an editor of its own for Markdown files.
+class _PreviewModule extends ForgeModule {
+  static const id = 'mdpreview';
+
+  @override
+  String get displayName => 'Preview';
+
+  @override
+  List<ForgeEditorChoice> editorChoicesFor(Uri uri) => [
+    if (uri.path.endsWith('.md'))
+      ForgeEditorChoice(
+        id: id,
+        label: 'Markdown preview',
+        icon: Icons.preview,
+        open: (uri, {middlePanelIndex}) {},
+      ),
+  ];
+
+  @override
+  void activate(ForgeShellApi shell) {}
+
+  @override
+  void deactivate() {}
+
+  @override
+  List<ForgeEditor> get editors => const [];
+
+  @override
+  List<ForgeView> get views => const [];
 
   @override
   List<ForgeShortcutBinding> get shortcuts => const [];

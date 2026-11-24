@@ -109,7 +109,8 @@ tab's context menu has **Open With ▸** for a file with more than one editor
 (`forgeOpenWithMenuEntry`: an editor opens it once in that tab's panel; **Set
 default for .ext ▸** moves the default), as the file explorer's row menu has;
 the configuration's **File Types** section lists every default, follows one
-moved from the menu and resets it.
+moved from the menu and resets it; each extension's choice offers every editor
+the picker knows for it (a module's included).
 
 It carries no terminal, no code editor, no keychain, no native file dialog
 and no `dart:io`, so it builds where those do not, the web included. They plug
