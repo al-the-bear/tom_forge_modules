@@ -151,7 +151,9 @@ was not the harness: `tom_pdf_pdfjs/third_party/pdfjs/6.5.438/build/`
 package's `.gitignore` line `build/` also ignores that folder, so it was never
 committed and was lost when the repositories became independent clones. The
 page loaded, `pdf.mjs` answered 404 and pdf.js never started. With the folder
-put back, both files pass.
+put back, both files pass. The folder is committed now (tom_modules 2af7580,
+byte-identical to the release zip); the rule reads `/build/`, and the
+package's test `PDFJS-VENDOR-1` fails when a file is missing.
 
 | Measure | Earlier | Now | Verdict |
 | --- | --- | --- | --- |
