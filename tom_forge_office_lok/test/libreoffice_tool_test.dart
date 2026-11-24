@@ -161,4 +161,43 @@ void main() {
     );
     expect(libreOffice.dy, lessThan(other.dy));
   });
+  testWidgets('FOFF-TOOL-8: the real row over the real detector finding '
+      'nothing shows the install help with this platform\'s routes and the '
+      'desktop runner\'s availability (nothing is run)', (tester) async {
+    final scratch = Directory.systemTemp.createTempSync('foff-tool-');
+    addTearDown(() => scratch.deleteSync(recursive: true));
+    final module = ForgeOfficeLokModule(
+      detect: (_) async =>
+          const LibreOfficeInstallation(state: LibreOfficeState.missing),
+      cleanUpHelpers: () async {},
+      libreOfficeTool: ForgeLibreOfficeTool(
+        detectorFor: (userPath) => _emptyDetector(userPath, scratch),
+      ),
+    );
+    await tester.runAsync(
+      () => pumpForgeExternalToolsSection(
+        tester,
+        forgeShellExternalToolsOf(module),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Not found'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('forge-tool-libreoffice-help')),
+      findsOneWidget,
+    );
+    expect(find.text('LibreOffice is not installed.'), findsOneWidget);
+    final platform = module.installer.platform;
+    expect(
+      platform,
+      TomToolPlatform.fromName(Platform.operatingSystem) ??
+          TomToolPlatform.macos,
+    );
+    for (final route in TomLibreOfficeTool.standard.routes(platform)) {
+      expect(
+        find.byKey(ValueKey('office-install-route-${route.id}')),
+        findsOneWidget,
+      );
+    }
+  });
 }

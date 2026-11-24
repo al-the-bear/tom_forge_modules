@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+- LibreOffice's install help (`TomLibreOfficeInstallHelp`, DPLD-3) in the
+  missing-LibreOffice panel (missing, too old, unusable; *Choose
+  LibreOffice…* and the alternative route kept) and in the External Tools row
+  (`ForgeLibreOfficeTool.buildHelp`, `helpBuilder`, `lastInstallation`).
+- `ForgeLibreOfficeInstaller` runs a confirmed route: Homebrew and winget as
+  the user, Chocolatey in an elevated PowerShell, apt/dpkg/rpm through
+  `pkexec`, TDF's Linux archive downloaded, checked against its published
+  SHA-256, unpacked and installed; `PATH` with Homebrew's folders on macOS
+  (`forgeInstallSearchPath`); output streamed, *Stop* kills; detection runs
+  again when it ends. Injectable process starter
+  (`ForgeInstallProcessStarter`) and HTTP (`ForgeInstallHttp`).
+- `ForgeOfficeLokModule`: `installer`, `install(route)`,
+  `buildInstallHelp(installation)`; `ForgeOfficePanelActions.installHelp`.
+- New dependency: `crypto` (the SHA-256 check).
+
 ## 0.1.0
 
 - The LibreOfficeKit office adapter, moved out of `tom_forge_office_editors`

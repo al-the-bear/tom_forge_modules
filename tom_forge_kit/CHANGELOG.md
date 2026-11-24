@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- `ForgeExternalTool.buildHelp(context, copy, checkAgain:)`: help a tool
+  shows in its row while its copy is not usable (default none); the panel
+  shell's *External Tools* section shows it under the row instead of the
+  download line.
 - **External tools** in the kit: `ForgeExternalTool`, `ForgeToolCopy`,
   `ForgeToolState` (from `tom_forge_shell`, which re-exports them with the
   kit) and the extra `ForgeExternalToolsExtra` (`forge.kit.externalTools`),

@@ -11,6 +11,7 @@ import 'forge_office_editor.dart';
 import 'forge_office_host.dart';
 import 'forge_office_kind.dart';
 import 'forge_office_trail.dart';
+import 'libreoffice_installer.dart';
 import 'libreoffice_tool.dart';
 
 /// Another office route the LibreOfficeKit module defers to, as the
@@ -105,6 +106,7 @@ class ForgeOfficeLokModule extends ForgeKitModule
     this.alternative,
     ForgeLibreOfficeTool? libreOfficeTool,
     this.tileDecoder,
+    ForgeLibreOfficeInstaller? installer,
   }) : files = files ?? const TomBinaryFileAccess(),
        detect =
            detect ??
@@ -114,7 +116,11 @@ class ForgeOfficeLokModule extends ForgeKitModule
        launcherFor = launcherFor ?? _processLauncher,
        _pickLibreOffice = pickLibreOffice,
        cleanUpHelpers = cleanUpHelpers ?? _cleanUpHelpers,
-       libreOfficeTool = libreOfficeTool ?? ForgeLibreOfficeTool();
+       libreOfficeTool = libreOfficeTool ?? ForgeLibreOfficeTool(),
+       installer = installer ?? ForgeLibreOfficeInstaller() {
+    this.libreOfficeTool.helpBuilder ??= (context, installation, check) =>
+        buildInstallHelp(installation, alsoCheck: check);
+  }
 
   /// The LibreOfficeKit editor's choice id (the default).
   static const lokChoiceId = 'office.lok';
@@ -166,6 +172,12 @@ class ForgeOfficeLokModule extends ForgeKitModule
 
   /// LibreOffice's row in *External Tools*.
   final ForgeLibreOfficeTool libreOfficeTool;
+
+  /// Runs the install help's routes (`TomLibreOfficeInstallHelp.onInstall`):
+  /// the route's commands as processes, elevated its way, a managed download
+  /// fetched and checked first (default: the desktop's; tests give a fake
+  /// process starter).
+  final ForgeLibreOfficeInstaller installer;
 
   /// Decodes the LibreOfficeKit editor's tiles (default:
   /// `decodeImageFromPixels`; tests give one that needs no real time).
@@ -342,6 +354,55 @@ class ForgeOfficeLokModule extends ForgeKitModule
     if (!(_installation?.isUsable ?? false)) await _checkAlternative();
   }
 
+  // -------------------------------------------------------------- install
+
+  /// Runs [route] (the user confirmed it in the install help); when it has
+  /// ended detection runs again ([checkAgain]: the waiting tabs open), then
+  /// [alsoCheck] (the External Tools row's check).
+  TomLibreOfficeInstallRun install(
+    TomInstallRoute route, {
+    Future<void> Function()? alsoCheck,
+  }) {
+    forgeOfficeTrail('install ${route.id}');
+    return installer.run(
+      route,
+      onExit: () async {
+        await checkAgain();
+        await alsoCheck?.call();
+      },
+    );
+  }
+
+  /// The install help for [installation] (`TomLibreOfficeInstallHelp`): the
+  /// installer's platform and routes with their availability on its search
+  /// path, [install] after the confirmation, the download page through
+  /// [openExternal], *Check again* as [checkAgain] and then [alsoCheck].
+  Widget buildInstallHelp(
+    LibreOfficeInstallation installation, {
+    Future<void> Function()? alsoCheck,
+  }) => TomLibreOfficeInstallHelp(
+    installation: installation,
+    platform: installer.platform,
+    tool: installer.tool,
+    routeAvailability: installer.routeAvailability,
+    onInstall: (route) => install(route, alsoCheck: alsoCheck),
+    onOpenDownloadPage: openExternal == null ? null : _openDownloadPage,
+    onCheckAgain: () => unawaited(() async {
+      await checkAgain();
+      await alsoCheck?.call();
+    }()),
+  );
+
+  void _openDownloadPage(String url) {
+    forgeOfficeTrail('open the download page');
+    unawaited(
+      openExternal!(Uri.parse(url)).catchError(
+        (Object e, StackTrace s) =>
+            forgeOfficeReport(e, s, 'opening the download page'),
+      ),
+    );
+  }
+
   /// *Choose LibreOffice…*: the picked app becomes the path setting, then
   /// detection runs again.
   Future<void> chooseLibreOffice() async {
@@ -502,6 +563,7 @@ class ForgeOfficeLokModule extends ForgeKitModule
           alternativeLabel: route?.label ?? 'Open with another editor',
           alternativeIcon: route?.icon ?? Icons.open_in_new,
           alternativeAvailable: route?.available,
+          installHelp: buildInstallHelp,
         ),
       );
       if (route != null) {

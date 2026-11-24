@@ -4,8 +4,9 @@
 /// an editor already open; offers its editor under Open With; the
 /// application's save, undo, redo and dirty reach the controller; a closed
 /// editor ends its helper and the next open starts clean; focus checks the
-/// file for outside changes; without LibreOffice the tab shows detection's
-/// state panel with the alternative route.
+/// file for outside changes; without LibreOffice the tab shows the install
+/// help (detection's state view for a quarantined copy) with the alternative
+/// route.
 library;
 
 import 'package:flutter/material.dart';
@@ -233,10 +234,23 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('LibreOffice is not installed.'), findsOneWidget);
-    expect(find.text('Download LibreOffice'), findsOneWidget);
+    // The install help: the platform's routes, the download page through
+    // the module's openExternal, Check again; Choose LibreOffice… below it.
+    expect(
+      find.byKey(const ValueKey('office-install-route-macos-brew-cask')),
+      findsOneWidget,
+    );
+    expect(find.text('Open the download page'), findsOneWidget);
     expect(find.text('Choose LibreOffice…'), findsOneWidget);
-    expect(find.byKey(const ValueKey('office-check-again')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('office-install-check-again')),
+      findsOneWidget,
+    );
     expect(find.text('Open with ZetaOffice'), findsOneWidget);
+    await tester.ensureVisible(find.text('Open the download page'));
+    await tester.tap(find.text('Open the download page'));
+    await tester.pump();
+    expect(w.opened, [Uri.parse(kLibreOfficeDownloadPage)]);
     expect(w.helpers, isEmpty, reason: 'no helper without LibreOffice');
     expect(w.module.editorChoicesFor(a), isEmpty);
     expect(route.checks, greaterThan(0), reason: 'the route was checked');
@@ -249,7 +263,9 @@ void main() {
     expect(route.opened, [a]);
 
     w.installation = forgeOfficeFoundLibreOffice;
-    await tester.tap(find.byKey(const ValueKey('office-check-again')));
+    final checkAgain = find.byKey(const ValueKey('office-install-check-again'));
+    await tester.ensureVisible(checkAgain);
+    await tester.tap(checkAgain);
     await tester.pumpAndSettle();
     expect(w.detections, hasLength(2));
     expect(editor.controller.state, TomOfficeEditorState.open);
@@ -288,7 +304,7 @@ void main() {
     w.module.openUri(a);
     final editor = w.editorOf(a)! as ForgeOfficeEditor;
     await w.show(tester, editor);
-    expect(find.text('codesign failed'), findsOneWidget);
+    expect(find.textContaining('codesign failed'), findsOneWidget);
     expect(find.text('Download LibreOffice'), findsNothing);
     expect(
       find.text('Open with ZetaOffice'),
@@ -301,8 +317,13 @@ void main() {
       bundlePath: '/Users/me/Downloads/LibreOffice.app',
       version: kLibreOfficeMinimumVersion,
     );
-    await tester.tap(find.byKey(const ValueKey('office-check-again')));
+    final checkAgain = find.byKey(const ValueKey('office-install-check-again'));
+    await tester.ensureVisible(checkAgain);
+    await tester.tap(checkAgain);
     await tester.pumpAndSettle();
+    // A quarantined copy: detection's own view (Open LibreOffice), no
+    // install help.
+    expect(find.byKey(const ValueKey('office-install-title')), findsNothing);
     expect(find.text('Open LibreOffice'), findsOneWidget);
     await tester.tap(find.text('Open LibreOffice'));
     await tester.pump();

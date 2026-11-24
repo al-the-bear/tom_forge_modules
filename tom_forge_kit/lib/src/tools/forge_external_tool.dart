@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 
 import '../module/forge_kit_module.dart';
 
@@ -102,8 +102,19 @@ abstract class ForgeExternalTool {
   /// section's *Choose…* picks a folder then, else a file.
   bool get pathIsDirectory => false;
 
-  /// Where to get it (shown when it is missing or too old).
+  /// Where to get it (shown when it is missing or too old, unless
+  /// [buildHelp] gives help).
   String? get downloadUrl => null;
+
+  /// Help shown in the tool's row while [copy] is not usable — how to get
+  /// or repair it (LibreOffice: its install help, which can run an install);
+  /// null: none (the row shows [downloadUrl]). [checkAgain] runs the row's
+  /// check again (after an install, or on the help's *Check again*).
+  Widget? buildHelp(
+    BuildContext context,
+    ForgeToolCopy copy, {
+    required Future<void> Function() checkAgain,
+  }) => null;
 
   /// Detects the tool: at [path] when the user set one (an unusable copy
   /// there is reported as it is, never replaced by another), else by its

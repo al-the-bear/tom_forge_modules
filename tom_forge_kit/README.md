@@ -198,9 +198,10 @@ reads as it decides (`module.extras`). The kit defines these kinds:
 `ForgeViewContributionsExtra` (where the module's views go) and
 `ForgeExternalToolsExtra` (the external tools the module uses, LibreOffice
 for one: `ForgeExternalTool` descriptors with their detection, `check` and
-`autoDetect` answering `ForgeToolCopy`s, and the path setting
-`forge.tools.<id>.path`, which the panel shell shows as rows of its *External
-Tools* section); the others are the application's.
+`autoDetect` answering `ForgeToolCopy`s, the path setting
+`forge.tools.<id>.path`, and `buildHelp`, the help a row shows while the copy
+is not usable — LibreOffice's install help — which the panel shell shows as
+rows of its *External Tools* section); the others are the application's.
 
 ## Contributed views
 

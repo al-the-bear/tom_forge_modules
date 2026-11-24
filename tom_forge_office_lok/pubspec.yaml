@@ -35,6 +35,9 @@ dependencies:
   # The editing actions and editor capabilities the adapter reports.
   tom_editors_shared:
     path: ../tom_editors_shared
+  # The install runner's SHA-256 check of a managed download (TDF's Linux
+  # archive against its published <file>.sha256).
+  crypto: ^3.0.0
 
 dev_dependencies:
   flutter_lints: ^6.0.0

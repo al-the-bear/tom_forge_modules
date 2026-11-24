@@ -64,6 +64,23 @@ class _FakeTool extends ForgeExternalTool {
   }
 }
 
+/// A tool with help for a copy that is not usable; its help's button
+/// checks the row again.
+class _HelpfulTool extends _FakeTool {
+  _HelpfulTool() : super(id: 'pandoc', name: 'Pandoc');
+
+  @override
+  Widget? buildHelp(
+    BuildContext context,
+    ForgeToolCopy copy, {
+    required Future<void> Function() checkAgain,
+  }) => TextButton(
+    key: const ValueKey('pandoc-help'),
+    onPressed: checkAgain,
+    child: Text('Install Pandoc (${copy.state.name})'),
+  );
+}
+
 const _apps = ForgeToolCopy(
   path: '/Applications/Office.app',
   state: ForgeToolState.found,
@@ -136,6 +153,35 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Download: https://example.org/pandoc'), findsOneWidget);
+  });
+
+  testWidgets('FT-7: a tool\'s help shows under its row while its copy is '
+      'not usable, instead of the download line; its checkAgain checks the '
+      'row again, and the help goes once the copy is found', (tester) async {
+    final helpful = _HelpfulTool();
+    pandoc = helpful;
+    await pump(tester);
+    expect(
+      find.byKey(const ValueKey('forge-tool-pandoc-help')),
+      findsOneWidget,
+    );
+    expect(find.text('Install Pandoc (missing)'), findsOneWidget);
+    expect(find.textContaining('Download: '), findsNothing);
+    expect(
+      find.byKey(const ValueKey('forge-tool-office-help')),
+      findsNothing,
+      reason: 'a found copy, and the base tool gives no help',
+    );
+    helpful.searchResult = const ForgeToolCopy(
+      path: '/opt/homebrew/bin/pandoc',
+      state: ForgeToolState.found,
+      version: '3.6',
+    );
+    await tester.tap(find.byKey(const ValueKey('pandoc-help')));
+    await tester.pumpAndSettle();
+    expect(helpful.checks, [null, null]);
+    expect(find.byKey(const ValueKey('pandoc-help')), findsNothing);
+    expect(find.text('3.6'), findsOneWidget);
   });
 
   testWidgets('FT-2: a path typed and saved goes to forge.tools.<id>.path '

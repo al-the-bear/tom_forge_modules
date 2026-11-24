@@ -29,7 +29,13 @@ class ForgeOfficePanelActions {
     this.alternativeLabel = 'Open with another editor',
     this.alternativeIcon = Icons.open_in_new,
     this.alternativeAvailable,
+    this.installHelp,
   });
+
+  /// The install help for a detection result that installing answers
+  /// (missing, too old, unusable: `TomLibreOfficeInstallHelp` with the
+  /// module's install runner); null: detection's state view.
+  final Widget Function(LibreOfficeInstallation installation)? installHelp;
 
   /// *Check again*: detection runs again with the path setting; the panel
   /// turns into the editor in place when it reports `found`.
@@ -363,8 +369,10 @@ class ForgeOfficeEditor extends ForgeEditor {
   }
 }
 
-/// Detection's state panel (`TomOfficeDetectionView`) with the alternative
-/// route's button (*Open with ZetaOffice*) below it.
+/// The install help (`TomLibreOfficeInstallHelp`) while installing is the
+/// answer, else detection's state panel (`TomOfficeDetectionView`), with
+/// *Choose LibreOffice…* and the alternative route's button (*Open with
+/// ZetaOffice*) below it.
 class _MissingLibreOfficePanel extends StatelessWidget {
   const _MissingLibreOfficePanel({required this.editor});
 
@@ -382,22 +390,38 @@ class _MissingLibreOfficePanel extends StatelessWidget {
       icon: Icon(actions.alternativeIcon),
       label: Text(actions.alternativeLabel),
     );
+    final installation =
+        c.installation ??
+        const LibreOfficeInstallation(state: LibreOfficeState.missing);
+    final help = actions.installHelp;
+    final install =
+        help != null && TomLibreOfficeProblem.of(installation).offersInstall;
+    final choose = editor._choose;
     return Column(
       key: const ValueKey('forge-office-missing-panel'),
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Flexible(
-          child: TomOfficeDetectionView(
-            installation:
-                c.installation ??
-                const LibreOfficeInstallation(state: LibreOfficeState.missing),
-            onCheckAgain: editor._checkAgain,
-            onChooseLibreOffice: editor._choose,
-            onOpenLibreOffice: editor._openLibreOffice,
-            onOpenDownloadPage: () =>
-                editor.host.openLink(kLibreOfficeDownloadUrl),
-          ),
+          child: install
+              ? help(installation)
+              : TomOfficeDetectionView(
+                  installation: installation,
+                  onCheckAgain: editor._checkAgain,
+                  onChooseLibreOffice: choose,
+                  onOpenLibreOffice: editor._openLibreOffice,
+                  onOpenDownloadPage: () =>
+                      editor.host.openLink(kLibreOfficeDownloadUrl),
+                ),
         ),
+        if (install && choose != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: TextButton(
+              key: const ValueKey('forge-office-choose'),
+              onPressed: choose,
+              child: const Text('Choose LibreOffice…'),
+            ),
+          ),
         if (alternative != null)
           available == null
               ? alternativeButton()

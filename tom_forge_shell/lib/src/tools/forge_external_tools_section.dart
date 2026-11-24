@@ -12,7 +12,9 @@ import 'external_tools_trail.dart';
 /// modules registered ([ForgeExternalTool]), ordered by
 /// [ForgeExternalTool.order]: its path (`forge.tools.<id>.path`; empty means
 /// the tool's detection searches), the detected version and state, *Check
-/// again* and *Auto-detect* (every copy the wider search finds, to pick one).
+/// again* and *Auto-detect* (every copy the wider search finds, to pick one),
+/// and the tool's help ([ForgeExternalTool.buildHelp]) while its copy is not
+/// usable.
 class ForgeExternalToolsSection extends StatefulWidget {
   /// The section over [tools], keeping their paths in [preferencesService].
   const ForgeExternalToolsSection({
@@ -114,8 +116,7 @@ class _ForgeExternalToolsSectionState extends State<ForgeExternalToolsSection> {
               onChanged: widget.onChanged,
               pickPath: widget.pickPath,
               filePickers:
-                  widget.filePickers ??
-                  ForgeShellComponents.registered.pickers,
+                  widget.filePickers ?? ForgeShellComponents.registered.pickers,
             ),
       ],
     );
@@ -174,6 +175,8 @@ class _ToolRowState extends State<_ToolRow> {
 
   /// Runs the tool's detection with the saved path.
   Future<void> _check() async {
+    // The help's install may end after the row has gone.
+    if (!mounted) return;
     setState(() {
       _checking = true;
       _error = null;
@@ -226,9 +229,7 @@ class _ToolRowState extends State<_ToolRow> {
     if (pick != null) {
       path = await pick(_tool);
     } else if (_tool.pathIsDirectory) {
-      path = await widget.filePickers.pickFolder(
-        title: 'Choose ${_tool.name}',
-      );
+      path = await widget.filePickers.pickFolder(title: 'Choose ${_tool.name}');
     } else {
       final result = await widget.filePickers.pickFiles(
         title: 'Choose ${_tool.name}',
@@ -245,6 +246,9 @@ class _ToolRowState extends State<_ToolRow> {
     final theme = Theme.of(context);
     final result = _result;
     final busy = _checking || _detecting;
+    final help = result == null || result.usable
+        ? null
+        : _tool.buildHelp(context, result, checkAgain: _check);
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: Padding(
@@ -301,6 +305,7 @@ class _ToolRowState extends State<_ToolRow> {
             if (result != null &&
                 (result.state == ForgeToolState.missing ||
                     result.state == ForgeToolState.tooOld) &&
+                help == null &&
                 _tool.downloadUrl != null)
               Padding(
                 padding: const EdgeInsets.only(top: 2),
@@ -369,6 +374,12 @@ class _ToolRowState extends State<_ToolRow> {
                 ),
               ),
             if (_detected != null) _detectedList(theme, _detected!),
+            if (help != null)
+              Padding(
+                key: ValueKey('forge-tool-$_id-help'),
+                padding: const EdgeInsets.only(top: 8),
+                child: help,
+              ),
           ],
         ),
       ),

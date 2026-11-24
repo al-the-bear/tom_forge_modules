@@ -6,8 +6,11 @@
 /// ([ScriptedOfficeHelper]) standing in for the engine, a tile decoder that
 /// needs no real time ([forgeOfficeTestDecoder]); and the adapter's test bed:
 /// its module in a panel shell over a memory file system
-/// ([ForgeOfficeLokWorkspace]) and the shell's External Tools section
-/// ([pumpForgeExternalToolsSection], [forgeShellExternalToolsOf]).
+/// ([ForgeOfficeLokWorkspace]), the shell's External Tools section
+/// ([pumpForgeExternalToolsSection], [forgeShellExternalToolsOf]) and the
+/// install runner's fakes ([FakeInstallStarter], [FakeInstallProcess],
+/// [FakeInstallHttp], [forgeOfficeTestInstaller]): no test runs a real
+/// install.
 ///
 /// The runs check the routing — the application's undo and redo reaching
 /// the controller, the dirty marker, the views — against fakes that model
@@ -38,6 +41,7 @@ import 'package:tom_office_editor/tom_office_editor.dart';
 import 'package:tom_office_protocol/tom_office_protocol.dart';
 
 export 'src/external_tools.dart';
+export 'src/install_fakes.dart';
 export 'src/office_lok_workspace.dart';
 // What the suites check the scripted helper was sent.
 export 'package:tom_office_protocol/tom_office_protocol.dart'

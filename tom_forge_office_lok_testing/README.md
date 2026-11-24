@@ -8,7 +8,10 @@ subject (`ForgeOfficeEditorSubject`), with the checks it skips
 (`tom_forge_ui_testing`); and the adapter's test bed: the module in a panel
 shell over a memory file system (`ForgeOfficeLokWorkspace`) and the panel
 shell's External Tools section (`pumpForgeExternalToolsSection`,
-`forgeShellExternalToolsOf`). `package:tom_forge_office_lok_testing/adapter.dart`
+`forgeShellExternalToolsOf`), and the install runner's fakes
+(`FakeInstallStarter`, `FakeInstallProcess`, `FakeInstallHttp`,
+`forgeOfficeTestInstaller`: the workspace's default installer, which never
+runs a real install). `package:tom_forge_office_lok_testing/adapter.dart`
 re-exports the adapter, for another package's suite that composes it with its
 own (the ZetaOffice adapter's). The adapter's own suite and an
 application's suite (e.g. `tom_forge_app`'s, through the module it composes)

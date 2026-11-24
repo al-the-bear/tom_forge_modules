@@ -24,13 +24,17 @@ const forgeOfficeFoundLibreOffice = LibreOfficeInstallation(
 /// (`DefaultShellApi.registerModule`): detection answers [installation],
 /// helpers are [ScriptedOfficeHelper]s, the window's focus is [focusWindow],
 /// the path setting is [userPath], *Choose LibreOffice…* picks [picked], and
-/// [alternative] is the route the module defers to (none by default).
+/// [alternative] is the route the module defers to (none by default), and
+/// the install help's routes run through [installer] (default:
+/// [forgeOfficeTestInstaller] over a [FakeInstallStarter]: never a real
+/// install).
 class ForgeOfficeLokWorkspace {
   ForgeOfficeLokWorkspace({
     this.installation = forgeOfficeFoundLibreOffice,
     this.userPath,
     ForgeOfficeAlternativeRoute? Function(ForgeOfficeLokWorkspace w)?
     alternative,
+    ForgeLibreOfficeInstaller? installer,
   }) : fs = TomMemoryFileSystem() {
     shell = DefaultShellApi.withDefaultsAndFileSystem(
       fileSystem: fs,
@@ -61,6 +65,7 @@ class ForgeOfficeLokWorkspace {
       windowFocus: _focus.stream,
       alternative: alternative?.call(this),
       tileDecoder: forgeOfficeTestDecoder,
+      installer: installer ?? forgeOfficeTestInstaller(),
     );
     shell.registerModule(module);
   }

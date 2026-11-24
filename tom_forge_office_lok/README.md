@@ -112,14 +112,12 @@ shell
 ## The tab when LibreOffice is missing
 
 An office file opens a `ForgeOfficeEditor` tab whatever detection found.
-Without a `found` result the tab shows detection's state panel
-(`TomOfficeDetectionView`), one per state:
+Without a `found` result the tab shows, by detection's state:
 
-| State | The panel offers |
+| State | The panel shows |
 | --- | --- |
-| `missing`, `tooOld` | the download link, *Choose LibreOffice…*, *Check again* |
-| `damaged` | the reason, *Check again* |
-| `quarantined` | *Open LibreOffice*, *Check again* |
+| `missing`, `tooOld`, `damaged`, a path setting that names nothing usable | the install help (`TomLibreOfficeInstallHelp`, below), *Choose LibreOffice…* |
+| `quarantined` | detection's state view (`TomOfficeDetectionView`): *Open LibreOffice*, *Check again* |
 
 - **The alternative route** (*Open with ZetaOffice*) is offered below it
   when one is wired, while its `available` holds (ZetaOffice: not when its
@@ -140,7 +138,45 @@ setting `forge.tools.libreoffice.path`, an app bundle, the download page),
 which the shell reads with `forgeModuleExternalTools`. Its `check` runs
 `TomLibreOfficeDetector` with the user's path (none: the start-up search),
 *Auto-detect* the detector's wider search; detection's states map one to one
-onto `ForgeToolState`.
+onto `ForgeToolState`. While the copy is missing, too old or unusable the row
+shows the install help under it (`buildHelp`, the kit's
+`ForgeExternalTool.buildHelp`; the module sets the tool's `helpBuilder`); an
+install or *Check again* from the row runs the module's detection and then
+the row's check.
+
+## Installing LibreOffice (DPLD-3)
+
+The panel and the row show `tom_office_editor`'s `TomLibreOfficeInstallHelp`
+(`ForgeOfficeLokModule.buildInstallHelp`): what is wrong, the platform's
+install routes (`TomLibreOfficeTool.standard`) with their availability, the
+download page (through `openExternal`) and *Check again*. The help asks for
+confirmation; the module's `install(route)` then runs the route with
+`ForgeLibreOfficeInstaller`:
+
+| Route | How it runs |
+| --- | --- |
+| macOS Homebrew | `brew install --cask libreoffice` as the user |
+| Windows winget | `winget install --id TheDocumentFoundation.LibreOffice -e` as the user; the MSI raises UAC |
+| Windows Chocolatey | `choco install libreoffice-fresh -y` in an elevated PowerShell: `powershell -Command "$p = Start-Process -FilePath powershell.exe -ArgumentList '... -EncodedCommand <cmd>' -Verb RunAs -Wait -PassThru; exit $p.ExitCode"` (`forgeElevatedPowerShellArguments`); the elevated window's output is redirected into a log read back when it exits |
+| Linux apt (PPA) | its three commands through `pkexec`, in order |
+| Linux TDF `.deb` / `.rpm` (managed download) | the archive downloaded (`dart:io` `HttpClient`) into a scratch folder under the system's temporary folder, its SHA-256 (`package:crypto`) compared with the published `<url>.sha256` — a mismatch stops it, nothing is unpacked or run — unpacked with `tar -xzf`, its packages (`packageGlob`) installed with `pkexec dpkg -i` / `pkexec rpm -Uvh`; the scratch folder is removed |
+
+- **PATH.** Every command runs with `PATH` extended by
+  `forgeInstallSearchPath`: on macOS `/opt/homebrew/bin` and `/usr/local/bin`
+  are added (an app started from Finder gets launchd's short `PATH`), and its
+  executable is looked up on it. The routes' availability
+  (`installRouteAvailability`) looks on the same `PATH`.
+- **Output and Stop.** stdout and stderr stream into the help as they come
+  (`TomLibreOfficeInstallRunController`); *Stop* kills the running process
+  (an elevated Chocolatey window is the system's and is not stopped).
+- **Afterwards.** When the run has ended the module runs detection again
+  (`checkAgain`): a waiting tab turns into the editor once LibreOffice is
+  found, else the help shows the new state.
+- **Tests.** `ForgeLibreOfficeInstaller` takes its process starter
+  (`ForgeInstallProcessStarter`), its HTTP (`ForgeInstallHttp`), the
+  environment, the platform and the file check; the test support's
+  `FakeInstallStarter`, `FakeInstallHttp` and `forgeOfficeTestInstaller` run
+  nothing real.
 
 ## Undo conformance
 
@@ -171,7 +207,9 @@ version, path setting or search), `openUri` taken, declined or left to the
 alternative route, the choice opened or reused, the file-type default
 applied, save (with its outcome), undo, redo, copy, cut and paste routed,
 `checkExternal` on focus, the state panel shown, *Check again*, *Choose
-LibreOffice…*, the tool's checks, the editor closed. Errors in the module's
+LibreOffice…*, the tool's checks and help, an install (start, each command,
+a SHA-256 mismatch, stop, exit code), the download page opened, the editor
+closed. Errors in the module's
 callbacks are reported through `FlutterError.reportError` with the flag off
 too. The editor's own trail is `tom_office_editor`'s `kOfficeEditorDebug`
 (`[OE]`).
@@ -186,6 +224,9 @@ testkit :test
 file system, scripted helpers: opening, the choice, the file-type default and
 the alternative route, save and undo routing, reopening, focus, the
 missing-LibreOffice panel, kept state), `test/libreoffice_tool_test.dart`
-(the External Tools descriptor, its extra, its row, the path setting) and
+(the External Tools descriptor, its extra, its row with the install help, the
+path setting), `test/libreoffice_installer_test.dart` (the install help in the
+panel and the row, each route's elevation, the managed download's hash check,
+Stop, detection after the run; fake processes only) and
 `test/undo_conformance_test.dart`. The two routes together are tested in
 `tom_forge_office_zetaoffice` (`test/office_routes_together_test.dart`).
