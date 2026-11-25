@@ -1,5 +1,5 @@
 import 'package:tom_forge_core/tom_forge_core.dart'
-    show ForgeConfigurationDescription, ForgeSettingHooks;
+    show ForgeConfigurationDescription, ForgeSettingBinding, ForgeSettingHooks;
 
 import '../kit/forge_kit_api.dart';
 import '../kit/forge_kit_modules_host.dart';
@@ -118,4 +118,51 @@ ForgeSettingHooks forgeConfigurationHooksOf(ForgeKitApi api) {
   return registry == null
       ? ForgeSettingHooks()
       : forgeConfigurationHooks(registry);
+}
+
+/// Where a module's settings keep their values when not in the kit's
+/// state-store port, as a [ForgeModuleExtra]: its [ForgeSettingBinding]s (a
+/// configuration file of its own, a service that owns the values).
+///
+/// A setting names its binding by id (`ForgeSettingStorage(key, binding:
+/// id)`); the module that owns the place hands the binding over with this
+/// extra, the kit collects them from every registered module
+/// ([forgeConfigurationBindings]) and the application gives them to its
+/// `ForgeConfigurationValues` with its own.
+class ForgeConfigurationBindingsExtra extends ForgeModuleExtra {
+  const ForgeConfigurationBindingsExtra(List<ForgeSettingBinding> bindings)
+    : super(kind: kindId, value: bindings);
+
+  /// The kind of this extra.
+  static const kindId = 'forge.kit.configurationBindings';
+
+  /// The bindings, in the order the module gives them.
+  List<ForgeSettingBinding> get bindings => value as List<ForgeSettingBinding>;
+}
+
+/// Every binding the modules of [registry] contribute
+/// ([ForgeConfigurationBindingsExtra]), in registration order; a binding
+/// whose id an earlier one has is left out (the first registered wins).
+List<ForgeSettingBinding> forgeConfigurationBindings(
+  ForgeKitModuleRegistry registry,
+) {
+  final out = <ForgeSettingBinding>[];
+  final ids = <String>{};
+  for (final module in registry.allKitModules) {
+    for (final extra
+        in module.extras.whereType<ForgeConfigurationBindingsExtra>()) {
+      for (final binding in extra.bindings) {
+        if (ids.add(binding.id)) out.add(binding);
+      }
+    }
+  }
+  return out;
+}
+
+/// The bindings of the modules registered with [api]
+/// ([forgeConfigurationBindings]); empty when the API does not tell its
+/// modules ([ForgeKitModulesHost]).
+List<ForgeSettingBinding> forgeConfigurationBindingsOf(ForgeKitApi api) {
+  final registry = forgeKitModulesOf(api);
+  return registry == null ? const [] : forgeConfigurationBindings(registry);
 }

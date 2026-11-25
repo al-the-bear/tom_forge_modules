@@ -260,7 +260,7 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
     );
 
     // The config module (`tom_specs_editor_specification.md` §12, step 18)
-    // hosts the seven custom config editors and the basic-prefs settings panel;
+    // hosts the seven custom config editors and describes the basic preferences;
     // its raw-file module backs the editors' "Open raw file" buttons. The
     // raw-file module is registered and activated first so it can route
     // plain-text editors into the layout when a config editor opens its backing
@@ -273,9 +273,7 @@ class _SpecsEditorAppState extends State<SpecsEditorApp> {
       specs: _configSpecs.withCompose(_promptComposer.compose),
       rawFileModule: _rawFileModule,
       preferencesStore: _preferencesStore,
-      preferences: editorPreferences,
-      settings: await _configSpecs.agentSettings.load(),
-      // A basic-prefs Save can flip strict headline mode (YRD9); push it into
+      // A stored basic preference can flip strict headline mode (YRD9); push it into
       // the live controller so the document editor re-gates its headline/id
       // fields without a restart.
       onPreferencesChanged: (prefs) =>

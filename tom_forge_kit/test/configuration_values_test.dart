@@ -77,10 +77,11 @@ class _Host implements ForgeEditorHost {
 
 class _DescribingModule extends ForgeKitModule
     implements ForgeModuleExtrasProvider {
-  _DescribingModule(this.name, this.descriptions);
+  _DescribingModule(this.name, this.descriptions, {this.bindings = const []});
 
   final String name;
   final List<ForgeConfigurationDescription> descriptions;
+  final List<ForgeSettingBinding> bindings;
 
   @override
   String get displayName => name;
@@ -106,11 +107,12 @@ class _DescribingModule extends ForgeKitModule
   @override
   List<ForgeModuleExtra> get ownExtras => [
     ForgeConfigurationDescriptionsExtra(descriptions),
+    if (bindings.isNotEmpty) ForgeConfigurationBindingsExtra(bindings),
   ];
 }
 
 class _OtherModule extends _DescribingModule {
-  _OtherModule(super.name, super.descriptions);
+  _OtherModule(super.name, super.descriptions, {super.bindings});
 }
 
 void main() {
@@ -136,6 +138,26 @@ void main() {
       expect(contributed.map((c) => c.description.id), ['demo', 'other']);
       expect(contributed.first.module.displayName, 'a');
       expect(forgeConfigurationDescriptionsOf(api), [_demo, other]);
+    });
+
+    test('every registered module\'s storage bindings, first id wins', () {
+      final api = DefaultKitApi(
+        editorHost: _Host(),
+        fileSystem: TomMemoryFileSystem(),
+        stateStore: ForgeMemoryStateStore(),
+      );
+      addTearDown(api.dispose);
+      expect(forgeConfigurationBindingsOf(api), isEmpty);
+
+      final file = ForgeMemorySettingBinding('a.file');
+      final again = ForgeMemorySettingBinding('a.file');
+      final service = ForgeMemorySettingBinding('b.service');
+      api.registerModule(_DescribingModule('a', const [], bindings: [file]));
+      api.registerModule(
+        _OtherModule('b', const [], bindings: [again, service]),
+      );
+
+      expect(forgeConfigurationBindingsOf(api), [file, service]);
     });
   });
 

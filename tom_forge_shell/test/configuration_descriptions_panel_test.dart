@@ -1,7 +1,8 @@
 // The configuration side panel draws the configuration descriptions the kit
 // modules contribute: one accordion entry per described section, after the
 // shell's own Shell and Terminal sections and before the built-in sections,
-// its body a tile over the shell's state store.
+// its body a tile over the shell's state store — or over a storage binding
+// the module contributes.
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -26,6 +27,17 @@ const _sizeSetting = ForgeIntSetting(
   max: 16,
 );
 
+/// Kept in the module's own file ([_DescribedModule.file]), not the store.
+const _autosaveSetting = ForgeBoolSetting(
+  id: 'autosave',
+  storage: ForgeSettingStorage(
+    'options',
+    path: ['autosave'],
+    binding: 'described.file',
+  ),
+  label: ForgeText('described.autosave', 'Save automatically'),
+);
+
 const _description = ForgeConfigurationDescription(
   id: 'described',
   title: ForgeText('described', 'Described module'),
@@ -33,7 +45,7 @@ const _description = ForgeConfigurationDescription(
     ForgeSettingsSection(
       id: 'editing',
       title: ForgeText('described.editing', 'Described editing'),
-      settings: [_wrapSetting, _sizeSetting],
+      settings: [_wrapSetting, _sizeSetting, _autosaveSetting],
     ),
   ],
 );
@@ -62,9 +74,18 @@ class _DescribedModule extends ForgeKitModule
   @override
   List<ForgeShortcutBinding> get shortcuts => const [];
 
+  /// The module's own file its [_autosaveSetting] is kept in.
+  final file = ForgeMemorySettingBinding(
+    'described.file',
+    initial: {
+      'options': {'autosave': false, 'other': 'kept'},
+    },
+  );
+
   @override
-  List<ForgeModuleExtra> get ownExtras => const [
-    ForgeConfigurationDescriptionsExtra([_description]),
+  late final List<ForgeModuleExtra> ownExtras = [
+    const ForgeConfigurationDescriptionsExtra([_description]),
+    ForgeConfigurationBindingsExtra([file]),
   ];
 }
 
@@ -97,6 +118,7 @@ Future<DefaultShellApi> _openSettings(
   WidgetTester tester,
   ForgeMemoryStateStore store, {
   bool described = true,
+  _DescribedModule? module,
 }) async {
   await tester.binding.setSurfaceSize(const Size(1600, 1000));
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -107,7 +129,7 @@ Future<DefaultShellApi> _openSettings(
     stateStore: store,
   );
   shell.registerModule(TomForgeShellModule());
-  if (described) shell.registerModule(_DescribedModule());
+  if (described) shell.registerModule(module ?? _DescribedModule());
   shell.applications.add(
     ForgeApplication(
       id: 'described',
@@ -194,11 +216,46 @@ void main() {
     expect(store.snapshot()['described.size'], 8);
 
     // A new values service over the same store reads them back.
-    final again = ForgeConfigurationValues(store, descriptions: [_description]);
+    final again = ForgeConfigurationValues(
+      store,
+      descriptions: [_description],
+      bindings: [ForgeMemorySettingBinding('described.file')],
+    );
     await tester.runAsync(again.load);
     expect(again.valueOf(_wrapSetting), isTrue);
     expect(again.valueOf(_sizeSetting), 8);
     again.dispose();
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 600));
+  });
+
+  testWidgets('a setting kept through a binding the module contributes is '
+      'stored there, and a change made there is shown', (tester) async {
+    final store = ForgeMemoryStateStore();
+    final module = _DescribedModule();
+    await _openSettings(tester, store, module: module);
+    await tester.tap(find.text('Described editing'));
+    await tester.pumpAndSettle();
+    final toggle = find.descendant(
+      of: _entry(_autosaveSetting),
+      matching: find.byType(Switch),
+    );
+    expect(tester.widget<Switch>(toggle).value, isFalse);
+
+    await tester.tap(toggle);
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.runAsync(store.flushed);
+    expect(module.file.snapshot()['options'], {
+      'autosave': true,
+      'other': 'kept',
+    });
+    expect(store.snapshot().containsKey('options'), isFalse);
+
+    module.file.change('options', {'autosave': false, 'other': 'kept'});
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pumpAndSettle();
+    expect(tester.widget<Switch>(toggle).value, isFalse);
 
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 600));

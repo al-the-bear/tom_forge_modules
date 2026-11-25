@@ -1,23 +1,21 @@
-// Tests for the seven custom config editors + basic-prefs panel (step 18,
+// Tests for the seven custom config editors (step 18,
 // `tom_specs_editor_specification.md` §12).
 //
 // Done condition for step 18: each editor opens, validates, and its
 // "Open raw file" button opens the backing YAML/markdown. These tests drive
 // each editor over agent stores in an in-memory workspace, asserting it renders, surfaces a
 // validation error on invalid input, and routes the raw-file button to the
-// backing file via the injected opener. The basic-prefs panel test covers the
-// theme/font/default-app/default-profile round-trip.
+// backing file via the injected opener. The basic preferences are a
+// configuration description (basic_preferences_configuration_test.dart).
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_file_system/tom_file_system.dart';
 
 import 'package:tom_core_agentic/tom_core_agentic.dart';
-import 'package:tom_specs_editor/src/config/basic_prefs_panel.dart';
 import 'package:tom_specs_editor/src/config/config_editors.dart';
 import 'package:tom_specs_editor/src/config/config_field.dart';
 import 'package:tom_specs_editor/src/config/config_specs.dart';
-import 'package:tom_specs_editor/src/config/editor_preferences.dart';
 
 /// A [SpecsConfigSpecs] whose every store lives in [fs] (a fresh in-memory
 /// workspace unless given), so no real workspace file is touched.
@@ -263,38 +261,6 @@ void main() {
       await tester.tap(find.byKey(const Key('config-open-raw-file')));
       await tester.pump();
       expect(opened, spec.backingUri);
-    });
-  });
-
-  group('basic-prefs panel (tom_specs_editor_specification.md §12 — '
-      'theme/font/default-app/default-profile)', () {
-    testWidgets('edits flow back through the change callbacks', (tester) async {
-      EditorPreferences? prefs;
-      AgentSettings? settings;
-      await _pump(
-        tester,
-        BasicPrefsPanel(
-          prefs: const EditorPreferences(),
-          settings: const AgentSettings(),
-          profiles: const [AgentProfile(id: 'p1', name: 'Primary')],
-          onPrefsChanged: (p) => prefs = p,
-          onSettingsChanged: (s) => settings = s,
-        ),
-      );
-
-      // Change the theme to light.
-      await tester.tap(find.byKey(const Key('prefs-theme')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('light').last);
-      await tester.pumpAndSettle();
-      expect(prefs?.themeMode, 'light');
-
-      // Pick the available profile as default.
-      await tester.tap(find.byKey(const Key('prefs-default-profile')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Primary').last);
-      await tester.pumpAndSettle();
-      expect(settings?.defaultProfileId, 'p1');
     });
   });
 }

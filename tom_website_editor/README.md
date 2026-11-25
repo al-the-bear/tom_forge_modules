@@ -2,8 +2,9 @@
 
 Tom Forge module for editing and driving `enterprise_flutter_web` websites. It
 wraps the pure-Dart [`tom_website_editor_core`](../tom_website_editor_core)
-(config + placeholders + registry) in a [`ForgeModule`] that contributes the
-active-website selection / reload config panel to the forge shell.
+(config + placeholders + registry) in a [`ForgeModule`] that describes the
+active-website selection, the configuration file's actions and its load
+status as configuration settings, which the forge shell shows as a tile.
 
 This package implements **steps 2, 3, 4, 5 and 6** (§9.2, §9.3, §9.4, §9.5,
 §9.6 / §6a) of the implementation plan in `tom_website_editor_specification.md`,
@@ -14,9 +15,9 @@ including the dedicated `WebsiteConfigEditor` (§6) that edits
 
 | API | Purpose |
 | --- | --- |
-| `WebsiteEditorModule` | `ForgeModule` that loads `tom.website-editor.yaml` from the workspace root on activation, contributes the website config panel, and registers the preview view. |
+| `WebsiteEditorModule` | `ForgeModule` that loads `tom.website-editor.yaml` from the workspace root on activation, describes its settings (`WebsiteEditorConfiguration`), and registers the preview view. |
 | `WebsiteEditorController` | `ChangeNotifier` owning the `WebsiteRegistry`: async load/reload of the config source, the active-website selection, and the loading/issues state for the UI. |
-| `WebsiteConfigPanel` | Settings-dialog widget to pick the active website, reload the config, and open the config editor (the *Edit configuration* action); lists validation issues inline. |
+| `WebsiteEditorConfiguration` | The module's configuration description: the active website (a choice over the registered websites, kept by `WebsiteSelectionBinding` in the controller), *Edit configuration* and *Reload configuration* actions, and the load status with its validation issues. |
 | `WebsiteConfigEditor` | `ForgeYamlEditor` subclass (§6) that handles `tom.website-editor.yaml` itself: self-loads the on-disk text, recomputes schema + placeholder diagnostics on every edit, and on save reloads the registry (an invalid save is rejected, last-good kept). |
 | `websiteConfigDiagnostics` | Pure function turning config text into `ForgeDiagnostic`s — reuses the runtime loader/validator/resolver so editor and registry agree on validity (single source of truth). |
 | `WebsitePreviewController` | `ChangeNotifier` wrapping the editor controller: resolves the active website's `preview.devUrl` / `preview.builtIndex` via the placeholder resolver, exposes a reload token, a dev/built source toggle, and external-browser open through an injected opener. |
@@ -429,7 +430,7 @@ edit — e.g. a malformed `commands:` value — appears in the shell's diagnosti
 manager keyed to the config URI, not just inside the editor. `deactivate()`
 retracts them. This module→shell forwarding is pinned by `TWE-MOD-01..04`.
 
-The config panel's **Edit configuration** action opens the file in this editor
+The configuration tile's **Edit configuration** action opens the file in this editor
 via `ForgeShellApi.layout.openFile`.
 
 > Diagnostics are currently anchored at line 0 — `tom_website_editor_core`'s
@@ -457,8 +458,9 @@ flutter test
 
 - `test/website_editor_controller_test.dart` — controller load/select/reload,
   notifications, loading flag, last-good-on-invalid (TWE-CTL-01..08).
-- `test/website_config_panel_test.dart` — panel rendering, selection, reload
-  button, issue listing (TWE-PANEL-01..04).
+- `test/website_editor_configuration_test.dart` — the description: the
+  websites as choices, selection, the reload and edit actions, the status and
+  its issues, the module's contribution (TWE-CONFIG-01..05).
 - `test/config/website_config_diagnostics_test.dart` — schema agreement with the
   runtime loader (valid → none, missing version / malformed commands / malformed
   paths → errors) and placeholder awareness (unknown → warning, resolvable /

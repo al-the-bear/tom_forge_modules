@@ -4,8 +4,8 @@ import 'package:tom_file_system/tom_file_system.dart';
 /// Basic editor preferences surfaced through the Forge config section
 /// (`tom_specs_editor_specification.md` §12 — "Basic prefs → Forge config
 /// section": theme, font, default app). The default **profile** lives in
-/// [AgentSettings] (single source of truth); the basic-prefs panel reads/writes
-/// it there.
+/// [AgentSettings] (single source of truth); the basic preferences' description
+/// (`SpecsBasicPreferencesConfiguration`) reads and writes it there.
 ///
 /// Held in the spec workspace as YAML, out of the document `*.docspecs.yaml`
 /// pass — mirrors the agent stores' resolve/load/save shape.

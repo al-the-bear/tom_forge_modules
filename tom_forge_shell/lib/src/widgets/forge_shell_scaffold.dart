@@ -3999,10 +3999,10 @@ the field, not the document.
   }
 
   /// The values service of the descriptions the modules contribute now
-  /// (null when none), with the hooks they contribute and the shell's
-  /// storage bindings: its preferences and its auto-save configuration
-  /// ([forgeShellSettingBindings]), which the shell's own description
-  /// stores through.
+  /// (null when none), with the hooks they contribute and the storage
+  /// bindings ([_configurationBindings]): the shell's — its preferences and
+  /// its auto-save configuration, which the shell's own description stores
+  /// through — and the modules'.
   ForgeConfigurationValues? _currentConfigurationValues() {
     final descriptions = _collectConfigurationDescriptions();
     if (!listEquals(descriptions, _configurationDescriptions)) {
@@ -4013,11 +4013,7 @@ the field, not the document.
         final values = _configurationValues = ForgeConfigurationValues(
           widget.shell.stateStore,
           descriptions: descriptions,
-          bindings: forgeShellSettingBindings(
-            _preferences,
-            config: widget.shell.config,
-            shell: widget.shell,
-          ),
+          bindings: _configurationBindings(),
           hooks: ForgeSettingHooks.merged([
             forgeConfigurationHooksOf(widget.shell),
             ForgeExternalToolsConfiguration.hooks(_toolsOfDescription),
@@ -4027,6 +4023,23 @@ the field, not the document.
       }
     }
     return _configurationValues;
+  }
+
+  /// The shell's storage bindings ([forgeShellSettingBindings]), then those
+  /// the modules contribute ([forgeConfigurationBindingsOf]); a module's
+  /// binding with an id the shell uses is left out.
+  List<ForgeSettingBinding> _configurationBindings() {
+    final own = forgeShellSettingBindings(
+      _preferences,
+      config: widget.shell.config,
+      shell: widget.shell,
+    );
+    final ids = {for (final binding in own) binding.id};
+    return [
+      ...own,
+      for (final binding in forgeConfigurationBindingsOf(widget.shell))
+        if (ids.add(binding.id)) binding,
+    ];
   }
 
   /// The descriptions the modules contribute, then those of the editor

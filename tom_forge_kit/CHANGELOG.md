@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- `ForgeConfigurationBindingsExtra`, `forgeConfigurationBindings` /
+  `forgeConfigurationBindingsOf`: a module contributes the storage bindings
+  its settings name (a configuration file of its own, a service owning the
+  values); the application hands them to its `ForgeConfigurationValues`.
 - `ForgeKitPreferences.externalToolPaths`: every external tool path set,
   by tool id (kept as `forge.tools.<id>.path`).
 - `DefaultShortcutManager.defaultKeyOf` / `defaultChordOf`: the key or chord

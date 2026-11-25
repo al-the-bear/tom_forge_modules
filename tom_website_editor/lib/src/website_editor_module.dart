@@ -1,9 +1,8 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
 import 'package:tom_forge_kit/tom_forge_kit.dart';
 import 'package:tom_forge_shell/tom_forge_shell.dart'
-    show ForgeConfigPanel, ForgeModule, ForgeShellApi;
+    show ForgeModule, ForgeShellApi;
 import 'package:tom_yaml_editor/tom_yaml_editor.dart';
 
 import 'content/website_content_browser.dart';
@@ -12,16 +11,17 @@ import 'content/website_content_fs.dart';
 import 'structure/website_structure_controller.dart';
 import 'structure/website_structure_explorer.dart';
 import 'website_config_editor.dart';
-import 'website_config_panel.dart';
 import 'website_control_controller.dart';
 import 'website_control_view.dart';
+import 'website_editor_configuration.dart';
 import 'website_editor_controller.dart';
 import 'website_process_runner.dart';
 import 'website_preview_controller.dart';
 import 'website_preview_view.dart';
 
-/// Forge module that loads `tom.website-editor.yaml` and contributes the
-/// website selection / reload config panel (§9.2).
+/// Forge module that loads `tom.website-editor.yaml` and describes the
+/// website selection, the configuration file's actions and its load status
+/// (§9.2, [WebsiteEditorConfiguration]).
 ///
 /// The module is intentionally thin: the registry semantics live in
 /// `tom_website_editor_core` and the reload/selection state lives in
@@ -32,7 +32,8 @@ import 'website_preview_view.dart';
 /// The preview view (§9.3), control view (§9.4), content/structure browsers
 /// (§6a/§6b), and the dedicated [WebsiteConfigEditor] (§6) are all contributed
 /// here on the shared [controller].
-class WebsiteEditorModule extends ForgeModule {
+class WebsiteEditorModule extends ForgeModule
+    implements ForgeModuleExtrasProvider {
   WebsiteEditorModule({
     this.configFileName = 'tom.website-editor.yaml',
     WebsiteProcessRunner runner = const DartIoWebsiteProcessRunner(),
@@ -111,7 +112,9 @@ class WebsiteEditorModule extends ForgeModule {
       configReader: () => shell.fileSystem.readText(configUri),
     );
     _configEditor = configEditor;
-    final diagnostics = shell.diagnostics.createCollection('website-editor-config');
+    final diagnostics = shell.diagnostics.createCollection(
+      'website-editor-config',
+    );
     _configDiagnostics = diagnostics;
     configEditor.configDiagnostics.addListener(_pushConfigDiagnostics);
     _pushConfigDiagnostics();
@@ -218,8 +221,12 @@ class WebsiteEditorModule extends ForgeModule {
   List<ForgeEditor> get editors => [?_configEditor];
 
   @override
-  List<ForgeView> get views =>
-      [?_previewView, ?_controlView, ?_contentView, ?_structureView];
+  List<ForgeView> get views => [
+    ?_previewView,
+    ?_controlView,
+    ?_contentView,
+    ?_structureView,
+  ];
 
   @override
   List<ForgeAction> get actions => const [];
@@ -228,20 +235,18 @@ class WebsiteEditorModule extends ForgeModule {
   List<ForgeShortcutBinding> get shortcuts => const [];
 
   @override
-  List<ForgeConfigPanel> get configPanels {
-    final controller = _controller;
-    if (controller == null) return const [];
-    return [
-      ForgeConfigPanel(
-        id: 'website-editor',
-        title: 'Website Editor',
-        icon: Icons.public,
-        priority: 120,
-        builder: (_) => WebsiteConfigPanel(
-          controller: controller,
-          onEditConfiguration: _openConfigEditor,
-        ),
+  late final List<ForgeModuleExtra> ownExtras = [
+    ForgeConfigurationDescriptionsExtra([
+      WebsiteEditorConfiguration.description,
+    ]),
+    ForgeConfigurationBindingsExtra([
+      WebsiteSelectionBinding(() => _controller),
+    ]),
+    ForgeConfigurationHooksExtra(
+      WebsiteEditorConfiguration.hooks(
+        () => _controller,
+        onEditConfiguration: _openConfigEditor,
       ),
-    ];
-  }
+    ),
+  ];
 }
