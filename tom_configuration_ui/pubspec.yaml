@@ -3,7 +3,7 @@ description: >-
   The configuration tiles of the Forge kit: one tile per section of a component's configuration description, always drawn the same, with an editor per kind of setting (a registry an application extends) on tom_flutter_ui's form fields, labels through Tom Core's text resources; the application arranges the tiles.
   License: BSD-3-Clause.
 publish_to: none
-version: 0.1.0
+version: 0.2.0
 repository: https://github.com/al-the-bear/tom_forge_modules
 
 environment:

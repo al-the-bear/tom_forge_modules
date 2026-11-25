@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:tom_forge_core/tom_forge_core.dart'
     show ForgePathSetting, ForgeSetting;
+import 'package:tom_forge_kit/tom_forge_kit.dart' show ForgeConfigurationValues;
 
 import 'editors/standard_editors.dart';
 import 'forge_configuration_tile_style.dart';
@@ -9,6 +10,16 @@ import 'forge_configuration_tile_style.dart';
 /// [current]. Answers the path chosen, or null when the user cancelled.
 typedef ForgePathPicker =
     Future<String?> Function(ForgePathSetting setting, String current);
+
+/// Builds the panel [panelId] names (a tool path's `helpPanel`: how to
+/// install the tool), shown under the setting while its value is not usable;
+/// null when the application has no such panel.
+typedef ForgeHelpPanelBuilder =
+    Widget? Function(
+      BuildContext context,
+      String panelId,
+      ForgeSetting<Object> setting,
+    );
 
 /// What an editor is given to edit one setting.
 ///
@@ -27,6 +38,10 @@ class ForgeSettingEditorRequest {
     this.enabled = true,
     this.errorText,
     this.pickPath,
+    this.values,
+    this.refresh,
+    this.requestRefresh,
+    this.buildHelpPanel,
   });
 
   /// The setting.
@@ -56,6 +71,24 @@ class ForgeSettingEditorRequest {
 
   /// The application's path picker, or null when it has none.
   final ForgePathPicker? pickPath;
+
+  /// The values service the tile writes through: the editors of the kinds
+  /// with behaviour run the setting's hooks with it (`runAction`,
+  /// `detectToolPath`, `choicesFor`, `statusOf`, `keyBindingRows`, ...);
+  /// null when the editor is built without one (it then shows no hook
+  /// results).
+  final ForgeConfigurationValues? values;
+
+  /// Fires when the setting's status, detection and choices are to be read
+  /// again (an action answered `refresh`); null: never.
+  final Listenable? refresh;
+
+  /// Asks every editor of this setting to read its status, detection and
+  /// choices again (fires [refresh]).
+  final VoidCallback? requestRefresh;
+
+  /// The application's help panels (a tool path's `helpPanel`), or null.
+  final ForgeHelpPanelBuilder? buildHelpPanel;
 }
 
 /// Builds the editor of one setting.

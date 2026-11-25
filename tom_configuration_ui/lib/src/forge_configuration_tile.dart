@@ -15,6 +15,7 @@ import 'package:tom_forge_shared_ui/tom_forge_shared_ui.dart'
     show ForgeShellTheme;
 
 import 'configuration_ui_trail.dart';
+import 'editors/hook_widgets.dart';
 import 'forge_configuration_icons.dart';
 import 'forge_configuration_labels.dart';
 import 'forge_configuration_tile_style.dart';
@@ -33,6 +34,7 @@ class ForgeConfigurationScope extends InheritedWidget {
     this.style = const ForgeConfigurationTileStyle(),
     this.pickPath,
     this.iconResolver,
+    this.buildHelpPanel,
   });
 
   /// The values the tiles show and write.
@@ -50,6 +52,9 @@ class ForgeConfigurationScope extends InheritedWidget {
   /// Makes a section's icon (default: [forgeMaterialIconFor]).
   final ForgeConfigurationIconResolver? iconResolver;
 
+  /// The application's help panels (a tool path's `helpPanel`), or null.
+  final ForgeHelpPanelBuilder? buildHelpPanel;
+
   /// The nearest scope, or null.
   static ForgeConfigurationScope? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<ForgeConfigurationScope>();
@@ -60,13 +65,17 @@ class ForgeConfigurationScope extends InheritedWidget {
       registry != oldWidget.registry ||
       style != oldWidget.style ||
       pickPath != oldWidget.pickPath ||
-      iconResolver != oldWidget.iconResolver;
+      iconResolver != oldWidget.iconResolver ||
+      buildHelpPanel != oldWidget.buildHelpPanel;
 }
 
 /// One section of a configuration description as a tile: its title (with
-/// its icon and help), then each visible setting with its label, its editor
-/// (the registry's for its kind), a reset-to-default button, its help on
-/// request and the reason a value was refused.
+/// its icon and help), then each visible entry — a setting with its label,
+/// its editor (the registry's for its kind), the buttons of its own actions
+/// (`ForgeSetting.actions`), a reset-to-default button (for a setting that
+/// keeps a value), its help on request and the reason a value was refused;
+/// a group (`ForgeSettingsGroup`) as a header that folds the settings below
+/// it.
 ///
 /// Every tile looks the same: the [style] decides spacing and density, the
 /// theme the colours (`ForgeShellTheme` when installed, else the colour
@@ -85,6 +94,7 @@ class ForgeConfigurationTile extends StatefulWidget {
     this.style,
     this.pickPath,
     this.iconResolver,
+    this.buildHelpPanel,
   });
 
   /// The tile of [ref]'s section.
@@ -96,6 +106,7 @@ class ForgeConfigurationTile extends StatefulWidget {
     ForgeConfigurationTileStyle? style,
     ForgePathPicker? pickPath,
     ForgeConfigurationIconResolver? iconResolver,
+    ForgeHelpPanelBuilder? buildHelpPanel,
   }) : this(
          key: key ?? ValueKey('forge.configuration.tile.${ref.id}'),
          section: ref.section,
@@ -104,6 +115,7 @@ class ForgeConfigurationTile extends StatefulWidget {
          style: style,
          pickPath: pickPath,
          iconResolver: iconResolver,
+         buildHelpPanel: buildHelpPanel,
        );
 
   /// The section shown.
@@ -124,6 +136,9 @@ class ForgeConfigurationTile extends StatefulWidget {
   /// The icon resolver (default: the scope's, else [forgeMaterialIconFor]).
   final ForgeConfigurationIconResolver? iconResolver;
 
+  /// The help panels (default: the scope's).
+  final ForgeHelpPanelBuilder? buildHelpPanel;
+
   @override
   State<ForgeConfigurationTile> createState() => _ForgeConfigurationTileState();
 }
@@ -142,6 +157,8 @@ class _ForgeConfigurationTileState extends State<ForgeConfigurationTile> {
   final Map<String, ForgeText?> _errors = {};
   final Map<String, int> _generations = {};
   final Set<String> _helpShown = {};
+  final Map<String, bool> _folded = {};
+  final Map<String, ValueNotifier<int>> _refreshes = {};
   bool _sectionHelpShown = false;
   bool _traced = false;
 
@@ -195,6 +212,9 @@ class _ForgeConfigurationTileState extends State<ForgeConfigurationTile> {
 
   @override
   void dispose() {
+    for (final notifier in _refreshes.values) {
+      notifier.dispose();
+    }
     _values?.removeListener(_rebuild);
     TomTextResourceProvider.appResourcesRevision.removeObserver(
       _resourcesObserver,
@@ -216,7 +236,7 @@ class _ForgeConfigurationTileState extends State<ForgeConfigurationTile> {
   Future<void> _commit(ForgeSetting<Object> setting, Object? value) async {
     final values = _values;
     if (values == null) return;
-    final location = setting.storage.location;
+    final location = forgeSettingEntryKey(setting);
     try {
       final problem = values.validate(setting, value);
       configurationUiTrail('commit $location: ${problem ?? 'valid'}');
@@ -240,7 +260,7 @@ class _ForgeConfigurationTileState extends State<ForgeConfigurationTile> {
   Future<void> _reset(ForgeSetting<Object> setting) async {
     final values = _values;
     if (values == null) return;
-    final location = setting.storage.location;
+    final location = forgeSettingEntryKey(setting);
     configurationUiTrail('reset $location');
     try {
       final done = values.reset(setting);
@@ -271,6 +291,7 @@ class _ForgeConfigurationTileState extends State<ForgeConfigurationTile> {
     final pickPath = widget.pickPath ?? scope?.pickPath;
     final iconResolver =
         widget.iconResolver ?? scope?.iconResolver ?? forgeMaterialIconFor;
+    final buildHelpPanel = widget.buildHelpPanel ?? scope?.buildHelpPanel;
     final values = _values;
     final theme = Theme.of(context);
     final shell = theme.extension<ForgeShellTheme>();
@@ -292,13 +313,36 @@ class _ForgeConfigurationTileState extends State<ForgeConfigurationTile> {
       children.add(const SizedBox.shrink());
     } else {
       var first = true;
-      for (final setting in section.settings) {
-        if (!values.isVisible(setting)) continue;
+      void addSetting(ForgeSetting<Object> setting) {
+        if (!values.isVisible(setting)) return;
         if (!first) children.add(SizedBox(height: style.spacing));
         first = false;
         children.add(
-          _entry(context, setting, values, registry, style, pickPath),
+          _entry(
+            context,
+            setting,
+            values,
+            registry,
+            style,
+            pickPath,
+            buildHelpPanel,
+          ),
         );
+      }
+
+      for (final entry in section.entries) {
+        if (entry is ForgeSetting<Object>) {
+          addSetting(entry);
+        } else if (entry is ForgeSettingsGroup) {
+          if (!entry.settings.any(values.isVisible)) continue;
+          if (!first) children.add(SizedBox(height: style.spacing));
+          first = false;
+          children.add(_groupHeader(context, entry));
+          if (_folded[entry.id] ?? entry.collapsed) continue;
+          for (final setting in entry.settings) {
+            addSetting(setting);
+          }
+        }
       }
     }
 
@@ -356,6 +400,72 @@ class _ForgeConfigurationTileState extends State<ForgeConfigurationTile> {
     );
   }
 
+  /// A group's header: its title, a fold toggle and its help.
+  Widget _groupHeader(BuildContext context, ForgeSettingsGroup group) {
+    final theme = Theme.of(context);
+    final folded = _folded[group.id] ?? group.collapsed;
+    final helpKey = 'group:${group.id}';
+    return KeyedSubtree(
+      key: ValueKey('forge.configuration.group.${group.id}'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          InkWell(
+            onTap: () => setState(() => _folded[group.id] = !folded),
+            child: Container(
+              padding: const EdgeInsets.only(bottom: 2),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: theme.colorScheme.outlineVariant),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Tooltip(
+                    message: ForgeConfigurationLabels.resolve(
+                      folded
+                          ? ForgeConfigurationUiTexts.showGroup
+                          : ForgeConfigurationUiTexts.hideGroup,
+                    ),
+                    child: Icon(
+                      folded ? Icons.chevron_right : Icons.expand_more,
+                      size: 18,
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      ForgeConfigurationLabels.resolve(group.title),
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                  if (group.help != null)
+                    _iconButton(
+                      icon: Icons.help_outline,
+                      tooltip: ForgeConfigurationLabels.resolve(
+                        ForgeConfigurationUiTexts.help,
+                      ),
+                      onPressed: () => setState(() {
+                        if (!_helpShown.remove(helpKey)) {
+                          _helpShown.add(helpKey);
+                        }
+                      }),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          if (_helpShown.contains(helpKey) && group.help != null)
+            _helpText(context, ForgeConfigurationLabels.resolve(group.help!)),
+        ],
+      ),
+    );
+  }
+
   Widget _entry(
     BuildContext context,
     ForgeSetting<Object> setting,
@@ -363,9 +473,11 @@ class _ForgeConfigurationTileState extends State<ForgeConfigurationTile> {
     ForgeSettingEditorRegistry registry,
     ForgeConfigurationTileStyle style,
     ForgePathPicker? pickPath,
+    ForgeHelpPanelBuilder? buildHelpPanel,
   ) {
     final theme = Theme.of(context);
-    final location = setting.storage.location;
+    final location = forgeSettingEntryKey(setting);
+    final refresh = _refreshes.putIfAbsent(location, () => ValueNotifier(0));
     final label = ForgeConfigurationLabels.resolve(setting.label);
     final error = _errors[location] ?? _storedProblem(values, setting);
     final enabled = values.isEnabled(setting);
@@ -381,6 +493,13 @@ class _ForgeConfigurationTileState extends State<ForgeConfigurationTile> {
       enabled: enabled,
       errorText: ForgeConfigurationLabels.resolveOrNull(error),
       pickPath: pickPath,
+      values: values,
+      refresh: refresh,
+      requestRefresh: () {
+        configurationUiTrail('refresh $location');
+        refresh.value++;
+      },
+      buildHelpPanel: buildHelpPanel,
     );
     final Widget editorWidget = KeyedSubtree(
       key: ValueKey('$location#${_generations[location] ?? 0}'),
@@ -420,16 +539,17 @@ class _ForgeConfigurationTileState extends State<ForgeConfigurationTile> {
               if (!_helpShown.remove(location)) _helpShown.add(location);
             }),
           ),
-        _iconButton(
-          key: ValueKey('forge.configuration.reset.$location'),
-          icon: Icons.restart_alt,
-          tooltip: ForgeConfigurationLabels.resolve(
-            ForgeConfigurationUiTexts.reset,
+        if (setting.storesValue)
+          _iconButton(
+            key: ValueKey('forge.configuration.reset.$location'),
+            icon: Icons.restart_alt,
+            tooltip: ForgeConfigurationLabels.resolve(
+              ForgeConfigurationUiTexts.reset,
+            ),
+            onPressed: enabled && (values.isStored(setting) || error != null)
+                ? () => _reset(setting)
+                : null,
           ),
-          onPressed: enabled && (values.isStored(setting) || error != null)
-              ? () => _reset(setting)
-              : null,
-        ),
       ],
     );
     return KeyedSubtree(
@@ -440,6 +560,11 @@ class _ForgeConfigurationTileState extends State<ForgeConfigurationTile> {
         children: [
           labelRow,
           if (!inline) ...[SizedBox(height: style.dense ? 2 : 4), editorWidget],
+          if (setting.actions.isNotEmpty)
+            Padding(
+              padding: EdgeInsets.only(top: style.dense ? 4 : 6),
+              child: ForgeSettingActionsBar(request: request),
+            ),
           if (_helpShown.contains(location) && setting.help != null)
             _helpText(context, ForgeConfigurationLabels.resolve(setting.help!)),
           if (request.errorText != null)
@@ -499,6 +624,7 @@ List<Widget> forgeConfigurationTiles(
   ForgeConfigurationTileStyle? style,
   ForgePathPicker? pickPath,
   ForgeConfigurationIconResolver? iconResolver,
+  ForgeHelpPanelBuilder? buildHelpPanel,
 }) => [
   for (final ref in forgeOrderedSections(descriptions ?? values.descriptions))
     ForgeConfigurationTile.of(
@@ -508,5 +634,11 @@ List<Widget> forgeConfigurationTiles(
       style: style,
       pickPath: pickPath,
       iconResolver: iconResolver,
+      buildHelpPanel: buildHelpPanel,
     ),
 ];
+
+/// The key a tile names a setting's entry by: its storage location, or for
+/// a setting that keeps no value (an action, a status line) `#<id>`.
+String forgeSettingEntryKey(ForgeSetting<Object> setting) =>
+    setting.storesValue ? setting.storage.location : '#${setting.id}';

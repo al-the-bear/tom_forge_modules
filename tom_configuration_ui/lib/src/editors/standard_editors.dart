@@ -7,7 +7,13 @@ import 'package:tom_forge_core/tom_forge_core.dart';
 import '../forge_configuration_labels.dart';
 import '../forge_configuration_ui_texts.dart';
 import '../forge_setting_editor_registry.dart';
+import 'behaviour_editors.dart';
+import 'color_picker.dart';
+import 'font_family_editor.dart';
+import 'key_binding_table_editor.dart';
+import 'key_capture.dart';
 import 'setting_tom_field.dart';
+import 'value_editors.dart';
 
 /// The standard editor of every kind `tom_forge_core` defines
 /// (`ForgeSettingKinds`), by kind:
@@ -15,14 +21,25 @@ import 'setting_tom_field.dart';
 /// | Kind | Editor |
 /// | --- | --- |
 /// | `bool` | a switch (`TomFormFieldFamily.boolSwitch`), beside the label |
-/// | `int` | a number field (`intInput`) |
-/// | `double` | a number field (`doubleInput`) |
+/// | `int` | a number field (`intInput`); with a `scale`, the value in the shown unit ([ForgeScaledNumberField]); the unit after it |
+/// | `double` | a number field (`doubleInput`); with a `scale` as `int`; the unit after it |
 /// | `string` | a text field (`stringInput`); several lines for a multiline setting |
-/// | `choice` | the choices side by side (`stringSegmented`) or a list (`stringPicker`) |
+/// | `choice` | the choices side by side (`stringSegmented`) or a list (`stringPicker`), *None* first when allowed; with a choices provider a list read at run time ([ForgeDynamicChoiceField]) |
 /// | `stringList` | with choices, chips to pick (`stringMultiSelect`); else the items as chips with a field to add one |
 /// | `path` | a text field with a button that opens the application's picker |
-/// | `color` | a swatch with the hex value, beside the label |
-/// | `stringMap` | one row per entry (key, value), with a row to add one |
+/// | `color` | a swatch, the hex value and a colour picker ([showForgeColorPicker]), beside the label |
+/// | `stringMap` | one row per entry (key, value free, chosen or read per key from a provider), the default key first, with a row to add one |
+/// | `fontFamily` | the name with a searchable font picker ([ForgeFontFamilyEditor]) |
+/// | `keyBinding` | a key capture field ([ForgeKeyCaptureField]) |
+/// | `keyChord` | a key capture field taking strokes one after the other |
+/// | `keyBindingTable` | the catalogue's actions with their bindings, search, conflicts, per-row capture and reset, *Reset all* ([ForgeKeyBindingTableEditor]) |
+/// | `toolPath` | the path with *Browse…*, *Detect*, *Check again* and its state ([ForgeToolPathEditor]) |
+/// | `action` | the button of its action or flow, with progress and result ([ForgeActionEditor]) |
+/// | `status` | the status line its provider answers or streams ([ForgeStatusEditor]) |
+/// | `date`, `time`, `dateTime` | the value with Material's date and time pickers ([ForgeDateTimeEditor]) |
+///
+/// Every setting's own actions (`ForgeSetting.actions`) are drawn by the
+/// tile under its editor (`ForgeSettingActionsBar`).
 Map<String, ForgeSettingEditor> forgeStandardSettingEditors() => {
   ForgeSettingKinds.boolean: const ForgeSettingEditor(
     _bool,
@@ -37,7 +54,73 @@ Map<String, ForgeSettingEditor> forgeStandardSettingEditors() => {
   ForgeSettingKinds.path: const ForgeSettingEditor(_path),
   ForgeSettingKinds.color: const ForgeSettingEditor(_color, inline: true),
   ForgeSettingKinds.stringMap: const ForgeSettingEditor(_stringMap),
+  ForgeSettingKinds.fontFamily: const ForgeSettingEditor(_fontFamily),
+  ForgeSettingKinds.keyBinding: const ForgeSettingEditor(_keyBinding),
+  ForgeSettingKinds.keyChord: const ForgeSettingEditor(_keyChord),
+  ForgeSettingKinds.keyBindingTable: const ForgeSettingEditor(_keyBindingTable),
+  ForgeSettingKinds.toolPath: const ForgeSettingEditor(_toolPath),
+  ForgeSettingKinds.action: const ForgeSettingEditor(_action),
+  ForgeSettingKinds.status: const ForgeSettingEditor(_status),
+  ForgeSettingKinds.date: const ForgeSettingEditor(_date),
+  ForgeSettingKinds.time: const ForgeSettingEditor(_time),
+  ForgeSettingKinds.dateTime: const ForgeSettingEditor(_dateTime),
 };
+
+Widget _fontFamily(BuildContext context, ForgeSettingEditorRequest r) =>
+    ForgeFontFamilyEditor(request: r);
+
+Widget _keyBinding(BuildContext context, ForgeSettingEditorRequest r) {
+  final setting = r.setting as ForgeKeyBindingSetting;
+  final value = r.value as ForgeKeyStroke;
+  return ForgeKeyCaptureField(
+    strokes: value.isNone ? const [] : [value],
+    enabled: r.enabled,
+    dense: r.style.dense,
+    semanticLabel: r.label,
+    trailName: 'key ${setting.storage.location}',
+    onCaptured: (strokes) => r.onChanged(strokes.first),
+    onCleared: setting.allowNone
+        ? () => r.onChanged(ForgeKeyStroke.none)
+        : null,
+  );
+}
+
+Widget _keyChord(BuildContext context, ForgeSettingEditorRequest r) {
+  final setting = r.setting as ForgeKeyChordSetting;
+  final value = r.value as ForgeKeyChord;
+  return ForgeKeyCaptureField(
+    strokes: value.strokes,
+    maxStrokes: setting.maxStrokes,
+    enabled: r.enabled,
+    dense: r.style.dense,
+    semanticLabel: r.label,
+    trailName: 'chord ${setting.storage.location}',
+    onCaptured: (strokes) =>
+        r.onChanged(ForgeKeyChord(List.unmodifiable(strokes))),
+    onCleared: setting.allowNone ? () => r.onChanged(ForgeKeyChord.none) : null,
+  );
+}
+
+Widget _keyBindingTable(BuildContext context, ForgeSettingEditorRequest r) =>
+    ForgeKeyBindingTableEditor(request: r);
+
+Widget _toolPath(BuildContext context, ForgeSettingEditorRequest r) =>
+    ForgeToolPathEditor(request: r);
+
+Widget _action(BuildContext context, ForgeSettingEditorRequest r) =>
+    ForgeActionEditor(request: r);
+
+Widget _status(BuildContext context, ForgeSettingEditorRequest r) =>
+    ForgeStatusEditor(request: r);
+
+Widget _date(BuildContext context, ForgeSettingEditorRequest r) =>
+    ForgeDateTimeEditor(request: r, mode: ForgeDateTimeMode.date);
+
+Widget _time(BuildContext context, ForgeSettingEditorRequest r) =>
+    ForgeDateTimeEditor(request: r, mode: ForgeDateTimeMode.time);
+
+Widget _dateTime(BuildContext context, ForgeSettingEditorRequest r) =>
+    ForgeDateTimeEditor(request: r, mode: ForgeDateTimeMode.dateTime);
 
 Widget _bool(BuildContext context, ForgeSettingEditorRequest r) =>
     ForgeSettingTomField<bool>(
@@ -48,6 +131,7 @@ Widget _bool(BuildContext context, ForgeSettingEditorRequest r) =>
 
 Widget _int(BuildContext context, ForgeSettingEditorRequest r) {
   final setting = r.setting as ForgeIntSetting;
+  if (setting.scale != 1) return ForgeScaledNumberField(request: r);
   return _withUnit(
     context,
     setting.unit,
@@ -61,6 +145,7 @@ Widget _int(BuildContext context, ForgeSettingEditorRequest r) {
 
 Widget _double(BuildContext context, ForgeSettingEditorRequest r) {
   final setting = r.setting as ForgeDoubleSetting;
+  if (setting.scale != 1) return ForgeScaledNumberField(request: r);
   return _withUnit(
     context,
     setting.unit,
@@ -124,10 +209,35 @@ TomStaticSelectableSource<String> _source(List<ForgeSettingChoice> choices) =>
 
 Widget _choice(BuildContext context, ForgeSettingEditorRequest r) {
   final setting = r.setting as ForgeChoiceSetting;
+  final values = r.values;
+  if (setting.choicesProvider != null) {
+    return ForgeDynamicChoiceField(
+      value: r.value as String,
+      load: () async =>
+          values == null ? setting.choices : await values.choicesFor(setting),
+      changes: values?.hooks.choices(setting.choicesProvider!)?.changes,
+      refresh: r.refresh,
+      allowNone: setting.allowNone,
+      noneLabel: setting.noneLabel,
+      enabled: r.enabled,
+      dense: r.style.dense,
+      semanticLabel: r.label,
+      trailName: 'choices ${setting.choicesProvider} for ${setting.id}',
+      onChanged: r.onChanged,
+    );
+  }
+  final choices = [
+    if (setting.allowNone)
+      ForgeSettingChoice(
+        '',
+        setting.noneLabel ?? ForgeConfigurationUiTexts.none,
+      ),
+    ...setting.choices,
+  ];
   final segmented = switch (setting.display) {
     ForgeChoiceDisplay.segmented => true,
     ForgeChoiceDisplay.dropdown => false,
-    ForgeChoiceDisplay.auto => setting.choices.length <= 3,
+    ForgeChoiceDisplay.auto => choices.length <= 3,
   };
   return ForgeSettingTomField<String>(
     request: r,
@@ -135,13 +245,13 @@ Widget _choice(BuildContext context, ForgeSettingEditorRequest r) {
         ? r.style.fieldFamily.stringSegmented(
             id,
             value,
-            source: _source(setting.choices),
+            source: _source(choices),
             autoValidate: false,
           )
         : r.style.fieldFamily.stringPicker(
             id,
             value,
-            source: _source(setting.choices),
+            source: _source(choices),
             autoValidate: false,
           ),
   );
@@ -395,6 +505,21 @@ class _ForgeSettingColorFieldState extends State<ForgeSettingColorField> {
     super.dispose();
   }
 
+  Future<void> _pick() async {
+    final setting = widget.request.setting as ForgeColorSetting;
+    final current =
+        ForgeColorSetting.parseHex(_controller.text) ??
+        widget.request.value as int;
+    final picked = await showForgeColorPicker(
+      context,
+      initial: current,
+      allowAlpha: setting.allowAlpha,
+    );
+    if (picked == null || !mounted) return;
+    _controller.text = ForgeColorSetting.toHex(picked);
+    widget.request.onChanged(picked);
+  }
+
   @override
   Widget build(BuildContext context) {
     final r = widget.request;
@@ -432,6 +557,15 @@ class _ForgeSettingColorFieldState extends State<ForgeSettingColorField> {
                 r.onChanged(ForgeColorSetting.parseHex(text) ?? text),
           ),
         ),
+        IconButton(
+          key: ValueKey('forge.configuration.colour.pick.${r.setting.id}'),
+          tooltip: ForgeConfigurationLabels.resolve(
+            ForgeConfigurationUiTexts.chooseColour,
+          ),
+          visualDensity: VisualDensity.compact,
+          icon: const Icon(Icons.palette_outlined, size: 18),
+          onPressed: r.enabled ? _pick : null,
+        ),
       ],
     );
   }
@@ -463,8 +597,21 @@ class _ForgeSettingStringMapFieldState
     super.dispose();
   }
 
+  /// The entries, the default key's first.
+  Iterable<MapEntry<String, String>> _ordered(ForgeStringMapSetting setting) {
+    final defaultKey = setting.defaultKey;
+    if (defaultKey == null || !_entries.containsKey(defaultKey)) {
+      return _entries.entries;
+    }
+    return [
+      MapEntry(defaultKey, _entries[defaultKey]!),
+      for (final entry in _entries.entries)
+        if (entry.key != defaultKey) entry,
+    ];
+  }
+
   void _add(ForgeStringMapSetting setting) {
-    final key = _newKey.text.trim();
+    final key = setting.normalizeKey(_newKey.text);
     if (key.isEmpty) return;
     final initial = setting.valueChoices?.firstOrNull?.value ?? '';
     widget.request.onChanged({..._entries, key: _entries[key] ?? initial});
@@ -473,6 +620,24 @@ class _ForgeSettingStringMapFieldState
 
   Widget _valueEditor(ForgeStringMapSetting setting, String key, String value) {
     final r = widget.request;
+    final provider = setting.valueChoicesProvider;
+    final values = r.values;
+    if (provider != null) {
+      return ForgeDynamicChoiceField(
+        value: value,
+        load: () async => values == null
+            ? (setting.valueChoices ?? const [])
+            : await values.choicesFor(setting, key: key),
+        changes: values?.hooks.choices(provider)?.changes,
+        refresh: r.refresh,
+        allowNone: setting.allowEmptyValues,
+        enabled: r.enabled,
+        dense: true,
+        semanticLabel: key,
+        trailName: 'choices $provider [$key]',
+        onChanged: (chosen) => r.onChanged({..._entries, key: chosen}),
+      );
+    }
     final choices = setting.valueChoices;
     if (choices != null) {
       final known = choices.any((c) => c.value == value);
@@ -534,12 +699,22 @@ class _ForgeSettingStringMapFieldState
             const SizedBox(width: 40),
           ],
         ),
-        for (final entry in _entries.entries)
+        for (final entry in _ordered(setting))
           Padding(
+            key: ValueKey('forge.configuration.map.${setting.id}.${entry.key}'),
             padding: const EdgeInsets.only(top: 4),
             child: Row(
               children: [
-                Expanded(child: Text(entry.key)),
+                Expanded(
+                  child: Text(
+                    entry.key == setting.defaultKey &&
+                            setting.defaultKeyLabel != null
+                        ? ForgeConfigurationLabels.resolve(
+                            setting.defaultKeyLabel!,
+                          )
+                        : entry.key,
+                  ),
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   flex: 2,
@@ -547,13 +722,17 @@ class _ForgeSettingStringMapFieldState
                 ),
                 SizedBox(
                   width: 40,
-                  child: IconButton(
-                    tooltip: remove,
-                    icon: const Icon(Icons.close, size: 18),
-                    onPressed: r.enabled
-                        ? () => r.onChanged({..._entries}..remove(entry.key))
-                        : null,
-                  ),
+                  child: entry.key == setting.defaultKey
+                      ? null
+                      : IconButton(
+                          tooltip: remove,
+                          icon: const Icon(Icons.close, size: 18),
+                          onPressed: r.enabled
+                              ? () => r.onChanged(
+                                  {..._entries}..remove(entry.key),
+                                )
+                              : null,
+                        ),
                 ),
               ],
             ),

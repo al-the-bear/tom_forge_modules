@@ -24,8 +24,16 @@
 library;
 
 export 'src/configuration_ui_trail.dart';
+export 'src/editors/behaviour_editors.dart';
+export 'src/editors/color_picker.dart';
+export 'src/editors/flow_runner.dart';
+export 'src/editors/font_family_editor.dart';
+export 'src/editors/hook_widgets.dart';
+export 'src/editors/key_binding_table_editor.dart';
+export 'src/editors/key_capture.dart';
 export 'src/editors/standard_editors.dart';
 export 'src/editors/setting_tom_field.dart';
+export 'src/editors/value_editors.dart';
 export 'src/forge_configuration_icons.dart';
 export 'src/forge_configuration_labels.dart';
 export 'src/forge_configuration_tile.dart';
