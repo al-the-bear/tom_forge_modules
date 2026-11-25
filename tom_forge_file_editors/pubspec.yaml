@@ -9,7 +9,7 @@ description: >-
   application registers with it. License: BSD-3-Clause.
 publish_to: none
 version: 0.1.0
-repository: https://github.com/al-the-bear/tom_forge
+repository: https://github.com/al-the-bear/tom_forge_modules
 
 environment:
   sdk: ^3.11.0
@@ -46,13 +46,13 @@ dependencies:
     path: ../tom_forge_core
   # The .env editor and the host interface of the file editors.
   tom_file_editors:
-    path: ../../tom_ai/modules/tom_file_editors
+    path: ../../modules/tom_file_editors
   # The todo row, the details editor and the todo-file editor.
   tom_todo_ui:
-    path: ../../tom_ai/modules/tom_todo_ui
+    path: ../../modules/tom_todo_ui
   # The file system a todo file's siblings and schema are read through.
   tom_file_system:
-    path: ../../tom_ai/basics/tom_file_system
+    path: ../../basics/tom_file_system
   # Decoding a schema the todo-file editor reads.
   tom_basics: ">=3.3.0"
 
@@ -60,7 +60,7 @@ dev_dependencies:
   # The sessions the undo suite makes (the editors take the session type
   # from the kit).
   tom_file_session:
-    path: ../../tom_ai/modules/tom_file_session
+    path: ../../modules/tom_file_session
   # The Dart editor type flutter_test_config.dart registers.
   tom_forge_dart_editor:
     path: ../tom_forge_dart_editor

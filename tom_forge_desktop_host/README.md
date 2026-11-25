@@ -17,7 +17,7 @@ Without this part the shell core builds for the web: it picks nothing (Open
 Folder, Open File and Save As do nothing), knows no installed shells and makes
 no folders outside its workspace.
 
-Part of Tom Forge; the layers are in `tom_forge/_agent_guidelines/platform_architecture.md`.
+Part of Tom Forge; the layers are in `tom_ai/forge_modules/_agent_guidelines/platform_architecture.md`.
 
 ## License
 

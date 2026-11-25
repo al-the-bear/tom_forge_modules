@@ -27,7 +27,7 @@ when it starts; WebKit gives ZetaOffice's page animation frames only while a
 person can see it):
 
 ```bash
-cd tom_forge/tom_forge_office_zetaoffice/tool/evaluation
+cd tom_ai/forge_modules/tom_forge_office_zetaoffice/tool/evaluation
 python3 run_evaluation.py                   # references, three runs, comparison
 python3 run_evaluation.py --runs 1 --edit-minutes 1   # a quick check
 python3 run_evaluation.py --only zetaoffice --skip-references

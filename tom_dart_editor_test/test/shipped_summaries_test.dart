@@ -3,8 +3,10 @@
 /// `assets/summaries/dart-editor/packages.sum`, each with its stamp — is
 /// readable by the analyzer the editor runs on and resolves real code (the
 /// SDK, a package, Flutter and the `dart:ui` types Flutter re-exports), and
-/// every app ships the same pair
-/// (`tom_dart_analysis/doc/package_summary_generation.md`). A pair written by
+/// every app of this repository ships the same pair
+/// (`tom_dart_analysis/doc/package_summary_generation.md`); the Forge
+/// application checks its own copy against this one in its suite
+/// (`tom_forge/tom_forge_app/test/shipped_summaries_parity_test.dart`). A pair written by
 /// another analyzer fails here.
 @Timeout(Duration(minutes: 4))
 library;
@@ -28,12 +30,13 @@ void main() {
 
   setUp(() {
     registry.resetForTesting();
-    registry.bytesLoader = (key) async =>
-        Uint8List.fromList(await File(key).readAsBytes());
+    registry.bytesLoader =
+        (key) async => Uint8List.fromList(await File(key).readAsBytes());
   });
   tearDown(registry.resetForTesting);
 
-  test('SUM-1: code using the SDK, a package, Flutter and dart:ui analyses '
+  test(
+      'SUM-1: code using the SDK, a package, Flutter and dart:ui analyses '
       'clean against the shipped summaries, and so does plain Dart code; a '
       'mistake is reported', () async {
     // Registered as the app does, through the bundler's generated helper.
@@ -93,8 +96,10 @@ String joined() => p.joinn('a', 'b');
     );
   });
 
-  test('SUM-2: every app ships the same pair, stamps included', () {
-    for (final app in ['../tom_forge_app', '../tom_yaml_editor_test']) {
+  test(
+      'SUM-2: every app of this repository ships the same pair, stamps '
+      'included', () {
+    for (final app in ['../tom_yaml_editor_test']) {
       for (final file in _pair) {
         expect(
           File('$app/$file').readAsBytesSync(),
@@ -105,16 +110,18 @@ String joined() => p.joinn('a', 'b');
     }
   });
 
-  test('SUM-3: each summary carries the bundler\'s stamp, built with dart:ui',
-      () {
-    for (final summary in [_sdk, _packages]) {
-      final stamp = File('$summary.stamp');
-      expect(stamp.existsSync(), isTrue, reason: '$summary has no stamp');
-      expect(stamp.readAsStringSync(), contains('dart-ui: yes'));
-      expect(
-        stamp.readAsStringSync(),
-        matches(RegExp(r'toolchain: \d+\.\d+\.\d+\+d\d+')),
-      );
-    }
-  });
+  test(
+    'SUM-3: each summary carries the bundler\'s stamp, built with dart:ui',
+    () {
+      for (final summary in [_sdk, _packages]) {
+        final stamp = File('$summary.stamp');
+        expect(stamp.existsSync(), isTrue, reason: '$summary has no stamp');
+        expect(stamp.readAsStringSync(), contains('dart-ui: yes'));
+        expect(
+          stamp.readAsStringSync(),
+          matches(RegExp(r'toolchain: \d+\.\d+\.\d+\+d\d+')),
+        );
+      }
+    },
+  );
 }

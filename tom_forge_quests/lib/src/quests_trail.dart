@@ -10,7 +10,7 @@ import 'package:flutter/foundation.dart';
 // KEEP THIS FLAG. Flip it to true when investigating which quest
 // application opened, activated or vetoed a close, and why.
 //
-// See: tom_forge/_agent_guidelines/debug_mode.md
+// See: tom_ai/forge_modules/_agent_guidelines/debug_mode.md
 // ============================================================
 const bool kForgeQuestsDebug = false;
 

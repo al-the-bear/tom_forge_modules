@@ -46,7 +46,7 @@ dependencies:
     path: ../tom_forge_desktop_host
   # The local file system the raw-file editor saves through.
   tom_file_system:
-    path: ../../tom_ai/basics/tom_file_system
+    path: ../../basics/tom_file_system
   tom_forge_core:
     path: ../tom_forge_core
 
@@ -98,14 +98,14 @@ dependencies:
 
   # Non-UI agent layer: provider/model API, models, placeholder engine.
   tom_core_agentic:
-    path: ../../tom_ai/core_extension/tom_core_agentic
+    path: ../../core_extension/tom_core_agentic
 
   # Generic TomSpecs Specification Object Model runtime: the path-keyed in-memory
   # document, the meta-model ("reflection") classes, and the document validator.
   # The editor's `spec_document.dart` / `spec_model.dart` are thin re-export
   # shims onto this package (step 3 of the multi-platform spec-model plan).
   tom_som_dart_runtime:
-    path: ../../tom_ai/ai_build/tom_som_dart_runtime
+    path: ../../ai_build/tom_som_dart_runtime
 
   # TomSpecs scripting/engine plane (`llm_and_d4rt_tools.md` §3, plan step 18).
   # Linked **in-process** so the agent can run sandboxed D4rt scripts that edit
@@ -116,7 +116,7 @@ dependencies:
   #   server-only, `llm_and_d4rt_tools.md` §2), so the memory surface stays out
   #   of the Flutter compile.
   tom_spec_engine:
-    path: ../../tom_ai/ai_build/tom_spec_engine
+    path: ../../ai_build/tom_spec_engine
 
   # Agent SDK MCP surface: McpSdkServerConfig / SdkMcpTool / CallToolResult used
   # to expose the `tom_specs_editor_specification.md` §8 navigation & mutation

@@ -25,7 +25,7 @@ An app ships one shared SDK summary and one package summary per scope:
 
 ## Build Time: tom_dart_editor_bundler
 
-Both summaries are built by `tom_forge/tom_dart_editor_bundler` from the
+Both summaries are built by `tom_ai/forge_modules/tom_dart_editor_bundler` from the
 `dart-editor-bundler:` block of the consuming app's `buildkit.yaml`. It also
 writes `lib/generated/summary_scopes.g.dart`, which registers every scope
 before the app's first frame (`await SummaryScopes.initialize()`).

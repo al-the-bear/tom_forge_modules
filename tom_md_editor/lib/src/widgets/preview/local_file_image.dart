@@ -2,7 +2,7 @@
 /// the platforms that have files: Flutter's own file image providers read
 /// the local file, so this is the one place the preview reaches `dart:io` —
 /// a platform service, behind a conditional import
-/// (`tom_forge/_agent_guidelines/platform_architecture.md` §2.6).
+/// (`tom_ai/forge_modules/_agent_guidelines/platform_architecture.md` §2.6).
 ///
 ///
 /// `flutter_svg` picks its own `File` type with

@@ -71,7 +71,7 @@ never `tom_forge_shell` (`tom_forge_app/test/platform_layering_test.dart`
 PL-8); test support only as dev_dependencies. The Markdown editor brings its preview's webview
 (`flutter_inappwebview`), Mermaid (`tom_mermaid_view`) and math
 (`flutter_math_fork`). Layer 3 of
-`tom_forge/_agent_guidelines/platform_architecture.md`.
+`tom_ai/forge_modules/_agent_guidelines/platform_architecture.md`.
 
 ## License
 

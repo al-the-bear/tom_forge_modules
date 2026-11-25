@@ -9,7 +9,7 @@ description: >-
   depends on it. License: BSD-3-Clause.
 publish_to: none
 version: 0.1.0
-repository: https://github.com/al-the-bear/tom_forge
+repository: https://github.com/al-the-bear/tom_forge_modules
 
 environment:
   sdk: ^3.11.0
@@ -35,13 +35,13 @@ dependencies:
     path: ../tom_forge_ui_testing
   # The office editor's own test doubles (package:tom_office_editor/testing.dart).
   tom_office_editor:
-    path: ../../tom_ai/modules/tom_office_editor
+    path: ../../modules/tom_office_editor
   tom_office_protocol:
-    path: ../../tom_ai/modules/tom_office_protocol
+    path: ../../modules/tom_office_protocol
   tom_file_session:
-    path: ../../tom_ai/modules/tom_file_session
+    path: ../../modules/tom_file_session
   tom_file_system:
-    path: ../../tom_ai/basics/tom_file_system
+    path: ../../basics/tom_file_system
 
 dev_dependencies:
   flutter_lints: ^6.0.0

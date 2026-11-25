@@ -61,7 +61,7 @@ checks; the suites make the kind's editors with `tom_forge_ui_testing`'s
 `tom_editors_shared` —
 never `tom_forge_shell` (`tom_forge_app/test/platform_layering_test.dart`
 PL-8); test support only as dev_dependencies. It brings no analyzer, webview, Mermaid or math renderer. Layer 3 of
-`tom_forge/_agent_guidelines/platform_architecture.md`.
+`tom_ai/forge_modules/_agent_guidelines/platform_architecture.md`.
 
 ## License
 

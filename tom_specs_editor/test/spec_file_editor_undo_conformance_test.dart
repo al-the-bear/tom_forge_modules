@@ -1,7 +1,7 @@
 /// The TomSpecs document editor under Forge's undo conformance harness
 /// (`package:tom_forge_ui_testing/tom_forge_ui_testing.dart`): every document
 /// editor runs the same six checks
-/// (`tom_forge/_agent_guidelines/editor_component_contract.md` §2). The
+/// (`tom_ai/forge_modules/_agent_guidelines/editor_component_contract.md` §2). The
 /// subject types into a content field, the way an input method does.
 library;
 

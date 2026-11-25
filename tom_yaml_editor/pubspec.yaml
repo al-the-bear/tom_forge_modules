@@ -13,7 +13,7 @@ environment:
 
 dependencies:
   tom_undo:
-    path: ../../tom_ai/basics/tom_undo
+    path: ../../basics/tom_undo
   flutter:
     sdk: flutter
 
@@ -22,11 +22,11 @@ dependencies:
     path: ../tom_editors_shared
   # The shared YAML tokenizer YamlSyntaxHighlighter styles.
   tom_text_highlight:
-    path: ../../tom_ai/modules/tom_text_highlight
+    path: ../../modules/tom_text_highlight
   # The source view of the text mode and the subtree inspector
   # (TomTextSource) with its markers (TomTextMarker) and line edits.
   tom_file_editors:
-    path: ../../tom_ai/modules/tom_file_editors
+    path: ../../modules/tom_file_editors
   # The undo stack the controller keeps its edit operations on.
   tom_forge_core:
     path: ../tom_forge_core

@@ -6,8 +6,8 @@
 # direct path dependency on the co-developed runtime.
 dependency_overrides:
   tom_som_dart_runtime:
-    path: ../../tom_ai/ai_build/tom_som_dart_runtime
+    path: ../../ai_build/tom_som_dart_runtime
   # tom_md_editor (path) → tom_doc_specs (path) → hosted tom_doc_scanner;
   # unify with tom_md_editor's own direct path dependency on the same checkout.
   tom_doc_scanner:
-    path: ../../tom_ai/ai_build/tom_doc_scanner
+    path: ../../ai_build/tom_doc_scanner

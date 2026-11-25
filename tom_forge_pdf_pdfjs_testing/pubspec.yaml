@@ -8,7 +8,7 @@ description: >-
   License: BSD-3-Clause.
 publish_to: none
 version: 0.1.0
-repository: https://github.com/al-the-bear/tom_forge
+repository: https://github.com/al-the-bear/tom_forge_modules
 
 environment:
   sdk: ^3.11.0
@@ -31,12 +31,12 @@ dependencies:
   # The in-memory files of the subject (package:tom_pdf_editor/testing.dart)
   # and the pdf.js view's fake channel (package:tom_pdf_pdfjs/testing.dart).
   tom_pdf_editor:
-    path: ../../tom_ai/modules/tom_pdf_editor
+    path: ../../modules/tom_pdf_editor
   tom_pdf_pdfjs:
-    path: ../../tom_ai/modules/tom_pdf_pdfjs
+    path: ../../modules/tom_pdf_pdfjs
   # The bare kit's in-memory file system.
   tom_file_system:
-    path: ../../tom_ai/basics/tom_file_system
+    path: ../../basics/tom_file_system
 
 dev_dependencies:
   flutter_lints: ^6.0.0

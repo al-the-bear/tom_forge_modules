@@ -6,7 +6,7 @@ Forge's secret storage in the platform keychain (`PlatformSecretStorage`, over
 `forgePlatformSecretComponents` is it as `ForgeShellComponents`: a shell over a
 folder on disk keeps its secrets in the keychain, any other in memory.
 
-Part of Tom Forge; the layers are in `tom_forge/_agent_guidelines/platform_architecture.md`.
+Part of Tom Forge; the layers are in `tom_ai/forge_modules/_agent_guidelines/platform_architecture.md`.
 
 ## License
 

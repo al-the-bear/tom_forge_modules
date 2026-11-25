@@ -72,7 +72,7 @@ dev_dependencies:
   tom_editors_shared:
     path: ../tom_editors_shared
   tom_file_system:
-    path: ../../tom_ai/basics/tom_file_system
+    path: ../../basics/tom_file_system
   tom_dart_editor:
     path: ../tom_dart_editor
   tom_md_editor:
@@ -85,10 +85,10 @@ dev_dependencies:
     path: ../tom_forge_ui_testing
   # The workspace scratch folder the restart test's real .forge lives in.
   tom_test_support:
-    path: ../../tom_ai/basics/tom_test_support
+    path: ../../basics/tom_test_support
   # The golden harness and the network wait.
   tom_ui_testing:
-    path: ../../tom_ai/modules/tom_ui_testing
+    path: ../../modules/tom_ui_testing
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

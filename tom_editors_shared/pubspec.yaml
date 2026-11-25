@@ -14,13 +14,13 @@ dependencies:
   # The tree view, split panels, search box, controls and validation markers,
   # re-exported from the barrel.
   tom_ui_controls:
-    path: ../../tom_ai/modules/tom_ui_controls
+    path: ../../modules/tom_ui_controls
   tom_undo:
-    path: ../../tom_ai/basics/tom_undo
+    path: ../../basics/tom_undo
   # The highlighter interface (SyntaxHighlighter, HighlightSpan), re-exported
   # from the barrel for one release.
   tom_text_highlight:
-    path: ../../tom_ai/modules/tom_text_highlight
+    path: ../../modules/tom_text_highlight
   flutter:
     sdk: flutter
   tom_forge_core:

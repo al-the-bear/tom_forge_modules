@@ -1,7 +1,7 @@
 /// The website config editor under Forge's undo conformance harness
 /// (`package:tom_forge_ui_testing/tom_forge_ui_testing.dart`): every document
 /// editor runs the same six checks
-/// (`tom_forge/_agent_guidelines/editor_component_contract.md` §2), in its
+/// (`tom_ai/forge_modules/_agent_guidelines/editor_component_contract.md` §2), in its
 /// YAML source view.
 library;
 

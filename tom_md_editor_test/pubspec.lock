@@ -193,14 +193,14 @@ packages:
   flutter_inappwebview:
     dependency: transitive
     description:
-      path: "../../tom_ai/xternal/tom_flutter_inappwebview/flutter_inappwebview"
+      path: "../../xternal/tom_flutter_inappwebview/flutter_inappwebview"
       relative: true
     source: path
     version: "6.2.0-beta.3"
   flutter_inappwebview_android:
     dependency: transitive
     description:
-      path: "../../tom_ai/xternal/tom_flutter_inappwebview/flutter_inappwebview_android"
+      path: "../../xternal/tom_flutter_inappwebview/flutter_inappwebview_android"
       relative: true
     source: path
     version: "1.2.0-beta.3"
@@ -215,42 +215,42 @@ packages:
   flutter_inappwebview_ios:
     dependency: transitive
     description:
-      path: "../../tom_ai/xternal/tom_flutter_inappwebview/flutter_inappwebview_ios"
+      path: "../../xternal/tom_flutter_inappwebview/flutter_inappwebview_ios"
       relative: true
     source: path
     version: "1.2.0-beta.3"
   flutter_inappwebview_linux:
     dependency: transitive
     description:
-      path: "../../tom_ai/xternal/tom_flutter_inappwebview/flutter_inappwebview_linux"
+      path: "../../xternal/tom_flutter_inappwebview/flutter_inappwebview_linux"
       relative: true
     source: path
     version: "0.1.0-beta.1"
   flutter_inappwebview_macos:
     dependency: transitive
     description:
-      path: "../../tom_ai/xternal/tom_flutter_inappwebview/flutter_inappwebview_macos"
+      path: "../../xternal/tom_flutter_inappwebview/flutter_inappwebview_macos"
       relative: true
     source: path
     version: "1.2.0-beta.3"
   flutter_inappwebview_platform_interface:
     dependency: transitive
     description:
-      path: "../../tom_ai/xternal/tom_flutter_inappwebview/flutter_inappwebview_platform_interface"
+      path: "../../xternal/tom_flutter_inappwebview/flutter_inappwebview_platform_interface"
       relative: true
     source: path
     version: "1.4.0-beta.3"
   flutter_inappwebview_web:
     dependency: transitive
     description:
-      path: "../../tom_ai/xternal/tom_flutter_inappwebview/flutter_inappwebview_web"
+      path: "../../xternal/tom_flutter_inappwebview/flutter_inappwebview_web"
       relative: true
     source: path
     version: "1.2.0-beta.3"
   flutter_inappwebview_windows:
     dependency: transitive
     description:
-      path: "../../tom_ai/xternal/tom_flutter_inappwebview/flutter_inappwebview_windows"
+      path: "../../xternal/tom_flutter_inappwebview/flutter_inappwebview_windows"
       relative: true
     source: path
     version: "0.7.0-beta.3"
@@ -639,7 +639,7 @@ packages:
   tom_file_system:
     dependency: transitive
     description:
-      path: "../../tom_ai/basics/tom_file_system"
+      path: "../../basics/tom_file_system"
       relative: true
     source: path
     version: "0.2.1"
@@ -681,28 +681,28 @@ packages:
   tom_mermaid_view:
     dependency: transitive
     description:
-      path: "../../tom_ai/modules/tom_mermaid_view"
+      path: "../../modules/tom_mermaid_view"
       relative: true
     source: path
     version: "0.1.0"
   tom_text_highlight:
     dependency: transitive
     description:
-      path: "../../tom_ai/modules/tom_text_highlight"
+      path: "../../modules/tom_text_highlight"
       relative: true
     source: path
     version: "0.2.0"
   tom_ui_controls:
     dependency: transitive
     description:
-      path: "../../tom_ai/modules/tom_ui_controls"
+      path: "../../modules/tom_ui_controls"
       relative: true
     source: path
     version: "0.1.0"
   tom_undo:
     dependency: transitive
     description:
-      path: "../../tom_ai/basics/tom_undo"
+      path: "../../basics/tom_undo"
       relative: true
     source: path
     version: "0.3.0"

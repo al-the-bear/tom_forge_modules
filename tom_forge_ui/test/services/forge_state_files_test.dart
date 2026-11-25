@@ -1,7 +1,7 @@
 /// Forge's own state under `.forge/` is per machine and has no migrations: a
 /// state file Forge cannot read — damaged, or written by another version —
 /// counts as absent, and the workspace opens with fresh state
-/// (`tom_forge/_agent_guidelines/configuration_compatibility.md` §2).
+/// (`tom_ai/forge_modules/_agent_guidelines/configuration_compatibility.md` §2).
 library;
 
 import 'dart:async';
@@ -44,9 +44,7 @@ void main() {
 
   Future<void> saveAll() async {
     await state.saveOpenApplications({'open': <Object?>[]});
-    await state.saveEditorState(workspace.uriOf('a.md'), {
-      'line': 3,
-    });
+    await state.saveEditorState(workspace.uriOf('a.md'), {'line': 3});
     await state.saveApplicationState('tom-forge', {'groups': <Object?>[]});
     await state.saveConfig({'theme': 'dark'});
   }

@@ -1,6 +1,6 @@
-# yaml-language-server: $schema=../../../../../../.tom/json-schema/buildkit/buildkit.schema.json
+# yaml-language-server: $schema=../../../../../../../.tom/json-schema/buildkit/buildkit.schema.json
 # The Dart editor summary pair the Forge apps ship, built by
-# tom_dart_editor_bundler (tom_forge/tom_dart_editor_bundler):
+# tom_dart_editor_bundler (tom_ai/forge_modules/tom_dart_editor_bundler):
 #   - the shared SDK summary          → assets/summaries/sdk_summary.sum
 #   - the scope's grouped bundle      → assets/summaries/dart-editor/packages.sum
 #   - a stamp beside each (what wrote it: Dart SDK, analyzer data version,

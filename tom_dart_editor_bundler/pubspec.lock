@@ -588,7 +588,7 @@ packages:
   tom_build_base:
     dependency: "direct main"
     description:
-      path: "../../tom_ai/basics/tom_build_base"
+      path: "../../basics/tom_build_base"
       relative: true
     source: path
     version: "2.51.0"

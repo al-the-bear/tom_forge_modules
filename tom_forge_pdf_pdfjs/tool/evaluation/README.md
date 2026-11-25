@@ -16,7 +16,7 @@ the harness, run in a profile build with `flutter drive --profile`.
 On mbp, after `samples/fetch_samples.py` has fetched the sample files:
 
 ```bash
-cd tom_forge/tom_forge_pdf_pdfjs/tool/evaluation
+cd tom_ai/forge_modules/tom_forge_pdf_pdfjs/tool/evaluation
 python3 run_evaluation.py              # crash probes, then three runs
 python3 run_evaluation.py --runs 1     # one run
 python3 run_evaluation.py --skip-probes

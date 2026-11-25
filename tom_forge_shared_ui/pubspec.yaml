@@ -4,7 +4,7 @@ description: >-
   License: BSD-3-Clause.
 publish_to: none
 version: 0.2.0
-repository: https://github.com/al-the-bear/tom_forge
+repository: https://github.com/al-the-bear/tom_forge_modules
 
 environment:
   sdk: ^3.10.8
@@ -22,11 +22,11 @@ dependencies:
     path: ../tom_forge_kit
   # Readable colours (WCAG AA) the theme tokens are checked against.
   tom_ui_support:
-    path: ../../tom_ai/modules/tom_ui_support
+    path: ../../modules/tom_ui_support
   # ForgeSessionFileFrame, the state of a session file above its editor
   # (re-exported; one implementation with tom_file_editors).
   tom_file_session_ui:
-    path: ../../tom_ai/modules/tom_file_session_ui
+    path: ../../modules/tom_file_session_ui
 
 dev_dependencies:
   flutter_test:
@@ -37,5 +37,5 @@ dev_dependencies:
     path: ../tom_editors_shared
   # The in-memory file system of the bare DefaultKitApi the tests run on.
   tom_file_system:
-    path: ../../tom_ai/basics/tom_file_system
+    path: ../../basics/tom_file_system
   flutter_lints: ^6.0.0

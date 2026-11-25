@@ -14,13 +14,13 @@ dart-editor-bundler:
       implicit-imports: [dart:async, dart:collection, dart:math]
     - name: d4rt-flutter
       packages:
-        - ../../tom_ai/d4rt/tom_d4rt_flutter
+        - ../../d4rt/tom_d4rt_flutter
       implicit-imports: [package:flutter/material.dart]
       allowed-package-prefixes: [package:flutter/, package:vector_math/]
       include-all-package-completions: true
     - name: d4rt-document
       packages:
-        - ../../tom_ai/ai_build/tom_specs_model
+        - ../../ai_build/tom_specs_model
       implicit-imports: [package:tom_specs_model/tom_specs_model.dart]
 ''';
 
@@ -37,25 +37,33 @@ void main() {
     });
 
     test('reads all three bundles in order', () {
-      expect(config.bundles.map((b) => b.name),
-          ['dart-plain', 'd4rt-flutter', 'd4rt-document']);
+      expect(config.bundles.map((b) => b.name), [
+        'dart-plain',
+        'd4rt-flutter',
+        'd4rt-document',
+      ]);
     });
 
     test('parses the sdk-only bundle', () {
       final plain = config.bundleByName('dart-plain')!;
       expect(plain.sdkOnly, isTrue);
       expect(plain.packages, isEmpty);
-      expect(plain.implicitImports,
-          ['dart:async', 'dart:collection', 'dart:math']);
+      expect(plain.implicitImports, [
+        'dart:async',
+        'dart:collection',
+        'dart:math',
+      ]);
     });
 
     test('parses a package-backed bundle with all optional fields', () {
       final flutter = config.bundleByName('d4rt-flutter')!;
       expect(flutter.sdkOnly, isFalse);
-      expect(flutter.packages, ['../../tom_ai/d4rt/tom_d4rt_flutter']);
+      expect(flutter.packages, ['../../d4rt/tom_d4rt_flutter']);
       expect(flutter.implicitImports, ['package:flutter/material.dart']);
-      expect(flutter.allowedPackagePrefixes,
-          ['package:flutter/', 'package:vector_math/']);
+      expect(flutter.allowedPackagePrefixes, [
+        'package:flutter/',
+        'package:vector_math/',
+      ]);
       expect(flutter.includeAllPackageCompletions, isTrue);
     });
   });
@@ -99,8 +107,13 @@ dart-editor-bundler:
     - name: dup
       packages: [pkg_a]
 '''),
-        throwsA(isA<BundlerConfigException>()
-            .having((e) => e.message, 'message', contains('dup'))),
+        throwsA(
+          isA<BundlerConfigException>().having(
+            (e) => e.message,
+            'message',
+            contains('dup'),
+          ),
+        ),
       );
     });
 
@@ -111,8 +124,13 @@ dart-editor-bundler:
   bundles:
     - name: broken
 '''),
-        throwsA(isA<BundlerConfigException>()
-            .having((e) => e.message, 'message', contains('broken'))),
+        throwsA(
+          isA<BundlerConfigException>().having(
+            (e) => e.message,
+            'message',
+            contains('broken'),
+          ),
+        ),
       );
     });
 

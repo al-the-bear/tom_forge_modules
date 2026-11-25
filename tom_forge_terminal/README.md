@@ -27,7 +27,7 @@ from it (`forgeContributedTerminalTab`, a tab with `terminalSections`) and
 shows one section per open terminal there; without the module it shows no
 terminal tab.
 
-Part of Tom Forge; the layers are in `tom_forge/_agent_guidelines/platform_architecture.md`.
+Part of Tom Forge; the layers are in `tom_ai/forge_modules/_agent_guidelines/platform_architecture.md`.
 
 ## License
 

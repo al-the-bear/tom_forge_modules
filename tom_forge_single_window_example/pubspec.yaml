@@ -36,7 +36,7 @@ dependencies:
     path: ../tom_editors_shared
   # The folder of the file on disk (TomLocalFileSystem).
   tom_file_system:
-    path: ../../tom_ai/basics/tom_file_system
+    path: ../../basics/tom_file_system
 
 dev_dependencies:
   flutter_test:

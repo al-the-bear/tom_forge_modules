@@ -16,7 +16,7 @@ compiling, with the shell-typed helpers it had:
 - `registerMdEditor` / `mdEditors` and their Dart and YAML twins on the shell's
   module (new code: `registerEditor` and `editors.whereType<...>()`).
 
-Part of Tom Forge; the layers are in `tom_forge/_agent_guidelines/platform_architecture.md`.
+Part of Tom Forge; the layers are in `tom_ai/forge_modules/_agent_guidelines/platform_architecture.md`.
 
 ## License
 

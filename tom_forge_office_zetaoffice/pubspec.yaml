@@ -8,7 +8,7 @@ description: >-
   host over the kit's files and notices. License: BSD-3-Clause.
 publish_to: none
 version: 0.1.0
-repository: https://github.com/al-the-bear/tom_forge
+repository: https://github.com/al-the-bear/tom_forge_modules
 
 environment:
   sdk: ^3.11.0
@@ -20,15 +20,15 @@ dependencies:
   # The editor this package adapts: the ZetaOffice route (the webview, the
   # cache of ZetaOffice's files, the local server).
   tom_office_zetaoffice:
-    path: ../../tom_ai/modules/tom_office_zetaoffice
+    path: ../../modules/tom_office_zetaoffice
   # The host interface the ZetaOffice route runs on (TomOfficeEditorHost),
   # shared with the native route; tom_office_zetaoffice depends on it too.
   tom_office_editor:
-    path: ../../tom_ai/modules/tom_office_editor
+    path: ../../modules/tom_office_editor
   # The binary save rules the host hands the editor (TomBinaryFiles,
   # TomBinaryFileAccess).
   tom_file_session:
-    path: ../../tom_ai/modules/tom_file_session
+    path: ../../modules/tom_file_session
   # The Forge kit: the editor and module contracts, ForgeKitApi, the editor
   # host and picker. Never the shell (R9).
   tom_forge_kit:

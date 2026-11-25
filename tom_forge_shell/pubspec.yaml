@@ -4,7 +4,7 @@ description: >-
   License: BSD-3-Clause.
 publish_to: none
 version: 0.1.0
-repository: https://github.com/al-the-bear/tom_forge
+repository: https://github.com/al-the-bear/tom_forge_modules
 
 environment:
   sdk: ^3.10.8
@@ -25,7 +25,7 @@ dependencies:
   tom_editors_shared:
     path: ../tom_editors_shared
   tom_file_system:
-    path: ../../tom_ai/basics/tom_file_system
+    path: ../../basics/tom_file_system
   # The editor a file opens in when no editor type takes it
   # (ForgePlainTextEditor, an adapter of the kit, layer 3).
   tom_forge_plain_text_editor:

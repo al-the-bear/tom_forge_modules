@@ -13,14 +13,14 @@ dependencies:
   flutter:
     sdk: flutter
   tom_file_session:
-    path: ../../../../tom_ai/modules/tom_file_session
+    path: ../../../../modules/tom_file_session
   tom_pdf_editor:
-    path: ../../../../tom_ai/modules/tom_pdf_editor
+    path: ../../../../modules/tom_pdf_editor
   # The two routes it compares: the PDFium engine and the pdf.js view.
   tom_pdf_pdfium:
-    path: ../../../../tom_ai/modules/tom_pdf_pdfium
+    path: ../../../../modules/tom_pdf_pdfium
   tom_pdf_pdfjs:
-    path: ../../../../tom_ai/modules/tom_pdf_pdfjs
+    path: ../../../../modules/tom_pdf_pdfjs
 
 dev_dependencies:
   flutter_lints: ^6.0.0

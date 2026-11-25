@@ -13,14 +13,14 @@ dependencies:
   flutter:
     sdk: flutter
   tom_file_session:
-    path: ../../../../tom_ai/modules/tom_file_session
+    path: ../../../../modules/tom_file_session
   # The two routes compared: the native route and the ZetaOffice route.
   tom_office_editor:
-    path: ../../../../tom_ai/modules/tom_office_editor
+    path: ../../../../modules/tom_office_editor
   tom_office_zetaoffice:
-    path: ../../../../tom_ai/modules/tom_office_zetaoffice
+    path: ../../../../modules/tom_office_zetaoffice
   tom_office_protocol:
-    path: ../../../../tom_ai/modules/tom_office_protocol
+    path: ../../../../modules/tom_office_protocol
 
 dev_dependencies:
   flutter_lints: ^6.0.0

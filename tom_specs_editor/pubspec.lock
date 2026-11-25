@@ -433,14 +433,14 @@ packages:
   flutter_inappwebview:
     dependency: transitive
     description:
-      path: "../../tom_ai/xternal/tom_flutter_inappwebview/flutter_inappwebview"
+      path: "../../xternal/tom_flutter_inappwebview/flutter_inappwebview"
       relative: true
     source: path
     version: "6.2.0-beta.3"
   flutter_inappwebview_android:
     dependency: transitive
     description:
-      path: "../../tom_ai/xternal/tom_flutter_inappwebview/flutter_inappwebview_android"
+      path: "../../xternal/tom_flutter_inappwebview/flutter_inappwebview_android"
       relative: true
     source: path
     version: "1.2.0-beta.3"
@@ -455,42 +455,42 @@ packages:
   flutter_inappwebview_ios:
     dependency: transitive
     description:
-      path: "../../tom_ai/xternal/tom_flutter_inappwebview/flutter_inappwebview_ios"
+      path: "../../xternal/tom_flutter_inappwebview/flutter_inappwebview_ios"
       relative: true
     source: path
     version: "1.2.0-beta.3"
   flutter_inappwebview_linux:
     dependency: transitive
     description:
-      path: "../../tom_ai/xternal/tom_flutter_inappwebview/flutter_inappwebview_linux"
+      path: "../../xternal/tom_flutter_inappwebview/flutter_inappwebview_linux"
       relative: true
     source: path
     version: "0.1.0-beta.1"
   flutter_inappwebview_macos:
     dependency: transitive
     description:
-      path: "../../tom_ai/xternal/tom_flutter_inappwebview/flutter_inappwebview_macos"
+      path: "../../xternal/tom_flutter_inappwebview/flutter_inappwebview_macos"
       relative: true
     source: path
     version: "1.2.0-beta.3"
   flutter_inappwebview_platform_interface:
     dependency: transitive
     description:
-      path: "../../tom_ai/xternal/tom_flutter_inappwebview/flutter_inappwebview_platform_interface"
+      path: "../../xternal/tom_flutter_inappwebview/flutter_inappwebview_platform_interface"
       relative: true
     source: path
     version: "1.4.0-beta.3"
   flutter_inappwebview_web:
     dependency: transitive
     description:
-      path: "../../tom_ai/xternal/tom_flutter_inappwebview/flutter_inappwebview_web"
+      path: "../../xternal/tom_flutter_inappwebview/flutter_inappwebview_web"
       relative: true
     source: path
     version: "1.2.0-beta.3"
   flutter_inappwebview_windows:
     dependency: transitive
     description:
-      path: "../../tom_ai/xternal/tom_flutter_inappwebview/flutter_inappwebview_windows"
+      path: "../../xternal/tom_flutter_inappwebview/flutter_inappwebview_windows"
       relative: true
     source: path
     version: "0.7.0-beta.3"
@@ -1296,7 +1296,7 @@ packages:
   tom_agentic_ui:
     dependency: transitive
     description:
-      path: "../../tom_ai/modules/tom_agentic_ui"
+      path: "../../modules/tom_agentic_ui"
       relative: true
     source: path
     version: "0.1.0"
@@ -1319,49 +1319,49 @@ packages:
   tom_brain_memory:
     dependency: transitive
     description:
-      path: "../../tom_assistant/tom_brain_memory"
+      path: "../../../tom_assistant/tom_brain_memory"
       relative: true
     source: path
     version: "0.0.1"
   tom_brain_shared:
     dependency: transitive
     description:
-      path: "../../tom_assistant/tom_brain_shared"
+      path: "../../../tom_assistant/tom_brain_shared"
       relative: true
     source: path
     version: "0.5.0"
   tom_brain_substrate:
     dependency: transitive
     description:
-      path: "../../tom_assistant/tom_brain_substrate"
+      path: "../../../tom_assistant/tom_brain_substrate"
       relative: true
     source: path
     version: "0.0.1"
   tom_core_agentic:
     dependency: "direct main"
     description:
-      path: "../../tom_ai/core_extension/tom_core_agentic"
+      path: "../../core_extension/tom_core_agentic"
       relative: true
     source: path
     version: "3.0.2"
   tom_core_kernel:
     dependency: transitive
     description:
-      path: "../../tom_ai/core/tom_core_kernel"
+      path: "../../core/tom_core_kernel"
       relative: true
     source: path
     version: "1.2.0"
   tom_core_message_bus:
     dependency: transitive
     description:
-      path: "../../tom_ai/core/tom_core_message_bus"
+      path: "../../core/tom_core_message_bus"
       relative: true
     source: path
     version: "0.1.1"
   tom_core_server:
     dependency: transitive
     description:
-      path: "../../tom_ai/core/tom_core_server"
+      path: "../../core/tom_core_server"
       relative: true
     source: path
     version: "1.5.1"
@@ -1414,7 +1414,7 @@ packages:
   tom_doc_scanner:
     dependency: "direct overridden"
     description:
-      path: "../../tom_ai/ai_build/tom_doc_scanner"
+      path: "../../ai_build/tom_doc_scanner"
       relative: true
     source: path
     version: "0.3.0"
@@ -1436,28 +1436,28 @@ packages:
   tom_file_editors:
     dependency: transitive
     description:
-      path: "../../tom_ai/modules/tom_file_editors"
+      path: "../../modules/tom_file_editors"
       relative: true
     source: path
     version: "0.2.0"
   tom_file_session:
     dependency: transitive
     description:
-      path: "../../tom_ai/modules/tom_file_session"
+      path: "../../modules/tom_file_session"
       relative: true
     source: path
     version: "1.10.0"
   tom_file_session_ui:
     dependency: transitive
     description:
-      path: "../../tom_ai/modules/tom_file_session_ui"
+      path: "../../modules/tom_file_session_ui"
       relative: true
     source: path
     version: "0.1.1"
   tom_file_system:
     dependency: "direct main"
     description:
-      path: "../../tom_ai/basics/tom_file_system"
+      path: "../../basics/tom_file_system"
       relative: true
     source: path
     version: "0.2.1"
@@ -1555,7 +1555,7 @@ packages:
   tom_llm:
     dependency: transitive
     description:
-      path: "../../tom_ai/basics/tom_llm"
+      path: "../../basics/tom_llm"
       relative: true
     source: path
     version: "0.1.2"
@@ -1597,7 +1597,7 @@ packages:
   tom_mermaid_view:
     dependency: transitive
     description:
-      path: "../../tom_ai/modules/tom_mermaid_view"
+      path: "../../modules/tom_mermaid_view"
       relative: true
     source: path
     version: "0.1.0"
@@ -1612,21 +1612,21 @@ packages:
   tom_som_dart_runtime:
     dependency: "direct main"
     description:
-      path: "../../tom_ai/ai_build/tom_som_dart_runtime"
+      path: "../../ai_build/tom_som_dart_runtime"
       relative: true
     source: path
     version: "1.13.0"
   tom_som_dart_v0:
     dependency: transitive
     description:
-      path: "../../tom_ai/ai_build/tom_som_dart_v0"
+      path: "../../ai_build/tom_som_dart_v0"
       relative: true
     source: path
     version: "1.13.0"
   tom_spec_engine:
     dependency: "direct main"
     description:
-      path: "../../tom_ai/ai_build/tom_spec_engine"
+      path: "../../ai_build/tom_spec_engine"
       relative: true
     source: path
     version: "0.0.1"
@@ -1640,7 +1640,7 @@ packages:
   tom_text_highlight:
     dependency: transitive
     description:
-      path: "../../tom_ai/modules/tom_text_highlight"
+      path: "../../modules/tom_text_highlight"
       relative: true
     source: path
     version: "0.2.0"
@@ -1655,21 +1655,21 @@ packages:
   tom_ui_controls:
     dependency: transitive
     description:
-      path: "../../tom_ai/modules/tom_ui_controls"
+      path: "../../modules/tom_ui_controls"
       relative: true
     source: path
     version: "0.1.0"
   tom_ui_support:
     dependency: transitive
     description:
-      path: "../../tom_ai/modules/tom_ui_support"
+      path: "../../modules/tom_ui_support"
       relative: true
     source: path
     version: "0.1.0"
   tom_undo:
     dependency: transitive
     description:
-      path: "../../tom_ai/basics/tom_undo"
+      path: "../../basics/tom_undo"
       relative: true
     source: path
     version: "0.3.0"

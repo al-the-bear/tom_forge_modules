@@ -9,7 +9,7 @@ description: >-
   License: BSD-3-Clause.
 publish_to: none
 version: 0.1.0
-repository: https://github.com/al-the-bear/tom_forge
+repository: https://github.com/al-the-bear/tom_forge_modules
 
 environment:
   sdk: ^3.11.0
@@ -21,10 +21,10 @@ dependencies:
   # The editor this package adapts: the native route (LibreOfficeKit helper,
   # detection, the ribbon and dialogs). Never the ZetaOffice route (R6).
   tom_office_editor:
-    path: ../../tom_ai/modules/tom_office_editor
+    path: ../../modules/tom_office_editor
   # The binary save rules the host hands the editor (TomBinaryFiles).
   tom_file_session:
-    path: ../../tom_ai/modules/tom_file_session
+    path: ../../modules/tom_file_session
   # The Forge kit: the editor and module contracts, ForgeKitApi, the editor
   # host and picker, the preferences, the host ports (file pickers) and the
   # External Tools descriptor and extra. Never the shell (R9).

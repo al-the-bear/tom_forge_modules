@@ -12,4 +12,4 @@
 # built on. The override picks the path source, which is the one meant.
 dependency_overrides:
   tom_build_base:
-    path: ../../tom_ai/basics/tom_build_base
+    path: ../../basics/tom_build_base

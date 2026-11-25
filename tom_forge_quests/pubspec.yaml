@@ -17,7 +17,7 @@ dependencies:
   # The quests are the directories under <workspace>/_ai/quests/, listed
   # through the shell's file system.
   tom_file_system:
-    path: ../../tom_ai/basics/tom_file_system
+    path: ../../basics/tom_file_system
   # The Forge kit: views, actions, dialogs, notifications, the file system.
   tom_forge_kit:
     path: ../tom_forge_kit
@@ -37,7 +37,7 @@ dev_dependencies:
   # Restart tests run over a real .forge directory in the workspace ztmp.
   shared_preferences: ^2.2.0
   tom_test_support:
-    path: ../../tom_ai/basics/tom_test_support
+    path: ../../basics/tom_test_support
   # The desktop components flutter_test_config.dart registers for every
   # shell the suites make: terminal, the Markdown, Dart and YAML editor
   # types, keychain, desktop host.

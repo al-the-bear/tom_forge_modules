@@ -320,11 +320,11 @@ Verification results (latest strict pass):
 Run on every integration milestone:
 
 ```bash
-cd tom_forge/tom_forge_ui
+cd tom_ai/forge_modules/tom_forge_ui
 dart analyze
 flutter test
 
-cd ../tom_forge_ui_test
+cd ../../../tom_forge/tom_forge_ui_test
 dart analyze
 flutter test
 ```

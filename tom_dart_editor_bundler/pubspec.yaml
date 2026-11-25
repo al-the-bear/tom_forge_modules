@@ -8,8 +8,8 @@ version: 0.1.1
 # Internal build tooling consumed by path within the workspace (like
 # tom_specs_clitool); never published to pub.dev.
 publish_to: none
-repository: https://github.com/al-the-bear/tom_forge
-homepage: https://github.com/al-the-bear/tom_forge/tree/main/tom_dart_editor_bundler
+repository: https://github.com/al-the-bear/tom_forge_modules
+homepage: https://github.com/al-the-bear/tom_forge_modules/tree/main/tom_dart_editor_bundler
 topics:
   - codegen
   - editor
@@ -22,7 +22,7 @@ dependencies:
   # CLI infrastructure (ToolRunner / ToolDefinition / arg + version + help
   # scaffolding). Base-first: never reimplement CLI plumbing locally.
   tom_build_base:
-    path: ../../tom_ai/basics/tom_build_base
+    path: ../../basics/tom_build_base
   # Base-first owner of the grouped package-bundle infrastructure (the
   # load-bearing package-resolver order). Consumed as the PUBLISHED package
   # (plan item 3 shipped GroupedPackageBundleBuilder in 0.5.0) — a version

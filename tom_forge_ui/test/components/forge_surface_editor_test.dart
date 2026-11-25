@@ -1,5 +1,5 @@
 /// A surface: a middle-panel component that is not bound to a document
-/// (`tom_forge/_agent_guidelines/editor_component_contract.md` §3).
+/// (`tom_ai/forge_modules/_agent_guidelines/editor_component_contract.md` §3).
 library;
 
 import 'package:flutter/foundation.dart';
@@ -48,7 +48,9 @@ void main() {
     expect(surface.isDirty.value, isFalse);
     expect(surface.getContent(), isNull);
     expect(surface.isEditor, isTrue, reason: 'it goes in a middle split');
-    expect(surface.sizeHints.preferredSize, const ForgeComponentSizeHints()
-        .preferredSize);
+    expect(
+      surface.sizeHints.preferredSize,
+      const ForgeComponentSizeHints().preferredSize,
+    );
   });
 }

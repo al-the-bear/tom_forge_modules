@@ -5,4 +5,4 @@
 # generated overrides file.
 dependency_overrides:
   tom_doc_scanner:
-    path: ../../tom_ai/ai_build/tom_doc_scanner
+    path: ../../ai_build/tom_doc_scanner

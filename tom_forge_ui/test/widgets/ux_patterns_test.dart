@@ -1,5 +1,5 @@
 /// The integrated UX patterns that no other suite pins
-/// (`tom_forge/_agent_guidelines/integrated_ux_patterns.md`).
+/// (`tom_ai/forge_modules/_agent_guidelines/integrated_ux_patterns.md`).
 library;
 
 import 'package:flutter/widgets.dart';

@@ -82,7 +82,7 @@ lightweight drivers — enabling "many small editors without much memory".
 
 ## 3. The bundler tool — `tom_dart_editor_bundler`
 
-A standalone `tom_build_base`-based CLI at `tom_forge/tom_dart_editor_bundler`,
+A standalone `tom_build_base`-based CLI at `tom_ai/forge_modules/tom_dart_editor_bundler`,
 beside this package. It reads a per-app config, emits one `.sum` set per scope,
 and generates a scope-init helper. The tool name is `dart-editor-bundler`
 (`ToolMode.singleCommand`); its entrypoint `bin/dart_editor_bundler.dart` runs a
@@ -111,13 +111,13 @@ dart-editor-bundler:
 
     - name: d4rt-flutter                           # scoped to the bridged API only
       packages:
-        - ../../tom_ai/d4rt/tom_d4rt_flutter        # NOT the whole app closure
+        - ../../d4rt/tom_d4rt_flutter        # NOT the whole app closure
       implicit-imports: [package:flutter/material.dart]
       allowed-package-prefixes: [package:flutter/, package:vector_math/]
 
     - name: d4rt-document
       packages:
-        - ../../tom_ai/ai_build/tom_specs_model
+        - ../../ai_build/tom_specs_model
       implicit-imports: [package:tom_specs_model/tom_specs_model.dart]
 ```
 
@@ -325,19 +325,19 @@ committed `.gitkeep` keeps each asset dir present for `pubspec.yaml`.
 
 ## 6. As-built layout, first consumer, and testing
 
-**Bundler project** (`tom_forge/tom_dart_editor_bundler`):
+**Bundler project** (`tom_ai/forge_modules/tom_dart_editor_bundler`):
 `bin/dart_editor_bundler.dart` (the `ToolRunner` entrypoint) and `lib/src/`
 (`bundler_config.dart`, `bundle_generator.dart`, `helper_writer.dart`,
 `bundler_tool.dart`, `bundler_executor.dart`), depending on `tom_build_base`
 (CLI scaffold) and `tom_analyzer_shared: ^0.11.0` (summary generation incl.
 `GroupedPackageBundleBuilder`, `SummaryStamp`).
 
-**The Forge apps' pair** — `tom_forge/tom_dart_editor_test` declares one scope,
+**The Forge apps' pair** — `tom_ai/forge_modules/tom_dart_editor_test` declares one scope,
 `dart-editor` (its whole closure: Flutter with `dart:ui`, `path`, `dcli`; 93
 packages), whose summaries are committed and copied to `tom_forge_app` and
 `tom_yaml_editor_test` ([`package_summary_generation.md`](package_summary_generation.md)).
 
-**Scoped code fields** — `tom_forge/tom_specs_editor` wires two scopes:
+**Scoped code fields** — `tom_ai/forge_modules/tom_specs_editor` wires two scopes:
 `dart-plain` (sdk-only) and `d4rt-flutter` (scoped to `tom_d4rt_flutter`; its
 `d4rt-flutter/packages.sum` covers 115 packages / 4879 libraries). The third
 example scope `d4rt-document` is illustrative and not wired — there is no settled

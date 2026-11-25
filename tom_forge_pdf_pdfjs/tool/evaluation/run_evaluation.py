@@ -38,7 +38,7 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-WORKSPACE = HERE.parents[3]  # tool/evaluation -> tom_forge_pdf_pdfjs -> tom_forge -> workspace
+WORKSPACE = HERE.parents[4]  # tool/evaluation -> tom_forge_pdf_pdfjs -> forge_modules -> tom_ai -> workspace
 IDEA = WORKSPACE / "_ai/quests/tom_forge/ideas/office_and_pdf_integration_prototype"
 SAMPLES = IDEA / "samples/files"
 RESULTS = IDEA / "evaluation/results"
@@ -109,7 +109,7 @@ def flutter_version():
 
 def forge_commit():
     r = subprocess.run(
-        ["git", "-C", str(WORKSPACE / "tom_forge"), "rev-parse", "--short", "HEAD"],
+        ["git", "-C", str(WORKSPACE / "tom_ai/forge_modules"), "rev-parse", "--short", "HEAD"],
         capture_output=True, text=True,
     )
     return r.stdout.strip() or "?"

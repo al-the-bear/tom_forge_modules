@@ -12,7 +12,7 @@ The Dart editor app provides code analysis (diagnostics, completions) for user-w
 (the `dart-editor` scope over the app's whole resolved closure):
 
 ```bash
-cd tom_forge/tom_dart_editor_test
+cd tom_ai/forge_modules/tom_dart_editor_test
 flutter pub get
 dart run ../tom_dart_editor_bundler/bin/dart_editor_bundler.dart --config buildkit.yaml
 ```
@@ -52,7 +52,7 @@ The analyzer resolves `package:path/path.dart` through the `PackageSummaryUriRes
 
 To support additional `package:xxx` imports:
 
-1. Add the package to `tom_forge/tom_dart_editor_test/pubspec.yaml` dependencies
+1. Add the package to `tom_ai/forge_modules/tom_dart_editor_test/pubspec.yaml` dependencies
 2. Run `flutter pub get`
 3. Rebuild the pair with the bundler (above) and copy `assets/summaries/` to `tom_forge_app` and `tom_yaml_editor_test`
 4. The bundler automatically includes ALL transitive dependencies
@@ -61,12 +61,12 @@ To support additional `package:xxx` imports:
 
 | File | Role |
 |------|------|
-| `tom_forge/tom_dart_editor/lib/src/analyzer_with_packages.dart` | Consumer-side driver factory, `PackageSummaryUriResolver` |
-| `tom_forge/tom_dart_editor_test/buildkit.yaml` | The `dart-editor-bundler` block the pair is built from |
-| `tom_forge/tom_dart_editor_test/assets/summaries/dart-editor/packages.sum` | Pre-built package summary (~45MB, 93 packages), with its stamp |
-| `tom_forge/tom_dart_editor_test/assets/summaries/sdk_summary.sum` | Pre-built SDK summary with `dart:ui` (~4MB), with its stamp |
-| `tom_forge/tom_dart_editor_test/tool/diagnose_packages_sum.dart` | Diagnostic tool to inspect bundle contents |
-| `tom_forge/tom_dart_editor_test/tool/check_sdk_sum.dart` | Diagnostic tool to inspect SDK bundle for comparison |
+| `tom_ai/forge_modules/tom_dart_editor/lib/src/analyzer_with_packages.dart` | Consumer-side driver factory, `PackageSummaryUriResolver` |
+| `tom_ai/forge_modules/tom_dart_editor_test/buildkit.yaml` | The `dart-editor-bundler` block the pair is built from |
+| `tom_ai/forge_modules/tom_dart_editor_test/assets/summaries/dart-editor/packages.sum` | Pre-built package summary (~45MB, 93 packages), with its stamp |
+| `tom_ai/forge_modules/tom_dart_editor_test/assets/summaries/sdk_summary.sum` | Pre-built SDK summary with `dart:ui` (~4MB), with its stamp |
+| `tom_ai/forge_modules/tom_dart_editor_test/tool/diagnose_packages_sum.dart` | Diagnostic tool to inspect bundle contents |
+| `tom_ai/forge_modules/tom_dart_editor_test/tool/check_sdk_sum.dart` | Diagnostic tool to inspect SDK bundle for comparison |
 
 ## Critical Build Requirements
 

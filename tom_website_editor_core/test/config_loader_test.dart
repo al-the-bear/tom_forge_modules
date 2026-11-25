@@ -7,7 +7,7 @@ import 'package:test/test.dart';
 /// The canonical, hand-verified sample committed in the quest folder.
 /// Resolved relative to the package root (the cwd `dart test` runs from).
 const _canonicalSamplePath =
-    '../../_ai/quests/tom_forge/tom.website-editor.sample.yaml';
+    '../../../_ai/quests/tom_forge/tom.website-editor.sample.yaml';
 
 void main() {
   group('loadWebsiteEditorConfig — valid configs', () {
@@ -67,7 +67,8 @@ websites:
       expect(result.config!.defaults.shell, ['bash', '-lc']);
     });
 
-    test('TWEC-CFG-12: the canonical sample editableFields match the code default',
+    test(
+        'TWEC-CFG-12: the canonical sample editableFields match the code default',
         () {
       // Single source of truth: the sample's curated content fields must equal
       // the package default `kDefaultEditableFields`, which the spec §2 sample
@@ -157,7 +158,8 @@ websites:
 ''', 'websytes');
     });
 
-    test('TWEC-CFG-10: invalid YAML surfaces as an error, not an exception', () {
+    test('TWEC-CFG-10: invalid YAML surfaces as an error, not an exception',
+        () {
       final result = loadWebsiteEditorConfig('version: 1\n  bad: : :');
       expect(result.isValid, isFalse);
       expect(result.config, isNull);

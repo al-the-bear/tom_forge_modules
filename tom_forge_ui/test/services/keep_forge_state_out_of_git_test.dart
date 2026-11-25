@@ -1,5 +1,5 @@
 /// The workspace's `.forge/` is kept out of git without editing a file the
-/// workspace tracks (`tom_forge/_agent_guidelines/configuration_compatibility.md`
+/// workspace tracks (`tom_ai/forge_modules/_agent_guidelines/configuration_compatibility.md`
 /// §2): git decides what is ignored, and what Forge adds goes to the clone's
 /// own `.git/info/exclude`.
 library;
@@ -43,10 +43,7 @@ void main() {
 
   test('GI-1: a folder outside git is left alone', () async {
     final dir = Directory('${scratch.path}/plain')..createSync();
-    expect(
-      await keepForgeStateOutOfGit(dir.path),
-      ForgeStateIgnore.notInGit,
-    );
+    expect(await keepForgeStateOutOfGit(dir.path), ForgeStateIgnore.notInGit);
     expect(dir.listSync(), isEmpty);
   });
 

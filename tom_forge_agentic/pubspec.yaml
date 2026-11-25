@@ -19,14 +19,14 @@ dependencies:
   # placeholder engine, and the bridge connection scan/store. This package
   # renders UI over those models only.
   tom_core_agentic:
-    path: ../../tom_ai/core_extension/tom_core_agentic
+    path: ../../core_extension/tom_core_agentic
   # The workspace file system the agent sidecar stores read and write through.
   tom_file_system:
-    path: ../../tom_ai/basics/tom_file_system
+    path: ../../basics/tom_file_system
 
   # The agent views and controllers, re-exported from the barrel.
   tom_agentic_ui:
-    path: ../../tom_ai/modules/tom_agentic_ui
+    path: ../../modules/tom_agentic_ui
 
   # The Forge kit: editors, views and the kit API the agent surfaces are
   # contributed through. AgentChatModule is a ForgeKitModule, which the panel

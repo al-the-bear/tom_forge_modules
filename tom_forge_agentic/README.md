@@ -14,7 +14,7 @@ renders an identical experience:
 - change-log + three-way review
 
 The views and controllers themselves need no shell and live in
-[`tom_agentic_ui`](../../tom_ai/modules/tom_agentic_ui) (`tom_ai/modules`),
+[`tom_agentic_ui`](../../modules/tom_agentic_ui) (`tom_ai/modules`),
 which this package depends on and re-exports, so a Forge tool imports
 `package:tom_forge_agentic/tom_forge_agentic.dart` alone. This package adds
 what needs the Forge kit: `AgentChatModule`, the chat view and the queue and
@@ -24,7 +24,7 @@ shell's registry included.
 
 All **non-UI logic** — the provider/model API, prompt-queue/trail/profile
 models, and the placeholder engine — lives in
-[`tom_core_agentic`](../../tom_ai/core_extension/tom_core_agentic), which this package
+[`tom_core_agentic`](../../core_extension/tom_core_agentic), which this package
 depends on. Widgets here render over those models; they never own transport
 specifics (the Agent-SDK transport stays in `tom_vscode_scripting_api`).
 

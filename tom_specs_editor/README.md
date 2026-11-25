@@ -1,14 +1,14 @@
 # tom_specs_editor
 
 > **Cross-references.**
-> [`tom_specs_model/doc/tom_specs_editor_specification.md`](../../tom_ai/ai_build/tom_specs_model/doc/tom_specs_editor_specification.md)
+> [`tom_specs_model/doc/tom_specs_editor_specification.md`](../../ai_build/tom_specs_model/doc/tom_specs_editor_specification.md)
 > is the authority for **what this app must be** — its Forge applications,
 > layout, modules, access layers, canonical paths and undo model, plus the two
 > referent registers its code cites (decisions and open ends). This README is
 > the short orientation; that document owns the specification, and this package
 > deliberately carries no `doc/` folder of its own so there is only one
 > description of the application —
-> [tom_specs_documentation_standard.md](../../tom_ai/ai_build/tom_specs_model/doc/tom_specs_documentation_standard.md) §6.
+> [tom_specs_documentation_standard.md](../../ai_build/tom_specs_model/doc/tom_specs_documentation_standard.md) §6.
 
 The **TomSpecs Editor** — a Tom Forge desktop app for authoring
 DocSpecs / CodeSpecs / Implementation specifications.
@@ -68,7 +68,7 @@ the above areas plus undo and shell navigation.
 
 Not published: `publish_to: 'none'`, and outside the release-1 published set —
 excluded by name in
-[`tom_specs_clitool/tool/release_set.yaml`](../../tom_ai/ai_build/tom_specs_clitool/tool/release_set.yaml),
+[`tom_specs_clitool/tool/release_set.yaml`](../../ai_build/tom_specs_clitool/tool/release_set.yaml),
 so nothing in the released chain may depend on it.
 
 ## Build
@@ -81,10 +81,10 @@ flutter build linux   # or: windows | macos
 ```
 
 The suite also runs as the `editor` step of the SOM conformance driver
-([`tom_som_conformance/tool/run_all_suites.sh`](../../tom_ai/ai_build/tom_som_conformance/tool/run_all_suites.sh)),
+([`tom_som_conformance/tool/run_all_suites.sh`](../../ai_build/tom_som_conformance/tool/run_all_suites.sh)),
 which is run after every model change and checks the pub cache first, so a
 red editor suite is reported where model changes are checked:
 
 ```bash
-../../tom_ai/ai_build/tom_som_conformance/tool/run_all_suites.sh editor
+../../ai_build/tom_som_conformance/tool/run_all_suites.sh editor
 ```

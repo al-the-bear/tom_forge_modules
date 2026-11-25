@@ -38,8 +38,8 @@ import zipfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-FORGE = HERE.parents[2]                       # tom_forge/
-WS = FORGE.parent                             # the workspace folder
+FORGE = HERE.parents[2]                       # tom_ai/forge_modules/
+WS = FORGE.parents[1]                         # the workspace folder
 IDEA = WS / "_ai/quests/tom_forge/ideas/office_and_pdf_integration_prototype"
 SAMPLES = IDEA / "samples/files"
 RESULTS = IDEA / "evaluation/results"
@@ -570,7 +570,7 @@ def sizes_and_code():
     modules = WS / "tom_ai/modules"
     editor = modules / "tom_office_editor"
     zetaoffice = modules / "tom_office_zetaoffice"
-    app = FORGE / "tom_forge_app/build/macos/Build/Products"
+    app = WS / "tom_forge/tom_forge_app/build/macos/Build/Products"
     bundle = {}
     for mode in ("Release", "Profile"):
         a = app / mode / "tom_forge_app.app"

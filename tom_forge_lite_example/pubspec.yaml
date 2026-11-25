@@ -40,7 +40,7 @@ dependencies:
     path: ../tom_yaml_editor
   # The workspace folder on disk (TomLocalFileSystem).
   tom_file_system:
-    path: ../../tom_ai/basics/tom_file_system
+    path: ../../basics/tom_file_system
 
 dev_dependencies:
   flutter_test:

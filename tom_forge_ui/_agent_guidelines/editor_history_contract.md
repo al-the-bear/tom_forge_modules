@@ -141,7 +141,7 @@ navigation, not undo) is likewise reserved.
 The editor's suite supplies a `ForgeUndoSubject`; the defaults drive an editor
 whose views edit through an `EditableText`. A check the editor does not meet
 yet is skipped with the todo that makes it pass. Every document editor runs
-it (the register is in `tom_forge/_agent_guidelines/editor_component_contract.md`
+it (the register is in `tom_ai/forge_modules/_agent_guidelines/editor_component_contract.md`
 §2, checked by `tom_forge_app/test/editor_component_contract_test.dart`). Every
 document editor passes every check: the YAML editor in both modes, the Dart,
 the Markdown and the plain-text editor, the file editors, the website config

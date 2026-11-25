@@ -87,7 +87,7 @@ dart-editor-bundler:
     # closure of `tom_d4rt_flutter` (Flutter + the d4rt-flutter runtime).
     - name: d4rt-flutter
       packages:
-        - ../../tom_ai/d4rt/tom_d4rt_flutter
+        - ../../d4rt/tom_d4rt_flutter
       implicit-imports: [package:flutter/material.dart]
 ```
 

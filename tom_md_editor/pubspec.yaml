@@ -6,7 +6,7 @@ description: >-
   tom_md_docspecs, tom_md_review).
 version: 0.1.0
 publish_to: none
-repository: https://github.com/al-the-bear/tom_forge
+repository: https://github.com/al-the-bear/tom_forge_modules
 
 environment:
   sdk: ^3.11.0
@@ -14,7 +14,7 @@ environment:
 
 dependencies:
   tom_undo:
-    path: ../../tom_ai/basics/tom_undo
+    path: ../../basics/tom_undo
   flutter:
     sdk: flutter
   markdown: ^7.2.2
@@ -27,14 +27,14 @@ dependencies:
     path: ../tom_editors_shared
   # Code-block highlighting (preview and overlay).
   tom_text_highlight:
-    path: ../../tom_ai/modules/tom_text_highlight
+    path: ../../modules/tom_text_highlight
   # The undo stack the controller keeps its edit operations on.
   tom_forge_core:
     path: ../tom_forge_core
   # Files are read and written through the host's file system: on disk, in
   # memory, on the web.
   tom_file_system:
-    path: ../../tom_ai/basics/tom_file_system
+    path: ../../basics/tom_file_system
 
 dev_dependencies:
   tom_web_build_probe:

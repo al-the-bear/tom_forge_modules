@@ -4,7 +4,7 @@ description: >-
   License: BSD-3-Clause.
 publish_to: none
 version: 0.1.0
-repository: https://github.com/al-the-bear/tom_forge
+repository: https://github.com/al-the-bear/tom_forge_modules
 
 environment:
   sdk: ^3.10.8
@@ -28,7 +28,7 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   # The in-memory file system the tests run a bare DefaultKitApi over.
   tom_file_system:
-    path: ../../tom_ai/basics/tom_file_system
+    path: ../../basics/tom_file_system
 
 flutter:
   uses-material-design: true

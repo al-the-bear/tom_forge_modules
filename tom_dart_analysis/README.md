@@ -87,7 +87,7 @@ dart-editor-bundler:
 
     - name: d4rt-flutter
       packages:
-        - ../../tom_ai/d4rt/tom_d4rt_flutter   # the bridged surface, not the app closure
+        - ../../d4rt/tom_d4rt_flutter   # the bridged surface, not the app closure
       implicit-imports: [package:flutter/material.dart]
 ```
 

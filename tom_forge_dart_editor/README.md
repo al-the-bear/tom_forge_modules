@@ -40,7 +40,7 @@ final components = ForgeShellComponents(editorTypes: [forgeDartEditorType]);
 `tom_forge_core`, `tom_editors_shared` — never `tom_forge_shell`
 (`tom_forge_app/test/platform_layering_test.dart` PL-8). The analysis plugin
 brings the analyzer (`analyzer`); the editor itself has none. Layer 3 of
-`tom_forge/_agent_guidelines/platform_architecture.md`.
+`tom_ai/forge_modules/_agent_guidelines/platform_architecture.md`.
 
 ## License
 
