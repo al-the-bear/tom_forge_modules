@@ -160,7 +160,7 @@ void main() {
     );
     expect(
       tester.getTopLeft(header).dy,
-      lessThan(tester.getTopLeft(find.text('Shortcuts').first).dy),
+      lessThan(tester.getTopLeft(find.text('File Types').first).dy),
     );
     // Collapsed at first: the Shell section stays the one expanded.
     expect(find.byType(ForgeConfigurationTile), findsOneWidget);
@@ -216,7 +216,7 @@ void main() {
     );
     expect(find.text('Shell'), findsWidgets);
     expect(find.text('Terminal'), findsWidgets);
-    expect(find.text('Shortcuts'), findsOneWidget);
+    expect(find.text('File Types'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
 }

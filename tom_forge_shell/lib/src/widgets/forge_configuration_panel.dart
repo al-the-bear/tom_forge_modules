@@ -1,17 +1,18 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:tom_configuration_ui/tom_configuration_ui.dart';
 import 'package:tom_forge_core/tom_forge_core.dart'
     show
         ForgeConfigurationSectionRef,
+        ForgeSettingHooks,
         ForgePathKind,
         ForgePathSetting,
         forgeOrderedSections;
 import 'package:tom_forge_kit/tom_forge_kit.dart';
 
 import '../configuration/forge_shell_configuration.dart';
+import '../configuration/forge_shortcut_configuration.dart';
 import '../module/forge_config_panel.dart';
 import '../services/forge_preferences_service.dart';
 import '../shell/forge_shell_api.dart';
@@ -26,9 +27,9 @@ import 'forge_panel_visible_width.dart';
 /// configuration descriptions the modules and the editor types contribute
 /// ([configurationValues]) — the shell's own *Shell* and *Terminal* sections
 /// first ([ForgeShellConfiguration]), then the editor types' (the Dart, YAML
-/// and Markdown editors describe their own options) — then the built-in
-/// sections (shortcuts, file types, external tools) and any
-/// module-contributed [ForgeConfigPanel]s.
+/// and Markdown editors describe their own options) and the key bindings
+/// ([ForgeShortcutConfiguration]) — then the built-in sections (file types,
+/// external tools) and any module-contributed [ForgeConfigPanel]s.
 ///
 /// [expandSection] names a section by the index quick open has always used:
 /// 0 *Shell*, 1 *Terminal*, 2 *Dart Editor*, 3 *YAML Editor*, 4 *Markdown
@@ -53,18 +54,22 @@ class ForgeConfigurationPanel extends StatefulWidget {
   /// The [expandSection] index of the *Terminal* section.
   static const sectionIndexTerminal = 1;
 
-  /// The [expandSection] index of *Dart Editor*; *YAML Editor* and
-  /// *Markdown Editor* follow ([editorSectionRefs]), then the built-in
-  /// sections and the module panels in order.
+  /// The [expandSection] index of *Dart Editor*; *YAML Editor*, *Markdown
+  /// Editor*, *Shortcuts* and *Chord Shortcuts* follow
+  /// ([describedSectionRefs]), then the built-in sections and the module
+  /// panels in order.
   static const sectionIndexFirstBuiltIn = 2;
 
-  /// The described sections of the editor types quick open's indices 2, 3
-  /// and 4 name (`<description>/<section>`): the Dart, YAML and Markdown
-  /// editors' own descriptions (`ForgeKitEditorType.configuration`).
-  static const editorSectionRefs = [
+  /// The described sections quick open's indices 2 to 6 name
+  /// (`<description>/<section>`): the Dart, YAML and Markdown editors' own
+  /// descriptions (`ForgeKitEditorType.configuration`) and the shell's key
+  /// bindings ([ForgeShortcutConfiguration]).
+  static const describedSectionRefs = [
     'forge.editor.dart/editor',
     'forge.editor.yaml/editor',
     'forge.editor.md/editor',
+    ForgeShortcutConfiguration.shortcutsSectionRef,
+    ForgeShortcutConfiguration.chordsSectionRef,
   ];
 
   /// The external tools the modules registered (the *External Tools*
@@ -102,8 +107,6 @@ class _ForgeConfigurationPanelState extends State<ForgeConfigurationPanel> {
   final Map<int, double> _sectionFlex = {};
 
   static const _builtInSections = [
-    _SectionDef('Shortcuts', Icons.keyboard),
-    _SectionDef('Chord Shortcuts', Icons.piano),
     _SectionDef('File Types', Icons.folder_open),
     _SectionDef('External Tools', Icons.build_outlined),
   ];
@@ -120,9 +123,16 @@ class _ForgeConfigurationPanelState extends State<ForgeConfigurationPanel> {
   }
 
   ForgeConfigurationValues _makeOwnValues() {
+    final shell = widget.shellApi;
     final values = forgeShellConfigurationValues(
       widget.preferencesService,
-      config: widget.shellApi?.config,
+      config: shell?.config,
+      shell: shell,
+      descriptions: [if (shell != null) ForgeShortcutConfiguration.description],
+      hooks: ForgeSettingHooks.merged([
+        ForgeShellConfiguration.hooks(),
+        if (shell != null) ForgeShortcutConfiguration.hooks(shell),
+      ]),
     );
     unawaited(values.load());
     return values;
@@ -154,7 +164,7 @@ class _ForgeConfigurationPanelState extends State<ForgeConfigurationPanel> {
       return _describedIndexOf(ForgeShellConfiguration.terminalSectionRef);
     }
     final first = ForgeConfigurationPanel.sectionIndexFirstBuiltIn;
-    final editors = ForgeConfigurationPanel.editorSectionRefs;
+    final editors = ForgeConfigurationPanel.describedSectionRefs;
     if (requested >= first && requested < first + editors.length) {
       return _describedIndexOf(editors[requested - first]);
     }
@@ -343,22 +353,12 @@ class _ForgeConfigurationPanelState extends State<ForgeConfigurationPanel> {
     }
     if (index < _builtInSections.length) {
       return switch (index) {
-        0 => _ShortcutsSettingsSection(
-          shellApi: widget.shellApi,
-          preferencesService: widget.preferencesService,
-          isChord: false,
-        ),
-        1 => _ShortcutsSettingsSection(
-          shellApi: widget.shellApi,
-          preferencesService: widget.preferencesService,
-          isChord: true,
-        ),
-        2 => _FileTypesSettingsSection(
+        0 => _FileTypesSettingsSection(
           preferencesService: widget.preferencesService,
           shellApi: widget.shellApi,
           onChanged: widget.onSettingsChanged,
         ),
-        3 => ForgeExternalToolsSection(
+        1 => ForgeExternalToolsSection(
           tools: widget.externalTools,
           preferencesService: widget.preferencesService,
           onChanged: widget.onSettingsChanged,
@@ -563,691 +563,6 @@ class _SectionDef {
   final String label;
   final IconData icon;
   const _SectionDef(this.label, this.icon);
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Editor settings (shared for Dart, YAML, Markdown)
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _ShortcutsSettingsSection extends StatefulWidget {
-  final ForgeShellApi? shellApi;
-  final ForgePreferencesService preferencesService;
-  final bool isChord;
-
-  const _ShortcutsSettingsSection({
-    required this.shellApi,
-    required this.preferencesService,
-    required this.isChord,
-  });
-
-  @override
-  State<_ShortcutsSettingsSection> createState() =>
-      _ShortcutsSettingsSectionState();
-}
-
-class _ShortcutsSettingsSectionState extends State<_ShortcutsSettingsSection> {
-  String _searchTerm = '';
-  String? _capturingActionId;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final shellApi = widget.shellApi;
-    if (shellApi == null) {
-      return const Center(child: Text('Shell not available'));
-    }
-
-    final bindings =
-        shellApi.shortcuts.allBindings
-            .where((b) => widget.isChord ? b.isChord : !b.isChord)
-            .where(_matchesFilter)
-            .toList(growable: false)
-          ..sort((a, b) => a.action.label.compareTo(b.action.label));
-
-    // Group bindings by key for multi-action detection.
-    final keyGroups = <String, List<ForgeShortcutBinding>>{};
-    for (final b in bindings) {
-      keyGroups.putIfAbsent(b.displayString, () => []).add(b);
-    }
-    final groupEntries = keyGroups.entries.toList()
-      ..sort(
-        (a, b) =>
-            a.value.first.action.label.compareTo(b.value.first.action.label),
-      );
-
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  onChanged: (v) =>
-                      setState(() => _searchTerm = v.trim().toLowerCase()),
-                  style: const TextStyle(fontSize: 13),
-                  decoration: InputDecoration(
-                    hintText: widget.isChord
-                        ? 'Search chords...'
-                        : 'Search shortcuts...',
-                    border: const OutlineInputBorder(),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 8,
-                    ),
-                    isDense: true,
-                    prefixIcon: const Icon(Icons.search, size: 16),
-                    prefixIconConstraints: const BoxConstraints(
-                      minWidth: 32,
-                      minHeight: 32,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 4),
-              IconButton(
-                icon: const Icon(Icons.add, size: 16),
-                tooltip: widget.isChord ? 'Add Chord' : 'Add Shortcut',
-                onPressed: () => _addBinding(shellApi),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-              ),
-              if (!widget.isChord) ...[
-                const SizedBox(width: 4),
-                TextButton(
-                  onPressed: bindings.isEmpty ? null : _resetAll,
-                  child: const Text('Reset', style: TextStyle(fontSize: 11)),
-                ),
-              ],
-            ],
-          ),
-        ),
-        if (groupEntries.isEmpty)
-          const Expanded(child: Center(child: Text('No matches')))
-        else
-          Expanded(
-            child: ListView.builder(
-              itemCount: groupEntries.length,
-              itemBuilder: (context, index) {
-                final entry = groupEntries[index];
-                final group = entry.value;
-                if (group.length == 1) {
-                  return _buildSingleActionTile(theme, group.first);
-                }
-                return _buildMultiActionTile(theme, entry.key, group);
-              },
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildSingleActionTile(ThemeData theme, ForgeShortcutBinding binding) {
-    return ListTile(
-      dense: true,
-      visualDensity: VisualDensity.compact,
-      title: Text(binding.action.label, style: const TextStyle(fontSize: 12)),
-      subtitle: Text(
-        binding.context ?? 'Global',
-        style: TextStyle(
-          fontSize: 10,
-          color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-        ),
-      ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            binding.displayString,
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
-          ),
-          const SizedBox(width: 4),
-          InkWell(
-            onTap: () =>
-                widget.isChord ? _rebindChord(binding) : _rebind(binding),
-            child: Padding(
-              padding: const EdgeInsets.all(4),
-              child: Text(
-                _capturingActionId == binding.action.id ? '...' : 'Edit',
-                style: TextStyle(
-                  fontSize: 10,
-                  color: theme.colorScheme.primary,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 2),
-          InkWell(
-            onTap: () => _removeBinding(binding),
-            child: Padding(
-              padding: const EdgeInsets.all(4),
-              child: Icon(
-                Icons.close,
-                size: 12,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMultiActionTile(
-    ThemeData theme,
-    String keyDisplay,
-    List<ForgeShortcutBinding> group,
-  ) {
-    final warningColor = theme.colorScheme.error.withValues(alpha: 0.8);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header: key + conflict indicator + edit button.
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
-            child: Row(
-              children: [
-                Text(
-                  keyDisplay,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Icon(
-                  Icons.warning_amber_rounded,
-                  size: 12,
-                  color: warningColor,
-                ),
-                const SizedBox(width: 2),
-                Text(
-                  '${group.length} actions',
-                  style: TextStyle(fontSize: 10, color: warningColor),
-                ),
-              ],
-            ),
-          ),
-          // Per-action rows.
-          for (final binding in group)
-            Padding(
-              padding: const EdgeInsets.only(left: 20),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text.rich(
-                      TextSpan(
-                        children: [
-                          TextSpan(
-                            text: binding.action.label,
-                            style: const TextStyle(fontSize: 11),
-                          ),
-                          TextSpan(
-                            text: '  (${binding.context ?? "Global"})',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: theme.colorScheme.onSurface.withValues(
-                                alpha: 0.5,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  InkWell(
-                    onTap: () => _removeBinding(binding),
-                    child: Padding(
-                      padding: const EdgeInsets.all(4),
-                      child: Icon(
-                        Icons.close,
-                        size: 12,
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.4,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          const Divider(height: 1),
-        ],
-      ),
-    );
-  }
-
-  bool _matchesFilter(ForgeShortcutBinding binding) {
-    if (_searchTerm.isEmpty) return true;
-    final haystack = [
-      binding.action.id,
-      binding.action.label,
-      binding.displayString,
-      binding.context ?? 'Global',
-    ].join(' ').toLowerCase();
-    return haystack.contains(_searchTerm);
-  }
-
-  Future<void> _rebind(ForgeShortcutBinding binding) async {
-    setState(() => _capturingActionId = binding.action.id);
-    final captured = await _captureKey();
-    if (!mounted) return;
-    setState(() => _capturingActionId = null);
-    if (captured == null) return;
-
-    final shellApi = widget.shellApi;
-    if (shellApi == null) return;
-
-    final conflict = shellApi.shortcuts.conflictsWith(captured);
-    if (conflict != null && conflict.action.id != binding.action.id) {
-      final accepted = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Conflict'),
-          content: Text(
-            '"${captured.toDisplayString()}" is bound to '
-            '"${conflict.action.label}". Replace?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: const Text('Replace'),
-            ),
-          ],
-        ),
-      );
-      if (accepted != true) return;
-    }
-
-    shellApi.shortcuts.rebind(binding.action, captured);
-    widget.preferencesService.setShortcutOverride(binding.action.id, captured);
-    await widget.preferencesService.save();
-
-    // If the action has a <prefix>.<suffix> pattern, offer to create
-    // a wildcard binding (*.<suffix>) so the shortcut works across all
-    // editors that support the same action suffix.
-    final actionId = binding.action.id;
-    final dotIdx = actionId.indexOf('.');
-    if (dotIdx > 0 && mounted) {
-      final prefix = actionId.substring(0, dotIdx);
-      final suffix = actionId.substring(dotIdx + 1);
-      // Only offer wildcard for editor-specific prefixes.
-      final editorPrefixes = {'md', 'dart', 'yaml', 'plaintext'};
-      if (editorPrefixes.contains(prefix)) {
-        final wildcardChoice = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Shortcut Scope'),
-            content: Text(
-              'Bind "${captured.toDisplayString()}" as:\n\n'
-              '• Specific: $prefix.$suffix (only for $prefix editor)\n'
-              '• All editors: *.$suffix (any editor supporting this action)',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: Text('Specific ($prefix)'),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('All editors (*)'),
-              ),
-            ],
-          ),
-        );
-        if (wildcardChoice == true && mounted) {
-          final wildcardId = '*.$suffix';
-          final wildcardAction = ForgeAction(
-            id: wildcardId,
-            label: '${binding.action.label} (all editors)',
-            icon: binding.action.icon,
-            menu: ForgeMenuLocation.commandPalette,
-            execute: (_) async => null,
-            isEnabled: () => true,
-            isVisible: () => true,
-          );
-          shellApi.actionRegistry.registerAction(wildcardAction);
-          shellApi.shortcuts.rebind(wildcardAction, captured);
-          widget.preferencesService.setShortcutOverride(wildcardId, captured);
-          // Remove the specific binding to avoid conflicts.
-          shellApi.shortcuts.removeBinding(actionId);
-          widget.preferencesService.removeShortcutOverride(actionId);
-          await widget.preferencesService.save();
-        }
-      }
-    }
-
-    if (mounted) setState(() {});
-  }
-
-  Future<void> _resetAll() async {
-    final shellApi = widget.shellApi;
-    if (shellApi == null) return;
-    for (final b in shellApi.shortcuts.allBindings.where((b) => !b.isChord)) {
-      shellApi.shortcuts.resetToDefault(b.action);
-    }
-    widget.preferencesService.clearShortcutOverrides();
-    await widget.preferencesService.save();
-    if (mounted) setState(() {});
-  }
-
-  Future<void> _addBinding(ForgeShellApi shellApi) async {
-    // Show a picker with all registered actions.
-    final allActions = shellApi.actionRegistry.allActions;
-    final boundIds = shellApi.shortcuts.allBindings
-        .where((b) => widget.isChord ? b.isChord : !b.isChord)
-        .map((b) => b.action.id)
-        .toSet();
-    // Show both bound and unbound actions, sorted by label.
-    final sortedActions = allActions.toList()
-      ..sort((a, b) => a.label.compareTo(b.label));
-
-    final chosen = await showDialog<ForgeAction>(
-      context: context,
-      builder: (ctx) =>
-          _ActionPickerDialog(actions: sortedActions, boundIds: boundIds),
-    );
-    if (chosen == null || !mounted) return;
-
-    if (widget.isChord) {
-      final chord = await _captureChord();
-      if (chord == null || !mounted) return;
-      shellApi.shortcuts.rebindChord(chosen, chord);
-      widget.preferencesService.setChordOverride(chosen.id, chord);
-    } else {
-      final key = await _captureKey();
-      if (key == null || !mounted) return;
-      final conflict = shellApi.shortcuts.conflictsWith(key);
-      if (conflict != null && conflict.action.id != chosen.id) {
-        final accepted = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Conflict'),
-            content: Text(
-              '"${key.toDisplayString()}" is bound to '
-              '"${conflict.action.label}". Replace?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(false),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.of(ctx).pop(true),
-                child: const Text('Replace'),
-              ),
-            ],
-          ),
-        );
-        if (accepted != true) return;
-      }
-      shellApi.shortcuts.rebind(chosen, key);
-      widget.preferencesService.setShortcutOverride(chosen.id, key);
-    }
-    await widget.preferencesService.save();
-    if (mounted) setState(() {});
-  }
-
-  Future<void> _removeBinding(ForgeShortcutBinding binding) async {
-    final shellApi = widget.shellApi;
-    if (shellApi == null) return;
-    shellApi.shortcuts.removeBinding(binding.action.id);
-    widget.preferencesService.removeShortcutOverride(binding.action.id);
-    widget.preferencesService.removeChordOverride(binding.action.id);
-    widget.preferencesService.addDeletedBinding(binding.action.id);
-    await widget.preferencesService.save();
-    if (mounted) setState(() {});
-  }
-
-  Future<void> _rebindChord(ForgeShortcutBinding binding) async {
-    setState(() => _capturingActionId = binding.action.id);
-    final chord = await _captureChord();
-    if (!mounted) return;
-    setState(() => _capturingActionId = null);
-    if (chord == null) return;
-
-    final shellApi = widget.shellApi;
-    if (shellApi == null) return;
-
-    shellApi.shortcuts.rebindChord(binding.action, chord);
-    widget.preferencesService.setChordOverride(binding.action.id, chord);
-    await widget.preferencesService.save();
-    if (mounted) setState(() {});
-  }
-
-  Future<ForgeChordKey?> _captureChord() {
-    return showDialog<ForgeChordKey>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => _ChordCaptureDialog(),
-    );
-  }
-
-  Future<ForgeShortcutKey?> _captureKey() {
-    return showDialog<ForgeShortcutKey>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Press new shortcut'),
-        content: Focus(
-          autofocus: true,
-          onKeyEvent: (_, event) {
-            if (event is! KeyDownEvent) return KeyEventResult.ignored;
-            if (event.logicalKey == LogicalKeyboardKey.escape) {
-              Navigator.of(ctx).pop();
-              return KeyEventResult.handled;
-            }
-            final key = _toShortcutKey(event);
-            if (key != null) {
-              Navigator.of(ctx).pop(key);
-              return KeyEventResult.handled;
-            }
-            return KeyEventResult.ignored;
-          },
-          child: const Text('Press a key combination.\nEsc to cancel.'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  ForgeShortcutKey? _toShortcutKey(KeyDownEvent event) {
-    return ForgeShortcutKey.fromPressed(
-      event.logicalKey,
-      HardwareKeyboard.instance.logicalKeysPressed,
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Action picker dialog (for adding new shortcuts/chords)
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _ActionPickerDialog extends StatefulWidget {
-  final List<ForgeAction> actions;
-  final Set<String> boundIds;
-
-  const _ActionPickerDialog({required this.actions, required this.boundIds});
-
-  @override
-  State<_ActionPickerDialog> createState() => _ActionPickerDialogState();
-}
-
-class _ActionPickerDialogState extends State<_ActionPickerDialog> {
-  String _filter = '';
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final filtered = widget.actions.where((a) {
-      if (_filter.isEmpty) return true;
-      return a.label.toLowerCase().contains(_filter) ||
-          a.id.toLowerCase().contains(_filter);
-    }).toList();
-
-    return AlertDialog(
-      title: const Text('Select Action'),
-      content: SizedBox(
-        width: 360,
-        height: 400,
-        child: Column(
-          children: [
-            TextField(
-              autofocus: true,
-              onChanged: (v) =>
-                  setState(() => _filter = v.trim().toLowerCase()),
-              style: const TextStyle(fontSize: 13),
-              decoration: const InputDecoration(
-                hintText: 'Filter actions...',
-                border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 8,
-                ),
-                isDense: true,
-                prefixIcon: Icon(Icons.search, size: 16),
-                prefixIconConstraints: BoxConstraints(
-                  minWidth: 32,
-                  minHeight: 32,
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: ListView.builder(
-                itemCount: filtered.length,
-                itemBuilder: (context, index) {
-                  final action = filtered[index];
-                  final isBound = widget.boundIds.contains(action.id);
-                  return ListTile(
-                    dense: true,
-                    visualDensity: VisualDensity.compact,
-                    leading: action.icon != null
-                        ? Icon(action.icon, size: 16)
-                        : null,
-                    title: Text(
-                      action.label,
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    subtitle: Text(
-                      action.id,
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.5,
-                        ),
-                      ),
-                    ),
-                    trailing: isBound
-                        ? Icon(
-                            Icons.check,
-                            size: 14,
-                            color: theme.colorScheme.primary,
-                          )
-                        : null,
-                    onTap: () => Navigator.of(context).pop(action),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-      ],
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Chord capture dialog (captures two key combinations)
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _ChordCaptureDialog extends StatefulWidget {
-  @override
-  State<_ChordCaptureDialog> createState() => _ChordCaptureDialogState();
-}
-
-class _ChordCaptureDialogState extends State<_ChordCaptureDialog> {
-  ForgeShortcutKey? _firstKey;
-
-  ForgeShortcutKey? _toShortcutKey(KeyDownEvent event) {
-    return ForgeShortcutKey.fromPressed(
-      event.logicalKey,
-      HardwareKeyboard.instance.logicalKeysPressed,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(
-        _firstKey == null
-            ? 'Press first key combination'
-            : 'Press second key combination',
-      ),
-      content: Focus(
-        autofocus: true,
-        onKeyEvent: (_, event) {
-          if (event is! KeyDownEvent) return KeyEventResult.ignored;
-          if (event.logicalKey == LogicalKeyboardKey.escape) {
-            Navigator.of(context).pop();
-            return KeyEventResult.handled;
-          }
-          final key = _toShortcutKey(event);
-          if (key == null) return KeyEventResult.ignored;
-          if (_firstKey == null) {
-            setState(() => _firstKey = key);
-            return KeyEventResult.handled;
-          }
-          Navigator.of(
-            context,
-          ).pop(ForgeChordKey(firstKey: _firstKey!, secondKey: key));
-          return KeyEventResult.handled;
-        },
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (_firstKey != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  'First: ${_firstKey!.toDisplayString()}',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-            Text(
-              _firstKey == null
-                  ? 'Press a key combination for the first key.\nEsc to cancel.'
-                  : 'Now press the second key combination.\nEsc to cancel.',
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-      ],
-    );
-  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

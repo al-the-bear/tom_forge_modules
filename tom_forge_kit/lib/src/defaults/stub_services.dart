@@ -23,6 +23,15 @@ class DefaultShortcutManager implements ForgeShortcutManager {
 
   final List<ForgeShortcutBinding> _bindings = [];
   final Map<String, ForgeShortcutKey> _defaults = {};
+  final Map<String, ForgeChordKey> _defaultChords = {};
+
+  /// The key [actionId] is bound to while nothing overrides it, as the
+  /// module registered it; null when unknown (never bound, or deleted).
+  ForgeShortcutKey? defaultKeyOf(String actionId) => _defaults[actionId];
+
+  /// The chord [actionId] is bound to while nothing overrides it, as the
+  /// module registered it; null when it has none.
+  ForgeChordKey? defaultChordOf(String actionId) => _defaultChords[actionId];
 
   /// Infers context/scope from action ID prefix.
   ///
@@ -240,6 +249,11 @@ class DefaultShortcutManager implements ForgeShortcutManager {
   void rebindChord(ForgeAction action, ForgeChordKey chord) {
     // Skip re-registration of actions the user explicitly deleted.
     if (_suppressedActions.contains(action.id)) return;
+
+    // A chord that is not the user's override is the module's default.
+    if (_deferredChordOverrides[action.id] != chord) {
+      _defaultChords.putIfAbsent(action.id, () => chord);
+    }
 
     final index = _bindings.indexWhere((b) => b.action.id == action.id);
     if (index >= 0) {

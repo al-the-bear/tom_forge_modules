@@ -5,6 +5,7 @@ import 'package:tom_forge_kit/tom_forge_kit.dart';
 import '../defaults/default_shell_api.dart';
 import '../services/forge_preferences_service.dart';
 import 'forge_shell_setting_bindings.dart';
+import 'forge_shortcut_configuration.dart';
 
 /// The shell's own options as a configuration description: the *Shell*
 /// section (appearance, quick access, auto save, search, layout) and the
@@ -538,13 +539,17 @@ abstract final class ForgeShellConfiguration {
 /// The bindings the shell's descriptions store through: the [preferences]
 /// service's, the editors' text settings and configuration in the same
 /// preferences ([ForgeEditorSettingBinding], which the editor types'
-/// descriptions name) and, with [config], the auto-save's.
+/// descriptions name), the key bindings ([ForgeShortcutsSettingBinding],
+/// following [shell]'s live shortcuts when given) and, with [config], the
+/// auto-save's.
 List<ForgeSettingBinding> forgeShellSettingBindings(
   ForgePreferencesService preferences, {
   ForgeConfigManager? config,
+  ForgeKitApi? shell,
 }) => [
   ForgePreferencesSettingBinding(preferences),
   ForgeEditorSettingBinding(preferences),
+  ForgeShortcutsSettingBinding(preferences, shell: shell),
   if (config != null) ForgeConfigSettingBinding(config),
 ];
 
@@ -555,6 +560,7 @@ List<ForgeSettingBinding> forgeShellSettingBindings(
 ForgeConfigurationValues forgeShellConfigurationValues(
   ForgePreferencesService preferences, {
   ForgeConfigManager? config,
+  ForgeKitApi? shell,
   Iterable<ForgeConfigurationDescription> descriptions = const [],
   ForgeSettingHooks? hooks,
 }) => ForgeConfigurationValues(
@@ -564,7 +570,11 @@ ForgeConfigurationValues forgeShellConfigurationValues(
     for (final d in descriptions)
       if (d.id != ForgeShellConfiguration.descriptionId) d,
   ],
-  bindings: forgeShellSettingBindings(preferences, config: config),
+  bindings: forgeShellSettingBindings(
+    preferences,
+    config: config,
+    shell: shell,
+  ),
   hooks: hooks ?? ForgeShellConfiguration.hooks(),
 );
 
@@ -576,6 +586,13 @@ ForgeConfigurationValues forgeShellConfigurationValues(
 /// ([ForgeShellConfigurationModule.ensureRegistered]).
 class ForgeShellConfigurationModule extends ForgeKitModule
     implements ForgeModuleExtrasProvider {
+  /// The module of [shell]'s configuration; without a shell the key binding
+  /// sections have no actions to list and are left out.
+  ForgeShellConfigurationModule({this.shell});
+
+  /// The shell whose actions the key binding sections list.
+  final ForgeKitApi? shell;
+
   /// Registers a [ForgeShellConfigurationModule] with [shell] unless one is
   /// registered already.
   static void ensureRegistered(DefaultShellApi shell) {
@@ -584,7 +601,7 @@ class ForgeShellConfigurationModule extends ForgeKitModule
     )) {
       return;
     }
-    shell.registerModule(ForgeShellConfigurationModule());
+    shell.registerModule(ForgeShellConfigurationModule(shell: shell));
   }
 
   @override
@@ -610,7 +627,15 @@ class ForgeShellConfigurationModule extends ForgeKitModule
 
   @override
   late final List<ForgeModuleExtra> ownExtras = [
-    ForgeConfigurationDescriptionsExtra([ForgeShellConfiguration.description]),
-    ForgeConfigurationHooksExtra(ForgeShellConfiguration.hooks()),
+    ForgeConfigurationDescriptionsExtra([
+      ForgeShellConfiguration.description,
+      if (shell != null) ForgeShortcutConfiguration.description,
+    ]),
+    ForgeConfigurationHooksExtra(
+      ForgeSettingHooks.merged([
+        ForgeShellConfiguration.hooks(),
+        if (shell case final shell?) ForgeShortcutConfiguration.hooks(shell),
+      ]),
+    ),
   ];
 }

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- `DefaultShortcutManager.defaultKeyOf` / `defaultChordOf`: the key or chord
+  a module registered for an action (a chord bound by a module, not by an
+  override, is now remembered as its default).
 - **Editor settings as configuration:** `ForgeKitEditorType.configuration`
   (an editor type's options as a configuration description; the application
   collects it with its modules'), `ForgeEditorSettings` (the text settings'

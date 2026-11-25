@@ -34,6 +34,7 @@ export 'src/components/forge_editor_choice.dart';
 // its storage bindings and the module contributing it.
 export 'src/configuration/forge_shell_configuration.dart';
 export 'src/configuration/forge_shell_setting_bindings.dart';
+export 'src/configuration/forge_shortcut_configuration.dart';
 
 // ── Model ──
 export 'src/model/forge_application.dart';

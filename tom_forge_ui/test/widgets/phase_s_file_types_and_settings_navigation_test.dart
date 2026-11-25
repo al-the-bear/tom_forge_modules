@@ -61,7 +61,7 @@ void main() {
       await tester.tap(item);
       await tester.pumpAndSettle();
 
-      expect(_shortcutSearchField('Search chords...'), findsOneWidget);
+      expect(shortcutTableSearch(chords: true), findsOneWidget);
     });
 
     testWidgets(
@@ -357,12 +357,6 @@ Finder _titleSearchField() {
         (widget.decoration?.hintText == 'Search files, actions, and settings' ||
             widget.decoration?.hintText == 'Type an action...' ||
             widget.decoration?.hintText == 'Search shortcuts or press key...'),
-  );
-}
-
-Finder _shortcutSearchField(String hintText) {
-  return find.byWidgetPredicate(
-    (widget) => widget is TextField && widget.decoration?.hintText == hintText,
   );
 }
 

@@ -164,17 +164,13 @@ void main() {
       await tester.tap(find.text('Shortcuts').first);
       await tester.pumpAndSettle();
 
-      final searchField = find.byWidgetPredicate(
-        (widget) =>
-            widget is TextField &&
-            widget.decoration?.hintText == 'Search shortcuts...',
-      );
+      final searchField = shortcutTableSearch();
       expect(searchField, findsOneWidget);
 
       await tester.enterText(searchField, 'definitely-not-a-shortcut');
       await tester.pumpAndSettle();
 
-      expect(find.text('No matches'), findsOneWidget);
+      expect(find.text('Nothing matches.'), findsOneWidget);
 
       await tester.enterText(searchField, 'toggle left panel');
       await tester.pumpAndSettle();
@@ -197,11 +193,7 @@ void main() {
       await tester.tap(find.text('Shortcuts').first);
       await tester.pumpAndSettle();
 
-      final searchField = find.byWidgetPredicate(
-        (widget) =>
-            widget is TextField &&
-            widget.decoration?.hintText == 'Search shortcuts...',
-      );
+      final searchField = shortcutTableSearch();
       expect(searchField, findsOneWidget);
       await tester.enterText(searchField, 'toggle left panel');
       await tester.pumpAndSettle();
@@ -211,8 +203,11 @@ void main() {
       );
       expect(beforeReset, isNotNull);
 
-      harness.shell.shortcuts.rebind(
-        beforeReset!.action,
+      // A custom rebind, stored as the shortcut table stores it.
+      ForgePreferencesService.forStore(
+        harness.shell.stateStore,
+      ).setShortcutOverride(
+        beforeReset!.action.id,
         const ForgeShortcutKey(
           key: LogicalKeyboardKey.keyL,
           primaryModifier: true,
@@ -226,13 +221,11 @@ void main() {
         equals('Ctrl+Shift+L'),
       );
 
-      final resetButton = find.widgetWithText(TextButton, 'Reset');
-      expect(resetButton, findsOneWidget);
-      await tester.ensureVisible(resetButton);
       await tester.pumpAndSettle();
-      final reset = tester.widget<TextButton>(resetButton);
-      expect(reset.onPressed, isNotNull);
-      reset.onPressed!.call();
+      final resetButton = shortcutTableResetAll();
+      expect(resetButton, findsOneWidget);
+      await tester.tap(resetButton);
+      await tester.pump(const Duration(milliseconds: 600));
       await tester.pumpAndSettle();
 
       expect(

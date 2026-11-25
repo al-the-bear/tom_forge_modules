@@ -575,8 +575,8 @@ void main() {
         findsOneWidget,
       );
 
-      // 5: Shortcuts, the first built-in section, as before.
-      expand.value = 5;
+      // 7: File Types, the first built-in section, as before.
+      expand.value = 7;
       await tester.pumpAndSettle();
       expect(
         find.byKey(
@@ -584,7 +584,7 @@ void main() {
         ),
         findsNothing,
       );
-      expect(find.text('Shortcuts'), findsWidgets);
+      expect(find.text('File Types'), findsWidgets);
 
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(milliseconds: 600));

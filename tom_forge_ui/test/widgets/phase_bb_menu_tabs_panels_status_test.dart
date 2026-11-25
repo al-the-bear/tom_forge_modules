@@ -426,11 +426,12 @@ void main() {
         // At minimum, the header "Terminal" should still be visible.
         expect(find.text('Terminal'), findsOneWidget);
 
-        // Tap Shortcuts header.
-        await tester.tap(find.text('Shortcuts'));
+        // Tap External Tools header (the key binding sections need a
+        // shell, which this panel has not).
+        await tester.tap(find.text('External Tools'));
         await tester.pumpAndSettle();
 
-        expect(find.text('Shortcuts'), findsOneWidget);
+        expect(find.text('External Tools'), findsWidgets);
 
         // Use expandSection notifier to programmatically expand Dart Editor (index 2).
         expandSection.value = 2;

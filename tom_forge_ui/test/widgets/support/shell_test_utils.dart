@@ -65,6 +65,19 @@ ForgeSetting<Object> yamlEditorSetting(String id) =>
 ForgeSetting<Object> markdownEditorSetting(String id) =>
     ForgeMarkdownEditorConfiguration.description.settingById(id)!;
 
+/// The search box of the shell's key binding table: *Shortcuts*, or with
+/// [chords] *Chord Shortcuts* (ForgeShortcutConfiguration).
+Finder shortcutTableSearch({bool chords = false}) => find.byKey(
+  ValueKey(
+    'forge.configuration.keyTable.search.${chords ? 'chords' : 'shortcuts'}',
+  ),
+);
+
+/// The *Reset all* button of the shell's *Shortcuts* table.
+Finder shortcutTableResetAll() => find.byKey(
+  const ValueKey('forge.configuration.keyTable.resetAll.shortcuts'),
+);
+
 /// The entry of [setting] in a configuration tile.
 Finder configSettingEntry(ForgeSetting<Object> setting) => find.byKey(
   ValueKey('forge.configuration.setting.${setting.storage.location}'),

@@ -4015,6 +4015,7 @@ the field, not the document.
           bindings: forgeShellSettingBindings(
             _preferences,
             config: widget.shell.config,
+            shell: widget.shell,
           ),
           hooks: forgeConfigurationHooksOf(widget.shell),
         );

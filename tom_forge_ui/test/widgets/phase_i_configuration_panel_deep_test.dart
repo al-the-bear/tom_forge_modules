@@ -240,33 +240,32 @@ void main() {
       );
       expect(before, isNotNull);
 
-      harness.shell.shortcuts.rebind(
-        before!.action,
+      await tester.pumpWidget(harness.buildShellApp());
+      await tester.pumpAndSettle();
+      // A custom rebind, stored as the shortcut table stores it; the shell
+      // binds it.
+      harness.preferences.setShortcutOverride(
+        before!.action.id,
         const ForgeShortcutKey(
           key: LogicalKeyboardKey.keyL,
           primaryModifier: true,
           shift: true,
         ),
       );
+      await tester.pumpAndSettle();
       expect(
         harness.shell.shortcuts
             .getBinding('forge.toggleLeftPanel')
             ?.displayString,
         equals('Ctrl+Shift+L'),
       );
-
-      await tester.pumpWidget(harness.buildShellApp());
-      await tester.pumpAndSettle();
       await _openSettingsViaAction(harness, tester);
       await _openConfigSection(tester, 'Shortcuts');
 
-      final resetButton = find.widgetWithText(TextButton, 'Reset');
+      final resetButton = shortcutTableResetAll();
       expect(resetButton, findsOneWidget);
-      await tester.ensureVisible(resetButton);
-      await tester.pumpAndSettle();
-      final reset = tester.widget<TextButton>(resetButton);
-      expect(reset.onPressed, isNotNull);
-      reset.onPressed!.call();
+      await tester.tap(resetButton);
+      await tester.pump(const Duration(milliseconds: 600));
       await tester.pumpAndSettle();
 
       expect(

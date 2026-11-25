@@ -16,31 +16,33 @@ void main() {
       SharedPreferences.setMockInitialValues(<String, Object>{});
     });
 
-    testWidgets('01: typing in search opens quick-open and shows dirty bullet', (
-      WidgetTester tester,
-    ) async {
-      suppressOverflowErrorsForTest();
-      await prepareLargeSurface(tester);
-      final harness = _PhaseKHarness.create();
+    testWidgets(
+      '01: typing in search opens quick-open and shows dirty bullet',
+      (WidgetTester tester) async {
+        suppressOverflowErrorsForTest();
+        await prepareLargeSurface(tester);
+        final harness = _PhaseKHarness.create();
 
-      await tester.pumpWidget(harness.buildShellApp());
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(harness.buildShellApp());
+        await tester.pumpAndSettle();
 
-      harness.module.primaryEditor.insertText('dirty');
-      await tester.pumpAndSettle();
+        harness.module.primaryEditor.insertText('dirty');
+        await tester.pumpAndSettle();
 
-      await _openQuickOpenWithQuery(tester, 'main.test');
+        await _openQuickOpenWithQuery(tester, 'main.test');
 
-      expect(find.byType(ForgeQuickOpen), findsOneWidget);
-      expect(find.byTooltip('Match Case'), findsOneWidget);
-      expect(
-        find.byWidgetPredicate(
-          (widget) =>
-              widget is Text && (widget.data?.contains('main.test ●') ?? false),
-        ),
-        findsOneWidget,
-      );
-    });
+        expect(find.byType(ForgeQuickOpen), findsOneWidget);
+        expect(find.byTooltip('Match Case'), findsOneWidget);
+        expect(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is Text &&
+                (widget.data?.contains('main.test ●') ?? false),
+          ),
+          findsOneWidget,
+        );
+      },
+    );
 
     testWidgets('02: primary+P opens actions-only quick-open mode', (
       WidgetTester tester,
@@ -134,7 +136,7 @@ void main() {
       await tester.tap(shortcutsSetting);
       await tester.pumpAndSettle();
 
-      expect(_shortcutSearchField(), findsOneWidget);
+      expect(shortcutTableSearch(), findsOneWidget);
     });
 
     testWidgets('06: invalid regex query surfaces quick-open regex error', (
@@ -290,16 +292,7 @@ Finder _titleSearchField() {
         widget is TextField &&
         (widget.decoration?.hintText == 'Search files, actions, and settings' ||
             widget.decoration?.hintText == 'Type an action...' ||
-            widget.decoration?.hintText ==
-                'Search shortcuts or press key...'),
-  );
-}
-
-Finder _shortcutSearchField() {
-  return find.byWidgetPredicate(
-    (widget) =>
-        widget is TextField &&
-        widget.decoration?.hintText == 'Search shortcuts...',
+            widget.decoration?.hintText == 'Search shortcuts or press key...'),
   );
 }
 
