@@ -19,82 +19,85 @@ void main() {
       SharedPreferences.setMockInitialValues(<String, Object>{});
     });
 
-    testWidgets('01: excluded directories remove matching quick-open file hits', (
-      WidgetTester tester,
-    ) async {
-      suppressOverflowErrorsForTest();
-      await prepareLargeSurface(tester);
-      final harness = _PhaseOHarness.create();
+    testWidgets(
+      '01: excluded directories remove matching quick-open file hits',
+      (WidgetTester tester) async {
+        suppressOverflowErrorsForTest();
+        await prepareLargeSurface(tester);
+        final harness = _PhaseOHarness.create();
 
-      await tester.pumpWidget(harness.buildShellApp());
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(harness.buildShellApp());
+        await tester.pumpAndSettle();
 
-      await _openSettingsViaFileMenu(tester);
-      await setConfigSwitch(
-        tester,
-        ForgeShellConfiguration.searchUseGitIgnore,
-        false,
-      );
+        await _openSettingsViaFileMenu(tester);
+        await setConfigSwitch(
+          tester,
+          ForgeShellConfiguration.searchUseGitIgnore,
+          false,
+        );
 
-      await _openQuickOpenWithQuery(tester, 'nested');
-      expect(_quickOpenText('zz-nested.note'), findsOneWidget);
+        await _openQuickOpenWithQuery(tester, 'nested');
+        expect(_quickOpenText('zz-nested.note'), findsOneWidget);
 
-      await _dismissQuickOpen(tester);
-      await addConfigListItem(
-        tester,
-        ForgeShellConfiguration.searchExcludedDirectories,
-        'nested',
-      );
+        await _dismissQuickOpen(tester);
+        await addConfigListItem(
+          tester,
+          ForgeShellConfiguration.searchExcludedDirectories,
+          'nested',
+        );
 
-      await _openQuickOpenWithQuery(tester, 'nested');
-      expect(_quickOpenText('zz-nested.note'), findsNothing);
-    });
+        await _openQuickOpenWithQuery(tester, 'nested');
+        expect(_quickOpenText('zz-nested.note'), findsNothing);
+      },
+    );
 
-    testWidgets('02: disabling hide-hidden-dirs reveals hidden directory files', (
-      WidgetTester tester,
-    ) async {
-      suppressOverflowErrorsForTest();
-      await prepareLargeSurface(tester);
-      final harness = _PhaseOHarness.create();
+    testWidgets(
+      '02: disabling hide-hidden-dirs reveals hidden directory files',
+      (WidgetTester tester) async {
+        suppressOverflowErrorsForTest();
+        await prepareLargeSurface(tester);
+        final harness = _PhaseOHarness.create();
 
-      await tester.pumpWidget(harness.buildShellApp());
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(harness.buildShellApp());
+        await tester.pumpAndSettle();
 
-      await _openSettingsViaFileMenu(tester);
-      await setConfigSwitch(
-        tester,
-        ForgeShellConfiguration.searchUseGitIgnore,
-        false,
-      );
+        await _openSettingsViaFileMenu(tester);
+        await setConfigSwitch(
+          tester,
+          ForgeShellConfiguration.searchUseGitIgnore,
+          false,
+        );
 
-      await _openQuickOpenWithQuery(tester, 'hidden');
-      expect(_quickOpenText('zz-hidden.note'), findsNothing);
+        await _openQuickOpenWithQuery(tester, 'hidden');
+        expect(_quickOpenText('zz-hidden.note'), findsNothing);
 
-      await _dismissQuickOpen(tester);
-      await setConfigSwitch(
-        tester,
-        ForgeShellConfiguration.searchHideHiddenDirectories,
-        false,
-      );
+        await _dismissQuickOpen(tester);
+        await setConfigSwitch(
+          tester,
+          ForgeShellConfiguration.searchHideHiddenDirectories,
+          false,
+        );
 
-      await _openQuickOpenWithQuery(tester, 'hidden');
-      expect(_quickOpenText('zz-hidden.note'), findsOneWidget);
-    });
+        await _openQuickOpenWithQuery(tester, 'hidden');
+        expect(_quickOpenText('zz-hidden.note'), findsOneWidget);
+      },
+    );
 
-    testWidgets('03: enabled gitignore hides ignored files in quick-open search', (
-      WidgetTester tester,
-    ) async {
-      suppressOverflowErrorsForTest();
-      await prepareLargeSurface(tester);
-      final harness = _PhaseOHarness.create();
+    testWidgets(
+      '03: enabled gitignore hides ignored files in quick-open search',
+      (WidgetTester tester) async {
+        suppressOverflowErrorsForTest();
+        await prepareLargeSurface(tester);
+        final harness = _PhaseOHarness.create();
 
-      await tester.pumpWidget(harness.buildShellApp());
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(harness.buildShellApp());
+        await tester.pumpAndSettle();
 
-      await _openQuickOpenWithQuery(tester, 'alpha');
+        await _openQuickOpenWithQuery(tester, 'alpha');
 
-      expect(_quickOpenText('alpha.note'), findsNothing);
-    });
+        expect(_quickOpenText('alpha.note'), findsNothing);
+      },
+    );
 
     testWidgets('04: disabling gitignore reveals previously ignored files', (
       WidgetTester tester,
@@ -131,10 +134,13 @@ void main() {
       await _openSettingsViaFileMenu(tester);
       await _openConfigSection(tester, 'Dart Editor');
 
-      final before = harness.shell.getEditorSpecificConfig('dart')['showToolbar'];
-      await tester.tap(find.widgetWithText(CheckboxListTile, 'Show toolbar'));
-      await tester.pumpAndSettle();
-      final after = harness.shell.getEditorSpecificConfig('dart')['showToolbar'];
+      final before = harness.shell.getEditorSpecificConfig(
+        'dart',
+      )['showToolbar'];
+      await tapConfigSwitch(tester, dartEditorSetting('showToolbar'));
+      final after = harness.shell.getEditorSpecificConfig(
+        'dart',
+      )['showToolbar'];
 
       expect(after, isNot(equals(before)));
     });
@@ -152,12 +158,13 @@ void main() {
       await _openSettingsViaFileMenu(tester);
       await _openConfigSection(tester, 'YAML Editor');
 
-      final before =
-          harness.shell.getEditorSpecificConfig('yaml')['showInlineValidation'];
-      await tester.tap(find.widgetWithText(CheckboxListTile, 'Inline validation'));
-      await tester.pumpAndSettle();
-      final after =
-          harness.shell.getEditorSpecificConfig('yaml')['showInlineValidation'];
+      final before = harness.shell.getEditorSpecificConfig(
+        'yaml',
+      )['showInlineValidation'];
+      await tapConfigSwitch(tester, yamlEditorSetting('showInlineValidation'));
+      final after = harness.shell.getEditorSpecificConfig(
+        'yaml',
+      )['showInlineValidation'];
 
       expect(after, isNot(equals(before)));
     });
@@ -176,12 +183,7 @@ void main() {
       await _openConfigSection(tester, 'Markdown Editor');
 
       final before = harness.shell.getEditorSpecificConfig('md')['showTree'];
-      final showTreeToggle = find.widgetWithText(CheckboxListTile, 'Show tree');
-      expect(showTreeToggle, findsOneWidget);
-      await tester.ensureVisible(showTreeToggle);
-      await tester.pumpAndSettle();
-      await tester.tap(showTreeToggle);
-      await tester.pumpAndSettle();
+      await tapConfigSwitch(tester, markdownEditorSetting('showTree'));
       final after = harness.shell.getEditorSpecificConfig('md')['showTree'];
 
       expect(after, isNot(equals(before)));
@@ -204,7 +206,9 @@ void main() {
       await _addExtensionMapping(tester, '.oext');
 
       final layout = harness.shell.layout as DefaultLayoutController;
-      layout.openFile(Uri.file('${harness.workspaceRoot}/test-fixtures/target-one.oext'));
+      layout.openFile(
+        Uri.file('${harness.workspaceRoot}/test-fixtures/target-one.oext'),
+      );
       await tester.pumpAndSettle();
 
       expect(harness.shell.systemState.activeEditor, isA<ForgeDartEditor>());
@@ -229,38 +233,41 @@ void main() {
       layout.closeAllEditors();
       await tester.pumpAndSettle();
 
-      layout.openFile(Uri.file('${harness.workspaceRoot}/test-fixtures/target-three.ufree'));
+      layout.openFile(
+        Uri.file('${harness.workspaceRoot}/test-fixtures/target-three.ufree'),
+      );
       await tester.pumpAndSettle();
 
       expect(harness.shell.systemState.activeEditor, isA<ForgeMdEditor>());
     });
 
-    testWidgets('10: View menu Middle Panel 3 keeps index when only two panels', (
-      WidgetTester tester,
-    ) async {
-      suppressOverflowErrorsForTest();
-      await prepareLargeSurface(tester);
-      final harness = _PhaseOHarness.create();
+    testWidgets(
+      '10: View menu Middle Panel 3 keeps index when only two panels',
+      (WidgetTester tester) async {
+        suppressOverflowErrorsForTest();
+        await prepareLargeSurface(tester);
+        final harness = _PhaseOHarness.create();
 
-      await tester.pumpWidget(harness.buildShellApp());
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(harness.buildShellApp());
+        await tester.pumpAndSettle();
 
-      final layout = harness.shell.layout as DefaultLayoutController;
-      layout.splitMiddlePanel();
-      await tester.pumpAndSettle();
-      expect(layout.middlePanels.value.length, equals(2));
+        final layout = harness.shell.layout as DefaultLayoutController;
+        layout.splitMiddlePanel();
+        await tester.pumpAndSettle();
+        expect(layout.middlePanels.value.length, equals(2));
 
-      layout.setActiveMiddlePanelIndex(1);
-      expect(layout.activeMiddlePanelIndex, equals(1));
+        layout.setActiveMiddlePanelIndex(1);
+        expect(layout.activeMiddlePanelIndex, equals(1));
 
-      await _selectViewMenuItem(tester, 'Middle Panel 3');
+        await _selectViewMenuItem(tester, 'Middle Panel 3');
 
-      expect(layout.activeMiddlePanelIndex, equals(1));
-      expect(
-        harness.shell.systemState.focusedPanelLocation,
-        equals(ForgePanelLocation.middle),
-      );
-    });
+        expect(layout.activeMiddlePanelIndex, equals(1));
+        expect(
+          harness.shell.systemState.focusedPanelLocation,
+          equals(ForgePanelLocation.middle),
+        );
+      },
+    );
   });
 }
 
@@ -308,10 +315,7 @@ Future<void> _selectDefaultFileTypeEditor(
   await tester.pumpAndSettle();
 }
 
-Future<void> _addExtensionMapping(
-  WidgetTester tester,
-  String ext,
-) async {
+Future<void> _addExtensionMapping(WidgetTester tester, String ext) async {
   await tester.enterText(_fileTypeExtensionField(), ext);
   await tester.pumpAndSettle();
   final add = find.byTooltip('Add Extension');
@@ -330,7 +334,10 @@ Finder _titleSearchField() {
 }
 
 Finder _quickOpenText(String text) {
-  return find.descendant(of: find.byType(ForgeQuickOpen), matching: find.text(text));
+  return find.descendant(
+    of: find.byType(ForgeQuickOpen),
+    matching: find.text(text),
+  );
 }
 
 Finder _fileTypeExtensionField() {
@@ -385,7 +392,9 @@ class _PhaseOHarness {
       appName: 'Phase O Harness',
       navigatorKey: navigatorKey,
     );
-    (shell.systemState as DefaultSystemState).setWorkspaceRootPath(workspaceRoot);
+    (shell.systemState as DefaultSystemState).setWorkspaceRootPath(
+      workspaceRoot,
+    );
 
     final shellModule = TomForgeShellModule();
     shellModule.activate(shell);
@@ -445,7 +454,11 @@ class _PhaseOHarness {
     shell.applications.add(application);
 
     final layout = shell.layout as DefaultLayoutController;
-    layout.openEditor(module.mainEditor, module.mainEditor.uri, middlePanelIndex: 0);
+    layout.openEditor(
+      module.mainEditor,
+      module.mainEditor.uri,
+      middlePanelIndex: 0,
+    );
 
     final preferences = ForgePreferencesService();
 
@@ -469,7 +482,8 @@ class _PhaseOHarness {
             layoutController: shell.layout as DefaultLayoutController,
             systemState: shell.systemState as DefaultSystemState,
             statusBarController: shell.statusBar,
-            notificationManager: shell.notifications as DefaultNotificationManager,
+            notificationManager:
+                shell.notifications as DefaultNotificationManager,
             preferencesService: preferences,
           ),
         ),
@@ -514,15 +528,13 @@ class _PhaseOModule extends ForgeModule {
 }
 
 class _PhaseOMainEditor extends ForgeTestTextEditor {
-  _PhaseOMainEditor(
-    super.module, {
-    required String workspaceRoot,
-  }) : super(
-          document: ForgeTestDocument(
-            uri: Uri.file('$workspaceRoot/test-fixtures/main.test'),
-            content: 'main\n',
-          ),
-        );
+  _PhaseOMainEditor(super.module, {required String workspaceRoot})
+    : super(
+        document: ForgeTestDocument(
+          uri: Uri.file('$workspaceRoot/test-fixtures/main.test'),
+          content: 'main\n',
+        ),
+      );
 }
 
 class _StubView extends ForgeView {

@@ -512,6 +512,25 @@ void main() {
       final store = ForgeMemoryStateStore();
       final prefs = ForgePreferencesService(stateStore: store);
       await tester.runAsync(prefs.load);
+      // An editor type's description, as the Dart editor's names it.
+      final dartEditor = ForgeConfigurationDescription(
+        id: 'forge.editor.dart',
+        title: const ForgeText('test.dart', 'Dart Editor'),
+        sections: [
+          ForgeSettingsSection(
+            id: 'editor',
+            title: const ForgeText('test.dart.section', 'Dart Editor'),
+            order: 2,
+            settings: ForgeEditorSettings.textGroups('dart'),
+          ),
+        ],
+      );
+      final values = forgeShellConfigurationValues(
+        prefs,
+        descriptions: [dartEditor],
+      );
+      addTearDown(values.dispose);
+      await tester.runAsync(values.load);
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -520,6 +539,7 @@ void main() {
               height: 1600,
               child: ForgeConfigurationPanel(
                 preferencesService: prefs,
+                configurationValues: values,
                 expandSection: expand,
               ),
             ),
@@ -544,11 +564,27 @@ void main() {
       expect(find.byKey(shellTile), findsOneWidget);
       expect(find.byKey(terminalTile), findsNothing);
 
-      // 2: the Dart editor's section, as before.
+      // 2: the Dart editor's section, its own description now.
       expand.value = 2;
       await tester.pumpAndSettle();
       expect(find.byKey(shellTile), findsNothing);
-      expect(find.text('Dart — Font'), findsOneWidget);
+      expect(
+        find.byKey(
+          const ValueKey('forge.configuration.tile.forge.editor.dart/editor'),
+        ),
+        findsOneWidget,
+      );
+
+      // 5: Shortcuts, the first built-in section, as before.
+      expand.value = 5;
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(
+          const ValueKey('forge.configuration.tile.forge.editor.dart/editor'),
+        ),
+        findsNothing,
+      );
+      expect(find.text('Shortcuts'), findsWidgets);
 
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(milliseconds: 600));

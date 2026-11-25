@@ -6,6 +6,7 @@
 library;
 
 export 'src/forge_yaml_editor.dart';
+export 'src/yaml_editor_configuration.dart';
 export 'src/yaml_editor_type.dart';
 export 'src/yaml_file_editor.dart';
 export 'src/yaml_file_kind.dart';

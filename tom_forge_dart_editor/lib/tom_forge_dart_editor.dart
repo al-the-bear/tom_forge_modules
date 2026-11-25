@@ -6,6 +6,7 @@
 /// outline of a Dart editor's code.
 library;
 
+export 'src/dart_editor_configuration.dart';
 export 'src/dart_editor_type.dart';
 export 'src/dart_outline_provider.dart';
 export 'src/forge_dart_editor.dart';

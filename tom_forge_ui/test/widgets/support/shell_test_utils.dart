@@ -3,6 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_forge_core/tom_forge_core.dart' show ForgeSetting;
+import 'package:tom_forge_ui/tom_forge_ui.dart'
+    show
+        ForgeDartEditorConfiguration,
+        ForgeMarkdownEditorConfiguration,
+        ForgeYamlEditorConfiguration;
 
 Future<void> prepareLargeSurface(
   WidgetTester tester, {
@@ -47,6 +52,18 @@ void suppressOverflowErrorsForTest() {
 // The Shell and Terminal sections are configuration descriptions
 // (ForgeShellConfiguration) drawn as tiles: every setting is an entry keyed
 // by its storage location.
+
+/// The Dart editor's setting [id] (its configuration description).
+ForgeSetting<Object> dartEditorSetting(String id) =>
+    ForgeDartEditorConfiguration.description.settingById(id)!;
+
+/// The YAML editor's setting [id] (its configuration description).
+ForgeSetting<Object> yamlEditorSetting(String id) =>
+    ForgeYamlEditorConfiguration.description.settingById(id)!;
+
+/// The Markdown editor's setting [id] (its configuration description).
+ForgeSetting<Object> markdownEditorSetting(String id) =>
+    ForgeMarkdownEditorConfiguration.description.settingById(id)!;
 
 /// The entry of [setting] in a configuration tile.
 Finder configSettingEntry(ForgeSetting<Object> setting) => find.byKey(

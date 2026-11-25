@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- `ForgeDartEditorConfiguration`: the Dart editor's options as a
+  configuration description (the shared text settings, toolbar,
+  autocompletion, diagnostics, toolbar buttons), given to
+  `forgeDartEditorType.configuration`; the panel shell shows it as the *Dart
+  Editor* section in place of its hand-written one, same keys and defaults.
 - `forgeDartEditorType` carries the editor's own actions
   (`ForgeKitEditorType.actionDescriptors`: `DartEditorActions.descriptors`, now
   the editor package's), which the panel shell lists before an editor is

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- `ForgeYamlEditorConfiguration`: the YAML editor's options as a
+  configuration description (the shared text settings, tree and structure,
+  the JSON Schema folder, layout), given to `forgeYamlEditorType.configuration`;
+  the panel shell shows it as the *YAML Editor* section in place of its
+  hand-written one, same keys and defaults.
 - `forgeYamlEditorType` carries the editor's own actions
   (`ForgeKitEditorType.actionDescriptors`: `YamlEditorActions.descriptors`, now
   the editor package's), which the panel shell lists before an editor is

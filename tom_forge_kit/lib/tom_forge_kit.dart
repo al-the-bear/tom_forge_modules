@@ -132,6 +132,7 @@ export 'src/services/forge_clipboard.dart';
 export 'src/services/forge_config_manager.dart';
 export 'src/services/forge_diagnostic_manager.dart';
 export 'src/services/forge_dialog_manager.dart';
+export 'src/services/forge_editor_settings.dart';
 export 'src/services/forge_disposable.dart';
 export 'src/services/forge_file_decoration_manager.dart';
 export 'src/services/forge_file_navigator.dart';

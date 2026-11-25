@@ -32,8 +32,7 @@ void main() {
       await _openSettingsViaFileMenu(tester);
       await _openConfigSection(tester, 'Dart Editor');
 
-      await tester.enterText(_textFormFieldByLabel('Size').first, '19');
-      await tester.pumpAndSettle();
+      await enterConfigSetting(tester, dartEditorSetting('fontSize'), '19');
 
       expect(harness.shell.getTextSettings('dart').fontSize, equals(19));
     });
@@ -51,8 +50,7 @@ void main() {
       await _openSettingsViaFileMenu(tester);
       await _openConfigSection(tester, 'Dart Editor');
 
-      await tester.enterText(_textFormFieldByLabel('Tab'), '6');
-      await tester.pumpAndSettle();
+      await enterConfigSetting(tester, dartEditorSetting('tabSize'), '6');
 
       expect(harness.shell.getTextSettings('dart').tabSize, equals(6));
     });
@@ -70,8 +68,11 @@ void main() {
       await _openSettingsViaFileMenu(tester);
       await _openConfigSection(tester, 'Dart Editor');
 
-      await tester.enterText(_textFormFieldByLabel('Max items'), '13');
-      await tester.pumpAndSettle();
+      await enterConfigSetting(
+        tester,
+        dartEditorSetting('maxCompletionItems'),
+        '13',
+      );
 
       expect(
         harness.shell.getEditorSpecificConfig('dart')['maxCompletionItems'],
@@ -92,21 +93,11 @@ void main() {
       await _openSettingsViaFileMenu(tester);
       await _openConfigSection(tester, 'Dart Editor');
 
-      final infoToggle =
-          find.widgetWithText(CheckboxListTile, 'Info toggles').first;
-      expect(infoToggle, findsOneWidget);
-      final before = harness.shell
-              .getEditorSpecificConfig('dart')['showInfoToggles']
-          as bool? ??
+      final before =
+          harness.shell.getEditorSpecificConfig('dart')['showInfoToggles']
+              as bool? ??
           true;
-
-        await tester.ensureVisible(infoToggle);
-        await tester.pumpAndSettle();
-          final infoCheckbox =
-            find.descendant(of: infoToggle, matching: find.byType(Checkbox));
-          expect(infoCheckbox, findsOneWidget);
-          await tester.tap(infoCheckbox);
-      await tester.pumpAndSettle();
+      await tapConfigSwitch(tester, dartEditorSetting('showInfoToggles'));
 
       expect(
         harness.shell.getEditorSpecificConfig('dart')['showInfoToggles'],
@@ -127,8 +118,7 @@ void main() {
       await _openSettingsViaFileMenu(tester);
       await _openConfigSection(tester, 'YAML Editor');
 
-      await tester.enterText(_textFormFieldByLabel('Indent'), '32');
-      await tester.pumpAndSettle();
+      await enterConfigSetting(tester, yamlEditorSetting('indentWidth'), '32');
 
       expect(
         harness.shell.getEditorSpecificConfig('yaml')['indentWidth'],
@@ -149,8 +139,11 @@ void main() {
       await _openSettingsViaFileMenu(tester);
       await _openConfigSection(tester, 'YAML Editor');
 
-      await tester.enterText(_textFormFieldByLabel('Preview lines'), '0');
-      await tester.pumpAndSettle();
+      await enterConfigSetting(
+        tester,
+        yamlEditorSetting('collapsedPreviewLines'),
+        '0',
+      );
 
       expect(
         harness.shell.getEditorSpecificConfig('yaml')['collapsedPreviewLines'],
@@ -171,17 +164,11 @@ void main() {
       await _openSettingsViaFileMenu(tester);
       await _openConfigSection(tester, 'Markdown Editor');
 
-      final regexToggle = find.widgetWithText(CheckboxListTile, 'Regex').first;
-      expect(regexToggle, findsOneWidget);
-      await tester.ensureVisible(regexToggle);
-      await tester.pumpAndSettle();
-      final before = harness.shell
-              .getEditorSpecificConfig('md')['enableRegexSearch']
-          as bool? ??
+      final before =
+          harness.shell.getEditorSpecificConfig('md')['enableRegexSearch']
+              as bool? ??
           false;
-
-      await tester.tap(regexToggle);
-      await tester.pumpAndSettle();
+      await tapConfigSwitch(tester, markdownEditorSetting('enableRegexSearch'));
 
       expect(
         harness.shell.getEditorSpecificConfig('md')['enableRegexSearch'],
@@ -202,17 +189,10 @@ void main() {
       await _openSettingsViaFileMenu(tester);
       await _openConfigSection(tester, 'Markdown Editor');
 
-      final readOnlyToggle =
-          find.widgetWithText(CheckboxListTile, 'Read only').first;
-      expect(readOnlyToggle, findsOneWidget);
-      await tester.ensureVisible(readOnlyToggle);
-      await tester.pumpAndSettle();
       final before =
           harness.shell.getEditorSpecificConfig('md')['readOnly'] as bool? ??
-              false;
-
-      await tester.tap(readOnlyToggle);
-      await tester.pumpAndSettle();
+          false;
+      await tapConfigSwitch(tester, markdownEditorSetting('readOnly'));
 
       expect(
         harness.shell.getEditorSpecificConfig('md')['readOnly'],
@@ -239,33 +219,42 @@ void main() {
       await tester.tap(dartSetting);
       await tester.pumpAndSettle();
 
-      expect(find.text('Dart — Font'), findsOneWidget);
+      expect(
+        find.byKey(
+          const ValueKey('forge.configuration.tile.forge.editor.dart/editor'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        configSettingEntry(dartEditorSetting('fontFamily')),
+        findsOneWidget,
+      );
     });
 
     testWidgets(
-        '10: primary+shift+P then Enter opens Markdown math setting section', (
-      WidgetTester tester,
-    ) async {
-      suppressOverflowErrorsForTest();
-      await prepareLargeSurface(tester);
-      final harness = _PhaseRHarness.create();
+      '10: primary+shift+P then Enter opens Markdown math setting section',
+      (WidgetTester tester) async {
+        suppressOverflowErrorsForTest();
+        await prepareLargeSurface(tester);
+        final harness = _PhaseRHarness.create();
 
-      await tester.pumpWidget(harness.buildShellApp());
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(harness.buildShellApp());
+        await tester.pumpAndSettle();
 
-      await sendPrimaryShortcut(tester, LogicalKeyboardKey.keyP, shift: true);
-      await tester.pumpAndSettle();
+        await sendPrimaryShortcut(tester, LogicalKeyboardKey.keyP, shift: true);
+        await tester.pumpAndSettle();
 
-      await tester.enterText(_titleSearchField(), 'Markdown: Math (KaTeX)');
-      await tester.pump(const Duration(milliseconds: 250));
-      await tester.pumpAndSettle();
+        await tester.enterText(_titleSearchField(), 'Markdown: Math (KaTeX)');
+        await tester.pump(const Duration(milliseconds: 250));
+        await tester.pumpAndSettle();
 
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-      await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
 
-      expect(find.text('Markdown Features'), findsOneWidget);
-      expect(find.text('Math (KaTeX)'), findsOneWidget);
-    });
+        expect(find.text('Markdown Features'), findsOneWidget);
+        expect(find.text('Math (KaTeX)'), findsOneWidget);
+      },
+    );
   });
 }
 
@@ -293,15 +282,7 @@ Finder _titleSearchField() {
         widget is TextField &&
         (widget.decoration?.hintText == 'Search files, actions, and settings' ||
             widget.decoration?.hintText == 'Type an action...' ||
-            widget.decoration?.hintText ==
-                'Search shortcuts or press key...'),
-  );
-}
-
-Finder _textFormFieldByLabel(String label) {
-  return find.ancestor(
-    of: find.text(label),
-    matching: find.byType(TextFormField),
+            widget.decoration?.hintText == 'Search shortcuts or press key...'),
   );
 }
 
@@ -335,13 +316,13 @@ class _PhaseRHarness {
 
     final navigatorKey = GlobalKey<NavigatorState>();
     final shell = DefaultShellApi.withDefaults(
-      fileSystemSeed: {
-        '$workspaceRoot/test-fixtures/main.test': 'main\n',
-      },
+      fileSystemSeed: {'$workspaceRoot/test-fixtures/main.test': 'main\n'},
       appName: 'Phase R Harness',
       navigatorKey: navigatorKey,
     );
-    (shell.systemState as DefaultSystemState).setWorkspaceRootPath(workspaceRoot);
+    (shell.systemState as DefaultSystemState).setWorkspaceRootPath(
+      workspaceRoot,
+    );
 
     final shellModule = TomForgeShellModule();
     shellModule.activate(shell);
@@ -401,7 +382,11 @@ class _PhaseRHarness {
     shell.applications.add(application);
 
     final layout = shell.layout as DefaultLayoutController;
-    layout.openEditor(module.mainEditor, module.mainEditor.uri, middlePanelIndex: 0);
+    layout.openEditor(
+      module.mainEditor,
+      module.mainEditor.uri,
+      middlePanelIndex: 0,
+    );
 
     final preferences = ForgePreferencesService();
 
@@ -424,7 +409,8 @@ class _PhaseRHarness {
             layoutController: shell.layout as DefaultLayoutController,
             systemState: shell.systemState as DefaultSystemState,
             statusBarController: shell.statusBar,
-            notificationManager: shell.notifications as DefaultNotificationManager,
+            notificationManager:
+                shell.notifications as DefaultNotificationManager,
             preferencesService: preferences,
           ),
         ),
@@ -469,15 +455,13 @@ class _PhaseRModule extends ForgeModule {
 }
 
 class _PhaseRMainEditor extends ForgeTestTextEditor {
-  _PhaseRMainEditor(
-    super.module, {
-    required String workspaceRoot,
-  }) : super(
-          document: ForgeTestDocument(
-            uri: Uri.file('$workspaceRoot/test-fixtures/main.test'),
-            content: 'main\n',
-          ),
-        );
+  _PhaseRMainEditor(super.module, {required String workspaceRoot})
+    : super(
+        document: ForgeTestDocument(
+          uri: Uri.file('$workspaceRoot/test-fixtures/main.test'),
+          content: 'main\n',
+        ),
+      );
 
   @override
   FileHandlingResult canHandle(Uri uri) {

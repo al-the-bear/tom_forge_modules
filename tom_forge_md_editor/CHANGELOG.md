@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- `ForgeMarkdownEditorConfiguration`: the Markdown editor's options as a
+  configuration description (the shared text settings and the editor's
+  layout, raw editor, main panel, tree, features, code blocks, tables,
+  search, behaviour and schema folder), given to
+  `forgeMarkdownEditorType.configuration`; the panel shell shows it as the
+  *Markdown Editor* section in place of its hand-written one, same keys and
+  defaults.
 - `forgeMarkdownEditorType` carries the editor's own actions
   (`ForgeKitEditorType.actionDescriptors`: `MdEditorActions.descriptors`, now
   the editor package's), which the panel shell lists before an editor is

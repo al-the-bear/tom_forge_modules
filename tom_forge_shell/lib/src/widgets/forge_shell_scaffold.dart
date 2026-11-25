@@ -4003,7 +4003,7 @@ the field, not the document.
   /// ([forgeShellSettingBindings]), which the shell's own description
   /// stores through.
   ForgeConfigurationValues? _currentConfigurationValues() {
-    final descriptions = forgeConfigurationDescriptionsOf(widget.shell);
+    final descriptions = _collectConfigurationDescriptions();
     if (!listEquals(descriptions, _configurationDescriptions)) {
       _configurationValues?.dispose();
       _configurationValues = null;
@@ -4022,6 +4022,21 @@ the field, not the document.
       }
     }
     return _configurationValues;
+  }
+
+  /// The descriptions the modules contribute, then those of the editor
+  /// types the shell takes ([ForgeKitEditorType.configuration]); a
+  /// description whose id came earlier is left out.
+  List<ForgeConfigurationDescription> _collectConfigurationDescriptions() {
+    final ids = <String>{};
+    return [
+      for (final description in [
+        ...forgeConfigurationDescriptionsOf(widget.shell),
+        for (final type in ForgeShellComponents.of(widget.shell).editorTypes)
+          ?type.configuration,
+      ])
+        if (ids.add(description.id)) description,
+    ];
   }
 
   bool _isPrimaryEditorRender(int panelIndex, ForgeEditor editor) {

@@ -55,7 +55,10 @@ void main() {
       expect(harness.shell.config.current.autoSave.enabled, isTrue);
 
       expect(
-        configSettingSwitchValue(tester, ForgeShellConfiguration.autoSaveEnabled),
+        configSettingSwitchValue(
+          tester,
+          ForgeShellConfiguration.autoSaveEnabled,
+        ),
         isTrue,
       );
       await tapConfigSwitch(tester, ForgeShellConfiguration.autoSaveEnabled);
@@ -193,10 +196,10 @@ void main() {
       await _openSettingsViaAction(harness, tester);
       await _openConfigSection(tester, 'YAML Editor');
 
-      final treeLines = find.widgetWithText(CheckboxListTile, 'Tree lines');
-      expect(treeLines, findsOneWidget);
-      await tester.tap(treeLines);
-      await tester.pumpAndSettle();
+      await tapConfigSwitch(
+        tester,
+        ForgeYamlEditorConfiguration.description.settingById('showTreeLines')!,
+      );
 
       final yamlConfig = harness.shell.getEditorSpecificConfig('yaml');
       expect(yamlConfig['showTreeLines'], isFalse);
@@ -214,15 +217,12 @@ void main() {
       await _openSettingsViaAction(harness, tester);
       await _openConfigSection(tester, 'Markdown Editor');
 
-      final mermaid = find.widgetWithText(
-        CheckboxListTile,
-        'Mermaid diagrams',
+      await tapConfigSwitch(
+        tester,
+        ForgeMarkdownEditorConfiguration.description.settingById(
+          'enableMermaid',
+        )!,
       );
-      expect(mermaid, findsOneWidget);
-      await tester.ensureVisible(mermaid);
-      await tester.pumpAndSettle();
-      await tester.tap(mermaid);
-      await tester.pumpAndSettle();
 
       final mdConfig = harness.shell.getEditorSpecificConfig('md');
       expect(mdConfig['enableMermaid'], isFalse);
@@ -235,7 +235,9 @@ void main() {
       await prepareLargeSurface(tester);
       final harness = _PhaseIHarness.create();
 
-      final before = harness.shell.shortcuts.getBinding('forge.toggleLeftPanel');
+      final before = harness.shell.shortcuts.getBinding(
+        'forge.toggleLeftPanel',
+      );
       expect(before, isNotNull);
 
       harness.shell.shortcuts.rebind(

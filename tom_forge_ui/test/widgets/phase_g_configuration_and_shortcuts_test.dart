@@ -51,12 +51,10 @@ void main() {
       await tester.tap(find.text('YAML Editor').first);
       await tester.pumpAndSettle();
 
-      final treeLines = find.widgetWithText(CheckboxListTile, 'Tree lines');
-      expect(treeLines, findsOneWidget);
-      await tester.ensureVisible(treeLines);
-      await tester.pumpAndSettle();
-      await tester.tap(treeLines);
-      await tester.pumpAndSettle();
+      await tapConfigSwitch(
+        tester,
+        ForgeYamlEditorConfiguration.description.settingById('showTreeLines')!,
+      );
 
       final yamlConfig = harness.shell.getEditorSpecificConfig('yaml');
       expect(yamlConfig['showTreeLines'], isFalse);
@@ -77,12 +75,12 @@ void main() {
       await tester.tap(find.text('Markdown Editor').first);
       await tester.pumpAndSettle();
 
-      final mermaid = find.widgetWithText(CheckboxListTile, 'Mermaid diagrams');
-      expect(mermaid, findsOneWidget);
-      await tester.ensureVisible(mermaid);
-      await tester.pumpAndSettle();
-      await tester.tap(mermaid);
-      await tester.pumpAndSettle();
+      await tapConfigSwitch(
+        tester,
+        ForgeMarkdownEditorConfiguration.description.settingById(
+          'enableMermaid',
+        )!,
+      );
 
       final mdConfig = harness.shell.getEditorSpecificConfig('md');
       expect(mdConfig['enableMermaid'], isFalse);

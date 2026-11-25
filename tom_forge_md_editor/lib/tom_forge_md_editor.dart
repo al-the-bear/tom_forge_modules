@@ -16,5 +16,6 @@ export 'package:tom_md_review/tom_md_review.dart' show MdReviewEditing;
 export 'src/forge_md_editor.dart';
 export 'src/markdown_file_editor.dart';
 export 'src/markdown_file_kind.dart';
+export 'src/md_editor_configuration.dart';
 export 'src/md_editor_type.dart';
 export 'src/md_plugins.dart';

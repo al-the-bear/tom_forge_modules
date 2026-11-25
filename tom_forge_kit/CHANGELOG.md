@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **Editor settings as configuration:** `ForgeKitEditorType.configuration`
+  (an editor type's options as a configuration description; the application
+  collects it with its modules'), `ForgeEditorSettings` (the text settings'
+  *Font*, *Indentation*, *Display* and *Undo* groups and the storages of an
+  editor type's own options) and `ForgeEditorSettingBinding`
+  (`forge.editors`), which stores them through the kit preferences under
+  `forge.editor.textSettings` / `forge.editor.specificConfig` in the
+  encodings they always had. `ForgeKitPreferences.textSettingsFromJson` /
+  `textSettingsToJson` and `editorSpecificConfigs` are public.
 - **Configuration contributions and values:** a module hands its
   components' configuration descriptions (`tom_forge_core`) over as a
   `ForgeConfigurationDescriptionsExtra` (`forge.kit.configurationDescriptions`);

@@ -535,13 +535,16 @@ abstract final class ForgeShellConfiguration {
   );
 }
 
-/// The bindings the shell's description stores through: the [preferences]
-/// service's and, with [config], the auto-save's.
+/// The bindings the shell's descriptions store through: the [preferences]
+/// service's, the editors' text settings and configuration in the same
+/// preferences ([ForgeEditorSettingBinding], which the editor types'
+/// descriptions name) and, with [config], the auto-save's.
 List<ForgeSettingBinding> forgeShellSettingBindings(
   ForgePreferencesService preferences, {
   ForgeConfigManager? config,
 }) => [
   ForgePreferencesSettingBinding(preferences),
+  ForgeEditorSettingBinding(preferences),
   if (config != null) ForgeConfigSettingBinding(config),
 ];
 

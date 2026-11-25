@@ -21,101 +21,99 @@ void main() {
     });
 
     // ── 01 ──────────────────────────────────────────────────────────────
-    testWidgets(
-      '01: File menu Save executes save action on active editor',
-      (WidgetTester tester) async {
-        suppressOverflowErrorsForTest();
-        await prepareLargeSurface(tester);
-        final harness = _PhaseBBHarness.create();
-        final layout = harness.shell.layout as DefaultLayoutController;
+    testWidgets('01: File menu Save executes save action on active editor', (
+      WidgetTester tester,
+    ) async {
+      suppressOverflowErrorsForTest();
+      await prepareLargeSurface(tester);
+      final harness = _PhaseBBHarness.create();
+      final layout = harness.shell.layout as DefaultLayoutController;
 
-        await tester.pumpWidget(harness.buildShellApp());
-        await tester.pumpAndSettle();
+      await tester.pumpWidget(harness.buildShellApp());
+      await tester.pumpAndSettle();
 
-        // Open an editor and make it dirty.
-        layout.openEditor(
-          harness.module.mainEditor,
+      // Open an editor and make it dirty.
+      layout.openEditor(
+        harness.module.mainEditor,
+        harness.module.mainEditor.uri,
+      );
+      await tester.pump();
+      harness.module.mainEditor.insertText('dirty content');
+      await tester.pump();
+      expect(harness.module.mainEditor.isDirty.value, isTrue);
+
+      // Click the File menu.
+      await tester.tap(find.text('File'));
+      await tester.pumpAndSettle();
+
+      // Click Save.
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      // Allow the async save futures to complete.
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pump();
+
+      // After save, the file system should have been written.
+      String? savedContent;
+      await tester.runAsync(() async {
+        savedContent = await harness.fileSystem.readText(
           harness.module.mainEditor.uri,
         );
-        await tester.pump();
-        harness.module.mainEditor.insertText('dirty content');
-        await tester.pump();
-        expect(harness.module.mainEditor.isDirty.value, isTrue);
-
-        // Click the File menu.
-        await tester.tap(find.text('File'));
-        await tester.pumpAndSettle();
-
-        // Click Save.
-        await tester.tap(find.text('Save'));
-        await tester.pumpAndSettle();
-
-        // Allow the async save futures to complete.
-        await tester.runAsync(() => Future<void>.delayed(Duration.zero));
-        await tester.pump();
-
-        // After save, the file system should have been written.
-        String? savedContent;
-        await tester.runAsync(() async {
-          savedContent = await harness.fileSystem.readText(
-            harness.module.mainEditor.uri,
-          );
-        });
-        // The save action writes content and marks the editor clean.
-        expect(savedContent, contains('dirty content'));
-        expect(harness.module.mainEditor.isDirty.value, isFalse);
-        expect(find.text('Save'), findsNothing); // Menu closed after tap.
-      },
-    );
+      });
+      // The save action writes content and marks the editor clean.
+      expect(savedContent, contains('dirty content'));
+      expect(harness.module.mainEditor.isDirty.value, isFalse);
+      expect(find.text('Save'), findsNothing); // Menu closed after tap.
+    });
 
     // ── 02 ──────────────────────────────────────────────────────────────
-    testWidgets(
-      '02: View menu toggles left and right panels via menu items',
-      (WidgetTester tester) async {
-        suppressOverflowErrorsForTest();
-        await prepareLargeSurface(tester);
-        final harness = _PhaseBBHarness.create();
-        final layout = harness.shell.layout as DefaultLayoutController;
+    testWidgets('02: View menu toggles left and right panels via menu items', (
+      WidgetTester tester,
+    ) async {
+      suppressOverflowErrorsForTest();
+      await prepareLargeSurface(tester);
+      final harness = _PhaseBBHarness.create();
+      final layout = harness.shell.layout as DefaultLayoutController;
 
-        await tester.pumpWidget(harness.buildShellApp());
-        await tester.pumpAndSettle();
+      await tester.pumpWidget(harness.buildShellApp());
+      await tester.pumpAndSettle();
 
-        // Left panel starts visible.
-        expect(layout.leftPanel.value.isVisible, isTrue);
+      // Left panel starts visible.
+      expect(layout.leftPanel.value.isVisible, isTrue);
 
-        // Open View menu and toggle left panel.
-        await tester.tap(find.text('View'));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Toggle Left Panel'));
-        await tester.pumpAndSettle();
+      // Open View menu and toggle left panel.
+      await tester.tap(find.text('View'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Toggle Left Panel'));
+      await tester.pumpAndSettle();
 
-        expect(layout.leftPanel.value.isVisible, isFalse);
+      expect(layout.leftPanel.value.isVisible, isFalse);
 
-        // Toggle again to re-open.
-        await tester.tap(find.text('View'));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Toggle Left Panel'));
-        await tester.pumpAndSettle();
+      // Toggle again to re-open.
+      await tester.tap(find.text('View'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Toggle Left Panel'));
+      await tester.pumpAndSettle();
 
-        expect(layout.leftPanel.value.isVisible, isTrue);
+      expect(layout.leftPanel.value.isVisible, isTrue);
 
-        // Toggle right panel.
-        await tester.tap(find.text('View'));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Toggle Right Panel'));
-        await tester.pumpAndSettle();
+      // Toggle right panel.
+      await tester.tap(find.text('View'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Toggle Right Panel'));
+      await tester.pumpAndSettle();
 
-        // Right panel visibility should have toggled.
-        final rightVisible = layout.rightPanel.value.isVisible;
-        // Re-toggle to verify it changes.
-        await tester.tap(find.text('View'));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Toggle Right Panel'));
-        await tester.pumpAndSettle();
+      // Right panel visibility should have toggled.
+      final rightVisible = layout.rightPanel.value.isVisible;
+      // Re-toggle to verify it changes.
+      await tester.tap(find.text('View'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Toggle Right Panel'));
+      await tester.pumpAndSettle();
 
-        expect(layout.rightPanel.value.isVisible, !rightVisible);
-      },
-    );
+      expect(layout.rightPanel.value.isVisible, !rightVisible);
+    });
 
     // ── 03 ──────────────────────────────────────────────────────────────
     testWidgets(
@@ -211,75 +209,74 @@ void main() {
     );
 
     // ── 05 ──────────────────────────────────────────────────────────────
-    testWidgets(
-      '05: tab bar keyboard navigation with arrow keys and delete',
-      (WidgetTester tester) async {
-        suppressOverflowErrorsForTest();
-        await prepareLargeSurface(tester);
-        final harness = _PhaseBBHarness.create();
-        final layout = harness.shell.layout as DefaultLayoutController;
-        final systemState = harness.shell.systemState as DefaultSystemState;
+    testWidgets('05: tab bar keyboard navigation with arrow keys and delete', (
+      WidgetTester tester,
+    ) async {
+      suppressOverflowErrorsForTest();
+      await prepareLargeSurface(tester);
+      final harness = _PhaseBBHarness.create();
+      final layout = harness.shell.layout as DefaultLayoutController;
+      final systemState = harness.shell.systemState as DefaultSystemState;
 
-        await tester.pumpWidget(harness.buildShellApp());
-        await tester.pumpAndSettle();
+      await tester.pumpWidget(harness.buildShellApp());
+      await tester.pumpAndSettle();
 
-        // Open editors after the widget is built (following established pattern).
-        layout.openEditor(
-          harness.module.mainEditor,
-          harness.module.mainEditor.uri,
-        );
-        await tester.pump();
-        layout.openEditor(
-          harness.module.secondaryEditor,
-          harness.module.secondaryEditor.uri,
-        );
-        await tester.pump();
-        layout.openEditor(
-          harness.module.tertiaryEditor,
-          harness.module.tertiaryEditor.uri,
-        );
-        await tester.pump();
+      // Open editors after the widget is built (following established pattern).
+      layout.openEditor(
+        harness.module.mainEditor,
+        harness.module.mainEditor.uri,
+      );
+      await tester.pump();
+      layout.openEditor(
+        harness.module.secondaryEditor,
+        harness.module.secondaryEditor.uri,
+      );
+      await tester.pump();
+      layout.openEditor(
+        harness.module.tertiaryEditor,
+        harness.module.tertiaryEditor.uri,
+      );
+      await tester.pump();
 
-        // Active editor should be the last opened (tertiary).
-        expect(systemState.activeEditor, same(harness.module.tertiaryEditor));
+      // Active editor should be the last opened (tertiary).
+      expect(systemState.activeEditor, same(harness.module.tertiaryEditor));
 
-        // Click on first tab to activate it.
-        final tabBar = find.byType(ForgeEditorTabBar);
-        await tester.tap(
-          find.descendant(of: tabBar, matching: find.text('Main Test')),
-        );
-        await tester.pump();
-        expect(systemState.activeEditor, same(harness.module.mainEditor));
+      // Click on first tab to activate it.
+      final tabBar = find.byType(ForgeEditorTabBar);
+      await tester.tap(
+        find.descendant(of: tabBar, matching: find.text('Main Test')),
+      );
+      await tester.pump();
+      expect(systemState.activeEditor, same(harness.module.mainEditor));
 
-        // Verify all three tabs are present in the tab bar.
-        expect(
-          find.descendant(of: tabBar, matching: find.text('Main Test')),
-          findsOneWidget,
-        );
-        expect(
-          find.descendant(of: tabBar, matching: find.text('Secondary')),
-          findsOneWidget,
-        );
-        expect(
-          find.descendant(of: tabBar, matching: find.text('Tertiary')),
-          findsOneWidget,
-        );
+      // Verify all three tabs are present in the tab bar.
+      expect(
+        find.descendant(of: tabBar, matching: find.text('Main Test')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: tabBar, matching: find.text('Secondary')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: tabBar, matching: find.text('Tertiary')),
+        findsOneWidget,
+      );
 
-        // Click on the second tab and verify it activates.
-        await tester.tap(
-          find.descendant(of: tabBar, matching: find.text('Secondary')),
-        );
-        await tester.pump();
-        expect(systemState.activeEditor, same(harness.module.secondaryEditor));
+      // Click on the second tab and verify it activates.
+      await tester.tap(
+        find.descendant(of: tabBar, matching: find.text('Secondary')),
+      );
+      await tester.pump();
+      expect(systemState.activeEditor, same(harness.module.secondaryEditor));
 
-        // Click back on the third tab.
-        await tester.tap(
-          find.descendant(of: tabBar, matching: find.text('Tertiary')),
-        );
-        await tester.pump();
-        expect(systemState.activeEditor, same(harness.module.tertiaryEditor));
-      },
-    );
+      // Click back on the third tab.
+      await tester.tap(
+        find.descendant(of: tabBar, matching: find.text('Tertiary')),
+      );
+      await tester.pump();
+      expect(systemState.activeEditor, same(harness.module.tertiaryEditor));
+    });
 
     // ── 06 ──────────────────────────────────────────────────────────────
     testWidgets(
@@ -386,6 +383,17 @@ void main() {
         final preferences = ForgePreferencesService();
         final expandSection = ValueNotifier<int?>(null);
         addTearDown(() => expandSection.dispose());
+        // The editor sections are the editor types' own descriptions.
+        final values = forgeShellConfigurationValues(
+          preferences,
+          descriptions: [
+            ForgeDartEditorConfiguration.description,
+            ForgeYamlEditorConfiguration.description,
+            ForgeMarkdownEditorConfiguration.description,
+          ],
+        );
+        addTearDown(values.dispose);
+        await tester.runAsync(values.load);
 
         await tester.pumpWidget(
           MaterialApp(
@@ -395,6 +403,7 @@ void main() {
                 height: 1200,
                 child: ForgeConfigurationPanel(
                   preferencesService: preferences,
+                  configurationValues: values,
                   expandSection: expandSection,
                 ),
               ),
@@ -438,48 +447,47 @@ void main() {
     );
 
     // ── 09 ──────────────────────────────────────────────────────────────
-    testWidgets(
-      '09: Ctrl+S keyboard shortcut triggers save on active editor',
-      (WidgetTester tester) async {
-        suppressOverflowErrorsForTest();
-        await prepareLargeSurface(tester);
-        final harness = _PhaseBBHarness.create();
-        final layout = harness.shell.layout as DefaultLayoutController;
+    testWidgets('09: Ctrl+S keyboard shortcut triggers save on active editor', (
+      WidgetTester tester,
+    ) async {
+      suppressOverflowErrorsForTest();
+      await prepareLargeSurface(tester);
+      final harness = _PhaseBBHarness.create();
+      final layout = harness.shell.layout as DefaultLayoutController;
 
-        await tester.pumpWidget(harness.buildShellApp());
-        await tester.pumpAndSettle();
+      await tester.pumpWidget(harness.buildShellApp());
+      await tester.pumpAndSettle();
 
-        // Open editor after widget build (following established pattern).
-        layout.openEditor(
-          harness.module.mainEditor,
+      // Open editor after widget build (following established pattern).
+      layout.openEditor(
+        harness.module.mainEditor,
+        harness.module.mainEditor.uri,
+      );
+      await tester.pump();
+
+      // Make the editor dirty.
+      harness.module.mainEditor.insertText('new content');
+      await tester.pump();
+      expect(harness.module.mainEditor.isDirty.value, isTrue);
+
+      // Press Ctrl+S.
+      await sendPrimaryShortcut(tester, LogicalKeyboardKey.keyS);
+      await tester.pumpAndSettle();
+
+      // Allow the async save futures to complete.
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pump();
+
+      // The save action should write the file content via the file system.
+      String? content;
+      await tester.runAsync(() async {
+        content = await harness.fileSystem.readText(
           harness.module.mainEditor.uri,
         );
-        await tester.pump();
-
-        // Make the editor dirty.
-        harness.module.mainEditor.insertText('new content');
-        await tester.pump();
-        expect(harness.module.mainEditor.isDirty.value, isTrue);
-
-        // Press Ctrl+S.
-        await sendPrimaryShortcut(tester, LogicalKeyboardKey.keyS);
-        await tester.pumpAndSettle();
-
-        // Allow the async save futures to complete.
-        await tester.runAsync(() => Future<void>.delayed(Duration.zero));
-        await tester.pump();
-
-        // The save action should write the file content via the file system.
-        String? content;
-        await tester.runAsync(() async {
-          content = await harness.fileSystem.readText(
-            harness.module.mainEditor.uri,
-          );
-        });
-        // Verify the file was saved (content should be the editor's text).
-        expect(content, contains('new content'));
-      },
-    );
+      });
+      // Verify the file was saved (content should be the editor's text).
+      expect(content, contains('new content'));
+    });
 
     // ── 10 ──────────────────────────────────────────────────────────────
     testWidgets(
@@ -511,8 +519,9 @@ void main() {
         expect(systemState.activeApplication!.title, equals('Phase BB App'));
 
         // Verify the second application is available.
-        final secondApp = systemState.applications
-            .firstWhere((a) => a.title == 'Second App');
+        final secondApp = systemState.applications.firstWhere(
+          (a) => a.title == 'Second App',
+        );
         expect(secondApp, isNotNull);
 
         // Switch to the second application via system state.
@@ -647,9 +656,7 @@ class _PhaseBBHarness {
       secondApp = ForgeApplication(
         id: 'second-app',
         title: 'Second App',
-        layout: const PanelLayout(
-          middlePanels: [MiddlePanelConfig()],
-        ),
+        layout: const PanelLayout(middlePanels: [MiddlePanelConfig()]),
       );
       shell.applications.add(secondApp);
     }
@@ -734,7 +741,11 @@ class _PhaseBBModule extends ForgeModule {
   void deactivate() {}
 
   @override
-  List<ForgeEditor> get editors => [mainEditor, secondaryEditor, tertiaryEditor];
+  List<ForgeEditor> get editors => [
+    mainEditor,
+    secondaryEditor,
+    tertiaryEditor,
+  ];
 
   @override
   List<ForgeView> get views => const [];
@@ -777,11 +788,11 @@ class _PhaseBBEditor extends ForgeTestTextEditor {
     required Uri uri,
     required String title,
     required String content,
-  })  : _uri = uri,
-        _titleNotifier = ValueNotifier(title),
-        super(
-          document: ForgeTestDocument(uri: uri, content: content),
-        );
+  }) : _uri = uri,
+       _titleNotifier = ValueNotifier(title),
+       super(
+         document: ForgeTestDocument(uri: uri, content: content),
+       );
 
   final Uri _uri;
   final ValueNotifier<String> _titleNotifier;

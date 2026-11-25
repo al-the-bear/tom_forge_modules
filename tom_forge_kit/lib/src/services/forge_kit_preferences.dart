@@ -300,6 +300,12 @@ class ForgeKitPreferences extends ChangeNotifier
     notifyListeners();
   }
 
+  /// Snapshot of every editor-specific configuration, by editor type id.
+  Map<String, Map<String, dynamic>> get editorSpecificConfigs => {
+    for (final entry in _editorSpecificConfig.entries)
+      entry.key: Map<String, dynamic>.unmodifiable(entry.value),
+  };
+
   /// Reads editor-specific configuration map for the given editor type.
   Map<String, dynamic> getEditorSpecificConfig(String editorTypeId) {
     return Map<String, dynamic>.from(
@@ -765,7 +771,16 @@ class ForgeKitPreferences extends ChangeNotifier
     return trimmed.startsWith('.') ? trimmed : '.$trimmed';
   }
 
-  ForgeTextSettings _textSettingsFromMap(Map<String, dynamic> json) {
+  /// The text settings a stored map (`forge.editor.textSettings` → editor
+  /// type → map) holds; a field missing takes its default.
+  static ForgeTextSettings textSettingsFromJson(Map<String, dynamic> json) =>
+      _textSettingsFromMap(json);
+
+  /// [settings] as the map stored under `forge.editor.textSettings`.
+  static Map<String, dynamic> textSettingsToJson(ForgeTextSettings settings) =>
+      _textSettingsToMap(settings);
+
+  static ForgeTextSettings _textSettingsFromMap(Map<String, dynamic> json) {
     return ForgeTextSettings(
       fontFamily:
           (json['fontFamily'] as String?) ??
@@ -791,7 +806,7 @@ class ForgeKitPreferences extends ChangeNotifier
     );
   }
 
-  Map<String, dynamic> _textSettingsToMap(ForgeTextSettings settings) {
+  static Map<String, dynamic> _textSettingsToMap(ForgeTextSettings settings) {
     return <String, dynamic>{
       'fontFamily': settings.fontFamily,
       'uiFontFamily': settings.uiFontFamily,

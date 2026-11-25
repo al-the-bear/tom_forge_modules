@@ -64,51 +64,58 @@ void main() {
       expect(_shortcutSearchField('Search chords...'), findsOneWidget);
     });
 
-    testWidgets('03: keyboard quick-open Enter opens Markdown Mermaid setting', (
-      WidgetTester tester,
-    ) async {
-      suppressOverflowErrorsForTest();
-      await prepareLargeSurface(tester);
-      final harness = _PhaseSHarness.create();
+    testWidgets(
+      '03: keyboard quick-open Enter opens Markdown Mermaid setting',
+      (WidgetTester tester) async {
+        suppressOverflowErrorsForTest();
+        await prepareLargeSurface(tester);
+        final harness = _PhaseSHarness.create();
 
-      await tester.pumpWidget(harness.buildShellApp());
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(harness.buildShellApp());
+        await tester.pumpAndSettle();
 
-      await sendPrimaryShortcut(tester, LogicalKeyboardKey.keyP, shift: true);
-      await tester.pumpAndSettle();
+        await sendPrimaryShortcut(tester, LogicalKeyboardKey.keyP, shift: true);
+        await tester.pumpAndSettle();
 
-      await tester.enterText(_titleSearchField(), 'Markdown: Mermaid');
-      await tester.pump(const Duration(milliseconds: 250));
-      await tester.pumpAndSettle();
+        await tester.enterText(_titleSearchField(), 'Markdown: Mermaid');
+        await tester.pump(const Duration(milliseconds: 250));
+        await tester.pumpAndSettle();
 
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-      await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
 
-      expect(find.text('Markdown Features'), findsOneWidget);
-      expect(find.widgetWithText(CheckboxListTile, 'Mermaid diagrams'), findsOneWidget);
-    });
+        expect(find.text('Markdown Features'), findsOneWidget);
+        expect(
+          configSettingSwitch(markdownEditorSetting('enableMermaid')),
+          findsOneWidget,
+        );
+      },
+    );
 
-    testWidgets('04: wildcard default Dart opens unknown extension as Dart editor', (
-      WidgetTester tester,
-    ) async {
-      suppressOverflowErrorsForTest();
-      await prepareLargeSurface(tester);
-      final harness = _PhaseSHarness.create();
+    testWidgets(
+      '04: wildcard default Dart opens unknown extension as Dart editor',
+      (WidgetTester tester) async {
+        suppressOverflowErrorsForTest();
+        await prepareLargeSurface(tester);
+        final harness = _PhaseSHarness.create();
 
-      await tester.pumpWidget(harness.buildShellApp());
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(harness.buildShellApp());
+        await tester.pumpAndSettle();
 
-      await _openSettingsViaFileMenu(tester);
-      await _openConfigSection(tester, 'File Types');
-      await _selectDefaultFileTypeEditor(tester, 'Dart');
+        await _openSettingsViaFileMenu(tester);
+        await _openConfigSection(tester, 'File Types');
+        await _selectDefaultFileTypeEditor(tester, 'Dart');
 
-      final layout = harness.shell.layout as DefaultLayoutController;
-      layout.openFile(Uri.file('${harness.workspaceRoot}/test-fixtures/unknown.zzz'));
-      await tester.pumpAndSettle();
+        final layout = harness.shell.layout as DefaultLayoutController;
+        layout.openFile(
+          Uri.file('${harness.workspaceRoot}/test-fixtures/unknown.zzz'),
+        );
+        await tester.pumpAndSettle();
 
-      expect(harness.shell.systemState.activeEditor, isA<ForgeDartEditor>());
-      expect(harness.shell.getFileTypeDefaults()['*'], equals('dart'));
-    });
+        expect(harness.shell.systemState.activeEditor, isA<ForgeDartEditor>());
+        expect(harness.shell.getFileTypeDefaults()['*'], equals('dart'));
+      },
+    );
 
     testWidgets('05: add extension without dot normalizes and maps', (
       WidgetTester tester,
@@ -129,7 +136,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(harness.shell.getFileTypeDefaults()['.phases'], equals('yaml'));
-      expect(harness.preferences.fileTypeDefaultEditors['.phases'], equals('yaml'));
+      expect(
+        harness.preferences.fileTypeDefaultEditors['.phases'],
+        equals('yaml'),
+      );
     });
 
     testWidgets('06: changing .json mapping updates opened editor type', (
@@ -148,7 +158,9 @@ void main() {
       await _setExtensionMapping(tester, '.json', 'Dart');
 
       final layout = harness.shell.layout as DefaultLayoutController;
-      layout.openFile(Uri.file('${harness.workspaceRoot}/test-fixtures/sample.json'));
+      layout.openFile(
+        Uri.file('${harness.workspaceRoot}/test-fixtures/sample.json'),
+      );
       await tester.pumpAndSettle();
 
       expect(harness.shell.systemState.activeEditor, isA<ForgeDartEditor>());
@@ -178,7 +190,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(harness.shell.getFileTypeDefaults().containsKey('.gone'), isFalse);
-      expect(harness.preferences.fileTypeDefaultEditors.containsKey('.gone'), isFalse);
+      expect(
+        harness.preferences.fileTypeDefaultEditors.containsKey('.gone'),
+        isFalse,
+      );
     });
 
     testWidgets('08: removing mapping falls back to wildcard editor', (
@@ -198,7 +213,9 @@ void main() {
       await _removeExtensionMapping(tester, '.json');
 
       final layout = harness.shell.layout as DefaultLayoutController;
-      layout.openFile(Uri.file('${harness.workspaceRoot}/test-fixtures/sample.json'));
+      layout.openFile(
+        Uri.file('${harness.workspaceRoot}/test-fixtures/sample.json'),
+      );
       await tester.pumpAndSettle();
 
       expect(harness.shell.systemState.activeEditor, isA<ForgeYamlEditor>());
@@ -220,42 +237,47 @@ void main() {
       await tester.enterText(_newExtensionField(), '.dupe');
       await tester.tap(find.byTooltip('Add Extension'));
       await tester.pumpAndSettle();
-      final beforeKeys = Set<String>.from(harness.shell.getFileTypeDefaults().keys);
+      final beforeKeys = Set<String>.from(
+        harness.shell.getFileTypeDefaults().keys,
+      );
 
       await tester.enterText(_newExtensionField(), '.dupe');
       await tester.tap(find.byTooltip('Add Extension'));
       await tester.pumpAndSettle();
-      final afterKeys = Set<String>.from(harness.shell.getFileTypeDefaults().keys);
+      final afterKeys = Set<String>.from(
+        harness.shell.getFileTypeDefaults().keys,
+      );
 
       expect(afterKeys.length, equals(beforeKeys.length));
       expect(afterKeys.contains('.dupe'), isTrue);
     });
 
-    testWidgets('10: existing extension mapping remains after wildcard change', (
-      WidgetTester tester,
-    ) async {
-      suppressOverflowErrorsForTest();
-      await prepareLargeSurface(tester);
-      final harness = _PhaseSHarness.create();
+    testWidgets(
+      '10: existing extension mapping remains after wildcard change',
+      (WidgetTester tester) async {
+        suppressOverflowErrorsForTest();
+        await prepareLargeSurface(tester);
+        final harness = _PhaseSHarness.create();
 
-      await tester.pumpWidget(harness.buildShellApp());
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(harness.buildShellApp());
+        await tester.pumpAndSettle();
 
-      await _openSettingsViaFileMenu(tester);
-      await _openConfigSection(tester, 'File Types');
+        await _openSettingsViaFileMenu(tester);
+        await _openConfigSection(tester, 'File Types');
 
-      await _selectDefaultFileTypeEditor(tester, 'YAML');
-      await tester.enterText(_newExtensionField(), '.sticky');
-      await tester.tap(find.byTooltip('Add Extension'));
-      await tester.pumpAndSettle();
-      expect(harness.shell.getFileTypeDefaults()['.sticky'], equals('yaml'));
+        await _selectDefaultFileTypeEditor(tester, 'YAML');
+        await tester.enterText(_newExtensionField(), '.sticky');
+        await tester.tap(find.byTooltip('Add Extension'));
+        await tester.pumpAndSettle();
+        expect(harness.shell.getFileTypeDefaults()['.sticky'], equals('yaml'));
 
-      await _selectDefaultFileTypeEditor(tester, 'Dart');
-      await tester.pumpAndSettle();
+        await _selectDefaultFileTypeEditor(tester, 'Dart');
+        await tester.pumpAndSettle();
 
-      expect(harness.shell.getFileTypeDefaults()['*'], equals('dart'));
-      expect(harness.shell.getFileTypeDefaults()['.sticky'], equals('yaml'));
-    });
+        expect(harness.shell.getFileTypeDefaults()['*'], equals('dart'));
+        expect(harness.shell.getFileTypeDefaults()['.sticky'], equals('yaml'));
+      },
+    );
   });
 }
 
@@ -277,7 +299,10 @@ Future<void> _openQuickOpenWithQuery(WidgetTester tester, String query) async {
   await tester.pumpAndSettle();
 }
 
-Future<void> _selectDefaultFileTypeEditor(WidgetTester tester, String next) async {
+Future<void> _selectDefaultFileTypeEditor(
+  WidgetTester tester,
+  String next,
+) async {
   final dropdown = find.byKey(const Key('file-type-default-editor'));
   expect(dropdown, findsOneWidget);
   await tester.ensureVisible(dropdown);
@@ -302,7 +327,10 @@ Future<void> _setExtensionMapping(
   await tester.pumpAndSettle();
 }
 
-Future<void> _removeExtensionMapping(WidgetTester tester, String extension) async {
+Future<void> _removeExtensionMapping(
+  WidgetTester tester,
+  String extension,
+) async {
   final removeButton = find.byKey(Key('file-type-remove-$extension'));
   expect(removeButton, findsOneWidget);
   await tester.ensureVisible(removeButton);
@@ -328,8 +356,7 @@ Finder _titleSearchField() {
         widget is TextField &&
         (widget.decoration?.hintText == 'Search files, actions, and settings' ||
             widget.decoration?.hintText == 'Type an action...' ||
-            widget.decoration?.hintText ==
-                'Search shortcuts or press key...'),
+            widget.decoration?.hintText == 'Search shortcuts or press key...'),
   );
 }
 
@@ -383,7 +410,9 @@ class _PhaseSHarness {
       appName: 'Phase S Harness',
       navigatorKey: navigatorKey,
     );
-    (shell.systemState as DefaultSystemState).setWorkspaceRootPath(workspaceRoot);
+    (shell.systemState as DefaultSystemState).setWorkspaceRootPath(
+      workspaceRoot,
+    );
 
     final shellModule = TomForgeShellModule();
     shellModule.activate(shell);
@@ -443,7 +472,11 @@ class _PhaseSHarness {
     shell.applications.add(application);
 
     final layout = shell.layout as DefaultLayoutController;
-    layout.openEditor(module.mainEditor, module.mainEditor.uri, middlePanelIndex: 0);
+    layout.openEditor(
+      module.mainEditor,
+      module.mainEditor.uri,
+      middlePanelIndex: 0,
+    );
 
     final preferences = ForgePreferencesService();
 
@@ -467,7 +500,8 @@ class _PhaseSHarness {
             layoutController: shell.layout as DefaultLayoutController,
             systemState: shell.systemState as DefaultSystemState,
             statusBarController: shell.statusBar,
-            notificationManager: shell.notifications as DefaultNotificationManager,
+            notificationManager:
+                shell.notifications as DefaultNotificationManager,
             preferencesService: preferences,
           ),
         ),
@@ -512,15 +546,13 @@ class _PhaseSModule extends ForgeModule {
 }
 
 class _PhaseSMainEditor extends ForgeTestTextEditor {
-  _PhaseSMainEditor(
-    super.module, {
-    required String workspaceRoot,
-  }) : super(
-          document: ForgeTestDocument(
-            uri: Uri.file('$workspaceRoot/test-fixtures/main.test'),
-            content: 'main\n',
-          ),
-        );
+  _PhaseSMainEditor(super.module, {required String workspaceRoot})
+    : super(
+        document: ForgeTestDocument(
+          uri: Uri.file('$workspaceRoot/test-fixtures/main.test'),
+          content: 'main\n',
+        ),
+      );
 
   @override
   FileHandlingResult canHandle(Uri uri) {

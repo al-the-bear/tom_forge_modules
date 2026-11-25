@@ -2,6 +2,8 @@ import 'package:flutter/widgets.dart' show IconData;
 import 'package:tom_editors_shared/tom_editors_shared.dart'
     show EditorActionDescriptor;
 import 'package:tom_file_system/tom_file_system.dart' show TomFileSystem;
+import 'package:tom_forge_core/tom_forge_core.dart'
+    show ForgeConfigurationDescription;
 
 import '../files/forge_content_item.dart';
 import '../kit/forge_kit_api.dart';
@@ -68,6 +70,7 @@ class ForgeKitEditorType {
     this.contentTypes = const [],
     this.icon,
     this.actionDescriptors = const [],
+    this.configuration,
   });
 
   /// The id an editor of this type answers as
@@ -101,6 +104,14 @@ class ForgeKitEditorType {
   /// this type is open. The editor package owns them (e.g.
   /// `MdEditorActions.descriptors`); empty by default.
   final List<EditorActionDescriptor> actionDescriptors;
+
+  /// The options of this type's editors as a configuration description
+  /// (`tom_forge_core`), null when it has none. An application that takes
+  /// the type collects it with its modules' descriptions and shows its
+  /// sections as it arranges them (the panel shell: in its configuration
+  /// side panel). Text editor types build their sections from
+  /// [ForgeEditorSettings].
+  final ForgeConfigurationDescription? configuration;
 
   /// Whether this type opens [uri] by default (its extension is one of
   /// [extensions], any case).

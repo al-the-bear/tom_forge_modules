@@ -2,6 +2,7 @@ import 'package:tom_dart_editor/tom_dart_editor.dart';
 import 'package:tom_forge_kit/tom_forge_kit.dart';
 
 import 'forge_dart_editor.dart';
+import 'dart_editor_configuration.dart';
 
 /// The Dart editor type: `.dart` files in [ForgeDartEditor], reading its
 /// analysis summaries where [ForgeDartSummariesByHost] says for the
@@ -15,6 +16,7 @@ final ForgeKitEditorType forgeDartEditorType = ForgeKitEditorType(
   description: 'Edit with Dart syntax highlighting',
   extensions: const ['dart'],
   actionDescriptors: DartEditorActions.descriptors,
+  configuration: ForgeDartEditorConfiguration.description,
   create: (request) => ForgeDartEditor(
     controller: DartCodeController(
       initialCode: request.content,

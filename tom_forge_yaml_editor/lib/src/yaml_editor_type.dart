@@ -2,6 +2,7 @@ import 'package:tom_forge_kit/tom_forge_kit.dart';
 import 'package:tom_yaml_editor/tom_yaml_editor.dart';
 
 import 'forge_yaml_editor.dart';
+import 'yaml_editor_configuration.dart';
 
 /// The YAML editor type: `.yaml` and `.yml` files in [ForgeYamlEditor].
 ///
@@ -13,6 +14,7 @@ final ForgeKitEditorType forgeYamlEditorType = ForgeKitEditorType(
   description: 'Edit with YAML structure view',
   extensions: const ['yaml', 'yml'],
   actionDescriptors: YamlEditorActions.descriptors,
+  configuration: ForgeYamlEditorConfiguration.description,
   create: (request) => ForgeYamlEditor(
     controller: YamlEditorController(
       initialYaml: request.content,
