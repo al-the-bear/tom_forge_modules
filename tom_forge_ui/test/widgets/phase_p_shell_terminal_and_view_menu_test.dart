@@ -51,8 +51,11 @@ void main() {
       await tester.pumpAndSettle();
 
       await _openSettingsViaFileMenu(tester);
-      await tester.enterText(_shellMaxRecentField(), '17');
-      await tester.pumpAndSettle();
+      await enterConfigSetting(
+        tester,
+        ForgeShellConfiguration.maxRecentWorkspaces,
+        '17',
+      );
 
       expect(harness.preferences.maxRecentWorkspaces, equals(17));
     });
@@ -70,14 +73,11 @@ void main() {
       await _openSettingsViaFileMenu(tester);
 
       final before = harness.preferences.reduceMotion;
-      final reduceMotionToggle =
-          find.widgetWithText(CheckboxListTile, 'Reduce motion');
-      expect(reduceMotionToggle, findsOneWidget);
-
-      await tester.ensureVisible(reduceMotionToggle);
-      await tester.pumpAndSettle();
-      await tester.tap(reduceMotionToggle);
-      await tester.pumpAndSettle();
+      expect(
+        configSettingSwitchValue(tester, ForgeShellConfiguration.reduceMotion),
+        equals(before),
+      );
+      await tapConfigSwitch(tester, ForgeShellConfiguration.reduceMotion);
 
       expect(harness.preferences.reduceMotion, equals(!before));
     });
@@ -93,8 +93,11 @@ void main() {
       await tester.pumpAndSettle();
 
       await _openSettingsViaFileMenu(tester);
-      await tester.enterText(_textFieldByLabel('Left panel'), '333');
-      await tester.pumpAndSettle();
+      await enterConfigSetting(
+        tester,
+        ForgeShellConfiguration.leftPanelDefaultWidth,
+        '333',
+      );
 
       expect(harness.preferences.leftPanelDefaultWidth, equals(333));
     });
@@ -160,8 +163,11 @@ void main() {
       await _openSettingsViaFileMenu(tester);
       await _openConfigSection(tester, 'Terminal');
 
-      await tester.enterText(_textFieldByLabel('Font'), 'FiraCode');
-      await tester.pumpAndSettle();
+      await enterConfigSetting(
+        tester,
+        ForgeShellConfiguration.terminalFontFamily,
+        'FiraCode',
+      );
 
       expect(harness.preferences.terminalFontFamily, equals('FiraCode'));
     });
@@ -250,20 +256,6 @@ Future<void> _selectViewMenuItem(WidgetTester tester, String label) async {
 Future<void> _openConfigSection(WidgetTester tester, String label) async {
   await tester.tap(find.text(label).first);
   await tester.pumpAndSettle();
-}
-
-Finder _shellMaxRecentField() {
-  final row = find.ancestor(
-    of: find.text('Max recent:'),
-    matching: find.byType(Row),
-  ).first;
-  return find.descendant(of: row, matching: find.byType(TextField));
-}
-
-Finder _textFieldByLabel(String label) {
-  return find.byWidgetPredicate(
-    (widget) => widget is TextField && widget.decoration?.labelText == label,
-  );
 }
 
 Finder _terminalDefaultShellField() {

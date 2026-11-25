@@ -668,6 +668,38 @@ class ForgePreferencesService extends ForgeKitPreferences {
     notifyListeners();
   }
 
+  /// Writes the current value of the appearance, startup, layout-dimension
+  /// or terminal preference [key] (a `forge.*` key of this service, e.g.
+  /// `forge.terminal.fontSize`) as [save] writes it — only that key. The
+  /// shell's configuration description stores its settings so
+  /// (`ForgePreferencesSettingBinding`). A key this service does not know
+  /// writes nothing.
+  Future<void> saveKey(String key) {
+    final Object? value = switch (key) {
+      _keyThemeMode => _themeMode.name,
+      _keyHighContrast => _highContrast,
+      _keyReduceMotion => _reduceMotion,
+      _keyMaxRecentWorkspaces => _maxRecentWorkspaces,
+      _keyTerminalDefaultShell => _terminalDefaultShell,
+      _keyTerminalShellPaths => jsonEncode(_terminalShellPaths),
+      _keyTerminalStartFolder => _terminalStartFolder,
+      _keyTerminalScrollbackLines => _terminalScrollbackLines,
+      _keyTerminalFontFamily => _terminalFontFamily,
+      _keyTerminalFontSize => _terminalFontSize,
+      _keyDimPanelContentMinWidth => _panelContentMinWidth,
+      _keyDimLeftPanelDefaultWidth => _leftPanelDefaultWidth,
+      _keyDimRightPanelDefaultWidth => _rightPanelDefaultWidth,
+      _keyDimBottomPanelDefaultHeight => _bottomPanelDefaultHeight,
+      _keyDimDividerHitTarget => _dividerHitTarget,
+      'forge.search.config' => jsonEncode(searchConfig.toJson()),
+      _ => _unknownKey,
+    };
+    if (identical(value, _unknownKey)) return Future.value();
+    return writePreference(key, value);
+  }
+
+  static const Object _unknownKey = Object();
+
   /// Creates a singleton instance with default settings.
   static final ForgePreferencesService instance = ForgePreferencesService();
 }

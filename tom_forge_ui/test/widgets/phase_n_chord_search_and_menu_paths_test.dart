@@ -125,8 +125,15 @@ void main() {
 
       await _openSettingsViaFileMenu(tester);
 
-      await tester.enterText(_shellExcludedExtensionsField(), 'note');
-      await tester.pumpAndSettle();
+      await addConfigListItem(
+        tester,
+        ForgeShellConfiguration.searchExcludedExtensions,
+        'note',
+      );
+      expect(
+        harness.preferences.searchConfig.excludedExtensions,
+        contains('note'),
+      );
 
       await _openQuickOpenWithQuery(tester, 'zz');
 
@@ -145,10 +152,17 @@ void main() {
 
       await _openSettingsViaFileMenu(tester);
 
-      await tester.enterText(_shellExcludedExtensionsField(), '');
-      await tester.pumpAndSettle();
-      await tester.enterText(_shellMaxResultsField(), '2');
-      await tester.pumpAndSettle();
+      // The default excluded extensions leave the note files in.
+      expect(
+        harness.preferences.searchConfig.excludedExtensions,
+        isNot(contains('note')),
+      );
+      await enterConfigSetting(
+        tester,
+        ForgeShellConfiguration.searchMaxFileResults,
+        '2',
+      );
+      expect(harness.preferences.searchConfig.maxFileResults, equals(2));
 
       await _openQuickOpenWithQuery(tester, 'zz');
 
@@ -168,13 +182,11 @@ void main() {
       await _openSettingsViaFileMenu(tester);
       await _openConfigSection(tester, 'Terminal');
 
-      final fontSizeField = find.byWidgetPredicate((widget) {
-        return widget is TextField && widget.decoration?.labelText == 'Size';
-      });
-      expect(fontSizeField, findsOneWidget);
-
-      await tester.enterText(fontSizeField, '18');
-      await tester.pumpAndSettle();
+      await enterConfigSetting(
+        tester,
+        ForgeShellConfiguration.terminalFontSize,
+        '18',
+      );
 
       expect(harness.preferences.terminalFontSize, equals(18));
     });
@@ -192,18 +204,11 @@ void main() {
       await _openSettingsViaFileMenu(tester);
       await _openConfigSection(tester, 'Terminal');
 
-      final scrollbackRow = find.ancestor(
-        of: find.text('Scrollback:'),
-        matching: find.byType(Row),
-      ).first;
-      final scrollbackField = find.descendant(
-        of: scrollbackRow,
-        matching: find.byType(TextField),
+      await enterConfigSetting(
+        tester,
+        ForgeShellConfiguration.terminalScrollbackLines,
+        '8000',
       );
-      expect(scrollbackField, findsOneWidget);
-
-      await tester.enterText(scrollbackField, '8000');
-      await tester.pumpAndSettle();
 
       expect(harness.preferences.terminalScrollbackLines, equals(8000));
     });
@@ -299,18 +304,6 @@ Finder _searchFieldWithHint(String hint) {
 
 Finder _quickOpenText(String text) {
   return find.descendant(of: find.byType(ForgeQuickOpen), matching: find.text(text));
-}
-
-Finder _shellExcludedExtensionsField() {
-  return find.byWidgetPredicate(
-    (widget) => widget is TextField && widget.decoration?.labelText == 'Excluded extensions',
-  );
-}
-
-Finder _shellMaxResultsField() {
-  return find.byWidgetPredicate(
-    (widget) => widget is TextField && widget.decoration?.labelText == 'Max results',
-  );
 }
 
 int _visibleNoteResultCount() {

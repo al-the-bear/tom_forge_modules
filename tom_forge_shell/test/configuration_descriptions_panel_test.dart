@@ -1,6 +1,7 @@
 // The configuration side panel draws the configuration descriptions the kit
-// modules contribute: one accordion entry per described section, before the
-// built-in sections, its body a tile over the shell's state store.
+// modules contribute: one accordion entry per described section, after the
+// shell's own Shell and Terminal sections and before the built-in sections,
+// its body a tile over the shell's state store.
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -149,24 +150,36 @@ Future<DefaultShellApi> _openSettings(
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues(<String, Object>{}));
 
-  testWidgets('a described section is an entry before the built-in ones, '
-      'and its edits go to the shell\'s state store', (tester) async {
+  testWidgets('a described section is an entry after the shell\'s own and '
+      'before the built-in ones, and its edits go to the shell\'s state '
+      'store', (tester) async {
     final store = ForgeMemoryStateStore();
     await _openSettings(tester, store);
 
     final header = find.text('Described editing');
     expect(header, findsOneWidget);
-    // Shown before the first built-in section.
+    // After the shell's Terminal section, before the first built-in section.
     expect(
       tester.getTopLeft(header).dy,
-      lessThan(tester.getTopLeft(find.text('Shell').first).dy),
+      greaterThan(tester.getTopLeft(find.text('Terminal').first).dy),
+    );
+    expect(
+      tester.getTopLeft(header).dy,
+      lessThan(tester.getTopLeft(find.text('Dart Editor').first).dy),
     );
     // Collapsed at first: the Shell section stays the one expanded.
-    expect(find.byType(ForgeConfigurationTile), findsNothing);
+    expect(find.byType(ForgeConfigurationTile), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('forge.configuration.tile.described/editing')),
+      findsNothing,
+    );
 
     await tester.tap(header);
     await tester.pumpAndSettle();
-    expect(find.byType(ForgeConfigurationTile), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('forge.configuration.tile.described/editing')),
+      findsOneWidget,
+    );
     expect(find.text('Wrap long lines'), findsOneWidget);
     expect(find.text('Tab size'), findsOneWidget);
 
@@ -196,12 +209,19 @@ void main() {
     await tester.pump(const Duration(milliseconds: 600));
   });
 
-  testWidgets('without descriptions the panel shows the built-in sections '
-      'only', (tester) async {
+  testWidgets('without module descriptions the panel shows the shell\'s own '
+      'sections and the built-in ones', (tester) async {
     await _openSettings(tester, ForgeMemoryStateStore(), described: false);
     expect(find.text('Described editing'), findsNothing);
-    expect(find.byType(ForgeConfigurationTile), findsNothing);
+    // The Shell section's tile, open at first.
+    expect(find.byType(ForgeConfigurationTile), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('forge.configuration.tile.forge.shell/shell')),
+      findsOneWidget,
+    );
     expect(find.text('Shell'), findsWidgets);
+    expect(find.text('Terminal'), findsWidgets);
+    expect(find.text('Dart Editor'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
 }

@@ -18,6 +18,7 @@ const List<IconData> _materialIcons = [
   Icons.settings,
   Icons.tune,
   Icons.terminal,
+  Icons.desktop_mac_outlined,
   Icons.code,
   Icons.data_object,
   Icons.description,

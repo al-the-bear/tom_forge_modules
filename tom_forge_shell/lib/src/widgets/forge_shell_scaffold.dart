@@ -12,6 +12,7 @@ import 'package:tom_editors_shared/text_types.dart'
 import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_forge_shared_ui/tom_forge_shared_ui.dart';
 import 'package:tom_forge_kit/tom_forge_kit.dart';
+import '../configuration/forge_shell_configuration.dart';
 import '../components/forge_editor_choice.dart';
 
 import '../adapters/tom_forge_shell_module.dart';
@@ -573,6 +574,9 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     // through: an empty bundle (every label its fallback) unless the
     // application installed its own.
     ForgeConfigurationLabels.ensureResources();
+    // The shell's own options (Shell, Terminal) as a configuration
+    // description, contributed like any module's.
+    ForgeShellConfigurationModule.ensureRegistered(widget.shell);
     HardwareKeyboard.instance.addHandler(_recordKeyDown);
     _exitListener;
     _application = widget.shell.applications.active;
@@ -3984,7 +3988,10 @@ the field, not the document.
   }
 
   /// The values service of the descriptions the modules contribute now
-  /// (null when none), with the hooks they contribute.
+  /// (null when none), with the hooks they contribute and the shell's
+  /// storage bindings: its preferences and its auto-save configuration
+  /// ([forgeShellSettingBindings]), which the shell's own description
+  /// stores through.
   ForgeConfigurationValues? _currentConfigurationValues() {
     final descriptions = forgeConfigurationDescriptionsOf(widget.shell);
     if (!listEquals(descriptions, _configurationDescriptions)) {
@@ -3995,6 +4002,10 @@ the field, not the document.
         final values = _configurationValues = ForgeConfigurationValues(
           widget.shell.stateStore,
           descriptions: descriptions,
+          bindings: forgeShellSettingBindings(
+            _preferences,
+            config: widget.shell.config,
+          ),
           hooks: forgeConfigurationHooksOf(widget.shell),
         );
         unawaited(values.load());

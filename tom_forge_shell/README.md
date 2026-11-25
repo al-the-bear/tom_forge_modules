@@ -38,6 +38,35 @@ asked for by making it the active one first) wherever it takes a
 `forgeModuleStatusItems`, `forgeModuleSettingsSections` and
 `forgeModuleExternalTools` read them (a `ForgeModule`'s from its members).
 
+## The configuration side panel
+
+The side panel draws one `tom_configuration_ui` tile per section of the
+configuration descriptions the modules contribute
+(`ForgeConfigurationDescriptionsExtra`, `ForgeConfigurationHooksExtra`),
+followed by the built-in sections (the editors, shortcuts, file types,
+external tools) and the module panels.
+
+The shell's own options are such a description, `ForgeShellConfiguration`:
+the *Shell* section (theme, high contrast, recent workspaces, auto save,
+search, layout dimensions, reduce motion) and the *Terminal* section
+(default shell, shell paths, start folder, font, size, scrollback). The
+scaffold registers `ForgeShellConfigurationModule`, which contributes it,
+and gives its values service two storage bindings
+(`forgeShellSettingBindings`):
+
+- `ForgePreferencesSettingBinding` (`forge.preferences`) reads and writes
+  through `ForgePreferencesService`, under its `forge.*` keys and in its
+  encodings (the search configuration stays one JSON text, its file-size
+  limit in bytes, shown in MB). The service notifies as before, so the
+  theme, high contrast, reduce motion, the search configuration and the
+  layout dimensions are applied as they always were.
+- `ForgeConfigSettingBinding` (`forge.config`) keeps the auto-save in the
+  shell's `DefaultConfigManager` (`ForgeConfig.autoSave`).
+
+Quick open names a section by its index (`ForgeConfigurationPanel`: 0
+*Shell*, 1 *Terminal*, 2 *Dart Editor* ... 8 *External Tools*, then the
+module panels); the panel maps 0 and 1 to the described sections.
+
 ## Placing contributed views
 
 The shell names no view. `forgeContributedPanelTabs(modules, location)` makes

@@ -31,12 +31,14 @@ void main() {
       await tester.pumpAndSettle();
 
       await _openSettingsViaFileMenu(tester);
-      expect(find.text('Theme:'), findsOneWidget);
+      expect(configSettingEntry(ForgeShellConfiguration.themeMode), findsOneWidget);
+      expect(find.text('Theme'), findsOneWidget);
 
       await _openConfigSection(tester, 'Terminal');
 
       expect(find.text('Default Shell'), findsOneWidget);
-      expect(find.text('Theme:'), findsNothing);
+      expect(find.text('Theme'), findsNothing);
+      expect(configSettingEntry(ForgeShellConfiguration.themeMode), findsNothing);
     });
 
     testWidgets('02: reopening Shell collapses Terminal section again', (
@@ -52,11 +54,11 @@ void main() {
       await _openSettingsViaFileMenu(tester);
       await _openConfigSection(tester, 'Terminal');
       expect(find.text('Default Shell'), findsOneWidget);
-      expect(find.text('Theme:'), findsNothing);
+      expect(find.text('Theme'), findsNothing);
 
       await _openConfigSection(tester, 'Shell');
 
-      expect(find.text('Theme:'), findsOneWidget);
+      expect(find.text('Theme'), findsOneWidget);
       expect(find.text('Default Shell'), findsNothing);
     });
 
@@ -73,10 +75,7 @@ void main() {
       await _openSettingsViaFileMenu(tester);
 
       final before = harness.shell.config.current.autoSave.enabled;
-      final enabledToggle = find.widgetWithText(CheckboxListTile, 'Enabled');
-      expect(enabledToggle, findsOneWidget);
-      await tester.tap(enabledToggle);
-      await tester.pumpAndSettle();
+      await tapConfigSwitch(tester, ForgeShellConfiguration.autoSaveEnabled);
 
       expect(harness.shell.config.current.autoSave.enabled, equals(!before));
     });
@@ -94,11 +93,10 @@ void main() {
       await _openSettingsViaFileMenu(tester);
 
       final before = harness.shell.config.current.autoSave.saveOnFocusLoss;
-      final focusToggle =
-          find.widgetWithText(CheckboxListTile, 'Save on focus loss');
-      expect(focusToggle, findsOneWidget);
-      await tester.tap(focusToggle);
-      await tester.pumpAndSettle();
+      await tapConfigSwitch(
+        tester,
+        ForgeShellConfiguration.autoSaveOnFocusLoss,
+      );
 
       expect(
         harness.shell.config.current.autoSave.saveOnFocusLoss,
@@ -106,7 +104,7 @@ void main() {
       );
     });
 
-    testWidgets('05: idle delay value 0 falls back to two seconds', (
+    testWidgets('05: idle delay value 0 is refused and the delay kept', (
       WidgetTester tester,
     ) async {
       suppressOverflowErrorsForTest();
@@ -118,16 +116,23 @@ void main() {
 
       await _openSettingsViaFileMenu(tester);
 
-      await tester.enterText(_idleDelayField(), '0');
-      await tester.pumpAndSettle();
-
+      final setting = ForgeShellConfiguration.autoSaveIdleDelay;
+      await enterConfigSetting(tester, setting, '5');
       expect(
         harness.shell.config.current.autoSave.idleDelay,
-        equals(const Duration(seconds: 2)),
+        equals(const Duration(seconds: 5)),
+      );
+
+      // Below the minimum: refused with the reason, nothing written.
+      await enterConfigSetting(tester, setting, '0');
+      expect(configSettingError(setting, 'At least 1.'), findsOneWidget);
+      expect(
+        harness.shell.config.current.autoSave.idleDelay,
+        equals(const Duration(seconds: 5)),
       );
     });
 
-    testWidgets('06: search max results clamps to minimum value 1', (
+    testWidgets('06: search max results below 1 is refused', (
       WidgetTester tester,
     ) async {
       suppressOverflowErrorsForTest();
@@ -139,13 +144,16 @@ void main() {
 
       await _openSettingsViaFileMenu(tester);
 
-      await tester.enterText(_textFieldByLabel('Max results'), '0');
-      await tester.pumpAndSettle();
+      final setting = ForgeShellConfiguration.searchMaxFileResults;
+      await enterConfigSetting(tester, setting, '1');
+      expect(harness.preferences.searchConfig.maxFileResults, equals(1));
 
+      await enterConfigSetting(tester, setting, '0');
+      expect(configSettingError(setting, 'At least 1.'), findsOneWidget);
       expect(harness.preferences.searchConfig.maxFileResults, equals(1));
     });
 
-    testWidgets('07: search max results clamps to maximum value 1000', (
+    testWidgets('07: search max results above 1000 is refused', (
       WidgetTester tester,
     ) async {
       suppressOverflowErrorsForTest();
@@ -157,9 +165,12 @@ void main() {
 
       await _openSettingsViaFileMenu(tester);
 
-      await tester.enterText(_textFieldByLabel('Max results'), '50000');
-      await tester.pumpAndSettle();
+      final setting = ForgeShellConfiguration.searchMaxFileResults;
+      await enterConfigSetting(tester, setting, '1000');
+      expect(harness.preferences.searchConfig.maxFileResults, equals(1000));
 
+      await enterConfigSetting(tester, setting, '50000');
+      expect(configSettingError(setting, 'At most 1000.'), findsOneWidget);
       expect(harness.preferences.searchConfig.maxFileResults, equals(1000));
     });
 
@@ -175,11 +186,26 @@ void main() {
 
       await _openSettingsViaFileMenu(tester);
 
-      await tester.enterText(_panelMinWidthField(), '510');
-      await tester.enterText(_textFieldByLabel('Right panel'), '366');
-      await tester.enterText(_textFieldByLabel('Bottom panel'), '244');
-      await tester.enterText(_textFieldByLabel('Divider hit'), '21');
-      await tester.pumpAndSettle();
+      await enterConfigSetting(
+        tester,
+        ForgeShellConfiguration.panelContentMinWidth,
+        '510',
+      );
+      await enterConfigSetting(
+        tester,
+        ForgeShellConfiguration.rightPanelDefaultWidth,
+        '366',
+      );
+      await enterConfigSetting(
+        tester,
+        ForgeShellConfiguration.bottomPanelDefaultHeight,
+        '244',
+      );
+      await enterConfigSetting(
+        tester,
+        ForgeShellConfiguration.dividerHitTarget,
+        '21',
+      );
 
       expect(harness.preferences.panelContentMinWidth, equals(510));
       expect(harness.preferences.rightPanelDefaultWidth, equals(366));
@@ -200,9 +226,16 @@ void main() {
       await _openSettingsViaFileMenu(tester);
       await _openConfigSection(tester, 'Terminal');
 
-      await tester.enterText(_textFieldByLabel('Size'), '18');
-      await tester.enterText(_terminalScrollbackField(), '22222');
-      await tester.pumpAndSettle();
+      await enterConfigSetting(
+        tester,
+        ForgeShellConfiguration.terminalFontSize,
+        '18',
+      );
+      await enterConfigSetting(
+        tester,
+        ForgeShellConfiguration.terminalScrollbackLines,
+        '22222',
+      );
 
       expect(harness.preferences.terminalFontSize, equals(18));
       expect(harness.preferences.terminalScrollbackLines, equals(22222));
@@ -244,36 +277,6 @@ Future<void> _openSettingsViaFileMenu(WidgetTester tester) async {
 Future<void> _openConfigSection(WidgetTester tester, String label) async {
   await tester.tap(find.text(label).first);
   await tester.pumpAndSettle();
-}
-
-Finder _textFieldByLabel(String label) {
-  return find.byWidgetPredicate(
-    (widget) => widget is TextField && widget.decoration?.labelText == label,
-  );
-}
-
-Finder _idleDelayField() {
-  final row = find.ancestor(
-    of: find.text('Idle delay (s):'),
-    matching: find.byType(Row),
-  ).first;
-  return find.descendant(of: row, matching: find.byType(TextField));
-}
-
-Finder _panelMinWidthField() {
-  final row = find.ancestor(
-    of: find.text('Panel min width:'),
-    matching: find.byType(Row),
-  ).first;
-  return find.descendant(of: row, matching: find.byType(TextField));
-}
-
-Finder _terminalScrollbackField() {
-  final row = find.ancestor(
-    of: find.text('Scrollback:'),
-    matching: find.byType(Row),
-  ).first;
-  return find.descendant(of: row, matching: find.byType(TextField));
 }
 
 class _PhaseQHarness {

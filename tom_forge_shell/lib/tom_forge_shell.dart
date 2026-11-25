@@ -29,6 +29,12 @@ export 'src/adapters/tom_forge_shell_module.dart';
 // ── Components ──
 export 'src/components/forge_editor_choice.dart';
 
+// ── Configuration ──
+// The shell's own options (Shell, Terminal) as a configuration description,
+// its storage bindings and the module contributing it.
+export 'src/configuration/forge_shell_configuration.dart';
+export 'src/configuration/forge_shell_setting_bindings.dart';
+
 // ── Model ──
 export 'src/model/forge_application.dart';
 export 'src/model/forge_config.dart';

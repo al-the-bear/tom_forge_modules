@@ -30,14 +30,21 @@ void main() {
       await tester.pumpAndSettle();
 
       await _openSettingsViaFileMenu(tester);
-      await _setCheckbox(tester, 'Use .gitignore', false);
+      await setConfigSwitch(
+        tester,
+        ForgeShellConfiguration.searchUseGitIgnore,
+        false,
+      );
 
       await _openQuickOpenWithQuery(tester, 'nested');
       expect(_quickOpenText('zz-nested.note'), findsOneWidget);
 
       await _dismissQuickOpen(tester);
-      await tester.enterText(_shellExcludedDirectoriesField(), 'nested');
-      await tester.pumpAndSettle();
+      await addConfigListItem(
+        tester,
+        ForgeShellConfiguration.searchExcludedDirectories,
+        'nested',
+      );
 
       await _openQuickOpenWithQuery(tester, 'nested');
       expect(_quickOpenText('zz-nested.note'), findsNothing);
@@ -54,13 +61,21 @@ void main() {
       await tester.pumpAndSettle();
 
       await _openSettingsViaFileMenu(tester);
-      await _setCheckbox(tester, 'Use .gitignore', false);
+      await setConfigSwitch(
+        tester,
+        ForgeShellConfiguration.searchUseGitIgnore,
+        false,
+      );
 
       await _openQuickOpenWithQuery(tester, 'hidden');
       expect(_quickOpenText('zz-hidden.note'), findsNothing);
 
       await _dismissQuickOpen(tester);
-      await _setCheckbox(tester, 'Hide hidden dirs', false);
+      await setConfigSwitch(
+        tester,
+        ForgeShellConfiguration.searchHideHiddenDirectories,
+        false,
+      );
 
       await _openQuickOpenWithQuery(tester, 'hidden');
       expect(_quickOpenText('zz-hidden.note'), findsOneWidget);
@@ -92,7 +107,11 @@ void main() {
       await tester.pumpAndSettle();
 
       await _openSettingsViaFileMenu(tester);
-      await _setCheckbox(tester, 'Use .gitignore', false);
+      await setConfigSwitch(
+        tester,
+        ForgeShellConfiguration.searchUseGitIgnore,
+        false,
+      );
 
       await _openQuickOpenWithQuery(tester, 'alpha');
 
@@ -277,22 +296,6 @@ Future<void> _dismissQuickOpen(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
-Future<void> _setCheckbox(
-  WidgetTester tester,
-  String label,
-  bool expected,
-) async {
-  final checkbox = find.widgetWithText(CheckboxListTile, label);
-  expect(checkbox, findsOneWidget);
-  await tester.ensureVisible(checkbox);
-  await tester.pumpAndSettle();
-  final tile = tester.widget<CheckboxListTile>(checkbox);
-  if ((tile.value ?? false) != expected) {
-    await tester.tap(checkbox);
-    await tester.pumpAndSettle();
-  }
-}
-
 Future<void> _selectDefaultFileTypeEditor(
   WidgetTester tester,
   String next,
@@ -328,14 +331,6 @@ Finder _titleSearchField() {
 
 Finder _quickOpenText(String text) {
   return find.descendant(of: find.byType(ForgeQuickOpen), matching: find.text(text));
-}
-
-Finder _shellExcludedDirectoriesField() {
-  return find.byWidgetPredicate(
-    (widget) =>
-        widget is TextField &&
-        widget.decoration?.labelText == 'Excluded directories',
-  );
 }
 
 Finder _fileTypeExtensionField() {

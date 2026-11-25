@@ -54,10 +54,11 @@ void main() {
 
       expect(harness.shell.config.current.autoSave.enabled, isTrue);
 
-      final enabledToggle = find.widgetWithText(CheckboxListTile, 'Enabled');
-      expect(enabledToggle, findsOneWidget);
-      await tester.tap(enabledToggle);
-      await tester.pumpAndSettle();
+      expect(
+        configSettingSwitchValue(tester, ForgeShellConfiguration.autoSaveEnabled),
+        isTrue,
+      );
+      await tapConfigSwitch(tester, ForgeShellConfiguration.autoSaveEnabled);
 
       expect(harness.shell.config.current.autoSave.enabled, isFalse);
     });
@@ -75,13 +76,10 @@ void main() {
 
       expect(harness.shell.config.current.autoSave.saveOnFocusLoss, isTrue);
 
-      final focusLossToggle = find.widgetWithText(
-        CheckboxListTile,
-        'Save on focus loss',
+      await tapConfigSwitch(
+        tester,
+        ForgeShellConfiguration.autoSaveOnFocusLoss,
       );
-      expect(focusLossToggle, findsOneWidget);
-      await tester.tap(focusLossToggle);
-      await tester.pumpAndSettle();
 
       expect(harness.shell.config.current.autoSave.saveOnFocusLoss, isFalse);
     });
@@ -97,18 +95,11 @@ void main() {
       await tester.pumpAndSettle();
       await _openSettingsViaAction(harness, tester);
 
-      final row = find.ancestor(
-        of: find.text('Idle delay (s):'),
-        matching: find.byType(Row),
-      ).first;
-      final field = find.descendant(
-        of: row,
-        matching: find.byType(TextField),
+      await enterConfigSetting(
+        tester,
+        ForgeShellConfiguration.autoSaveIdleDelay,
+        '7',
       );
-      expect(field, findsOneWidget);
-
-      await tester.enterText(field, '7');
-      await tester.pumpAndSettle();
 
       expect(
         harness.shell.config.current.autoSave.idleDelay,
@@ -127,13 +118,11 @@ void main() {
       await tester.pumpAndSettle();
       await _openSettingsViaAction(harness, tester);
 
-      final field = find.byWidgetPredicate((widget) {
-        return widget is TextField &&
-            widget.decoration?.labelText == 'Left panel';
-      });
-      expect(field, findsOneWidget);
-      await tester.enterText(field, '333');
-      await tester.pumpAndSettle();
+      await enterConfigSetting(
+        tester,
+        ForgeShellConfiguration.leftPanelDefaultWidth,
+        '333',
+      );
 
       final layout = harness.shell.layout as DefaultLayoutController;
       layout.setPanelSize(ForgePanelLocation.left, 470);

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tom_configuration_ui/tom_configuration_ui.dart';
@@ -5,16 +7,13 @@ import 'package:tom_editors_shared/text_types.dart'
     show ForgeTextSettings;
 import 'package:tom_forge_core/tom_forge_core.dart'
   show
-      AutoSaveConfig,
-      DefaultConfigManager,
-      ForgeConfig,
       ForgeConfigurationSectionRef,
       ForgePathKind,
       ForgePathSetting,
-      ForgeSearchConfig,
       forgeOrderedSections;
 import 'package:tom_forge_kit/tom_forge_kit.dart';
 
+import '../configuration/forge_shell_configuration.dart';
 import '../module/forge_config_panel.dart';
 import '../services/forge_preferences_service.dart';
 import '../shell/forge_shell_api.dart';
@@ -25,19 +24,38 @@ import '../tools/forge_external_tools_section.dart';
 ///
 /// Displays settings sections as an expandable list: first one tile
 /// (`tom_configuration_ui`'s [ForgeConfigurationTile]) per section of the
-/// configuration descriptions the modules contribute ([configurationValues]),
-/// then the built-in sections (shell, terminal, editor configs, shortcuts,
-/// file types) and any module-contributed [ForgeConfigPanel]s.
+/// configuration descriptions the modules contribute ([configurationValues])
+/// — the shell's own *Shell* and *Terminal* sections first
+/// ([ForgeShellConfiguration]) — then the built-in sections (editor
+/// configs, shortcuts, file types, external tools) and any
+/// module-contributed [ForgeConfigPanel]s.
+///
+/// [expandSection] names a section by the index quick open has always used:
+/// 0 *Shell*, 1 *Terminal*, 2 *Dart Editor*, 3 *YAML Editor*, 4 *Markdown
+/// Editor*, 5 *Shortcuts*, 6 *Chord Shortcuts*, 7 *File Types*, 8 *External
+/// Tools*, then the module panels in order ([sectionIndexShell] ...).
 class ForgeConfigurationPanel extends StatefulWidget {
   final ForgePreferencesService preferencesService;
   final ForgeShellApi? shellApi;
   final List<ForgeConfigPanel> modulePanels;
 
   /// The values of the modules' configuration descriptions (the kit's
-  /// values service over the shell's state store); each section of its
-  /// descriptions is an accordion entry before the built-in sections. Null
-  /// or without descriptions: none.
+  /// values service over the shell's state store, with the shell's storage
+  /// bindings); each section of its descriptions is an accordion entry
+  /// before the built-in sections. Null: the panel keeps a values service of
+  /// its own over [preferencesService] with the shell's description only
+  /// ([forgeShellConfigurationValues]).
   final ForgeConfigurationValues? configurationValues;
+
+  /// The [expandSection] index of the *Shell* section.
+  static const sectionIndexShell = 0;
+
+  /// The [expandSection] index of the *Terminal* section.
+  static const sectionIndexTerminal = 1;
+
+  /// The [expandSection] index of the first built-in section (*Dart
+  /// Editor*); the others and then the module panels follow in order.
+  static const sectionIndexFirstBuiltIn = 2;
 
   /// The external tools the modules registered (the *External Tools*
   /// section's rows).
@@ -65,15 +83,13 @@ class ForgeConfigurationPanel extends StatefulWidget {
 
 class _ForgeConfigurationPanelState extends State<ForgeConfigurationPanel> {
   /// Tracks which accordion sections are expanded (by index).
-  final Set<int> _expandedSections = {0};
+  final Set<int> _expandedSections = {};
   /// Pinned sections remain open when another section is expanded.
   final Set<int> _pinnedSections = {};
   /// Flex factors for expanded sections (for drag-to-resize).
   final Map<int, double> _sectionFlex = {};
 
   static const _builtInSections = [
-    _SectionDef('Shell', Icons.desktop_mac_outlined),
-    _SectionDef('Terminal', Icons.terminal),
     _SectionDef('Dart Editor', Icons.code),
     _SectionDef('YAML Editor', Icons.data_object),
     _SectionDef('Markdown Editor', Icons.description_outlined),
@@ -83,15 +99,53 @@ class _ForgeConfigurationPanelState extends State<ForgeConfigurationPanel> {
     _SectionDef('External Tools', Icons.build_outlined),
   ];
 
+  /// The values service of the panel's own, when none is given.
+  ForgeConfigurationValues? _ownValues;
+
+  /// The values service the described sections edit: the one given, else
+  /// the panel's own over the shell's description.
+  ForgeConfigurationValues get _values {
+    final given = widget.configurationValues;
+    if (given != null) return given;
+    return _ownValues ??= _makeOwnValues();
+  }
+
+  ForgeConfigurationValues _makeOwnValues() {
+    final values = forgeShellConfigurationValues(
+      widget.preferencesService,
+      config: widget.shellApi?.config,
+    );
+    unawaited(values.load());
+    return values;
+  }
+
   /// The sections of the configuration descriptions, in their order. They
   /// are shown first but numbered after the built-in sections and the module
-  /// panels, so [ForgeConfigurationPanel.expandSection]'s indices (quick
-  /// open's) keep naming the same sections.
-  List<ForgeConfigurationSectionRef> get _describedSections {
-    final values = widget.configurationValues;
-    return values == null
-        ? const []
-        : forgeOrderedSections(values.descriptions);
+  /// panels; [ForgeConfigurationPanel.expandSection]'s indices are mapped
+  /// ([_sectionForRequest]).
+  List<ForgeConfigurationSectionRef> get _describedSections =>
+      forgeOrderedSections(_values.descriptions);
+
+  /// The internal index of the described section [refId], or null.
+  int? _describedIndexOf(String refId) {
+    final described = _describedSections;
+    for (var i = 0; i < described.length; i++) {
+      if (described[i].id == refId) return _firstDescribedIndex + i;
+    }
+    return null;
+  }
+
+  /// The internal index of the section quick open's index [requested] names
+  /// (see [ForgeConfigurationPanel]), or null when it names none.
+  int? _sectionForRequest(int requested) {
+    if (requested == ForgeConfigurationPanel.sectionIndexShell) {
+      return _describedIndexOf(ForgeShellConfiguration.shellSectionRef);
+    }
+    if (requested == ForgeConfigurationPanel.sectionIndexTerminal) {
+      return _describedIndexOf(ForgeShellConfiguration.terminalSectionRef);
+    }
+    final index = requested - ForgeConfigurationPanel.sectionIndexFirstBuiltIn;
+    return index >= 0 && index < _firstDescribedIndex ? index : null;
   }
 
   int get _firstDescribedIndex =>
@@ -108,6 +162,11 @@ class _ForgeConfigurationPanelState extends State<ForgeConfigurationPanel> {
   @override
   void initState() {
     super.initState();
+    // The Shell section is the one open at first, as it always was.
+    _expandedSections.add(
+      _describedIndexOf(ForgeShellConfiguration.shellSectionRef) ??
+          (_totalSections > _firstDescribedIndex ? _firstDescribedIndex : 0),
+    );
     widget.expandSection?.addListener(_onExpandSectionChanged);
     // Apply an already-requested section target when the panel is first built.
     // Quick-open may set the target before this widget is mounted.
@@ -129,12 +188,14 @@ class _ForgeConfigurationPanelState extends State<ForgeConfigurationPanel> {
   @override
   void dispose() {
     widget.expandSection?.removeListener(_onExpandSectionChanged);
+    _ownValues?.dispose();
     super.dispose();
   }
 
   void _onExpandSectionChanged() {
-    final target = widget.expandSection?.value;
-    if (target != null && target >= 0 && target < _totalSections) {
+    final requested = widget.expandSection?.value;
+    final target = requested == null ? null : _sectionForRequest(requested);
+    if (target != null) {
       _toggleSection(target);
       // Consume the request so it doesn't fire again.
       widget.expandSection?.value = null;
@@ -265,52 +326,43 @@ class _ForgeConfigurationPanelState extends State<ForgeConfigurationPanel> {
     }
     if (index < _builtInSections.length) {
       return switch (index) {
-        0 => _ShellSettingsSection(
-            preferencesService: widget.preferencesService,
-            shellApi: widget.shellApi,
-            onChanged: widget.onSettingsChanged,
-          ),
-        1 => _TerminalSettingsSection(
-            preferencesService: widget.preferencesService,
-            onChanged: widget.onSettingsChanged,
-          ),
-        2 => _EditorSettingsSection(
+        0 => _EditorSettingsSection(
             editorTypeId: 'dart',
             title: 'Dart',
             preferencesService: widget.preferencesService,
             shellApi: widget.shellApi,
             onChanged: widget.onSettingsChanged,
           ),
-        3 => _EditorSettingsSection(
+        1 => _EditorSettingsSection(
             editorTypeId: 'yaml',
             title: 'YAML',
             preferencesService: widget.preferencesService,
             shellApi: widget.shellApi,
             onChanged: widget.onSettingsChanged,
           ),
-        4 => _EditorSettingsSection(
+        2 => _EditorSettingsSection(
             editorTypeId: 'md',
             title: 'Markdown',
             preferencesService: widget.preferencesService,
             shellApi: widget.shellApi,
             onChanged: widget.onSettingsChanged,
           ),
-        5 => _ShortcutsSettingsSection(
+        3 => _ShortcutsSettingsSection(
             shellApi: widget.shellApi,
             preferencesService: widget.preferencesService,
             isChord: false,
           ),
-        6 => _ShortcutsSettingsSection(
+        4 => _ShortcutsSettingsSection(
             shellApi: widget.shellApi,
             preferencesService: widget.preferencesService,
             isChord: true,
           ),
-        7 => _FileTypesSettingsSection(
+        5 => _FileTypesSettingsSection(
             preferencesService: widget.preferencesService,
             shellApi: widget.shellApi,
             onChanged: widget.onSettingsChanged,
           ),
-        8 => ForgeExternalToolsSection(
+        6 => ForgeExternalToolsSection(
             tools: widget.externalTools,
             preferencesService: widget.preferencesService,
             onChanged: widget.onSettingsChanged,
@@ -328,7 +380,7 @@ class _ForgeConfigurationPanelState extends State<ForgeConfigurationPanel> {
   Widget _buildDescribedSection(ForgeConfigurationSectionRef ref) {
     final pickers = ForgeShellComponents.of(widget.shellApi).pickers;
     return ForgeConfigurationScope(
-      values: widget.configurationValues!,
+      values: _values,
       // The accordion header shows the title; the tile's own header only
       // where the section has help to open.
       style: ForgeConfigurationTileStyle(
@@ -498,701 +550,6 @@ class _SectionDef {
   final String label;
   final IconData icon;
   const _SectionDef(this.label, this.icon);
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Shell settings
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _ShellSettingsSection extends StatefulWidget {
-  final ForgePreferencesService preferencesService;
-  final ForgeShellApi? shellApi;
-  final VoidCallback? onChanged;
-
-  const _ShellSettingsSection({
-    required this.preferencesService,
-    this.shellApi,
-    this.onChanged,
-  });
-
-  @override
-  State<_ShellSettingsSection> createState() => _ShellSettingsSectionState();
-}
-
-class _ShellSettingsSectionState extends State<_ShellSettingsSection> {
-  late ThemeMode _selectedThemeMode;
-  late TextEditingController _maxRecentController;
-  late bool _autoSaveEnabled;
-  late TextEditingController _autoSaveDelayController;
-  late bool _autoSaveFocusLoss;
-  late ForgeSearchConfig _searchConfig;
-  late TextEditingController _excludedExtController;
-  late TextEditingController _excludedDirsController;
-  late TextEditingController _fileSizeLimitController;
-  late TextEditingController _maxFileResultsController;
-  // Layout dimensions
-  late TextEditingController _panelMinWidthController;
-  late TextEditingController _leftPanelWidthController;
-  late TextEditingController _rightPanelWidthController;
-  late TextEditingController _bottomPanelHeightController;
-  late TextEditingController _dividerHitTargetController;
-  late bool _reduceMotion;
-  late bool _highContrast;
-
-  @override
-  void initState() {
-    super.initState();
-    _selectedThemeMode = widget.preferencesService.themeMode;
-    _maxRecentController = TextEditingController(
-      text: widget.preferencesService.maxRecentWorkspaces.toString(),
-    );
-    final autoSave = widget.shellApi?.config.current.autoSave ??
-        const AutoSaveConfig();
-    _autoSaveEnabled = autoSave.enabled;
-    _autoSaveDelayController = TextEditingController(
-      text: autoSave.idleDelay.inSeconds.toString(),
-    );
-    _autoSaveFocusLoss = autoSave.saveOnFocusLoss;
-    _searchConfig = widget.preferencesService.searchConfig;
-    _excludedExtController = TextEditingController(
-      text: _searchConfig.excludedExtensions.join(', '),
-    );
-    _excludedDirsController = TextEditingController(
-      text: _searchConfig.excludedDirectories.join(', '),
-    );
-    _fileSizeLimitController = TextEditingController(
-      text: (_searchConfig.fileSizeLimit ~/ (1024 * 1024)).toString(),
-    );
-    _maxFileResultsController = TextEditingController(
-      text: _searchConfig.maxFileResults.toString(),
-    );
-    // Layout dimensions
-    _panelMinWidthController = TextEditingController(
-      text: widget.preferencesService.panelContentMinWidth.toInt().toString(),
-    );
-    _leftPanelWidthController = TextEditingController(
-      text: widget.preferencesService.leftPanelDefaultWidth.toInt().toString(),
-    );
-    _rightPanelWidthController = TextEditingController(
-      text: widget.preferencesService.rightPanelDefaultWidth.toInt().toString(),
-    );
-    _bottomPanelHeightController = TextEditingController(
-      text: widget.preferencesService.bottomPanelDefaultHeight.toInt().toString(),
-    );
-    _dividerHitTargetController = TextEditingController(
-      text: widget.preferencesService.dividerHitTarget.toInt().toString(),
-    );
-    _reduceMotion = widget.preferencesService.reduceMotion;
-    _highContrast = widget.preferencesService.highContrast;
-  }
-
-  @override
-  void dispose() {
-    _maxRecentController.dispose();
-    _autoSaveDelayController.dispose();
-    _excludedExtController.dispose();
-    _excludedDirsController.dispose();
-    _fileSizeLimitController.dispose();
-    _maxFileResultsController.dispose();
-    _panelMinWidthController.dispose();
-    _leftPanelWidthController.dispose();
-    _rightPanelWidthController.dispose();
-    _bottomPanelHeightController.dispose();
-    _dividerHitTargetController.dispose();
-    super.dispose();
-  }
-
-  void _save() {
-    final prefs = widget.preferencesService;
-    prefs.themeMode = _selectedThemeMode;
-    final maxRecent = int.tryParse(_maxRecentController.text.trim());
-    if (maxRecent != null && maxRecent >= 1 && maxRecent <= 50) {
-      prefs.maxRecentWorkspaces = maxRecent;
-    }
-
-    final shellApi = widget.shellApi;
-    if (shellApi != null) {
-      final delaySeconds = int.tryParse(_autoSaveDelayController.text.trim());
-      final effectiveDelaySeconds =
-          delaySeconds != null && delaySeconds > 0 ? delaySeconds : 2;
-      final nextAutoSave = AutoSaveConfig(
-        enabled: _autoSaveEnabled,
-        idleDelay: Duration(seconds: effectiveDelaySeconds),
-        saveOnFocusLoss: _autoSaveFocusLoss,
-      );
-      final currentConfig = shellApi.config.current;
-      final nextConfig = ForgeConfig(
-        autoSave: nextAutoSave,
-        performance: currentConfig.performance,
-      );
-
-      final configManager = shellApi.config;
-      if (configManager is DefaultConfigManager) {
-        configManager.setCurrent(nextConfig, key: 'autoSave');
-      }
-    }
-
-    prefs.save();
-    widget.onChanged?.call();
-  }
-
-  void _saveSearchConfig() {
-    final excludedExt = _excludedExtController.text
-        .split(',')
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toSet();
-    final excludedDirs = _excludedDirsController.text
-        .split(',')
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toSet();
-    final fileSizeMB =
-        int.tryParse(_fileSizeLimitController.text.trim()) ?? 10;
-    final maxFiles =
-        int.tryParse(_maxFileResultsController.text.trim()) ?? 50;
-    _searchConfig = _searchConfig.copyWith(
-      excludedExtensions: excludedExt,
-      excludedDirectories: excludedDirs,
-      fileSizeLimit: fileSizeMB * 1024 * 1024,
-      excludeHiddenDirectories: _searchConfig.excludeHiddenDirectories,
-      excludeGitIgnored: _searchConfig.excludeGitIgnored,
-      maxFileResults: maxFiles.clamp(1, 1000),
-    );
-    widget.preferencesService.searchConfig = _searchConfig;
-    widget.preferencesService.save();
-    widget.onChanged?.call();
-  }
-
-  void _saveLayoutDimensions() {
-    final prefs = widget.preferencesService;
-    final minW = double.tryParse(_panelMinWidthController.text.trim());
-    if (minW != null) prefs.panelContentMinWidth = minW;
-    final leftW = double.tryParse(_leftPanelWidthController.text.trim());
-    if (leftW != null) prefs.leftPanelDefaultWidth = leftW;
-    final rightW = double.tryParse(_rightPanelWidthController.text.trim());
-    if (rightW != null) prefs.rightPanelDefaultWidth = rightW;
-    final bottomH = double.tryParse(_bottomPanelHeightController.text.trim());
-    if (bottomH != null) prefs.bottomPanelDefaultHeight = bottomH;
-    final hitT = double.tryParse(_dividerHitTargetController.text.trim());
-    if (hitT != null) prefs.dividerHitTarget = hitT;
-    prefs.reduceMotion = _reduceMotion;
-    prefs.highContrast = _highContrast;
-    prefs.save();
-    widget.onChanged?.call();
-  }
-
-  Widget _toggle(String label, bool value, ValueChanged<bool> onChanged) {
-    return SizedBox(
-      width: 180,
-      child: CheckboxListTile(
-        dense: true,
-        contentPadding: EdgeInsets.zero,
-        controlAffinity: ListTileControlAffinity.leading,
-        title: Text(label, style: const TextStyle(fontSize: 12)),
-        value: value,
-        onChanged: (next) => onChanged(next ?? false),
-        visualDensity: VisualDensity.compact,
-      ),
-    );
-  }
-
-  Widget _themeModeButton(
-    BuildContext context,
-    ThemeMode mode,
-    String label,
-  ) {
-    final selected = _selectedThemeMode == mode;
-    final scheme = Theme.of(context).colorScheme;
-    return TextButton(
-      onPressed: () {
-        setState(() => _selectedThemeMode = mode);
-        _save();
-      },
-      style: TextButton.styleFrom(
-        minimumSize: const Size(0, 30),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        backgroundColor: selected ? scheme.primaryContainer : null,
-        foregroundColor: selected ? scheme.onPrimaryContainer : null,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-      ),
-      child: Text(label, style: const TextStyle(fontSize: 11)),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionHeader(theme, 'Appearance'),
-          const SizedBox(height: 8),
-          const Text('Theme:', style: TextStyle(fontSize: 13)),
-          const SizedBox(height: 6),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              _themeModeButton(context, ThemeMode.dark, 'Dark'),
-              _themeModeButton(context, ThemeMode.light, 'Light'),
-              _themeModeButton(context, ThemeMode.system, 'System'),
-            ],
-          ),
-          const SizedBox(height: 8),
-          _toggle('High contrast', _highContrast, (v) {
-            setState(() => _highContrast = v);
-            widget.preferencesService.highContrast = v;
-          }),
-          const SizedBox(height: 16),
-          _sectionHeader(theme, 'Quick Access'),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              const Text('Max recent:', style: TextStyle(fontSize: 13)),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 60,
-                child: TextField(
-                  controller: _maxRecentController,
-                  keyboardType: TextInputType.number,
-                  style: const TextStyle(fontSize: 13),
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                    isDense: true,
-                  ),
-                  onChanged: (_) => _save(),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _sectionHeader(theme, 'Auto Save'),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 4,
-            runSpacing: 4,
-            children: [
-              _toggle('Enabled', _autoSaveEnabled, (v) {
-                setState(() => _autoSaveEnabled = v);
-                _save();
-              }),
-              _toggle('Save on focus loss', _autoSaveFocusLoss, (v) {
-                setState(() => _autoSaveFocusLoss = v);
-                _save();
-              }),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              const Text('Idle delay (s):', style: TextStyle(fontSize: 13)),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 60,
-                child: TextField(
-                  controller: _autoSaveDelayController,
-                  keyboardType: TextInputType.number,
-                  style: const TextStyle(fontSize: 13),
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                    isDense: true,
-                  ),
-                  onChanged: (_) => _save(),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _sectionHeader(theme, 'Search'),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 4,
-            runSpacing: 4,
-            children: [
-              _toggle('Hide hidden dirs', _searchConfig.excludeHiddenDirectories,
-                  (v) {
-                setState(() {
-                  _searchConfig = _searchConfig.copyWith(
-                    excludeHiddenDirectories: v,
-                  );
-                });
-                _saveSearchConfig();
-              }),
-              _toggle('Use .gitignore', _searchConfig.excludeGitIgnored, (v) {
-                setState(() {
-                  _searchConfig = _searchConfig.copyWith(
-                    excludeGitIgnored: v,
-                  );
-                });
-                _saveSearchConfig();
-              }),
-            ],
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _excludedExtController,
-            style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
-            decoration: const InputDecoration(
-              labelText: 'Excluded extensions',
-              hintText: 'png, jpg, exe, lock',
-              border: OutlineInputBorder(),
-              contentPadding:
-                  EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              isDense: true,
-            ),
-            maxLines: 2,
-            onChanged: (_) => _saveSearchConfig(),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _excludedDirsController,
-            style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
-            decoration: const InputDecoration(
-              labelText: 'Excluded directories',
-              hintText: 'node_modules, build, .dart_tool',
-              border: OutlineInputBorder(),
-              contentPadding:
-                  EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              isDense: true,
-            ),
-            maxLines: 2,
-            onChanged: (_) => _saveSearchConfig(),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              SizedBox(
-                width: 90,
-                child: TextField(
-                  controller: _fileSizeLimitController,
-                  keyboardType: TextInputType.number,
-                  style: const TextStyle(fontSize: 13),
-                  decoration: const InputDecoration(
-                    labelText: 'Size (MB)',
-                    border: OutlineInputBorder(),
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                    isDense: true,
-                  ),
-                  onChanged: (_) => _saveSearchConfig(),
-                ),
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 90,
-                child: TextField(
-                  controller: _maxFileResultsController,
-                  keyboardType: TextInputType.number,
-                  style: const TextStyle(fontSize: 13),
-                  decoration: const InputDecoration(
-                    labelText: 'Max results',
-                    border: OutlineInputBorder(),
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                    isDense: true,
-                  ),
-                  onChanged: (_) => _saveSearchConfig(),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _sectionHeader(theme, 'Layout'),
-          const SizedBox(height: 8),
-          _toggle('Reduce motion', _reduceMotion, (v) {
-            setState(() => _reduceMotion = v);
-            _saveLayoutDimensions();
-          }),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              const Text('Panel min width:', style: TextStyle(fontSize: 13)),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 70,
-                child: TextField(
-                  controller: _panelMinWidthController,
-                  keyboardType: TextInputType.number,
-                  style: const TextStyle(fontSize: 13),
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                    isDense: true,
-                  ),
-                  onChanged: (_) => _saveLayoutDimensions(),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              SizedBox(
-                width: 90,
-                child: TextField(
-                  controller: _leftPanelWidthController,
-                  keyboardType: TextInputType.number,
-                  style: const TextStyle(fontSize: 13),
-                  decoration: const InputDecoration(
-                    labelText: 'Left panel',
-                    border: OutlineInputBorder(),
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                    isDense: true,
-                  ),
-                  onChanged: (_) => _saveLayoutDimensions(),
-                ),
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 90,
-                child: TextField(
-                  controller: _rightPanelWidthController,
-                  keyboardType: TextInputType.number,
-                  style: const TextStyle(fontSize: 13),
-                  decoration: const InputDecoration(
-                    labelText: 'Right panel',
-                    border: OutlineInputBorder(),
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                    isDense: true,
-                  ),
-                  onChanged: (_) => _saveLayoutDimensions(),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              SizedBox(
-                width: 90,
-                child: TextField(
-                  controller: _bottomPanelHeightController,
-                  keyboardType: TextInputType.number,
-                  style: const TextStyle(fontSize: 13),
-                  decoration: const InputDecoration(
-                    labelText: 'Bottom panel',
-                    border: OutlineInputBorder(),
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                    isDense: true,
-                  ),
-                  onChanged: (_) => _saveLayoutDimensions(),
-                ),
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 90,
-                child: TextField(
-                  controller: _dividerHitTargetController,
-                  keyboardType: TextInputType.number,
-                  style: const TextStyle(fontSize: 13),
-                  decoration: const InputDecoration(
-                    labelText: 'Divider hit',
-                    border: OutlineInputBorder(),
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                    isDense: true,
-                  ),
-                  onChanged: (_) => _saveLayoutDimensions(),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Terminal settings
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _TerminalSettingsSection extends StatefulWidget {
-  final ForgePreferencesService preferencesService;
-  final VoidCallback? onChanged;
-
-  const _TerminalSettingsSection({
-    required this.preferencesService,
-    this.onChanged,
-  });
-
-  @override
-  State<_TerminalSettingsSection> createState() =>
-      _TerminalSettingsSectionState();
-}
-
-class _TerminalSettingsSectionState extends State<_TerminalSettingsSection> {
-  late TextEditingController _defaultShellController;
-  late TextEditingController _scrollbackController;
-  late TextEditingController _fontFamilyController;
-  late TextEditingController _fontSizeController;
-  late String _startFolder;
-
-  @override
-  void initState() {
-    super.initState();
-    final prefs = widget.preferencesService;
-    _defaultShellController =
-        TextEditingController(text: prefs.terminalDefaultShell ?? '');
-    _scrollbackController =
-        TextEditingController(text: prefs.terminalScrollbackLines.toString());
-    _fontFamilyController =
-        TextEditingController(text: prefs.terminalFontFamily);
-    _fontSizeController =
-        TextEditingController(text: prefs.terminalFontSize.toStringAsFixed(0));
-    _startFolder = prefs.terminalStartFolder;
-  }
-
-  @override
-  void dispose() {
-    _defaultShellController.dispose();
-    _scrollbackController.dispose();
-    _fontFamilyController.dispose();
-    _fontSizeController.dispose();
-    super.dispose();
-  }
-
-  void _save() {
-    final prefs = widget.preferencesService;
-    final shell = _defaultShellController.text.trim();
-    prefs.terminalDefaultShell = shell.isEmpty ? null : shell;
-    prefs.terminalStartFolder = _startFolder;
-    final scrollback = int.tryParse(_scrollbackController.text.trim());
-    if (scrollback != null && scrollback > 0) {
-      prefs.terminalScrollbackLines = scrollback;
-    }
-    final fontFamily = _fontFamilyController.text.trim();
-    if (fontFamily.isNotEmpty) prefs.terminalFontFamily = fontFamily;
-    final fontSize = double.tryParse(_fontSizeController.text.trim());
-    if (fontSize != null && fontSize > 0) prefs.terminalFontSize = fontSize;
-    prefs.save();
-    widget.onChanged?.call();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionHeader(theme, 'Default Shell'),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _defaultShellController,
-            style: const TextStyle(fontSize: 13, fontFamily: 'monospace'),
-            decoration: const InputDecoration(
-              hintText: '/bin/bash',
-              border: OutlineInputBorder(),
-              contentPadding:
-                  EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              isDense: true,
-            ),
-            onChanged: (_) => _save(),
-          ),
-          const SizedBox(height: 16),
-          _sectionHeader(theme, 'Start Folder'),
-          const SizedBox(height: 8),
-          DropdownButtonFormField<String>(
-            initialValue: _startFolder,
-            decoration: const InputDecoration(
-              border: OutlineInputBorder(),
-              contentPadding:
-                  EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              isDense: true,
-            ),
-            style: const TextStyle(fontSize: 13),
-            items: const [
-              DropdownMenuItem(
-                  value: 'workspace', child: Text('Workspace root')),
-              DropdownMenuItem(value: 'home', child: Text('Home directory')),
-              DropdownMenuItem(
-                  value: 'lastUsed', child: Text('Last used directory')),
-            ],
-            onChanged: (value) {
-              if (value != null) {
-                setState(() => _startFolder = value);
-                _save();
-              }
-            },
-          ),
-          const SizedBox(height: 16),
-          _sectionHeader(theme, 'Font & Display'),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _fontFamilyController,
-                  style: const TextStyle(fontSize: 13),
-                  decoration: const InputDecoration(
-                    labelText: 'Font',
-                    border: OutlineInputBorder(),
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    isDense: true,
-                  ),
-                  onChanged: (_) => _save(),
-                ),
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 70,
-                child: TextField(
-                  controller: _fontSizeController,
-                  keyboardType: TextInputType.number,
-                  style: const TextStyle(fontSize: 13),
-                  decoration: const InputDecoration(
-                    labelText: 'Size',
-                    border: OutlineInputBorder(),
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    isDense: true,
-                  ),
-                  onChanged: (_) => _save(),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              const Text('Scrollback:', style: TextStyle(fontSize: 13)),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 80,
-                child: TextField(
-                  controller: _scrollbackController,
-                  keyboardType: TextInputType.number,
-                  style: const TextStyle(fontSize: 13),
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    isDense: true,
-                  ),
-                  onChanged: (_) => _save(),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
