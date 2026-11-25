@@ -13,6 +13,13 @@
 /// - **Context menus**: [ForgeContextTarget], [ForgeContextMenuItem],
 ///   [ForgeContextMenuContribution]
 /// - **Model**: [ForgeConfig], [AutoSaveConfig]
+/// - **Configuration description**: what a component can be configured in —
+///   [ForgeConfigurationDescription] of [ForgeSettingsSection]s of typed
+///   [ForgeSetting]s ([ForgeBoolSetting], [ForgeIntSetting],
+///   [ForgeDoubleSetting], [ForgeStringSetting], [ForgeChoiceSetting],
+///   [ForgeStringListSetting], [ForgePathSetting], [ForgeColorSetting],
+///   [ForgeStringMapSetting]), each stored at a [ForgeSettingStorage] of the
+///   kit's state-store port, labelled with [ForgeText]s
 /// - **Services**: [TomFileSystem], [ForgeClipboard], [ForgeConfigManager],
 ///   [ForgeDiagnosticManager], [ForgeNotificationManager],
 ///   [ForgeUndoManager], and more
@@ -44,6 +51,13 @@ export 'src/types/forge_context_menu.dart';
 
 // Document
 export 'src/document/forge_document.dart';
+
+// Configuration description
+export 'src/configuration/forge_configuration_description.dart';
+export 'src/configuration/forge_configuration_texts.dart';
+export 'src/configuration/forge_setting.dart';
+export 'src/configuration/forge_setting_kinds.dart';
+export 'src/configuration/forge_text.dart';
 
 // Model
 export 'src/model/forge_config.dart';

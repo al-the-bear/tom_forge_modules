@@ -24,6 +24,11 @@
 ///   [ForgeSharedPreferencesStateStore], [ForgeFileStateStore]), written
 ///   once per gesture and never before the start's restore
 ///   ([ForgeCoalescedStateWriter]).
+/// - **Configuration:** the descriptions of what the components can be
+///   configured in (`tom_forge_core`'s `ForgeConfigurationDescription`),
+///   contributed by modules ([ForgeConfigurationDescriptionsExtra]) and
+///   collected from the registry ([forgeConfigurationDescriptions]); their
+///   values through the state-store port ([ForgeConfigurationValues]).
 /// - **Choosing the editor:** the editors of a content item (a URI with its
 ///   content type, [ForgeContentItem]) from every module and editor type, the
 ///   default per content type and per extension, open once and set the
@@ -80,6 +85,7 @@ export 'src/kit/default_kit_api.dart';
 export 'src/kit/default_kit_state.dart';
 export 'src/kit/forge_active_editor.dart';
 export 'src/kit/forge_coalesced_state_writer.dart';
+export 'src/kit/forge_configuration_values.dart';
 export 'src/kit/forge_context_menu_controller.dart';
 export 'src/kit/forge_editor_host.dart';
 export 'src/kit/forge_editor_picker.dart';
@@ -107,6 +113,7 @@ export 'src/model/forge_kit_status_item.dart';
 export 'src/model/forge_menu_model.dart';
 
 // ── Module ──
+export 'src/module/forge_configuration_contributions.dart';
 export 'src/module/forge_kit_module.dart';
 export 'src/module/forge_kit_module_registry.dart';
 export 'src/module/forge_quick_open_contribution.dart';
