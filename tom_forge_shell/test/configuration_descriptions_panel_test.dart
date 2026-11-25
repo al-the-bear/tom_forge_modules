@@ -153,14 +153,14 @@ void main() {
 
     final header = find.text('Described editing');
     expect(header, findsOneWidget);
-    // After the shell's Terminal section, before the first built-in section.
+    // After the shell's own sections (its order, 100, comes after theirs).
     expect(
       tester.getTopLeft(header).dy,
       greaterThan(tester.getTopLeft(find.text('Terminal').first).dy),
     );
     expect(
       tester.getTopLeft(header).dy,
-      lessThan(tester.getTopLeft(find.text('File Types').first).dy),
+      greaterThan(tester.getTopLeft(find.text('File Types').first).dy),
     );
     // Collapsed at first: the Shell section stays the one expanded.
     expect(find.byType(ForgeConfigurationTile), findsOneWidget);

@@ -32,6 +32,7 @@ export 'src/components/forge_editor_choice.dart';
 // ── Configuration ──
 // The shell's own options (Shell, Terminal) as a configuration description,
 // its storage bindings and the module contributing it.
+export 'src/configuration/forge_files_tools_configuration.dart';
 export 'src/configuration/forge_shell_configuration.dart';
 export 'src/configuration/forge_shell_setting_bindings.dart';
 export 'src/configuration/forge_shortcut_configuration.dart';

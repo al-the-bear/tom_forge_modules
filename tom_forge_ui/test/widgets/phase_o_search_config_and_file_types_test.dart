@@ -303,25 +303,11 @@ Future<void> _dismissQuickOpen(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
-Future<void> _selectDefaultFileTypeEditor(
-  WidgetTester tester,
-  String next,
-) async {
-  final dropdown = find.byType(DropdownButtonFormField<String>).first;
-  await tester.ensureVisible(dropdown);
-  await tester.tap(dropdown);
-  await tester.pumpAndSettle();
-  await tester.tap(find.text(next).last);
-  await tester.pumpAndSettle();
-}
+Future<void> _selectDefaultFileTypeEditor(WidgetTester tester, String next) =>
+    setFileTypeEditor(tester, '*', fileTypeEditorIdOf(next));
 
-Future<void> _addExtensionMapping(WidgetTester tester, String ext) async {
-  await tester.enterText(_fileTypeExtensionField(), ext);
-  await tester.pumpAndSettle();
-  final add = find.byTooltip('Add Extension');
-  await tester.tap(add);
-  await tester.pumpAndSettle();
-}
+Future<void> _addExtensionMapping(WidgetTester tester, String ext) =>
+    addFileTypeExtension(tester, ext);
 
 Finder _titleSearchField() {
   return find.byWidgetPredicate(
@@ -337,12 +323,6 @@ Finder _quickOpenText(String text) {
   return find.descendant(
     of: find.byType(ForgeQuickOpen),
     matching: find.text(text),
-  );
-}
-
-Finder _fileTypeExtensionField() {
-  return find.byWidgetPredicate(
-    (widget) => widget is TextField && widget.decoration?.hintText == '.ext',
   );
 }
 

@@ -260,6 +260,10 @@ class ForgeKitPreferences extends ChangeNotifier
   /// detection searches then.
   String? externalToolPath(String toolId) => _externalToolPaths[toolId];
 
+  /// Every external tool path set, by tool id.
+  Map<String, String> get externalToolPaths =>
+      Map<String, String>.unmodifiable(_externalToolPaths);
+
   /// Sets (or with `null` / empty, clears) the path of the external tool
   /// [toolId] and stores it; completes when stored (at once before the
   /// restore, which drops it).

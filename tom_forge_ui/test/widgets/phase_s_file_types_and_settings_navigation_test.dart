@@ -131,9 +131,7 @@ void main() {
       await _openConfigSection(tester, 'File Types');
       await _selectDefaultFileTypeEditor(tester, 'YAML');
 
-      await tester.enterText(_newExtensionField(), 'phaseS');
-      await tester.tap(find.byTooltip('Add Extension'));
-      await tester.pumpAndSettle();
+      await addFileTypeExtension(tester, 'phaseS');
 
       expect(harness.shell.getFileTypeDefaults()['.phases'], equals('yaml'));
       expect(
@@ -181,9 +179,7 @@ void main() {
       await _openConfigSection(tester, 'File Types');
       await _selectDefaultFileTypeEditor(tester, 'YAML');
 
-      await tester.enterText(_newExtensionField(), '.gone');
-      await tester.tap(find.byTooltip('Add Extension'));
-      await tester.pumpAndSettle();
+      await addFileTypeExtension(tester, '.gone');
       expect(harness.shell.getFileTypeDefaults()['.gone'], equals('yaml'));
 
       await _removeExtensionMapping(tester, '.gone');
@@ -234,16 +230,12 @@ void main() {
       await _openSettingsViaFileMenu(tester);
       await _openConfigSection(tester, 'File Types');
 
-      await tester.enterText(_newExtensionField(), '.dupe');
-      await tester.tap(find.byTooltip('Add Extension'));
-      await tester.pumpAndSettle();
+      await addFileTypeExtension(tester, '.dupe');
       final beforeKeys = Set<String>.from(
         harness.shell.getFileTypeDefaults().keys,
       );
 
-      await tester.enterText(_newExtensionField(), '.dupe');
-      await tester.tap(find.byTooltip('Add Extension'));
-      await tester.pumpAndSettle();
+      await addFileTypeExtension(tester, '.dupe');
       final afterKeys = Set<String>.from(
         harness.shell.getFileTypeDefaults().keys,
       );
@@ -266,9 +258,7 @@ void main() {
         await _openConfigSection(tester, 'File Types');
 
         await _selectDefaultFileTypeEditor(tester, 'YAML');
-        await tester.enterText(_newExtensionField(), '.sticky');
-        await tester.tap(find.byTooltip('Add Extension'));
-        await tester.pumpAndSettle();
+        await addFileTypeExtension(tester, '.sticky');
         expect(harness.shell.getFileTypeDefaults()['.sticky'], equals('yaml'));
 
         await _selectDefaultFileTypeEditor(tester, 'Dart');
@@ -299,56 +289,17 @@ Future<void> _openQuickOpenWithQuery(WidgetTester tester, String query) async {
   await tester.pumpAndSettle();
 }
 
-Future<void> _selectDefaultFileTypeEditor(
-  WidgetTester tester,
-  String next,
-) async {
-  final dropdown = find.byKey(const Key('file-type-default-editor'));
-  expect(dropdown, findsOneWidget);
-  await tester.ensureVisible(dropdown);
-  await tester.tap(dropdown);
-  await tester.pumpAndSettle();
-  await tester.tap(find.text(next).last);
-  await tester.pumpAndSettle();
-}
+Future<void> _selectDefaultFileTypeEditor(WidgetTester tester, String next) =>
+    setFileTypeEditor(tester, '*', fileTypeEditorIdOf(next));
 
 Future<void> _setExtensionMapping(
   WidgetTester tester,
   String extension,
   String editorName,
-) async {
-  final dropdown = find.byKey(Key('file-type-editor-$extension'));
-  expect(dropdown, findsOneWidget);
-  await tester.ensureVisible(dropdown);
-  await tester.pumpAndSettle();
+) => setFileTypeEditor(tester, extension, fileTypeEditorIdOf(editorName));
 
-  final formField = tester.widget<DropdownButtonFormField<String>>(dropdown);
-  formField.onChanged?.call(_editorIdFromTitle(editorName));
-  await tester.pumpAndSettle();
-}
-
-Future<void> _removeExtensionMapping(
-  WidgetTester tester,
-  String extension,
-) async {
-  final removeButton = find.byKey(Key('file-type-remove-$extension'));
-  expect(removeButton, findsOneWidget);
-  await tester.ensureVisible(removeButton);
-
-  final inkwell = tester.widget<InkWell>(removeButton);
-  inkwell.onTap?.call();
-  await tester.pumpAndSettle();
-}
-
-String _editorIdFromTitle(String title) {
-  return switch (title) {
-    'Markdown' => 'md',
-    'Dart' => 'dart',
-    'YAML' => 'yaml',
-    'Plain Text' => 'plaintext',
-    _ => throw ArgumentError('Unsupported editor title: $title'),
-  };
-}
+Future<void> _removeExtensionMapping(WidgetTester tester, String extension) =>
+    removeFileTypeExtension(tester, extension);
 
 Finder _titleSearchField() {
   return find.byWidgetPredicate(
@@ -358,10 +309,6 @@ Finder _titleSearchField() {
             widget.decoration?.hintText == 'Type an action...' ||
             widget.decoration?.hintText == 'Search shortcuts or press key...'),
   );
-}
-
-Finder _newExtensionField() {
-  return find.byKey(const Key('file-type-new-extension'));
 }
 
 class _PhaseSHarness {

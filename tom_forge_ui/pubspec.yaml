@@ -69,6 +69,9 @@ dev_dependencies:
   shared_preferences: ^2.2.0
   tom_forge_core:
     path: ../tom_forge_core
+  # The configuration tiles' scope the suites read the values through.
+  tom_configuration_ui:
+    path: ../tom_configuration_ui
   tom_editors_shared:
     path: ../tom_editors_shared
   tom_file_system:

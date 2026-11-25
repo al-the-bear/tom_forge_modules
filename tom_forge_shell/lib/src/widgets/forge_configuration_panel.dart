@@ -11,13 +11,13 @@ import 'package:tom_forge_core/tom_forge_core.dart'
         forgeOrderedSections;
 import 'package:tom_forge_kit/tom_forge_kit.dart';
 
+import '../configuration/forge_files_tools_configuration.dart';
 import '../configuration/forge_shell_configuration.dart';
 import '../configuration/forge_shortcut_configuration.dart';
 import '../module/forge_config_panel.dart';
 import '../services/forge_preferences_service.dart';
 import '../shell/forge_shell_api.dart';
 import '../shell/forge_shell_components.dart';
-import '../tools/forge_external_tools_section.dart';
 import 'forge_panel_visible_width.dart';
 
 /// In-panel configuration view shown when the config cog is clicked.
@@ -27,9 +27,10 @@ import 'forge_panel_visible_width.dart';
 /// configuration descriptions the modules and the editor types contribute
 /// ([configurationValues]) — the shell's own *Shell* and *Terminal* sections
 /// first ([ForgeShellConfiguration]), then the editor types' (the Dart, YAML
-/// and Markdown editors describe their own options) and the key bindings
-/// ([ForgeShortcutConfiguration]) — then the built-in sections (file types,
-/// external tools) and any module-contributed [ForgeConfigPanel]s.
+/// and Markdown editors describe their own options), the key bindings
+/// ([ForgeShortcutConfiguration]), file types ([ForgeFileTypesConfiguration])
+/// and external tools ([ForgeExternalToolsConfiguration]) — then any
+/// module-contributed [ForgeConfigPanel]s.
 ///
 /// [expandSection] names a section by the index quick open has always used:
 /// 0 *Shell*, 1 *Terminal*, 2 *Dart Editor*, 3 *YAML Editor*, 4 *Markdown
@@ -55,21 +56,25 @@ class ForgeConfigurationPanel extends StatefulWidget {
   static const sectionIndexTerminal = 1;
 
   /// The [expandSection] index of *Dart Editor*; *YAML Editor*, *Markdown
-  /// Editor*, *Shortcuts* and *Chord Shortcuts* follow
-  /// ([describedSectionRefs]), then the built-in sections and the module
-  /// panels in order.
+  /// Editor*, *Shortcuts*, *Chord Shortcuts*, *File Types* and *External
+  /// Tools* follow ([describedSectionRefs]), then the module panels in
+  /// order.
   static const sectionIndexFirstBuiltIn = 2;
 
-  /// The described sections quick open's indices 2 to 6 name
+  /// The described sections quick open's indices 2 to 8 name
   /// (`<description>/<section>`): the Dart, YAML and Markdown editors' own
-  /// descriptions (`ForgeKitEditorType.configuration`) and the shell's key
-  /// bindings ([ForgeShortcutConfiguration]).
+  /// descriptions (`ForgeKitEditorType.configuration`), the shell's key
+  /// bindings ([ForgeShortcutConfiguration]), file types
+  /// ([ForgeFileTypesConfiguration]) and external tools
+  /// ([ForgeExternalToolsConfiguration]).
   static const describedSectionRefs = [
     'forge.editor.dart/editor',
     'forge.editor.yaml/editor',
     'forge.editor.md/editor',
     ForgeShortcutConfiguration.shortcutsSectionRef,
     ForgeShortcutConfiguration.chordsSectionRef,
+    ForgeFileTypesConfiguration.sectionRef,
+    ForgeExternalToolsConfiguration.sectionRef,
   ];
 
   /// The external tools the modules registered (the *External Tools*
@@ -106,11 +111,6 @@ class _ForgeConfigurationPanelState extends State<ForgeConfigurationPanel> {
   /// Flex factors for expanded sections (for drag-to-resize).
   final Map<int, double> _sectionFlex = {};
 
-  static const _builtInSections = [
-    _SectionDef('File Types', Icons.folder_open),
-    _SectionDef('External Tools', Icons.build_outlined),
-  ];
-
   /// The values service of the panel's own, when none is given.
   ForgeConfigurationValues? _ownValues;
 
@@ -124,14 +124,21 @@ class _ForgeConfigurationPanelState extends State<ForgeConfigurationPanel> {
 
   ForgeConfigurationValues _makeOwnValues() {
     final shell = widget.shellApi;
+    final tools = widget.externalTools;
     final values = forgeShellConfigurationValues(
       widget.preferencesService,
       config: shell?.config,
       shell: shell,
-      descriptions: [if (shell != null) ForgeShortcutConfiguration.description],
+      descriptions: [
+        if (shell != null) ForgeShortcutConfiguration.description,
+        if (shell != null) ForgeFileTypesConfiguration.description,
+        if (tools.isNotEmpty) ForgeExternalToolsConfiguration.description(tools),
+      ],
       hooks: ForgeSettingHooks.merged([
         ForgeShellConfiguration.hooks(),
         if (shell != null) ForgeShortcutConfiguration.hooks(shell),
+        if (shell != null) ForgeFileTypesConfiguration.hooks(shell),
+        ForgeExternalToolsConfiguration.hooks(tools),
       ]),
     );
     unawaited(values.load());
@@ -173,7 +180,7 @@ class _ForgeConfigurationPanelState extends State<ForgeConfigurationPanel> {
   }
 
   int get _firstDescribedIndex =>
-      _builtInSections.length + widget.modulePanels.length;
+      widget.modulePanels.length;
 
   int get _totalSections => _firstDescribedIndex + _describedSections.length;
 
@@ -245,11 +252,8 @@ class _ForgeConfigurationPanelState extends State<ForgeConfigurationPanel> {
                 ? null
                 : forgeMaterialIconFor(section.icon!)) ??
             Icons.tune;
-      } else if (index < _builtInSections.length) {
-        label = _builtInSections[index].label;
-        icon = _builtInSections[index].icon;
       } else {
-        final mp = widget.modulePanels[index - _builtInSections.length];
+        final mp = widget.modulePanels[index];
         label = mp.title;
         icon = mp.icon;
       }
@@ -351,24 +355,8 @@ class _ForgeConfigurationPanelState extends State<ForgeConfigurationPanel> {
     if (index >= _firstDescribedIndex) {
       return _buildDescribedSection(described[index - _firstDescribedIndex]);
     }
-    if (index < _builtInSections.length) {
-      return switch (index) {
-        0 => _FileTypesSettingsSection(
-          preferencesService: widget.preferencesService,
-          shellApi: widget.shellApi,
-          onChanged: widget.onSettingsChanged,
-        ),
-        1 => ForgeExternalToolsSection(
-          tools: widget.externalTools,
-          preferencesService: widget.preferencesService,
-          onChanged: widget.onSettingsChanged,
-          filePickers: ForgeShellComponents.of(widget.shellApi).pickers,
-        ),
-        _ => const SizedBox.shrink(),
-      };
-    }
     // Module panel.
-    final mp = widget.modulePanels[index - _builtInSections.length];
+    final mp = widget.modulePanels[index];
     return mp.builder(context);
   }
 
@@ -383,6 +371,13 @@ class _ForgeConfigurationPanelState extends State<ForgeConfigurationPanel> {
       pickPath: pickers.available
           ? (setting, current) => _pickPath(pickers, setting, current)
           : null,
+      buildHelpPanel: (context, panelId, setting, recheck) =>
+          ForgeExternalToolsConfiguration.buildHelpPanel(
+            widget.externalTools,
+            context,
+            panelId,
+            recheck,
+          ),
       child: _fitToVisibleWidth(
         context,
         SingleChildScrollView(child: ForgeConfigurationTile.of(ref)),
@@ -557,383 +552,4 @@ class _ConfigDividerState extends State<_ConfigDivider> {
       ),
     );
   }
-}
-
-class _SectionDef {
-  final String label;
-  final IconData icon;
-  const _SectionDef(this.label, this.icon);
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// File types settings
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _FileTypesSettingsSection extends StatefulWidget {
-  final ForgePreferencesService preferencesService;
-  final ForgeShellApi? shellApi;
-  final VoidCallback? onChanged;
-
-  const _FileTypesSettingsSection({
-    required this.preferencesService,
-    this.shellApi,
-    this.onChanged,
-  });
-
-  @override
-  State<_FileTypesSettingsSection> createState() =>
-      _FileTypesSettingsSectionState();
-}
-
-class _FileTypesSettingsSectionState extends State<_FileTypesSettingsSection> {
-  static const _defaultMappings = {
-    '.md': 'md',
-    '.markdown': 'md',
-    '.dart': 'dart',
-    '.yaml': 'yaml',
-    '.yml': 'yaml',
-    '.json': 'yaml',
-  };
-  static const _editorTypeIds = ['md', 'dart', 'yaml', 'plaintext'];
-
-  late Map<String, String> _mappings;
-  late String _defaultEditor;
-  final TextEditingController _newExtController = TextEditingController();
-
-  /// The names of the editors the shell's editor picker offers beyond
-  /// [_editorTypeIds] (a module's editor, e.g. one made the default from
-  /// **Open With ▸**).
-  final Map<String, String> _editorLabels = {};
-
-  /// The editors the shell's editor picker offers per extension, in the
-  /// picker's order.
-  final Map<String, List<String>> _pickerChoices = {};
-
-  /// Set while [_save] writes, so its own changes are not read back.
-  bool _saving = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _mappings = Map<String, String>.from(_defaultMappings)
-      ..addAll(widget.preferencesService.fileTypeDefaultEditors);
-    final shellDefaults = widget.shellApi?.getFileTypeDefaults();
-    if (shellDefaults != null) _mappings.addAll(shellDefaults);
-    // Extract the wildcard/default mapping or fall back to 'plaintext'.
-    _defaultEditor =
-        _mappings.remove('*') ??
-        widget.preferencesService.fileTypeDefaultEditors['*'] ??
-        'plaintext';
-    widget.preferencesService.addListener(_onPreferencesChanged);
-    _loadEditorLabels();
-  }
-
-  @override
-  void dispose() {
-    widget.preferencesService.removeListener(_onPreferencesChanged);
-    _newExtController.dispose();
-    super.dispose();
-  }
-
-  /// A default set elsewhere while the section is shown (the checkmark of
-  /// **Open With ▸ Set default for**) shows here at once.
-  void _onPreferencesChanged() {
-    if (_saving || !mounted) return;
-    final stored = widget.preferencesService.fileTypeDefaultEditors;
-    final next = Map<String, String>.from(_mappings);
-    var defaultEditor = _defaultEditor;
-    for (final entry in stored.entries) {
-      if (entry.key == '*') {
-        defaultEditor = entry.value;
-      } else {
-        next[entry.key] = entry.value;
-      }
-    }
-    final unchanged =
-        next.length == _mappings.length &&
-        next.entries.every((e) => _mappings[e.key] == e.value);
-    if (defaultEditor == _defaultEditor && unchanged) return;
-    setState(() {
-      _mappings = next;
-      _defaultEditor = defaultEditor;
-    });
-    _loadEditorLabels();
-  }
-
-  /// Asks the shell's editor picker which editors each mapped extension
-  /// has (a sample file of that extension), for the rows' choices and the
-  /// names of the editors the section does not know.
-  Future<void> _loadEditorLabels() async {
-    final picker = widget.shellApi?.editorPicker;
-    if (picker == null) return;
-    final missing = [
-      for (final extension in _mappings.keys)
-        if (!_pickerChoices.containsKey(extension)) extension,
-    ];
-    if (missing.isEmpty) return;
-    final foundChoices = <String, List<String>>{};
-    final foundLabels = <String, String>{};
-    for (final extension in missing) {
-      final choices = await picker.choicesFor(
-        ForgeContentItem(Uri.file('/forge-file-type$extension')),
-      );
-      foundChoices[extension] = [
-        for (final choice in choices.choices) choice.id,
-      ];
-      for (final choice in choices.choices) {
-        foundLabels[choice.id] = choice.label;
-      }
-    }
-    if (!mounted) return;
-    setState(() {
-      _pickerChoices.addAll(foundChoices);
-      _editorLabels.addAll(foundLabels);
-    });
-  }
-
-  /// The editors the row of [extension] offers: the ones the editor picker
-  /// knows for it, the section's own, and the one the row names when it is
-  /// none of them.
-  List<String> _editorIdsFor(String extension, String id) {
-    final ids = <String>[
-      ...?_pickerChoices[extension],
-      for (final own in _editorTypeIds)
-        if (!(_pickerChoices[extension]?.contains(own) ?? false)) own,
-    ];
-    if (!ids.contains(id)) ids.add(id);
-    return ids;
-  }
-
-  void _save() {
-    _saving = true;
-    try {
-      _write();
-    } finally {
-      _saving = false;
-    }
-    widget.onChanged?.call();
-  }
-
-  void _write() {
-    final previousPreferenceKeys = widget
-        .preferencesService
-        .fileTypeDefaultEditors
-        .keys
-        .toSet();
-    final previousShellKeys =
-        widget.shellApi?.getFileTypeDefaults().keys.toSet() ?? <String>{};
-    final nextKeys = <String>{..._mappings.keys, '*'};
-
-    for (final key in previousPreferenceKeys.difference(nextKeys)) {
-      widget.preferencesService.clearFileTypeDefaultEditor(key);
-    }
-    for (final key in previousShellKeys.difference(nextKeys)) {
-      widget.shellApi?.clearFileTypeDefault(key);
-    }
-
-    for (final entry in _mappings.entries) {
-      widget.preferencesService.setFileTypeDefaultEditor(
-        entry.key,
-        entry.value,
-      );
-      widget.shellApi?.setFileTypeDefault(entry.key, entry.value);
-    }
-    // Save the default editor for unmapped extensions.
-    widget.preferencesService.setFileTypeDefaultEditor('*', _defaultEditor);
-    widget.shellApi?.setFileTypeDefault('*', _defaultEditor);
-    widget.preferencesService.save();
-  }
-
-  String _editorTitle(String id) {
-    return switch (id) {
-      'md' => 'Markdown',
-      'dart' => 'Dart',
-      'yaml' => 'YAML',
-      'plaintext' => 'Plain Text',
-      _ => _editorLabels[id] ?? id,
-    };
-  }
-
-  void _addExtension() {
-    var ext = _newExtController.text.trim().toLowerCase();
-    if (ext.isEmpty) return;
-    if (!ext.startsWith('.')) ext = '.$ext';
-    if (_mappings.containsKey(ext)) return;
-    setState(() {
-      _mappings[ext] = _defaultEditor;
-      _newExtController.clear();
-    });
-    _save();
-    _loadEditorLabels();
-  }
-
-  void _removeExtension(String ext) {
-    setState(() => _mappings.remove(ext));
-    _save();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final sortedEntries = _mappings.entries.toList()
-      ..sort((a, b) => a.key.compareTo(b.key));
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionHeader(theme, 'Default Editor (unmapped extensions)'),
-          const SizedBox(height: 8),
-          DropdownButtonFormField<String>(
-            key: const Key('file-type-default-editor'),
-            initialValue: _defaultEditor,
-            decoration: const InputDecoration(
-              border: OutlineInputBorder(),
-              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              isDense: true,
-            ),
-            style: const TextStyle(fontSize: 12),
-            items: _editorTypeIds
-                .map(
-                  (id) => DropdownMenuItem(
-                    value: id,
-                    child: Text(_editorTitle(id)),
-                  ),
-                )
-                .toList(),
-            onChanged: (value) {
-              if (value != null) {
-                setState(() => _defaultEditor = value);
-                _save();
-              }
-            },
-          ),
-          const SizedBox(height: 16),
-          _sectionHeader(theme, 'File Type Associations'),
-          const SizedBox(height: 8),
-          for (final entry in sortedEntries)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Row(
-                key: Key('file-type-row-${entry.key}'),
-                children: [
-                  SizedBox(
-                    width: 80,
-                    child: Text(
-                      entry.key,
-                      style: const TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                  const Icon(Icons.arrow_forward, size: 14),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    // Keyed by the value too: a default set elsewhere
-                    // rebuilds the choice showing it.
-                    child: KeyedSubtree(
-                      key: ValueKey(
-                        'file-type-value-${entry.key}=${entry.value}',
-                      ),
-                      child: DropdownButtonFormField<String>(
-                        key: Key('file-type-editor-${entry.key}'),
-                        initialValue: entry.value,
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 6,
-                          ),
-                          isDense: true,
-                        ),
-                        style: const TextStyle(fontSize: 12),
-                        items: _editorIdsFor(entry.key, entry.value)
-                            .map(
-                              (id) => DropdownMenuItem(
-                                value: id,
-                                child: Text(_editorTitle(id)),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (value) {
-                          if (value != null) {
-                            setState(() => _mappings[entry.key] = value);
-                            _save();
-                          }
-                        },
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  InkWell(
-                    key: Key('file-type-remove-${entry.key}'),
-                    onTap: () => _removeExtension(entry.key),
-                    child: Padding(
-                      padding: const EdgeInsets.all(4),
-                      child: Icon(
-                        Icons.close,
-                        size: 14,
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.4,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              SizedBox(
-                width: 80,
-                child: TextField(
-                  key: const Key('file-type-new-extension'),
-                  controller: _newExtController,
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                  decoration: const InputDecoration(
-                    hintText: '.ext',
-                    border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 6,
-                    ),
-                    isDense: true,
-                  ),
-                  onSubmitted: (_) => _addExtension(),
-                ),
-              ),
-              const SizedBox(width: 8),
-              IconButton(
-                icon: const Icon(Icons.add, size: 16),
-                tooltip: 'Add Extension',
-                onPressed: _addExtension,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Shared helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-Widget _sectionHeader(ThemeData theme, String title) {
-  return Padding(
-    padding: const EdgeInsets.only(bottom: 2),
-    child: Text(
-      title,
-      style: theme.textTheme.titleSmall?.copyWith(
-        fontWeight: FontWeight.w600,
-        fontSize: 13,
-      ),
-    ),
-  );
 }

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `ForgeKitPreferences.externalToolPaths`: every external tool path set,
+  by tool id (kept as `forge.tools.<id>.path`).
 - `DefaultShortcutManager.defaultKeyOf` / `defaultChordOf`: the key or chord
   a module registered for an action (a chord bound by a module, not by an
   override, is now remembered as its default).

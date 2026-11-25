@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- `ForgeHelpPanelBuilder` takes a fourth argument, `recheck`: the help panel
+  of a tool path asks its editor to check the value again (after an install,
+  or on the panel's own *Check again*).
+- Tiles fit narrow panels: below `ForgeConfigurationTileStyle.stackedBelowWidth`
+  (280 px) an inline editor and the setting's buttons go on a line under the
+  label; the colour field narrows with its row.
+
 ## 0.2.0
 
 - **Editors for the new setting kinds** of `tom_forge_core`, so a component

@@ -125,20 +125,7 @@ void main() {
       await _selectDefaultFileTypeEditor(tester, 'Dart');
       await tester.pumpAndSettle();
 
-      final extField = find.byWidgetPredicate(
-        (widget) =>
-            widget is TextField && widget.decoration?.hintText == '.ext',
-      );
-      expect(extField, findsOneWidget);
-      await tester.ensureVisible(extField);
-      await tester.pumpAndSettle();
-      await tester.enterText(extField, '.spec');
-
-      final addButton = find.byTooltip('Add Extension');
-      await tester.ensureVisible(addButton);
-      await tester.pumpAndSettle();
-      await tester.tap(addButton);
-      await tester.pumpAndSettle();
+      await addFileTypeExtension(tester, '.spec');
 
       expect(harness.shell.getFileTypeDefaults()['.spec'], equals('dart'));
 
@@ -325,17 +312,8 @@ Future<void> _openSettingsViaAction(
   await tester.pumpAndSettle();
 }
 
-Future<void> _selectDefaultFileTypeEditor(
-  WidgetTester tester,
-  String next,
-) async {
-  final dropdown = find.byType(DropdownButtonFormField<String>).first;
-  await tester.ensureVisible(dropdown);
-  await tester.tap(dropdown);
-  await tester.pumpAndSettle();
-  await tester.tap(find.text(next).last);
-  await tester.pumpAndSettle();
-}
+Future<void> _selectDefaultFileTypeEditor(WidgetTester tester, String next) =>
+    setFileTypeEditor(tester, '*', fileTypeEditorIdOf(next));
 
 class _PhaseGHarness {
   _PhaseGHarness._({

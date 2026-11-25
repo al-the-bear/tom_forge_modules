@@ -12,6 +12,7 @@ import 'package:tom_editors_shared/text_types.dart'
 import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_forge_shared_ui/tom_forge_shared_ui.dart';
 import 'package:tom_forge_kit/tom_forge_kit.dart';
+import '../configuration/forge_files_tools_configuration.dart';
 import '../configuration/forge_shell_configuration.dart';
 import '../components/forge_editor_choice.dart';
 
@@ -3989,9 +3990,9 @@ the field, not the document.
       shellApi: widget.shell,
       modulePanels: modulePanels,
       configurationValues: _currentConfigurationValues(),
-      externalTools: widget.shell.modules.allKitModules
-          .expand(forgeModuleExternalTools)
-          .toList(),
+      // The tools the configuration values were made for (evaluated after
+      // them, so the same list).
+      externalTools: _toolsOfDescription,
       onSettingsChanged: _onPreferencesChanged,
       expandSection: _configSectionTarget,
     );
@@ -4017,7 +4018,10 @@ the field, not the document.
             config: widget.shell.config,
             shell: widget.shell,
           ),
-          hooks: forgeConfigurationHooksOf(widget.shell),
+          hooks: ForgeSettingHooks.merged([
+            forgeConfigurationHooksOf(widget.shell),
+            ForgeExternalToolsConfiguration.hooks(_toolsOfDescription),
+          ]),
         );
         unawaited(values.load());
       }
@@ -4030,14 +4034,38 @@ the field, not the document.
   /// description whose id came earlier is left out.
   List<ForgeConfigurationDescription> _collectConfigurationDescriptions() {
     final ids = <String>{};
+    final tools = _externalToolsDescription();
     return [
       for (final description in [
         ...forgeConfigurationDescriptionsOf(widget.shell),
         for (final type in ForgeShellComponents.of(widget.shell).editorTypes)
           ?type.configuration,
+        ?tools,
       ])
         if (ids.add(description.id)) description,
     ];
+  }
+
+  /// The external tools the modules registered now.
+  List<ForgeExternalTool> get _externalTools => widget.shell.modules
+      .allKitModules
+      .expand(forgeModuleExternalTools)
+      .toList();
+
+  List<ForgeExternalTool> _toolsOfDescription = const [];
+  ForgeConfigurationDescription? _toolsDescription;
+
+  /// The *External Tools* description of [_externalTools], made again only
+  /// when the tools change; null without tools.
+  ForgeConfigurationDescription? _externalToolsDescription() {
+    final tools = _externalTools;
+    if (!listEquals(tools, _toolsOfDescription)) {
+      _toolsOfDescription = tools;
+      _toolsDescription = tools.isEmpty
+          ? null
+          : ForgeExternalToolsConfiguration.description(tools);
+    }
+    return _toolsDescription;
   }
 
   bool _isPrimaryEditorRender(int panelIndex, ForgeEditor editor) {

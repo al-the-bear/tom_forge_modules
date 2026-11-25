@@ -362,7 +362,12 @@ class _ForgeToolPathEditorState extends State<ForgeToolPathEditor>
             !_checking &&
             helpPanel != null &&
             r.buildHelpPanel != null
-        ? r.buildHelpPanel!(context, helpPanel, setting)
+        ? r.buildHelpPanel!(
+            context,
+            helpPanel,
+            setting,
+            r.requestRefresh ?? () {},
+          )
         : null;
     return Semantics(
       label: r.label,

@@ -616,7 +616,13 @@ class _ForgeSettingStringMapFieldState
   void _add(ForgeStringMapSetting setting) {
     final key = setting.normalizeKey(_newKey.text);
     if (key.isEmpty) return;
-    final initial = setting.valueChoices?.firstOrNull?.value ?? '';
+    // A new key starts as every other key is (the default key's value),
+    // else with the first choice.
+    final defaultKey = setting.defaultKey;
+    final initial =
+        (defaultKey == null ? null : _entries[defaultKey]) ??
+        setting.valueChoices?.firstOrNull?.value ??
+        '';
     widget.request.onChanged({..._entries, key: _entries[key] ?? initial});
     _newKey.clear();
   }
@@ -728,6 +734,10 @@ class _ForgeSettingStringMapFieldState
                   child: entry.key == setting.defaultKey
                       ? null
                       : IconButton(
+                          key: ValueKey(
+                            'forge.configuration.map.${setting.id}.'
+                            '${entry.key}.remove',
+                          ),
                           tooltip: remove,
                           icon: const Icon(Icons.close, size: 18),
                           onPressed: r.enabled
@@ -745,6 +755,7 @@ class _ForgeSettingStringMapFieldState
           children: [
             Expanded(
               child: TextField(
+                key: ValueKey('forge.configuration.map.${setting.id}.newKey'),
                 controller: _newKey,
                 enabled: r.enabled,
                 decoration: InputDecoration(
@@ -757,6 +768,7 @@ class _ForgeSettingStringMapFieldState
             ),
             const SizedBox(width: 8),
             IconButton(
+              key: ValueKey('forge.configuration.map.${setting.id}.add'),
               tooltip: ForgeConfigurationLabels.resolve(
                 ForgeConfigurationUiTexts.add,
               ),

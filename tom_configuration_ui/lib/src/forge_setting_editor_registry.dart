@@ -13,12 +13,15 @@ typedef ForgePathPicker =
 
 /// Builds the panel [panelId] names (a tool path's `helpPanel`: how to
 /// install the tool), shown under the setting while its value is not usable;
-/// null when the application has no such panel.
+/// null when the application has no such panel. [recheck] asks the setting's
+/// editor to check the value again (after the panel installed the tool, or
+/// on its own *Check again*).
 typedef ForgeHelpPanelBuilder =
     Widget? Function(
       BuildContext context,
       String panelId,
       ForgeSetting<Object> setting,
+      VoidCallback recheck,
     );
 
 /// What an editor is given to edit one setting.

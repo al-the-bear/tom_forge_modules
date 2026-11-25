@@ -415,7 +415,7 @@ void main() {
         ForgePathSetting? browsed;
         await start(
           tester,
-          buildHelpPanel: (context, id, setting) =>
+          buildHelpPanel: (context, id, setting, recheck) =>
               Text('help panel $id for ${setting.id}'),
           pickPath: (setting, current) async {
             browsed = setting;
@@ -650,7 +650,11 @@ void main() {
               w.key is ValueKey<String> &&
               (w.key! as ValueKey<String>).value.startsWith(
                 'forge.configuration.map.openers.',
-              ),
+              ) &&
+              // The rows, not their remove buttons or the add controls.
+              !RegExp(
+                r'\.(remove|newKey|add)$',
+              ).hasMatch((w.key! as ValueKey<String>).value),
         ),
       );
       expect(

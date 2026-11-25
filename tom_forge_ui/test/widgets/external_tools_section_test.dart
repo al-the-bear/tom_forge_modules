@@ -315,8 +315,21 @@ void main() {
     expect(find.text('External Tools'), findsOneWidget);
     expand.value = 8;
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('forge-tool-office')), findsOneWidget);
-    expect(find.text('26.8.3.1'), findsOneWidget);
+    // A described section now: the tool's path setting in a tile.
+    expect(
+      find.byKey(const ValueKey('forge.configuration.tile.forge.tools/tools')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        ValueKey(
+          'forge.configuration.setting.'
+          '${ForgeExternalToolsConfiguration.settingOf(office).storage.location}',
+        ),
+      ),
+      findsOneWidget,
+    );
+    expect(find.textContaining('26.8.3.1'), findsWidgets);
   });
 
   test(

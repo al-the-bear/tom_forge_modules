@@ -5,6 +5,7 @@ import 'package:tom_forge_kit/tom_forge_kit.dart';
 import '../defaults/default_shell_api.dart';
 import '../services/forge_preferences_service.dart';
 import 'forge_shell_setting_bindings.dart';
+import 'forge_files_tools_configuration.dart';
 import 'forge_shortcut_configuration.dart';
 
 /// The shell's own options as a configuration description: the *Shell*
@@ -550,6 +551,8 @@ List<ForgeSettingBinding> forgeShellSettingBindings(
   ForgePreferencesSettingBinding(preferences),
   ForgeEditorSettingBinding(preferences),
   ForgeShortcutsSettingBinding(preferences, shell: shell),
+  ForgeFileTypesSettingBinding(preferences, shell: shell),
+  ForgeExternalToolsSettingBinding(preferences),
   if (config != null) ForgeConfigSettingBinding(config),
 ];
 
@@ -630,11 +633,13 @@ class ForgeShellConfigurationModule extends ForgeKitModule
     ForgeConfigurationDescriptionsExtra([
       ForgeShellConfiguration.description,
       if (shell != null) ForgeShortcutConfiguration.description,
+      if (shell != null) ForgeFileTypesConfiguration.description,
     ]),
     ForgeConfigurationHooksExtra(
       ForgeSettingHooks.merged([
         ForgeShellConfiguration.hooks(),
         if (shell case final shell?) ForgeShortcutConfiguration.hooks(shell),
+        if (shell case final shell?) ForgeFileTypesConfiguration.hooks(shell),
       ]),
     ),
   ];

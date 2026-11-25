@@ -575,17 +575,6 @@ void main() {
         findsOneWidget,
       );
 
-      // 7: File Types, the first built-in section, as before.
-      expand.value = 7;
-      await tester.pumpAndSettle();
-      expect(
-        find.byKey(
-          const ValueKey('forge.configuration.tile.forge.editor.dart/editor'),
-        ),
-        findsNothing,
-      );
-      expect(find.text('File Types'), findsWidgets);
-
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(milliseconds: 600));
     });

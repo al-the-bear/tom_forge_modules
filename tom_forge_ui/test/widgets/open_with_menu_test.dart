@@ -220,9 +220,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('File Types').first);
     await tester.pumpAndSettle();
-    final mdEditor = find.byKey(const Key('file-type-editor-.md'));
+    final mdEditor = fileTypeRow('.md');
     expect(
-      find.descendant(of: mdEditor, matching: find.text('Plain Text')),
+      find.descendant(of: mdEditor, matching: find.text('Plain text')),
       findsOneWidget,
     );
 
@@ -232,13 +232,20 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(
-      find.descendant(of: mdEditor, matching: find.text('Markdown')),
+      find.descendant(of: mdEditor, matching: find.text('Markdown editor')),
       findsOneWidget,
     );
 
-    await tester.tap(find.byKey(const Key('file-type-remove-.md')));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('file-type-row-.md')), findsNothing);
+    await removeFileTypeExtension(tester, '.md');
+    // `.md` is a built-in association: its row shows the built-in editor
+    // again; nothing of the user's is left for it.
+    expect(
+      find.descendant(
+        of: fileTypeRow('.md'),
+        matching: find.text('Markdown editor'),
+      ),
+      findsOneWidget,
+    );
     expect(harness.shell.getFileTypeDefaults().containsKey('.md'), isFalse);
     expect(
       harness.preferences.fileTypeDefaultEditors.containsKey('.md'),
@@ -277,11 +284,17 @@ void main() {
     await tester.tap(find.text('File Types').first);
     await tester.pumpAndSettle();
 
-    final mdEditor = find.byKey(const Key('file-type-editor-.md'));
-    await tester.tap(mdEditor);
+    final mdEditor = fileTypeRow('.md');
+    await tester.tap(
+      find.descendant(
+        of: mdEditor,
+        matching: find.byType(DropdownButtonFormField<String>),
+      ),
+    );
     await tester.pumpAndSettle();
     expect(find.text('Markdown preview'), findsWidgets);
     await tester.tap(find.text('Markdown preview').last);
+    await tester.pump(const Duration(milliseconds: 600));
     await tester.pumpAndSettle();
 
     expect(harness.shell.getFileTypeDefaults()['.md'], _PreviewModule.id);
@@ -301,7 +314,12 @@ void main() {
     );
 
     // A .dart row has no module editor: its choices stay the section's own.
-    await tester.tap(find.byKey(const Key('file-type-editor-.dart')));
+    await tester.tap(
+      find.descendant(
+        of: fileTypeRow('.dart'),
+        matching: find.byType(DropdownButtonFormField<String>),
+      ),
+    );
     await tester.pumpAndSettle();
     expect(find.text('Markdown preview'), findsOneWidget);
   });

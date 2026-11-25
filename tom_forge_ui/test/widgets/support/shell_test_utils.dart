@@ -3,9 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_forge_core/tom_forge_core.dart' show ForgeSetting;
+import 'package:tom_configuration_ui/tom_configuration_ui.dart'
+    show ForgeConfigurationScope;
 import 'package:tom_forge_ui/tom_forge_ui.dart'
     show
         ForgeDartEditorConfiguration,
+        ForgeFileTypesConfiguration,
         ForgeMarkdownEditorConfiguration,
         ForgeYamlEditorConfiguration;
 
@@ -77,6 +80,82 @@ Finder shortcutTableSearch({bool chords = false}) => find.byKey(
 Finder shortcutTableResetAll() => find.byKey(
   const ValueKey('forge.configuration.keyTable.resetAll.shortcuts'),
 );
+
+// ── File Types (ForgeFileTypesConfiguration: one association table) ──
+
+const _fileTypesId = 'associations';
+
+/// The editor id a File Types choice names by its title.
+String fileTypeEditorIdOf(String title) => switch (title) {
+  'Markdown' => 'md',
+  'Dart' => 'dart',
+  'YAML' => 'yaml',
+  'Plain Text' => 'plaintext',
+  _ => title,
+};
+
+/// The row of [extension] (`*` for the default editor).
+Finder fileTypeRow(String extension) =>
+    find.byKey(ValueKey('forge.configuration.map.$_fileTypesId.$extension'));
+
+/// The new extension's field.
+Finder fileTypeNewExtensionField() =>
+    find.byKey(const ValueKey('forge.configuration.map.$_fileTypesId.newKey'));
+
+/// The remove button of [extension]'s row.
+Finder fileTypeRemoveButton(String extension) => find.byKey(
+  ValueKey('forge.configuration.map.$_fileTypesId.$extension.remove'),
+);
+
+Future<void> _settleWrite(WidgetTester tester) async {
+  await tester.pump(const Duration(milliseconds: 600));
+  await tester.pumpAndSettle();
+}
+
+/// Adds [extension] through the table's field and *Add* (it opens in the
+/// default editor until changed).
+Future<void> addFileTypeExtension(WidgetTester tester, String extension) async {
+  final field = fileTypeNewExtensionField();
+  expect(field, findsOneWidget);
+  await _showInTile(tester, field);
+  await tester.enterText(field, extension);
+  await tester.tap(
+    find.byKey(const ValueKey('forge.configuration.map.$_fileTypesId.add')),
+  );
+  await _settleWrite(tester);
+}
+
+/// Makes [extension] (`*`: every other one) open in [editorId], as choosing
+/// it in the row's editor choice does.
+Future<void> setFileTypeEditor(
+  WidgetTester tester,
+  String extension,
+  String editorId,
+) async {
+  final scope = tester.widget<ForgeConfigurationScope>(
+    find.byType(ForgeConfigurationScope).first,
+  );
+  final setting = ForgeFileTypesConfiguration.associations;
+  final current = scope.values.valueOf(setting);
+  final problem = await scope.values.set(setting, {
+    ...current,
+    extension: editorId,
+  });
+  expect(problem, isNull);
+  await _settleWrite(tester);
+}
+
+/// Removes [extension]'s row with its remove button.
+Future<void> removeFileTypeExtension(
+  WidgetTester tester,
+  String extension,
+) async {
+  final button = fileTypeRemoveButton(extension);
+  expect(button, findsOneWidget);
+  await _showInTile(tester, button);
+  await tester.tap(button);
+  await _settleWrite(tester);
+}
 
 /// The entry of [setting] in a configuration tile.
 Finder configSettingEntry(ForgeSetting<Object> setting) => find.byKey(

@@ -426,12 +426,12 @@ void main() {
         // At minimum, the header "Terminal" should still be visible.
         expect(find.text('Terminal'), findsOneWidget);
 
-        // Tap External Tools header (the key binding sections need a
-        // shell, which this panel has not).
-        await tester.tap(find.text('External Tools'));
+        // Tap the Markdown Editor header (the key binding, file type and
+        // external tool sections need a shell, which this panel has not).
+        await tester.tap(find.text('Markdown Editor'));
         await tester.pumpAndSettle();
 
-        expect(find.text('External Tools'), findsWidgets);
+        expect(find.text('Markdown Editor'), findsWidgets);
 
         // Use expandSection notifier to programmatically expand Dart Editor (index 2).
         expandSection.value = 2;
@@ -439,11 +439,11 @@ void main() {
 
         expect(find.text('Dart Editor'), findsOneWidget);
 
-        // Tap File Types header (index 7).
-        await tester.tap(find.text('File Types'));
+        // Tap the YAML Editor header.
+        await tester.tap(find.text('YAML Editor'));
         await tester.pumpAndSettle();
 
-        expect(find.text('File Types'), findsOneWidget);
+        expect(find.text('YAML Editor'), findsWidgets);
       },
     );
 

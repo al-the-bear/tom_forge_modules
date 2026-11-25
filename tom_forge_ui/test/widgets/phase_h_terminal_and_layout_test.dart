@@ -267,17 +267,8 @@ Future<void> _openSettingsViaAction(
   await tester.pumpAndSettle();
 }
 
-Future<void> _selectDefaultFileTypeEditor(
-  WidgetTester tester,
-  String next,
-) async {
-  final dropdown = find.byType(DropdownButtonFormField<String>).first;
-  await tester.ensureVisible(dropdown);
-  await tester.tap(dropdown);
-  await tester.pumpAndSettle();
-  await tester.tap(find.text(next).last);
-  await tester.pumpAndSettle();
-}
+Future<void> _selectDefaultFileTypeEditor(WidgetTester tester, String next) =>
+    setFileTypeEditor(tester, '*', fileTypeEditorIdOf(next));
 
 class _PhaseHHarness {
   _PhaseHHarness._({
