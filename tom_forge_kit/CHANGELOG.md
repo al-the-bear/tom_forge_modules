@@ -15,6 +15,22 @@
   `flushed`; settings with a storage path share their key's document, and
   the writes of one gesture are one store write. `tom_configuration_ui`
   draws the tiles.
+- **Bindings, companions and hooks in `ForgeConfigurationValues`:** a
+  setting whose storage names a binding is read from, written to (coalesced
+  per gesture, nothing before `load`) and followed through that
+  `ForgeSettingBinding` (`bindings:`, `addBinding`; a missing binding keeps
+  the default and `set` refuses, `storageProblem`); state-store settings
+  behave as before. A setting's companions are kept and `reset` clears them
+  too; settings that keep no value are not stored. The hooks a setting
+  names run through the service's `hooks` registry: `contextFor`,
+  `runAction` (a returned value is written; a missing or throwing hook is a
+  failure), `startFlow` (the done step's value is written), `checkToolPath`
+  / `detectToolPath` (the application's hints merged), `choicesFor`,
+  `statusOf` / `watchStatus`, `catalogueOf`, `keyBindingRows`. Modules hand
+  hooks over as a `ForgeConfigurationHooksExtra`
+  (`forge.kit.configurationHooks`), merged by `forgeConfigurationHooks` /
+  `forgeConfigurationHooksOf`. Trail: `kConfigurationValuesDebug` (`[CV …]`)
+  for reads, writes, binding changes and hook runs.
 
 - `ForgeExternalTool.buildHelp(context, copy, checkAgain:)`: help a tool
   shows in its row while its copy is not usable (default none); the panel

@@ -55,8 +55,13 @@ export 'src/document/forge_document.dart';
 // Configuration description
 export 'src/configuration/forge_configuration_description.dart';
 export 'src/configuration/forge_configuration_texts.dart';
+export 'src/configuration/forge_key_bindings.dart';
 export 'src/configuration/forge_setting.dart';
+export 'src/configuration/forge_setting_binding.dart';
+export 'src/configuration/forge_setting_hooks.dart';
 export 'src/configuration/forge_setting_kinds.dart';
+export 'src/configuration/forge_setting_kinds_behaviour.dart';
+export 'src/configuration/forge_setting_kinds_time.dart';
 export 'src/configuration/forge_text.dart';
 
 // Model

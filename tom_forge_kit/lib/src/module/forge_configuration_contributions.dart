@@ -1,5 +1,5 @@
 import 'package:tom_forge_core/tom_forge_core.dart'
-    show ForgeConfigurationDescription;
+    show ForgeConfigurationDescription, ForgeSettingHooks;
 
 import '../kit/forge_kit_api.dart';
 import '../kit/forge_kit_modules_host.dart';
@@ -78,4 +78,44 @@ List<ForgeConfigurationDescription> forgeConfigurationDescriptionsOf(
     for (final contributed in forgeConfigurationDescriptions(registry))
       contributed.description,
   ];
+}
+
+/// The behaviour a module's settings name, as a [ForgeModuleExtra]: its
+/// [ForgeSettingHooks] (actions, flows, detectors, choices providers, status
+/// providers, action catalogues).
+///
+/// A description names hooks by id; the module (or the application) that
+/// can do the work hands them over with this extra, the kit merges them
+/// from every registered module ([forgeConfigurationHooks]) and the
+/// application gives the registry to its `ForgeConfigurationValues`.
+class ForgeConfigurationHooksExtra extends ForgeModuleExtra {
+  const ForgeConfigurationHooksExtra(ForgeSettingHooks hooks)
+    : super(kind: kindId, value: hooks);
+
+  /// The kind of this extra.
+  static const kindId = 'forge.kit.configurationHooks';
+
+  /// The hooks.
+  ForgeSettingHooks get hooks => value as ForgeSettingHooks;
+}
+
+/// Every hook the modules of [registry] contribute
+/// ([ForgeConfigurationHooksExtra]) in one registry, in registration order:
+/// a later module's hook of an id replaces an earlier one's.
+ForgeSettingHooks forgeConfigurationHooks(ForgeKitModuleRegistry registry) =>
+    ForgeSettingHooks.merged([
+      for (final module in registry.allKitModules)
+        for (final extra
+            in module.extras.whereType<ForgeConfigurationHooksExtra>())
+          extra.hooks,
+    ]);
+
+/// The hooks of the modules registered with [api]
+/// ([forgeConfigurationHooks]); empty when the API does not tell its
+/// modules ([ForgeKitModulesHost]).
+ForgeSettingHooks forgeConfigurationHooksOf(ForgeKitApi api) {
+  final registry = forgeKitModulesOf(api);
+  return registry == null
+      ? ForgeSettingHooks()
+      : forgeConfigurationHooks(registry);
 }

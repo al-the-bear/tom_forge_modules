@@ -1,27 +1,55 @@
 import 'forge_configuration_texts.dart';
 import 'forge_text.dart';
 
-/// Where a setting's value is kept: the [key] of a document in the kit's
-/// state-store port (`ForgeStateStore`), and inside it the [path] of map keys
-/// down to the value.
+/// Where a setting's value is kept: the [key] of a document and inside it
+/// the [path] of map keys down to the value.
+///
+/// The document comes from the kit's state-store port (`ForgeStateStore`)
+/// unless the storage names a [binding]: the id of a `ForgeSettingBinding`
+/// the application supplies (a configuration file of its own, a service
+/// such as Forge's `ForgeConfig`), which then reads, writes and watches the
+/// document under [key].
 ///
 /// With an empty [path] the document itself is the value (a bool, a number,
 /// a string, a list or a map). With a path the document is a map and the
 /// value sits at the path in it: several settings share one document, as
 /// Forge's per-editor text settings do (`forge.editor.textSettings` →
 /// `dart` → `fontSize`).
+///
+/// A setting that keeps no value (an action button, a status line) has the
+/// storage [ForgeSettingStorage.none].
 class ForgeSettingStorage {
-  /// The value at [path] in the document under [key].
-  const ForgeSettingStorage(this.key, {this.path = const []});
+  /// The value at [path] in the document under [key] — of the state-store
+  /// port, or of the binding [binding] names.
+  const ForgeSettingStorage(this.key, {this.path = const [], this.binding});
 
-  /// The state-store key, e.g. `forge.appearance.themeMode`.
+  /// No storage: the setting keeps no value (`ForgeSetting.storesValue` is
+  /// false).
+  const ForgeSettingStorage.none() : key = '', path = const [], binding = null;
+
+  /// The document's key, e.g. `forge.appearance.themeMode`.
   final String key;
 
   /// The map keys from the document down to the value; empty: the document.
   final List<String> path;
 
-  /// `key` or `key/a/b`, for messages and as a map key.
-  String get location => path.isEmpty ? key : '$key/${path.join('/')}';
+  /// The id of the `ForgeSettingBinding` the document comes from; null: the
+  /// state-store port.
+  final String? binding;
+
+  /// Whether a value is kept at all ([ForgeSettingStorage.none]: not).
+  bool get stores => key.isNotEmpty;
+
+  /// `key`, `key/a/b`, or with a binding `binding:key/a/b`, for messages and
+  /// as a map key.
+  String get location {
+    final inside = path.isEmpty ? key : '$key/${path.join('/')}';
+    return binding == null ? inside : '$binding:$inside';
+  }
+
+  /// The document's address: its key, with the binding when there is one
+  /// (`binding:key`).
+  String get documentId => binding == null ? key : '$binding:$key';
 
   @override
   bool operator ==(Object other) =>
@@ -79,6 +107,15 @@ class ForgeSettingRead<T extends Object> {
   final ForgeText? problem;
 }
 
+/// An entry of a section: a setting ([ForgeSetting]) or a group of them
+/// under a header (`ForgeSettingsGroup`).
+abstract class ForgeSectionEntry {
+  const ForgeSectionEntry();
+
+  /// The id, unique within its description.
+  String get id;
+}
+
 /// One setting of a component: a typed entry of a configuration
 /// description.
 ///
@@ -87,7 +124,14 @@ class ForgeSettingRead<T extends Object> {
 /// [validate] checks a value against the constraints. A new kind is a new
 /// subclass with its own kind id, plus an editor registered under that id
 /// in `tom_configuration_ui` — nothing else changes.
-abstract class ForgeSetting<T extends Object> {
+///
+/// **Behaviour** is not part of the description: a setting names the hooks
+/// it uses by id — [actions] (buttons beside it: `ForgeSettingAction`s or
+/// `ForgeSettingFlow`s), and per kind a detector, a choices provider, a
+/// status provider or an action catalogue — and the application or module
+/// supplies them at run time through `ForgeSettingHooks`. The description
+/// stays const data an application can list, compare and serialise.
+abstract class ForgeSetting<T extends Object> extends ForgeSectionEntry {
   const ForgeSetting({
     required this.id,
     required this.storage,
@@ -96,9 +140,11 @@ abstract class ForgeSetting<T extends Object> {
     this.help,
     this.visibleWhen,
     this.enabledWhen,
+    this.actions = const [],
   });
 
   /// The id, unique within its description (a condition names it).
+  @override
   final String id;
 
   /// Where the value is kept in the state-store port.
@@ -118,6 +164,28 @@ abstract class ForgeSetting<T extends Object> {
 
   /// The setting can be changed only while this holds.
   final ForgeSettingCondition? enabledWhen;
+
+  /// The ids of the actions or flows (`ForgeSettingHooks`) offered as
+  /// buttons beside the setting, in order.
+  final List<String> actions;
+
+  /// Whether the setting keeps a value ([storage] is not
+  /// [ForgeSettingStorage.none]); an action button or a status line does
+  /// not, and has no reset.
+  bool get storesValue => storage.stores;
+
+  /// Whether the kind has a value to keep (false for an action button or a
+  /// status line, whose storage is [ForgeSettingStorage.none]).
+  bool get hasValue => true;
+
+  /// Settings this one writes beside its own value, kept by the values
+  /// service but not shown as entries of their own (a key binding table's
+  /// deleted bindings). Empty by default.
+  List<ForgeSetting<Object>> get companions => const [];
+
+  /// The ids of every hook the setting names ([actions] and its kind's own),
+  /// for `ForgeConfigurationDescription.problems` against a hooks registry.
+  Iterable<String> get hookIds => actions;
 
   /// The kind id, which names the editor (`ForgeSettingKinds`).
   String get kind;

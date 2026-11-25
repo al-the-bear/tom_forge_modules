@@ -105,30 +105,68 @@ Every component with options describes them (`src/configuration/`); the
 application only decides how they are shown:
 
 - `ForgeConfigurationDescription` — a component's id, title, help and
-  sections; `settingById`, `sectionById`, and `problems()`, which lists for
-  its author what is wrong with it (an id twice, two settings at one storage
-  location, a default that breaks its own constraints, a condition on a
-  setting it lacks).
+  sections; `settingById`, `sectionById`, `contains`, and
+  `problems({hooks})`, which lists for its author what is wrong with it (an
+  id twice, two settings at one storage location, a default that breaks its
+  own constraints, a condition on a setting it lacks, a hook the registry
+  lacks).
 - `ForgeSettingsSection` — the settings shown together (an application shows
   each as one tile): title, help, icon (`ForgeIconRef`, a glyph as data),
-  `order` among all sections (`forgeOrderedSections`).
+  `order` among all sections (`forgeOrderedSections`); its `entries` are
+  settings and `ForgeSettingsGroup`s (a header with settings under it).
 - `ForgeSetting<T>` — one typed entry: where its value is kept
-  (`ForgeSettingStorage`: a state-store key and a path of map keys inside the
-  document, so several settings share one document), its label, help,
-  default, `visibleWhen` / `enabledWhen`, and `decode`, `encode`, `validate`,
-  `check` and `read` (a stored value it refuses leaves the default in effect,
-  with the reason). The kinds (`ForgeSettingKinds`): `ForgeBoolSetting`,
-  `ForgeIntSetting`, `ForgeDoubleSetting`, `ForgeStringSetting`,
-  `ForgeChoiceSetting`, `ForgeStringListSetting`, `ForgePathSetting`,
-  `ForgeColorSetting`, `ForgeStringMapSetting`. A new kind is a subclass with
-  a kind id of its own and an editor registered under it.
+  (`ForgeSettingStorage`: a document key and a path of map keys inside the
+  document, so several settings share one document; the state store, or the
+  `ForgeSettingBinding` it names; `none()` for an entry without a value),
+  its label, help, default, `visibleWhen` / `enabledWhen`, `actions`, and
+  `decode`, `encode`, `validate`, `check` and `read` (a stored value it
+  refuses leaves the default in effect, with the reason). A new kind is a
+  subclass with a kind id of its own and an editor registered under it.
 - `ForgeText` — a user-visible string as a resource key with its English
   fallback and `{name}` parameters; `resolve(lookup)` fills it from any
-  lookup. The validation messages are `ForgeConfigurationTexts`
-  (`forge.configuration.validation.*`).
+  lookup; `ForgeText.literal` is never looked up. The validation messages
+  are `ForgeConfigurationTexts` (`forge.configuration.validation.*`,
+  `forge.configuration.hook.*`).
 
-`tom_forge_kit` collects the descriptions of the registered modules and keeps
-the values through its state-store port (`ForgeConfigurationValues`);
+### The kinds and their stored form
+
+| Kind | Class | Stored as |
+| ---- | ----- | --------- |
+| `bool`, `int`, `double` | `ForgeBoolSetting`, `ForgeIntSetting`, `ForgeDoubleSetting` | the value; numbers may be shown scaled (`scale`, `unit`) |
+| `string`, `path`, `fontFamily` | `ForgeStringSetting`, `ForgePathSetting`, `ForgeFontFamilySetting` | the text; fonts offered by a choices provider |
+| `choice` | `ForgeChoiceSetting` | the value; fixed choices and a `choicesProvider`, *none* as `""` |
+| `stringList` | `ForgeStringListSetting` | a list (JSON text read too) |
+| `color` | `ForgeColorSetting` | `#RRGGBB` / `#AARRGGBB` |
+| `stringMap` | `ForgeStringMapSetting` | a map; keys normalised, laid over the defaults, `*` for every other key (`forge.files.typeDefaults`) |
+| `keyBinding` | `ForgeKeyBindingSetting` | `{keyId, primaryModifier, control, shift, alt}` |
+| `keyChord` | `ForgeKeyChordSetting` | `{firstKey, secondKey, moreKeys}` |
+| `keyBindingTable` | `ForgeKeyBindingTableSetting` | action id → stroke (`forge.shortcuts.overrides`) or chord (`forge.shortcuts.chordOverrides`); deleted ids as a companion list (`forge.shortcuts.deletedBindings`) |
+| `toolPath` | `ForgeToolPathSetting` | the path; empty not stored (`forge.tools.<id>.path`) |
+| `action`, `status` | `ForgeActionSetting`, `ForgeStatusSetting` | nothing |
+| `date`, `time`, `dateTime` | `ForgeDateSetting`, `ForgeTimeSetting`, `ForgeDateTimeSetting` | `YYYY-MM-DD`, `HH:MM`, ISO 8601 (`…Z` in UTC); none as `""` |
+
+A key binding table's rows come from `forgeKeyBindingRows` (the catalogue's
+defaults with the overrides and deletions laid over them) and its conflicts
+from `forgeKeyBindingConflicts` (same keys in overlapping scopes, a binding
+that begins another's chord; primary modifier and Control are the same keys
+off macOS; `*.<suffix>` and its editors' actions are one family).
+
+### Behaviour: hooks
+
+A description stays const data: a setting names the behaviour it uses by
+id, and the application or a module supplies it at run time in a
+`ForgeSettingHooks` registry — `ForgeSettingAction` (a button: `run` →
+`ForgeActionResult`), `ForgeSettingFlow` (a multi-step interaction such as a
+sign-in or a one-time code: `ForgeFlowSession` answers `ForgeFlowStep`s the
+UI draws), `ForgeSettingDetector` (`check` / `detect` a tool with
+`ForgeDetectionHints`), `ForgeChoicesProvider`, `ForgeSettingStatusProvider`
+(`current`, `watch`) and `ForgeActionCatalogue`. Each has a `ForgeCallback…`
+form. A hook runs with a `ForgeSettingContext` and answers data; nothing
+here depends on Flutter.
+
+`tom_forge_kit` collects the descriptions and hooks of the registered modules
+and keeps the values through its state-store port or the application's
+bindings (`ForgeConfigurationValues`), from which the hooks run;
 `tom_configuration_ui` draws a section as a tile.
 
 ## License

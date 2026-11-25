@@ -216,9 +216,27 @@ write per gesture): `valueOf` answers the stored value when it is valid,
 else the default, and reports a refused stored value (`problems`,
 `onProblem`); `set` validates and writes, answering why when it refuses;
 `reset` removes the stored value; `listenable`, `changes` and the notifier
-announce changes; settings stored at a path share one document. How the
-sections are shown is the application's decision; `tom_configuration_ui`
-draws each as a tile.
+announce changes; settings stored at a path share one document.
+
+A setting whose storage names a binding (`ForgeSettingStorage(key, binding:
+'yaml')`) is kept in the `ForgeSettingBinding` the application passes
+(`bindings:` or `addBinding`) — a configuration file of its own, a service
+that owns its values — read at `load`, written per gesture, and read again
+when the binding's `watch` reports a key. A setting's companions (a key
+binding table's deleted bindings) are kept beside it, and `reset` clears
+them too.
+
+The behaviour the settings name comes from the `hooks` registry, filled by
+the application and by modules (`ForgeConfigurationHooksExtra`,
+`forgeConfigurationHooksOf(api)`): `runAction`, `startFlow`,
+`checkToolPath` / `detectToolPath`, `choicesFor`, `statusOf` /
+`watchStatus`, `catalogueOf` and `keyBindingRows` run them with the setting's
+context and answer a missing or failing hook as a failure. Set
+`kConfigurationValuesDebug` for the `[CV …]` trail of reads, writes, binding
+changes and hook runs.
+
+How the sections are shown is the application's decision;
+`tom_configuration_ui` draws each as a tile.
 
 ## Contributed views
 

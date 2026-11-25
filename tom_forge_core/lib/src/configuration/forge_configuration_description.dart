@@ -1,4 +1,5 @@
 import 'forge_setting.dart';
+import 'forge_setting_hooks.dart' show ForgeSettingHooks;
 import 'forge_text.dart';
 
 /// An icon as data: a glyph of an icon font, so the description stays free
@@ -21,17 +22,50 @@ class ForgeIconRef {
   final String? fontPackage;
 }
 
-/// A group of settings that belong together; an application shows each
-/// section as one tile (`tom_configuration_ui`), arranged as it decides.
-class ForgeSettingsSection {
-  const ForgeSettingsSection({
+/// A header inside a section with the settings below it: a sub-group of a
+/// long section (the Markdown editor's *Headings*, *Lists*, *Tables*).
+/// Groups are not nested.
+class ForgeSettingsGroup extends ForgeSectionEntry {
+  const ForgeSettingsGroup({
     required this.id,
     required this.title,
     required this.settings,
     this.help,
+    this.collapsed = false,
+  });
+
+  /// The id, unique within its description.
+  @override
+  final String id;
+
+  /// The header.
+  final ForgeText title;
+
+  /// What the group is about, shown on request.
+  final ForgeText? help;
+
+  /// Whether the group starts folded (its header shown, its settings not).
+  final bool collapsed;
+
+  /// The settings under the header, in order.
+  final List<ForgeSetting<Object>> settings;
+}
+
+/// A group of settings that belong together; an application shows each
+/// section as one tile (`tom_configuration_ui`), arranged as it decides.
+///
+/// Its [entries] are settings and sub-groups ([ForgeSettingsGroup], a header
+/// with settings under it); [settings] lists every setting, the groups'
+/// included.
+class ForgeSettingsSection {
+  const ForgeSettingsSection({
+    required this.id,
+    required this.title,
+    required List<ForgeSectionEntry> settings,
+    this.help,
     this.icon,
     this.order = 100,
-  });
+  }) : entries = settings;
 
   /// The id, unique within its description.
   final String id;
@@ -49,8 +83,21 @@ class ForgeSettingsSection {
   /// equal orders keep the order of registration.
   final int order;
 
-  /// The settings, in the order they are shown.
-  final List<ForgeSetting<Object>> settings;
+  /// The entries — settings and groups — in the order they are shown.
+  final List<ForgeSectionEntry> entries;
+
+  /// Every setting, the groups' included, in the order they are shown.
+  List<ForgeSetting<Object>> get settings => [
+    for (final entry in entries)
+      if (entry is ForgeSetting<Object>)
+        entry
+      else if (entry is ForgeSettingsGroup)
+        ...entry.settings,
+  ];
+
+  /// The groups.
+  Iterable<ForgeSettingsGroup> get groups =>
+      entries.whereType<ForgeSettingsGroup>();
 }
 
 /// What a component can be configured in: its settings as typed entries,
@@ -84,12 +131,26 @@ class ForgeConfigurationDescription {
   Iterable<ForgeSetting<Object>> get settings =>
       sections.expand((section) => section.settings);
 
-  /// The setting with [id], or null.
+  /// The setting with [id] (a companion of a setting too), or null.
   ForgeSetting<Object>? settingById(String id) {
     for (final setting in settings) {
       if (setting.id == id) return setting;
+      for (final companion in setting.companions) {
+        if (companion.id == id) return companion;
+      }
     }
     return null;
+  }
+
+  /// Whether [setting] is one of this description's (or a companion of
+  /// one).
+  bool contains(ForgeSetting<Object> setting) {
+    for (final own in settings) {
+      if (identical(own, setting) || own.companions.contains(setting)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /// The section with [id], or null.
@@ -103,42 +164,88 @@ class ForgeConfigurationDescription {
   /// What is wrong with the description, for its author (in English, not
   /// for users): empty ids, an id twice, two settings at one storage
   /// location, a default that breaks its own constraints, a condition on a
-  /// setting the description lacks. Empty when it is sound.
-  List<String> problems() {
+  /// setting the description lacks, a group inside a group. With [hooks],
+  /// also every hook a setting names that the registry lacks. Empty when it
+  /// is sound.
+  List<String> problems({ForgeSettingHooks? hooks}) {
     final out = <String>[];
     if (id.isEmpty) out.add('the description has no id');
     final sectionIds = <String>{};
+    final entryIds = <String>{};
     final settingIds = <String>{};
-    final locations = <String, String>{};
+    final locations = <String, ForgeSetting<Object>>{};
+    void addSetting(ForgeSetting<Object> setting, String where) {
+      if (setting.id.isEmpty) out.add('a setting of $where has no id');
+      settingIds.add(setting.id);
+      if (!entryIds.add(setting.id)) {
+        out.add('$id has the setting id "${setting.id}" twice');
+      }
+      if (setting.storesValue) {
+        final location = setting.storage.location;
+        final other = locations[location];
+        if (other != null && !identical(other, setting)) {
+          out.add('${setting.id} and ${other.id} are both stored at $location');
+        } else {
+          locations[location] = setting;
+        }
+      }
+      final problem = setting.validate(setting.defaultValue);
+      if (problem != null) {
+        out.add('the default of ${setting.id} is not valid: $problem');
+      }
+      if (hooks != null) {
+        for (final hook in setting.hookIds) {
+          if (!hooks.has(hook)) {
+            out.add('${setting.id} names the hook "$hook", which is missing');
+          }
+        }
+      }
+    }
+
+    final companions = <ForgeSetting<Object>>[];
     for (final section in sections) {
       if (section.id.isEmpty) out.add('a section of $id has no id');
       if (!sectionIds.add(section.id)) {
         out.add('$id has the section id "${section.id}" twice');
       }
-      for (final setting in section.settings) {
-        if (setting.id.isEmpty) {
-          out.add('a setting of $id/${section.id} has no id');
-        }
-        if (!settingIds.add(setting.id)) {
-          out.add('$id has the setting id "${setting.id}" twice');
-        }
-        if (setting.storage.key.isEmpty) {
-          out.add('${setting.id} has no storage key');
-        }
-        final location = setting.storage.location;
-        final other = locations[location];
-        if (other != null) {
-          out.add('${setting.id} and $other are both stored at $location');
+      for (final entry in section.entries) {
+        if (entry is ForgeSettingsGroup) {
+          if (entry.id.isEmpty) {
+            out.add('a group of $id/${section.id} has no id');
+          }
+          if (!entryIds.add(entry.id)) {
+            out.add('$id has the group id "${entry.id}" twice');
+          }
+          for (final setting in entry.settings) {
+            addSetting(setting, '$id/${section.id}/${entry.id}');
+            companions.addAll(setting.companions);
+          }
+        } else if (entry is ForgeSetting<Object>) {
+          addSetting(entry, '$id/${section.id}');
+          companions.addAll(entry.companions);
         } else {
-          locations[location] = setting.id;
-        }
-        final problem = setting.validate(setting.defaultValue);
-        if (problem != null) {
-          out.add('the default of ${setting.id} is not valid: $problem');
+          out.add('$id/${section.id} has an entry of an unknown type');
         }
       }
     }
+    final seenCompanions = <ForgeSetting<Object>>[];
+    for (final companion in companions) {
+      if (seenCompanions.any((c) => identical(c, companion))) continue;
+      seenCompanions.add(companion);
+      final other = locations[companion.storage.location];
+      if (other != null && !identical(other, companion)) {
+        out.add(
+          'the companion ${companion.id} and ${other.id} are both stored at '
+          '${companion.storage.location}',
+        );
+      } else {
+        locations[companion.storage.location] = companion;
+      }
+    }
     for (final setting in settings) {
+      if (setting.hasValue && !setting.storesValue) {
+        out.add('${setting.id} has no storage key');
+      }
       for (final condition in [setting.visibleWhen, setting.enabledWhen]) {
         if (condition != null && !settingIds.contains(condition.settingId)) {
           out.add(

@@ -15,6 +15,59 @@
   fallback and parameters, and `ForgeConfigurationTexts`, the validation
   messages. Pure Dart; `tom_forge_kit` keeps the values, and
   `tom_configuration_ui` draws the tiles.
+- **Behaviour hooks** (`forge_setting_hooks.dart`): a setting names the
+  behaviour it uses by id — `ForgeSetting.actions` (buttons beside it) and
+  per kind a detector, a choices provider, a status provider or an action
+  catalogue — and the application supplies it at run time in a
+  `ForgeSettingHooks` registry (`has`, `ids`, `addAll`, `merged`;
+  `problems(hooks:)` names the missing ones). The contracts:
+  `ForgeSettingAction` (`run` → `ForgeActionResult`: success with an
+  optional value to write and a refresh, failure, cancelled; confirmation,
+  emphasis, `isEnabled`), `ForgeSettingDetector` (`check` and `detect` with
+  `ForgeDetectionHints` — candidate paths, search roots, executable names,
+  environment variables, `PATH`, depth — answering `ForgeDetectedCandidate`s
+  with a level, version and reason), `ForgeChoicesProvider` (async, per
+  entry key, with a change stream), `ForgeSettingStatusProvider` (`current`
+  and an optional `watch` stream of `ForgeStatusInfo`), `ForgeActionCatalogue`
+  (the `ForgeCatalogueAction`s a key binding table lists) and
+  `ForgeSettingFlow` (a multi-step interaction the UI drives: a
+  `ForgeFlowSession` answers `ForgeFlowStep`s — show with a URL or code,
+  input fields including secrets and one-time codes, waiting with a poll,
+  done — to `ForgeFlowResponse`s). Every contract has a `ForgeCallback…`
+  form; a hook runs with a `ForgeSettingContext` (value, other settings,
+  write, progress, cancellation, entry key).
+- **Storage bindings** (`forge_setting_binding.dart`):
+  `ForgeSettingStorage(key, binding: id)` keeps a setting in a
+  `ForgeSettingBinding` the application supplies (`read`, `write`, `watch`,
+  `flushed`) instead of the state store; `ForgeMemorySettingBinding` and
+  `ForgeCallbackSettingBinding`; `ForgeSettingStorage.none()` for settings
+  that keep no value; `location` and `documentId` carry the binding.
+- **Sub-groups:** a section's entries are settings and `ForgeSettingsGroup`s
+  (a header with settings under it); `ForgeSettingsSection.settings` lists
+  every setting, `entries` and `groups` keep the structure. A setting's
+  `companions` (a key binding table's deleted bindings) are found by
+  `settingById` and checked by `problems()`.
+- **New kinds**, each with Forge's stored format: `ForgeFontFamilySetting`
+  (fonts from a provider, suggestions, generic families), the key bindings
+  (`forge_key_bindings.dart`: `ForgeKeyStroke` and `ForgeKeyChord` as data,
+  `ForgeKeyBindingSetting`, `ForgeKeyChordSetting`,
+  `ForgeKeyBindingTableSetting` — rows from a catalogue with
+  `forgeKeyBindingRows`, conflicts with `forgeKeyBindingConflicts` (same keys
+  in overlapping scopes, chord prefixes, primary modifier per platform),
+  wildcard `*.<suffix>` overrides, reset all; stored as
+  `forge.shortcuts.overrides` / `chordOverrides` / `deletedBindings`),
+  `ForgeToolPathSetting` (path, detector with hints, status, actions; the
+  empty path is not stored, as `forge.tools.<id>.path`), `ForgeActionSetting`
+  and `ForgeStatusSetting` (no value), `ForgeDateSetting`,
+  `ForgeTimeSetting` and `ForgeDateTimeSetting` over the const values
+  `ForgeDate`, `ForgeTimeOfDay` and `ForgeDateTime` (`YYYY-MM-DD`, `HH:MM`,
+  ISO 8601). Int and double settings show a value scaled (`scale`,
+  `toShown` / `fromShown`) in a `unit`; choices and string-map values may come
+  from a `choicesProvider` with a nullable *none*; string maps normalise
+  their keys (`ForgeMapKeyNormalizer.fileExtension`), lay the stored entries
+  over the defaults (`mergeDefaults`) and keep a `defaultKey` (`*`), as
+  `forge.files.typeDefaults`. `ForgeText.literal` is a runtime text no
+  lookup translates.
 
 - `ForgeContextMenuEntry.children` (a submenu: choosing the entry shows its
   children instead of running it, `hasChildren`) and `checked` (a checkable

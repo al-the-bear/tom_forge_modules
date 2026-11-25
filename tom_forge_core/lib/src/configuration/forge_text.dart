@@ -15,7 +15,15 @@ class ForgeText {
   /// The text under [key], [fallback] when nothing translates it.
   const ForgeText(this.key, this.fallback, {this.params = const {}});
 
-  /// The resource key, e.g. `forge.shell.theme.label`.
+  /// A runtime text that is never translated ([key] empty): a font's name,
+  /// a choice a provider answers.
+  const ForgeText.literal(String text)
+    : key = '',
+      fallback = text,
+      params = const {};
+
+  /// The resource key, e.g. `forge.shell.theme.label`; empty for a
+  /// [ForgeText.literal], which no lookup is asked for.
   final String key;
 
   /// The English text shown when no resource has [key].
@@ -31,7 +39,7 @@ class ForgeText {
   /// The text: [lookup]'s answer for [key] (when it has one) or [fallback],
   /// with the placeholders filled.
   String resolve([String? Function(String key)? lookup]) =>
-      fill(lookup?.call(key) ?? fallback, lookup);
+      fill(key.isEmpty ? fallback : lookup?.call(key) ?? fallback, lookup);
 
   /// [text] with every `{name}` of [params] replaced by its value (a
   /// [ForgeText] value resolved with [lookup]).
