@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- The helper is named as looked for: the application's bundle, then
+  `$TOM_BINARY_PATH` (`findHelper`), in the module's documentation and in the
+  error when neither has it.
 - The install runner, checked on bigbeast and legiondary01: executables are
   found through `installExecutableExists` (winget's alias), PATH folders lose
   a trailing backslash, each command's input is closed so a prompt ends

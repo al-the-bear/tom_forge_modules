@@ -85,8 +85,9 @@ class ForgeOfficeLokModule extends ForgeKitModule
   /// The module. Every parameter defaults to the desktop's: local files
   /// through `TomBinaryFileAccess`, `TomLibreOfficeDetector` with the path
   /// setting from [preferences] (else the application's state store),
-  /// `TomOfficeProcessLauncher` with `tom_office_host` from
-  /// `$TOM_BINARY_PATH`, [filePickers]' folder picker for *Choose
+  /// `TomOfficeProcessLauncher` with `tom_office_host` from the
+  /// application's bundle, else `$TOM_BINARY_PATH` (`findHelper`),
+  /// [filePickers]' folder picker for *Choose
   /// LibreOffice…*, the application's lifecycle for [windowFocus]. Tests give
   /// fakes.
   ForgeOfficeLokModule({
@@ -641,7 +642,8 @@ class _UnavailableLauncher implements TomOfficeHelperLauncher {
       Future.error(StateError('LibreOffice is not available'));
 }
 
-/// The launcher when the binaries layer has no `tom_office_host`.
+/// The launcher when neither the application's bundle nor the binaries layer
+/// has `tom_office_host`.
 class _NoHelperLauncher implements TomOfficeHelperLauncher {
   _NoHelperLauncher(this.installation);
 
@@ -652,8 +654,8 @@ class _NoHelperLauncher implements TomOfficeHelperLauncher {
   Future<TomOfficeHelperChannel> start({required String documentPath}) =>
       Future.error(
         StateError(
-          'tom_office_host is not in the binaries layer '
-          '(\$TOM_BINARY_PATH/<platform>)',
+          'tom_office_host is neither in the application bundle nor in '
+          'the binaries layer (\$TOM_BINARY_PATH/<platform>)',
         ),
       );
 }
