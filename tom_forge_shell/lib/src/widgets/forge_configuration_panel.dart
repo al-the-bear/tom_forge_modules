@@ -44,7 +44,7 @@ class ForgeConfigurationPanel extends StatefulWidget {
   /// The values of the modules' configuration descriptions (the kit's
   /// values service over the shell's state store, with the shell's storage
   /// bindings); each section of its descriptions is an accordion entry
-  /// before the built-in sections. Null: the panel keeps a values service of
+  /// before the module panels. Null: the panel keeps a values service of
   /// its own over [preferencesService] with the shell's description only
   /// ([forgeShellConfigurationValues]).
   final ForgeConfigurationValues? configurationValues;
@@ -146,8 +146,8 @@ class _ForgeConfigurationPanelState extends State<ForgeConfigurationPanel> {
   }
 
   /// The sections of the configuration descriptions, in their order. They
-  /// are shown first but numbered after the built-in sections and the module
-  /// panels; [ForgeConfigurationPanel.expandSection]'s indices are mapped
+  /// are shown first but numbered after the module panels;
+  /// [ForgeConfigurationPanel.expandSection]'s indices are mapped
   /// ([_sectionForRequest]).
   List<ForgeConfigurationSectionRef> get _describedSections =>
       forgeOrderedSections(_values.descriptions);

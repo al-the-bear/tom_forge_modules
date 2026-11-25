@@ -85,11 +85,11 @@ abstract class ForgeModule extends ForgeKitModule {
   /// Status bar items this module contributes.
   List<StatusBarItem> get statusBarItems => [];
 
-  /// Configuration panels this module contributes to the settings dialog.
-  ///
-  /// Panels appear in the sidebar alongside built-in panels. Use
-  /// [ForgeConfigPanel.priority] to control ordering (100+ recommended
-  /// for modules; 0–99 is reserved for built-in panels).
+  /// Configuration panels this module contributes: widgets of its own, shown
+  /// in the configuration side panel after the described sections, ordered
+  /// by [ForgeConfigPanel.priority]. A module describes its options as a
+  /// configuration description instead (`ForgeConfigurationDescriptionsExtra`)
+  /// where a setting kind fits.
   List<ForgeConfigPanel> get configPanels => [];
 
   /// External tools this module uses (LibreOffice, pandoc, ...): each is a

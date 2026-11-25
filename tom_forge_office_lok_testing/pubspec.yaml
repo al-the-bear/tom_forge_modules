@@ -3,7 +3,7 @@ description: >-
   Test support for tom_forge_office_lok: the LibreOfficeKit editor as an undo
   subject, with the checks it skips, a scripted LibreOffice helper, a tile
   decoder that needs no real time, the module in a panel shell over a memory
-  file system, and the shell's External Tools section, for Forge's undo
+  file system, and the shell's External Tools tile, for Forge's undo
   conformance harness (tom_forge_ui_testing) and the adapter's suites.
   Test-only: suites take it as a dev_dependency; nothing a product links
   depends on it. License: BSD-3-Clause.
@@ -27,9 +27,12 @@ dependencies:
   tom_forge_kit:
     path: ../tom_forge_kit
   # The panel shell the module runs in (DefaultShellApi), and its External
-  # Tools section with its preferences.
+  # Tools description with its preferences.
   tom_forge_shell:
     path: ../tom_forge_shell
+  # The configuration tiles the External Tools description is drawn in.
+  tom_configuration_ui:
+    path: ../tom_configuration_ui
   # Forge's undo conformance harness.
   tom_forge_ui_testing:
     path: ../tom_forge_ui_testing

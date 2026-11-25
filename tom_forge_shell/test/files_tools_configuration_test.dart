@@ -67,6 +67,19 @@ class _Tool extends ForgeExternalTool {
   }) => Text('help for ${copy.state.name}');
 }
 
+/// A tool with no help of its own: its row shows where to get it.
+class _PlainTool extends _Tool {
+  @override
+  String get id => 'plain';
+
+  @override
+  Widget? buildHelp(
+    BuildContext context,
+    ForgeToolCopy copy, {
+    required Future<void> Function() checkAgain,
+  }) => null;
+}
+
 /// A module that contributes [tool].
 class _ToolModule extends ForgeKitModule implements ForgeModuleExtrasProvider {
   _ToolModule(this.tool);
@@ -244,7 +257,8 @@ void main() {
     );
     final missing = await detector.check(context, '', setting.hints);
     expect(missing.level, ForgeStatusLevel.error);
-    expect(missing.message?.params['url'], 'https://example.org/fake');
+    expect(missing.message?.fallback, 'Not found');
+    expect(missing.reason, 'not found', reason: 'the copy\'s own reason');
     final detected = await detector.detect(context, setting.hints);
     expect(detected.single.version, '2.0');
 
@@ -256,6 +270,23 @@ void main() {
       () {},
     );
     expect((help! as Text).data, 'help for missing');
+
+    // Without help of its own: where to get it, while it is missing.
+    final plain = _PlainTool();
+    await _T
+        .hooks([plain])
+        .detector(_T.detectorOf(plain))!
+        .check(context, '', setting.hints);
+    final download = _T.buildHelpPanel(
+      [plain],
+      tester.element(find.byType(ForgeConfigurationScope).first),
+      _T.helpPanelOf(plain),
+      () {},
+    );
+    expect(
+      (download! as SelectableText).data,
+      'Download: https://example.org/fake',
+    );
 
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 600));

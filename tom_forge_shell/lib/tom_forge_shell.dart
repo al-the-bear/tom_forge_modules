@@ -56,8 +56,6 @@ export 'src/shell/forge_system_state.dart';
 // ── Services ──
 export 'src/services/forge_environment.dart';
 export 'src/services/forge_preferences_service.dart';
-export 'src/tools/external_tools_trail.dart' show kForgeExternalToolsDebug;
-export 'src/tools/forge_external_tools_section.dart';
 export 'src/services/forge_secret_storage.dart';
 export 'src/services/forge_terminal_manager.dart';
 export 'src/services/forge_virtual_document_manager.dart';
@@ -79,7 +77,6 @@ export 'src/defaults/stub_services.dart';
 
 // ── Widgets ──
 export 'src/widgets/forge_chord_overlay.dart';
-export 'src/widgets/forge_configuration_dialog.dart';
 export 'src/widgets/forge_configuration_panel.dart';
 export 'src/widgets/forge_drag_data.dart';
 export 'src/widgets/forge_drop_zone_overlay.dart';

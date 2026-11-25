@@ -519,14 +519,8 @@ void main() {
       libreOfficeTool: tool,
       installer: forgeOfficeTestInstaller(starter: starter),
     );
-    await pumpForgeExternalToolsSection(
-      tester,
-      forgeShellExternalToolsOf(module),
-    );
-    expect(
-      find.byKey(const ValueKey('forge-tool-libreoffice-help')),
-      findsOneWidget,
-    );
+    await pumpForgeExternalToolsTile(tester, forgeShellExternalToolsOf(module));
+    expect(forgeExternalToolHelp('libreoffice'), findsOneWidget);
     expect(find.text('LibreOffice is not installed.'), findsOneWidget);
     expect(find.text('Install with Homebrew'), findsOneWidget);
     expect(find.textContaining('Download: '), findsNothing);
@@ -548,11 +542,8 @@ void main() {
     brew.exit(0);
     await tester.pumpAndSettle();
     expect(tool.checks, greaterThan(checksBefore), reason: 'checked again');
-    expect(
-      find.byKey(const ValueKey('forge-tool-libreoffice-help')),
-      findsNothing,
-    );
-    expect(find.text('Found'), findsOneWidget);
+    expect(forgeExternalToolHelp('libreoffice'), findsNothing);
+    expect(find.textContaining('Found'), findsOneWidget);
     expect(module.installation, forgeOfficeFoundLibreOffice);
   });
 
@@ -565,14 +556,8 @@ void main() {
       libreOfficeTool: tool,
       installer: forgeOfficeTestInstaller(),
     );
-    await pumpForgeExternalToolsSection(
-      tester,
-      forgeShellExternalToolsOf(module),
-    );
-    expect(
-      find.byKey(const ValueKey('forge-tool-libreoffice-help')),
-      findsNothing,
-    );
+    await pumpForgeExternalToolsTile(tester, forgeShellExternalToolsOf(module));
+    expect(forgeExternalToolHelp('libreoffice'), findsNothing);
     expect(find.byType(TomLibreOfficeInstallHelp), findsNothing);
 
     tool.installation = const LibreOfficeInstallation(
@@ -580,14 +565,9 @@ void main() {
       bundlePath: '/Applications/LibreOffice.app',
       version: '24.2.7.2',
     );
-    await tester.tap(
-      find.byKey(const ValueKey('forge-tool-libreoffice-check')),
-    );
+    await tester.tap(forgeExternalToolCheck('libreoffice'));
     await tester.pumpAndSettle();
-    expect(
-      find.byKey(const ValueKey('forge-tool-libreoffice-help')),
-      findsOneWidget,
-    );
+    expect(forgeExternalToolHelp('libreoffice'), findsOneWidget);
     expect(
       find.text('LibreOffice 24.2.7.2 is older than 26.8.3.1.'),
       findsOneWidget,

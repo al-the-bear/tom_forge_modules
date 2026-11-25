@@ -7,7 +7,8 @@ subject (`ForgeOfficeEditorSubject`), with the checks it skips
 (`forgeOfficeTestDecoder`), for Forge's undo conformance harness
 (`tom_forge_ui_testing`); and the adapter's test bed: the module in a panel
 shell over a memory file system (`ForgeOfficeLokWorkspace`) and the panel
-shell's External Tools section (`pumpForgeExternalToolsSection`,
+shell's External Tools tile (`pumpForgeExternalToolsTile`,
+`forgeExternalToolEntry`, `forgeExternalToolHelp`, `forgeExternalToolCheck`,
 `forgeShellExternalToolsOf`), and the install runner's fakes
 (`FakeInstallStarter`, `FakeInstallProcess`, `FakeInstallHttp`,
 `forgeOfficeTestInstaller`: the workspace's default installer, which never

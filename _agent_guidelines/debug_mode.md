@@ -41,7 +41,6 @@ flag lets the compiler eliminate all dead code.
 | PDF editor (`tom_ai/modules/tom_pdf_editor`) | `lib/src/pdf_editor_trail.dart` | `kPdfEditorDebug` (switchable at run time) |
 | Office editor (`tom_ai/modules/tom_office_editor`) | `lib/src/office_editor_trail.dart` | `kOfficeEditorDebug` (switchable at run time), prefix `[OE]` |
 | ZetaOffice view (`tom_ai/modules/tom_office_zetaoffice`) | `lib/src/trail.dart` | `kZetaOfficeDebug` (switchable at run time), prefix `[ZO]` |
-| External Tools section (`tom_forge_ui`) | `lib/src/tools/external_tools_trail.dart` | `kForgeExternalToolsDebug` (switchable at run time), prefix `[FT]` |
 | PDFium editor in Forge (`tom_forge_pdf_pdfium`) | `lib/src/forge_pdf_trail.dart` | `kForgePdfiumDebug` (switchable at run time), prefix `[FP]` |
 | pdf.js editor in Forge (`tom_forge_pdf_pdfjs`) | `lib/src/forge_pdfjs_trail.dart` | `kForgePdfJsDebug` (switchable at run time), prefix `[FPJ]` |
 | LibreOfficeKit editor in Forge (`tom_forge_office_lok`) | `lib/src/forge_office_trail.dart` | `kForgeOfficeDebug` (switchable at run time), prefix `[FO]` |
@@ -157,7 +156,6 @@ Each component uses a two-letter prefix inside `[XX …]`. Current components:
 | `FPJ`  | pdf.js editor in Forge (`tom_forge_pdf_pdfjs`) |
 | `FO`   | LibreOfficeKit editor in Forge (`tom_forge_office_lok`) |
 | `FZO`  | ZetaOffice editor in Forge (`tom_forge_office_zetaoffice`) |
-| `FT`   | External Tools section (`tom_forge_ui`) |
 
 Filter in terminal:
 ```bash

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- A tool path's status line shows the detector's message and, while the copy
+  is not usable, its reason too; the help panel under it has the key
+  `forge.configuration.toolPath.help.<setting id>`.
 - `ForgeHelpPanelBuilder` takes a fourth argument, `recheck`: the help panel
   of a tool path asks its editor to check the value again (after an install,
   or on the panel's own *Check again*).

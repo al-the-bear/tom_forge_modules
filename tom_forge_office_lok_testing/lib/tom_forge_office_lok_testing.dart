@@ -6,8 +6,9 @@
 /// ([ScriptedOfficeHelper]) standing in for the engine, a tile decoder that
 /// needs no real time ([forgeOfficeTestDecoder]); and the adapter's test bed:
 /// its module in a panel shell over a memory file system
-/// ([ForgeOfficeLokWorkspace]), the shell's External Tools section
-/// ([pumpForgeExternalToolsSection], [forgeShellExternalToolsOf]) and the
+/// ([ForgeOfficeLokWorkspace]), the shell's External Tools tile
+/// ([pumpForgeExternalToolsTile], [forgeExternalToolEntry],
+/// [forgeExternalToolHelp], [forgeShellExternalToolsOf]) and the
 /// install runner's fakes ([FakeInstallStarter], [FakeInstallProcess],
 /// [FakeInstallHttp], [forgeOfficeTestInstaller]): no test runs a real
 /// install.

@@ -1,9 +1,13 @@
 import 'package:flutter/widgets.dart';
 
-/// A configuration panel contributed by a [ForgeModule].
+/// A configuration panel contributed by a [ForgeModule]: a widget of the
+/// module's own, shown in the configuration side panel after the described
+/// sections.
 ///
-/// Modules register config panels so they appear in the settings dialog
-/// alongside the built-in panels (shell, terminal, shortcuts, etc.).
+/// A module describes its options as a configuration description instead
+/// (`ForgeConfigurationDescriptionsExtra`, with its storage bindings and
+/// hooks), which the side panel shows as a tile; a panel is for what no
+/// setting kind describes yet.
 class ForgeConfigPanel {
   /// Unique identifier for this config panel.
   final String id;
@@ -14,8 +18,8 @@ class ForgeConfigPanel {
   /// Icon shown next to the title in the sidebar.
   final IconData icon;
 
-  /// Sort priority. Lower values appear first.
-  /// Built-in panels use 0–99; modules should use 100+.
+  /// Sort priority among the module panels. Lower values appear first;
+  /// 100+ is recommended.
   final int priority;
 
   /// Builder for the config panel widget.

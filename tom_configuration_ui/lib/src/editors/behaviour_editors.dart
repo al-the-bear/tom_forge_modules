@@ -236,8 +236,9 @@ class _ForgeToolPathEditorState extends State<ForgeToolPathEditor>
     final value = (widget.request.value as String).trim();
     final parts = <String>[
       if (state.message != null)
-        ForgeConfigurationLabels.resolve(state.message!)
-      else if (state.reason != null)
+        ForgeConfigurationLabels.resolve(state.message!),
+      // Why it cannot be used, as the tool said it (with the message too).
+      if (state.reason != null && (state.message == null || !state.usable))
         state.reason!,
       if (state.version != null)
         ForgeConfigurationLabels.resolve(
@@ -416,7 +417,13 @@ class _ForgeToolPathEditorState extends State<ForgeToolPathEditor>
           ),
           const SizedBox(height: 4),
           _stateLine(context),
-          if (help != null) ...[const SizedBox(height: 4), help],
+          if (help != null) ...[
+            const SizedBox(height: 4),
+            KeyedSubtree(
+              key: ValueKey('forge.configuration.toolPath.help.${setting.id}'),
+              child: help,
+            ),
+          ],
           const SizedBox(height: 4),
           if (values != null)
             ForgeHookButton(

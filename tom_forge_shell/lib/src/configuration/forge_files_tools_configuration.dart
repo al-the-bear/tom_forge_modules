@@ -2,7 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart' show VoidCallback;
-import 'package:flutter/material.dart' show BuildContext, Icons, Widget;
+import 'package:flutter/material.dart'
+    show BuildContext, Icons, SelectableText, Theme, ValueKey, Widget;
+import 'package:tom_configuration_ui/tom_configuration_ui.dart'
+    show ForgeConfigurationLabels;
 import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_forge_kit/tom_forge_kit.dart';
 
@@ -139,9 +142,9 @@ abstract final class ForgeFileTypesConfiguration {
 
 /// The [ForgeSettingBinding] of the file type associations in the
 /// [ForgePreferencesService] (`forge.files.typeDefaults`): a write sets and
-/// clears the service's entries and the [shell]'s file type defaults, as the
-/// hand-written section did. The service keeps the default key (every other
-/// extension) as `.*`, the shell as `*`.
+/// clears the service's entries and the [shell]'s file type defaults. The
+/// service keeps the default key (every other extension) as `.*`, the shell
+/// as `*`.
 class ForgeFileTypesSettingBinding extends ForgeSettingBinding {
   ForgeFileTypesSettingBinding(this.preferences, {this.shell});
 
@@ -327,8 +330,8 @@ abstract final class ForgeExternalToolsConfiguration {
         ],
       );
 
-  /// [copy] of [tool] as a detection result: its state as a level, with
-  /// where to get the tool when it is missing or too old.
+  /// [copy] of [tool] as a detection result: its state as a level and a
+  /// label ([stateLabelOf]); the copy's own reason as the reason.
   static ForgeDetectedCandidate candidateOf(
     ForgeExternalTool tool,
     ForgeToolCopy copy,
@@ -340,29 +343,51 @@ abstract final class ForgeExternalToolsConfiguration {
       ForgeToolState.damaged ||
       ForgeToolState.quarantined => ForgeStatusLevel.error,
     };
-    final url = tool.downloadUrl;
-    final offerDownload =
-        url != null &&
-        (copy.state == ForgeToolState.missing ||
-            copy.state == ForgeToolState.tooOld);
     return ForgeDetectedCandidate(
       value: copy.path,
       level: level,
       version: copy.version,
-      reason: copy.reason ?? copy.state.name,
-      message: offerDownload
-          ? ForgeText(
-              'forge.config.externalTools.download',
-              'Download: {url}',
-              params: {'url': url},
-            )
-          : null,
+      reason: copy.reason,
+      message: stateLabelOf(copy.state),
     );
   }
 
+  /// Where to get [tool] (`ForgeExternalTool.downloadUrl`), shown under its
+  /// row while it is missing or too old and it has no help of its own.
+  static ForgeText downloadOf(String url) => ForgeText(
+    'forge.config.externalTools.download',
+    'Download: {url}',
+    params: {'url': url},
+  );
+
+  /// What a copy in [state] is called on its row.
+  static ForgeText stateLabelOf(ForgeToolState state) => switch (state) {
+    ForgeToolState.found => const ForgeText(
+      'forge.config.externalTools.state.found',
+      'Found',
+    ),
+    ForgeToolState.missing => const ForgeText(
+      'forge.config.externalTools.state.missing',
+      'Not found',
+    ),
+    ForgeToolState.tooOld => const ForgeText(
+      'forge.config.externalTools.state.tooOld',
+      'Too old',
+    ),
+    ForgeToolState.damaged => const ForgeText(
+      'forge.config.externalTools.state.damaged',
+      'Cannot be used',
+    ),
+    ForgeToolState.quarantined => const ForgeText(
+      'forge.config.externalTools.state.quarantined',
+      'Not opened yet',
+    ),
+  };
+
   /// The help panel of the tool [panelId] names, while its copy is not
-  /// usable: the tool's own help (`ForgeExternalTool.buildHelp`), null when
-  /// it has none (the row shows its download link then).
+  /// usable: the tool's own help (`ForgeExternalTool.buildHelp`); without
+  /// one, where to get it ([downloadOf]) while it is missing or too old;
+  /// else null.
   static Widget? buildHelpPanel(
     List<ForgeExternalTool> tools,
     BuildContext context,
@@ -372,7 +397,22 @@ abstract final class ForgeExternalToolsConfiguration {
     for (final tool in tools) {
       if (helpPanelOf(tool) != panelId) continue;
       final copy = lastCopyOf(tool) ?? const ForgeToolCopy.missing();
-      return tool.buildHelp(context, copy, checkAgain: () async => recheck());
+      final help = tool.buildHelp(
+        context,
+        copy,
+        checkAgain: () async => recheck(),
+      );
+      if (help != null) return help;
+      final url = tool.downloadUrl;
+      final getIt =
+          copy.state == ForgeToolState.missing ||
+          copy.state == ForgeToolState.tooOld;
+      if (url == null || !getIt) return null;
+      return SelectableText(
+        ForgeConfigurationLabels.resolve(downloadOf(url)),
+        key: ValueKey('forge.config.externalTools.download.${tool.id}'),
+        style: Theme.of(context).textTheme.bodySmall,
+      );
     }
     return null;
   }

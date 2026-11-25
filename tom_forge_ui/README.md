@@ -87,19 +87,20 @@ own keys catch Cmd+F runs the shell's `editor.find` action. Test:
 
 ## External tools
 
-The Configuration panel's *External Tools* section has one row per external
-tool Forge uses (LibreOffice, later pandoc, Graphviz, ...): its path, the
-detected version and state, *Save*, *Choose…*, *Check again* and
-*Auto-detect* (every copy a wider search finds, with version and state, to
-pick one). `tom_forge_ui` knows no tool: the module that owns one returns a
-`ForgeExternalTool` descriptor from `ForgeModule.externalTools` (`id`, `name`,
-`order` — LibreOffice is 0 —, `check(path)`, `autoDetect()`, the path hint and
-download page). The path is kept as `forge.tools.<id>.path` in
-`ForgePreferencesService` (`externalToolPath`, `setExternalToolPath`; empty
-means the tool's detection searches), where the module's own detection reads
-it (`ForgePreferencesService.instance.externalToolPath(id)`). Debug trail:
-`kForgeExternalToolsDebug`, prefix `[FT]`; tests:
-`test/widgets/external_tools_section_test.dart`.
+The Configuration panel's *External Tools* section is a configuration
+description (`ForgeExternalToolsConfiguration`): one tool path entry per
+external tool Forge uses (LibreOffice, later pandoc, Graphviz, ...), ordered by
+the tool's `order` (LibreOffice is 0), with the path (empty: the tool's
+detection searches), *Browse…*, *Check again*, the state and version the
+tool's check finds, *Detect* (every copy a wider search finds, with version and
+state, to pick one) and, while the copy is not usable, the tool's help (else
+where to get it). `tom_forge_ui` knows no tool: the module that owns one
+returns a `ForgeExternalTool` descriptor from `ForgeModule.externalTools`
+(`id`, `name`, `order`, `check(path)`, `autoDetect()`, `buildHelp`, the path
+hint and download page). The path is kept as `forge.tools.<id>.path` in
+`ForgePreferencesService` (`externalToolPath`, `setExternalToolPath`), where
+the module's own detection reads it. Tests:
+`test/widgets/external_tools_tile_test.dart`.
 
 ## Platform support
 

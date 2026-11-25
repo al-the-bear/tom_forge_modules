@@ -546,54 +546,45 @@ When not integrated the integration feature just return no items.
 
 ---
 
-## 7. Configuration Panel Support
+## 7. Configuration Support
 
-### 7.1 EditorConfigurationProvider
+### 7.1 Editor options as a configuration description
 
-Editors expose their configuration panels through this interface:
-
-```dart
-/// Interface for editors to provide configuration UI.
-abstract interface class EditorConfigurationProvider {
-  /// Unique identifier for this editor type.
-  String get editorTypeId;
-
-  /// Display name for the configuration section.
-  String get configurationTitle;
-
-  /// Icon for the configuration section.
-  IconData get configurationIcon;
-
-  /// Builds the configuration panel widget.
-  Widget buildConfigurationPanel(
-    BuildContext context,
-    ForgeTextSettings currentSettings,
-    ValueChanged<ForgeTextSettings> onSettingsChanged,
-  );
-}
-```
-
-### 7.2 Shell Configuration Integration
-
-The shell's Settings dialog can discover and display editor configuration:
+An editor type describes its options itself: `ForgeKitEditorType.configuration`
+is a `ForgeConfigurationDescription` (`tom_forge_core`) — sections of typed
+settings, each with its storage, default, constraints and a localisable label.
+The shared text settings (font, indentation, display, undo) come from
+`ForgeEditorSettings.textGroups(editorTypeId)` (`tom_forge_kit`); an editor's
+own options are further settings in its section. They are kept through the
+`forge.editors` storage binding (`ForgeEditorSettingBinding`) under
+`forge.editor.textSettings` / `forge.editor.specificConfig`.
 
 ```dart
-// In ForgeConfigurationDialog
-for (final editor in shellApi.registeredEditorTypes) {
-  final configProvider = editor as EditorConfigurationProvider?;
-  if (configProvider != null) {
-    tabs.add(Tab(
-      icon: Icon(configProvider.configurationIcon),
-      text: configProvider.configurationTitle,
-    ));
-    tabViews.add(configProvider.buildConfigurationPanel(
-      context,
-      currentSettings,
-      (newSettings) => _saveEditorSettings(configProvider.editorTypeId, newSettings),
-    ));
-  }
-}
+// The Markdown editor adapter (tom_forge_md_editor)
+static final description = ForgeConfigurationDescription(
+  id: descriptionId,
+  title: const ForgeText('forge.config.md.description', 'Markdown Editor'),
+  sections: [
+    ForgeSettingsSection(
+      id: sectionId,
+      title: const ForgeText('forge.config.md.title', 'Markdown Editor'),
+      order: 4,
+      settings: [
+        ...ForgeEditorSettings.textGroups(editorTypeId),
+        // the editor's own options
+      ],
+    ),
+  ],
+);
 ```
+
+### 7.2 Shell configuration integration
+
+The panel shell collects the descriptions of every registered module
+(`ForgeConfigurationDescriptionsExtra`) and every editor type it takes, with
+the modules' storage bindings and hooks, into one `ForgeConfigurationValues`;
+its configuration side panel shows one `tom_configuration_ui` tile per
+described section. How the tiles are arranged is the application's decision.
 
 ---
 
@@ -1798,7 +1789,7 @@ Verification:
 
 - Implemented in `tom_forge_shell/lib/src/integrations/shell_editor_integration.dart`
 - Adapter wiring completed in `forge_md_editor.dart`, `forge_dart_editor.dart`, `forge_yaml_editor.dart`
-- Settings dialog integration completed in `forge_configuration_dialog.dart`
+- Settings integration: the editor types' configuration descriptions (§7)
 - Tests: `tom_forge_ui/test/integration/shell_editor_integration_test.dart` (5/5 pass)
 - Package validation: `flutter test` (44 pass), `dart analyze` (no issues)
 
@@ -1837,35 +1828,10 @@ class MdForgeModule extends ForgeModule {
 }
 ```
 
-#### 16.5.3 Settings Dialog Integration
+#### 16.5.3 Settings Integration
 
-Add editor configuration panels to `ForgeConfigurationDialog`:
-
-```dart
-// Each editor implements EditorConfigurationProvider
-class MdEditor implements EditorConfigurationProvider {
-  @override
-  String get editorTypeId => 'md';
-  
-  @override
-  String get configurationTitle => 'Markdown';
-  
-  @override
-  IconData get configurationIcon => Icons.description;
-  
-  @override
-  Widget buildConfigurationPanel(
-    BuildContext context,
-    ForgeTextSettings currentSettings,
-    ValueChanged<ForgeTextSettings> onSettingsChanged,
-  ) {
-    return MdConfigurationPanel(
-      settings: currentSettings,
-      onChanged: onSettingsChanged,
-    );
-  }
-}
-```
+Each editor type describes its options (`ForgeKitEditorType.configuration`,
+§7); the shell's configuration side panel shows them as tiles.
 
 ---
 

@@ -149,16 +149,14 @@ void main() {
   testWidgets('FOFF-TOOL-4: the LibreOffice row is the first row of External '
       'Tools', (tester) async {
     // Registered after another tool: the section sorts by order.
-    await pumpForgeExternalToolsSection(tester, [
+    await pumpForgeExternalToolsTile(tester, [
       _OtherTool(),
       _FixedLibreOffice(),
     ]);
     final libreOffice = tester.getTopLeft(
-      find.byKey(const ValueKey('forge-tool-libreoffice')),
+      forgeExternalToolEntry('libreoffice'),
     );
-    final other = tester.getTopLeft(
-      find.byKey(const ValueKey('forge-tool-pandoc')),
-    );
+    final other = tester.getTopLeft(forgeExternalToolEntry('pandoc'));
     expect(libreOffice.dy, lessThan(other.dy));
   });
   testWidgets('FOFF-TOOL-8: the real row over the real detector finding '
@@ -175,17 +173,12 @@ void main() {
       ),
     );
     await tester.runAsync(
-      () => pumpForgeExternalToolsSection(
-        tester,
-        forgeShellExternalToolsOf(module),
-      ),
+      () =>
+          pumpForgeExternalToolsTile(tester, forgeShellExternalToolsOf(module)),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Not found'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('forge-tool-libreoffice-help')),
-      findsOneWidget,
-    );
+    expect(find.textContaining('Not found'), findsOneWidget);
+    expect(forgeExternalToolHelp('libreoffice'), findsOneWidget);
     expect(find.text('LibreOffice is not installed.'), findsOneWidget);
     final platform = module.installer.platform;
     expect(
