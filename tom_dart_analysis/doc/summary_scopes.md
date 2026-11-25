@@ -12,9 +12,10 @@ surface — generates and shares those bundles efficiently, and the
 The scoped model is the embedding path, and every summary in the workspace is
 built by this bundler — the Forge apps' shipped pair included
 ([`package_summary_generation.md`](package_summary_generation.md)). The
-explicit-asset constructors in [`how_to_embed.md`](how_to_embed.md) remain as a
+explicit-asset constructors in `tom_dart_editor`'s
+[`how_to_embed.md`](../../tom_dart_editor/doc/how_to_embed.md) remain as a
 lower-level escape hatch for reading summaries from other paths. The end-to-end reference is the package README's
-["Embedding with Summary Scopes"](../README.md) section and the companion CLI at
+["Summary scopes"](../README.md#summary-scopes) section and the companion CLI at
 [`../../tom_dart_editor_bundler`](../../tom_dart_editor_bundler).
 
 ---
@@ -367,6 +368,6 @@ summary-backed-vs-plain widget choice).
   affect the object model or document format.
 - [`package_summary_generation.md`](package_summary_generation.md) — what the
   build holds, and how the Forge apps' pair is built and copied.
-- [`how_to_embed.md`](how_to_embed.md) /
-  [`dart_editor_usage_guide.md`](dart_editor_usage_guide.md) — explicit-asset
+- `tom_dart_editor`'s [`how_to_embed.md`](../../tom_dart_editor/doc/how_to_embed.md) /
+  [`dart_editor_usage_guide.md`](../../tom_dart_editor/doc/dart_editor_usage_guide.md) — explicit-asset
   embedding, which remains the escape hatch under the scoped model.
