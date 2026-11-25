@@ -70,10 +70,23 @@ Finder _entry(ForgeSetting<Object> setting) => find.byKey(
   ValueKey('forge.configuration.setting.${setting.storage.location}'),
 );
 
+/// Scrolls [finder] into view in the configuration tile's own scroll view.
+Future<void> _reveal(WidgetTester tester, Finder finder) async {
+  await tester.scrollUntilVisible(
+    finder,
+    80,
+    scrollable: find
+        .ancestor(of: finder, matching: find.byType(Scrollable))
+        .first,
+  );
+  await tester.pumpAndSettle();
+}
+
 Future<DefaultShellApi> _openSettings(
   WidgetTester tester,
-  ForgeMemoryStateStore store,
-) async {
+  ForgeMemoryStateStore store, {
+  double? leftWidth,
+}) async {
   await tester.binding.setSurfaceSize(const Size(1600, 2400));
   addTearDown(() => tester.binding.setSurfaceSize(null));
   final shell = DefaultShellApi.withDefaults(
@@ -113,10 +126,12 @@ Future<DefaultShellApi> _openSettings(
   );
   await tester.pumpAndSettle();
   expect(shell.executeAction('forge.openSettings'), isTrue);
-  (shell.layout as DefaultLayoutController).setPanelSize(
-    ForgePanelLocation.left,
-    500,
-  );
+  if (leftWidth != null) {
+    (shell.layout as DefaultLayoutController).setPanelSize(
+      ForgePanelLocation.left,
+      leftWidth,
+    );
+  }
   await tester.pumpAndSettle();
   return shell;
 }
@@ -355,34 +370,36 @@ void main() {
       void count() => notified++;
       prefs.addListener(count);
       addTearDown(() => prefs.removeListener(count));
-      await tester.tap(
-        find.descendant(of: _entry(_C.themeMode), matching: find.text('Light')),
+      final light = find.descendant(
+        of: _entry(_C.themeMode),
+        matching: find.text('Light'),
       );
+      await _reveal(tester, light);
+      await tester.tap(light);
       await _settle(tester, store);
       expect(prefs.themeMode, ThemeMode.light);
       expect(notified, greaterThan(0));
       expect(store.snapshot()['forge.appearance.themeMode'], 'light');
 
       // Reduce motion reaches the shell's animations.
-      await tester.tap(
-        find.descendant(
-          of: _entry(_C.reduceMotion),
-          matching: find.byType(Switch),
-        ),
+      final reduceMotion = find.descendant(
+        of: _entry(_C.reduceMotion),
+        matching: find.byType(Switch),
       );
+      await _reveal(tester, reduceMotion);
+      await tester.tap(reduceMotion);
       await _settle(tester, store);
       expect(prefs.reduceMotion, isTrue);
       expect(ForgeAnimations.reduceMotion, isTrue);
       expect(store.snapshot()['forge.appearance.reduceMotion'], true);
 
       // Auto save reaches the shell's configuration.
-      await tester.enterText(
-        find.descendant(
-          of: _entry(_C.autoSaveIdleDelay),
-          matching: find.byType(TextField),
-        ),
-        '7',
+      final idleDelay = find.descendant(
+        of: _entry(_C.autoSaveIdleDelay),
+        matching: find.byType(TextField),
       );
+      await _reveal(tester, idleDelay);
+      await tester.enterText(idleDelay, '7');
       await _settle(tester, store);
       expect(
         shell.config.current.autoSave.idleDelay,
@@ -390,26 +407,24 @@ void main() {
       );
 
       // The search configuration the search view is given.
-      await tester.enterText(
-        find.descendant(
-          of: _entry(_C.searchFileSizeLimit),
-          matching: find.byType(TextField),
-        ),
-        '3',
+      final sizeLimit = find.descendant(
+        of: _entry(_C.searchFileSizeLimit),
+        matching: find.byType(TextField),
       );
+      await _reveal(tester, sizeLimit);
+      await tester.enterText(sizeLimit, '3');
       await _settle(tester, store);
       expect(prefs.searchConfig.fileSizeLimit, 3 * 1024 * 1024);
 
       // The terminal settings.
       await tester.tap(find.text('Terminal').first);
       await tester.pumpAndSettle();
-      await tester.enterText(
-        find.descendant(
-          of: _entry(_C.terminalFontSize),
-          matching: find.byType(TextField),
-        ),
-        '18',
+      final fontSize = find.descendant(
+        of: _entry(_C.terminalFontSize),
+        matching: find.byType(TextField),
       );
+      await _reveal(tester, fontSize);
+      await tester.enterText(fontSize, '18');
       await _settle(tester, store);
       expect(prefs.terminalFontSize, 18.0);
       expect(store.snapshot()['forge.terminal.fontSize'], 18.0);
@@ -420,6 +435,70 @@ void main() {
       await _settle(tester, store);
       expect(prefs.terminalFontFamily, 'Monaco');
       expect(store.snapshot()['forge.terminal.fontFamily'], 'Monaco');
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(milliseconds: 600));
+    });
+
+    testWidgets('in a 240 px left panel every control of a row is on '
+        'screen and answers a tap', (tester) async {
+      final store = ForgeMemoryStateStore();
+      await _openSettings(tester, store, leftWidth: 240);
+      // The side panel is laid out at the content minimum width (400 px)
+      // and clipped to the panel's own width; what is on screen is the clip.
+      final panel = tester.getRect(
+        find
+            .ancestor(
+              of: find.byType(ForgeSidePanelWidget).first,
+              matching: find.byType(ClipRect),
+            )
+            .first,
+      );
+      expect(panel.width, lessThan(250));
+      final visibleRight = panel.right;
+
+      Future<void> showAndTap(Finder control) async {
+        expect(control, findsOneWidget);
+        await tester.scrollUntilVisible(
+          control,
+          80,
+          scrollable: find
+              .ancestor(of: control, matching: find.byType(Scrollable))
+              .first,
+        );
+        await tester.pumpAndSettle();
+        expect(tester.getRect(control).right, lessThanOrEqualTo(visibleRight));
+        await tester.tap(control);
+        await _settle(tester, store);
+      }
+
+      await showAndTap(
+        find.descendant(
+          of: _entry(_C.reduceMotion),
+          matching: find.byType(Switch),
+        ),
+      );
+      expect(store.snapshot()['forge.appearance.reduceMotion'], true);
+      addTearDown(() => ForgeAnimations.reduceMotion = false);
+
+      await tester.tap(find.text('Terminal').first);
+      await tester.pumpAndSettle();
+      final paths = find.descendant(
+        of: _entry(_C.terminalShellPaths),
+        matching: find.byType(TextField),
+      );
+      await tester.enterText(paths, '/bin/fish');
+      await showAndTap(
+        find.descendant(
+          of: _entry(_C.terminalShellPaths),
+          matching: find.widgetWithIcon(IconButton, Icons.add),
+        ),
+      );
+      expect(
+        jsonDecode(store.snapshot()['forge.terminal.shellPaths']! as String),
+        contains('/bin/fish'),
+      );
+      expect(tester.takeException(), isNull);
 
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(milliseconds: 600));

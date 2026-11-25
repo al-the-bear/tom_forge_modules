@@ -513,44 +513,76 @@ class _ForgeConfigurationTileState extends State<ForgeConfigurationTile> {
           : Builder(builder: (context) => editor.builder(context, request)),
     );
     final inline = editor?.inline ?? false;
-    final labelRow = Row(
-      children: [
-        Expanded(
-          child: Text(
-            label,
-            style: enabled
-                ? theme.textTheme.bodyMedium
-                : theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.disabledColor,
-                  ),
+    final labelText = Text(
+      label,
+      style: enabled
+          ? theme.textTheme.bodyMedium
+          : theme.textTheme.bodyMedium?.copyWith(color: theme.disabledColor),
+    );
+    final Widget? inlineEditor = !inline
+        ? null
+        : editor?.width == null
+        ? editorWidget
+        : SizedBox(width: editor!.width, child: editorWidget);
+    final buttons = <Widget>[
+      if (setting.help != null)
+        _iconButton(
+          icon: Icons.help_outline,
+          tooltip: ForgeConfigurationLabels.resolve(
+            ForgeConfigurationUiTexts.help,
           ),
+          onPressed: () => setState(() {
+            if (!_helpShown.remove(location)) _helpShown.add(location);
+          }),
         ),
-        if (inline)
-          editor?.width == null
-              ? editorWidget
-              : SizedBox(width: editor!.width, child: editorWidget),
-        if (setting.help != null)
-          _iconButton(
-            icon: Icons.help_outline,
-            tooltip: ForgeConfigurationLabels.resolve(
-              ForgeConfigurationUiTexts.help,
-            ),
-            onPressed: () => setState(() {
-              if (!_helpShown.remove(location)) _helpShown.add(location);
-            }),
+      if (setting.storesValue)
+        _iconButton(
+          key: ValueKey('forge.configuration.reset.$location'),
+          icon: Icons.restart_alt,
+          tooltip: ForgeConfigurationLabels.resolve(
+            ForgeConfigurationUiTexts.reset,
           ),
-        if (setting.storesValue)
-          _iconButton(
-            key: ValueKey('forge.configuration.reset.$location'),
-            icon: Icons.restart_alt,
-            tooltip: ForgeConfigurationLabels.resolve(
-              ForgeConfigurationUiTexts.reset,
+          onPressed: enabled && (values.isStored(setting) || error != null)
+              ? () => _reset(setting)
+              : null,
+        ),
+    ];
+    // Narrower than the style's stacking width, an inline editor and the
+    // buttons go on a line of their own below the label, so every control
+    // stays inside the tile.
+    final labelRow = LayoutBuilder(
+      builder: (context, constraints) {
+        final stacked =
+            inlineEditor != null &&
+            constraints.maxWidth < style.stackedBelowWidth;
+        if (!stacked) {
+          return Row(
+            children: [
+              Expanded(child: labelText),
+              ?inlineEditor,
+              ...buttons,
+            ],
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            labelText,
+            Row(
+              children: [
+                Expanded(
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: inlineEditor,
+                  ),
+                ),
+                ...buttons,
+              ],
             ),
-            onPressed: enabled && (values.isStored(setting) || error != null)
-                ? () => _reset(setting)
-                : null,
-          ),
-      ],
+          ],
+        );
+      },
     );
     return KeyedSubtree(
       key: ValueKey('forge.configuration.setting.$location'),

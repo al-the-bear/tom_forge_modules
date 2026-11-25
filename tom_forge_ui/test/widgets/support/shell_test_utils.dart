@@ -2,9 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tom_forge_core/tom_forge_core.dart'
-    show ForgePanelLocation, ForgeSetting;
-import 'package:tom_forge_ui/tom_forge_ui.dart' show ForgeShellScaffold;
+import 'package:tom_forge_core/tom_forge_core.dart' show ForgeSetting;
 
 Future<void> prepareLargeSurface(
   WidgetTester tester, {
@@ -76,21 +74,7 @@ bool configSettingSwitchValue(
 /// Scrolls [finder] (inside a configuration tile) into view in the
 /// tile's own scroll view only: `ensureVisible` would scroll the panels
 /// around it too and leave it under the panel's header.
-///
-/// The tile is laid out at least as wide as the panel content's minimum
-/// (400 px); the left panel is widened to it first, so the controls at the
-/// end of a row (a switch, an *Add* button) are not under the editor area.
 Future<void> _showInTile(WidgetTester tester, Finder finder) async {
-  final scaffolds = find.byType(ForgeShellScaffold);
-  if (scaffolds.evaluate().isNotEmpty) {
-    final layout = tester
-        .widget<ForgeShellScaffold>(scaffolds.first)
-        .layoutController;
-    if (layout.leftPanel.value.size < 520) {
-      layout.setPanelSize(ForgePanelLocation.left, 520);
-      await tester.pumpAndSettle();
-    }
-  }
   final scrollable = find
       .ancestor(of: finder, matching: find.byType(Scrollable))
       .first;

@@ -537,24 +537,27 @@ class _ForgeSettingColorFieldState extends State<ForgeSettingColorField> {
           ),
         ),
         const SizedBox(width: 8),
-        SizedBox(
-          width: 110,
-          child: TextField(
-            controller: _controller,
-            enabled: r.enabled,
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp('[#0-9a-fA-F]')),
-              LengthLimitingTextInputFormatter(9),
-            ],
-            decoration: InputDecoration(
-              isDense: true,
-              border: const OutlineInputBorder(),
-              semanticCounterText: r.label,
+        // Narrower than 110 px when the row has less room (a narrow panel).
+        Flexible(
+          child: SizedBox(
+            width: 110,
+            child: TextField(
+              controller: _controller,
+              enabled: r.enabled,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp('[#0-9a-fA-F]')),
+                LengthLimitingTextInputFormatter(9),
+              ],
+              decoration: InputDecoration(
+                isDense: true,
+                border: const OutlineInputBorder(),
+                semanticCounterText: r.label,
+              ),
+              // A text that is no colour is handed over as text: the setting
+              // refuses it and the tile says why.
+              onChanged: (text) =>
+                  r.onChanged(ForgeColorSetting.parseHex(text) ?? text),
             ),
-            // A text that is no colour is handed over as text: the setting
-            // refuses it and the tile says why.
-            onChanged: (text) =>
-                r.onChanged(ForgeColorSetting.parseHex(text) ?? text),
           ),
         ),
         IconButton(

@@ -22,6 +22,7 @@ class ForgeConfigurationTileStyle {
     this.showIcons = true,
     this.fieldFamily = TomFormFieldFamily.material,
     this.formStyle = defaultFormStyle,
+    this.stackedBelowWidth = 280,
   });
 
   /// The form style the tiles give `tom_flutter_ui`'s fields: no reserved
@@ -88,6 +89,11 @@ class ForgeConfigurationTileStyle {
   /// `TomFormStyleScope` around each tile's settings).
   final TomFormStyle formStyle;
 
+  /// The width of a setting's row below which an editor drawn beside its
+  /// label (a switch, a colour) goes on a line of its own under the label,
+  /// with the setting's buttons, so a narrow panel shows every control.
+  final double stackedBelowWidth;
+
   /// A copy with the given values replaced.
   ForgeConfigurationTileStyle copyWith({
     EdgeInsets? padding,
@@ -100,6 +106,7 @@ class ForgeConfigurationTileStyle {
     bool? showIcons,
     TomFormFieldFamily? fieldFamily,
     TomFormStyle? formStyle,
+    double? stackedBelowWidth,
   }) => ForgeConfigurationTileStyle(
     padding: padding ?? this.padding,
     spacing: spacing ?? this.spacing,
@@ -111,6 +118,7 @@ class ForgeConfigurationTileStyle {
     showIcons: showIcons ?? this.showIcons,
     fieldFamily: fieldFamily ?? this.fieldFamily,
     formStyle: formStyle ?? this.formStyle,
+    stackedBelowWidth: stackedBelowWidth ?? this.stackedBelowWidth,
   );
 
   @override
@@ -125,7 +133,8 @@ class ForgeConfigurationTileStyle {
       other.showHeader == showHeader &&
       other.showIcons == showIcons &&
       other.fieldFamily.kind == fieldFamily.kind &&
-      identical(other.formStyle, formStyle);
+      identical(other.formStyle, formStyle) &&
+      other.stackedBelowWidth == stackedBelowWidth;
 
   @override
   int get hashCode => Object.hash(
@@ -139,5 +148,6 @@ class ForgeConfigurationTileStyle {
     showIcons,
     fieldFamily.kind,
     identityHashCode(formStyle),
+    stackedBelowWidth,
   );
 }

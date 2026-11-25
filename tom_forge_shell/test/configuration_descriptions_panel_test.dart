@@ -138,11 +138,6 @@ Future<DefaultShellApi> _openSettings(
   );
   await tester.pumpAndSettle();
   expect(shell.executeAction('forge.openSettings'), isTrue);
-  // Wide enough that the panel's content is not wider than the panel.
-  (shell.layout as DefaultLayoutController).setPanelSize(
-    ForgePanelLocation.left,
-    400,
-  );
   await tester.pumpAndSettle();
   return shell;
 }

@@ -465,6 +465,83 @@ void main() {
       await tester.pump(_settle);
       values.dispose();
     });
+
+    testWidgets('in a 240 px panel every control is inside the tile and '
+        'answers a tap', (tester) async {
+      _bigView(tester);
+      store = ForgeMemoryStateStore();
+      values = ForgeConfigurationValues(store, descriptions: [demoDescription]);
+      await tester.runAsync(values.load);
+      await tester.pumpWidget(
+        demoPage([
+          ForgeConfigurationTile(section: editingSection, values: values),
+          ForgeConfigurationTile(section: filesSection, values: values),
+        ], tileWidth: 240),
+      );
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+
+      bool inside(Finder control, Finder tile) {
+        final box = tester.getRect(tile);
+        final rect = tester.getRect(control);
+        return rect.left >= box.left && rect.right <= box.right;
+      }
+
+      final editingTile = find.byType(ForgeConfigurationTile).first;
+      final filesTile = find.byType(ForgeConfigurationTile).last;
+      expect(tester.getSize(editingTile).width, 240);
+
+      // The switch goes under its label, its reset button beside it.
+      final toggle = find.descendant(
+        of: _entry(wrapSetting),
+        matching: find.byType(Switch),
+      );
+      expect(inside(toggle, editingTile), isTrue);
+      expect(
+        tester.getTopLeft(toggle).dy,
+        greaterThan(tester.getTopLeft(find.text('Wrap long lines')).dy),
+      );
+      final reset = find.byKey(
+        ValueKey('forge.configuration.reset.${wrapSetting.storage.location}'),
+      );
+      expect(inside(reset, editingTile), isTrue);
+      await tester.tap(toggle);
+      await tester.pump(_settle);
+
+      // The list's Add button is inside the tile too.
+      final add = find.descendant(
+        of: _entry(ignoredSetting),
+        matching: find.widgetWithIcon(IconButton, Icons.add),
+      );
+      expect(inside(add, filesTile), isTrue);
+      await tester.enterText(_textFieldOf(ignoredSetting), 'out');
+      await tester.tap(add);
+      await tester.pump(_settle);
+      expect(tester.takeException(), isNull);
+
+      await tester.runAsync(values.flushed);
+      final stored = store.snapshot();
+      expect(stored['demo.wrap'], isTrue);
+      expect(stored['demo.ignored'], ['build', 'out']);
+
+      // At the default tile width the switch stays beside its label.
+      await tester.pumpWidget(
+        demoPage([
+          ForgeConfigurationTile(section: editingSection, values: values),
+        ]),
+      );
+      await tester.pump();
+      expect(
+        tester.getCenter(toggle).dy,
+        moreOrLessEquals(
+          tester.getCenter(find.text('Wrap long lines')).dy,
+          epsilon: 4,
+        ),
+      );
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(_settle);
+      values.dispose();
+    });
   });
 }
 

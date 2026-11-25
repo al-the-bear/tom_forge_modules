@@ -32,6 +32,7 @@ import 'forge_drop_zone_overlay.dart';
 import 'forge_editor_tab_bar.dart';
 import 'forge_menu_bar.dart';
 import 'forge_open_with_dialog.dart';
+import 'forge_panel_visible_width.dart';
 import 'forge_panel_widget.dart';
 import 'forge_shortcut_menu_popup.dart';
 import 'forge_status_bar_widget.dart';
@@ -3924,6 +3925,14 @@ the field, not the document.
     if (tabs.isEmpty && !showConfigTab) {
       return SizedBox(width: width);
     }
+    final contentWidth = width < _preferences.panelContentMinWidth
+        ? _preferences.panelContentMinWidth
+        : width;
+    // The part of the content beside the icon strip that is on screen.
+    const strip = ForgeDimensions.sideTabBarCollapsed;
+    final visibleWidth = iconStripPosition == IconStripPosition.left
+        ? width - strip
+        : (contentWidth - strip < width ? contentWidth - strip : width);
     return SizedBox(
       width: width,
       child: ClipRect(
@@ -3932,10 +3941,10 @@ the field, not the document.
           minWidth: _preferences.panelContentMinWidth,
           maxWidth: double.infinity,
           child: SizedBox(
-            width: width < _preferences.panelContentMinWidth
-                ? _preferences.panelContentMinWidth
-                : width,
-            child: ForgeSidePanelWidget(
+            width: contentWidth,
+            child: ForgePanelVisibleWidth(
+              width: visibleWidth < 0 ? 0 : visibleWidth,
+              child: ForgeSidePanelWidget(
         tabs: tabs,
         iconStripPosition: iconStripPosition,
         showConfigTab: showConfigTab,
@@ -3963,6 +3972,7 @@ the field, not the document.
           _scheduleLayoutPersistence();
         },
       ),
+            ),
       ),
       ),
       ),

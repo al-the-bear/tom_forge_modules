@@ -3,14 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tom_configuration_ui/tom_configuration_ui.dart';
-import 'package:tom_editors_shared/text_types.dart'
-    show ForgeTextSettings;
+import 'package:tom_editors_shared/text_types.dart' show ForgeTextSettings;
 import 'package:tom_forge_core/tom_forge_core.dart'
-  show
-      ForgeConfigurationSectionRef,
-      ForgePathKind,
-      ForgePathSetting,
-      forgeOrderedSections;
+    show
+        ForgeConfigurationSectionRef,
+        ForgePathKind,
+        ForgePathSetting,
+        forgeOrderedSections;
 import 'package:tom_forge_kit/tom_forge_kit.dart';
 
 import '../configuration/forge_shell_configuration.dart';
@@ -19,6 +18,7 @@ import '../services/forge_preferences_service.dart';
 import '../shell/forge_shell_api.dart';
 import '../shell/forge_shell_components.dart';
 import '../tools/forge_external_tools_section.dart';
+import 'forge_panel_visible_width.dart';
 
 /// In-panel configuration view shown when the config cog is clicked.
 ///
@@ -84,8 +84,10 @@ class ForgeConfigurationPanel extends StatefulWidget {
 class _ForgeConfigurationPanelState extends State<ForgeConfigurationPanel> {
   /// Tracks which accordion sections are expanded (by index).
   final Set<int> _expandedSections = {};
+
   /// Pinned sections remain open when another section is expanded.
   final Set<int> _pinnedSections = {};
+
   /// Flex factors for expanded sections (for drag-to-resize).
   final Map<int, double> _sectionFlex = {};
 
@@ -217,7 +219,9 @@ class _ForgeConfigurationPanelState extends State<ForgeConfigurationPanel> {
         final section = described[index - _firstDescribedIndex].section;
         label = ForgeConfigurationLabels.resolve(section.title);
         icon =
-            (section.icon == null ? null : forgeMaterialIconFor(section.icon!)) ??
+            (section.icon == null
+                ? null
+                : forgeMaterialIconFor(section.icon!)) ??
             Icons.tune;
       } else if (index < _builtInSections.length) {
         label = _builtInSections[index].label;
@@ -273,8 +277,9 @@ class _ForgeConfigurationPanelState extends State<ForgeConfigurationPanel> {
         }
       } else {
         // Mutual exclusivity: collapse unpinned sections.
-        _expandedSections
-            .removeWhere((i) => !_pinnedSections.contains(i) && i != index);
+        _expandedSections.removeWhere(
+          (i) => !_pinnedSections.contains(i) && i != index,
+        );
         _expandedSections.add(index);
       }
     });
@@ -327,47 +332,47 @@ class _ForgeConfigurationPanelState extends State<ForgeConfigurationPanel> {
     if (index < _builtInSections.length) {
       return switch (index) {
         0 => _EditorSettingsSection(
-            editorTypeId: 'dart',
-            title: 'Dart',
-            preferencesService: widget.preferencesService,
-            shellApi: widget.shellApi,
-            onChanged: widget.onSettingsChanged,
-          ),
+          editorTypeId: 'dart',
+          title: 'Dart',
+          preferencesService: widget.preferencesService,
+          shellApi: widget.shellApi,
+          onChanged: widget.onSettingsChanged,
+        ),
         1 => _EditorSettingsSection(
-            editorTypeId: 'yaml',
-            title: 'YAML',
-            preferencesService: widget.preferencesService,
-            shellApi: widget.shellApi,
-            onChanged: widget.onSettingsChanged,
-          ),
+          editorTypeId: 'yaml',
+          title: 'YAML',
+          preferencesService: widget.preferencesService,
+          shellApi: widget.shellApi,
+          onChanged: widget.onSettingsChanged,
+        ),
         2 => _EditorSettingsSection(
-            editorTypeId: 'md',
-            title: 'Markdown',
-            preferencesService: widget.preferencesService,
-            shellApi: widget.shellApi,
-            onChanged: widget.onSettingsChanged,
-          ),
+          editorTypeId: 'md',
+          title: 'Markdown',
+          preferencesService: widget.preferencesService,
+          shellApi: widget.shellApi,
+          onChanged: widget.onSettingsChanged,
+        ),
         3 => _ShortcutsSettingsSection(
-            shellApi: widget.shellApi,
-            preferencesService: widget.preferencesService,
-            isChord: false,
-          ),
+          shellApi: widget.shellApi,
+          preferencesService: widget.preferencesService,
+          isChord: false,
+        ),
         4 => _ShortcutsSettingsSection(
-            shellApi: widget.shellApi,
-            preferencesService: widget.preferencesService,
-            isChord: true,
-          ),
+          shellApi: widget.shellApi,
+          preferencesService: widget.preferencesService,
+          isChord: true,
+        ),
         5 => _FileTypesSettingsSection(
-            preferencesService: widget.preferencesService,
-            shellApi: widget.shellApi,
-            onChanged: widget.onSettingsChanged,
-          ),
+          preferencesService: widget.preferencesService,
+          shellApi: widget.shellApi,
+          onChanged: widget.onSettingsChanged,
+        ),
         6 => ForgeExternalToolsSection(
-            tools: widget.externalTools,
-            preferencesService: widget.preferencesService,
-            onChanged: widget.onSettingsChanged,
-            filePickers: ForgeShellComponents.of(widget.shellApi).pickers,
-          ),
+          tools: widget.externalTools,
+          preferencesService: widget.preferencesService,
+          onChanged: widget.onSettingsChanged,
+          filePickers: ForgeShellComponents.of(widget.shellApi).pickers,
+        ),
         _ => const SizedBox.shrink(),
       };
     }
@@ -383,13 +388,31 @@ class _ForgeConfigurationPanelState extends State<ForgeConfigurationPanel> {
       values: _values,
       // The accordion header shows the title; the tile's own header only
       // where the section has help to open.
-      style: ForgeConfigurationTileStyle(
-        showHeader: ref.section.help != null,
-      ),
+      style: ForgeConfigurationTileStyle(showHeader: ref.section.help != null),
       pickPath: pickers.available
           ? (setting, current) => _pickPath(pickers, setting, current)
           : null,
-      child: SingleChildScrollView(child: ForgeConfigurationTile.of(ref)),
+      child: _fitToVisibleWidth(
+        context,
+        SingleChildScrollView(child: ForgeConfigurationTile.of(ref)),
+      ),
+    );
+  }
+
+  /// [child] no wider than the part of the side panel on screen (the panel
+  /// lays its content out at least at the shell's content minimum width and
+  /// clips the rest); the tiles adapt to that width, so every control of a
+  /// row stays visible.
+  static Widget _fitToVisibleWidth(BuildContext context, Widget child) {
+    final visible = ForgePanelVisibleWidth.maybeOf(context);
+    if (visible == null) return child;
+    return Align(
+      alignment: AlignmentDirectional.topStart,
+      heightFactor: 1,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: visible),
+        child: child,
+      ),
     );
   }
 
@@ -469,8 +492,9 @@ class _ConfigAccordionHeader extends StatelessWidget {
                 child: Text(
                   label,
                   style: theme.textTheme.labelSmall?.copyWith(
-                    fontWeight:
-                        isExpanded ? FontWeight.bold : FontWeight.normal,
+                    fontWeight: isExpanded
+                        ? FontWeight.bold
+                        : FontWeight.normal,
                     color: isExpanded
                         ? theme.colorScheme.primary
                         : theme.colorScheme.onSurface.withValues(alpha: 0.8),
@@ -522,8 +546,8 @@ class _ConfigDividerState extends State<_ConfigDivider> {
     final color = _dragging
         ? theme.colorScheme.primary
         : _hovering
-            ? theme.colorScheme.primary.withValues(alpha: 0.5)
-            : theme.colorScheme.outlineVariant.withValues(alpha: 0.3);
+        ? theme.colorScheme.primary.withValues(alpha: 0.5)
+        : theme.colorScheme.outlineVariant.withValues(alpha: 0.3);
 
     return MouseRegion(
       cursor: SystemMouseCursors.resizeRow,
@@ -537,9 +561,7 @@ class _ConfigDividerState extends State<_ConfigDivider> {
         child: Container(
           height: 5,
           color: Colors.transparent,
-          child: Center(
-            child: Container(height: 1, color: color),
-          ),
+          child: Center(child: Container(height: 1, color: color)),
         ),
       ),
     );
@@ -582,11 +604,12 @@ class _EditorSettingsSectionState extends State<_EditorSettingsSection> {
   @override
   void initState() {
     super.initState();
-    _settings = widget.shellApi?.getTextSettings(widget.editorTypeId) ??
+    _settings =
+        widget.shellApi?.getTextSettings(widget.editorTypeId) ??
         const ForgeTextSettings();
     _editorConfig =
         widget.shellApi?.getEditorSpecificConfig(widget.editorTypeId) ??
-            <String, dynamic>{};
+        <String, dynamic>{};
   }
 
   void _update(ForgeTextSettings next) {
@@ -599,10 +622,14 @@ class _EditorSettingsSectionState extends State<_EditorSettingsSection> {
 
   void _updateConfig(String key, dynamic value) {
     setState(() => _editorConfig[key] = value);
-    widget.preferencesService
-        .setEditorSpecificConfig(widget.editorTypeId, _editorConfig);
-    widget.shellApi
-        ?.setEditorSpecificConfig(widget.editorTypeId, _editorConfig);
+    widget.preferencesService.setEditorSpecificConfig(
+      widget.editorTypeId,
+      _editorConfig,
+    );
+    widget.shellApi?.setEditorSpecificConfig(
+      widget.editorTypeId,
+      _editorConfig,
+    );
     widget.preferencesService.save();
     widget.onChanged?.call();
   }
@@ -637,8 +664,10 @@ class _EditorSettingsSectionState extends State<_EditorSettingsSection> {
                   decoration: const InputDecoration(
                     labelText: 'Font Family',
                     border: OutlineInputBorder(),
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
                     isDense: true,
                   ),
                   onChanged: (v) {
@@ -658,8 +687,10 @@ class _EditorSettingsSectionState extends State<_EditorSettingsSection> {
                   decoration: const InputDecoration(
                     labelText: 'Size',
                     border: OutlineInputBorder(),
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
                     isDense: true,
                   ),
                   onChanged: (v) {
@@ -680,8 +711,10 @@ class _EditorSettingsSectionState extends State<_EditorSettingsSection> {
                   decoration: const InputDecoration(
                     labelText: 'Height',
                     border: OutlineInputBorder(),
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
                     isDense: true,
                   ),
                   onChanged: (v) {
@@ -708,8 +741,10 @@ class _EditorSettingsSectionState extends State<_EditorSettingsSection> {
                   decoration: const InputDecoration(
                     labelText: 'Tab',
                     border: OutlineInputBorder(),
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
                     isDense: true,
                   ),
                   onChanged: (v) {
@@ -769,8 +804,10 @@ class _EditorSettingsSectionState extends State<_EditorSettingsSection> {
               decoration: const InputDecoration(
                 labelText: 'Max undo',
                 border: OutlineInputBorder(),
-                contentPadding:
-                    EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
                 isDense: true,
               ),
               onChanged: (v) {
@@ -808,10 +845,16 @@ class _EditorSettingsSectionState extends State<_EditorSettingsSection> {
         spacing: 4,
         runSpacing: 4,
         children: [
-          _toggle('Show toolbar', _configBool('showToolbar'),
-              (v) => _updateConfig('showToolbar', v)),
-          _toggle('Line numbers', _configBool('showLineNumbers'),
-              (v) => _updateConfig('showLineNumbers', v)),
+          _toggle(
+            'Show toolbar',
+            _configBool('showToolbar'),
+            (v) => _updateConfig('showToolbar', v),
+          ),
+          _toggle(
+            'Line numbers',
+            _configBool('showLineNumbers'),
+            (v) => _updateConfig('showLineNumbers', v),
+          ),
         ],
       ),
       const SizedBox(height: 16),
@@ -821,25 +864,32 @@ class _EditorSettingsSectionState extends State<_EditorSettingsSection> {
         spacing: 4,
         runSpacing: 4,
         children: [
-          _toggle('Enabled', _configBool('autoCompleteEnabled'),
-              (v) => _updateConfig('autoCompleteEnabled', v)),
-          _toggle('Popup below', _configBool('popupPreferBelow'),
-              (v) => _updateConfig('popupPreferBelow', v)),
+          _toggle(
+            'Enabled',
+            _configBool('autoCompleteEnabled'),
+            (v) => _updateConfig('autoCompleteEnabled', v),
+          ),
+          _toggle(
+            'Popup below',
+            _configBool('popupPreferBelow'),
+            (v) => _updateConfig('popupPreferBelow', v),
+          ),
         ],
       ),
       const SizedBox(height: 8),
       SizedBox(
         width: 100,
         child: TextFormField(
-          initialValue: _configInt('maxCompletionItems', defaultValue: 8)
-              .toString(),
+          initialValue: _configInt(
+            'maxCompletionItems',
+            defaultValue: 8,
+          ).toString(),
           keyboardType: TextInputType.number,
           style: const TextStyle(fontSize: 13),
           decoration: const InputDecoration(
             labelText: 'Max items',
             border: OutlineInputBorder(),
-            contentPadding:
-                EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             isDense: true,
           ),
           onChanged: (v) {
@@ -855,10 +905,16 @@ class _EditorSettingsSectionState extends State<_EditorSettingsSection> {
         spacing: 4,
         runSpacing: 4,
         children: [
-          _toggle('Tooltips', _configBool('showErrorTooltips'),
-              (v) => _updateConfig('showErrorTooltips', v)),
-          _toggle('Markers', _configBool('showErrorMarkers'),
-              (v) => _updateConfig('showErrorMarkers', v)),
+          _toggle(
+            'Tooltips',
+            _configBool('showErrorTooltips'),
+            (v) => _updateConfig('showErrorTooltips', v),
+          ),
+          _toggle(
+            'Markers',
+            _configBool('showErrorMarkers'),
+            (v) => _updateConfig('showErrorMarkers', v),
+          ),
         ],
       ),
       const SizedBox(height: 8),
@@ -868,10 +924,16 @@ class _EditorSettingsSectionState extends State<_EditorSettingsSection> {
         spacing: 4,
         runSpacing: 4,
         children: [
-          _toggle('Tooltips', _configBool('showWarningTooltips'),
-              (v) => _updateConfig('showWarningTooltips', v)),
-          _toggle('Markers', _configBool('showWarningMarkers'),
-              (v) => _updateConfig('showWarningMarkers', v)),
+          _toggle(
+            'Tooltips',
+            _configBool('showWarningTooltips'),
+            (v) => _updateConfig('showWarningTooltips', v),
+          ),
+          _toggle(
+            'Markers',
+            _configBool('showWarningMarkers'),
+            (v) => _updateConfig('showWarningMarkers', v),
+          ),
         ],
       ),
       const SizedBox(height: 8),
@@ -882,13 +944,15 @@ class _EditorSettingsSectionState extends State<_EditorSettingsSection> {
         runSpacing: 4,
         children: [
           _toggle(
-              'Tooltips',
-              _configBool('showInfoTooltips', defaultValue: false),
-              (v) => _updateConfig('showInfoTooltips', v)),
+            'Tooltips',
+            _configBool('showInfoTooltips', defaultValue: false),
+            (v) => _updateConfig('showInfoTooltips', v),
+          ),
           _toggle(
-              'Markers',
-              _configBool('showInfoMarkers', defaultValue: false),
-              (v) => _updateConfig('showInfoMarkers', v)),
+            'Markers',
+            _configBool('showInfoMarkers', defaultValue: false),
+            (v) => _updateConfig('showInfoMarkers', v),
+          ),
         ],
       ),
       const SizedBox(height: 16),
@@ -898,19 +962,36 @@ class _EditorSettingsSectionState extends State<_EditorSettingsSection> {
         spacing: 4,
         runSpacing: 4,
         children: [
-          _toggle('Autocomplete toggle',
-              _configBool('showAutoCompleteToggle'),
-              (v) => _updateConfig('showAutoCompleteToggle', v)),
-          _toggle('Error toggles', _configBool('showErrorToggles'),
-              (v) => _updateConfig('showErrorToggles', v)),
-          _toggle('Warning toggles', _configBool('showWarningToggles'),
-              (v) => _updateConfig('showWarningToggles', v)),
-          _toggle('Info toggles', _configBool('showInfoToggles'),
-              (v) => _updateConfig('showInfoToggles', v)),
-          _toggle('Popup position', _configBool('showPopupPositionToggle'),
-              (v) => _updateConfig('showPopupPositionToggle', v)),
-          _toggle('Open reference', _configBool('showOpenReferenceButton'),
-              (v) => _updateConfig('showOpenReferenceButton', v)),
+          _toggle(
+            'Autocomplete toggle',
+            _configBool('showAutoCompleteToggle'),
+            (v) => _updateConfig('showAutoCompleteToggle', v),
+          ),
+          _toggle(
+            'Error toggles',
+            _configBool('showErrorToggles'),
+            (v) => _updateConfig('showErrorToggles', v),
+          ),
+          _toggle(
+            'Warning toggles',
+            _configBool('showWarningToggles'),
+            (v) => _updateConfig('showWarningToggles', v),
+          ),
+          _toggle(
+            'Info toggles',
+            _configBool('showInfoToggles'),
+            (v) => _updateConfig('showInfoToggles', v),
+          ),
+          _toggle(
+            'Popup position',
+            _configBool('showPopupPositionToggle'),
+            (v) => _updateConfig('showPopupPositionToggle', v),
+          ),
+          _toggle(
+            'Open reference',
+            _configBool('showOpenReferenceButton'),
+            (v) => _updateConfig('showOpenReferenceButton', v),
+          ),
         ],
       ),
     ];
@@ -927,16 +1008,31 @@ class _EditorSettingsSectionState extends State<_EditorSettingsSection> {
         spacing: 4,
         runSpacing: 4,
         children: [
-          _toggle('Tree lines', _configBool('showTreeLines'),
-              (v) => _updateConfig('showTreeLines', v)),
-          _toggle('Collapse toggles', _configBool('showCollapseToggles'),
-              (v) => _updateConfig('showCollapseToggles', v)),
-          _toggle('Add buttons', _configBool('showAddButtons'),
-              (v) => _updateConfig('showAddButtons', v)),
-          _toggle('Remove buttons', _configBool('showRemoveButtons'),
-              (v) => _updateConfig('showRemoveButtons', v)),
-          _toggle('Inline validation', _configBool('showInlineValidation'),
-              (v) => _updateConfig('showInlineValidation', v)),
+          _toggle(
+            'Tree lines',
+            _configBool('showTreeLines'),
+            (v) => _updateConfig('showTreeLines', v),
+          ),
+          _toggle(
+            'Collapse toggles',
+            _configBool('showCollapseToggles'),
+            (v) => _updateConfig('showCollapseToggles', v),
+          ),
+          _toggle(
+            'Add buttons',
+            _configBool('showAddButtons'),
+            (v) => _updateConfig('showAddButtons', v),
+          ),
+          _toggle(
+            'Remove buttons',
+            _configBool('showRemoveButtons'),
+            (v) => _updateConfig('showRemoveButtons', v),
+          ),
+          _toggle(
+            'Inline validation',
+            _configBool('showInlineValidation'),
+            (v) => _updateConfig('showInlineValidation', v),
+          ),
         ],
       ),
       const SizedBox(height: 16),
@@ -955,15 +1051,19 @@ class _EditorSettingsSectionState extends State<_EditorSettingsSection> {
           SizedBox(
             width: 80,
             child: TextFormField(
-              initialValue:
-                  _configInt('indentWidth', defaultValue: 24).toString(),
+              initialValue: _configInt(
+                'indentWidth',
+                defaultValue: 24,
+              ).toString(),
               keyboardType: TextInputType.number,
               style: const TextStyle(fontSize: 13),
               decoration: const InputDecoration(
                 labelText: 'Indent',
                 border: OutlineInputBorder(),
-                contentPadding:
-                    EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
                 isDense: true,
               ),
               onChanged: (v) {
@@ -976,16 +1076,19 @@ class _EditorSettingsSectionState extends State<_EditorSettingsSection> {
           SizedBox(
             width: 100,
             child: TextFormField(
-              initialValue: _configInt('collapsedPreviewLines',
-                      defaultValue: 2)
-                  .toString(),
+              initialValue: _configInt(
+                'collapsedPreviewLines',
+                defaultValue: 2,
+              ).toString(),
               keyboardType: TextInputType.number,
               style: const TextStyle(fontSize: 13),
               decoration: const InputDecoration(
                 labelText: 'Preview lines',
                 border: OutlineInputBorder(),
-                contentPadding:
-                    EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
                 isDense: true,
               ),
               onChanged: (v) {
@@ -1012,16 +1115,26 @@ class _EditorSettingsSectionState extends State<_EditorSettingsSection> {
         spacing: 4,
         runSpacing: 4,
         children: [
-          _toggle('Show tree', _configBool('showTree'),
-              (v) => _updateConfig('showTree', v)),
           _toggle(
-              'Show toolbar',
-              _configBool('showToolbar', defaultValue: false),
-              (v) => _updateConfig('showToolbar', v)),
-          _toggle('Show status bar', _configBool('showStatusBar'),
-              (v) => _updateConfig('showStatusBar', v)),
-          _toggle('Show search box', _configBool('showSearchBox'),
-              (v) => _updateConfig('showSearchBox', v)),
+            'Show tree',
+            _configBool('showTree'),
+            (v) => _updateConfig('showTree', v),
+          ),
+          _toggle(
+            'Show toolbar',
+            _configBool('showToolbar', defaultValue: false),
+            (v) => _updateConfig('showToolbar', v),
+          ),
+          _toggle(
+            'Show status bar',
+            _configBool('showStatusBar'),
+            (v) => _updateConfig('showStatusBar', v),
+          ),
+          _toggle(
+            'Show search box',
+            _configBool('showSearchBox'),
+            (v) => _updateConfig('showSearchBox', v),
+          ),
         ],
       ),
       const SizedBox(height: 16),
@@ -1031,13 +1144,21 @@ class _EditorSettingsSectionState extends State<_EditorSettingsSection> {
         spacing: 4,
         runSpacing: 4,
         children: [
-          _toggle('Auto-hide editor', _configBool('autoHideEditor'),
-              (v) => _updateConfig('autoHideEditor', v)),
-          _toggle('Live preview', _configBool('livePreview'),
-              (v) => _updateConfig('livePreview', v)),
-          _toggle('Allow position change',
-              _configBool('allowEditorPositionChange'),
-              (v) => _updateConfig('allowEditorPositionChange', v)),
+          _toggle(
+            'Auto-hide editor',
+            _configBool('autoHideEditor'),
+            (v) => _updateConfig('autoHideEditor', v),
+          ),
+          _toggle(
+            'Live preview',
+            _configBool('livePreview'),
+            (v) => _updateConfig('livePreview', v),
+          ),
+          _toggle(
+            'Allow position change',
+            _configBool('allowEditorPositionChange'),
+            (v) => _updateConfig('allowEditorPositionChange', v),
+          ),
         ],
       ),
       const SizedBox(height: 16),
@@ -1048,16 +1169,25 @@ class _EditorSettingsSectionState extends State<_EditorSettingsSection> {
         runSpacing: 4,
         children: [
           _toggle(
-              'Line numbers',
-              _configBool('showLineNumbers', defaultValue: false),
-              (v) => _updateConfig('showLineNumbers', v)),
-          _toggle('Section borders', _configBool('showSectionBorders'),
-              (v) => _updateConfig('showSectionBorders', v)),
-          _toggle('Highlight section',
-              _configBool('highlightCurrentSection'),
-              (v) => _updateConfig('highlightCurrentSection', v)),
-          _toggle('Smooth scrolling', _configBool('enableSmoothScrolling'),
-              (v) => _updateConfig('enableSmoothScrolling', v)),
+            'Line numbers',
+            _configBool('showLineNumbers', defaultValue: false),
+            (v) => _updateConfig('showLineNumbers', v),
+          ),
+          _toggle(
+            'Section borders',
+            _configBool('showSectionBorders'),
+            (v) => _updateConfig('showSectionBorders', v),
+          ),
+          _toggle(
+            'Highlight section',
+            _configBool('highlightCurrentSection'),
+            (v) => _updateConfig('highlightCurrentSection', v),
+          ),
+          _toggle(
+            'Smooth scrolling',
+            _configBool('enableSmoothScrolling'),
+            (v) => _updateConfig('enableSmoothScrolling', v),
+          ),
         ],
       ),
       const SizedBox(height: 16),
@@ -1067,17 +1197,26 @@ class _EditorSettingsSectionState extends State<_EditorSettingsSection> {
         spacing: 4,
         runSpacing: 4,
         children: [
-          _toggle('Expand all', _configBool('expandAllByDefault'),
-              (v) => _updateConfig('expandAllByDefault', v)),
-          _toggle('Validation markers',
-              _configBool('showValidationMarkers'),
-              (v) => _updateConfig('showValidationMarkers', v)),
-          _toggle('Drag and drop', _configBool('enableDragAndDrop'),
-              (v) => _updateConfig('enableDragAndDrop', v)),
           _toggle(
-              'Section icons',
-              _configBool('showSectionIcons', defaultValue: false),
-              (v) => _updateConfig('showSectionIcons', v)),
+            'Expand all',
+            _configBool('expandAllByDefault'),
+            (v) => _updateConfig('expandAllByDefault', v),
+          ),
+          _toggle(
+            'Validation markers',
+            _configBool('showValidationMarkers'),
+            (v) => _updateConfig('showValidationMarkers', v),
+          ),
+          _toggle(
+            'Drag and drop',
+            _configBool('enableDragAndDrop'),
+            (v) => _updateConfig('enableDragAndDrop', v),
+          ),
+          _toggle(
+            'Section icons',
+            _configBool('showSectionIcons', defaultValue: false),
+            (v) => _updateConfig('showSectionIcons', v),
+          ),
         ],
       ),
       const SizedBox(height: 16),
@@ -1087,22 +1226,41 @@ class _EditorSettingsSectionState extends State<_EditorSettingsSection> {
         spacing: 4,
         runSpacing: 4,
         children: [
-          _toggle('Mermaid diagrams', _configBool('enableMermaid'),
-              (v) => _updateConfig('enableMermaid', v)),
-          _toggle('Math (KaTeX)', _configBool('enableMath'),
-              (v) => _updateConfig('enableMath', v)),
-          _toggle('Footnotes', _configBool('enableFootnotes'),
-              (v) => _updateConfig('enableFootnotes', v)),
-          _toggle('Task lists', _configBool('enableTaskLists'),
-              (v) => _updateConfig('enableTaskLists', v)),
-          _toggle('Interactive tasks',
-              _configBool('enableInteractiveTaskLists'),
-              (v) => _updateConfig('enableInteractiveTaskLists', v)),
-          _toggle('Tables', _configBool('enableTables'),
-              (v) => _updateConfig('enableTables', v)),
-          _toggle('Syntax highlighting',
-              _configBool('enableSyntaxHighlighting'),
-              (v) => _updateConfig('enableSyntaxHighlighting', v)),
+          _toggle(
+            'Mermaid diagrams',
+            _configBool('enableMermaid'),
+            (v) => _updateConfig('enableMermaid', v),
+          ),
+          _toggle(
+            'Math (KaTeX)',
+            _configBool('enableMath'),
+            (v) => _updateConfig('enableMath', v),
+          ),
+          _toggle(
+            'Footnotes',
+            _configBool('enableFootnotes'),
+            (v) => _updateConfig('enableFootnotes', v),
+          ),
+          _toggle(
+            'Task lists',
+            _configBool('enableTaskLists'),
+            (v) => _updateConfig('enableTaskLists', v),
+          ),
+          _toggle(
+            'Interactive tasks',
+            _configBool('enableInteractiveTaskLists'),
+            (v) => _updateConfig('enableInteractiveTaskLists', v),
+          ),
+          _toggle(
+            'Tables',
+            _configBool('enableTables'),
+            (v) => _updateConfig('enableTables', v),
+          ),
+          _toggle(
+            'Syntax highlighting',
+            _configBool('enableSyntaxHighlighting'),
+            (v) => _updateConfig('enableSyntaxHighlighting', v),
+          ),
         ],
       ),
       const SizedBox(height: 16),
@@ -1112,14 +1270,26 @@ class _EditorSettingsSectionState extends State<_EditorSettingsSection> {
         spacing: 4,
         runSpacing: 4,
         children: [
-          _toggle('Show language', _configBool('showCodeBlockLanguage'),
-              (v) => _updateConfig('showCodeBlockLanguage', v)),
-          _toggle('Copy button', _configBool('showCopyCodeButton'),
-              (v) => _updateConfig('showCopyCodeButton', v)),
-          _toggle('Edit button', _configBool('showCodeEditButton'),
-              (v) => _updateConfig('showCodeEditButton', v)),
-          _toggle('Enable editing', _configBool('enableCodeEditing'),
-              (v) => _updateConfig('enableCodeEditing', v)),
+          _toggle(
+            'Show language',
+            _configBool('showCodeBlockLanguage'),
+            (v) => _updateConfig('showCodeBlockLanguage', v),
+          ),
+          _toggle(
+            'Copy button',
+            _configBool('showCopyCodeButton'),
+            (v) => _updateConfig('showCopyCodeButton', v),
+          ),
+          _toggle(
+            'Edit button',
+            _configBool('showCodeEditButton'),
+            (v) => _updateConfig('showCodeEditButton', v),
+          ),
+          _toggle(
+            'Enable editing',
+            _configBool('enableCodeEditing'),
+            (v) => _updateConfig('enableCodeEditing', v),
+          ),
         ],
       ),
       const SizedBox(height: 16),
@@ -1129,10 +1299,16 @@ class _EditorSettingsSectionState extends State<_EditorSettingsSection> {
         spacing: 4,
         runSpacing: 4,
         children: [
-          _toggle('Edit button', _configBool('showTableEditButton'),
-              (v) => _updateConfig('showTableEditButton', v)),
-          _toggle('Enable editing', _configBool('enableTableEditing'),
-              (v) => _updateConfig('enableTableEditing', v)),
+          _toggle(
+            'Edit button',
+            _configBool('showTableEditButton'),
+            (v) => _updateConfig('showTableEditButton', v),
+          ),
+          _toggle(
+            'Enable editing',
+            _configBool('enableTableEditing'),
+            (v) => _updateConfig('enableTableEditing', v),
+          ),
         ],
       ),
       const SizedBox(height: 16),
@@ -1142,14 +1318,21 @@ class _EditorSettingsSectionState extends State<_EditorSettingsSection> {
         spacing: 4,
         runSpacing: 4,
         children: [
-          _toggle('Search', _configBool('enableSearch'),
-              (v) => _updateConfig('enableSearch', v)),
-          _toggle('Replace', _configBool('enableReplace'),
-              (v) => _updateConfig('enableReplace', v)),
           _toggle(
-              'Regex',
-              _configBool('enableRegexSearch', defaultValue: false),
-              (v) => _updateConfig('enableRegexSearch', v)),
+            'Search',
+            _configBool('enableSearch'),
+            (v) => _updateConfig('enableSearch', v),
+          ),
+          _toggle(
+            'Replace',
+            _configBool('enableReplace'),
+            (v) => _updateConfig('enableReplace', v),
+          ),
+          _toggle(
+            'Regex',
+            _configBool('enableRegexSearch', defaultValue: false),
+            (v) => _updateConfig('enableRegexSearch', v),
+          ),
         ],
       ),
       const SizedBox(height: 16),
@@ -1160,15 +1343,20 @@ class _EditorSettingsSectionState extends State<_EditorSettingsSection> {
         runSpacing: 4,
         children: [
           _toggle(
-              'Read only',
-              _configBool('readOnly', defaultValue: false),
-              (v) => _updateConfig('readOnly', v)),
-          _toggle('Confirm delete', _configBool('confirmDelete'),
-              (v) => _updateConfig('confirmDelete', v)),
+            'Read only',
+            _configBool('readOnly', defaultValue: false),
+            (v) => _updateConfig('readOnly', v),
+          ),
           _toggle(
-              'Auto save',
-              _configBool('autoSave', defaultValue: false),
-              (v) => _updateConfig('autoSave', v)),
+            'Confirm delete',
+            _configBool('confirmDelete'),
+            (v) => _updateConfig('confirmDelete', v),
+          ),
+          _toggle(
+            'Auto save',
+            _configBool('autoSave', defaultValue: false),
+            (v) => _updateConfig('autoSave', v),
+          ),
         ],
       ),
       const SizedBox(height: 16),
@@ -1195,8 +1383,7 @@ class _EditorSettingsSectionState extends State<_EditorSettingsSection> {
         hintText: hintText,
         floatingLabelBehavior: FloatingLabelBehavior.always,
         border: const OutlineInputBorder(),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         isDense: true,
         suffixIcon: IconButton(
           icon: const Icon(Icons.folder_open, size: 18),
@@ -1263,11 +1450,12 @@ class _ShortcutsSettingsSectionState extends State<_ShortcutsSettingsSection> {
       return const Center(child: Text('Shell not available'));
     }
 
-    final bindings = shellApi.shortcuts.allBindings
-        .where((b) => widget.isChord ? b.isChord : !b.isChord)
-        .where(_matchesFilter)
-        .toList(growable: false)
-      ..sort((a, b) => a.action.label.compareTo(b.action.label));
+    final bindings =
+        shellApi.shortcuts.allBindings
+            .where((b) => widget.isChord ? b.isChord : !b.isChord)
+            .where(_matchesFilter)
+            .toList(growable: false)
+          ..sort((a, b) => a.action.label.compareTo(b.action.label));
 
     // Group bindings by key for multi-action detection.
     final keyGroups = <String, List<ForgeShortcutBinding>>{};
@@ -1275,8 +1463,10 @@ class _ShortcutsSettingsSectionState extends State<_ShortcutsSettingsSection> {
       keyGroups.putIfAbsent(b.displayString, () => []).add(b);
     }
     final groupEntries = keyGroups.entries.toList()
-      ..sort((a, b) => a.value.first.action.label
-          .compareTo(b.value.first.action.label));
+      ..sort(
+        (a, b) =>
+            a.value.first.action.label.compareTo(b.value.first.action.label),
+      );
 
     return Column(
       children: [
@@ -1295,11 +1485,15 @@ class _ShortcutsSettingsSectionState extends State<_ShortcutsSettingsSection> {
                         : 'Search shortcuts...',
                     border: const OutlineInputBorder(),
                     contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 8),
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
                     isDense: true,
                     prefixIcon: const Icon(Icons.search, size: 16),
-                    prefixIconConstraints:
-                        const BoxConstraints(minWidth: 32, minHeight: 32),
+                    prefixIconConstraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
                   ),
                 ),
               ),
@@ -1309,24 +1503,20 @@ class _ShortcutsSettingsSectionState extends State<_ShortcutsSettingsSection> {
                 tooltip: widget.isChord ? 'Add Chord' : 'Add Shortcut',
                 onPressed: () => _addBinding(shellApi),
                 padding: EdgeInsets.zero,
-                constraints:
-                    const BoxConstraints(minWidth: 28, minHeight: 28),
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
               ),
               if (!widget.isChord) ...[
                 const SizedBox(width: 4),
                 TextButton(
                   onPressed: bindings.isEmpty ? null : _resetAll,
-                  child:
-                      const Text('Reset', style: TextStyle(fontSize: 11)),
+                  child: const Text('Reset', style: TextStyle(fontSize: 11)),
                 ),
               ],
             ],
           ),
         ),
         if (groupEntries.isEmpty)
-          const Expanded(
-            child: Center(child: Text('No matches')),
-          )
+          const Expanded(child: Center(child: Text('No matches')))
         else
           Expanded(
             child: ListView.builder(
@@ -1345,17 +1535,11 @@ class _ShortcutsSettingsSectionState extends State<_ShortcutsSettingsSection> {
     );
   }
 
-  Widget _buildSingleActionTile(
-    ThemeData theme,
-    ForgeShortcutBinding binding,
-  ) {
+  Widget _buildSingleActionTile(ThemeData theme, ForgeShortcutBinding binding) {
     return ListTile(
       dense: true,
       visualDensity: VisualDensity.compact,
-      title: Text(
-        binding.action.label,
-        style: const TextStyle(fontSize: 12),
-      ),
+      title: Text(binding.action.label, style: const TextStyle(fontSize: 12)),
       subtitle: Text(
         binding.context ?? 'Global',
         style: TextStyle(
@@ -1368,16 +1552,12 @@ class _ShortcutsSettingsSectionState extends State<_ShortcutsSettingsSection> {
         children: [
           Text(
             binding.displayString,
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 12,
-            ),
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
           ),
           const SizedBox(width: 4),
           InkWell(
-            onTap: () => widget.isChord
-                ? _rebindChord(binding)
-                : _rebind(binding),
+            onTap: () =>
+                widget.isChord ? _rebindChord(binding) : _rebind(binding),
             child: Padding(
               padding: const EdgeInsets.all(4),
               child: Text(
@@ -1397,8 +1577,7 @@ class _ShortcutsSettingsSectionState extends State<_ShortcutsSettingsSection> {
               child: Icon(
                 Icons.close,
                 size: 12,
-                color:
-                    theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
               ),
             ),
           ),
@@ -1431,8 +1610,11 @@ class _ShortcutsSettingsSectionState extends State<_ShortcutsSettingsSection> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Icon(Icons.warning_amber_rounded,
-                    size: 12, color: warningColor),
+                Icon(
+                  Icons.warning_amber_rounded,
+                  size: 12,
+                  color: warningColor,
+                ),
                 const SizedBox(width: 2),
                 Text(
                   '${group.length} actions',
@@ -1459,8 +1641,9 @@ class _ShortcutsSettingsSectionState extends State<_ShortcutsSettingsSection> {
                             text: '  (${binding.context ?? "Global"})',
                             style: TextStyle(
                               fontSize: 10,
-                              color: theme.colorScheme.onSurface
-                                  .withValues(alpha: 0.5),
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.5,
+                              ),
                             ),
                           ),
                         ],
@@ -1474,8 +1657,9 @@ class _ShortcutsSettingsSectionState extends State<_ShortcutsSettingsSection> {
                       child: Icon(
                         Icons.close,
                         size: 12,
-                        color: theme.colorScheme.onSurface
-                            .withValues(alpha: 0.4),
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.4,
+                        ),
                       ),
                     ),
                   ),
@@ -1521,11 +1705,13 @@ class _ShortcutsSettingsSectionState extends State<_ShortcutsSettingsSection> {
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.of(ctx).pop(false),
-                child: const Text('Cancel')),
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancel'),
+            ),
             ElevatedButton(
-                onPressed: () => Navigator.of(ctx).pop(true),
-                child: const Text('Replace')),
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Replace'),
+            ),
           ],
         ),
       );
@@ -1581,8 +1767,7 @@ class _ShortcutsSettingsSectionState extends State<_ShortcutsSettingsSection> {
           );
           shellApi.actionRegistry.registerAction(wildcardAction);
           shellApi.shortcuts.rebind(wildcardAction, captured);
-          widget.preferencesService
-              .setShortcutOverride(wildcardId, captured);
+          widget.preferencesService.setShortcutOverride(wildcardId, captured);
           // Remove the specific binding to avoid conflicts.
           shellApi.shortcuts.removeBinding(actionId);
           widget.preferencesService.removeShortcutOverride(actionId);
@@ -1618,10 +1803,8 @@ class _ShortcutsSettingsSectionState extends State<_ShortcutsSettingsSection> {
 
     final chosen = await showDialog<ForgeAction>(
       context: context,
-      builder: (ctx) => _ActionPickerDialog(
-        actions: sortedActions,
-        boundIds: boundIds,
-      ),
+      builder: (ctx) =>
+          _ActionPickerDialog(actions: sortedActions, boundIds: boundIds),
     );
     if (chosen == null || !mounted) return;
 
@@ -1645,11 +1828,13 @@ class _ShortcutsSettingsSectionState extends State<_ShortcutsSettingsSection> {
             ),
             actions: [
               TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(false),
-                  child: const Text('Cancel')),
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('Cancel'),
+              ),
               ElevatedButton(
-                  onPressed: () => Navigator.of(ctx).pop(true),
-                  child: const Text('Replace')),
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: const Text('Replace'),
+              ),
             ],
           ),
         );
@@ -1722,8 +1907,9 @@ class _ShortcutsSettingsSectionState extends State<_ShortcutsSettingsSection> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
         ],
       ),
     );
@@ -1745,10 +1931,7 @@ class _ActionPickerDialog extends StatefulWidget {
   final List<ForgeAction> actions;
   final Set<String> boundIds;
 
-  const _ActionPickerDialog({
-    required this.actions,
-    required this.boundIds,
-  });
+  const _ActionPickerDialog({required this.actions, required this.boundIds});
 
   @override
   State<_ActionPickerDialog> createState() => _ActionPickerDialogState();
@@ -1781,12 +1964,16 @@ class _ActionPickerDialogState extends State<_ActionPickerDialog> {
               decoration: const InputDecoration(
                 hintText: 'Filter actions...',
                 border: OutlineInputBorder(),
-                contentPadding:
-                    EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
                 isDense: true,
                 prefixIcon: Icon(Icons.search, size: 16),
-                prefixIconConstraints:
-                    BoxConstraints(minWidth: 32, minHeight: 32),
+                prefixIconConstraints: BoxConstraints(
+                  minWidth: 32,
+                  minHeight: 32,
+                ),
               ),
             ),
             const SizedBox(height: 8),
@@ -1810,13 +1997,17 @@ class _ActionPickerDialogState extends State<_ActionPickerDialog> {
                       action.id,
                       style: TextStyle(
                         fontSize: 10,
-                        color: theme.colorScheme.onSurface
-                            .withValues(alpha: 0.5),
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.5,
+                        ),
                       ),
                     ),
                     trailing: isBound
-                        ? Icon(Icons.check, size: 14,
-                            color: theme.colorScheme.primary)
+                        ? Icon(
+                            Icons.check,
+                            size: 14,
+                            color: theme.colorScheme.primary,
+                          )
                         : null,
                     onTap: () => Navigator.of(context).pop(action),
                   );
@@ -1858,9 +2049,11 @@ class _ChordCaptureDialogState extends State<_ChordCaptureDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(_firstKey == null
-          ? 'Press first key combination'
-          : 'Press second key combination'),
+      title: Text(
+        _firstKey == null
+            ? 'Press first key combination'
+            : 'Press second key combination',
+      ),
       content: Focus(
         autofocus: true,
         onKeyEvent: (_, event) {
@@ -1875,9 +2068,9 @@ class _ChordCaptureDialogState extends State<_ChordCaptureDialog> {
             setState(() => _firstKey = key);
             return KeyEventResult.handled;
           }
-          Navigator.of(context).pop(
-            ForgeChordKey(firstKey: _firstKey!, secondKey: key),
-          );
+          Navigator.of(
+            context,
+          ).pop(ForgeChordKey(firstKey: _firstKey!, secondKey: key));
           return KeyEventResult.handled;
         },
         child: Column(
@@ -1892,9 +2085,11 @@ class _ChordCaptureDialogState extends State<_ChordCaptureDialog> {
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
-            Text(_firstKey == null
-                ? 'Press a key combination for the first key.\nEsc to cancel.'
-                : 'Now press the second key combination.\nEsc to cancel.'),
+            Text(
+              _firstKey == null
+                  ? 'Press a key combination for the first key.\nEsc to cancel.'
+                  : 'Now press the second key combination.\nEsc to cancel.',
+            ),
           ],
         ),
       ),
@@ -1963,7 +2158,8 @@ class _FileTypesSettingsSectionState extends State<_FileTypesSettingsSection> {
     final shellDefaults = widget.shellApi?.getFileTypeDefaults();
     if (shellDefaults != null) _mappings.addAll(shellDefaults);
     // Extract the wildcard/default mapping or fall back to 'plaintext'.
-    _defaultEditor = _mappings.remove('*') ??
+    _defaultEditor =
+        _mappings.remove('*') ??
         widget.preferencesService.fileTypeDefaultEditors['*'] ??
         'plaintext';
     widget.preferencesService.addListener(_onPreferencesChanged);
@@ -1991,7 +2187,8 @@ class _FileTypesSettingsSectionState extends State<_FileTypesSettingsSection> {
         next[entry.key] = entry.value;
       }
     }
-    final unchanged = next.length == _mappings.length &&
+    final unchanged =
+        next.length == _mappings.length &&
         next.entries.every((e) => _mappings[e.key] == e.value);
     if (defaultEditor == _defaultEditor && unchanged) return;
     setState(() {
@@ -2056,8 +2253,11 @@ class _FileTypesSettingsSectionState extends State<_FileTypesSettingsSection> {
   }
 
   void _write() {
-    final previousPreferenceKeys =
-        widget.preferencesService.fileTypeDefaultEditors.keys.toSet();
+    final previousPreferenceKeys = widget
+        .preferencesService
+        .fileTypeDefaultEditors
+        .keys
+        .toSet();
     final previousShellKeys =
         widget.shellApi?.getFileTypeDefaults().keys.toSet() ?? <String>{};
     final nextKeys = <String>{..._mappings.keys, '*'};
@@ -2071,7 +2271,9 @@ class _FileTypesSettingsSectionState extends State<_FileTypesSettingsSection> {
 
     for (final entry in _mappings.entries) {
       widget.preferencesService.setFileTypeDefaultEditor(
-          entry.key, entry.value);
+        entry.key,
+        entry.value,
+      );
       widget.shellApi?.setFileTypeDefault(entry.key, entry.value);
     }
     // Save the default editor for unmapped extensions.
@@ -2125,14 +2327,17 @@ class _FileTypesSettingsSectionState extends State<_FileTypesSettingsSection> {
             initialValue: _defaultEditor,
             decoration: const InputDecoration(
               border: OutlineInputBorder(),
-              contentPadding:
-                  EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
               isDense: true,
             ),
             style: const TextStyle(fontSize: 12),
             items: _editorTypeIds
-                .map((id) => DropdownMenuItem(
-                    value: id, child: Text(_editorTitle(id))))
+                .map(
+                  (id) => DropdownMenuItem(
+                    value: id,
+                    child: Text(_editorTitle(id)),
+                  ),
+                )
                 .toList(),
             onChanged: (value) {
               if (value != null) {
@@ -2175,14 +2380,20 @@ class _FileTypesSettingsSectionState extends State<_FileTypesSettingsSection> {
                         initialValue: entry.value,
                         decoration: const InputDecoration(
                           border: OutlineInputBorder(),
-                          contentPadding:
-                              EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 6,
+                          ),
                           isDense: true,
                         ),
                         style: const TextStyle(fontSize: 12),
                         items: _editorIdsFor(entry.key, entry.value)
-                            .map((id) => DropdownMenuItem(
-                                value: id, child: Text(_editorTitle(id))))
+                            .map(
+                              (id) => DropdownMenuItem(
+                                value: id,
+                                child: Text(_editorTitle(id)),
+                              ),
+                            )
                             .toList(),
                         onChanged: (value) {
                           if (value != null) {
@@ -2202,8 +2413,9 @@ class _FileTypesSettingsSectionState extends State<_FileTypesSettingsSection> {
                       child: Icon(
                         Icons.close,
                         size: 14,
-                        color: theme.colorScheme.onSurface
-                            .withValues(alpha: 0.4),
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.4,
+                        ),
                       ),
                     ),
                   ),
@@ -2218,15 +2430,14 @@ class _FileTypesSettingsSectionState extends State<_FileTypesSettingsSection> {
                 child: TextField(
                   key: const Key('file-type-new-extension'),
                   controller: _newExtController,
-                  style: const TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 12,
-                  ),
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
                   decoration: const InputDecoration(
                     hintText: '.ext',
                     border: OutlineInputBorder(),
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 6,
+                    ),
                     isDense: true,
                   ),
                   onSubmitted: (_) => _addExtension(),
@@ -2238,8 +2449,7 @@ class _FileTypesSettingsSectionState extends State<_FileTypesSettingsSection> {
                 tooltip: 'Add Extension',
                 onPressed: _addExtension,
                 padding: EdgeInsets.zero,
-                constraints:
-                    const BoxConstraints(minWidth: 28, minHeight: 28),
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
               ),
             ],
           ),
