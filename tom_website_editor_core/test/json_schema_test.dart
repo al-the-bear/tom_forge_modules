@@ -5,14 +5,11 @@
 // (a) the schema is generated correctly, (b) it agrees with the runtime
 // validator on the same rules, and (c) the committed schema file is in sync.
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:tom_website_editor_core/tom_website_editor_core.dart';
 import 'package:test/test.dart';
 
-/// Committed schema location (relative to the package root).
-const _committedSchemaPath =
-    '../../.tom/json-schema/website-editor/tom.website-editor.schema.json';
+import '../tool/schema_location.dart';
 
 void main() {
   group('websiteEditorJsonSchema — structure', () {
@@ -29,7 +26,8 @@ void main() {
       expect(required, containsAll(<String>['version', 'websites']));
     });
 
-    test('TWEC-SCH-03: version is a const integer; websites is a non-empty array',
+    test(
+        'TWEC-SCH-03: version is a const integer; websites is a non-empty array',
         () {
       final props = schema['properties'] as Map<String, dynamic>;
       final version = props['version'] as Map<String, dynamic>;
@@ -44,10 +42,12 @@ void main() {
       final props = schema['properties'] as Map<String, dynamic>;
       final websites = props['websites'] as Map<String, dynamic>;
       final item = websites['items'] as Map<String, dynamic>;
-      expect((item['required'] as List).cast<String>(), containsAll(['id', 'paths']));
+      expect((item['required'] as List).cast<String>(),
+          containsAll(['id', 'paths']));
       final paths = (item['properties'] as Map<String, dynamic>)['paths']
           as Map<String, dynamic>;
-      expect((paths['required'] as List).cast<String>(), contains('websiteRoot'));
+      expect(
+          (paths['required'] as List).cast<String>(), contains('websiteRoot'));
     });
 
     test('TWEC-SCH-05: commands is a map of string command templates', () {
@@ -102,14 +102,15 @@ websites:
 ''');
       expect(result.isValid, isFalse);
       final item = ((websiteEditorJsonSchema()['properties']
-              as Map<String, dynamic>)['websites'] as Map<String, dynamic>)['items']
-          as Map<String, dynamic>;
+              as Map<String, dynamic>)['websites']
+          as Map<String, dynamic>)['items'] as Map<String, dynamic>;
       final commands =
           (item['properties'] as Map<String, dynamic>)['commands'] as Map;
       expect(commands['type'], 'object');
     });
 
-    test('TWEC-SCH-10: malformed paths — validator rejects, schema requires '
+    test(
+        'TWEC-SCH-10: malformed paths — validator rejects, schema requires '
         'websiteRoot', () {
       final result = loadWebsiteEditorConfig('''
 version: 1
@@ -119,19 +120,22 @@ websites:
 ''');
       expect(result.isValid, isFalse);
       final item = ((websiteEditorJsonSchema()['properties']
-              as Map<String, dynamic>)['websites'] as Map<String, dynamic>)['items']
-          as Map<String, dynamic>;
+              as Map<String, dynamic>)['websites']
+          as Map<String, dynamic>)['items'] as Map<String, dynamic>;
       final paths =
           (item['properties'] as Map<String, dynamic>)['paths'] as Map;
-      expect((paths['required'] as List).cast<String>(), contains('websiteRoot'));
+      expect(
+          (paths['required'] as List).cast<String>(), contains('websiteRoot'));
     });
   });
 
   group('committed schema file is in sync', () {
-    test('TWEC-SCH-08: .tom/json-schema file equals the generated schema', () {
-      final file = File(_committedSchemaPath);
+    test(
+        'TWEC-SCH-08: the Tom root\'s .tom/json-schema file equals the '
+        'generated schema', () {
+      final file = committedWebsiteEditorSchema();
       expect(file.existsSync(), isTrue,
-          reason: 'committed schema missing at $_committedSchemaPath — '
+          reason: 'committed schema missing at ${file.path} — '
               'run tool/write_schema.dart');
       final onDisk = jsonDecode(file.readAsStringSync());
       expect(onDisk, equals(websiteEditorJsonSchema()),

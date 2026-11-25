@@ -1,5 +1,6 @@
 // Regenerates the committed JSON Schema for `tom.website-editor.yaml` from the
-// field-spec model (the single source of truth). Run from the package root:
+// field-spec model (the single source of truth) into the Tom root's
+// `.tom/json-schema/website-editor/`. Run from the package root:
 //
 //   dart run tool/write_schema.dart
 //
@@ -8,12 +9,11 @@ import 'dart:io';
 
 import 'package:tom_website_editor_core/tom_website_editor_core.dart';
 
-/// Committed schema location, relative to the package root.
-const _committedSchemaPath =
-    '../../.tom/json-schema/website-editor/tom.website-editor.schema.json';
+import 'schema_location.dart';
 
 void main() {
-  final file = File(_committedSchemaPath);
+  // The Tom root's `.tom/json-schema/website-editor/` (schema_location.dart).
+  final file = committedWebsiteEditorSchema();
   file.parent.createSync(recursive: true);
   file.writeAsStringSync(websiteEditorJsonSchemaString());
   stdout.writeln('Wrote ${file.path}');

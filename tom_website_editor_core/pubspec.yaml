@@ -17,4 +17,6 @@ dependencies:
 
 dev_dependencies:
   lints: ^6.0.0
+  # tool/schema_location.dart (the tool and the schema test).
+  path: ^1.9.0
   test: ^1.25.6

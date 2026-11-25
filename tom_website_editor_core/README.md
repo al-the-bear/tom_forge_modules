@@ -103,13 +103,16 @@ print(resolver.resolve('{builtDir}')); // fully-expanded absolute path
 
 The field-spec tree in `lib/src/config/config_schema.dart` drives **both** the
 runtime validator **and** the published JSON Schema, so the two can never
-disagree. The committed schema lives at:
+disagree. The committed schema lives in the Tom root's `.tom` (the
+`al_the_bear` repository), the root being the nearest folder above the package
+that holds `.tom/tom_root.yaml` (`tool/schema_location.dart`):
 
-```
-.tom/json-schema/website-editor/tom.website-editor.schema.json
+```text
+<tom root>/.tom/json-schema/website-editor/tom.website-editor.schema.json
 ```
 
-Regenerate it after changing the field-spec:
+A workspace folder's own `.tom` holds no schemas. Regenerate the file after
+changing the field-spec, then commit it in the root's repository:
 
 ```bash
 dart run tool/write_schema.dart
