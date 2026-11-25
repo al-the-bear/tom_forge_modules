@@ -47,6 +47,7 @@ flag lets the compiler eliminate all dead code.
 | LibreOfficeKit editor in Forge (`tom_forge_office_lok`) | `lib/src/forge_office_trail.dart` | `kForgeOfficeDebug` (switchable at run time), prefix `[FO]` |
 | ZetaOffice editor in Forge (`tom_forge_office_zetaoffice`) | `lib/src/forge_zetaoffice_trail.dart` | `kForgeZetaOfficeDebug` (switchable at run time), prefix `[FZO]` |
 | File explorer (`tom_forge_file_explorer`) | `lib/src/forge_file_explorer_trail.dart` | `kForgeFileExplorerDebug` (switchable at run time), prefix `[FX]`: the walks, root and filter changes, the restore |
+| Configuration tiles (`tom_configuration_ui`) | `lib/src/configuration_ui_trail.dart` | `kConfigurationUiDebug` (switchable at run time), prefix `[CU`: edits, commits and refusals, resets, tiles mounted and disposed |
 
 `tom_forge_app/test/editor_component_contract_test.dart` (EC-4) checks that
 every editor component has such a trail with its switch off.

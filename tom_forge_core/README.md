@@ -15,6 +15,12 @@ stack under `DefaultUndoManager` is
   editors exchange, a listenable, and the workspace edit.
 - **Documents and configuration** — `ForgeDocument`, `ForgeConfig` and the
   search configuration.
+- **Configuration descriptions** — what a component can be configured in:
+  `ForgeConfigurationDescription`, its `ForgeSettingsSection`s and typed
+  `ForgeSetting`s (bool, int, double, string, choice, string list, path,
+  colour, string map; `ForgeSettingKinds`), each with its storage location,
+  default, constraints and `ForgeText` labels (a resource key with its
+  English fallback). See *Configuration descriptions* below.
 - **Service contracts** — clipboard, configuration, diagnostics, execution
   monitoring, notifications, output channels, progress, search, secret
   storage, terminals, undo, virtual documents, the performance contract and
@@ -92,6 +98,38 @@ id, label, enabled, reason, group and `run`; `children` makes it a submenu
 
 The drawing lives in `tom_forge_shared_ui` (`forgeContextMenuItems`,
 `showForgeContextMenuEntries`) and `tom_forge_kit` (`ForgeContextMenuController`).
+
+## Configuration descriptions
+
+Every component with options describes them (`src/configuration/`); the
+application only decides how they are shown:
+
+- `ForgeConfigurationDescription` — a component's id, title, help and
+  sections; `settingById`, `sectionById`, and `problems()`, which lists for
+  its author what is wrong with it (an id twice, two settings at one storage
+  location, a default that breaks its own constraints, a condition on a
+  setting it lacks).
+- `ForgeSettingsSection` — the settings shown together (an application shows
+  each as one tile): title, help, icon (`ForgeIconRef`, a glyph as data),
+  `order` among all sections (`forgeOrderedSections`).
+- `ForgeSetting<T>` — one typed entry: where its value is kept
+  (`ForgeSettingStorage`: a state-store key and a path of map keys inside the
+  document, so several settings share one document), its label, help,
+  default, `visibleWhen` / `enabledWhen`, and `decode`, `encode`, `validate`,
+  `check` and `read` (a stored value it refuses leaves the default in effect,
+  with the reason). The kinds (`ForgeSettingKinds`): `ForgeBoolSetting`,
+  `ForgeIntSetting`, `ForgeDoubleSetting`, `ForgeStringSetting`,
+  `ForgeChoiceSetting`, `ForgeStringListSetting`, `ForgePathSetting`,
+  `ForgeColorSetting`, `ForgeStringMapSetting`. A new kind is a subclass with
+  a kind id of its own and an editor registered under it.
+- `ForgeText` — a user-visible string as a resource key with its English
+  fallback and `{name}` parameters; `resolve(lookup)` fills it from any
+  lookup. The validation messages are `ForgeConfigurationTexts`
+  (`forge.configuration.validation.*`).
+
+`tom_forge_kit` collects the descriptions of the registered modules and keeps
+the values through its state-store port (`ForgeConfigurationValues`);
+`tom_configuration_ui` draws a section as a tile.
 
 ## License
 

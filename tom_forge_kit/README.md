@@ -203,6 +203,23 @@ for one: `ForgeExternalTool` descriptors with their detection, `check` and
 is not usable — LibreOffice's install help — which the panel shell shows as
 rows of its *External Tools* section); the others are the application's.
 
+## Configuration descriptions and their values
+
+Every component with options describes them (`tom_forge_core`'s
+`ForgeConfigurationDescription`); its module hands the descriptions over as a
+`ForgeConfigurationDescriptionsExtra`, and `forgeConfigurationDescriptionsOf(api)`
+(or `forgeConfigurationDescriptions(registry)`, with the module of each)
+collects them from every registered module, the first description of an id
+winning. `ForgeConfigurationValues` keeps their values through the
+state-store port, under the store's rule (restore with `load()`, then one
+write per gesture): `valueOf` answers the stored value when it is valid,
+else the default, and reports a refused stored value (`problems`,
+`onProblem`); `set` validates and writes, answering why when it refuses;
+`reset` removes the stored value; `listenable`, `changes` and the notifier
+announce changes; settings stored at a path share one document. How the
+sections are shown is the application's decision; `tom_configuration_ui`
+draws each as a tile.
+
 ## Contributed views
 
 A module lists its views in `ForgeKitModule.views` and gives each a

@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- **Configuration contributions and values:** a module hands its
+  components' configuration descriptions (`tom_forge_core`) over as a
+  `ForgeConfigurationDescriptionsExtra` (`forge.kit.configurationDescriptions`);
+  `forgeConfigurationDescriptions(registry)` / `forgeConfigurationDescriptionsOf(api)`
+  collect them from every registered module (the first description of an id
+  wins). `ForgeConfigurationValues` keeps their values through the
+  state-store port: `valueOf` (the stored value when valid, else the default;
+  a refused stored value is reported in `problems` / `onProblem`), `set`
+  (validates; refused values are not written), `reset`, `isStored`,
+  `isVisible` / `isEnabled`, `listenable`, `changes`, `load` / `reload` /
+  `flushed`; settings with a storage path share their key's document, and
+  the writes of one gesture are one store write. `tom_configuration_ui`
+  draws the tiles.
+
 - `ForgeExternalTool.buildHelp(context, copy, checkAgain:)`: help a tool
   shows in its row while its copy is not usable (default none); the panel
   shell's *External Tools* section shows it under the row instead of the

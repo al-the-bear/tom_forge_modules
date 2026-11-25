@@ -1,5 +1,21 @@
 ## Unreleased
 
+- **The configuration description** (`src/configuration/`): what a
+  component can be configured in, as data an application shows as it
+  decides. `ForgeConfigurationDescription` (id, title, help, sections;
+  `problems()` lists what is wrong with it for its author),
+  `ForgeSettingsSection` (a tile's worth of settings: title, help,
+  `ForgeIconRef`, order) and `forgeOrderedSections`; `ForgeSetting<T>` with
+  its `ForgeSettingStorage` (a state-store key and a path inside its
+  document), default, help, `visibleWhen` / `enabledWhen`
+  (`ForgeSettingCondition`), `decode` / `encode` / `validate` / `read`; the
+  kinds `ForgeSettingKinds` names — bool, int, double, string, choice,
+  string list, path, colour, string map — each a subclass with its
+  constraints; `ForgeText`, a label as a resource key with its English
+  fallback and parameters, and `ForgeConfigurationTexts`, the validation
+  messages. Pure Dart; `tom_forge_kit` keeps the values, and
+  `tom_configuration_ui` draws the tiles.
+
 - `ForgeContextMenuEntry.children` (a submenu: choosing the entry shows its
   children instead of running it, `hasChildren`) and `checked` (a checkable
   entry, drawn with a checkmark when true; null: not checkable). Both are

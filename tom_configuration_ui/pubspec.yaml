@@ -1,0 +1,48 @@
+name: tom_configuration_ui
+description: >-
+  The configuration tiles of the Forge kit: one tile per section of a component's configuration description, always drawn the same, with an editor per kind of setting (a registry an application extends) on tom_flutter_ui's form fields, labels through Tom Core's text resources; the application arranges the tiles.
+  License: BSD-3-Clause.
+publish_to: none
+version: 0.1.0
+repository: https://github.com/al-the-bear/tom_forge_modules
+
+environment:
+  sdk: ^3.11.0
+  flutter: ">=1.17.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # The configuration description (ForgeConfigurationDescription, the setting
+  # kinds, ForgeText).
+  tom_forge_core:
+    path: ../tom_forge_core
+  # The values service over the state-store port (ForgeConfigurationValues).
+  # Never the shell (R9).
+  tom_forge_kit:
+    path: ../tom_forge_kit
+  # The theme tokens a tile is drawn with (ForgeShellTheme).
+  tom_forge_shared_ui:
+    path: ../tom_forge_shared_ui
+  # The declarative form system's field widgets (TomFormFieldFamily) the
+  # editors are built on, and its label resolution (TomFormLabels).
+  tom_flutter_ui:
+    path: ../../core/tom_flutter_ui
+  # Tom Core's text resources (TomTextResourceProvider), which the labels are
+  # resolved through.
+  tom_core_kernel:
+    path: ../../core/tom_core_kernel
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  # The kit API a fake module registers with in the tests.
+  tom_file_system:
+    path: ../../basics/tom_file_system
+  # The golden harness: real fonts, readable colours, failures in testlog/.
+  tom_ui_testing:
+    path: ../../modules/tom_ui_testing
+
+flutter:
+  uses-material-design: true
