@@ -28,6 +28,13 @@ dependencies:
   # The file tree it lists and changes (TomFileSystem, TomFileEntry).
   tom_file_system:
     path: ../../basics/tom_file_system
+  # The filter rules, their presets and their persisted form (ForgeFilter,
+  # ForgeBuiltInPresets): the rule list of Webwork's Workspace browser (D36
+  # §4), one implementation for both.
+  tom_file_session:
+    path: ../../modules/tom_file_session
+  # The .gitignore matching of the filter's gitignored rule (TomGitignore).
+  tom_basics: ^3.3.0
 
 dev_dependencies:
   flutter_test:
