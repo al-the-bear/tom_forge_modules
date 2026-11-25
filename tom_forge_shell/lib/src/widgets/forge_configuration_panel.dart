@@ -1,9 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:tom_configuration_ui/tom_configuration_ui.dart';
 import 'package:tom_editors_shared/text_types.dart'
     show ForgeTextSettings;
 import 'package:tom_forge_core/tom_forge_core.dart'
-  show AutoSaveConfig, DefaultConfigManager, ForgeConfig, ForgeSearchConfig;
+  show
+      AutoSaveConfig,
+      DefaultConfigManager,
+      ForgeConfig,
+      ForgeConfigurationSectionRef,
+      ForgePathKind,
+      ForgePathSetting,
+      ForgeSearchConfig,
+      forgeOrderedSections;
 import 'package:tom_forge_kit/tom_forge_kit.dart';
 
 import '../module/forge_config_panel.dart';
@@ -14,13 +23,21 @@ import '../tools/forge_external_tools_section.dart';
 
 /// In-panel configuration view shown when the config cog is clicked.
 ///
-/// Displays settings sections as an expandable list (shell, terminal,
-/// editor configs, shortcuts, file types) plus any module-contributed
-/// [ForgeConfigPanel]s.
+/// Displays settings sections as an expandable list: first one tile
+/// (`tom_configuration_ui`'s [ForgeConfigurationTile]) per section of the
+/// configuration descriptions the modules contribute ([configurationValues]),
+/// then the built-in sections (shell, terminal, editor configs, shortcuts,
+/// file types) and any module-contributed [ForgeConfigPanel]s.
 class ForgeConfigurationPanel extends StatefulWidget {
   final ForgePreferencesService preferencesService;
   final ForgeShellApi? shellApi;
   final List<ForgeConfigPanel> modulePanels;
+
+  /// The values of the modules' configuration descriptions (the kit's
+  /// values service over the shell's state store); each section of its
+  /// descriptions is an accordion entry before the built-in sections. Null
+  /// or without descriptions: none.
+  final ForgeConfigurationValues? configurationValues;
 
   /// The external tools the modules registered (the *External Tools*
   /// section's rows).
@@ -35,6 +52,7 @@ class ForgeConfigurationPanel extends StatefulWidget {
     required this.preferencesService,
     this.shellApi,
     this.modulePanels = const [],
+    this.configurationValues,
     this.externalTools = const [],
     this.onSettingsChanged,
     this.expandSection,
@@ -65,8 +83,27 @@ class _ForgeConfigurationPanelState extends State<ForgeConfigurationPanel> {
     _SectionDef('External Tools', Icons.build_outlined),
   ];
 
-  int get _totalSections =>
+  /// The sections of the configuration descriptions, in their order. They
+  /// are shown first but numbered after the built-in sections and the module
+  /// panels, so [ForgeConfigurationPanel.expandSection]'s indices (quick
+  /// open's) keep naming the same sections.
+  List<ForgeConfigurationSectionRef> get _describedSections {
+    final values = widget.configurationValues;
+    return values == null
+        ? const []
+        : forgeOrderedSections(values.descriptions);
+  }
+
+  int get _firstDescribedIndex =>
       _builtInSections.length + widget.modulePanels.length;
+
+  int get _totalSections => _firstDescribedIndex + _describedSections.length;
+
+  /// The section indices in the order they are shown.
+  List<int> get _displayOrder => [
+    for (var i = _firstDescribedIndex; i < _totalSections; i++) i,
+    for (var i = 0; i < _firstDescribedIndex; i++) i,
+  ];
 
   @override
   void initState() {
@@ -108,14 +145,20 @@ class _ForgeConfigurationPanelState extends State<ForgeConfigurationPanel> {
   Widget build(BuildContext context) {
     // Build all section entries with their headers and content.
     final children = <Widget>[];
-    final expandedIndices = List.generate(_totalSections, (i) => i)
-        .where(_expandedSections.contains)
-        .toList();
+    final described = _describedSections;
+    final order = _displayOrder;
+    final expandedIndices = order.where(_expandedSections.contains).toList();
 
-    for (var index = 0; index < _totalSections; index++) {
+    for (final index in order) {
       final String label;
       final IconData icon;
-      if (index < _builtInSections.length) {
+      if (index >= _firstDescribedIndex) {
+        final section = described[index - _firstDescribedIndex].section;
+        label = ForgeConfigurationLabels.resolve(section.title);
+        icon =
+            (section.icon == null ? null : forgeMaterialIconFor(section.icon!)) ??
+            Icons.tune;
+      } else if (index < _builtInSections.length) {
         label = _builtInSections[index].label;
         icon = _builtInSections[index].icon;
       } else {
@@ -140,7 +183,7 @@ class _ForgeConfigurationPanelState extends State<ForgeConfigurationPanel> {
         children.add(
           Flexible(
             flex: ((_sectionFlex[index] ?? 1.0) * 1000).round(),
-            child: _buildSectionContent(index),
+            child: _buildSectionContent(index, described),
           ),
         );
         // Add drag divider between adjacent expanded sections.
@@ -213,7 +256,13 @@ class _ForgeConfigurationPanelState extends State<ForgeConfigurationPanel> {
     });
   }
 
-  Widget _buildSectionContent(int index) {
+  Widget _buildSectionContent(
+    int index,
+    List<ForgeConfigurationSectionRef> described,
+  ) {
+    if (index >= _firstDescribedIndex) {
+      return _buildDescribedSection(described[index - _firstDescribedIndex]);
+    }
     if (index < _builtInSections.length) {
       return switch (index) {
         0 => _ShellSettingsSection(
@@ -273,6 +322,39 @@ class _ForgeConfigurationPanelState extends State<ForgeConfigurationPanel> {
     // Module panel.
     final mp = widget.modulePanels[index - _builtInSections.length];
     return mp.builder(context);
+  }
+
+  /// The tile of a described section, its header left to the accordion's.
+  Widget _buildDescribedSection(ForgeConfigurationSectionRef ref) {
+    final pickers = ForgeShellComponents.of(widget.shellApi).pickers;
+    return ForgeConfigurationScope(
+      values: widget.configurationValues!,
+      // The accordion header shows the title; the tile's own header only
+      // where the section has help to open.
+      style: ForgeConfigurationTileStyle(
+        showHeader: ref.section.help != null,
+      ),
+      pickPath: pickers.available
+          ? (setting, current) => _pickPath(pickers, setting, current)
+          : null,
+      child: SingleChildScrollView(child: ForgeConfigurationTile.of(ref)),
+    );
+  }
+
+  static Future<String?> _pickPath(
+    ForgeFilePickers pickers,
+    ForgePathSetting setting,
+    String current,
+  ) async {
+    final title = ForgeConfigurationLabels.resolve(setting.label);
+    if (setting.pathKind == ForgePathKind.folder) {
+      return pickers.pickFolder(
+        title: title,
+        initialDirectory: current.isEmpty ? null : current,
+      );
+    }
+    final files = await pickers.pickFiles(title: title);
+    return files.isEmpty ? null : files.first;
   }
 }
 

@@ -4,6 +4,8 @@ import 'dart:ui' show AppExitResponse, AppExitType;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:tom_configuration_ui/tom_configuration_ui.dart'
+    show ForgeConfigurationLabels;
 import 'package:tom_forge_core/tom_forge_core.dart';
 import 'package:tom_editors_shared/text_types.dart'
     show StandardEditingActions;
@@ -246,6 +248,11 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
 
   /// Target accordion section index to expand when the config panel opens.
   final ValueNotifier<int?> _configSectionTarget = ValueNotifier<int?>(null);
+
+  /// The values of the modules' configuration descriptions, over the
+  /// shell's state store; made again when the descriptions change.
+  ForgeConfigurationValues? _configurationValues;
+  List<ForgeConfigurationDescription> _configurationDescriptions = const [];
 
   /// The application on show: the registry's active one
   /// (`shell.applications`), followed as it changes. Null while no
@@ -562,6 +569,10 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
   @override
   void initState() {
     super.initState();
+    // Tom Core's text resources, which the configuration labels resolve
+    // through: an empty bundle (every label its fallback) unless the
+    // application installed its own.
+    ForgeConfigurationLabels.ensureResources();
     HardwareKeyboard.instance.addHandler(_recordKeyDown);
     _exitListener;
     _application = widget.shell.applications.active;
@@ -701,6 +712,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
     _quickOpenFocusNode.dispose();
     _configPanelVisible.dispose();
     _configSectionTarget.dispose();
+    _configurationValues?.dispose();
     _preferences.removeListener(_onPreferencesChanged);
     _saveAllEditorStates();
     _saveLayoutState();
@@ -3962,12 +3974,33 @@ the field, not the document.
       preferencesService: _preferences,
       shellApi: widget.shell,
       modulePanels: modulePanels,
+      configurationValues: _currentConfigurationValues(),
       externalTools: widget.shell.modules.allKitModules
           .expand(forgeModuleExternalTools)
           .toList(),
       onSettingsChanged: _onPreferencesChanged,
       expandSection: _configSectionTarget,
     );
+  }
+
+  /// The values service of the descriptions the modules contribute now
+  /// (null when none), with the hooks they contribute.
+  ForgeConfigurationValues? _currentConfigurationValues() {
+    final descriptions = forgeConfigurationDescriptionsOf(widget.shell);
+    if (!listEquals(descriptions, _configurationDescriptions)) {
+      _configurationValues?.dispose();
+      _configurationValues = null;
+      _configurationDescriptions = descriptions;
+      if (descriptions.isNotEmpty) {
+        final values = _configurationValues = ForgeConfigurationValues(
+          widget.shell.stateStore,
+          descriptions: descriptions,
+          hooks: forgeConfigurationHooksOf(widget.shell),
+        );
+        unawaited(values.load());
+      }
+    }
+    return _configurationValues;
   }
 
   bool _isPrimaryEditorRender(int panelIndex, ForgeEditor editor) {

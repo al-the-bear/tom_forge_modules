@@ -30,6 +30,10 @@ dependencies:
   # (ForgePlainTextEditor, an adapter of the kit, layer 3).
   tom_forge_plain_text_editor:
     path: ../tom_forge_plain_text_editor
+  # The configuration tiles (layer 3) the configuration panel draws the
+  # modules' configuration descriptions with.
+  tom_configuration_ui:
+    path: ../tom_configuration_ui
   shared_preferences: ^2.2.0
 
 dev_dependencies:

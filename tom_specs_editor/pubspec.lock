@@ -1337,6 +1337,13 @@ packages:
       relative: true
     source: path
     version: "0.0.1"
+  tom_configuration_ui:
+    dependency: transitive
+    description:
+      path: "../tom_configuration_ui"
+      relative: true
+    source: path
+    version: "0.2.0"
   tom_core_agentic:
     dependency: "direct main"
     description:
@@ -1350,7 +1357,7 @@ packages:
       path: "../../core/tom_core_kernel"
       relative: true
     source: path
-    version: "1.2.0"
+    version: "1.2.1"
   tom_core_message_bus:
     dependency: transitive
     description:
@@ -1364,7 +1371,7 @@ packages:
       path: "../../core/tom_core_server"
       relative: true
     source: path
-    version: "1.5.1"
+    version: "1.5.2"
   tom_crypto:
     dependency: transitive
     description:
@@ -1461,6 +1468,13 @@ packages:
       relative: true
     source: path
     version: "0.2.1"
+  tom_flutter_ui:
+    dependency: transitive
+    description:
+      path: "../../core/tom_flutter_ui"
+      relative: true
+    source: path
+    version: "1.1.1"
   tom_forge_agentic:
     dependency: "direct main"
     description:
