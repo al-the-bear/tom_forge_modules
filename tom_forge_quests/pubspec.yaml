@@ -3,8 +3,9 @@ description: >-
   The quest applications of Tom Forge: one Forge application per open quest
   (kind `quest`), a picker over the workspace's `_ai/quests/`, the frame the
   quest runtime's views fill (@TOM and @TOM WS on the left, editors in the
-  middle, @CHAT and @WS at the bottom) and the application's lifecycle.
-version: 0.1.0
+  middle, @CHAT and @WS at the bottom) and the application's lifecycle; and
+  the quest view, a kit view over a quest folder's AI files.
+version: 0.2.0
 publish_to: none
 
 environment:
@@ -14,6 +15,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  # The quest view's file paths: the quest folder, its history/ pair and the
+  # trail bucket beside it.
+  path: ^1.9.0
   # The quests are the directories under <workspace>/_ai/quests/, listed
   # through the shell's file system.
   tom_file_system:
@@ -29,6 +33,16 @@ dependencies:
   # (activate(ForgeShellApi)) for them.
   tom_forge_shell:
     path: ../tom_forge_shell
+  # The quest view's Markdown: the MD Trail tab rendered
+  # (TomMarkdownRendered), the other tabs as highlighted source
+  # (tomMarkdownHighlight). A tom_modules package (layer 1 of the framework).
+  tom_file_editors:
+    path: ../../modules/tom_file_editors
+  # The quest view's Todos tab: the aggregate over the quest folder's todo
+  # files (TomTodoAggregateView, TomTodoAggregateSource). A tom_modules
+  # package (layer 1 of the framework).
+  tom_todo_ui:
+    path: ../../modules/tom_todo_ui
 
 dev_dependencies:
   flutter_test:
