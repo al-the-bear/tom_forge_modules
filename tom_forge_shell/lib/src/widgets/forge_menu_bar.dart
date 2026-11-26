@@ -318,10 +318,8 @@ class ForgeMenuBar extends StatelessWidget {
 
     for (final module in shellApi.modules.allKitModules) {
       final actions =
-          module.actions
-              .where(
-                (action) => action.menu == ForgeMenuLocation.tools,
-              )
+          forgeModuleActions(module)
+              .where((action) => action.menu == ForgeMenuLocation.tools)
               .where((action) => action.isVisible())
               .toList(growable: false)
             ..sort((a, b) {

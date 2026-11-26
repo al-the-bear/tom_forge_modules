@@ -37,7 +37,8 @@ class ForgeDateTimeEditor extends StatelessWidget {
       TimeOfDay(hour: t.hour, minute: t.minute),
       alwaysUse24HourFormat: h24,
     );
-    final none = ForgeConfigurationLabels.resolve(
+    final none = ForgeConfigurationLabels.resolveIn(
+      context,
       ForgeConfigurationUiTexts.noDate,
     );
     final value = request.value;
@@ -54,7 +55,7 @@ class ForgeDateTimeEditor extends StatelessWidget {
             '${l10n.formatShortDate(moment.date.toDateTime())} '
             '${time(moment.time)}';
         return moment.utc
-            ? '$text ${ForgeConfigurationLabels.resolve(ForgeConfigurationUiTexts.utc)}'
+            ? '$text ${ForgeConfigurationLabels.resolveIn(context, ForgeConfigurationUiTexts.utc)}'
             : text;
     }
   }
@@ -177,7 +178,8 @@ class ForgeDateTimeEditor extends StatelessWidget {
           ),
           IconButton(
             key: ValueKey('forge.configuration.pick.${request.setting.id}'),
-            tooltip: ForgeConfigurationLabels.resolve(
+            tooltip: ForgeConfigurationLabels.resolveIn(
+              context,
               mode == ForgeDateTimeMode.time
                   ? ForgeConfigurationUiTexts.pickTime
                   : ForgeConfigurationUiTexts.pickDate,
@@ -187,7 +189,8 @@ class ForgeDateTimeEditor extends StatelessWidget {
           ),
           if (_allowsNone)
             IconButton(
-              tooltip: ForgeConfigurationLabels.resolve(
+              tooltip: ForgeConfigurationLabels.resolveIn(
+                context,
                 ForgeConfigurationUiTexts.clear,
               ),
               icon: const Icon(Icons.backspace_outlined, size: 18),
@@ -297,7 +300,7 @@ class _ForgeScaledNumberFieldState extends State<ForgeScaledNumberField> {
           if (unit != null) ...[
             const SizedBox(width: 8),
             Text(
-              ForgeConfigurationLabels.resolve(unit),
+              ForgeConfigurationLabels.resolveIn(context, unit),
               style: Theme.of(context).textTheme.bodyMedium,
             ),
           ],
@@ -407,7 +410,8 @@ class _ForgeDynamicChoiceFieldState extends State<ForgeDynamicChoiceField>
               const ForgeStatusLevelIcon(ForgeStatusLevel.busy, size: 14),
               const SizedBox(width: 8),
               Text(
-                ForgeConfigurationLabels.resolve(
+                ForgeConfigurationLabels.resolveIn(
+                  context,
                   ForgeConfigurationUiTexts.loading,
                 ),
                 style: theme.textTheme.bodyMedium?.copyWith(
@@ -425,7 +429,8 @@ class _ForgeDynamicChoiceFieldState extends State<ForgeDynamicChoiceField>
         DropdownMenuItem(
           value: '',
           child: Text(
-            ForgeConfigurationLabels.resolve(
+            ForgeConfigurationLabels.resolveIn(
+              context,
               widget.noneLabel ?? ForgeConfigurationUiTexts.none,
             ),
           ),
@@ -434,7 +439,9 @@ class _ForgeDynamicChoiceFieldState extends State<ForgeDynamicChoiceField>
         if (choice.value.isNotEmpty && seen.add(choice.value))
           DropdownMenuItem(
             value: choice.value,
-            child: Text(ForgeConfigurationLabels.resolve(choice.label)),
+            child: Text(
+              ForgeConfigurationLabels.resolveIn(context, choice.label),
+            ),
           ),
     ];
     final known =

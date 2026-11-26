@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- `ForgeAction.title` (a `ForgeText`) and `textResolver`: `label` is a getter
+  that resolves the title with the resolver when there is one, else the
+  label given (now optional); `withTextResolver` binds a resolver.
 - **Breaking:** the editor-specific action sets and standalone
   integrations moved into their editors: `MdEditorActions`,
   `MdStandaloneIntegration` and `MdEditorDefaults` to `tom_md_editor`;

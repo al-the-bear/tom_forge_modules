@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart' show ForgeTextScopeWidget;
 
 import '../configuration_ui_trail.dart';
 import '../forge_configuration_icons.dart';
@@ -85,11 +86,12 @@ class ForgeStatusView extends StatelessWidget {
     final theme = Theme.of(context);
     final message = status.message == null
         ? (status.level == ForgeStatusLevel.busy
-              ? ForgeConfigurationLabels.resolve(
+              ? ForgeConfigurationLabels.resolveIn(
+                  context,
                   ForgeConfigurationUiTexts.loading,
                 )
               : null)
-        : ForgeConfigurationLabels.resolve(status.message!);
+        : ForgeConfigurationLabels.resolveIn(context, status.message!);
     final items = showItems ? status.items : const <ForgeStatusItem>[];
     final shown = items.take(maxItems).toList();
     return Column(
@@ -147,7 +149,8 @@ class ForgeStatusView extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(left: 22, top: 2),
             child: Text(
-              ForgeConfigurationLabels.resolve(
+              ForgeConfigurationLabels.resolveIn(
+                context,
                 ForgeConfigurationUiTexts.moreItems(
                   items.length - shown.length,
                 ),
@@ -165,22 +168,31 @@ class ForgeStatusView extends StatelessWidget {
 Future<bool> forgeConfirm(BuildContext context, String question) async {
   final answer = await showDialog<bool>(
     context: context,
-    builder: (context) => AlertDialog(
-      content: Text(question),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          child: Text(
-            ForgeConfigurationLabels.resolve(ForgeConfigurationUiTexts.cancel),
+    builder: ForgeTextScopeWidget.keep(
+      context,
+      (context) => AlertDialog(
+        content: Text(question),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(
+              ForgeConfigurationLabels.resolveIn(
+                context,
+                ForgeConfigurationUiTexts.cancel,
+              ),
+            ),
           ),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(true),
-          child: Text(
-            ForgeConfigurationLabels.resolve(ForgeConfigurationUiTexts.ok),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(
+              ForgeConfigurationLabels.resolveIn(
+                context,
+                ForgeConfigurationUiTexts.ok,
+              ),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     ),
   );
   return answer ?? false;
@@ -324,7 +336,8 @@ class ForgeHookButtonState extends State<ForgeHookButton> {
               TextButton(
                 onPressed: () => _cancellation?.cancel(),
                 child: Text(
-                  ForgeConfigurationLabels.resolve(
+                  ForgeConfigurationLabels.resolveIn(
+                    context,
                     ForgeConfigurationUiTexts.stop,
                   ),
                 ),
@@ -346,7 +359,8 @@ class ForgeHookButtonState extends State<ForgeHookButton> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    ForgeConfigurationLabels.resolve(
+                    ForgeConfigurationLabels.resolveIn(
+                      context,
                       progress?.message ?? ForgeConfigurationUiTexts.running,
                     ),
                     style: theme.textTheme.bodySmall,
@@ -368,7 +382,8 @@ class ForgeHookButtonState extends State<ForgeHookButton> {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    ForgeConfigurationLabels.resolve(
+                    ForgeConfigurationLabels.resolveIn(
+                      context,
                       result.message ??
                           switch (result.outcome) {
                             ForgeActionOutcome.success =>
@@ -419,10 +434,16 @@ Widget forgeHookButtonFor(
     final context0 = values.contextFor(setting);
     return ForgeHookButton(
       key: key ?? ValueKey('forge.configuration.hook.${setting.id}.$hookId'),
-      label: ForgeConfigurationLabels.resolve(labelOverride ?? action.label),
+      label: ForgeConfigurationLabels.resolveIn(
+        context,
+        labelOverride ?? action.label,
+      ),
       icon: action.icon == null ? null : forgeMaterialIconFor(action.icon!),
       emphasis: action.emphasis,
-      confirmation: ForgeConfigurationLabels.resolveOrNull(action.confirmation),
+      confirmation: ForgeConfigurationLabels.resolveOrNullIn(
+        context,
+        action.confirmation,
+      ),
       enabled: request.enabled && action.isEnabled(context0),
       trailName: 'action $hookId for ${setting.id}',
       run: (cancellation, onProgress) => values.runAction(
@@ -437,7 +458,10 @@ Widget forgeHookButtonFor(
   if (values != null && flow != null) {
     return ForgeHookButton(
       key: key ?? ValueKey('forge.configuration.hook.${setting.id}.$hookId'),
-      label: ForgeConfigurationLabels.resolve(labelOverride ?? flow.label),
+      label: ForgeConfigurationLabels.resolveIn(
+        context,
+        labelOverride ?? flow.label,
+      ),
       icon: flow.icon == null ? null : forgeMaterialIconFor(flow.icon!),
       enabled: request.enabled,
       trailName: 'flow $hookId for ${setting.id}',
@@ -456,7 +480,7 @@ Widget forgeHookButtonFor(
         return showForgeFlowDialog(
           context,
           session,
-          title: ForgeConfigurationLabels.resolve(flow.label),
+          title: ForgeConfigurationLabels.resolveIn(context, flow.label),
           trailName: 'flow $hookId',
         );
       },
@@ -474,11 +498,12 @@ Widget forgeHookButtonFor(
         child: Text(
           labelOverride == null
               ? hookId
-              : ForgeConfigurationLabels.resolve(labelOverride),
+              : ForgeConfigurationLabels.resolveIn(context, labelOverride),
         ),
       ),
       Text(
-        ForgeConfigurationLabels.resolve(
+        ForgeConfigurationLabels.resolveIn(
+          context,
           ForgeConfigurationTexts.hookMissing(hookId),
         ),
         style: theme.textTheme.bodySmall?.copyWith(

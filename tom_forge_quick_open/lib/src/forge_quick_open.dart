@@ -323,7 +323,7 @@ class _ForgeQuickOpenState extends State<ForgeQuickOpen> {
     for (final module
         in forgeKitModulesOf(widget.api)?.allKitModules ??
             const <ForgeKitModule>[]) {
-      for (final action in module.actions) {
+      for (final action in forgeModuleActions(module)) {
         if (!commandsById.containsKey(action.id)) addAction(action);
       }
     }

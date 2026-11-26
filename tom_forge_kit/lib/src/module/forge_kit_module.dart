@@ -10,6 +10,7 @@ import '../components/forge_view.dart';
 import '../files/forge_content_item.dart';
 import '../kit/forge_kit_api.dart';
 import '../model/forge_kit_status_item.dart';
+import '../text/forge_text_scope.dart';
 
 /// The contract of a module: what it contributes to the application it runs
 /// in — editors, views, actions, shortcuts, context-menu entries — free of
@@ -24,6 +25,17 @@ import '../model/forge_kit_status_item.dart';
 abstract class ForgeKitModule {
   /// Display name for the module.
   String get displayName;
+
+  /// The scope the module's texts are read under (the workspace guideline
+  /// `i18n.md`): the scope the module was constructed in. An application
+  /// constructs the module inside the scope it mounts the module's package
+  /// under; whatever shows the module's `ForgeText`s (its actions' titles,
+  /// its configuration descriptions, its notifications) resolves them with
+  /// it. A module that words a message itself calls
+  /// `textScope.text('<id>')`.
+  ForgeTextScope get textScope => _textScope;
+
+  final ForgeTextScope _textScope = ForgeTextScope();
 
   /// Called when the module is activated, with the API of its host.
   ///

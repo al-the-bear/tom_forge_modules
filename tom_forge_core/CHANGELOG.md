@@ -1,5 +1,10 @@
 ## Unreleased
 
+- `ForgeText.id(id, params: ...)`: a text reference without English (an id
+  relative to its package, read under its owner's scope; an unresolved one
+  shows its id). `ForgeText.fallback` is nullable; `ForgeText.isLiteral`.
+  `ForgeTextResolver`: the interface a type below the kit holds its text
+  resolver as.
 - **The configuration description** (`src/configuration/`): what a
   component can be configured in, as data an application shows as it
   decides. `ForgeConfigurationDescription` (id, title, help, sections;

@@ -220,7 +220,8 @@ class _ForgeKeyCaptureFieldState extends State<ForgeKeyCaptureField> {
     final String text;
     TextStyle? style = theme.textTheme.bodyMedium;
     if (_capturing && _pending.isEmpty) {
-      text = ForgeConfigurationLabels.resolve(
+      text = ForgeConfigurationLabels.resolveIn(
+        context,
         widget.maxStrokes > 1
             ? ForgeConfigurationUiTexts.pressChord
             : ForgeConfigurationUiTexts.pressKeys,
@@ -229,7 +230,8 @@ class _ForgeKeyCaptureFieldState extends State<ForgeKeyCaptureField> {
     } else if (_capturing) {
       text = '$binding …';
     } else if (binding.isEmpty) {
-      text = ForgeConfigurationLabels.resolve(
+      text = ForgeConfigurationLabels.resolveIn(
+        context,
         ForgeConfigurationUiTexts.unbound,
       );
       style = style?.copyWith(color: theme.hintColor);
@@ -260,7 +262,8 @@ class _ForgeKeyCaptureFieldState extends State<ForgeKeyCaptureField> {
         ),
       ),
     );
-    final cancel = ForgeConfigurationLabels.resolve(
+    final cancel = ForgeConfigurationLabels.resolveIn(
+      context,
       ForgeConfigurationUiTexts.cancel,
     );
     return Semantics(
@@ -271,7 +274,8 @@ class _ForgeKeyCaptureFieldState extends State<ForgeKeyCaptureField> {
           Expanded(child: box),
           if (_capturing && widget.maxStrokes > 1)
             IconButton(
-              tooltip: ForgeConfigurationLabels.resolve(
+              tooltip: ForgeConfigurationLabels.resolveIn(
+                context,
                 ForgeConfigurationUiTexts.done,
               ),
               visualDensity: VisualDensity.compact,
@@ -287,7 +291,8 @@ class _ForgeKeyCaptureFieldState extends State<ForgeKeyCaptureField> {
             )
           else ...[
             IconButton(
-              tooltip: ForgeConfigurationLabels.resolve(
+              tooltip: ForgeConfigurationLabels.resolveIn(
+                context,
                 ForgeConfigurationUiTexts.change,
               ),
               visualDensity: VisualDensity.compact,
@@ -296,7 +301,8 @@ class _ForgeKeyCaptureFieldState extends State<ForgeKeyCaptureField> {
             ),
             if (widget.onCleared != null)
               IconButton(
-                tooltip: ForgeConfigurationLabels.resolve(
+                tooltip: ForgeConfigurationLabels.resolveIn(
+                  context,
                   ForgeConfigurationUiTexts.clear,
                 ),
                 visualDensity: VisualDensity.compact,

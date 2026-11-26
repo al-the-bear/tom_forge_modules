@@ -10,7 +10,8 @@ import 'package:tom_core_kernel/tom_core_kernel.dart'
         TomTextResourceProvider;
 import 'package:tom_flutter_ui/tom_flutter_ui.dart' show TomFormStyleScope;
 import 'package:tom_forge_core/tom_forge_core.dart';
-import 'package:tom_forge_kit/tom_forge_kit.dart' show ForgeConfigurationValues;
+import 'package:tom_forge_kit/tom_forge_kit.dart'
+    show ForgeConfigurationValues, ForgeTextScope, ForgeTextScopeWidget;
 import 'package:tom_forge_shared_ui/tom_forge_shared_ui.dart'
     show ForgeShellTheme;
 
@@ -95,6 +96,8 @@ class ForgeConfigurationTile extends StatefulWidget {
     this.pickPath,
     this.iconResolver,
     this.buildHelpPanel,
+    this.descriptionId,
+    this.textScope,
   });
 
   /// The tile of [ref]'s section.
@@ -107,6 +110,7 @@ class ForgeConfigurationTile extends StatefulWidget {
     ForgePathPicker? pickPath,
     ForgeConfigurationIconResolver? iconResolver,
     ForgeHelpPanelBuilder? buildHelpPanel,
+    ForgeTextScope? textScope,
   }) : this(
          key: key ?? ValueKey('forge.configuration.tile.${ref.id}'),
          section: ref.section,
@@ -116,10 +120,22 @@ class ForgeConfigurationTile extends StatefulWidget {
          pickPath: pickPath,
          iconResolver: iconResolver,
          buildHelpPanel: buildHelpPanel,
+         descriptionId: ref.description.id,
+         textScope: textScope,
        );
 
   /// The section shown.
   final ForgeSettingsSection section;
+
+  /// The id of the description the section is part of: its texts are read
+  /// under the values' text scope of it
+  /// (`ForgeConfigurationValues.textScopeOf`), the scope of the module that
+  /// contributed it.
+  final String? descriptionId;
+
+  /// The scope the section's texts are read under, in place of the one the
+  /// values name for [descriptionId]; null: that one, else the root.
+  final ForgeTextScope? textScope;
 
   /// The values (default: the scope's).
   final ForgeConfigurationValues? values;
@@ -282,8 +298,26 @@ class _ForgeConfigurationTileState extends State<ForgeConfigurationTile> {
     }
   }
 
+  /// The scope the section's texts are read under.
+  ForgeTextScope get _textScope {
+    final given = widget.textScope;
+    if (given != null) return given;
+    final id = widget.descriptionId;
+    final values = _values;
+    return id == null || values == null
+        ? ForgeTextScope.root
+        : values.textScopeOf(id);
+  }
+
+  // The tile's own widgets resolve their texts under the section's text
+  // scope too, so the tile is built below it.
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ForgeTextScopeWidget(
+    textScope: _textScope,
+    child: Builder(builder: _buildTile),
+  );
+
+  Widget _buildTile(BuildContext context) {
     final scope = ForgeConfigurationScope.maybeOf(context);
     final style =
         widget.style ?? scope?.style ?? const ForgeConfigurationTileStyle();
@@ -304,7 +338,10 @@ class _ForgeConfigurationTileState extends State<ForgeConfigurationTile> {
       children.add(_header(context, style, iconResolver));
       if (_sectionHelpShown && section.help != null) {
         children.add(
-          _helpText(context, ForgeConfigurationLabels.resolve(section.help!)),
+          _helpText(
+            context,
+            ForgeConfigurationLabels.resolveIn(context, section.help!),
+          ),
         );
       }
       children.add(SizedBox(height: style.headerSpacing));
@@ -383,14 +420,15 @@ class _ForgeConfigurationTileState extends State<ForgeConfigurationTile> {
         ],
         Expanded(
           child: Text(
-            ForgeConfigurationLabels.resolve(section.title),
+            ForgeConfigurationLabels.resolveIn(context, section.title),
             style: theme.textTheme.titleSmall,
           ),
         ),
         if (section.help != null)
           _iconButton(
             icon: Icons.help_outline,
-            tooltip: ForgeConfigurationLabels.resolve(
+            tooltip: ForgeConfigurationLabels.resolveIn(
+              context,
               ForgeConfigurationUiTexts.help,
             ),
             onPressed: () =>
@@ -423,7 +461,8 @@ class _ForgeConfigurationTileState extends State<ForgeConfigurationTile> {
               child: Row(
                 children: [
                   Tooltip(
-                    message: ForgeConfigurationLabels.resolve(
+                    message: ForgeConfigurationLabels.resolveIn(
+                      context,
                       folded
                           ? ForgeConfigurationUiTexts.showGroup
                           : ForgeConfigurationUiTexts.hideGroup,
@@ -437,7 +476,7 @@ class _ForgeConfigurationTileState extends State<ForgeConfigurationTile> {
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
-                      ForgeConfigurationLabels.resolve(group.title),
+                      ForgeConfigurationLabels.resolveIn(context, group.title),
                       style: theme.textTheme.labelLarge?.copyWith(
                         color: theme.colorScheme.primary,
                       ),
@@ -446,7 +485,8 @@ class _ForgeConfigurationTileState extends State<ForgeConfigurationTile> {
                   if (group.help != null)
                     _iconButton(
                       icon: Icons.help_outline,
-                      tooltip: ForgeConfigurationLabels.resolve(
+                      tooltip: ForgeConfigurationLabels.resolveIn(
+                        context,
                         ForgeConfigurationUiTexts.help,
                       ),
                       onPressed: () => setState(() {
@@ -460,7 +500,10 @@ class _ForgeConfigurationTileState extends State<ForgeConfigurationTile> {
             ),
           ),
           if (_helpShown.contains(helpKey) && group.help != null)
-            _helpText(context, ForgeConfigurationLabels.resolve(group.help!)),
+            _helpText(
+              context,
+              ForgeConfigurationLabels.resolveIn(context, group.help!),
+            ),
         ],
       ),
     );
@@ -478,7 +521,7 @@ class _ForgeConfigurationTileState extends State<ForgeConfigurationTile> {
     final theme = Theme.of(context);
     final location = forgeSettingEntryKey(setting);
     final refresh = _refreshes.putIfAbsent(location, () => ValueNotifier(0));
-    final label = ForgeConfigurationLabels.resolve(setting.label);
+    final label = ForgeConfigurationLabels.resolveIn(context, setting.label);
     final error = _errors[location] ?? _storedProblem(values, setting);
     final enabled = values.isEnabled(setting);
     final editor = registry.editorFor(setting.kind);
@@ -491,7 +534,7 @@ class _ForgeConfigurationTileState extends State<ForgeConfigurationTile> {
           'forgeConfiguration_${location.replaceAll(RegExp(r'[^A-Za-z0-9]'), '_')}',
       style: style,
       enabled: enabled,
-      errorText: ForgeConfigurationLabels.resolveOrNull(error),
+      errorText: ForgeConfigurationLabels.resolveOrNullIn(context, error),
       pickPath: pickPath,
       values: values,
       refresh: refresh,
@@ -505,7 +548,8 @@ class _ForgeConfigurationTileState extends State<ForgeConfigurationTile> {
       key: ValueKey('$location#${_generations[location] ?? 0}'),
       child: editor == null
           ? Text(
-              ForgeConfigurationLabels.resolve(
+              ForgeConfigurationLabels.resolveIn(
+                context,
                 ForgeConfigurationUiTexts.unknownKind(setting.kind),
               ),
               style: TextStyle(color: theme.colorScheme.error),
@@ -528,7 +572,8 @@ class _ForgeConfigurationTileState extends State<ForgeConfigurationTile> {
       if (setting.help != null)
         _iconButton(
           icon: Icons.help_outline,
-          tooltip: ForgeConfigurationLabels.resolve(
+          tooltip: ForgeConfigurationLabels.resolveIn(
+            context,
             ForgeConfigurationUiTexts.help,
           ),
           onPressed: () => setState(() {
@@ -539,7 +584,8 @@ class _ForgeConfigurationTileState extends State<ForgeConfigurationTile> {
         _iconButton(
           key: ValueKey('forge.configuration.reset.$location'),
           icon: Icons.restart_alt,
-          tooltip: ForgeConfigurationLabels.resolve(
+          tooltip: ForgeConfigurationLabels.resolveIn(
+            context,
             ForgeConfigurationUiTexts.reset,
           ),
           onPressed: enabled && (values.isStored(setting) || error != null)
@@ -598,7 +644,10 @@ class _ForgeConfigurationTileState extends State<ForgeConfigurationTile> {
               child: ForgeSettingActionsBar(request: request),
             ),
           if (_helpShown.contains(location) && setting.help != null)
-            _helpText(context, ForgeConfigurationLabels.resolve(setting.help!)),
+            _helpText(
+              context,
+              ForgeConfigurationLabels.resolveIn(context, setting.help!),
+            ),
           if (request.errorText != null)
             Padding(
               padding: const EdgeInsets.only(top: 4),

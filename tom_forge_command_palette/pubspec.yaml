@@ -29,6 +29,9 @@ dev_dependencies:
   # The in-memory file system the tests run a bare DefaultKitApi over.
   tom_file_system:
     path: ../../basics/tom_file_system
+  # Texts installed under scopes for the modules' action titles.
+  tom_text_testing:
+    path: ../../core/tom_text_testing
 
 flutter:
   uses-material-design: true

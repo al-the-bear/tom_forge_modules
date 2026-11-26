@@ -39,6 +39,9 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  # Texts installed under scopes (installTexts, runInScopePath).
+  tom_text_testing:
+    path: ../../core/tom_text_testing
   # A shared_preferences platform the tests install, to prove that no
   # shared_preferences call is made with a store given.
   shared_preferences_platform_interface: ^2.4.0

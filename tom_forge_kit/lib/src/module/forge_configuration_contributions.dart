@@ -3,6 +3,7 @@ import 'package:tom_forge_core/tom_forge_core.dart'
 
 import '../kit/forge_kit_api.dart';
 import '../kit/forge_kit_modules_host.dart';
+import '../text/forge_text_scope.dart';
 import 'forge_kit_module.dart';
 import 'forge_kit_module_registry.dart';
 
@@ -38,6 +39,26 @@ class ForgeContributedConfiguration {
 
   final ForgeConfigurationDescription description;
   final ForgeKitModule module;
+
+  /// The scope the description's texts are read under: its module's.
+  ForgeTextScope get textScope => module.textScope;
+}
+
+/// The text scope of each description the modules of [registry] contribute,
+/// by description id ([ForgeContributedConfiguration.textScope]): what an
+/// application hands its `ForgeConfigurationValues` as `textScopes`.
+Map<String, ForgeTextScope> forgeConfigurationTextScopes(
+  ForgeKitModuleRegistry registry,
+) => {
+  for (final contributed in forgeConfigurationDescriptions(registry))
+    contributed.description.id: contributed.textScope,
+};
+
+/// [forgeConfigurationTextScopes] of the modules registered with [api];
+/// empty when the API does not tell its modules.
+Map<String, ForgeTextScope> forgeConfigurationTextScopesOf(ForgeKitApi api) {
+  final registry = forgeKitModulesOf(api);
+  return registry == null ? const {} : forgeConfigurationTextScopes(registry);
 }
 
 /// Every configuration description the modules of [registry] contribute

@@ -108,7 +108,12 @@ export 'src/kit/forge_view_state_ports.dart';
 // Data the kit's models use, from tom_forge_core (pure Dart, also what
 // tom_forge_shared_ui draws).
 export 'package:tom_forge_core/tom_forge_core.dart'
-    show ForgeContextMenuEntry, ForgeQuickPickItem, StatusBarAlignment;
+    show
+        ForgeContextMenuEntry,
+        ForgeQuickPickItem,
+        ForgeText,
+        ForgeTextResolver,
+        StatusBarAlignment;
 export 'src/model/forge_action_bar_model.dart';
 export 'src/model/forge_action_state.dart';
 export 'src/model/forge_command_list_model.dart';
@@ -152,6 +157,12 @@ export 'src/services/forge_workspace_state_manager.dart';
 // ── Tools ──
 // External tools a module uses (descriptors of its rows, as an extra).
 export 'src/tools/forge_external_tool.dart';
+
+// Texts (the workspace guideline i18n.md)
+export 'src/text/forge_text_scope.dart';
+export 'src/text/forge_notification_texts.dart';
+export 'src/text/forge_text_scope_widget.dart';
+export 'src/module/forge_module_actions.dart';
 
 // ── Defaults ──
 export 'src/defaults/default_action_registry.dart';

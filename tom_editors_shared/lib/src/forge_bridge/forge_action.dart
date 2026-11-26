@@ -1,4 +1,6 @@
 import 'package:flutter/widgets.dart';
+import 'package:tom_forge_core/tom_forge_core.dart'
+    show ForgeText, ForgeTextResolver;
 
 import 'forge_shortcut_key.dart';
 
@@ -76,8 +78,28 @@ class ForgeAction {
   /// Unique identifier (e.g., 'file.save', 'edit.cut', 'dart.openReference').
   final String id;
 
-  /// Display label for menus and command palette.
-  final String label;
+  /// Display label for menus and command palette: [title] resolved with
+  /// [textResolver] when the action has a title, else the label it was
+  /// given. Read when shown, so a new language shows on the next build.
+  String get label {
+    final title = this.title;
+    if (title == null) return _label;
+    return textResolver?.resolve(title) ?? title.resolve();
+  }
+
+  final String _label;
+
+  /// The label as a text reference (`ForgeText.id('actions.saveAction.label')`,
+  /// relative to the owning module's package), or null when the action
+  /// has a literal [label]. Resolved with [textResolver].
+  final ForgeText? title;
+
+  /// How [title] is read: the owning module's text scope. The module
+  /// passes its `textScope`; the kit binds a module's actions that have a
+  /// title but no resolver when it registers them ([withTextResolver]).
+  /// Null: [title] is read from the application's text resources by its
+  /// key alone.
+  final ForgeTextResolver? textResolver;
 
   /// Optional icon for menus and toolbars.
   final IconData? icon;
@@ -113,7 +135,9 @@ class ForgeAction {
 
   const ForgeAction({
     required this.id,
-    required this.label,
+    String label = '',
+    this.title,
+    this.textResolver,
     this.icon,
     this.menu = ForgeMenuLocation.commandPalette,
     this.group,
@@ -124,7 +148,29 @@ class ForgeAction {
     this.defaultShortcut,
     this.showInContextMenu = false,
     this.undo,
-  });
+  }) : _label = label;
+
+  /// This action with [resolver] as its [textResolver], when it has a
+  /// [title] and no resolver yet; else this action itself.
+  ForgeAction withTextResolver(ForgeTextResolver resolver) =>
+      title == null || textResolver != null
+          ? this
+          : ForgeAction(
+              id: id,
+              label: _label,
+              title: title,
+              textResolver: resolver,
+              icon: icon,
+              menu: menu,
+              group: group,
+              priority: priority,
+              execute: execute,
+              isEnabled: isEnabled,
+              isVisible: isVisible,
+              defaultShortcut: defaultShortcut,
+              showInContextMenu: showInContextMenu,
+              undo: undo,
+            );
 
   /// Creates a simple editing action with synchronous execution.
   ///

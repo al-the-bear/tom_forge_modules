@@ -568,6 +568,8 @@ ForgeConfigurationValues forgeShellConfigurationValues(
   ForgeSettingHooks? hooks,
 }) => ForgeConfigurationValues(
   preferences.stateStore,
+  // Each description's texts under the scope of the module contributing it.
+  textScopes: shell == null ? const {} : forgeConfigurationTextScopesOf(shell),
   descriptions: [
     ForgeShellConfiguration.description,
     for (final d in descriptions)

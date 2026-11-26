@@ -95,7 +95,7 @@ class _ForgeCommandPaletteState extends State<ForgeCommandPalette> {
       for (final module
           in forgeKitModulesOf(widget.api)?.allKitModules ??
               const <ForgeKitModule>[]) {
-        for (final action in module.actions) {
+        for (final action in forgeModuleActions(module)) {
           commandsById.putIfAbsent(action.id, () {
             final binding = widget.api.shortcuts.getBinding(action.id);
             final shortcutText = binding != null

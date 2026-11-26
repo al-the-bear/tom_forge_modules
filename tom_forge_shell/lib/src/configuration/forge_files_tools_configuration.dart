@@ -409,7 +409,7 @@ abstract final class ForgeExternalToolsConfiguration {
           copy.state == ForgeToolState.tooOld;
       if (url == null || !getIt) return null;
       return SelectableText(
-        ForgeConfigurationLabels.resolve(downloadOf(url)),
+        ForgeConfigurationLabels.resolveIn(context, downloadOf(url)),
         key: ValueKey('forge.config.externalTools.download.${tool.id}'),
         style: Theme.of(context).textTheme.bodySmall,
       );

@@ -169,7 +169,7 @@ Widget _withUnit(BuildContext context, ForgeText? unit, Widget editor) {
       Expanded(child: editor),
       const SizedBox(width: 8),
       Text(
-        ForgeConfigurationLabels.resolve(unit),
+        ForgeConfigurationLabels.resolveIn(context, unit),
         style: Theme.of(context).textTheme.bodyMedium,
       ),
     ],
@@ -181,7 +181,7 @@ Widget _string(BuildContext context, ForgeSettingEditorRequest r) {
   if (setting.multiline) {
     return ForgeSettingTextField(
       request: r,
-      hint: ForgeConfigurationLabels.resolveOrNull(setting.hint),
+      hint: ForgeConfigurationLabels.resolveOrNullIn(context, setting.hint),
       maxLines: null,
       minLines: 3,
     );
@@ -191,21 +191,26 @@ Widget _string(BuildContext context, ForgeSettingEditorRequest r) {
     create: (id, value) => r.style.fieldFamily.stringInput(
       id,
       value,
-      hintTextOverride: ForgeConfigurationLabels.resolveOrNull(setting.hint),
+      hintTextOverride: ForgeConfigurationLabels.resolveOrNullIn(
+        context,
+        setting.hint,
+      ),
       maxLength: setting.maxLength,
       autoValidate: false,
     ),
   );
 }
 
-TomStaticSelectableSource<String> _source(List<ForgeSettingChoice> choices) =>
-    TomStaticSelectableSource([
-      for (final choice in choices)
-        TomSelectableItem(
-          value: choice.value,
-          label: ForgeConfigurationLabels.resolve(choice.label),
-        ),
-    ]);
+TomStaticSelectableSource<String> _source(
+  BuildContext context,
+  List<ForgeSettingChoice> choices,
+) => TomStaticSelectableSource([
+  for (final choice in choices)
+    TomSelectableItem(
+      value: choice.value,
+      label: ForgeConfigurationLabels.resolveIn(context, choice.label),
+    ),
+]);
 
 Widget _choice(BuildContext context, ForgeSettingEditorRequest r) {
   final setting = r.setting as ForgeChoiceSetting;
@@ -245,13 +250,13 @@ Widget _choice(BuildContext context, ForgeSettingEditorRequest r) {
         ? r.style.fieldFamily.stringSegmented(
             id,
             value,
-            source: _source(choices),
+            source: _source(context, choices),
             autoValidate: false,
           )
         : r.style.fieldFamily.stringPicker(
             id,
             value,
-            source: _source(choices),
+            source: _source(context, choices),
             autoValidate: false,
           ),
   );
@@ -266,7 +271,7 @@ Widget _stringList(BuildContext context, ForgeSettingEditorRequest r) {
       create: (id, value) => r.style.fieldFamily.stringMultiSelect(
         id,
         value,
-        source: _source(choices),
+        source: _source(context, choices),
         autoValidate: false,
       ),
     );
@@ -279,7 +284,7 @@ Widget _path(BuildContext context, ForgeSettingEditorRequest r) {
   final pick = r.pickPath;
   return ForgeSettingTextField(
     request: r,
-    hint: ForgeConfigurationLabels.resolveOrNull(setting.hint),
+    hint: ForgeConfigurationLabels.resolveOrNullIn(context, setting.hint),
     trailing: pick == null
         ? null
         : (controller) => TextButton(
@@ -293,7 +298,8 @@ Widget _path(BuildContext context, ForgeSettingEditorRequest r) {
                   }
                 : null,
             child: Text(
-              ForgeConfigurationLabels.resolve(
+              ForgeConfigurationLabels.resolveIn(
+                context,
                 ForgeConfigurationUiTexts.browse,
               ),
             ),
@@ -421,7 +427,8 @@ class _ForgeSettingStringListFieldState
   Widget build(BuildContext context) {
     final r = widget.request;
     final setting = r.setting as ForgeStringListSetting;
-    final remove = ForgeConfigurationLabels.resolve(
+    final remove = ForgeConfigurationLabels.resolveIn(
+      context,
       ForgeConfigurationUiTexts.remove,
     );
     return Column(
@@ -451,7 +458,8 @@ class _ForgeSettingStringListFieldState
                 enabled: r.enabled,
                 decoration: InputDecoration(
                   isDense: r.style.dense,
-                  hintText: ForgeConfigurationLabels.resolve(
+                  hintText: ForgeConfigurationLabels.resolveIn(
+                    context,
                     setting.hint ?? ForgeConfigurationUiTexts.newItem,
                   ),
                   border: const OutlineInputBorder(),
@@ -461,7 +469,8 @@ class _ForgeSettingStringListFieldState
             ),
             const SizedBox(width: 8),
             IconButton(
-              tooltip: ForgeConfigurationLabels.resolve(
+              tooltip: ForgeConfigurationLabels.resolveIn(
+                context,
                 ForgeConfigurationUiTexts.add,
               ),
               icon: const Icon(Icons.add),
@@ -562,7 +571,8 @@ class _ForgeSettingColorFieldState extends State<ForgeSettingColorField> {
         ),
         IconButton(
           key: ValueKey('forge.configuration.colour.pick.${r.setting.id}'),
-          tooltip: ForgeConfigurationLabels.resolve(
+          tooltip: ForgeConfigurationLabels.resolveIn(
+            context,
             ForgeConfigurationUiTexts.chooseColour,
           ),
           visualDensity: VisualDensity.compact,
@@ -658,7 +668,9 @@ class _ForgeSettingStringMapFieldState
           for (final choice in choices)
             DropdownMenuItem(
               value: choice.value,
-              child: Text(ForgeConfigurationLabels.resolve(choice.label)),
+              child: Text(
+                ForgeConfigurationLabels.resolveIn(context, choice.label),
+              ),
             ),
         ],
         onChanged: r.enabled
@@ -685,13 +697,16 @@ class _ForgeSettingStringMapFieldState
     final r = widget.request;
     final setting = r.setting as ForgeStringMapSetting;
     final theme = Theme.of(context);
-    final remove = ForgeConfigurationLabels.resolve(
+    final remove = ForgeConfigurationLabels.resolveIn(
+      context,
       ForgeConfigurationUiTexts.remove,
     );
-    final keyLabel = ForgeConfigurationLabels.resolve(
+    final keyLabel = ForgeConfigurationLabels.resolveIn(
+      context,
       setting.keyLabel ?? ForgeConfigurationUiTexts.key,
     );
-    final valueLabel = ForgeConfigurationLabels.resolve(
+    final valueLabel = ForgeConfigurationLabels.resolveIn(
+      context,
       setting.valueLabel ?? ForgeConfigurationUiTexts.value,
     );
     return Column(
@@ -718,7 +733,8 @@ class _ForgeSettingStringMapFieldState
                   child: Text(
                     entry.key == setting.defaultKey &&
                             setting.defaultKeyLabel != null
-                        ? ForgeConfigurationLabels.resolve(
+                        ? ForgeConfigurationLabels.resolveIn(
+                            context,
                             setting.defaultKeyLabel!,
                           )
                         : entry.key,
@@ -769,7 +785,8 @@ class _ForgeSettingStringMapFieldState
             const SizedBox(width: 8),
             IconButton(
               key: ValueKey('forge.configuration.map.${setting.id}.add'),
-              tooltip: ForgeConfigurationLabels.resolve(
+              tooltip: ForgeConfigurationLabels.resolveIn(
+                context,
                 ForgeConfigurationUiTexts.add,
               ),
               icon: const Icon(Icons.add),

@@ -132,7 +132,8 @@ class _ForgeConfigurationPanelState extends State<ForgeConfigurationPanel> {
       descriptions: [
         if (shell != null) ForgeShortcutConfiguration.description,
         if (shell != null) ForgeFileTypesConfiguration.description,
-        if (tools.isNotEmpty) ForgeExternalToolsConfiguration.description(tools),
+        if (tools.isNotEmpty)
+          ForgeExternalToolsConfiguration.description(tools),
       ],
       hooks: ForgeSettingHooks.merged([
         ForgeShellConfiguration.hooks(),
@@ -179,8 +180,7 @@ class _ForgeConfigurationPanelState extends State<ForgeConfigurationPanel> {
     return index >= 0 && index < _firstDescribedIndex ? index : null;
   }
 
-  int get _firstDescribedIndex =>
-      widget.modulePanels.length;
+  int get _firstDescribedIndex => widget.modulePanels.length;
 
   int get _totalSections => _firstDescribedIndex + _describedSections.length;
 
@@ -245,8 +245,10 @@ class _ForgeConfigurationPanelState extends State<ForgeConfigurationPanel> {
       final String label;
       final IconData icon;
       if (index >= _firstDescribedIndex) {
-        final section = described[index - _firstDescribedIndex].section;
-        label = ForgeConfigurationLabels.resolve(section.title);
+        final ref = described[index - _firstDescribedIndex];
+        final section = ref.section;
+        // Under the scope of the module that contributed the description.
+        label = _values.textScopeOf(ref.description.id).resolve(section.title);
         icon =
             (section.icon == null
                 ? null

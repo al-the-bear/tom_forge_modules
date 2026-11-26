@@ -29,8 +29,15 @@ dependencies:
   tom_file_session_ui:
     path: ../../modules/tom_file_session_ui
   shared_preferences: ^2.2.0
+  # The scopes (TomScope) and text resources (TomTextResourceProvider)
+  # ForgeTextScope reads a module's texts under; pure Dart.
+  tom_core_kernel:
+    path: ../../core/tom_core_kernel
 
 dev_dependencies:
+  # The texts of the test fixtures, mounted under scopes (PackageTexts).
+  tom_text_testing:
+    path: ../../core/tom_text_testing
   flutter_test:
     sdk: flutter
   # A shared_preferences platform the tests install, to prove that no

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- A tile reads its section's texts under the text scope of the module that
+  contributed the description (`ForgeConfigurationValues.textScopeOf`, or the
+  tile's `textScope`), and its editors and dialogs under the same scope:
+  `ForgeConfigurationLabels.resolveIn(context, text)` /
+  `resolveOrNullIn`; `ForgeConfigurationTile.descriptionId`, `textScope`.
+  `ForgeConfigurationLabels.lookup` / `resourcesInstalled` use the kit's
+  `forgeTextLookup`.
 - A tool path's status line shows the detector's message and, while the copy
   is not usable, its reason too; the help panel under it has the key
   `forge.configuration.toolPath.help.<setting id>`.

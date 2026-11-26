@@ -34,6 +34,9 @@ dependencies:
     path: ../../core/tom_core_kernel
 
 dev_dependencies:
+  # Texts installed under scopes (installTexts, runInScopePath).
+  tom_text_testing:
+    path: ../../core/tom_text_testing
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0

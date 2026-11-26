@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tom_file_system/tom_file_system.dart';
 import 'package:tom_forge_command_palette/tom_forge_command_palette.dart';
 import 'package:tom_forge_kit/tom_forge_kit.dart';
+import 'package:tom_text_testing/tom_text_testing.dart';
 
 /// An editor host that is no layout.
 class _Host implements ForgeEditorHost {
@@ -56,6 +57,11 @@ class _ActionModule extends ForgeKitModule {
 
   @override
   List<ForgeShortcutBinding> get shortcuts => const [];
+}
+
+/// A second module class (the registry keeps one module per class).
+class _OtherActionModule extends _ActionModule {
+  _OtherActionModule(super.action);
 }
 
 /// A quick open of higher priority, as `tom_forge_quick_open` contributes.
@@ -194,5 +200,60 @@ void main() {
     await tester.pumpAndSettle();
     expect(ran, ['test.module']);
     expect(dismissed, 1);
+  });
+
+  testWidgets('a module\'s action title is read under the scope the module '
+      'was constructed in: two scopes, two wordings', (tester) async {
+    installTexts({
+      'left': {
+        'actions': {
+          'runAction': {'label': 'Run on the left'},
+        },
+      },
+      'right': {
+        'actions': {
+          'runAction': {'label': 'Run on the right'},
+        },
+      },
+    });
+    addTearDown(clearTexts);
+    ForgeAction titled(String id) => ForgeAction(
+      id: id,
+      title: const ForgeText.id('actions.runAction.label'),
+      execute: (_) async => null,
+      isEnabled: () => true,
+      isVisible: () => true,
+    );
+    api.registerModule(
+      runInScopePath('left', () => _ActionModule(titled('test.left'))),
+    );
+    api.registerModule(
+      runInScopePath('right', () => _OtherActionModule(titled('test.right'))),
+    );
+    api.registerModule(forgeCommandPaletteModule());
+    final builder = forgeQuickOpenBuilderFor(
+      api.modules,
+      ForgeQuickOpenMode.actions,
+    )!;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: builder(
+            null,
+            ForgeQuickOpenRequest(
+              api: api,
+              mode: ForgeQuickOpenMode.actions,
+              onDismiss: () {},
+              searchController: TextEditingController(),
+              searchFocusNode: FocusNode(),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Run on the left'), findsOneWidget);
+    expect(find.text('Run on the right'), findsOneWidget);
+    expect(api.actionRegistry.getAction('test.left')!.label, 'Run on the left');
   });
 }

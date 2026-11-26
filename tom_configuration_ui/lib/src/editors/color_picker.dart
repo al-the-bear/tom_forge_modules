@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tom_forge_core/tom_forge_core.dart' show ForgeColorSetting;
+import 'package:tom_forge_kit/tom_forge_kit.dart' show ForgeTextScopeWidget;
 
 import '../configuration_ui_trail.dart';
 import '../forge_configuration_labels.dart';
@@ -43,8 +44,11 @@ Future<int?> showForgeColorPicker(
   bool allowAlpha = false,
 }) => showDialog<int>(
   context: context,
-  builder: (context) =>
-      ForgeColorPickerDialog(initial: initial, allowAlpha: allowAlpha),
+  builder: ForgeTextScopeWidget.keep(
+    context,
+    (context) =>
+        ForgeColorPickerDialog(initial: initial, allowAlpha: allowAlpha),
+  ),
 );
 
 /// The dialog [showForgeColorPicker] shows.
@@ -110,7 +114,8 @@ class _ForgeColorPickerDialogState extends State<ForgeColorPickerDialog> {
     final hueColor = HSVColor.fromAHSV(1, _hsv.hue, 1, 1).toColor();
     return AlertDialog(
       title: Text(
-        ForgeConfigurationLabels.resolve(
+        ForgeConfigurationLabels.resolveIn(
+          context,
           ForgeConfigurationUiTexts.chooseColour,
         ),
       ),
@@ -137,7 +142,10 @@ class _ForgeColorPickerDialogState extends State<ForgeColorPickerDialog> {
             ),
             const SizedBox(height: 8),
             Text(
-              ForgeConfigurationLabels.resolve(ForgeConfigurationUiTexts.hue),
+              ForgeConfigurationLabels.resolveIn(
+                context,
+                ForgeConfigurationUiTexts.hue,
+              ),
               style: theme.textTheme.labelSmall,
             ),
             Slider(
@@ -149,7 +157,8 @@ class _ForgeColorPickerDialogState extends State<ForgeColorPickerDialog> {
             ),
             if (widget.allowAlpha) ...[
               Text(
-                ForgeConfigurationLabels.resolve(
+                ForgeConfigurationLabels.resolveIn(
+                  context,
                   ForgeConfigurationUiTexts.opacity,
                 ),
                 style: theme.textTheme.labelSmall,
@@ -229,7 +238,10 @@ class _ForgeColorPickerDialogState extends State<ForgeColorPickerDialog> {
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: Text(
-            ForgeConfigurationLabels.resolve(ForgeConfigurationUiTexts.cancel),
+            ForgeConfigurationLabels.resolveIn(
+              context,
+              ForgeConfigurationUiTexts.cancel,
+            ),
           ),
         ),
         FilledButton(
@@ -240,7 +252,10 @@ class _ForgeColorPickerDialogState extends State<ForgeColorPickerDialog> {
             Navigator.of(context).pop(_argb);
           },
           child: Text(
-            ForgeConfigurationLabels.resolve(ForgeConfigurationUiTexts.ok),
+            ForgeConfigurationLabels.resolveIn(
+              context,
+              ForgeConfigurationUiTexts.ok,
+            ),
           ),
         ),
       ],

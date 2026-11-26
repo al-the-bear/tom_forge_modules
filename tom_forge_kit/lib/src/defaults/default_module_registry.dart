@@ -16,6 +16,7 @@ import 'package:tom_forge_core/tom_forge_core.dart'
 import '../kit/forge_kit_state.dart';
 import '../module/forge_kit_module.dart';
 import '../module/forge_kit_module_registry.dart';
+import '../module/forge_module_actions.dart';
 import '../services/forge_action_registry.dart';
 import '../services/forge_shortcut_manager.dart';
 
@@ -104,7 +105,7 @@ class DefaultKitModuleRegistry<M extends ForgeKitModule>
 
       final actionRegistry = _actionRegistry;
       if (actionRegistry != null) {
-        for (final action in module.actions) {
+        for (final action in forgeModuleActions(module)) {
           actionRegistry.registerAction(action);
         }
       }

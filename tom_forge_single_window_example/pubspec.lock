@@ -9,6 +9,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.7.0"
+  asn1lib:
+    dependency: transitive
+    description:
+      name: asn1lib
+      sha256: ee77cac69a65f809e24c902f68c0e7c733312d301b367cc698cc3aed8b6c884a
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.6.9"
   async:
     dependency: transitive
     description:
@@ -49,6 +57,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.19.1"
+  convert:
+    dependency: transitive
+    description:
+      name: convert
+      sha256: b30acd5944035672bc15c6b7a8b47d773e41e2f17de064350988c5d02adb1c68
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.1.2"
   crypto:
     dependency: transitive
     description:
@@ -57,6 +73,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.8"
+  dart_jsonwebtoken:
+    dependency: transitive
+    description:
+      name: dart_jsonwebtoken
+      sha256: ad84e60181696513d04d5f2078e0bbc20365b911f46f647797317414bdc88fbe
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.4.1"
   fake_async:
     dependency: transitive
     description:
@@ -295,6 +319,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.8"
+  pointycastle:
+    dependency: transitive
+    description:
+      name: pointycastle
+      sha256: "92aa3841d083cc4b0f4709b5c74fd6409a3e6ba833ffc7dc6a8fee096366acf5"
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.0.0"
   process:
     dependency: transitive
     description:
@@ -436,6 +468,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.7.12"
+  timezone:
+    dependency: transitive
+    description:
+      name: timezone
+      sha256: "9f4e5a1a0e4fef7dd3424842c0575db01bfb7a11730e8d55753fcd5c5c98767b"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.11.2"
   tom_basics:
     dependency: transitive
     description:
@@ -444,6 +484,21 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.4.0"
+  tom_core_kernel:
+    dependency: transitive
+    description:
+      path: "../../core/tom_core_kernel"
+      relative: true
+    source: path
+    version: "1.2.2"
+  tom_crypto:
+    dependency: transitive
+    description:
+      name: tom_crypto
+      sha256: "46e35500acab7a4eed7e19a9fdf31da88ba8ed544315607f0d35c796969a5d75"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.5.0"
   tom_editors_shared:
     dependency: "direct main"
     description:
@@ -507,6 +562,14 @@ packages:
       relative: true
     source: path
     version: "0.1.0"
+  tom_reflection:
+    dependency: transitive
+    description:
+      name: tom_reflection
+      sha256: e62855bfd80dcac1e6b6236231fb50b513aafd3385ba0e503aa8342103075818
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.2"
   tom_text_highlight:
     dependency: transitive
     description:

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
+import 'package:tom_forge_kit/tom_forge_kit.dart' show ForgeTextScopeWidget;
 
 import '../configuration_ui_trail.dart';
 import '../forge_configuration_labels.dart';
@@ -26,8 +27,11 @@ Future<ForgeActionResult> showForgeFlowDialog(
   final result = await showDialog<ForgeActionResult>(
     context: context,
     barrierDismissible: false,
-    builder: (context) =>
-        ForgeFlowDialog(session: session, title: title, trailName: trailName),
+    builder: ForgeTextScopeWidget.keep(
+      context,
+      (context) =>
+          ForgeFlowDialog(session: session, title: title, trailName: trailName),
+    ),
   );
   return result ?? const ForgeActionResult.cancelled();
 }
@@ -138,14 +142,15 @@ class _ForgeFlowDialogState extends State<ForgeFlowDialog> {
           value.length != field.length;
       if (missing || wrongLength) {
         setState(
-          () => _fieldError = ForgeConfigurationLabels.resolve(
+          () => _fieldError = ForgeConfigurationLabels.resolveIn(
+            context,
             missing
                 ? ForgeConfigurationTexts.item(
-                    ForgeConfigurationLabels.resolve(field.label),
+                    ForgeConfigurationLabels.resolveIn(context, field.label),
                     ForgeConfigurationTexts.required,
                   )
                 : ForgeConfigurationTexts.item(
-                    ForgeConfigurationLabels.resolve(field.label),
+                    ForgeConfigurationLabels.resolveIn(context, field.label),
                     ForgeConfigurationTexts.wrongType,
                   ),
           ),
@@ -173,7 +178,8 @@ class _ForgeFlowDialogState extends State<ForgeFlowDialog> {
           ),
         ),
         IconButton(
-          tooltip: ForgeConfigurationLabels.resolve(
+          tooltip: ForgeConfigurationLabels.resolveIn(
+            context,
             ForgeConfigurationUiTexts.copy,
           ),
           icon: const Icon(Icons.copy, size: 18),
@@ -202,8 +208,11 @@ class _ForgeFlowDialogState extends State<ForgeFlowDialog> {
             LengthLimitingTextInputFormatter(field.length),
         ],
         decoration: InputDecoration(
-          labelText: ForgeConfigurationLabels.resolve(field.label),
-          hintText: ForgeConfigurationLabels.resolveOrNull(field.hint),
+          labelText: ForgeConfigurationLabels.resolveIn(context, field.label),
+          hintText: ForgeConfigurationLabels.resolveOrNullIn(
+            context,
+            field.hint,
+          ),
           border: const OutlineInputBorder(),
         ),
         onSubmitted: (_) => _respond(null),
@@ -216,10 +225,12 @@ class _ForgeFlowDialogState extends State<ForgeFlowDialog> {
     final theme = Theme.of(context);
     final step = _step;
     final title =
-        ForgeConfigurationLabels.resolveOrNull(step?.title) ?? widget.title;
+        ForgeConfigurationLabels.resolveOrNullIn(context, step?.title) ??
+        widget.title;
     final waiting = step?.kind == ForgeFlowStepKind.waiting;
     final error =
-        _fieldError ?? ForgeConfigurationLabels.resolveOrNull(step?.error);
+        _fieldError ??
+        ForgeConfigurationLabels.resolveOrNullIn(context, step?.error);
     final choices = step == null || waiting
         ? const <ForgeFlowChoice>[]
         : step.choices.isEmpty
@@ -247,7 +258,7 @@ class _ForgeFlowDialogState extends State<ForgeFlowDialog> {
             if (step != null) ...[
               if (step.message != null)
                 Text(
-                  ForgeConfigurationLabels.resolve(step.message!),
+                  ForgeConfigurationLabels.resolveIn(context, step.message!),
                   style: theme.textTheme.bodyMedium,
                 ),
               if (step.url != null) ...[
@@ -282,7 +293,10 @@ class _ForgeFlowDialogState extends State<ForgeFlowDialog> {
         TextButton(
           onPressed: _cancel,
           child: Text(
-            ForgeConfigurationLabels.resolve(ForgeConfigurationUiTexts.cancel),
+            ForgeConfigurationLabels.resolveIn(
+              context,
+              ForgeConfigurationUiTexts.cancel,
+            ),
           ),
         ),
         for (final choice in choices)
@@ -291,13 +305,17 @@ class _ForgeFlowDialogState extends State<ForgeFlowDialog> {
                   onPressed: _busy
                       ? null
                       : () => _respond(choice.id.isEmpty ? null : choice.id),
-                  child: Text(ForgeConfigurationLabels.resolve(choice.label)),
+                  child: Text(
+                    ForgeConfigurationLabels.resolveIn(context, choice.label),
+                  ),
                 )
               : TextButton(
                   onPressed: _busy
                       ? null
                       : () => _respond(choice.id.isEmpty ? null : choice.id),
-                  child: Text(ForgeConfigurationLabels.resolve(choice.label)),
+                  child: Text(
+                    ForgeConfigurationLabels.resolveIn(context, choice.label),
+                  ),
                 ),
       ],
     );

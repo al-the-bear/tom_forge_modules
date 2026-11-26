@@ -179,7 +179,8 @@ class _ForgeKeyBindingTableEditorState extends State<ForgeKeyBindingTableEditor>
             decoration: InputDecoration(
               isDense: true,
               prefixIcon: const Icon(Icons.search, size: 18),
-              hintText: ForgeConfigurationLabels.resolve(
+              hintText: ForgeConfigurationLabels.resolveIn(
+                context,
                 ForgeConfigurationUiTexts.search,
               ),
               border: const OutlineInputBorder(),
@@ -199,7 +200,8 @@ class _ForgeKeyBindingTableEditorState extends State<ForgeKeyBindingTableEditor>
                 ? _resetAll
                 : null,
             child: Text(
-              ForgeConfigurationLabels.resolve(
+              ForgeConfigurationLabels.resolveIn(
+                context,
                 ForgeConfigurationUiTexts.resetAll,
               ),
             ),
@@ -236,7 +238,8 @@ class _ForgeKeyBindingTableEditorState extends State<ForgeKeyBindingTableEditor>
           for (final other in conflict.actionIds)
             if (other != id) labels[other] ?? other,
         ];
-        final text = ForgeConfigurationLabels.resolve(
+        final text = ForgeConfigurationLabels.resolveIn(
+          context,
           conflict.kind == ForgeKeyConflictKind.same
               ? ForgeConfigurationUiTexts.conflict(others.join(', '))
               : ForgeConfigurationUiTexts.prefixConflict(others.join(', ')),
@@ -279,7 +282,8 @@ class _ForgeKeyBindingTableEditorState extends State<ForgeKeyBindingTableEditor>
           Padding(
             padding: const EdgeInsets.all(8),
             child: Text(
-              ForgeConfigurationLabels.resolve(
+              ForgeConfigurationLabels.resolveIn(
+                context,
                 ForgeConfigurationUiTexts.noMatches,
               ),
               style: theme.textTheme.bodySmall,
@@ -353,14 +357,16 @@ class _ForgeKeyBindingTableEditorState extends State<ForgeKeyBindingTableEditor>
                     Text(action.id, style: small),
                     if (action.scope != null)
                       Text(
-                        ForgeConfigurationLabels.resolve(
+                        ForgeConfigurationLabels.resolveIn(
+                          context,
                           ForgeConfigurationUiTexts.scope(action.scope!),
                         ),
                         style: small,
                       ),
                     if (row.wildcard)
                       Text(
-                        ForgeConfigurationLabels.resolve(
+                        ForgeConfigurationLabels.resolveIn(
+                          context,
                           ForgeConfigurationUiTexts.allEditors,
                         ),
                         style: small?.copyWith(
@@ -396,7 +402,8 @@ class _ForgeKeyBindingTableEditorState extends State<ForgeKeyBindingTableEditor>
               !row.wildcard &&
               !row.binding.isNone)
             IconButton(
-              tooltip: ForgeConfigurationLabels.resolve(
+              tooltip: ForgeConfigurationLabels.resolveIn(
+                context,
                 ForgeConfigurationUiTexts.bindForAll,
               ),
               visualDensity: VisualDensity.compact,
@@ -407,7 +414,8 @@ class _ForgeKeyBindingTableEditorState extends State<ForgeKeyBindingTableEditor>
               !row.deleted &&
               !row.binding.isNone)
             IconButton(
-              tooltip: ForgeConfigurationLabels.resolve(
+              tooltip: ForgeConfigurationLabels.resolveIn(
+                context,
                 ForgeConfigurationUiTexts.removeBinding,
               ),
               visualDensity: VisualDensity.compact,
@@ -416,7 +424,8 @@ class _ForgeKeyBindingTableEditorState extends State<ForgeKeyBindingTableEditor>
             ),
           IconButton(
             key: ValueKey('forge.configuration.keyTable.reset.${action.id}'),
-            tooltip: ForgeConfigurationLabels.resolve(
+            tooltip: ForgeConfigurationLabels.resolveIn(
+              context,
               ForgeConfigurationUiTexts.resetBinding,
             ),
             visualDensity: VisualDensity.compact,

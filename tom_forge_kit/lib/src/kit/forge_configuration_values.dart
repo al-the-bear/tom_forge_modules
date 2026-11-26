@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
 
+import '../text/forge_text_scope.dart';
 import 'configuration_values_trail.dart';
 import 'forge_coalesced_state_writer.dart';
 import 'forge_state_store.dart';
@@ -91,8 +92,10 @@ class ForgeConfigurationValues extends ChangeNotifier {
     Iterable<ForgeConfigurationDescription> descriptions = const [],
     Iterable<ForgeSettingBinding> bindings = const [],
     ForgeSettingHooks? hooks,
+    Map<String, ForgeTextScope> textScopes = const {},
     this.onProblem,
-  }) : hooks = hooks ?? ForgeSettingHooks() {
+  }) : hooks = hooks ?? ForgeSettingHooks(),
+       _textScopes = Map.of(textScopes) {
     _writer = ForgeCoalescedStateWriter(store);
     for (final binding in bindings) {
       _bindings[binding.id] = _BoundStore(binding);
@@ -109,6 +112,19 @@ class ForgeConfigurationValues extends ChangeNotifier {
   /// The behaviour the settings name; an application or its modules add to
   /// it (`ForgeConfigurationHooksExtra`, [ForgeSettingHooks.addAll]).
   final ForgeSettingHooks hooks;
+
+  final Map<String, ForgeTextScope> _textScopes;
+
+  /// The scope the texts of the description [descriptionId] are read under:
+  /// its module's text scope (`ForgeKitModule.textScope`, handed over as
+  /// `textScopes` by description id), else [ForgeTextScope.root].
+  ForgeTextScope textScopeOf(String descriptionId) =>
+      _textScopes[descriptionId] ?? ForgeTextScope.root;
+
+  /// Sets the text scope of the description [descriptionId] (a description
+  /// added later, [addDescription]).
+  void setTextScope(String descriptionId, ForgeTextScope scope) =>
+      _textScopes[descriptionId] = scope;
 
   /// Called for every stored value a setting refuses (at [load], [reload]
   /// and when a description is added).

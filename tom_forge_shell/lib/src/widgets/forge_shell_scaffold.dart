@@ -2723,7 +2723,7 @@ class _ForgeShellScaffoldState extends State<ForgeShellScaffold> {
 
     for (final module in widget.shell.modules.allKitModules) {
       final actions =
-          module.actions
+          forgeModuleActions(module)
               .where(
                 (action) => action.menu == ForgeMenuLocation.tools,
               )
@@ -4014,6 +4014,8 @@ the field, not the document.
           widget.shell.stateStore,
           descriptions: descriptions,
           bindings: _configurationBindings(),
+          // Each description's texts under its module's text scope.
+          textScopes: forgeConfigurationTextScopesOf(widget.shell),
           hooks: ForgeSettingHooks.merged([
             forgeConfigurationHooksOf(widget.shell),
             ForgeExternalToolsConfiguration.hooks(_toolsOfDescription),

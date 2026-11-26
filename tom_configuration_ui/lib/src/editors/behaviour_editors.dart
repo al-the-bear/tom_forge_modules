@@ -236,12 +236,13 @@ class _ForgeToolPathEditorState extends State<ForgeToolPathEditor>
     final value = (widget.request.value as String).trim();
     final parts = <String>[
       if (state.message != null)
-        ForgeConfigurationLabels.resolve(state.message!),
+        ForgeConfigurationLabels.resolveIn(context, state.message!),
       // Why it cannot be used, as the tool said it (with the message too).
       if (state.reason != null && (state.message == null || !state.usable))
         state.reason!,
       if (state.version != null)
-        ForgeConfigurationLabels.resolve(
+        ForgeConfigurationLabels.resolveIn(
+          context,
           ForgeConfigurationUiTexts.version(state.version!),
         ),
     ];
@@ -282,7 +283,8 @@ class _ForgeToolPathEditorState extends State<ForgeToolPathEditor>
     final candidates = _candidates!;
     if (candidates.isEmpty) {
       return Text(
-        ForgeConfigurationLabels.resolve(
+        ForgeConfigurationLabels.resolveIn(
+          context,
           ForgeConfigurationUiTexts.noCandidates,
         ),
         style: theme.textTheme.bodySmall,
@@ -314,14 +316,16 @@ class _ForgeToolPathEditorState extends State<ForgeToolPathEditor>
                       Text(
                         [
                           if (candidate.version != null)
-                            ForgeConfigurationLabels.resolve(
+                            ForgeConfigurationLabels.resolveIn(
+                              context,
                               ForgeConfigurationUiTexts.version(
                                 candidate.version!,
                               ),
                             ),
                           if (candidate.source != null) candidate.source!,
                           if (candidate.message != null)
-                            ForgeConfigurationLabels.resolve(
+                            ForgeConfigurationLabels.resolveIn(
+                              context,
                               candidate.message!,
                             ),
                           if (!candidate.isMissing && candidate.reason != null)
@@ -338,7 +342,8 @@ class _ForgeToolPathEditorState extends State<ForgeToolPathEditor>
                         ? () => _use(candidate.value)
                         : null,
                     child: Text(
-                      ForgeConfigurationLabels.resolve(
+                      ForgeConfigurationLabels.resolveIn(
+                        context,
                         ForgeConfigurationUiTexts.use,
                       ),
                     ),
@@ -384,7 +389,8 @@ class _ForgeToolPathEditorState extends State<ForgeToolPathEditor>
                   enabled: r.enabled,
                   decoration: InputDecoration(
                     isDense: r.style.dense,
-                    hintText: ForgeConfigurationLabels.resolveOrNull(
+                    hintText: ForgeConfigurationLabels.resolveOrNullIn(
+                      context,
                       setting.hint,
                     ),
                     border: const OutlineInputBorder(),
@@ -397,7 +403,8 @@ class _ForgeToolPathEditorState extends State<ForgeToolPathEditor>
                 TextButton(
                   onPressed: r.enabled ? _browse : null,
                   child: Text(
-                    ForgeConfigurationLabels.resolve(
+                    ForgeConfigurationLabels.resolveIn(
+                      context,
                       ForgeConfigurationUiTexts.browse,
                     ),
                   ),
@@ -407,7 +414,8 @@ class _ForgeToolPathEditorState extends State<ForgeToolPathEditor>
                 key: ValueKey(
                   'forge.configuration.toolPath.check.${setting.id}',
                 ),
-                tooltip: ForgeConfigurationLabels.resolve(
+                tooltip: ForgeConfigurationLabels.resolveIn(
+                  context,
                   ForgeConfigurationUiTexts.checkAgain,
                 ),
                 icon: const Icon(Icons.refresh, size: 18),
@@ -430,7 +438,8 @@ class _ForgeToolPathEditorState extends State<ForgeToolPathEditor>
               key: ValueKey(
                 'forge.configuration.toolPath.detect.${setting.id}',
               ),
-              label: ForgeConfigurationLabels.resolve(
+              label: ForgeConfigurationLabels.resolveIn(
+                context,
                 ForgeConfigurationUiTexts.detect,
               ),
               icon: Icons.search,

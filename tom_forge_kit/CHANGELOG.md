@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **Texts under the owner's scope** (the workspace guideline `i18n.md`):
+  `ForgeTextScope` (captures `TomScope.current`; `resolve`, `text`, `pathOf`,
+  `root`), `forgeTextLookup`, `ForgeTextScopeWidget` (`of`, `resolve`,
+  `keep` for a route); `ForgeKitModule.textScope` (the scope the module was
+  constructed in); `forgeModuleActions` and the module registry bind a
+  module's titled actions to its scope; `ForgeContributedConfiguration.textScope`,
+  `forgeConfigurationTextScopes` / `forgeConfigurationTextScopesOf`,
+  `ForgeConfigurationValues(textScopes:)`, `textScopeOf`, `setTextScope`;
+  `ForgeNotificationTexts` (`showInformationText`, `showWarningText`,
+  `showErrorText`). Re-exports `ForgeText` and `ForgeTextResolver`. Takes
+  `tom_core_kernel`.
 - `ForgeConfigurationBindingsExtra`, `forgeConfigurationBindings` /
   `forgeConfigurationBindingsOf`: a module contributes the storage bindings
   its settings name (a configuration file of its own, a service owning the

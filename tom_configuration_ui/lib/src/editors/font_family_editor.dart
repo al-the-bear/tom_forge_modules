@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:tom_forge_core/tom_forge_core.dart';
-import 'package:tom_forge_kit/tom_forge_kit.dart' show ForgeConfigurationValues;
+import 'package:tom_forge_kit/tom_forge_kit.dart'
+    show ForgeConfigurationValues, ForgeTextScopeWidget;
 
 import '../configuration_ui_trail.dart';
 import '../forge_configuration_labels.dart';
@@ -78,7 +79,8 @@ class _ForgeFontFamilyEditorState extends State<ForgeFontFamilyEditor> {
                   : TextStyle(fontFamily: value.trim()),
               decoration: InputDecoration(
                 isDense: r.style.dense,
-                hintText: ForgeConfigurationLabels.resolve(
+                hintText: ForgeConfigurationLabels.resolveIn(
+                  context,
                   setting.hint ??
                       (setting.allowEmpty
                           ? ForgeConfigurationUiTexts.defaultFont
@@ -95,7 +97,8 @@ class _ForgeFontFamilyEditorState extends State<ForgeFontFamilyEditor> {
           const SizedBox(width: 4),
           IconButton(
             key: ValueKey('forge.configuration.font.pick.${setting.id}'),
-            tooltip: ForgeConfigurationLabels.resolve(
+            tooltip: ForgeConfigurationLabels.resolveIn(
+              context,
               ForgeConfigurationUiTexts.chooseFont,
             ),
             icon: const Icon(Icons.font_download_outlined, size: 20),
@@ -134,10 +137,13 @@ Future<String?> showForgeFontPicker(
   required String current,
 }) => showDialog<String>(
   context: context,
-  builder: (context) => _ForgeFontPickerDialog(
-    setting: setting,
-    values: values,
-    current: current,
+  builder: ForgeTextScopeWidget.keep(
+    context,
+    (context) => _ForgeFontPickerDialog(
+      setting: setting,
+      values: values,
+      current: current,
+    ),
   ),
 );
 
@@ -216,7 +222,8 @@ class _ForgeFontPickerDialogState extends State<_ForgeFontPickerDialog> {
             for (final font in fonts)
               if (lower.isEmpty ||
                   font.value.toLowerCase().contains(lower) ||
-                  ForgeConfigurationLabels.resolve(
+                  ForgeConfigurationLabels.resolveIn(
+                    context,
                     font.label,
                   ).toLowerCase().contains(lower))
                 font,
@@ -231,7 +238,8 @@ class _ForgeFontPickerDialogState extends State<_ForgeFontPickerDialog> {
           dense: true,
           selected: widget.current.isEmpty,
           title: Text(
-            ForgeConfigurationLabels.resolve(
+            ForgeConfigurationLabels.resolveIn(
+              context,
               ForgeConfigurationUiTexts.defaultFont,
             ),
           ),
@@ -242,7 +250,7 @@ class _ForgeFontPickerDialogState extends State<_ForgeFontPickerDialog> {
           dense: true,
           leading: const Icon(Icons.edit, size: 18),
           title: Text(
-            '${ForgeConfigurationLabels.resolve(ForgeConfigurationUiTexts.use)} '
+            '${ForgeConfigurationLabels.resolveIn(context, ForgeConfigurationUiTexts.use)} '
             '"$query"',
             style: TextStyle(fontFamily: query),
           ),
@@ -254,7 +262,7 @@ class _ForgeFontPickerDialogState extends State<_ForgeFontPickerDialog> {
           dense: true,
           selected: font.value == widget.current,
           title: Text(
-            ForgeConfigurationLabels.resolve(font.label),
+            ForgeConfigurationLabels.resolveIn(context, font.label),
             style: TextStyle(fontFamily: font.value),
           ),
           onTap: () => Navigator.of(context).pop(font.value),
@@ -262,7 +270,10 @@ class _ForgeFontPickerDialogState extends State<_ForgeFontPickerDialog> {
     ];
     return AlertDialog(
       title: Text(
-        ForgeConfigurationLabels.resolve(ForgeConfigurationUiTexts.chooseFont),
+        ForgeConfigurationLabels.resolveIn(
+          context,
+          ForgeConfigurationUiTexts.chooseFont,
+        ),
       ),
       content: SizedBox(
         width: 380,
@@ -277,7 +288,8 @@ class _ForgeFontPickerDialogState extends State<_ForgeFontPickerDialog> {
               decoration: InputDecoration(
                 isDense: true,
                 prefixIcon: const Icon(Icons.search, size: 18),
-                hintText: ForgeConfigurationLabels.resolve(
+                hintText: ForgeConfigurationLabels.resolveIn(
+                  context,
                   ForgeConfigurationUiTexts.search,
                 ),
                 border: const OutlineInputBorder(),
@@ -292,7 +304,8 @@ class _ForgeFontPickerDialogState extends State<_ForgeFontPickerDialog> {
                 controlAffinity: ListTileControlAffinity.leading,
                 value: _monospaceOnly,
                 title: Text(
-                  ForgeConfigurationLabels.resolve(
+                  ForgeConfigurationLabels.resolveIn(
+                    context,
                     ForgeConfigurationUiTexts.monospaceOnly,
                   ),
                 ),
@@ -310,7 +323,8 @@ class _ForgeFontPickerDialogState extends State<_ForgeFontPickerDialog> {
                   : tiles.isEmpty
                   ? Center(
                       child: Text(
-                        ForgeConfigurationLabels.resolve(
+                        ForgeConfigurationLabels.resolveIn(
+                          context,
                           ForgeConfigurationUiTexts.noMatches,
                         ),
                         style: theme.textTheme.bodySmall,
@@ -325,7 +339,10 @@ class _ForgeFontPickerDialogState extends State<_ForgeFontPickerDialog> {
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: Text(
-            ForgeConfigurationLabels.resolve(ForgeConfigurationUiTexts.cancel),
+            ForgeConfigurationLabels.resolveIn(
+              context,
+              ForgeConfigurationUiTexts.cancel,
+            ),
           ),
         ),
       ],
