@@ -122,7 +122,7 @@ dependencies:
   # to expose the `tom_specs_editor_specification.md` §8 navigation & mutation
   # tools to the embedded agent. Same hosted constraint tom_core_agentic
   # resolves, so version solving stays clean.
-  tom_vscode_scripting_api: ^8.0.0
+  tom_vscode_scripting_api: ^9.0.0
 
   # Structural-review persistence (YAML) and review-file path resolution.
   yaml: ^3.1.2
