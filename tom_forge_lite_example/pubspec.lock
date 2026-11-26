@@ -555,7 +555,7 @@ packages:
       path: "../../core/tom_flutter_ui"
       relative: true
     source: path
-    version: "1.1.1"
+    version: "1.2.0"
   tom_forge_core:
     dependency: "direct main"
     description:
